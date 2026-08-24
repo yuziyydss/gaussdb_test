@@ -1,4 +1,4 @@
-<!-- Execution Result Fragment -->
+<!-- Execution Result Fragment (Enhanced: shows expected + verdict) -->
 <div class="max-w-5xl">
   <div class="flex items-center gap-3 mb-4">
     <div>
@@ -13,38 +13,43 @@
     </a>
   </div>
 
-  <!-- Summary -->
+  <!-- Summary: 动态计算 verdict 计数 -->
+  {% set pass_count = results.values() | selectattr('verdict', 'equalto', 'pass') | list | length %}
+  {% set fail_count = results.values() | selectattr('verdict', 'equalto', 'fail') | list | length %}
+  {% set crash_count = results.values() | selectattr('verdict', 'equalto', 'crash') | list | length %}
+  {% set skip_count = results.values() | selectattr('verdict', 'equalto', 'skip') | list | length %}
   <div class="grid grid-cols-5 gap-3 mb-4">
     <div class="bg-white rounded-lg border border-slate-200 px-4 py-3">
       <div class="text-xl font-bold text-slate-700">{{ cases | length }}</div>
       <div class="text-[11px] text-slate-400 mt-0.5">总用例</div>
     </div>
     <div class="bg-white rounded-lg border border-slate-200 px-4 py-3">
-      <div class="text-xl font-bold text-green-600">0</div>
-      <div class="text-[11px] text-slate-400 mt-0.5">成功</div>
+      <div class="text-xl font-bold text-green-600">{{ pass_count }}</div>
+      <div class="text-[11px] text-slate-400 mt-0.5">Pass</div>
     </div>
     <div class="bg-white rounded-lg border border-slate-200 px-4 py-3">
-      <div class="text-xl font-bold text-red-600">0</div>
-      <div class="text-[11px] text-slate-400 mt-0.5">异常</div>
+      <div class="text-xl font-bold text-red-600">{{ fail_count }}</div>
+      <div class="text-[11px] text-slate-400 mt-0.5">Fail</div>
     </div>
     <div class="bg-white rounded-lg border border-slate-200 px-4 py-3">
-      <div class="text-xl font-bold text-red-800">0</div>
-      <div class="text-[11px] text-slate-400 mt-0.5">Core</div>
+      <div class="text-xl font-bold text-red-800">{{ crash_count }}</div>
+      <div class="text-[11px] text-slate-400 mt-0.5">Crash</div>
     </div>
     <div class="bg-white rounded-lg border border-slate-200 px-4 py-3">
-      <div class="text-xl font-bold text-slate-400">{{ cases | length }}</div>
-      <div class="text-[11px] text-slate-400 mt-0.5">跳过(桩)</div>
+      <div class="text-xl font-bold text-slate-400">{{ skip_count }}</div>
+      <div class="text-[11px] text-slate-400 mt-0.5">Skip</div>
     </div>
   </div>
 
-  <!-- Detail Table -->
+  <!-- Detail: 预期 + 判定 列 -->
   <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
     <table class="w-full text-sm">
       <thead>
         <tr class="bg-slate-50 border-b border-slate-200 text-xs text-slate-400 uppercase tracking-wider">
           <th class="py-2 px-3 text-left font-medium w-20">ID</th>
-          <th class="py-2 px-3 text-left font-medium">SQL 语句</th>
-          <th class="py-2 px-3 text-left font-medium w-20">状态</th>
+          <th class="py-2 px-3 text-left font-medium">SQL</th>
+          <th class="py-2 px-3 text-left font-medium w-24">预期</th>
+          <th class="py-2 px-3 text-left font-medium w-20">判定</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-50">
@@ -53,15 +58,20 @@
         <tr class="hover:bg-slate-50 transition-colors">
           <td class="py-2 px-3 font-mono text-xs text-slate-400 align-top">{{ case.case_id }}</td>
           <td class="py-2 px-3 sql-code text-xs text-slate-700 leading-relaxed break-all">{{ case.sql }}</td>
-          <td class="py-2 px-3 text-xs">
-            {% if result and result.status == 'success' %}
-            <span class="inline-flex items-center gap-1 text-green-600"><i data-lucide="check-circle" class="w-3 h-3"></i>成功</span>
-            {% elif result and result.status == 'error' %}
-            <span class="inline-flex items-center gap-1 text-red-600"><i data-lucide="x-circle" class="w-3 h-3"></i>异常</span>
-            {% elif result and result.status == 'core' %}
-            <span class="inline-flex items-center gap-1 text-red-800 font-semibold"><i data-lucide="alert-octagon" class="w-3 h-3"></i>Core</span>
+          <td class="py-2 px-3 text-xs align-top">
+            {% if case.expected == 'success' %}<span class="text-green-500">success</span>
+            {% elif case.expected == 'error' %}<span class="text-red-500">error</span>{% if case.expected_sqlstate %}<br><span class="text-slate-400 font-mono">{{ case.expected_sqlstate }}</span>{% endif %}
+            {% elif case.expected == 'skipped' %}<span class="text-slate-400">skipped</span>{% endif %}
+          </td>
+          <td class="py-2 px-3 text-xs align-top">
+            {% if result %}
+              {% if result.verdict == 'pass' %}<span class="text-green-600 font-medium">PASS</span>
+              {% elif result.verdict == 'fail' %}<span class="text-red-600 font-medium">FAIL</span>
+              {% elif result.verdict == 'crash' %}<span class="text-red-800 font-bold">CRASH</span>
+              {% elif result.verdict == 'skip' %}<span class="text-slate-400">SKIP</span>
+              {% else %}<span class="text-slate-400">{{ result.verdict }}</span>{% endif %}
             {% else %}
-            <span class="inline-flex items-center gap-1 text-slate-400"><i data-lucide="minus" class="w-3 h-3"></i>跳过</span>
+              <span class="text-slate-400">pending</span>
             {% endif %}
           </td>
         </tr>

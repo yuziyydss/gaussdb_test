@@ -1,14 +1,11 @@
 # GaussDB 测试因子定义: CREATE TABLE
-# 字段说明:
-#   template  - SQL 模板, {param} 是占位符
-#   params    - 可参数化的维度, 按等价类组织
-#   composites - 复合参数, 由多个 param 组合而成
-#   constants - 固定值, 不参与组合
-#   default_strategy - 默认覆盖策略: equivalence | pairwise | full_cartesian
+# 角色: 被测因子 (独立) / 前置因子 (被其他因子引用时)
+# 文档溯源: SQL参考 / DDL / CREATE TABLE
 
 id: create_table
 name: CREATE TABLE
 category: DDL
+doc_ref: "SQL参考/DDL/CREATE-TABLE"
 description: 创建表语句, 覆盖表类型/列数据类型/列约束/表选项
 
 template: "CREATE {table_modifier} TABLE {table_name} ( {column_def} ) {table_option}"
@@ -19,10 +16,13 @@ params:
     classes:
       - name: 普通表
         values: [""]
+        expected: success
       - name: 临时表
         values: ["TEMPORARY", "TEMP"]
+        expected: success
       - name: 非日志表
         values: ["UNLOGGED"]
+        expected: success
     representative: ["", "TEMPORARY", "UNLOGGED"]
 
   column_datatype:
@@ -30,16 +30,26 @@ params:
     classes:
       - name: 整数
         values: ["INTEGER", "BIGINT", "SMALLINT"]
+        expected: success
       - name: 小数
         values: ["NUMERIC(10,2)", "REAL", "DOUBLE PRECISION"]
+        expected: success
       - name: 字符
         values: ["VARCHAR(100)", "TEXT", "CHAR(10)"]
+        expected: success
       - name: 时间
         values: ["DATE", "TIMESTAMP"]
+        expected: success
       - name: 二进制
         values: ["BYTEA", "BLOB"]
+        expected: success
       - name: JSON
         values: ["JSON", "JSONB"]
+        expected: success
+      - name: 非法类型
+        values: ["FAKETYPE"]
+        expected: error
+        expected_sqlstate: "42704"
     representative: ["INTEGER", "NUMERIC(10,2)", "VARCHAR(100)", "DATE", "BYTEA", "JSON"]
 
   column_constraint:
@@ -47,14 +57,19 @@ params:
     classes:
       - name: 无约束
         values: [""]
+        expected: success
       - name: 非空
         values: ["NOT NULL"]
+        expected: success
       - name: 主键
         values: ["PRIMARY KEY"]
+        expected: success
       - name: 唯一
         values: ["UNIQUE"]
+        expected: success
       - name: 默认值
         values: ["DEFAULT 0"]
+        expected: success
     representative: ["", "NOT NULL", "PRIMARY KEY", "UNIQUE", "DEFAULT 0"]
 
   table_option:
@@ -62,10 +77,13 @@ params:
     classes:
       - name: 无选项
         values: [""]
+        expected: success
       - name: 存储参数
         values: ["WITH (autovacuum_enabled=true)"]
+        expected: success
       - name: 表空间
         values: ["TABLESPACE pg_default"]
+        expected: success
     representative: ["", "WITH (autovacuum_enabled=true)", "TABLESPACE pg_default"]
 
 composites:
@@ -74,5 +92,14 @@ composites:
 
 constants:
   table_name: "t_factor_test"
+
+# 互斥规则: 跳过无意义的参数组合, 不生成用例
+exclusions:
+  # 临时表不能指定表空间 (GaussDB/PostgreSQL 限制)
+  - when: {table_modifier: "TEMPORARY", table_option: "TABLESPACE pg_default"}
+    reason: "临时表不能指定表空间"
+  # 临时表不支持 autovacuum 存储参数
+  - when: {table_modifier: "TEMPORARY", table_option: "WITH (autovacuum_enabled=true)"}
+    reason: "临时表不支持 autovacuum 参数"
 
 default_strategy: pairwise

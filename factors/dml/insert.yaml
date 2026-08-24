@@ -1,37 +1,38 @@
 # GaussDB 测试因子定义: INSERT
+# 文档溯源: SQL参考 / DML / INSERT
+# 修复: 1) column_datatype 从幽灵参数改为 matrix fixture
+#       2) 代表值与等价类值匹配
+#       3) expected_matrix 用实际代表值匹配
+
 id: insert_values
 name: INSERT
 category: DML
-description: 插入语句, 覆盖数据类型/值格式/NULL处理
+doc_ref: "SQL参考/DML/INSERT"
+description: 插入语句, 覆盖值格式/NULL/超长字符串, 跨数据类型矩阵测试
 
 template: "INSERT INTO {table_name} (col_1) VALUES ( {value} )"
 
 params:
-  column_datatype:
-    description: 目标列数据类型
-    classes:
-      - name: 整数
-        values: ["INTEGER", "BIGINT"]
-      - name: 小数
-        values: ["NUMERIC(10,2)", "REAL"]
-      - name: 字符
-        values: ["VARCHAR(100)", "TEXT"]
-      - name: 时间
-        values: ["DATE", "TIMESTAMP"]
-    representative: ["INTEGER", "NUMERIC(10,2)", "VARCHAR(100)", "DATE"]
-
   value_format:
-    description: 值格式
+    description: 插入值格式
     classes:
       - name: 正常值
-        values: ["1", "'hello'", "'2024-01-01'"]
+        values: ["1", "'hello'"]
+        expected: success
       - name: "NULL"
         values: ["NULL"]
+        expected: error
+        expected_sqlstate: "23502"
       - name: 空字符串
         values: ["''"]
+        expected: success
       - name: 超长字符串
-        values: ["'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"]
-    representative: ["1", "NULL", "''", "'超长字符串'"]
+        # 101 个 a, 超出 VARCHAR(100), 不超长则改 expected
+        values: ["'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"]
+        expected: error
+        expected_sqlstate: "22001"
+    # 代表值与等价类首值一致
+    representative: ["1", "NULL", "''", "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"]
 
 composites:
   value:
@@ -40,4 +41,64 @@ composites:
 constants:
   table_name: "t_factor_test"
 
-default_strategy: pairwise
+# fixture: 先建表, 矩阵模式跨所有数据类型, 固定 NOT NULL 约束
+setup:
+  - factor: create_table
+    strategy: equivalence
+    matrix: true
+    context:
+      column_constraint: "NOT NULL"
+
+# 跨因子预期规则: when_param 的值必须与代表值完全匹配
+expected_matrix:
+  # INTEGER 列: 空字符串报类型错误 (不是 success)
+  - when_fixture: {column_datatype: "INTEGER"}
+    when_param: {value_format: "''"}
+    then: {expected: error, sqlstate: "22P02"}
+  # INTEGER 列: 超长字符串报类型错误 (不是 22001)
+  - when_fixture: {column_datatype: "INTEGER"}
+    when_param: {value_format: "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"}
+    then: {expected: error, sqlstate: "22P02"}
+  # NUMERIC 列: 空字符串报类型错误
+  - when_fixture: {column_datatype: "NUMERIC(10,2)"}
+    when_param: {value_format: "''"}
+    then: {expected: error, sqlstate: "22P02"}
+  - when_fixture: {column_datatype: "NUMERIC(10,2)"}
+    when_param: {value_format: "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"}
+    then: {expected: error, sqlstate: "22P02"}
+  # VARCHAR 列: 整数隐式转换成功, 超长报 22001
+  - when_fixture: {column_datatype: "VARCHAR(100)"}
+    when_param: {value_format: "1"}
+    then: {expected: success}
+  # DATE 列: 整数和空字符串都报类型错误
+  - when_fixture: {column_datatype: "DATE"}
+    when_param: {value_format: "1"}
+    then: {expected: error, sqlstate: "42804"}
+  - when_fixture: {column_datatype: "DATE"}
+    when_param: {value_format: "''"}
+    then: {expected: error, sqlstate: "42804"}
+  - when_fixture: {column_datatype: "DATE"}
+    when_param: {value_format: "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"}
+    then: {expected: error, sqlstate: "42804"}
+  # BYTEA 列: 整数和空字符串报类型错误
+  - when_fixture: {column_datatype: "BYTEA"}
+    when_param: {value_format: "1"}
+    then: {expected: error, sqlstate: "42804"}
+  - when_fixture: {column_datatype: "BYTEA"}
+    when_param: {value_format: "''"}
+    then: {expected: error, sqlstate: "42804"}
+  - when_fixture: {column_datatype: "BYTEA"}
+    when_param: {value_format: "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"}
+    then: {expected: error, sqlstate: "42804"}
+  # JSON 列: 整数和空字符串都接受
+  - when_fixture: {column_datatype: "JSON"}
+    when_param: {value_format: "1"}
+    then: {expected: success}
+  - when_fixture: {column_datatype: "JSON"}
+    when_param: {value_format: "''"}
+    then: {expected: success}
+  - when_fixture: {column_datatype: "JSON"}
+    when_param: {value_format: "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"}
+    then: {expected: error, sqlstate: "22P02"}
+
+default_strategy: equivalence

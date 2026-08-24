@@ -1,4 +1,7 @@
-"""报告生成器：输出 HTML + JSON 格式的测试报告。"""
+"""报告生成器：输出 HTML + JSON 格式的测试报告。
+
+增强版：展示预期结果 (expected)、实际 SQLSTATE、判定结论 (verdict)。
+"""
 import json
 import os
 from datetime import datetime
@@ -17,29 +20,42 @@ def generate_report(cases: List[GeneratedCase],
     results = results or []
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+    # verdict 统计
+    verdicts = {"pass": 0, "fail": 0, "crash": 0, "skip": 0, "pending": 0}
+    for r in results:
+        v = r.verdict or "pending"
+        verdicts[v] = verdicts.get(v, 0) + 1
+
     summary = {
         "factor_name": factor_name,
         "strategy": strategy,
         "total": len(cases),
         "executed": len(results),
-        "success": sum(1 for r in results if r.status == "success"),
-        "error": sum(1 for r in results if r.status == "error"),
-        "core": sum(1 for r in results if r.status == "core"),
-        "skipped": sum(1 for r in results if r.status == "skipped"),
+        "pass": verdicts["pass"],
+        "fail": verdicts["fail"],
+        "crash": verdicts["crash"],
+        "skip": verdicts["skip"],
         "timestamp": timestamp,
     }
 
     detail = []
     for case in cases:
         r = next((x for x in results if x.case_id == case.case_id), None)
-        detail.append({
+        entry = {
             "case_id": case.case_id,
             "sql": case.sql,
             "params": case.params,
+            "context": case.context,
+            "expected": case.expected,
+            "expected_sqlstate": case.expected_sqlstate,
+            "setup_sqls": case.setup_sqls,
             "status": r.status if r else "pending",
+            "actual_sqlstate": r.actual_sqlstate if r else "",
+            "verdict": r.verdict if r else "pending",
             "error_msg": r.error_msg if r else "",
             "duration_ms": r.duration_ms if r else 0,
-        })
+        }
+        detail.append(entry)
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -60,19 +76,25 @@ def generate_report(cases: List[GeneratedCase],
 def _render_html(summary: dict, detail: list) -> str:
     rows = []
     for d in detail:
-        status_class = {
-            "success": "text-green-600",
-            "error": "text-red-600",
-            "core": "text-red-700 font-bold",
-            "skipped": "text-gray-400",
+        verdict_class = {
+            "pass": "text-green-600 font-medium",
+            "fail": "text-red-600 font-medium",
+            "crash": "text-red-700 font-bold",
+            "skip": "text-gray-400",
             "pending": "text-gray-400",
-        }.get(d["status"], "text-gray-500")
+        }.get(d["verdict"], "text-gray-500")
+
+        expected_text = d["expected"]
+        if d["expected_sqlstate"]:
+            expected_text += f" ({d['expected_sqlstate']})"
+
         rows.append(f"""
         <tr class="border-b border-gray-100 hover:bg-gray-50">
-          <td class="py-2 px-3 text-sm font-mono text-gray-500">{d['case_id']}</td>
+          <td class="py-2 px-3 text-sm font-mono text-gray-500">{_esc(d['case_id'])}</td>
           <td class="py-2 px-3"><code class="text-xs">{_esc(d['sql'])}</code></td>
-          <td class="py-2 px-3 text-sm {status_class}">{d['status']}</td>
-          <td class="py-2 px-3 text-xs text-gray-500">{_esc(d['error_msg'])}</td>
+          <td class="py-2 px-3 text-xs text-gray-600">{_esc(expected_text)}</td>
+          <td class="py-2 px-3 text-xs {verdict_class}">{_esc(d['verdict'])}</td>
+          <td class="py-2 px-3 text-xs text-gray-500">{_esc(d['error_msg'])[:80]}</td>
         </tr>""")
 
     return f"""<!DOCTYPE html>
@@ -85,16 +107,17 @@ def _render_html(summary: dict, detail: list) -> str:
   <p class="text-sm text-gray-500 mb-6">{_esc(summary['factor_name'])} | 策略: {_esc(summary['strategy'])} | {summary['timestamp']}</p>
   <div class="grid grid-cols-5 gap-4 mb-6">
     <div class="bg-white rounded-lg shadow-sm p-4"><div class="text-2xl font-bold text-gray-800">{summary['total']}</div><div class="text-xs text-gray-500">总用例</div></div>
-    <div class="bg-white rounded-lg shadow-sm p-4"><div class="text-2xl font-bold text-green-600">{summary['success']}</div><div class="text-xs text-gray-500">成功</div></div>
-    <div class="bg-white rounded-lg shadow-sm p-4"><div class="text-2xl font-bold text-red-600">{summary['error']}</div><div class="text-xs text-gray-500">异常</div></div>
-    <div class="bg-white rounded-lg shadow-sm p-4"><div class="text-2xl font-bold text-red-700">{summary['core']}</div><div class="text-xs text-gray-500">Core</div></div>
-    <div class="bg-white rounded-lg shadow-sm p-4"><div class="text-2xl font-bold text-gray-400">{summary['skipped']}</div><div class="text-xs text-gray-500">跳过</div></div>
+    <div class="bg-white rounded-lg shadow-sm p-4"><div class="text-2xl font-bold text-green-600">{summary['pass']}</div><div class="text-xs text-gray-500">Pass</div></div>
+    <div class="bg-white rounded-lg shadow-sm p-4"><div class="text-2xl font-bold text-red-600">{summary['fail']}</div><div class="text-xs text-gray-500">Fail</div></div>
+    <div class="bg-white rounded-lg shadow-sm p-4"><div class="text-2xl font-bold text-red-700">{summary['crash']}</div><div class="text-xs text-gray-500">Crash</div></div>
+    <div class="bg-white rounded-lg shadow-sm p-4"><div class="text-2xl font-bold text-gray-400">{summary['skip']}</div><div class="text-xs text-gray-500">Skip</div></div>
   </div>
   <div class="bg-white rounded-lg shadow-sm overflow-hidden">
     <table class="w-full"><thead><tr class="bg-gray-100 text-xs text-gray-500 uppercase">
       <th class="py-2 px-3 text-left">用例ID</th>
       <th class="py-2 px-3 text-left">SQL</th>
-      <th class="py-2 px-3 text-left">状态</th>
+      <th class="py-2 px-3 text-left">预期</th>
+      <th class="py-2 px-3 text-left">判定</th>
       <th class="py-2 px-3 text-left">错误信息</th>
     </tr></thead><tbody>
     {''.join(rows)}
@@ -105,4 +128,4 @@ def _render_html(summary: dict, detail: list) -> str:
 
 def _esc(text: str) -> str:
     """HTML 转义。"""
-    return (text or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+    return (str(text) or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")

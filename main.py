@@ -61,7 +61,7 @@ async def generate(request: Request,
     factor = registry.get(factor_id)
     if not factor:
         return HTMLResponse("因子未找到", status_code=404)
-    cases = generate_cases(factor, strategy)
+    cases = generate_cases(factor, strategy, registry)
     return templates.TemplateResponse("_case_list.html", {
         "request": request,
         "factor": factor,
@@ -78,7 +78,7 @@ async def execute(request: Request,
     factor = registry.get(factor_id)
     if not factor:
         return HTMLResponse("因子未找到", status_code=404)
-    cases = generate_cases(factor, strategy)
+    cases = generate_cases(factor, strategy, registry)
     results = executor.execute_batch(cases)
     report_path = generate_report(cases, results, factor.name, strategy,
                                   str(REPORTS_DIR))
@@ -135,7 +135,7 @@ async def api_generate(factor_id: str, strategy: str = "pairwise"):
     factor = registry.get(factor_id)
     if not factor:
         return JSONResponse({"error": "factor not found"}, status_code=404)
-    cases = generate_cases(factor, strategy)
+    cases = generate_cases(factor, strategy, registry)
     return JSONResponse({
         "factor_id": factor.id,
         "strategy": strategy,
