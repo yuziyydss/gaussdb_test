@@ -41,6 +41,7 @@ def generate_report(cases: List[GeneratedCase],
     detail = []
     for case in cases:
         r = next((x for x in results if x.case_id == case.case_id), None)
+        expected_sqlstates = getattr(case, "expected_sqlstates", []) or ([case.expected_sqlstate] if case.expected_sqlstate else [])
         entry = {
             "case_id": case.case_id,
             "sql": case.sql,
@@ -48,6 +49,7 @@ def generate_report(cases: List[GeneratedCase],
             "context": case.context,
             "expected": case.expected,
             "expected_sqlstate": case.expected_sqlstate,
+            "expected_sqlstates": expected_sqlstates,
             "setup_sqls": case.setup_sqls,
             "status": r.status if r else "pending",
             "actual_sqlstate": r.actual_sqlstate if r else "",
@@ -85,8 +87,15 @@ def _render_html(summary: dict, detail: list) -> str:
         }.get(d["verdict"], "text-gray-500")
 
         expected_text = d["expected"]
-        if d["expected_sqlstate"]:
-            expected_text += f" ({d['expected_sqlstate']})"
+        sqlstates = d.get("expected_sqlstates") or ([d["expected_sqlstate"]] if d.get("expected_sqlstate") else [])
+        if sqlstates:
+            expected_text += f" ({'/'.join(sqlstates)})"
+
+        status_info = d.get("actual_sqlstate", "")
+        if status_info:
+            error_display = f"[{status_info}] {d['error_msg']}"
+        else:
+            error_display = d['error_msg']
 
         rows.append(f"""
         <tr class="border-b border-gray-100 hover:bg-gray-50">
@@ -94,7 +103,7 @@ def _render_html(summary: dict, detail: list) -> str:
           <td class="py-2 px-3"><code class="text-xs">{_esc(d['sql'])}</code></td>
           <td class="py-2 px-3 text-xs text-gray-600">{_esc(expected_text)}</td>
           <td class="py-2 px-3 text-xs {verdict_class}">{_esc(d['verdict'])}</td>
-          <td class="py-2 px-3 text-xs text-gray-500">{_esc(d['error_msg'])[:80]}</td>
+          <td class="py-2 px-3 text-xs text-gray-500">{_esc(error_display)[:90]}</td>
         </tr>""")
 
     return f"""<!DOCTYPE html>

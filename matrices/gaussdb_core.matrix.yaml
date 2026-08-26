@@ -1,0 +1,50 @@
+# GaussDB 全局语义与兼容性矩阵
+id: matrix_gaussdb_core
+name: "GaussDB 核心数据类型与引擎兼容矩阵"
+description: "全局共享的数据类型等价类与存储引擎客观限制规则"
+
+data_types:
+  INTEGER:
+    category: "numeric"
+    representative: "100"
+    boundary_values: ["-2147483648", "2147483647", "0"]
+    invalid_values: ["'invalid_str'"]
+    expected_sqlstates_for_invalid: ["22P02"]
+
+  VARCHAR(100):
+    category: "string"
+    representative: "'hello_world'"
+    boundary_values: ["''", "'100_chars_sample'"]
+    invalid_values: ["'101_chars_overflow'"]
+    expected_sqlstates_for_invalid: ["22001"]
+
+  DATE:
+    category: "datetime"
+    representative: "'2026-08-26'"
+    boundary_values: ["'1970-01-01'", "'2024-02-29'"]
+    invalid_values: ["'invalid_date'"]
+    expected_sqlstates_for_invalid: ["22007", "22P02"]
+
+  FAKETYPE:
+    category: "custom"
+    representative: "FAKETYPE"
+    boundary_values: []
+    invalid_values: ["FAKETYPE"]
+    expected_sqlstates_for_invalid: ["42704", "42601"]
+
+storage_engines:
+  ASTORE:
+    orientation: "ROW"
+    supports_temporary: true
+  USTORE:
+    orientation: "USTORE"
+    supports_temporary: true
+  CSTORE:
+    orientation: "COLUMN"
+    supports_temporary: false
+
+compatibility_rules:
+  # 规则 1: 列存不支持临时表
+  - "table_modifier in ['TEMPORARY', 'TEMP'] => storage_options != 'WITH (ORIENTATION = COLUMN)'"
+  # 规则 2: 列存不支持主键约束
+  - "storage_options == 'WITH (ORIENTATION = COLUMN)' => column_constraint != 'PRIMARY KEY'"

@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Any
 
 from .combinator import generate
 from .factor_model import FactorDef
+from .constraint_solver import ConstraintSolver
 
 
 class GeneratedCase:
@@ -13,6 +14,7 @@ class GeneratedCase:
                  params: Dict[str, str], sql: str,
                  expected: str = "success",
                  expected_sqlstate: str = "",
+                 expected_sqlstates: List[str] = None,
                  setup_sqls: List[str] = None,
                  context: str = "default"):
         self.factor_id = factor_id
@@ -21,7 +23,18 @@ class GeneratedCase:
         self.params = params
         self.sql = sql
         self.expected = expected
-        self.expected_sqlstate = expected_sqlstate
+        
+        # 归一化 expected_sqlstates 与 expected_sqlstate
+        if expected_sqlstates:
+            self.expected_sqlstates = list(expected_sqlstates)
+            self.expected_sqlstate = expected_sqlstate or self.expected_sqlstates[0]
+        elif expected_sqlstate:
+            self.expected_sqlstate = expected_sqlstate
+            self.expected_sqlstates = [expected_sqlstate]
+        else:
+            self.expected_sqlstate = ""
+            self.expected_sqlstates = []
+
         self.setup_sqls = setup_sqls or []
         self.context = context
 
@@ -34,6 +47,7 @@ class GeneratedCase:
             "sql": self.sql,
             "expected": self.expected,
             "expected_sqlstate": self.expected_sqlstate,
+            "expected_sqlstates": self.expected_sqlstates,
             "setup_sqls": self.setup_sqls,
             "context": self.context,
         }
@@ -216,17 +230,22 @@ def _generate_matrix(factor: FactorDef, strat: str,
             ))
             continue
 
+        matrix_solver = ConstraintSolver(factor.constraints) if factor.constraints else None
         for tcombo in target_combos:
-            # 合并 fixture + target 参数, 检查跨因子排除
+            # 合并 fixture + target 参数, 检查跨因子排除与约束求解
             combined = dict(tcombo)
             for k, v in fcombo.items():
                 combined[f"fixture.{k}"] = v
+            if matrix_solver:
+                is_valid, _ = matrix_solver.is_valid(combined)
+                if not is_valid:
+                    continue
             t_excluded, _ = _is_excluded(combined, factor.exclusions)
             if t_excluded:
                 continue
-            case_num += 1
             tsql = _render_sql(factor, tcombo)
-            expected, sqlstate = factor.merge_expected(tcombo)
+            expected, sqlstates = factor.merge_expected(tcombo)
+            sqlstate = sqlstates[0] if sqlstates else ""
 
             # 应用 expected_matrix 跨因子预期规则
             for rule in expected_matrix:
@@ -239,7 +258,12 @@ def _generate_matrix(factor: FactorDef, strat: str,
                 if f_match and p_match:
                     then = rule.get("then", {})
                     expected = then.get("expected", expected)
-                    sqlstate = then.get("sqlstate", sqlstate)
+                    if "sqlstates" in then:
+                        sqlstates = list(then["sqlstates"])
+                        sqlstate = sqlstates[0] if sqlstates else ""
+                    elif "sqlstate" in then:
+                        sqlstate = then["sqlstate"]
+                        sqlstates = [sqlstate] if sqlstate else []
                     break
 
             params_out = dict(tcombo)
@@ -254,6 +278,7 @@ def _generate_matrix(factor: FactorDef, strat: str,
                 sql=tsql,
                 expected=expected,
                 expected_sqlstate=sqlstate,
+                expected_sqlstates=sqlstates,
                 setup_sqls=[fixture_sql],
                 context=f"fixture={fcombo}",
             ))
@@ -289,6 +314,11 @@ def generate_cases(factor: FactorDef, strategy: str = None,
     # 参数组合
     combos = generate(param_values, strat)
 
+    # CSP 约束求解过滤
+    if factor.constraints:
+        solver = ConstraintSolver(factor.constraints)
+        combos = solver.filter_combos(combos)
+
     # fixture 矩阵检测
     if registry and factor.has_matrix_setup():
         matrix_setups = [s for s in factor.setup if s.matrix]
@@ -298,13 +328,14 @@ def generate_cases(factor: FactorDef, strategy: str = None,
     cases = []
     case_idx = 0
     for combo in combos:
-        # 检查排除规则
+        # 检查旧版排除规则 (向后兼容)
         excluded, reason = _is_excluded(combo, factor.exclusions)
         if excluded:
             continue
         case_idx += 1
         sql = _render_sql(factor, combo)
-        expected, sqlstate = factor.merge_expected(combo)
+        expected, sqlstates = factor.merge_expected(combo)
+        sqlstate = sqlstates[0] if sqlstates else ""
         setup_sqls = _resolve_setup(factor, registry) if registry else []
         cases.append(GeneratedCase(
             factor_id=factor.id,
@@ -314,6 +345,7 @@ def generate_cases(factor: FactorDef, strategy: str = None,
             sql=sql,
             expected=expected,
             expected_sqlstate=sqlstate,
+            expected_sqlstates=sqlstates,
             setup_sqls=setup_sqls,
             context="default",
         ))
@@ -331,6 +363,7 @@ def generate_cases(factor: FactorDef, strategy: str = None,
                     sql=case.sql,
                     expected=case.expected,
                     expected_sqlstate=case.expected_sqlstate,
+                    expected_sqlstates=list(case.expected_sqlstates),
                     setup_sqls=_resolve_setup(factor, registry,
                                              overlay.get("setup")),
                     context=overlay_name,
@@ -346,8 +379,12 @@ def generate_cases(factor: FactorDef, strategy: str = None,
                     if pval in value_overrides:
                         ov = value_overrides[pval]
                         oc.expected = ov.get("expected", oc.expected)
-                        oc.expected_sqlstate = ov.get(
-                            "sqlstate", oc.expected_sqlstate)
+                        if "sqlstates" in ov:
+                            oc.expected_sqlstates = list(ov["sqlstates"])
+                            oc.expected_sqlstate = oc.expected_sqlstates[0] if oc.expected_sqlstates else ""
+                        elif "sqlstate" in ov:
+                            oc.expected_sqlstate = ov.get("sqlstate", oc.expected_sqlstate)
+                            oc.expected_sqlstates = [oc.expected_sqlstate] if oc.expected_sqlstate else []
                 cases.append(oc)
 
     return cases

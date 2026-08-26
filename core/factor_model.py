@@ -14,7 +14,17 @@ class EquivalenceClass(BaseModel):
     description: str = ""
     values: List[str] = Field(default_factory=list)
     expected: str = "success"          # success | error
-    expected_sqlstate: str = ""       # 预期 SQLSTATE 错误码
+    expected_sqlstate: str = ""       # 预期单个 SQLSTATE (保持向后兼容)
+    expected_sqlstates: List[str] = Field(default_factory=list)  # 预期多个合法 SQLSTATE 集合
+
+    @model_validator(mode="after")
+    def normalize_sqlstates(self) -> "EquivalenceClass":
+        """归一化 expected_sqlstates，确保单个字符串或列表均能正常工作。"""
+        if self.expected_sqlstate and self.expected_sqlstate not in self.expected_sqlstates:
+            self.expected_sqlstates.insert(0, self.expected_sqlstate)
+        elif self.expected_sqlstates and not self.expected_sqlstate:
+            self.expected_sqlstate = self.expected_sqlstates[0]
+        return self
 
 
 class ParamDef(BaseModel):
@@ -46,12 +56,13 @@ class ParamDef(BaseModel):
             return []
         return [c.values[0] for c in self.classes if c.values]
 
-    def expected_for_value(self, value: str) -> Tuple[str, str]:
-        """取某个值的预期结果 (expected, sqlstate)。"""
+    def expected_for_value(self, value: str) -> Tuple[str, List[str]]:
+        """取某个值的预期结果 (expected, [sqlstates])。"""
         for cls in self.classes:
             if value in cls.values:
-                return cls.expected, cls.expected_sqlstate
-        return "success", ""
+                sqlstates = cls.expected_sqlstates if cls.expected_sqlstates else ([cls.expected_sqlstate] if cls.expected_sqlstate else [])
+                return cls.expected, sqlstates
+        return "success", []
 
 
 class CompositeDef(BaseModel):
@@ -82,6 +93,7 @@ class FactorDef(BaseModel):
     context_overlays: List[Dict[str, Any]] = Field(default_factory=list)
     expected_matrix: List[Dict[str, Any]] = Field(default_factory=list)
     exclusions: List[Dict[str, Any]] = Field(default_factory=list)
+    constraints: List[str] = Field(default_factory=list)  # CSP 约束规则列表
     default_strategy: str = "pairwise"
 
     @model_validator(mode="before")
@@ -112,24 +124,25 @@ class FactorDef(BaseModel):
                 result[name] = pdef.representative_values()
         return result
 
-    def expected_for_value(self, param_name: str, value: str) -> Tuple[str, str]:
-        """取某个参数某个值的预期结果。"""
+    def expected_for_value(self, param_name: str, value: str) -> Tuple[str, List[str]]:
+        """取某个参数某个值的预期结果 (expected, [sqlstates])。"""
         pdef = self.params.get(param_name)
         if not pdef:
-            return "success", ""
+            return "success", []
         return pdef.expected_for_value(value)
 
-    def merge_expected(self, combo: Dict[str, str]) -> Tuple[str, str]:
+    def merge_expected(self, combo: Dict[str, str]) -> Tuple[str, List[str]]:
         """组合多参数的预期：最严格原则 — 任一参数预期 error 则整条预期 error。"""
         expected = "success"
-        sqlstate = ""
+        sqlstates: List[str] = []
         for name, value in combo.items():
-            e, ss = self.expected_for_value(name, value)
+            e, ss_list = self.expected_for_value(name, value)
             if e == "error":
                 expected = "error"
-                sqlstate = ss
-                break
-        return expected, sqlstate
+                for s in ss_list:
+                    if s and s not in sqlstates:
+                        sqlstates.append(s)
+        return expected, sqlstates
 
     def has_matrix_setup(self) -> bool:
         """是否含 fixture 矩阵声明。"""

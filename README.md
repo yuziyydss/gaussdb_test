@@ -82,16 +82,22 @@ gaussdb_test/
 
 ## 详细文档
 
-- [架构概览](docs/ARCHITECTURE.md)
-- [开发路线图](docs/ROADMAP.md)
-- [因子编写指南](docs/FACTOR_GUIDE.md)
-- [完整分类框架](../outputs/factor-framework.md)
-- [从零到懂](../outputs/factor-library-explained.md)
+- [三类标准规格文件设计范式与编写规范](docs/SPEC_SPECIFICATION_GUIDE.md)
+- [Doc2Spec 产品文档自动抽取指南与 Prompt 模板](docs/DOC2SPEC_EXTRACTION_GUIDE.md)
+- [海量文档 (5800+页) 抽取防遗漏管理与 GUC 参数归档规范](docs/LARGE_DOC_EXTRACTION_AND_GUC_GUIDE.md)
+- [下一代架构与演进规划](docs/EVOLUTION_PLAN.md)
+- [系统架构概览](docs/ARCHITECTURE.md)
+- [系统开发路线图 (Roadmap)](docs/ROADMAP.md)
+- [单因子编写指南 (向后兼容)](docs/FACTOR_GUIDE.md)
 
 ## 当前状态
 
-- 因子模型：已增强（expected, doc_ref, setup, context_overlays, expected_matrix）
-- 组合引擎：已增强（fixture 链, 矩阵, 上下文叠加）
-- 执行器：桩模式可用，真实执行需安装 psycopg2
-- 因子数量：5 个（目标 200+）
-- Web UI：基础可用，待增强预期结果展示
+- **执行隔离**：已实现 Schema 临时沙箱隔离，执行完毕自动级联清理，彻底根治 DDL 污染
+- **错误码匹配**：支持多 SQLSTATE 候选集合容错判定，杜绝假阳性误报
+- **状态机与符号表**：已实现 `SchemaContext` 动态符号表与 `ScenarioEngine` 多步时序业务场景链
+- **高级 Oracle**：已实现 TLP (三值逻辑分区) 蜕变测试 Oracle，全自动验证查询计算正确性
+- **智能剪枝**：已实现 CSP (约束满足求解器)，支持一阶逻辑 `P => Q` 前置可行域剪枝
+- **三层规格解耦体系**：已落地 `grammars/` 语法规范 + `matrices/` 语义矩阵 + `manifests/` 测试清单
+- **数据发生器与 Linter**：已实现 `DataSeeder` 边界数据合成发生器与 `SpecLinter` 静态校验器
+- **自动化测试**：22 项单元测试全量覆盖并通过 (100% Green)
+- **Web UI 看板**：支持单因子生成、场景流水线可视化执行、GaussDB 数据库连接配置与连通性测试

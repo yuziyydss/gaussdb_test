@@ -1,0 +1,122 @@
+<!-- Spec Coverage Dashboard & Gap Report Fragment -->
+<div class="max-w-5xl space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-blue-50 text-blue-600 rounded border border-blue-200">
+          Quality Closed-Loop · 规格覆盖率
+        </span>
+        <span class="text-xs text-slate-400">统计时间: {{ report.created_at }}</span>
+      </div>
+      <h2 class="text-xl font-bold text-slate-800 mt-1">GaussDB 文档特性覆盖度量与缺口分析</h2>
+      <p class="text-xs text-slate-400 mt-0.5">根据文档提取的产生式分支、AST 插槽与兼容矩阵计算测试覆盖度并指出测试盲区</p>
+    </div>
+
+    <a href="/api/coverage/export-md" target="_blank"
+       class="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-medium rounded-lg shadow-sm transition-colors">
+      <i data-lucide="download" class="w-3.5 h-3.5"></i>
+      导出 Markdown 缺口报告
+    </a>
+  </div>
+
+  <!-- KPI Metric Cards -->
+  <div class="grid grid-cols-4 gap-4">
+    <!-- Overall Coverage -->
+    <div class="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl p-4 text-white shadow-sm">
+      <span class="text-xs text-blue-100 uppercase tracking-wider font-medium">综合规格覆盖率</span>
+      <div class="text-3xl font-black mt-1">{{ report.overall_spec_coverage_pct }}%</div>
+      <div class="text-[11px] text-blue-200 mt-1">加权文法、类型与约束</div>
+    </div>
+
+    <!-- Syntax Slot Coverage -->
+    <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+      <span class="text-xs text-slate-400 uppercase tracking-wider font-medium">文法插槽与取值</span>
+      <div class="text-2xl font-bold text-slate-800 mt-1">{{ report.syntax_coverage_pct }}%</div>
+      <div class="text-[11px] text-slate-500 mt-1">{{ report.covered_slot_values }} / {{ report.total_slot_values }} 已覆盖</div>
+    </div>
+
+    <!-- Data Types Coverage -->
+    <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+      <span class="text-xs text-slate-400 uppercase tracking-wider font-medium">数据类型等价类</span>
+      <div class="text-2xl font-bold text-slate-800 mt-1">{{ report.type_coverage_pct }}%</div>
+      <div class="text-[11px] text-slate-500 mt-1">{{ report.covered_data_types }} / {{ report.total_data_types }} 已测试</div>
+    </div>
+
+    <!-- CSP Rules Coverage -->
+    <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+      <span class="text-xs text-slate-400 uppercase tracking-wider font-medium">兼容性约束规则</span>
+      <div class="text-2xl font-bold text-slate-800 mt-1">{{ report.rule_coverage_pct }}%</div>
+      <div class="text-[11px] text-slate-500 mt-1">{{ report.covered_rules }} / {{ report.total_rules }} 已激活</div>
+    </div>
+  </div>
+
+  <!-- Gap Items Section -->
+  <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+      <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+        <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-500"></i>
+        文档特性未覆盖缺口清单 (Gaps: {{ report.gap_items | length }})
+      </h3>
+      <span class="text-xs text-slate-400">建议补充 Manifest 清单优先消灭高优先级缺口</span>
+    </div>
+
+    {% if not report.gap_items %}
+    <div class="p-6 text-center text-sm text-green-600 bg-green-50/50 rounded-lg">
+      🎉 当前测试清单已 100% 覆盖文档中提取的所有语法分支与兼容规则！
+    </div>
+    {% else %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+          <tr>
+            <th class="py-2.5 px-3">缺口类型</th>
+            <th class="py-2.5 px-3">所属语法/模块 ID</th>
+            <th class="py-2.5 px-3">未覆盖特性 / 取值候选</th>
+            <th class="py-2.5 px-3">优先级</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for gap in report.gap_items %}
+          <tr class="hover:bg-slate-50/50">
+            <td class="py-2 px-3 font-mono text-slate-500">{{ gap.type }}</td>
+            <td class="py-2 px-3 font-semibold text-slate-800">{{ gap.id }}</td>
+            <td class="py-2 px-3 font-mono text-amber-700 bg-amber-50/30 rounded">{{ gap.missing }}</td>
+            <td class="py-2 px-3">
+              <span class="px-2 py-0.5 text-[10px] font-bold rounded {% if gap.priority == 'P1' %}bg-red-50 text-red-600 border border-red-200{% else %}bg-slate-100 text-slate-600{% endif %}">
+                {{ gap.priority }}
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Detailed Syntax Breakdown -->
+  <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+    <h3 class="text-sm font-bold text-slate-800">各语法规范插槽覆盖明细</h3>
+    <div class="space-y-4">
+      {% for syn_id, slots in report.syntax_details.items() %}
+      <div class="border border-slate-100 rounded-lg p-3 bg-slate-50/30 space-y-2">
+        <div class="font-mono text-xs font-bold text-slate-700">{{ syn_id }}</div>
+        <div class="grid grid-cols-2 gap-2">
+          {% for s in slots %}
+          <div class="bg-white p-2.5 rounded border border-slate-200/80 text-xs space-y-1">
+            <div class="flex items-center justify-between font-mono">
+              <span class="font-semibold text-slate-700">{{ s.slot_name }}</span>
+              <span class="{% if s.coverage_pct >= 100 %}text-green-600{% elif s.coverage_pct > 0 %}text-blue-600{% else %}text-red-500{% endif %} font-bold">
+                {{ s.coverage_pct }}%
+              </span>
+            </div>
+            <div class="text-[11px] text-slate-400 truncate">已覆盖: {{ s.covered_values | list }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+<script>lucide.createIcons();</script>

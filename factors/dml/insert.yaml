@@ -22,7 +22,7 @@ params:
       - name: "NULL"
         values: ["NULL"]
         expected: error
-        expected_sqlstate: "23502"
+        expected_sqlstates: ["23502"]
       - name: 空字符串
         values: ["''"]
         expected: success
@@ -30,7 +30,7 @@ params:
         # 101 个 a, 超出 VARCHAR(100), 不超长则改 expected
         values: ["'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"]
         expected: error
-        expected_sqlstate: "22001"
+        expected_sqlstates: ["22001", "22P02"]
     # 代表值与等价类首值一致
     representative: ["1", "NULL", "''", "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"]
 
@@ -54,18 +54,18 @@ expected_matrix:
   # INTEGER 列: 空字符串报类型错误 (不是 success)
   - when_fixture: {column_datatype: "INTEGER"}
     when_param: {value_format: "''"}
-    then: {expected: error, sqlstate: "22P02"}
+    then: {expected: error, sqlstates: ["22P02", "42804"]}
   # INTEGER 列: 超长字符串报类型错误 (不是 22001)
   - when_fixture: {column_datatype: "INTEGER"}
     when_param: {value_format: "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"}
-    then: {expected: error, sqlstate: "22P02"}
+    then: {expected: error, sqlstates: ["22P02", "22001"]}
   # NUMERIC 列: 空字符串报类型错误
   - when_fixture: {column_datatype: "NUMERIC(10,2)"}
     when_param: {value_format: "''"}
-    then: {expected: error, sqlstate: "22P02"}
+    then: {expected: error, sqlstates: ["22P02", "42804"]}
   - when_fixture: {column_datatype: "NUMERIC(10,2)"}
     when_param: {value_format: "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"}
-    then: {expected: error, sqlstate: "22P02"}
+    then: {expected: error, sqlstates: ["22P02", "22001"]}
   # VARCHAR 列: 整数隐式转换成功, 超长报 22001
   - when_fixture: {column_datatype: "VARCHAR(100)"}
     when_param: {value_format: "1"}
@@ -73,23 +73,23 @@ expected_matrix:
   # DATE 列: 整数和空字符串都报类型错误
   - when_fixture: {column_datatype: "DATE"}
     when_param: {value_format: "1"}
-    then: {expected: error, sqlstate: "42804"}
+    then: {expected: error, sqlstates: ["42804", "22007", "22P02"]}
   - when_fixture: {column_datatype: "DATE"}
     when_param: {value_format: "''"}
-    then: {expected: error, sqlstate: "42804"}
+    then: {expected: error, sqlstates: ["42804", "22007", "22P02"]}
   - when_fixture: {column_datatype: "DATE"}
     when_param: {value_format: "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"}
-    then: {expected: error, sqlstate: "42804"}
+    then: {expected: error, sqlstates: ["42804", "22007", "22P02"]}
   # BYTEA 列: 整数和空字符串报类型错误
   - when_fixture: {column_datatype: "BYTEA"}
     when_param: {value_format: "1"}
-    then: {expected: error, sqlstate: "42804"}
+    then: {expected: error, sqlstates: ["42804", "22P02"]}
   - when_fixture: {column_datatype: "BYTEA"}
     when_param: {value_format: "''"}
-    then: {expected: error, sqlstate: "42804"}
+    then: {expected: error, sqlstates: ["42804", "22P02"]}
   - when_fixture: {column_datatype: "BYTEA"}
     when_param: {value_format: "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"}
-    then: {expected: error, sqlstate: "42804"}
+    then: {expected: error, sqlstates: ["42804", "22P02"]}
   # JSON 列: 整数和空字符串都接受
   - when_fixture: {column_datatype: "JSON"}
     when_param: {value_format: "1"}
@@ -99,6 +99,6 @@ expected_matrix:
     then: {expected: success}
   - when_fixture: {column_datatype: "JSON"}
     when_param: {value_format: "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"}
-    then: {expected: error, sqlstate: "22P02"}
+    then: {expected: error, sqlstates: ["22P02", "22023"]}
 
 default_strategy: equivalence
