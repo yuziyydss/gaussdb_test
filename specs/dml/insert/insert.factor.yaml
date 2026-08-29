@@ -1,0 +1,262 @@
+schema_version: 1
+kind: factor
+id: insert
+name: INSERT
+category: DML
+status: needs_review
+description: INSERT 主语法、输入列契约、目标对象能力、冲突处理和执行场景的 V1 验证包。
+
+source:
+  product: GaussDB
+  document: INSERT 产品文档原文
+  version: unknown
+  artifact_sha256: 31b8470b1c3e84a4849471102344dd74d0fb2417b8800af5bbaa7104d749eaa4
+  extraction_date: "2026-08-29"
+
+source_ledger_ref: source_ledger_insert
+syntax_ref: syntax_insert_v1
+
+dimensions:
+  with_clause:
+    description: INSERT 前的普通或递归 CTE。
+    default_value_id: insert_with_none
+    classes:
+      - id: insert_with_class
+        meaning: 无 CTE 或由查询源消费的普通 CTE。
+        values:
+          - id: insert_with_none
+            render: ""
+            representative: true
+            validity: valid
+            properties: {provides_cte: false}
+          - id: insert_with_source
+            render: "WITH src_insert AS (SELECT col_1, name FROM t_insert_source) "
+            representative: true
+            validity: valid
+            properties: {provides_cte: true, recursive: false}
+            fact_refs: [insert_fact_cte_syntax]
+          - id: insert_with_recursive_source
+            render: "WITH RECURSIVE src_insert(col_1, name) AS (VALUES (1, 'one') UNION ALL SELECT col_1 + 1, name FROM src_insert WHERE col_1 < 2) "
+            representative: true
+            validity: valid
+            properties: {provides_cte: true, recursive: true}
+            fact_refs: [insert_fact_cte_syntax]
+
+  plan_hint:
+    description: INSERT 后的 plan_hint；原文没有给出可独立执行的具体 hint，当前仅保留空值。
+    default_value_id: insert_hint_none
+    classes:
+      - id: insert_hint_class
+        meaning: 无 hint 或待补充的具体 hint。
+        values:
+          - id: insert_hint_none
+            render: ""
+            representative: true
+            validity: valid
+          - id: insert_hint_documented_unresolved
+            render: "/*+ plan_hint */ "
+            representative: false
+            validity: unknown
+            fact_refs: [insert_open_plan_hint_profile]
+
+  ignore_modifier:
+    description: B 模式 5.7/s1 下把指定错误降级为 WARNING 的修饰符。
+    default_value_id: insert_ignore_none
+    classes:
+      - id: insert_ignore_class
+        meaning: 默认错误处理或环境受限的 IGNORE。
+        values:
+          - id: insert_ignore_none
+            render: ""
+            representative: true
+            validity: valid
+          - id: insert_ignore_keyword
+            render: "IGNORE "
+            representative: true
+            validity: conditional
+            properties: {compatibility_mode: B, b_format_version: "5.7", b_format_dev_version: s1}
+            fact_refs: [insert_fact_ignore_environment]
+
+  target_profile:
+    description: 目标表、分区、视图或子查询及其可写列契约。
+    profile_source:
+      matrix_ref: matrix_insert_target_profiles
+      profile_id_path: profiles.id
+
+  source_profile:
+    description: DEFAULT VALUES、VALUES/VALUE 行列表或查询输入及输出列契约。
+    profile_source:
+      matrix_ref: matrix_insert_source_profiles
+      profile_id_path: profiles.id
+
+  conflict_clause:
+    description: 无冲突处理、ON DUPLICATE KEY UPDATE 或待环境验证的 ON CONFLICT。
+    default_value_id: insert_conflict_none
+    classes:
+      - id: insert_conflict_class_none
+        meaning: 普通 INSERT。
+        values:
+          - id: insert_conflict_none
+            render: ""
+            representative: true
+            validity: valid
+            properties: {family: none, updates_unique_key: false}
+      - id: insert_conflict_class_duplicate
+        meaning: 唯一键冲突时忽略或更新非键列。
+        values:
+          - id: insert_duplicate_nothing
+            render: " ON DUPLICATE KEY UPDATE NOTHING"
+            representative: true
+            validity: valid
+            properties: {family: duplicate, updates_unique_key: false}
+            fact_refs: [insert_fact_duplicate_semantics]
+          - id: insert_duplicate_update_note
+            render: " ON DUPLICATE KEY UPDATE note = VALUES(note)"
+            representative: true
+            validity: valid
+            properties: {family: duplicate, updates_unique_key: false}
+            fact_refs: [insert_fact_duplicate_semantics]
+          - id: insert_duplicate_update_id
+            render: " ON DUPLICATE KEY UPDATE id = VALUES(id)"
+            representative: true
+            validity: invalid
+            properties: {family: duplicate, updates_unique_key: true}
+            fact_refs: [insert_fact_duplicate_restrictions]
+      - id: insert_conflict_class_pg
+        meaning: PG 兼容环境中的 ON CONFLICT 分支。
+        values:
+          - id: insert_on_conflict_nothing
+            render: " ON CONFLICT (id) DO NOTHING"
+            representative: true
+            validity: conditional
+            properties: {family: conflict, updates_unique_key: false, compatibility_mode: PG}
+            fact_refs: [insert_fact_conflict_semantics, insert_fact_conflict_environment]
+          - id: insert_on_conflict_update
+            render: " ON CONFLICT (id) DO UPDATE SET note = EXCLUDED.note"
+            representative: true
+            validity: conditional
+            properties: {family: conflict, updates_unique_key: false, compatibility_mode: PG}
+            fact_refs: [insert_fact_conflict_semantics, insert_fact_conflict_environment]
+
+  returning_clause:
+    description: 返回实际插入行的投影。
+    default_value_id: insert_returning_none
+    classes:
+      - id: insert_returning_class
+        meaning: 无返回、返回整行或带别名的表达式列表。
+        values:
+          - id: insert_returning_none
+            render: ""
+            representative: true
+            validity: valid
+          - id: insert_returning_all
+            render: " RETURNING *"
+            representative: true
+            validity: valid
+            fact_refs: [insert_fact_returning]
+          - id: insert_returning_columns
+            render: " RETURNING id, note AS inserted_note"
+            representative: true
+            validity: valid
+            fact_refs: [insert_fact_returning]
+
+rules:
+  - id: insert_rule_duplicate_rejects_with
+    kind: requires
+    expression: >-
+      conflict_clause.properties.family == 'duplicate'
+      => with_clause == 'insert_with_none'
+    severity: error
+    fact_refs: [insert_fact_duplicate_rejects_with]
+
+  - id: insert_rule_duplicate_cannot_update_unique_key
+    kind: requires
+    expression: conflict_clause.properties.updates_unique_key == False
+    severity: error
+    fact_refs: [insert_fact_duplicate_restrictions]
+
+  - id: insert_rule_duplicate_target_supported
+    kind: requires
+    expression: >-
+      conflict_clause.properties.family == 'duplicate'
+      => target_profile.properties.duplicate_supported == True
+    severity: error
+    fact_refs: [insert_fact_view_subquery_constraints]
+
+  - id: insert_rule_partition_alias_form_supported
+    kind: requires
+    expression: target_profile.properties.partition_alias_supported != False
+    severity: error
+    fact_refs: [insert_fact_alias_and_partition]
+
+structural_checks:
+  - id: insert_struct_target_input_contract
+    kind: insert_input_contract
+    fact_refs:
+      - insert_fact_column_mapping
+      - insert_fact_type_conversion
+      - insert_inferred_target_input_contract
+
+facts:
+  - {id: insert_fact_purpose, type: syntax, statement: "INSERT 向目标表插入一行或多行数据。", status: confirmed, source_anchor: "功能描述"}
+  - {id: insert_fact_permissions, type: environment, statement: "INSERT、RETURNING、查询源和冲突更新分别需要目标表 INSERT/SELECT/UPDATE 及源表 SELECT 权限。", status: confirmed, source_anchor: "注意事项/权限"}
+  - {id: insert_fact_generated_column, type: constraint, statement: "生成列不能直接赋值，但可以指定 DEFAULT。", status: confirmed, source_anchor: "注意事项/生成列"}
+  - {id: insert_fact_truncation, type: environment, statement: "C 兼容数据库可通过 td_compatible_truncation 对非外表 CHAR/VARCHAR 超长输入进行截断，字节编码存在多字节截断风险。", status: confirmed, source_anchor: "注意事项/截断"}
+  - {id: insert_fact_main_grammar, type: syntax, statement: "表目标 INSERT 支持 WITH、hint、IGNORE、别名/列/分区、三类输入、两类冲突处理和 RETURNING。", status: confirmed, source_anchor: "语法格式/表目标"}
+  - {id: insert_fact_view_subquery_grammar, type: syntax, statement: "视图或子查询目标支持 WITH、hint、别名、列列表、三类输入和 RETURNING，但主产生式不含 IGNORE 与冲突处理。", status: confirmed, source_anchor: "语法格式/视图和子查询"}
+  - {id: insert_fact_subquery_grammar, type: syntax, statement: "目标子查询可包含 SELECT、FROM、层次查询、排序和 FETCH 等子文法。", status: confirmed, source_anchor: "语法格式/subquery"}
+  - {id: insert_fact_cte_syntax, type: syntax, statement: "WITH 支持多个、递归和 MATERIALIZED/NOT MATERIALIZED CTE，CTE 主体可为 SELECT、VALUES 或带 RETURNING 的 DML。", status: confirmed, source_anchor: "参数说明/WITH"}
+  - {id: insert_fact_cte_behavior, type: behavior_oracle, statement: "DML CTE 的命令回显行数由 CTE 内 DML 决定，物化属性影响内联和计划。", status: confirmed, source_anchor: "参数说明/WITH 行为"}
+  - {id: insert_fact_duplicate_rejects_with, type: constraint, statement: "ON DUPLICATE KEY UPDATE 不支持 WITH 或 WITH RECURSIVE。", status: confirmed, source_anchor: "参数说明/WITH"}
+  - {id: insert_open_plan_hint_profile, type: open_question, statement: "原文只给出 plan_hint 占位符，仍需从 hint 章节取得至少一个可独立执行的具体 INSERT hint。", status: needs_verification, source_anchor: "参数说明/plan_hint"}
+  - {id: insert_fact_ignore_behavior, type: behavior_oracle, statement: "IGNORE 将九类指定错误降为 WARNING，并可能调整或跳过无效值。", status: confirmed, source_anchor: "参数说明/IGNORE"}
+  - {id: insert_fact_ignore_environment, type: environment, statement: "INSERT IGNORE 仅支持 B 模式、b_format_version=5.7 且 b_format_dev_version=s1。", status: confirmed, source_anchor: "参数说明/IGNORE 环境"}
+  - {id: insert_fact_ignore_restrictions, type: constraint, statement: "INSERT IGNORE 不支持密态表、外表、MOT 表和延迟生效唯一/主键约束。", status: confirmed, source_anchor: "参数说明/IGNORE 限制"}
+  - {id: insert_fact_ignore_zero_values, type: behavior_oracle, statement: "IGNORE 对支持的数据类型使用文档列出的类型相关默认零值替代 NOT NULL 的 NULL。", status: confirmed, source_anchor: "参数说明/IGNORE 默认零值"}
+  - {id: insert_fact_target_table, type: syntax, statement: "目标可为已存在表，文档还声明支持 DATABASE LINK 远端表。", status: confirmed, source_anchor: "参数说明/table_name"}
+  - {id: insert_open_dblink_profile, type: open_question, statement: "DATABASE LINK 的目标名拼写和可执行环境需从被引用章节补齐。", status: needs_verification, source_anchor: "参数说明/table_name/DATABASE LINK"}
+  - {id: insert_fact_view_subquery_constraints, type: constraint, statement: "可更新视图/子查询受直接基表列、保留键、顶层子句、函数、触发器、表类型和系统视图等限制，且不支持 ON DUPLICATE KEY UPDATE。", status: confirmed, source_anchor: "参数说明/subquery/view_name"}
+  - {id: insert_fact_alias_and_partition, type: constraint, statement: "表别名必须是合法非关键字标识符；分区表省略 AS 的别名不能与指定分区插入组合。", status: confirmed, source_anchor: "参数说明/alias_name"}
+  - {id: insert_fact_partition, type: behavior_oracle, statement: "PARTITION/SUBPARTITION 可按名称或值指定目标，输入与指定分区不匹配时报错。", status: confirmed, source_anchor: "参数说明/partition_clause"}
+  - {id: insert_fact_column_mapping, type: syntax, statement: "显式列按顺序接收输入；省略列列表时按表声明顺序，N 个输入映射前 N 个目标列，未指定列使用默认值或 NULL。", status: confirmed, source_anchor: "参数说明/column_name"}
+  - {id: insert_fact_expression, type: syntax, statement: "输入可为表达式、值或 DEFAULT，字符串单引号需转义。", status: confirmed, source_anchor: "参数说明/expression"}
+  - {id: insert_fact_type_conversion, type: behavior_oracle, statement: "输入类型不匹配时系统尝试转换，转换失败则 INSERT 报错。", status: confirmed, source_anchor: "参数说明/expression/类型转换"}
+  - {id: insert_fact_default, type: syntax, statement: "DEFAULT 使用列缺省值，无缺省值时为 NULL。", status: confirmed, source_anchor: "参数说明/DEFAULT"}
+  - {id: insert_fact_query_source, type: syntax, statement: "query 是把 SELECT 结果作为插入数据的输入分支。", status: confirmed, source_anchor: "参数说明/query"}
+  - {id: insert_fact_returning, type: behavior_oracle, statement: "RETURNING 按实际插入行计算输出，列表与 SELECT 输出列表一致并支持 *、表达式和别名。", status: confirmed, source_anchor: "参数说明/RETURNING"}
+  - {id: insert_fact_duplicate_semantics, type: behavior_oracle, statement: "ON DUPLICATE KEY UPDATE 在唯一冲突时执行 NOTHING 或更新，并支持 VALUES(column) 和 EXCLUDED.column 引用源行。", status: confirmed, source_anchor: "参数说明/ON DUPLICATE KEY UPDATE"}
+  - {id: insert_fact_duplicate_triggers, type: behavior_oracle, statement: "ON DUPLICATE 的插入、更新和 NOTHING 路径具有文档规定的不同行级及语句级触发器顺序。", status: confirmed, source_anchor: "参数说明/ON DUPLICATE/触发器"}
+  - {id: insert_fact_duplicate_restrictions, type: constraint, statement: "ON DUPLICATE 不支持延迟唯一约束、外表、UPDATE 子链接，且主键和唯一索引列不可更新。", status: confirmed, source_anchor: "参数说明/ON DUPLICATE/限制"}
+  - {id: insert_fact_conflict_semantics, type: behavior_oracle, statement: "ON CONFLICT 可按列或表达式冲突目标执行 DO NOTHING 或 DO UPDATE SET。", status: confirmed, source_anchor: "参数说明/ON CONFLICT"}
+  - {id: insert_fact_conflict_environment, type: environment, statement: "ON CONFLICT 仅支持 PG 兼容，且限制语法、权限、对象类型、重复源键、DBLINK 和查询输入。", status: confirmed, source_anchor: "参数说明/ON CONFLICT/限制"}
+  - {id: insert_fact_examples, type: example, statement: "文档示例覆盖单行、多行、查询、两类冲突、IGNORE、别名、CTE、视图和子查询插入。", status: confirmed, source_anchor: "示例"}
+  - {id: insert_fact_performance, type: environment, statement: "批量 VALUES 建议合并语句；UBTree RCR 批量索引优化受写入方式、数据顺序、SMP、缓存和内存条件影响。", status: confirmed, source_anchor: "优化建议"}
+  - {id: insert_inferred_target_input_contract, type: constraint, statement: "生成器必须在组合前校验目标列数/类型与 VALUES 或查询输出契约，DEFAULT VALUES 除外。", status: inferred, source_anchor: "由 column_name、expression、query 规则推导"}
+
+manifest_refs:
+  - manifest_insert_core_positive
+  - manifest_insert_cte_positive
+  - manifest_insert_target_forms_positive
+  - manifest_insert_duplicate_positive
+  - manifest_insert_duplicate_with_negative
+  - manifest_insert_duplicate_key_update_negative
+  - manifest_insert_duplicate_view_negative
+  - manifest_insert_partition_alias_negative
+matrix_refs: [matrix_insert_target_profiles, matrix_insert_source_profiles]
+fixture_refs:
+  - fixture_insert_target
+  - fixture_insert_unique_target
+  - fixture_insert_source
+  - fixture_insert_partition_target
+  - fixture_insert_view_target
+scenario_refs:
+  - scenario_insert_permissions
+  - scenario_insert_generated_and_truncation
+  - scenario_insert_ignore
+  - scenario_insert_cte_behavior
+  - scenario_insert_view_subquery
+  - scenario_insert_conflict_pg
+  - scenario_insert_duplicate_triggers
+  - scenario_insert_performance
+  - scenario_insert_dblink
+

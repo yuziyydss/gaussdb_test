@@ -1,0 +1,67 @@
+schema_version: 1
+kind: matrix
+id: matrix_create_index_key_profiles
+name: CREATE INDEX 键定义能力剖面
+status: ready
+description: 保存列、组合键、排序空值位置和表达式的有限键列表及结构属性。
+factor_ref: create_index
+profile_property_defaults:
+  definition_supported: true
+  online_supported: true
+  partition_supported: true
+  contains_partition_key: false
+profiles:
+  - id: ci_key_id
+    render: ""
+    validity: valid
+    properties: {items: [id], key_column_count: 1, source_columns: [id], contains_partition_key: true, expression: false}
+    fact_refs: [ci_fact_main_grammar]
+  - id: ci_key_id_note
+    render: ""
+    validity: valid
+    properties: {items: [id, note], key_column_count: 2, source_columns: [id, note], contains_partition_key: true, expression: false}
+    fact_refs: [ci_fact_key_column_limits]
+  - id: ci_key_name_asc_nulls_last
+    render: ""
+    validity: valid
+    properties: {items: ["name ASC NULLS LAST"], key_column_count: 1, source_columns: [name], expression: false}
+    fact_refs: [ci_fact_sort_nulls]
+  - id: ci_key_name_desc_nulls_first
+    render: ""
+    validity: valid
+    properties: {items: ["name DESC NULLS FIRST"], key_column_count: 1, source_columns: [name], expression: false, partition_supported: false}
+    fact_refs: [ci_fact_sort_nulls, ci_fact_partition_grammar]
+  - id: ci_key_name_desc_nulls_last
+    render: ""
+    validity: valid
+    properties: {items: ["name DESC NULLS LAST"], key_column_count: 1, source_columns: [name], expression: false}
+    fact_refs: [ci_fact_sort_nulls]
+  - id: ci_key_expression_lower_name
+    render: ""
+    validity: valid
+    properties: {items: ["(lower(name))"], key_column_count: 1, source_columns: [name], expression: true, immutable: true, online_supported: false}
+    fact_refs: [ci_fact_expression, ci_fact_immutable]
+  - id: ci_key_expression_abs_id
+    render: ""
+    validity: valid
+    properties: {items: ["(abs(id))"], key_column_count: 1, source_columns: [id], expression: true, immutable: true, online_supported: false, contains_partition_key: false}
+    fact_refs: [ci_fact_expression, ci_fact_immutable]
+  - id: ci_key_expression_is_null_invalid
+    render: ""
+    validity: invalid
+    properties: {items: ["(id IS NULL)"], key_column_count: 1, source_columns: [id], expression: true, immutable: true, online_supported: false, definition_supported: false}
+    fact_refs: [ci_fact_expression]
+  - id: ci_key_blob_invalid
+    render: ""
+    validity: invalid
+    properties: {items: [payload], key_column_count: 1, source_columns: [payload], expression: false, definition_supported: false}
+    fact_refs: [ci_fact_lob_restriction]
+
+documented_features:
+  - {id: ci_feature_single_key, profile_refs: [ci_key_id], status: covered, fact_refs: [ci_fact_main_grammar]}
+  - {id: ci_feature_composite_key, profile_refs: [ci_key_id_note], status: covered, fact_refs: [ci_fact_key_column_limits]}
+  - {id: ci_feature_sort_and_nulls, profile_refs: [ci_key_name_asc_nulls_last, ci_key_name_desc_nulls_first, ci_key_name_desc_nulls_last], status: covered, fact_refs: [ci_fact_sort_nulls]}
+  - {id: ci_feature_expression, profile_refs: [ci_key_expression_lower_name, ci_key_expression_abs_id], status: covered, fact_refs: [ci_fact_expression]}
+  - {id: ci_feature_is_null_invalid, profile_refs: [ci_key_expression_is_null_invalid], status: covered, fact_refs: [ci_fact_expression]}
+  - {id: ci_feature_lob_invalid, profile_refs: [ci_key_blob_invalid], status: covered, fact_refs: [ci_fact_lob_restriction]}
+fact_refs: [ci_fact_expression, ci_fact_sort_nulls, ci_fact_lob_restriction]

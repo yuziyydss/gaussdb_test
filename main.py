@@ -1,6 +1,7 @@
 """GaussDB 测试因子库 — Web 应用入口。"""
 import os
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
@@ -15,9 +16,13 @@ from core.scenario import ScenarioEngine, ScenarioDef, ScenarioStepDef
 from core.symbol_table import SchemaContext
 from core.spec_model import SpecRegistry
 from core.spec_generator import SpecSQLGenerator
+from core.factor_package_model import FactorPackageLoadError, FactorPackageRegistry
+from core.factor_package_generator import FactorPackageSQLGenerator
+from core.factor_coverage_auditor import FactorCoverageAuditor
 
 BASE_DIR = Path(__file__).resolve().parent
 FACTORS_DIR = BASE_DIR / "factors"
+SPECS_DIR = BASE_DIR / "specs"
 REPORTS_DIR = BASE_DIR / "reports"
 STATIC_DIR = BASE_DIR / "web" / "static"
 TEMPLATES_DIR = BASE_DIR / "web" / "templates"
@@ -33,6 +38,9 @@ registry.load()
 spec_registry = SpecRegistry(str(BASE_DIR))
 spec_registry.load_all()
 
+factor_package_registry = FactorPackageRegistry(SPECS_DIR)
+factor_package_registry.load_all()
+
 # 执行器（桩模式）
 executor = Executor(ExecConfig(enabled=False))
 
@@ -42,11 +50,77 @@ async def index(request: Request):
     """主页：侧边栏 + 欢迎区。"""
     registry.load()
     spec_registry.load_all()
-    return templates.TemplateResponse("index.html", {
+    factor_package_registry.load_all()
+    return templates.TemplateResponse(request, "index.html", {
         "request": request,
         "categories": registry.by_category(),
         "factor_count": len(registry.all()),
         "manifests": spec_registry.manifests,
+        "v1_factors": factor_package_registry.factors,
+        "v1_manifests": factor_package_registry.manifests,
+    })
+
+
+@app.get("/specs/factor/{factor_id}", response_class=HTMLResponse)
+async def factor_package_detail(request: Request, factor_id: str):
+    """Factor Package V1 详情页（HTMX 片段）。"""
+    try:
+        factor_package_registry.load_all()
+    except FactorPackageLoadError as exc:
+        return HTMLResponse(str(exc), status_code=422)
+    factor = factor_package_registry.get_factor(factor_id)
+    if factor is None:
+        return HTMLResponse("Factor Package 未找到", status_code=404)
+    confirmed_count = sum(1 for fact in factor.facts if fact.status == "confirmed")
+    open_questions = [fact for fact in factor.facts if fact.type == "open_question"]
+    coverage_audit = FactorCoverageAuditor(factor_package_registry).audit(factor_id)
+    return templates.TemplateResponse(request, "_factor_package_detail.html", {
+        "request": request,
+        "factor": factor,
+        "confirmed_count": confirmed_count,
+        "open_questions": open_questions,
+        "coverage_audit": coverage_audit,
+        "manifests": [
+            factor_package_registry.get_manifest(manifest_id)
+            for manifest_id in factor.manifest_refs
+        ],
+    })
+
+
+@app.get("/specs/manifest/{manifest_id}", response_class=HTMLResponse)
+async def factor_package_manifest_detail(request: Request, manifest_id: str):
+    """Factor Package V1 manifest 详情页（HTMX 片段）。"""
+    try:
+        factor_package_registry.load_all()
+    except FactorPackageLoadError as exc:
+        return HTMLResponse(str(exc), status_code=422)
+    manifest = factor_package_registry.get_manifest(manifest_id)
+    if manifest is None:
+        return HTMLResponse("V1 测试清单未找到", status_code=404)
+    return templates.TemplateResponse(request, "_factor_package_manifest_detail.html", {
+        "request": request,
+        "manifest": manifest,
+    })
+
+
+@app.post("/specs/manifest/generate", response_class=HTMLResponse)
+async def factor_package_manifest_generate(request: Request, manifest_id: str = Form(...)):
+    """生成 V1 SQL 与覆盖证据，不连接数据库。"""
+    try:
+        factor_package_registry.load_all()
+        manifest = factor_package_registry.get_manifest(manifest_id)
+        if manifest is None:
+            return HTMLResponse("V1 测试清单未找到", status_code=404)
+        cases, report = FactorPackageSQLGenerator(factor_package_registry).generate_with_report(manifest)
+    except (FactorPackageLoadError, ValueError) as exc:
+        return HTMLResponse(str(exc), status_code=422)
+    return templates.TemplateResponse(request, "_case_list.html", {
+        "request": request,
+        "factor": manifest,
+        "cases": cases,
+        "strategy": manifest.strategy,
+        "report": report,
+        "allow_execute": False,
     })
 
 
@@ -57,7 +131,7 @@ async def manifest_detail(request: Request, manifest_id: str):
     manifest = spec_registry.get_manifest(manifest_id)
     if not manifest:
         return HTMLResponse("测试清单未找到", status_code=404)
-    return templates.TemplateResponse("_manifest_detail.html", {
+    return templates.TemplateResponse(request, "_manifest_detail.html", {
         "request": request,
         "manifest": manifest,
     })
@@ -72,11 +146,12 @@ async def manifest_generate(request: Request, manifest_id: str = Form(...)):
         return HTMLResponse("测试清单未找到", status_code=404)
     gen = SpecSQLGenerator(spec_registry)
     cases = gen.generate_cases_for_manifest(manifest)
-    return templates.TemplateResponse("_case_list.html", {
+    return templates.TemplateResponse(request, "_case_list.html", {
         "request": request,
         "factor": manifest,
         "cases": cases,
         "strategy": manifest.strategy,
+        "allow_execute": False,
     })
 
 
@@ -87,7 +162,7 @@ async def coverage_view(request: Request):
     spec_registry.load_all()
     meter = SpecCoverageMeter(spec_registry)
     report = meter.compute_coverage()
-    return templates.TemplateResponse("_coverage_view.html", {
+    return templates.TemplateResponse(request, "_coverage_view.html", {
         "request": request,
         "report": report,
     })
@@ -125,7 +200,7 @@ async def factor_detail(request: Request, factor_id: str):
     factor = registry.get(factor_id)
     if not factor:
         return HTMLResponse("因子未找到", status_code=404)
-    return templates.TemplateResponse("_factor_detail.html", {
+    return templates.TemplateResponse(request, "_factor_detail.html", {
         "request": request,
         "factor": factor,
     })
@@ -140,11 +215,12 @@ async def generate(request: Request,
     if not factor:
         return HTMLResponse("因子未找到", status_code=404)
     cases = generate_cases(factor, strategy, registry)
-    return templates.TemplateResponse("_case_list.html", {
+    return templates.TemplateResponse(request, "_case_list.html", {
         "request": request,
         "factor": factor,
         "cases": cases,
         "strategy": strategy,
+        "allow_execute": True,
     })
 
 
@@ -161,7 +237,7 @@ async def execute(request: Request,
     report_path = generate_report(cases, results, factor.name, strategy,
                                   str(REPORTS_DIR))
     report_name = os.path.basename(report_path)
-    return templates.TemplateResponse("_exec_result.html", {
+    return templates.TemplateResponse(request, "_exec_result.html", {
         "request": request,
         "factor": factor,
         "cases": cases,
@@ -182,11 +258,14 @@ async def download_report(report_name: str):
 
 @app.post("/api/reload")
 async def api_reload():
-    """重新扫描 factors/ 目录，热加载因子定义。"""
+    """重新扫描 Legacy factors 与 Factor Package V1。"""
     registry.load()
+    factor_package_registry.load_all()
     return JSONResponse({
         "count": len(registry.all()),
         "factors": list(registry.all().keys()),
+        "v1_factor_count": len(factor_package_registry.factors),
+        "v1_factors": list(factor_package_registry.factors),
     })
 
 
@@ -222,6 +301,59 @@ async def api_generate(factor_id: str, strategy: str = "pairwise"):
     })
 
 
+@app.get("/api/specs/v1/manifests")
+async def api_factor_package_manifests():
+    """JSON API：列出 Factor Package V1 manifests。"""
+    try:
+        factor_package_registry.load_all()
+    except FactorPackageLoadError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
+    return JSONResponse({
+        manifest_id: {
+            "id": manifest.id,
+            "name": manifest.name,
+            "factor_ref": manifest.factor_ref,
+            "suite_type": manifest.suite_type,
+            "strategy": manifest.strategy,
+            "expected": manifest.expected.model_dump(),
+        }
+        for manifest_id, manifest in factor_package_registry.manifests.items()
+    })
+
+
+@app.get("/api/specs/v1/generate/{manifest_id}")
+async def api_factor_package_generate(manifest_id: str):
+    """JSON API：生成 V1 SQL、参数 ID 和 Pairwise 覆盖报告。"""
+    try:
+        factor_package_registry.load_all()
+        manifest = factor_package_registry.get_manifest(manifest_id)
+        if manifest is None:
+            return JSONResponse({"error": "V1 manifest not found"}, status_code=404)
+        cases, report = FactorPackageSQLGenerator(factor_package_registry).generate_with_report(manifest)
+    except (FactorPackageLoadError, ValueError) as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
+    return JSONResponse({
+        "manifest_id": manifest.id,
+        "factor_id": manifest.factor_ref,
+        "count": len(cases),
+        "report": report.to_dict(),
+        "cases": [case.to_dict() for case in cases],
+    })
+
+
+@app.get("/api/specs/v1/audit/{factor_id}")
+async def api_factor_package_audit(factor_id: str):
+    """JSON API：审计一个因子的原文、事实、值域、规则和场景覆盖。"""
+    try:
+        factor_package_registry.load_all()
+        if factor_package_registry.get_factor(factor_id) is None:
+            return JSONResponse({"error": "V1 factor not found"}, status_code=404)
+        audit = FactorCoverageAuditor(factor_package_registry).audit(factor_id)
+    except (FactorPackageLoadError, ValueError) as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
+    return JSONResponse(audit)
+
+
 def _get_default_scenario() -> ScenarioDef:
     return ScenarioDef(
         id="sc_order_lifecycle",
@@ -241,7 +373,7 @@ async def scenarios_view(request: Request):
     """场景链可视化与执行页（HTMX 片段）。"""
     registry.load()
     scenario = _get_default_scenario()
-    return templates.TemplateResponse("_scenario_view.html", {
+    return templates.TemplateResponse(request, "_scenario_view.html", {
         "request": request,
         "scenario": scenario,
         "result_case": None,
@@ -264,7 +396,7 @@ async def scenarios_execute(request: Request, scenario_id: str = Form(...)):
 
     context_json = json.dumps(result_case.final_context.to_dict() if result_case else {}, ensure_ascii=False, indent=2)
 
-    return templates.TemplateResponse("_scenario_view.html", {
+    return templates.TemplateResponse(request, "_scenario_view.html", {
         "request": request,
         "scenario": scenario,
         "result_case": result_case,
@@ -275,7 +407,7 @@ async def scenarios_execute(request: Request, scenario_id: str = Form(...)):
 @app.get("/api/db-config-modal", response_class=HTMLResponse)
 async def db_config_modal(request: Request):
     """数据库配置弹窗（HTMX 片段）。"""
-    return templates.TemplateResponse("_db_config_modal.html", {
+    return templates.TemplateResponse(request, "_db_config_modal.html", {
         "request": request,
         "config": executor.config,
     })

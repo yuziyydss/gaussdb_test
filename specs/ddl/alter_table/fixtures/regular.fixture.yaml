@@ -1,0 +1,46 @@
+schema_version: 1
+kind: fixture
+id: fixture_alter_table_regular
+name: ALTER TABLE 普通表
+status: ready
+description: 为列变更、索引约束、RLS、复制标识、重命名和模式移动提供稳定对象。
+factor_ref: alter_table
+provides:
+  tables:
+    - name: t_at_regular
+      persistence: permanent
+      table_kind: regular
+      columns:
+        - {name: id, type: INTEGER, nullable: false}
+        - {name: code, type: VARCHAR(32), nullable: false}
+        - {name: note, type: VARCHAR(64), nullable: true}
+        - {name: amount, type: INTEGER, nullable: false}
+        - {name: created_at, type: TIMESTAMP, nullable: true}
+seed:
+  required: true
+  rows:
+    - {id: 1, code: A001, note: alpha, amount: 10, created_at: null}
+    - {id: 2, code: A002, note: beta, amount: 20, created_at: null}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - "DROP TABLE IF EXISTS at_target_schema.t_at_regular CASCADE;"
+    - "DROP TABLE IF EXISTS t_at_renamed CASCADE;"
+    - "DROP TABLE IF EXISTS t_at_regular CASCADE;"
+    - "DROP SEQUENCE IF EXISTS at_seq CASCADE;"
+    - "DROP SCHEMA IF EXISTS at_target_schema CASCADE;"
+    - "CREATE SCHEMA at_target_schema;"
+    - "CREATE SEQUENCE at_seq;"
+    - "CREATE TABLE t_at_regular (id INTEGER NOT NULL, code VARCHAR(32) NOT NULL, note VARCHAR(64) DEFAULT 'n/a', amount INTEGER NOT NULL, created_at TIMESTAMP);"
+    - "CREATE UNIQUE INDEX uq_at_code ON t_at_regular (code);"
+    - "CREATE INDEX idx_at_id ON t_at_regular (id);"
+    - "ALTER TABLE t_at_regular ADD CONSTRAINT ck_at_amount_nonnegative CHECK (amount >= 0) NOT VALID;"
+    - "INSERT INTO t_at_regular (id, code, note, amount) VALUES (1, 'A001', 'alpha', 10), (2, 'A002', 'beta', 20);"
+  teardown_sqls:
+    - "DROP TABLE IF EXISTS at_target_schema.t_at_regular CASCADE;"
+    - "DROP TABLE IF EXISTS t_at_renamed CASCADE;"
+    - "DROP TABLE IF EXISTS t_at_regular CASCADE;"
+    - "DROP SEQUENCE IF EXISTS at_seq CASCADE;"
+    - "DROP SCHEMA IF EXISTS at_target_schema CASCADE;"
+  note: 每个 case 独立重建；兼容重命名和 SET SCHEMA 后的清理。

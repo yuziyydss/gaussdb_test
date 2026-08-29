@@ -1,0 +1,54 @@
+schema_version: 1
+kind: manifest
+id: manifest_create_view_options_positive
+name: CREATE VIEW 参数列表正向组合
+status: ready
+description: 覆盖 security_barrier、check_option 以及两个参数组成的列表。
+factor_ref: create_view
+syntax_ref: syntax_create_view
+suite_type: positive
+strategy: pairwise
+fixture_refs: [fixture_create_view_source_two_ints]
+
+identifier_policy:
+  view_name:
+    generator: deterministic
+    prefix: v_cv_options
+    unique_per_case: true
+
+bindings:
+  or_replace: [or_replace_absent, or_replace_keyword]
+  temp_modifier: [temp_absent]
+  force_modifier: [force_absent]
+  column_list: [column_list_inherited, column_list_two_aliases]
+  view_options_profile:
+    - view_option_security_true
+    - view_option_security_false
+    - view_option_check_cascaded
+    - view_option_check_local
+    - view_options_security_true_check_local
+    - view_options_security_false_check_cascaded
+    - view_options_check_local_security_true
+    - view_options_check_cascaded_security_false
+  query_profile: [query_simple_two_columns, query_filtered_two_columns]
+  post_query_option:
+    - post_query_none
+    - check_default
+    - check_cascaded
+    - check_local
+    - read_only
+
+local_rules:
+  - expression: >-
+      view_options_profile.properties.check_option in ['CASCADED', 'LOCAL']
+      => post_query_option == 'post_query_none'
+    rationale: 参数型 check_option 与尾部 CHECK OPTION/READ ONLY 同时出现时的合法性和优先级未由文档说明；security_barrier 则保留与全部尾部选项组合。
+    fact_refs: [cv_open_dual_check_syntax, cv_open_check_and_read_only]
+
+expected:
+  default: success
+  scope: syntax_and_semantics
+
+coverage_requirements:
+  strength: 2
+  require_all_feasible_pairs: true

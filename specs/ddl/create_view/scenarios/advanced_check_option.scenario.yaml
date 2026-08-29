@@ -1,0 +1,33 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_view_advanced_check_option
+name: CREATE VIEW CHECK OPTION 与 INSTEAD/兼容模式
+status: planned
+description: 覆盖 INSTEAD OF 触发器、INSTEAD 规则、嵌套 CASCADED 以及 A 兼容模式对检查行为的影响。
+factor_ref: create_view
+fact_refs:
+  - cv_fact_instead_trigger_check
+  - cv_fact_instead_rule_rewrite
+  - cv_fact_compatibility_check
+  - cv_fact_cascaded_overrides_local
+  - cv_fact_top_lower_relations
+
+variants:
+  - id: top_view_instead_of_trigger
+    preconditions: [可更新视图拥有 INSTEAD OF 触发器]
+    expected: CHECK OPTION 不检查该视图自身条件。
+  - id: lower_view_trigger_non_a_mode
+    preconditions: [底层视图拥有 INSTEAD OF 触发器, 上层视图使用 CASCADED, 非 A 兼容模式]
+    expected: 递归检查到带触发器的底层视图为止，但不检查该底层视图自身条件。
+  - id: lower_view_trigger_a_mode
+    preconditions: [底层视图拥有 INSTEAD OF 触发器, 上层视图使用 CASCADED, A 兼容模式]
+    expected: 相关 CHECK OPTION 均不执行检查。
+  - id: instead_rule_rewrite
+    preconditions: [当前视图或底层关系的 INSTEAD 规则重写 INSERT 或 UPDATE]
+    expected: 不检查所有视图条件。
+
+oracles:
+  - kind: dml_visibility_check
+    expected: 各变体的 INSERT/UPDATE 接受或拒绝结果与文档描述一致。
+
+execution_requirements: [database, trigger_ddl, rule_ddl, compatibility_mode_control]

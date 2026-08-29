@@ -1,0 +1,615 @@
+schema_version: 1
+kind: source_ledger
+id: source_ledger_create_view
+name: CREATE VIEW 原文单元覆盖账本
+status: needs_review
+description: 将提供的 CREATE VIEW 原文逐项映射到 fact/open question，或显式记录当前未抽取和范围外内容。
+factor_ref: create_view
+artifact_sha256: 29f390c3509b249495992def92633e0a8e217806af2f789c7e943d8153329dd3
+source_line_count: 71
+ignored_lines:
+  - line: 2
+    rationale: 功能描述章节标题，语义由其下 source units 承载。
+  - line: 7
+    rationale: 注意事项章节标题，语义由其下 source units 承载。
+  - line: 10
+    rationale: 语法格式章节标题，语义由主产生式 source unit 承载。
+  - line: 12
+    rationale: 空行。
+  - line: 15
+    rationale: 参数说明章节标题，语义由逐参数 source units 承载。
+  - line: 44
+    rationale: 更新、插入和删除概念的引导标题，语义由后续概念 source units 承载。
+  - line: 57
+    rationale: 示例章节标题，语义由逐示例 source units 承载。
+supplemental_sources:
+  - id: gaussdb_select_centralized_v8
+    document: GaussDB SELECT SQL语法（集中式 V2.0-8.x）
+    version: V2.0-8.x
+    url: https://support.huaweicloud.com/intl/zh-cn/centralized-devg-v8-gaussdb/gaussdb-42-0681.html
+    retrieval_date: "2026-08-28"
+    source_anchor: unpivot_clause；TIMECAPSULE；START WITH/CONNECT BY
+  - id: gaussdb_flashback_distributed_v8
+    document: GaussDB 闪回查询（分布式 V2.0-8.x）
+    version: V2.0-8.x
+    url: https://support.huaweicloud.com/fg-gaussdb-dist-v8/fg-gaussdb-dist-v8-pdf.pdf
+    retrieval_date: "2026-08-28"
+    source_anchor: 闪回查询前提条件与 TIMECAPSULE 语法
+
+units:
+  - id: cv_su_document_version
+    section: 来源元数据
+    source_anchor: 文档标题
+    line_start: 1
+    line_end: 1
+    statement: 原文给出 CREATE VIEW 标题，但没有显式产品版本。
+    status: open_question
+    fact_refs: [cv_open_document_version]
+
+  - id: cv_su_virtual_definition_storage
+    section: 功能描述
+    source_anchor: 虚拟表与存储方式
+    line_start: 3
+    line_end: 3
+    statement: 视图是虚拟表，数据库保存定义而不保存对应数据。
+    status: out_of_scope
+    rationale: 当前静态生成阶段没有可靠的物理存储 oracle；先保留为已审阅的描述性内容。
+
+  - id: cv_su_base_change_visibility
+    section: 功能描述
+    source_anchor: 基表变化反映到视图
+    line_start: 3
+    line_end: 3
+    statement: 基本表数据变化后，通过视图查询的数据也随之变化。
+    status: mapped
+    fact_refs: [cv_fact_base_change_visibility]
+
+  - id: cv_su_query_encapsulation
+    section: 功能描述
+    source_anchor: 封装复杂查询
+    line_start: 4
+    line_end: 4
+    statement: 视图可以封装经常使用的复杂查询以简化操作。
+    status: out_of_scope
+    rationale: 属于用途说明，不产生稳定的成功、失败或元数据 oracle。
+
+  - id: cv_su_data_hiding_security
+    section: 功能描述
+    source_anchor: 隐藏基表字段
+    line_start: 5
+    line_end: 5
+    statement: 视图只暴露定义的数据并隐藏基表字段和数据结构。
+    status: mapped
+    fact_refs: [cv_fact_view_hides_unexposed_data]
+
+  - id: cv_su_view_permission_simplification
+    section: 功能描述
+    source_anchor: 只授予视图权限
+    line_start: 6
+    line_end: 6
+    statement: 可以只授予视图使用权限以简化权限管理。
+    status: mapped
+    fact_refs: [cv_fact_view_permission_boundary]
+
+  - id: cv_su_create_any_table_permission
+    section: 注意事项
+    source_anchor: CREATE ANY TABLE
+    line_start: 8
+    line_end: 8
+    statement: 被授予 CREATE ANY TABLE 的用户可以在 public 和用户模式创建视图。
+    status: mapped
+    fact_refs: [cv_fact_create_any_table_permission]
+
+  - id: cv_su_system_view_replace_permission
+    section: 注意事项
+    source_anchor: 系统视图 OR REPLACE 限制
+    line_start: 9
+    line_end: 9
+    statement: 非初始用户不能替换 SYS、DBE_PERF、INFORMATION_SCHEMA 模式中的系统视图。
+    status: mapped
+    fact_refs: [cv_fact_system_view_replace_permission]
+
+  - id: cv_su_main_grammar
+    section: 语法格式
+    source_anchor: CREATE VIEW 主产生式
+    line_start: 11
+    line_end: 11
+    statement: 主产生式包含 OR REPLACE、TEMP/TEMPORARY、FORCE、列名、参数列表、query、CHECK OPTION 和 READ ONLY。
+    status: mapped
+    fact_refs: [cv_fact_main_grammar]
+
+  - id: cv_su_dual_check_positions
+    section: 语法格式
+    source_anchor: 参数型与尾部 CHECK
+    line_start: 11
+    line_end: 11
+    statement: 产生式提供参数型 check_option 和尾部 CHECK OPTION 两个位置，但没有说明同时出现的语义。
+    status: open_question
+    fact_refs: [cv_open_dual_check_syntax]
+
+  - id: cv_su_duplicate_view_options
+    section: 语法格式
+    source_anchor: 参数列表重复结构
+    line_start: 11
+    line_end: 11
+    statement: 参数列表允许重复项，但未说明同名参数重复时的处理。
+    status: open_question
+    fact_refs: [cv_open_duplicate_view_options]
+
+  - id: cv_su_check_parameter_and_read_only
+    section: 语法格式
+    source_anchor: 参数型 CHECK 与 READ ONLY
+    line_start: 11
+    line_end: 11
+    statement: 参数型 check_option 与尾部 READ ONLY 位于独立位置，但组合合法性没有说明。
+    status: open_question
+    fact_refs: [cv_open_check_and_read_only]
+
+  - id: cv_su_security_barrier_bare_and_oracle
+    section: 语法格式后说明
+    source_anchor: WITH(security_barrier)
+    line_start: 13
+    line_end: 13
+    statement: 裸写 security_barrier 用于降低低成本函数配合 RAISE 泄露隐藏数据的风险。
+    status: open_question
+    fact_refs: [cv_open_security_barrier_bare, cv_open_security_barrier_oracle]
+
+  - id: cv_su_dependency_column_invalidation
+    section: 语法格式后说明
+    source_anchor: 被依赖视图列变化
+    line_start: 14
+    line_end: 14
+    statement: 修改被依赖视图的列名、列类型或删除列会使依赖视图失效，与 enable_view_invalidation 无关。
+    status: mapped
+    fact_refs: [cv_fact_dependency_column_invalidation]
+
+  - id: cv_su_or_replace
+    section: 参数说明
+    source_anchor: OR REPLACE
+    line_start: 16
+    line_end: 17
+    statement: 视图存在时 OR REPLACE 重新定义视图。
+    status: mapped
+    fact_refs: [cv_fact_or_replace]
+
+  - id: cv_su_temp_session
+    section: 参数说明
+    source_anchor: TEMP 会话生命周期
+    line_start: 18
+    line_end: 19
+    statement: TEMP/TEMPORARY 创建的视图在当前会话结束时删除。
+    status: mapped
+    fact_refs: [cv_fact_temp_session]
+
+  - id: cv_su_temp_dependency
+    section: 参数说明
+    source_anchor: 临时依赖传播
+    line_start: 19
+    line_end: 19
+    statement: 引用任何临时表时，即使不写 TEMP，视图也会成为临时视图。
+    status: mapped
+    fact_refs: [cv_fact_temp_dependency]
+
+  - id: cv_su_temp_no_auto_recompile
+    section: 参数说明
+    source_anchor: 临时视图重编译
+    line_start: 20
+    line_end: 20
+    statement: 临时视图不支持自动重编译。
+    status: mapped
+    fact_refs: [cv_fact_temp_no_auto_recompile]
+
+  - id: cv_su_external_recompile_reference
+    section: 参数说明
+    source_anchor: 失效重编译外部章节
+    line_start: 21
+    line_end: 21
+    statement: 文档引用开发指南中的失效重编译章节。
+    status: out_of_scope
+    rationale: 外部章节不在本次附件中；具体机制由 dependency/force scenario 承接，不能从缺失正文补写。
+
+  - id: cv_su_force_missing_dependency
+    section: 参数说明
+    source_anchor: FORCE 缺失对象
+    line_start: 22
+    line_end: 23
+    statement: FORCE 允许依赖对象不存在时仍创建视图。
+    status: mapped
+    fact_refs: [cv_fact_force_dependency]
+
+  - id: cv_su_force_missing_privilege
+    section: 参数说明
+    source_anchor: FORCE 缺少查询权限
+    line_start: 23
+    line_end: 23
+    statement: FORCE 允许缺少依赖对象查询权限时仍创建视图，但后续状态和告警缺少示例。
+    status: open_question
+    fact_refs: [cv_fact_force_dependency, cv_open_force_missing_privilege]
+
+  - id: cv_su_schema_qualified_view_name
+    section: 参数说明
+    source_anchor: view_name
+    line_start: 24
+    line_end: 25
+    statement: view_name 可以使用模式名修饰。
+    status: mapped
+    fact_refs: [cv_fact_schema_qualified_name]
+
+  - id: cv_su_view_identifier_rules
+    section: 参数说明
+    source_anchor: view_name 取值范围
+    line_start: 26
+    line_end: 26
+    statement: view_name 必须符合外部标识符规则，但原文链接不可用。
+    status: open_question
+    fact_refs: [cv_open_identifier_rules]
+
+  - id: cv_su_column_names
+    section: 参数说明
+    source_anchor: column_name
+    line_start: 27
+    line_end: 28
+    statement: 可选名称列表作为视图字段名，省略时继承查询输出名称。
+    status: mapped
+    fact_refs: [cv_fact_column_names, cv_inferred_column_count_matches_query]
+
+  - id: cv_su_column_identifier_rules
+    section: 参数说明
+    source_anchor: column_name 取值范围
+    line_start: 29
+    line_end: 29
+    statement: column_name 必须符合外部标识符规则，但原文链接不可用。
+    status: open_question
+    fact_refs: [cv_open_identifier_rules]
+
+  - id: cv_su_view_option_optional_value
+    section: 参数说明
+    source_anchor: view_option_name [= view_option_value]
+    line_start: 30
+    line_end: 31
+    statement: 视图参数产生式将等号和值标为可选。
+    status: mapped
+    fact_refs: [cv_fact_main_grammar]
+
+  - id: cv_su_bare_check_option_ambiguity
+    section: 参数说明
+    source_anchor: check_option 省略值
+    line_start: 30
+    line_end: 34
+    statement: 通用产生式允许省略参数值，但没有说明裸写 check_option 是否有效或采用何种默认值。
+    status: open_question
+    fact_refs: [cv_open_bare_check_option]
+
+  - id: cv_su_supported_view_options
+    section: 参数说明
+    source_anchor: view_option_name 支持范围
+    line_start: 32
+    line_end: 32
+    statement: 当前仅支持 security_barrier 和 check_option 两个视图参数名。
+    status: mapped
+    fact_refs: [cv_fact_view_option_names]
+
+  - id: cv_su_security_barrier_type
+    section: 参数说明
+    source_anchor: security_barrier
+    line_start: 33
+    line_end: 33
+    statement: security_barrier 用于行级安全视图，值域为 Boolean true/false。
+    status: mapped
+    fact_refs: [cv_fact_security_barrier_type]
+
+  - id: cv_su_check_option_parameter_values
+    section: 参数说明
+    source_anchor: check_option 参数
+    line_start: 34
+    line_end: 34
+    statement: 参数型 check_option 的值域为 CASCADED 或 LOCAL。
+    status: mapped
+    fact_refs: [cv_fact_view_option_check]
+
+  - id: cv_su_query_select_or_values
+    section: 参数说明
+    source_anchor: query
+    line_start: 35
+    line_end: 36
+    statement: query 可以是提供行列的 SELECT 或 VALUES。
+    status: mapped
+    fact_refs: [cv_fact_query_select_or_values]
+
+  - id: cv_su_values_updatability
+    section: 参数说明
+    source_anchor: VALUES 更新能力
+    line_start: 36
+    line_end: 36
+    statement: 文档允许 VALUES query，但没有说明其可更新性和 CHECK OPTION 兼容性。
+    status: open_question
+    fact_refs: [cv_fact_query_select_or_values, cv_open_values_updatable]
+
+  - id: cv_su_partition_oid_invalidation
+    section: 参数说明
+    source_anchor: 指定分区 OID
+    line_start: 37
+    line_end: 37
+    statement: 指定分区的 OID 被记录，DROP/SPLIT/MERGE 导致 OID 变化时视图失效。
+    status: mapped
+    fact_refs: [cv_fact_partition_oid_invalidation]
+
+  - id: cv_su_check_rejects_invisible_rows
+    section: 参数说明
+    source_anchor: CHECK OPTION 行为
+    line_start: 38
+    line_end: 39
+    statement: CHECK OPTION 拒绝 INSERT/UPDATE 后不能通过视图看到的新行。
+    status: mapped
+    fact_refs: [cv_fact_check_behavior]
+
+  - id: cv_su_no_check_allows_invisible_rows
+    section: 参数说明
+    source_anchor: 未指定 CHECK OPTION
+    line_start: 39
+    line_end: 39
+    statement: 未指定 CHECK OPTION 时允许 INSERT/UPDATE 创建视图不可见行。
+    status: mapped
+    fact_refs: [cv_fact_no_check_allows_invisible_rows]
+
+  - id: cv_su_default_check_is_cascaded
+    section: 参数说明
+    source_anchor: 默认 CHECK
+    line_start: 40
+    line_end: 40
+    statement: 未指定 LOCAL/CASCADED 的 CHECK OPTION 默认采用 CASCADED。
+    status: mapped
+    fact_refs: [cv_fact_check_default_cascaded]
+
+  - id: cv_su_cascaded_semantics
+    section: 参数说明
+    source_anchor: CASCADED
+    line_start: 40
+    line_end: 40
+    statement: CASCADED 检查当前视图和所有底层视图的条件。
+    status: mapped
+    fact_refs: [cv_fact_check_cascaded_semantics]
+
+  - id: cv_su_local_semantics
+    section: 参数说明
+    source_anchor: LOCAL
+    line_start: 41
+    line_end: 41
+    statement: LOCAL 检查当前视图，底层视图仅在自身定义 CHECK 时参与检查。
+    status: mapped
+    fact_refs: [cv_fact_check_local_semantics]
+
+  - id: cv_su_read_only_behavior
+    section: 参数说明
+    source_anchor: WITH READ ONLY
+    line_start: 42
+    line_end: 43
+    statement: READ ONLY 视图拒绝 INSERT、UPDATE 和 DELETE。
+    status: mapped
+    fact_refs: [cv_fact_read_only_behavior]
+
+  - id: cv_su_join_view_definition
+    section: 参数说明
+    source_anchor: 连接视图
+    line_start: 45
+    line_end: 45
+    statement: 连接视图是由多张表 JOIN 创建的视图。
+    status: mapped
+    fact_refs: [cv_fact_join_view_definition]
+
+  - id: cv_su_key_preserved_definition
+    section: 参数说明
+    source_anchor: 保留键表定义
+    line_start: 46
+    line_end: 46
+    statement: 源表行与视图行一一对应、不会因 JOIN 映射为多行时，该源表为保留键表。
+    status: mapped
+    fact_refs: [cv_fact_key_preserved_definition]
+
+  - id: cv_su_key_preserved_detection
+    section: 参数说明
+    source_anchor: 保留键判断方式
+    line_start: 47
+    line_end: 47
+    statement: 仅支持通过 JOIN 条件判断保留键，不支持 JOIN+WHERE 等价类联合判断。
+    status: mapped
+    fact_refs: [cv_fact_key_preserved_detection]
+
+  - id: cv_su_top_and_lower_relations
+    section: 参数说明
+    source_anchor: 顶层与底层关系
+    line_start: 48
+    line_end: 48
+    statement: DML 直接操作的视图为顶层，构成视图的表、视图、子查询和 WITH 关系为底层关系。
+    status: mapped
+    fact_refs: [cv_fact_top_lower_relations]
+
+  - id: cv_su_updatable_column_criteria
+    section: 参数说明
+    source_anchor: 可更新列
+    line_start: 49
+    line_end: 49
+    statement: 非系统列、非 whole-row reference 且直接引用基表用户列的列可更新。
+    status: mapped
+    fact_refs: [cv_fact_updatable_column_criteria]
+
+  - id: cv_su_column_updatable_metadata
+    section: 参数说明
+    source_anchor: information_schema.columns.is_updatable
+    line_start: 49
+    line_end: 49
+    statement: information_schema.columns.is_updatable 可辅助确认列是否可更新。
+    status: mapped
+    fact_refs: [cv_fact_updatable_metadata]
+
+  - id: cv_su_non_updatable_features
+    section: 参数说明
+    source_anchor: 可更新视图排除特征
+    line_start: 50
+    line_end: 50
+    statement: 文档枚举 16 类使视图不可更新的查询特征，并规定 CHECK OPTION 只能用于可更新视图。
+    status: mapped
+    fact_refs: [cv_fact_non_updatable_features, cv_fact_check_updatable_only]
+
+  - id: cv_su_set_returning_function_examples
+    section: 参数说明
+    source_anchor: 返回集合函数示例
+    line_start: 50
+    line_end: 50
+    statement: 文档列举 array_agg、json_agg、generate_series 等返回集合函数代表。
+    status: mapped
+    fact_refs: [cv_fact_non_updatable_features]
+
+  - id: cv_su_non_updatable_profile_syntax
+    section: 参数说明
+    source_anchor: 方言子语法缺失
+    line_start: 50
+    line_end: 50
+    statement: 原文枚举 UNPIVOT、START WITH CONNECT BY 和闪回；补充 GaussDB 官方文档提供其代表子语法。
+    status: mapped
+    fact_refs: [cv_fact_non_updatable_features, cv_fact_non_updatable_profile_syntax]
+    supplemental_source_refs: [gaussdb_select_centralized_v8, gaussdb_flashback_distributed_v8]
+
+  - id: cv_su_view_updatable_metadata
+    section: 参数说明
+    source_anchor: information_schema.views/tables
+    line_start: 50
+    line_end: 50
+    statement: views.is_updatable 表示更新/删除能力，views/tables.is_insertable_into 表示插入能力。
+    status: mapped
+    fact_refs: [cv_fact_updatable_metadata]
+
+  - id: cv_su_instead_trigger_or_rule
+    section: 参数说明
+    source_anchor: 当前视图 INSTEAD
+    line_start: 51
+    line_end: 51
+    statement: 当前可更新视图有 INSTEAD OF 触发器或 INSTEAD 规则时，CHECK 不检查当前视图条件。
+    status: mapped
+    fact_refs: [cv_fact_instead_trigger_check]
+
+  - id: cv_su_compatibility_mode_check
+    section: 参数说明
+    source_anchor: 底层 INSTEAD OF 与兼容模式
+    line_start: 52
+    line_end: 52
+    statement: 底层 INSTEAD OF 触发器下，CASCADED 在非 A 与 A 兼容模式中的检查行为不同。
+    status: mapped
+    fact_refs: [cv_fact_compatibility_check]
+
+  - id: cv_su_cascaded_overrides_local
+    section: 参数说明
+    source_anchor: 上层 CASCADED 覆盖底层 LOCAL
+    line_start: 53
+    line_end: 53
+    statement: 上层 CASCADED CHECK 覆盖底层 LOCAL CHECK。
+    status: mapped
+    fact_refs: [cv_fact_cascaded_overrides_local]
+
+  - id: cv_su_instead_rule_rewrite
+    section: 参数说明
+    source_anchor: INSTEAD 规则重写
+    line_start: 54
+    line_end: 54
+    statement: 当前或底层关系的 INSTEAD 规则重写 INSERT/UPDATE 时，不检查所有视图条件。
+    status: mapped
+    fact_refs: [cv_fact_instead_rule_rewrite]
+
+  - id: cv_su_join_column_dml_restriction
+    section: 参数说明
+    source_anchor: CHECK 与连接列
+    line_start: 55
+    line_end: 55
+    statement: 指定 CHECK 后不能插入或更新连接视图/连接子查询中的连接列。
+    status: mapped
+    fact_refs: [cv_fact_join_check_restrictions]
+
+  - id: cv_su_repeated_table_delete_restriction
+    section: 参数说明
+    source_anchor: CHECK 与重复基表删除
+    line_start: 56
+    line_end: 56
+    statement: 重复基表不全是保留键表时，指定 CHECK 的连接视图不能删除。
+    status: mapped
+    fact_refs: [cv_fact_join_check_restrictions]
+
+  - id: cv_su_basic_view_example
+    section: 示例
+    source_anchor: 普通视图
+    line_start: 58
+    line_end: 59
+    statement: 示例从两列整数表创建带 WHERE 的 SELECT * 普通视图并查询结果。
+    status: mapped
+    fact_refs: [cv_example_basic_view]
+
+  - id: cv_su_read_only_example
+    section: 示例
+    source_anchor: 只读视图
+    line_start: 60
+    line_end: 61
+    statement: 示例创建 READ ONLY 视图并验证 INSERT 被拒绝。
+    status: mapped
+    fact_refs: [cv_fact_read_only_behavior]
+
+  - id: cv_su_replace_example
+    section: 示例
+    source_anchor: REPLACE 的应用
+    line_start: 62
+    line_end: 63
+    statement: 示例使用 OR REPLACE 改变查询来源、列数、列类型和列名。
+    status: mapped
+    fact_refs: [cv_fact_or_replace, cv_example_replace_shape]
+
+  - id: cv_su_force_compile_example
+    section: 示例
+    source_anchor: 视图一次性入库
+    line_start: 64
+    line_end: 65
+    statement: 示例展示 FORCE 缺失依赖后 valid=false，补表并 COMPILE 后 valid=true。
+    status: mapped
+    fact_refs: [cv_fact_force_invalid_then_compile]
+
+  - id: cv_su_temporary_view_example
+    section: 示例
+    source_anchor: 临时视图
+    line_start: 66
+    line_end: 67
+    statement: 示例展示 TEMP 视图位于 pg_temp 模式并在会话结束后消失。
+    status: mapped
+    fact_refs: [cv_fact_temp_session]
+
+  - id: cv_su_updatable_view_dml_example
+    section: 示例
+    source_anchor: 普通可更新视图 DML
+    line_start: 68
+    line_end: 69
+    statement: 示例展示普通单表视图的 INSERT、UPDATE 和 DELETE 路径。
+    status: mapped
+    fact_refs: [cv_example_updatable_view_dml]
+
+  - id: cv_su_check_and_metadata_example
+    section: 示例
+    source_anchor: CHECK OPTION 与可更新元数据
+    line_start: 68
+    line_end: 69
+    statement: 示例展示 CHECK 拒绝不可见行以及 information_schema 中的可更新性和 CHECK 类型。
+    status: mapped
+    fact_refs: [cv_fact_check_behavior, cv_fact_updatable_metadata, cv_example_check_metadata]
+
+  - id: cv_su_nested_lower_check_example
+    section: 示例
+    source_anchor: 顶层视图继承底层 CHECK
+    line_start: 69
+    line_end: 69
+    statement: 顶层视图未声明 CHECK 时，底层视图已有 CHECK 仍会拒绝不满足条件的插入。
+    status: mapped
+    fact_refs: [cv_fact_check_cascaded_semantics, cv_example_check_metadata]
+
+  - id: cv_su_key_preserved_example
+    section: 示例
+    source_anchor: JOIN+WHERE 等价类不支持
+    line_start: 70
+    line_end: 71
+    statement: 示例通过唯一索引和 JOIN+WHERE 展示无法推导保留键表时 UPDATE 失败。
+    status: mapped
+    fact_refs: [cv_fact_key_preserved_detection]

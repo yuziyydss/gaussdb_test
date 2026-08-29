@@ -1,0 +1,30 @@
+schema_version: 1
+kind: fixture
+id: fixture_create_index_partitioned
+name: CREATE INDEX 两分区目标表
+status: ready
+description: 为 LOCAL、GLOBAL、显式索引分区和 LPI 参数提供两分区表。
+factor_ref: create_index
+provides:
+  tables:
+    - name: t_ci_partitioned
+      persistence: permanent
+      table_kind: partitioned
+      columns:
+        - {name: id, type: INTEGER, nullable: false}
+        - {name: note, type: VARCHAR(64), nullable: true}
+        - {name: name, type: VARCHAR(64), nullable: true}
+        - {name: postcode, type: CHAR(6), nullable: true}
+        - {name: payload, type: BLOB, nullable: true}
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - DROP TABLE IF EXISTS t_ci_partitioned CASCADE;
+    - CREATE TABLE t_ci_partitioned (id INTEGER, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB) PARTITION BY RANGE (id) (PARTITION p_low VALUES LESS THAN (100), PARTITION p_max VALUES LESS THAN (MAXVALUE));
+    - INSERT INTO t_ci_partitioned (id, note, name, postcode) VALUES (1, 'one', 'Alpha', '300001'), (101, 'two', 'Beta', '300002');
+  teardown_sqls:
+    - DROP TABLE IF EXISTS t_ci_partitioned CASCADE;
+  note: 显式分区名 p_low/p_max 与 LOCAL 索引分区列表一一对应。
+

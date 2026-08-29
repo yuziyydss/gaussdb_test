@@ -1,0 +1,43 @@
+schema_version: 1
+kind: matrix
+id: matrix_create_index_table_profiles
+name: CREATE INDEX 目标表能力剖面
+status: needs_review
+description: 普通、临时、分区和待补充二级分区表目标。
+factor_ref: create_index
+profile_property_defaults: {}
+profiles:
+  - id: ci_table_regular
+    render: t_ci_regular
+    validity: valid
+    fixture_refs: [fixture_create_index_regular]
+    properties: {partitioned: false, temporary: false, source_tables: [t_ci_regular]}
+    fact_refs: [ci_fact_main_grammar]
+  - id: ci_table_temporary
+    render: t_ci_temp
+    validity: valid
+    fixture_refs: [fixture_create_index_temporary]
+    properties: {partitioned: false, temporary: true, source_tables: [t_ci_temp]}
+    fact_refs: [ci_fact_concurrently]
+  - id: ci_table_partitioned
+    render: t_ci_partitioned
+    validity: valid
+    fixture_refs: [fixture_create_index_partitioned]
+    properties: {partitioned: true, temporary: false, partition_key: id, partition_count: 2, source_tables: [t_ci_partitioned]}
+    fact_refs: [ci_fact_partition_grammar, ci_fact_partition_scope]
+  - id: ci_table_subpartitioned
+    render: t_ci_subpartitioned
+    validity: conditional
+    properties: {partitioned: true, subpartitioned: true, temporary: false, source_tables: [t_ci_subpartitioned]}
+    fact_refs: [ci_open_subpartition_fixture]
+
+documented_features:
+  - {id: ci_feature_regular_table, profile_refs: [ci_table_regular], status: covered, fact_refs: [ci_fact_main_grammar]}
+  - {id: ci_feature_temporary_table, profile_refs: [ci_table_temporary], status: covered, fact_refs: [ci_fact_concurrently]}
+  - {id: ci_feature_partition_table, profile_refs: [ci_table_partitioned], status: covered, fact_refs: [ci_fact_partition_grammar]}
+  - {id: ci_feature_subpartition_table, status: needs_profile, fact_refs: [ci_open_subpartition_fixture]}
+  - {id: ci_feature_default_partition_scope, status: needs_profile, fact_refs: [ci_open_partition_default_scope]}
+  - {id: ci_feature_tde_fixture, status: needs_profile, fact_refs: [ci_open_tde_fixture]}
+  - {id: ci_feature_partial_index_grammar, status: needs_profile, fact_refs: [ci_open_partial_index_grammar]}
+  - {id: ci_feature_if_not_exists_unnamed, status: needs_profile, fact_refs: [ci_open_if_not_exists_unnamed]}
+fact_refs: [ci_fact_main_grammar, ci_fact_partition_grammar]

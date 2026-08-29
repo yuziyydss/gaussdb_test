@@ -1,124 +1,221 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>GaussDB 测试因子库</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="theme-color" content="#0b1220">
+  <title>GaussDB Factor Lab</title>
   <script src="https://unpkg.com/htmx.org@1.9.10"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
-  <style>
-    .sql-code { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-  </style>
+  <link rel="stylesheet" href="/static/css/app.css">
 </head>
-<body class="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden">
+<body class="app-body">
+  <a href="#main-content" class="skip-link">跳到主要内容</a>
 
-  <!-- Header -->
-  <header class="bg-white border-b border-slate-200 px-5 py-2.5 flex items-center gap-3 flex-shrink-0">
-    <div class="w-7 h-7 rounded bg-blue-600 flex items-center justify-center">
-      <i data-lucide="database" class="w-4 h-4 text-white"></i>
+  <header class="app-header">
+    <div class="app-header__brand">
+      <button id="sidebar-toggle" type="button" class="icon-button lg:hidden" aria-label="打开导航菜单" aria-expanded="false" aria-controls="app-sidebar">
+        <i data-lucide="menu" aria-hidden="true"></i>
+      </button>
+      <a href="/" class="brand-mark" aria-label="GaussDB Factor Lab 首页">
+        <span class="brand-mark__icon"><i data-lucide="database-zap" aria-hidden="true"></i></span>
+        <span class="min-w-0">
+          <span class="brand-mark__title">Factor Lab</span>
+          <span class="brand-mark__subtitle">GaussDB SQL 规格测试工作台</span>
+        </span>
+      </a>
     </div>
-    <h1 class="text-base font-semibold tracking-tight">GaussDB 测试因子库</h1>
-    <span class="text-xs text-slate-400 ml-2">{{ factor_count }} 个因子定义</span>
-    <div class="flex-1"></div>
-    <button hx-get="/api/db-config-modal" hx-target="#modal-container" hx-swap="innerHTML"
-            class="flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg transition-colors border border-slate-200">
-      <i data-lucide="settings" class="w-3.5 h-3.5"></i>
-      数据库配置
-    </button>
+
+    <div class="app-header__meta">
+      <span class="runtime-badge"><span class="runtime-badge__dot"></span>静态生成就绪</span>
+      <span class="header-count hidden md:inline-flex"><strong>{{ v1_factors | length }}</strong>&nbsp;因子包</span>
+      <span class="header-count hidden md:inline-flex"><strong>{{ v1_manifests | length }}</strong>&nbsp;清单</span>
+      <button hx-get="/api/db-config-modal" hx-target="#modal-container" hx-swap="innerHTML"
+              class="secondary-button" type="button" aria-label="打开数据库配置">
+        <i data-lucide="sliders-horizontal" aria-hidden="true"></i>
+        <span class="hidden sm:inline">数据库配置</span>
+      </button>
+    </div>
   </header>
 
-  <div id="modal-container"></div>
+  <div id="modal-container" aria-live="polite"></div>
+  <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
 
-  <div class="flex flex-1 overflow-hidden">
-    <!-- Sidebar -->
-    <aside class="w-56 bg-white border-r border-slate-200 flex flex-col overflow-y-auto flex-shrink-0">
-      <!-- 场景链导航 -->
-      <div class="px-3 pt-3 pb-1">
-        <span class="text-[11px] font-semibold uppercase tracking-wider text-purple-600">场景流水线</span>
-      </div>
-      <a href="/scenarios"
-         hx-get="/scenarios" hx-target="#main-content" hx-swap="innerHTML"
-         class="flex items-center gap-2 px-3 py-1.5 mx-1.5 rounded text-sm text-purple-700 bg-purple-50/60 hover:bg-purple-100/80 transition-colors cursor-pointer font-medium mb-2">
-        <i data-lucide="git-merge" class="w-3.5 h-3.5 text-purple-600 flex-shrink-0"></i>
-        <span class="truncate">表全生命周期场景</span>
-      </a>
+  <div class="app-layout">
+    <aside id="app-sidebar" class="app-sidebar" aria-label="主导航">
+      <div class="sidebar-scroll">
+        <nav class="sidebar-nav">
+          <section class="nav-section" aria-labelledby="nav-workspace">
+            <div class="nav-section__label" id="nav-workspace">工作台</div>
+            <a href="/coverage" hx-get="/coverage" hx-target="#main-content" hx-swap="innerHTML"
+               class="nav-item nav-item--featured" data-nav-link>
+              <span class="nav-item__icon"><i data-lucide="chart-no-axes-combined" aria-hidden="true"></i></span>
+              <span class="nav-item__body"><span>质量总览</span><small>覆盖度与缺口</small></span>
+              <i data-lucide="chevron-right" class="nav-item__chevron" aria-hidden="true"></i>
+            </a>
+            <a href="/scenarios" hx-get="/scenarios" hx-target="#main-content" hx-swap="innerHTML"
+               class="nav-item" data-nav-link>
+              <span class="nav-item__icon"><i data-lucide="workflow" aria-hidden="true"></i></span>
+              <span class="nav-item__body"><span>场景流水线</span><small>状态与生命周期</small></span>
+            </a>
+          </section>
 
-      <!-- 组合测试清单 (Manifests) -->
-      <div class="px-3 pt-2 pb-1 border-t border-slate-100">
-        <span class="text-[11px] font-semibold uppercase tracking-wider text-emerald-600">测试清单 (Manifests)</span>
-      </div>
-      {% for m_id, m in manifests.items() %}
-      <a href="/manifest/{{ m_id }}"
-         hx-get="/manifest/{{ m_id }}" hx-target="#main-content" hx-swap="innerHTML"
-         class="flex items-center gap-2 px-3 py-1.5 mx-1.5 rounded text-sm text-emerald-800 hover:bg-emerald-50 transition-colors cursor-pointer mb-1">
-        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-600 flex-shrink-0"></i>
-        <span class="truncate">{{ m.name }}</span>
-      </a>
-      {% endfor %}
+          <section class="nav-section" aria-labelledby="nav-v1-factors">
+            <div class="nav-section__label-row">
+              <div class="nav-section__label" id="nav-v1-factors">V1 因子包</div>
+              <span class="nav-count">{{ v1_factors | length }}</span>
+            </div>
+            {% for f_id, f in v1_factors.items() %}
+            <a href="/specs/factor/{{ f_id }}" hx-get="/specs/factor/{{ f_id }}" hx-target="#main-content" hx-swap="innerHTML"
+               class="nav-item" data-nav-link>
+              <span class="nav-item__icon"><i data-lucide="package-check" aria-hidden="true"></i></span>
+              <span class="nav-item__body"><span>{{ f.name }}</span><small>{{ f.category }} · {{ f.status }}</small></span>
+            </a>
+            {% endfor %}
+          </section>
 
-      <!-- 质量闭环导航 -->
-      <div class="px-3 pt-2 pb-1 border-t border-slate-100">
-        <span class="text-[11px] font-semibold uppercase tracking-wider text-blue-600">质量度量</span>
-      </div>
-      <a href="/coverage"
-         hx-get="/coverage" hx-target="#main-content" hx-swap="innerHTML"
-         class="flex items-center gap-2 px-3 py-1.5 mx-1.5 rounded text-sm text-blue-700 bg-blue-50/60 hover:bg-blue-100/80 transition-colors cursor-pointer font-medium mb-2">
-        <i data-lucide="pie-chart" class="w-3.5 h-3.5 text-blue-600 flex-shrink-0"></i>
-        <span class="truncate">文档特性覆盖度量</span>
-      </a>
+          <details class="nav-disclosure">
+            <summary>
+              <span><i data-lucide="list-checks" aria-hidden="true"></i>V1 生成清单</span>
+              <span class="nav-count">{{ v1_manifests | length }}</span>
+            </summary>
+            <div class="nav-disclosure__content">
+              {% for m_id, m in v1_manifests.items() %}
+              <a href="/specs/manifest/{{ m_id }}" hx-get="/specs/manifest/{{ m_id }}" hx-target="#main-content" hx-swap="innerHTML"
+                 class="nav-item nav-item--compact" data-nav-link title="{{ m.name }}">
+                <span class="nav-status-dot {% if m.suite_type == 'negative' %}nav-status-dot--negative{% else %}nav-status-dot--positive{% endif %}"></span>
+                <span class="truncate">{{ m.name }}</span>
+              </a>
+              {% endfor %}
+            </div>
+          </details>
 
-      <div class="px-3 pt-2 pb-1 flex items-center justify-between border-t border-slate-100">
-        <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">原子因子 (Legacy)</span>
-        <button onclick="location.reload()"
-                title="重新加载因子定义"
-                class="text-slate-400 hover:text-blue-600 transition-colors p-0.5">
-          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
-        </button>
+          <details class="nav-disclosure">
+            <summary>
+              <span><i data-lucide="archive" aria-hidden="true"></i>Legacy V0</span>
+              <span class="nav-count">{{ manifests | length + factor_count }}</span>
+            </summary>
+            <div class="nav-disclosure__content">
+              <div class="nav-subhead">组合清单</div>
+              {% for m_id, m in manifests.items() %}
+              <a href="/manifest/{{ m_id }}" hx-get="/manifest/{{ m_id }}" hx-target="#main-content" hx-swap="innerHTML"
+                 class="nav-item nav-item--compact" data-nav-link>
+                <i data-lucide="file-stack" aria-hidden="true"></i><span class="truncate">{{ m.name }}</span>
+              </a>
+              {% endfor %}
+              {% for cat, factors in categories.items() %}
+              <div class="nav-subhead">{{ cat }}</div>
+              {% for f in factors %}
+              <a href="/factor/{{ f.id }}" hx-get="/factor/{{ f.id }}" hx-target="#main-content" hx-swap="innerHTML"
+                 class="nav-item nav-item--compact" data-nav-link>
+                <i data-lucide="file-code-2" aria-hidden="true"></i><span class="truncate">{{ f.name }}</span>
+              </a>
+              {% endfor %}
+              {% endfor %}
+            </div>
+          </details>
+        </nav>
       </div>
-      {% for cat, factors in categories.items() %}
-      <div class="px-3 pt-2 pb-1">
-        <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{{ cat }}</span>
-      </div>
-      {% for f in factors %}
-      <a href="/factor/{{ f.id }}"
-         hx-get="/factor/{{ f.id }}" hx-target="#main-content" hx-swap="innerHTML"
-         class="flex items-center gap-2 px-3 py-1.5 mx-1.5 rounded text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer">
-        <i data-lucide="file-text" class="w-3.5 h-3.5 text-slate-400 flex-shrink-0"></i>
-        <span class="truncate">{{ f.name }}</span>
-      </a>
-      {% endfor %}
-      {% endfor %}
 
-      <div class="mt-auto px-3 py-3 border-t border-slate-100">
-        <details class="text-[11px] text-slate-400 leading-relaxed">
-          <summary class="cursor-pointer hover:text-slate-600">如何添加新因子?</summary>
-          <div class="mt-2">
-            在 <code class="text-slate-500">factors/</code> 下新建 .yaml 文件，
-            按 create_table.yaml 格式编写，
-            保存后点上方刷新按钮。
-          </div>
-        </details>
+      <div class="sidebar-footer">
+        <div class="sidebar-footer__icon"><i data-lucide="book-open-text" aria-hidden="true"></i></div>
+        <div><strong>Factor Packages V1</strong><span>GaussDB 测试因子库 · 表全生命周期场景</span></div>
       </div>
     </aside>
 
-    <!-- Main -->
-    <main id="main-content" class="flex-1 overflow-y-auto p-6">
-      <div class="max-w-4xl mx-auto pt-8">
-        <div class="text-center">
-          <div class="w-12 h-12 mx-auto rounded-xl bg-blue-50 flex items-center justify-center mb-3">
-            <i data-lucide="layers" class="w-6 h-6 text-blue-500"></i>
+    <main id="main-content" class="app-main" tabindex="-1" aria-live="polite">
+      <div class="welcome-shell">
+        <section class="welcome-hero">
+          <div class="eyebrow"><span></span>Specification-driven SQL testing</div>
+          <h1>把产品文档变成<br><em>可证明的测试用例</em></h1>
+          <p>从原文事实、递归语法与约束模型出发，生成可追溯 SQL，并验证所有可行 Pair 是否完整覆盖。</p>
+          <div class="welcome-actions">
+            {% if v1_factors %}
+            {% set first_factor_id, first_factor = (v1_factors.items() | list | first) %}
+            <a href="/specs/factor/{{ first_factor_id }}" hx-get="/specs/factor/{{ first_factor_id }}" hx-target="#main-content" hx-swap="innerHTML" class="primary-button" data-nav-link>
+              查看因子包 <i data-lucide="arrow-right" aria-hidden="true"></i>
+            </a>
+            {% endif %}
+            <a href="/coverage" hx-get="/coverage" hx-target="#main-content" hx-swap="innerHTML" class="ghost-button" data-nav-link>
+              查看覆盖审计
+            </a>
           </div>
-          <h2 class="text-lg font-semibold text-slate-700">选择左侧的 SQL 语法开始</h2>
-          <p class="text-sm text-slate-400 mt-1">选择因子定义 → 选覆盖策略 → 生成 SQL → 执行 → 看报告</p>
-        </div>
+        </section>
+
+        <section class="welcome-stats" aria-label="项目概况">
+          <article class="welcome-stat welcome-stat--primary">
+            <div class="welcome-stat__icon"><i data-lucide="boxes" aria-hidden="true"></i></div>
+            <strong>{{ v1_factors | length }}</strong><span>V1 因子包</span>
+            <small>CREATE VIEW · SELECT</small>
+          </article>
+          <article class="welcome-stat">
+            <div class="welcome-stat__icon"><i data-lucide="list-checks" aria-hidden="true"></i></div>
+            <strong>{{ v1_manifests | length }}</strong><span>生成清单</span>
+            <small>正向、负向与 AST 组合</small>
+          </article>
+          <article class="welcome-stat">
+            <div class="welcome-stat__icon"><i data-lucide="shield-check" aria-hidden="true"></i></div>
+            <strong>100%</strong><span>可行 Pair</span>
+            <small>缺失 Pair 将阻断生成</small>
+          </article>
+          <article class="welcome-stat welcome-stat--dark">
+            <div class="welcome-stat__icon"><i data-lucide="waypoints" aria-hidden="true"></i></div>
+            <strong>4</strong><span>证据层级</span>
+            <small>原文 · 模型 · 生成 · 行为</small>
+          </article>
+        </section>
+
+        <section class="workflow-strip" aria-label="生成流程">
+          <div><span>01</span><strong>抽取事实</strong><small>Source Unit 与溯源</small></div>
+          <i data-lucide="arrow-right" aria-hidden="true"></i>
+          <div><span>02</span><strong>建立规格</strong><small>AST、维度与约束</small></div>
+          <i data-lucide="arrow-right" aria-hidden="true"></i>
+          <div><span>03</span><strong>组合生成</strong><small>约束感知 Pairwise</small></div>
+          <i data-lucide="arrow-right" aria-hidden="true"></i>
+          <div><span>04</span><strong>覆盖审计</strong><small>缺口与行为闭环</small></div>
+        </section>
       </div>
     </main>
   </div>
 
-  <script>lucide.createIcons();</script>
+  <div id="global-loading" class="global-loading htmx-indicator" role="status" aria-live="polite">
+    <span></span>正在加载…
+  </div>
+
+  <script>
+    const sidebar = document.getElementById('app-sidebar');
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+    function setSidebar(open) {
+      document.body.classList.toggle('sidebar-open', open);
+      sidebarToggle.setAttribute('aria-expanded', String(open));
+      sidebarToggle.setAttribute('aria-label', open ? '关闭导航菜单' : '打开导航菜单');
+      sidebarOverlay.setAttribute('aria-hidden', String(!open));
+    }
+
+    sidebarToggle.addEventListener('click', () => setSidebar(!document.body.classList.contains('sidebar-open')));
+    sidebarOverlay.addEventListener('click', () => setSidebar(false));
+
+    document.body.addEventListener('click', (event) => {
+      const link = event.target.closest('[data-nav-link]');
+      if (!link) return;
+      document.querySelectorAll('[data-nav-link]').forEach(item => item.classList.remove('is-active'));
+      link.classList.add('is-active');
+      if (window.innerWidth < 1024) setSidebar(false);
+    });
+
+    document.body.addEventListener('htmx:beforeRequest', () => document.body.classList.add('is-loading'));
+    document.body.addEventListener('htmx:afterRequest', () => document.body.classList.remove('is-loading'));
+    document.body.addEventListener('htmx:afterSwap', (event) => {
+      lucide.createIcons();
+      if (event.detail.target.id === 'main-content') {
+        event.detail.target.scrollTo({top: 0, left: 0, behavior: 'auto'});
+        event.detail.target.focus({preventScroll: true});
+      }
+    });
+
+    lucide.createIcons();
+  </script>
 </body>
 </html>

@@ -2,6 +2,8 @@
 
 > 面向华为 GaussDB 数据库的工业级规格驱动自动化测试编译器：实现从产品文档（5800+页）到高质量测试用例、沙箱执行、蜕变验证与质量覆盖率闭环。
 
+> 内网文档无法外传时，请从 [内网 AI 执行入口](INTRANET_AI_INSTRUCTIONS.md) 开始，并使用 [内网批量 Doc2Spec 运行手册](docs/INTRANET_AI_BATCH_EXTRACTION.md) 的离线任务队列。当前新规格的权威契约是 [Factor Package Schema V1](docs/FACTOR_PACKAGE_SCHEMA_V1.md)；下文部分旧版 `grammars/`、`matrices/`、`manifests/` 描述仅保留兼容背景。
+
 ---
 
 ## 一、 系统核心目标与设计理念

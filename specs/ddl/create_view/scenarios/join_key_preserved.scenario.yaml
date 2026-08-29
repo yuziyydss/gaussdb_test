@@ -1,0 +1,32 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_view_join_key_preserved
+name: CREATE VIEW 连接视图与保留键表
+status: planned
+description: 覆盖连接列 DML 限制、重复基表删除限制和仅依靠 JOIN 条件判断保留键表的规则。
+factor_ref: create_view
+fact_refs:
+  - cv_fact_join_view_definition
+  - cv_fact_key_preserved_definition
+  - cv_fact_join_check_restrictions
+  - cv_fact_key_preserved_detection
+
+variants:
+  - id: check_option_join_column_insert_update
+    preconditions: [多表连接视图指定 CHECK OPTION]
+    operations: [insert_join_column, update_join_column]
+    expected: error
+  - id: repeated_non_key_preserved_table_delete
+    preconditions: [多表连接中重复基表, 重复基表不全是保留键表, 视图指定 CHECK OPTION]
+    operations: [delete]
+    expected: error
+  - id: join_plus_where_equivalence
+    preconditions: [唯一索引已建立, 只有 JOIN 与 WHERE 联合后才能推导键保留]
+    operations: [update]
+    expected: error_non_key_preserved_table
+
+oracles:
+  - kind: operation_rejected
+    expected: 错误原因指向连接列或非保留键表限制，而不是无关语法错误。
+
+execution_requirements: [database, multiple_tables, indexes, dml, error_assertion]

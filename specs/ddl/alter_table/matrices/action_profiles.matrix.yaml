@@ -1,0 +1,114 @@
+schema_version: 1
+kind: matrix
+id: matrix_alter_table_action_profiles
+name: ALTER TABLE action 能力剖面
+status: needs_review
+description: 可独立静态生成的 action、明确负向 action 和待环境验证 action。
+factor_ref: alter_table
+profile_property_defaults:
+  source_columns: []
+  online_effective: false
+  partition_forbidden: false
+  enables_rls: false
+  changes_orientation: false
+  default_uses_nextval: false
+  statistics_target_valid: true
+  identity_type_supported: true
+  current_version_supported: true
+  requires_b_mode: false
+profiles:
+  - {id: at_action_default, render: "COMMENT = 'factor table'", validity: valid, properties: {}, fact_refs: [at_fact_comments]}
+  - {id: at_action_add_column, render: "ADD COLUMN extra_col INTEGER", validity: valid, properties: {}, fact_refs: [at_fact_add_column]}
+  - {id: at_action_add_if_not_exists, render: "ADD COLUMN IF NOT EXISTS extra_col INTEGER", validity: valid, properties: {}, fact_refs: [at_fact_add_column]}
+  - {id: at_action_add_default, render: "ADD COLUMN state INTEGER DEFAULT 0", validity: valid, properties: {}, fact_refs: [at_fact_add_column_default]}
+  - {id: at_action_drop_column, render: "DROP COLUMN note RESTRICT", validity: valid, properties: {source_columns: [note]}, fact_refs: [at_fact_drop_column]}
+  - {id: at_action_alter_type, render: "ALTER COLUMN note TYPE VARCHAR(96)", validity: valid, properties: {source_columns: [note], online_effective: true}, fact_refs: [at_fact_alter_type, at_fact_online_mode]}
+  - {id: at_action_alter_type_using, render: "ALTER COLUMN amount TYPE BIGINT USING amount::BIGINT", validity: valid, properties: {source_columns: [amount], online_effective: true}, fact_refs: [at_fact_alter_type]}
+  - {id: at_action_set_default, render: "ALTER COLUMN note SET DEFAULT 'unknown'", validity: valid, properties: {source_columns: [note]}, fact_refs: [at_fact_column_default]}
+  - {id: at_action_drop_default, render: "ALTER COLUMN note DROP DEFAULT", validity: valid, properties: {source_columns: [note]}, fact_refs: [at_fact_column_default]}
+  - {id: at_action_set_not_null, render: "ALTER COLUMN amount SET NOT NULL", validity: valid, properties: {source_columns: [amount], online_effective: true}, fact_refs: [at_fact_not_null, at_fact_online_mode]}
+  - {id: at_action_drop_not_null, render: "ALTER COLUMN amount DROP NOT NULL", validity: valid, properties: {source_columns: [amount]}, fact_refs: [at_fact_not_null]}
+  - {id: at_action_statistics_0, render: "ALTER COLUMN amount SET STATISTICS 0", validity: valid, properties: {source_columns: [amount]}, fact_refs: [at_fact_column_statistics]}
+  - {id: at_action_statistics_10000, render: "ALTER COLUMN amount SET STATISTICS 10000", validity: valid, properties: {source_columns: [amount]}, fact_refs: [at_fact_column_statistics]}
+  - {id: at_action_statistics_default, render: "ALTER COLUMN amount SET STATISTICS -1", validity: valid, properties: {source_columns: [amount]}, fact_refs: [at_fact_column_statistics]}
+  - {id: at_action_statistics_percent, render: "ALTER COLUMN amount SET STATISTICS PERCENT 100", validity: valid, properties: {source_columns: [amount]}, fact_refs: [at_fact_column_statistics]}
+  - {id: at_action_add_multistat, render: "ADD STATISTICS ((id, amount))", validity: valid, properties: {source_columns: [id, amount]}, fact_refs: [at_fact_column_statistics]}
+  - id: at_action_delete_multistat
+    render: "DELETE STATISTICS ((code, amount))"
+    validity: valid
+    fixture_refs: [fixture_alter_table_multistat]
+    properties: {source_columns: [code, amount]}
+    fact_refs: [at_fact_column_statistics]
+  - id: at_action_disable_multistat
+    render: "DISABLE STATISTICS ((code, amount))"
+    validity: valid
+    fixture_refs: [fixture_alter_table_multistat]
+    properties: {source_columns: [code, amount]}
+    fact_refs: [at_fact_column_statistics]
+  - id: at_action_enable_multistat
+    render: "ENABLE STATISTICS ((code, amount))"
+    validity: valid
+    fixture_refs: [fixture_alter_table_multistat]
+    properties: {source_columns: [code, amount]}
+    fact_refs: [at_fact_column_statistics]
+  - {id: at_action_set_ndistinct, render: "ALTER COLUMN amount SET (n_distinct = 10)", validity: valid, properties: {source_columns: [amount]}, fact_refs: [at_fact_attribute_storage]}
+  - {id: at_action_reset_ndistinct, render: "ALTER COLUMN amount RESET (n_distinct)", validity: valid, properties: {source_columns: [amount]}, fact_refs: [at_fact_attribute_storage]}
+  - {id: at_action_storage_plain, render: "ALTER COLUMN id SET STORAGE PLAIN", validity: valid, properties: {source_columns: [id]}, fact_refs: [at_fact_attribute_storage]}
+  - {id: at_action_storage_external, render: "ALTER COLUMN note SET STORAGE EXTERNAL", validity: valid, properties: {source_columns: [note]}, fact_refs: [at_fact_attribute_storage]}
+  - {id: at_action_storage_extended, render: "ALTER COLUMN note SET STORAGE EXTENDED", validity: valid, properties: {source_columns: [note]}, fact_refs: [at_fact_attribute_storage]}
+  - {id: at_action_storage_main, render: "ALTER COLUMN note SET STORAGE MAIN", validity: valid, properties: {source_columns: [note]}, fact_refs: [at_fact_attribute_storage]}
+  - {id: at_action_add_check, render: "ADD CONSTRAINT ck_at_amount_upper CHECK (amount < 10000)", validity: valid, properties: {source_columns: [amount], online_effective: true}, fact_refs: [at_fact_constraint_actions, at_fact_check_generated]}
+  - {id: at_action_add_check_not_valid, render: "ADD CONSTRAINT ck_at_amount_limit CHECK (amount < 5000) NOT VALID", validity: valid, properties: {source_columns: [amount]}, fact_refs: [at_fact_constraint_actions, at_fact_check_generated]}
+  - {id: at_action_add_unique, render: "ADD CONSTRAINT uq_at_note UNIQUE (note)", validity: valid, properties: {source_columns: [note], online_effective: true}, fact_refs: [at_fact_constraint_actions, at_fact_table_constraints]}
+  - {id: at_action_add_primary, render: "ADD CONSTRAINT pk_at_id PRIMARY KEY (id)", validity: valid, properties: {source_columns: [id], online_effective: true}, fact_refs: [at_fact_constraint_actions, at_fact_table_constraints]}
+  - {id: at_action_validate_check, render: "VALIDATE CONSTRAINT ck_at_amount_nonnegative", validity: valid, properties: {source_columns: [amount]}, fact_refs: [at_fact_constraint_actions]}
+  - {id: at_action_drop_constraint, render: "DROP CONSTRAINT IF EXISTS ck_at_amount_nonnegative RESTRICT", validity: valid, properties: {}, fact_refs: [at_fact_constraint_actions]}
+  - {id: at_action_primary_using_index, render: "ADD CONSTRAINT pk_at_code PRIMARY KEY USING INDEX uq_at_code", validity: valid, properties: {source_columns: [code]}, fact_refs: [at_fact_constraint_actions, at_fact_table_constraints]}
+  - {id: at_action_cluster_on, render: "CLUSTER ON idx_at_id", validity: valid, properties: {source_columns: [id]}, fact_refs: [at_fact_cluster]}
+  - {id: at_action_without_cluster, render: "SET WITHOUT CLUSTER", validity: valid, properties: {}, fact_refs: [at_fact_cluster]}
+  - {id: at_action_set_fillfactor, render: "SET (fillfactor = 70)", validity: valid, properties: {}, fact_refs: [at_fact_table_storage]}
+  - {id: at_action_reset_fillfactor, render: "RESET (fillfactor)", validity: valid, properties: {}, fact_refs: [at_fact_table_storage]}
+  - {id: at_action_enable_rls, render: "ENABLE ROW LEVEL SECURITY", validity: valid, properties: {enables_rls: true}, fact_refs: [at_fact_rls]}
+  - {id: at_action_disable_rls, render: "DISABLE ROW LEVEL SECURITY", validity: valid, properties: {}, fact_refs: [at_fact_rls]}
+  - {id: at_action_force_rls, render: "FORCE ROW LEVEL SECURITY", validity: valid, properties: {enables_rls: true}, fact_refs: [at_fact_rls]}
+  - {id: at_action_no_force_rls, render: "NO FORCE ROW LEVEL SECURITY", validity: valid, properties: {}, fact_refs: [at_fact_rls]}
+  - {id: at_action_replica_default, render: "REPLICA IDENTITY DEFAULT", validity: valid, properties: {}, fact_refs: [at_fact_replica_identity]}
+  - {id: at_action_replica_full, render: "REPLICA IDENTITY FULL", validity: valid, properties: {}, fact_refs: [at_fact_replica_identity]}
+  - {id: at_action_replica_nothing, render: "REPLICA IDENTITY NOTHING", validity: valid, properties: {}, fact_refs: [at_fact_replica_identity]}
+  - {id: at_action_replica_unique, render: "REPLICA IDENTITY UNIQUE", validity: valid, properties: {}, fact_refs: [at_fact_replica_identity]}
+  - {id: at_action_replica_using, render: "REPLICA IDENTITY USING INDEX uq_at_code", validity: valid, properties: {source_columns: [code]}, fact_refs: [at_fact_replica_identity]}
+  - {id: at_action_add_identity, render: "ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY", validity: valid, properties: {source_columns: [id]}, fact_refs: [at_fact_identity]}
+  - {id: at_action_multiple, render: "ADD COLUMN extra_one INTEGER, ADD COLUMN extra_two INTEGER", validity: valid, properties: {}, fact_refs: [at_fact_multi_action]}
+
+  - {id: at_action_partition_set_tablespace, render: "SET TABLESPACE gs_default", validity: invalid, properties: {partition_forbidden: true}, fact_refs: [at_fact_partition_restrictions]}
+  - {id: at_action_partition_key_type, render: "ALTER COLUMN id TYPE BIGINT", validity: invalid, properties: {source_columns: [id], partition_forbidden: true}, fact_refs: [at_fact_partition_restrictions]}
+  - {id: at_action_add_nextval, render: "ADD COLUMN seq_col BIGINT DEFAULT nextval('at_seq')", validity: invalid, properties: {default_uses_nextval: true}, fact_refs: [at_fact_add_column_default]}
+  - {id: at_action_set_orientation, render: "SET (orientation = column)", validity: invalid, properties: {changes_orientation: true}, fact_refs: [at_fact_orientation_restriction]}
+  - {id: at_action_statistics_10001, render: "ALTER COLUMN amount SET STATISTICS 10001", validity: invalid, properties: {source_columns: [amount], statistics_target_valid: false}, fact_refs: [at_fact_column_statistics]}
+  - {id: at_action_identity_varchar, render: "ALTER COLUMN note ADD GENERATED ALWAYS AS IDENTITY", validity: invalid, properties: {source_columns: [note], identity_type_supported: false}, fact_refs: [at_fact_identity]}
+  - {id: at_action_gsiwaitall, render: "GSIWAITALL", validity: invalid, properties: {current_version_supported: false}, fact_refs: [at_fact_gsiwaitall]}
+
+  - {id: at_action_modify_b, render: "MODIFY COLUMN note VARCHAR(96)", validity: conditional, properties: {source_columns: [note], requires_b_mode: true}, fact_refs: [at_fact_modify_column, at_open_b_compat_fixture]}
+  - {id: at_action_change_b, render: "CHANGE COLUMN code code_new VARCHAR(32)", validity: conditional, properties: {source_columns: [code], requires_b_mode: true}, fact_refs: [at_fact_modify_column, at_open_b_compat_fixture]}
+  - {id: at_action_first_b, render: "ADD COLUMN first_col INTEGER FIRST", validity: conditional, properties: {requires_b_mode: true}, fact_refs: [at_fact_column_position, at_open_b_compat_fixture]}
+  - {id: at_action_auto_increment_b, render: "AUTO_INCREMENT = 10", validity: conditional, properties: {requires_b_mode: true}, fact_refs: [at_fact_auto_increment, at_open_b_compat_fixture]}
+  - {id: at_action_tde_rotation, render: "ENCRYPTION KEY ROTATION", validity: conditional, properties: {}, fact_refs: [at_fact_tde_rotation, at_open_tde_fixture]}
+  - {id: at_action_ilm, render: "ILM ADD POLICY ROW STORE COMPRESS ADVANCED ROW AFTER 30 DAYS OF NO MODIFICATION", validity: conditional, properties: {}, fact_refs: [at_fact_ilm, at_open_ilm_whitelist]}
+  - {id: at_action_colview, render: "COLVIEW PRIORITY HIGH", validity: conditional, properties: {}, fact_refs: [at_fact_colview, at_open_colview_fixture]}
+  - {id: at_action_set_rowid, render: "SET WITH ROWID", validity: conditional, properties: {}, fact_refs: [at_fact_rowid, at_open_a_compat_fixture]}
+
+documented_features:
+  - {id: at_feature_add_column, profile_refs: [at_action_add_column, at_action_add_if_not_exists, at_action_add_default], status: covered, fact_refs: [at_fact_add_column]}
+  - {id: at_feature_column_alter, profile_refs: [at_action_alter_type, at_action_alter_type_using, at_action_set_default, at_action_set_not_null], status: covered, fact_refs: [at_fact_alter_type, at_fact_column_default, at_fact_not_null]}
+  - {id: at_feature_column_statistics, profile_refs: [at_action_statistics_0, at_action_statistics_10000, at_action_statistics_default, at_action_statistics_percent, at_action_add_multistat, at_action_delete_multistat, at_action_disable_multistat, at_action_enable_multistat], status: covered, fact_refs: [at_fact_column_statistics]}
+  - {id: at_feature_column_storage, profile_refs: [at_action_storage_plain, at_action_storage_external, at_action_storage_extended, at_action_storage_main], status: covered, fact_refs: [at_fact_attribute_storage]}
+  - {id: at_feature_constraints, profile_refs: [at_action_add_check, at_action_add_check_not_valid, at_action_add_unique, at_action_add_primary, at_action_validate_check, at_action_drop_constraint, at_action_primary_using_index], status: covered, fact_refs: [at_fact_constraint_actions]}
+  - {id: at_feature_rls, profile_refs: [at_action_enable_rls, at_action_disable_rls, at_action_force_rls, at_action_no_force_rls], status: covered, fact_refs: [at_fact_rls]}
+  - {id: at_feature_replica_identity, profile_refs: [at_action_replica_default, at_action_replica_full, at_action_replica_nothing, at_action_replica_unique, at_action_replica_using], status: covered, fact_refs: [at_fact_replica_identity]}
+  - {id: at_feature_b_actions, status: needs_profile, fact_refs: [at_open_b_compat_fixture]}
+  - {id: at_feature_a_rowid, status: needs_profile, fact_refs: [at_open_a_compat_fixture]}
+  - {id: at_feature_tde_rotation, status: needs_profile, fact_refs: [at_open_tde_fixture]}
+  - {id: at_feature_ilm, status: needs_profile, fact_refs: [at_open_ilm_whitelist]}
+  - {id: at_feature_colview, status: needs_profile, fact_refs: [at_open_colview_fixture]}
+  - {id: at_feature_encrypted_column, status: needs_profile, fact_refs: [at_open_encrypted_column_fixture]}
+fact_refs: [at_fact_main_grammar, at_fact_add_column, at_fact_constraint_actions]

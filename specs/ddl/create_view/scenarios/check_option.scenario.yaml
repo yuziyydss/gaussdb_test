@@ -1,0 +1,44 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_view_check_option
+name: CREATE VIEW CHECK OPTION 行为与元数据
+status: planned
+description: 验证不可见行被拒绝、默认 CHECK 为 CASCADED，以及 LOCAL/CASCADED 的嵌套差异。
+factor_ref: create_view
+fixture_refs: [fixture_create_view_source_two_ints]
+fact_refs:
+  - cv_fact_check_behavior
+  - cv_fact_check_default_cascaded
+  - cv_fact_check_cascaded_semantics
+  - cv_fact_check_local_semantics
+  - cv_fact_no_check_allows_invisible_rows
+  - cv_fact_cascaded_overrides_local
+  - cv_fact_updatable_metadata
+  - cv_example_check_metadata
+
+variants:
+  - id: reject_invisible_insert
+    create_sql: CREATE VIEW v_cv_check AS SELECT col_1, col_2 FROM t_view_source WHERE col_1 > 5 WITH CHECK OPTION
+    operation_sql: INSERT INTO v_cv_check VALUES (1, 1)
+    expected: error_new_row_violates_check_option
+  - id: accept_visible_insert
+    create_sql: CREATE VIEW v_cv_check_ok AS SELECT col_1, col_2 FROM t_view_source WHERE col_1 > 5 WITH CHECK OPTION
+    operation_sql: INSERT INTO v_cv_check_ok VALUES (6, 1)
+    expected: success
+  - id: nested_local_vs_cascaded
+    expected: 根据底层视图是否定义 CHECK OPTION 区分 LOCAL 与 CASCADED 的递归检查范围。
+  - id: option_parameter_cascaded
+    create_sql: CREATE VIEW v_cv_check_parameter WITH (check_option = CASCADED) AS SELECT col_1, col_2 FROM t_view_source WHERE col_1 > 5
+    operation_sql: INSERT INTO v_cv_check_parameter VALUES (1, 1)
+    expected: error_new_row_violates_check_option
+  - id: no_check_accepts_invisible_row
+    create_sql: CREATE VIEW v_cv_without_check AS SELECT col_1, col_2 FROM t_view_source WHERE col_1 > 5
+    operation_sql: INSERT INTO v_cv_without_check VALUES (1, 1)
+    expected: success_row_written_but_not_visible_through_view
+
+oracles:
+  - kind: metadata_value
+    query: SELECT is_updatable, is_insertable_into, check_option FROM information_schema.views WHERE table_schema = current_schema AND table_name = :view_name
+    expected: check_option 与创建子句一致，默认 CHECK 显示 CASCADED。
+
+execution_requirements: [database, dml, metadata_query]

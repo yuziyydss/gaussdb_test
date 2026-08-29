@@ -1,0 +1,137 @@
+schema_version: 1
+kind: syntax
+id: syntax_select_v1
+name: SELECT 递归 Subgrammar AST
+category: DML
+status: ready
+factor_ref: select
+description: >-
+  使用命名 subgrammar、顶层 choice、optional、repeat 和 ref 节点描述 SELECT、TABLE、
+  嵌套子查询及兼容完整 profile；测试候选值仍由 factor/matrix/manifest 提供。
+
+ast:
+  kind: choice
+  selector: statement_form
+  branches:
+    select_statement_legacy_profile: {kind: slot, slot: query_profile}
+    select_statement_ast: {kind: ref, ref: select_statement}
+    select_statement_table: {kind: ref, ref: table_statement}
+
+subgrammars:
+  select_statement:
+    kind: sequence
+    items:
+      - {kind: slot, slot: with_clause}
+      - {kind: literal, text: "SELECT "}
+      - {kind: slot, slot: select_modifier}
+      - {kind: ref, ref: target_list}
+      - {kind: ref, ref: from_source}
+      - {kind: slot, slot: where_clause}
+      - {kind: ref, ref: group_by_clause}
+      - {kind: ref, ref: set_operation}
+      - {kind: ref, ref: order_by_clause}
+      - {kind: slot, slot: limit_clause}
+      - {kind: slot, slot: lock_clause}
+
+  target_list:
+    kind: repeat
+    slot: target_list
+    separator: ", "
+    items_property: items
+
+  from_source:
+    kind: choice
+    selector: source_form
+    branches:
+      select_source_table:
+        {kind: literal, text: " FROM t_select_source AS ast_src"}
+      select_source_subquery:
+        kind: sequence
+        items:
+          - {kind: literal, text: " FROM ("}
+          - {kind: ref, ref: nested_select}
+          - {kind: literal, text: ") AS ast_s"}
+      select_source_cte:
+        {kind: literal, text: " FROM cte_ast"}
+      select_source_none:
+        {kind: literal, text: ""}
+
+  nested_select:
+    kind: sequence
+    items:
+      - {kind: literal, text: "SELECT "}
+      - {kind: repeat, slot: inner_target_list, separator: ", ", items_property: items}
+      - {kind: literal, text: " FROM t_select_source AS ast_inner"}
+
+  group_by_clause:
+    kind: optional
+    selector: group_by_list
+    enabled_values: [select_group_col1]
+    item:
+      kind: sequence
+      items:
+        - {kind: literal, text: " GROUP BY "}
+        - {kind: repeat, slot: group_by_list, separator: ", ", items_property: items}
+
+  set_operation:
+    kind: optional
+    selector: set_operator
+    enabled_values: [select_set_union, select_set_intersect]
+    item:
+      kind: sequence
+      items:
+        - {kind: literal, text: " "}
+        - {kind: slot, slot: set_operator}
+        - {kind: literal, text: " SELECT "}
+        - {kind: repeat, slot: right_target_list, separator: ", ", items_property: items}
+        - {kind: literal, text: " FROM t_select_right AS ast_r"}
+
+  order_by_clause:
+    kind: optional
+    selector: order_by_list
+    enabled_values: [select_order_col1, select_order_col1_col2, select_order_count]
+    item:
+      kind: sequence
+      items:
+        - {kind: literal, text: " ORDER BY "}
+        - {kind: repeat, slot: order_by_list, separator: ", ", items_property: items}
+
+  table_statement:
+    kind: sequence
+    items:
+      - {kind: literal, text: "TABLE "}
+      - {kind: slot, slot: table_target}
+
+rendering:
+  whitespace: collapse
+  statement_terminator: ";"
+
+slots:
+  statement_form: {type: ast_selector, optional: false, dimension_ref: select.statement_form}
+  query_profile: {type: sql_fragment, optional: true, dimension_ref: select.query_profile, symbol_action: reads_relations}
+  with_clause: {type: ast_fragment, optional: true, dimension_ref: select.with_clause}
+  select_modifier: {type: token, optional: true, dimension_ref: select.select_modifier}
+  target_list: {type: ast_repeat, optional: false, dimension_ref: select.target_list}
+  source_form: {type: ast_selector, optional: true, dimension_ref: select.source_form, symbol_action: reads_relations}
+  inner_target_list: {type: ast_repeat, optional: true, dimension_ref: select.inner_target_list}
+  where_clause: {type: ast_fragment, optional: true, dimension_ref: select.where_clause}
+  group_by_list: {type: ast_repeat, optional: true, dimension_ref: select.group_by_list}
+  set_operator: {type: ast_selector, optional: true, dimension_ref: select.set_operator}
+  right_target_list: {type: ast_repeat, optional: true, dimension_ref: select.right_target_list}
+  order_by_list: {type: ast_repeat, optional: true, dimension_ref: select.order_by_list}
+  limit_clause: {type: ast_fragment, optional: true, dimension_ref: select.limit_clause}
+  lock_clause: {type: ast_fragment, optional: true, dimension_ref: select.lock_clause}
+  table_target: {type: token, optional: true, dimension_ref: select.table_target, symbol_action: reads_relations}
+
+source_fact_refs:
+  - select_fact_purpose
+  - select_fact_main_grammar
+  - select_fact_cte
+  - select_fact_target_list
+  - select_fact_from_sources
+  - select_fact_group_by
+  - select_fact_set_operations
+  - select_fact_order_by
+  - select_fact_limit_offset_fetch
+  - select_fact_locking
+  - select_fact_table_shorthand

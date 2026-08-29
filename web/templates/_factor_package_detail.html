@@ -1,0 +1,179 @@
+<section class="page-shell" aria-labelledby="factor-title">
+  <header class="page-header">
+    <div class="page-header__copy">
+      <div class="page-header__meta">
+        <span class="overline">Factor Package V1</span>
+        <span class="mono-id">{{ factor.id }}</span>
+        <span class="chip {% if factor.status == 'ready' %}chip--success{% else %}chip--warning{% endif %}">{{ factor.status }}</span>
+      </div>
+      <h1 id="factor-title" class="page-title">{{ factor.name }}</h1>
+      <p class="page-description">{{ factor.description }}</p>
+    </div>
+    <a class="ghost-button" href="/api/specs/v1/audit/{{ factor.id }}" target="_blank" rel="noopener">
+      <i data-lucide="braces" aria-hidden="true"></i>
+      查看审计 JSON
+    </a>
+  </header>
+
+  <div class="page-stack">
+    <section class="metric-grid metric-grid--six" aria-label="因子统计">
+      <article class="metric-card">
+        <span class="metric-card__label">测试维度</span>
+        <strong class="metric-card__value">{{ factor.dimensions | length }}</strong>
+        <span class="metric-card__hint">可组合输入空间</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-card__label">硬规则 / 结构检查</span>
+        <strong class="metric-card__value">{{ factor.rules | length }} / {{ factor.structural_checks | length }}</strong>
+        <span class="metric-card__hint">生成前置约束</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-card__label">已确认事实</span>
+        <strong class="metric-card__value metric-card__value--success">{{ confirmed_count }}</strong>
+        <span class="metric-card__hint">可进入生成模型</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-card__label">待验证问题</span>
+        <strong class="metric-card__value {% if open_questions %}metric-card__value--warning{% else %}metric-card__value--success{% endif %}">{{ open_questions | length }}</strong>
+        <span class="metric-card__hint">尚未提升为硬规则</span>
+      </article>
+      <article class="metric-card {% if coverage_audit.conclusions.source_extraction_complete %}metric-card--accent{% endif %}">
+        <span class="metric-card__label">Source Unit 已处置</span>
+        <strong class="metric-card__value {% if coverage_audit.conclusions.source_extraction_complete %}metric-card__value--success{% else %}metric-card__value--warning{% endif %}">{{ coverage_audit.source_units.accounted }} / {{ coverage_audit.source_units.total }}</strong>
+        <span class="metric-card__hint">原文事实覆盖账本</span>
+      </article>
+      <article class="metric-card metric-card--dark">
+        <span class="metric-card__label">有效值进入用例</span>
+        <strong class="metric-card__value">{{ coverage_audit['values'].valid_selected }} / {{ coverage_audit['values'].valid_total }}</strong>
+        <span class="metric-card__hint">未选 {{ coverage_audit['values'].valid_unselected | length }}</span>
+      </article>
+    </section>
+
+    <section class="panel" aria-labelledby="audit-heading">
+      <div class="panel__header">
+        <div>
+          <h2 id="audit-heading" class="panel__heading">原文覆盖账本 / 因子级全局审计</h2>
+          <p class="panel__description">区分原文抽取、生成模型、静态组合与真实行为四个层级，避免把“生成成功”误认为“功能已验证”。</p>
+        </div>
+        <span class="chip {% if coverage_audit.conclusions.behavior_coverage_complete %}chip--success{% else %}chip--warning{% endif %}">
+          {% if coverage_audit.conclusions.behavior_coverage_complete %}闭环完成{% else %}闭环进行中{% endif %}
+        </span>
+      </div>
+      <div class="panel__body">
+        <div class="audit-grid">
+          <article class="audit-state {% if coverage_audit.conclusions.source_extraction_complete %}audit-state--success{% else %}audit-state--warning{% endif %}">
+            <div class="audit-state__top"><span class="audit-state__icon"><i data-lucide="file-search" aria-hidden="true"></i></span>原文抽取</div>
+            <strong>{% if coverage_audit.conclusions.source_extraction_complete %}完整{% else %}有缺口{% endif %}</strong>
+          </article>
+          <article class="audit-state {% if coverage_audit.conclusions.generation_model_complete %}audit-state--success{% else %}audit-state--danger{% endif %}">
+            <div class="audit-state__top"><span class="audit-state__icon"><i data-lucide="binary" aria-hidden="true"></i></span>生成模型</div>
+            <strong>生成模型：{% if coverage_audit.conclusions.generation_model_complete %}完整{% else %}有缺口{% endif %}</strong>
+          </article>
+          <article class="audit-state {% if coverage_audit.conclusions.static_coverage_complete %}audit-state--success{% else %}audit-state--warning{% endif %}">
+            <div class="audit-state__top"><span class="audit-state__icon"><i data-lucide="network" aria-hidden="true"></i></span>静态覆盖</div>
+            <strong>{% if coverage_audit.conclusions.static_coverage_complete %}完整{% else %}有缺口{% endif %}</strong>
+          </article>
+          <article class="audit-state {% if coverage_audit.conclusions.behavior_coverage_complete %}audit-state--success{% else %}audit-state--warning{% endif %}">
+            <div class="audit-state__top"><span class="audit-state__icon"><i data-lucide="flask-conical" aria-hidden="true"></i></span>行为覆盖</div>
+            <strong>{% if coverage_audit.conclusions.behavior_coverage_complete %}完整{% else %}尚未完成{% endif %}</strong>
+          </article>
+        </div>
+
+        <dl class="fact-grid">
+          <div class="fact-item"><dt>SQL / Manifest</dt><dd>{{ coverage_audit.manifests.generated_case_count }} / {{ coverage_audit.manifests.total }}</dd></div>
+          <div class="fact-item"><dt>Pairwise 状态</dt><dd class="{% if coverage_audit.manifests.pairwise_incomplete %}metric-card__value--danger{% else %}metric-card__value--success{% endif %}">{% if coverage_audit.manifests.pairwise_incomplete %}存在缺失{% else %}全部 100%{% endif %}</dd></div>
+          <div class="fact-item"><dt>文档特性 Profile</dt><dd>{{ coverage_audit.documented_features.covered }} / {{ coverage_audit.documented_features.total }}</dd></div>
+          <div class="fact-item"><dt>计划场景</dt><dd>{{ coverage_audit.scenarios.planned | length }}</dd></div>
+        </dl>
+
+        <p class="fine-print" style="margin: 18px 0 4px;">原文行账本：{{ coverage_audit.source_units.line_coverage.covered_by_units + coverage_audit.source_units.line_coverage.ignored }} / {{ coverage_audit.source_units.line_coverage.total }} 行已登记，其中 {{ coverage_audit.source_units.line_coverage.ignored }} 行为有理由忽略的标题或空行。</p>
+        <p class="fine-print" style="margin: 0; color: {% if coverage_audit.source_units.atomicity.gaps %}#b45309{% else %}#15803d{% endif %};">Source Unit 原子性：已复核 {{ coverage_audit.source_units.atomicity.reviewed }}，未复核 {{ coverage_audit.source_units.atomicity.unreviewed }}，审计缺口 {{ coverage_audit.source_units.atomicity.gaps | length }}。</p>
+
+        {% if coverage_audit.source_units.atomicity.gaps %}
+        <details class="disclosure" style="margin-top: 14px;">
+          <summary><i data-lucide="triangle-alert" aria-hidden="true" style="width:15px;height:15px;"></i>查看 {{ coverage_audit.source_units.atomicity.gaps | length }} 个原子性缺口</summary>
+          <div class="disclosure__body">
+            {% for gap in coverage_audit.source_units.atomicity.gaps %}
+            <div class="fine-print" style="color:#9a3412;font-family:monospace;">{{ gap.id }} · {{ gap.line_start }}–{{ gap.line_end }} 行 · {{ gap.reasons | join(', ') }}</div>
+            {% endfor %}
+          </div>
+        </details>
+        {% endif %}
+
+        {% if coverage_audit.source_units.unmapped %}
+        <div style="margin-top:18px;padding-top:16px;border-top:1px solid #edf1f6;">
+          <h3 class="panel__heading" style="color:#b45309;">尚未映射的原文单元（{{ coverage_audit.source_units.unmapped | length }}）</h3>
+          <div class="page-stack" style="gap:8px;margin-top:10px;">
+            {% for unit in coverage_audit.source_units.unmapped %}
+            <article class="callout callout--warning">
+              <i data-lucide="circle-help" aria-hidden="true"></i>
+              <div>
+                <div class="mono-id" style="color:#b45309;">{{ unit.id }} · 原文 {{ unit.line_start }}–{{ unit.line_end }} 行 · {{ unit.source_anchor }}</div>
+                <strong style="display:block;margin-top:4px;color:#78350f;">{{ unit.statement }}</strong>
+                <div style="margin-top:3px;color:#92400e;">处置原因：{{ unit.rationale }}</div>
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="manifests-heading">
+      <div class="panel__header">
+        <div>
+          <h2 id="manifests-heading" class="panel__heading">生成清单</h2>
+          <p class="panel__description">每个清单选择一组值域、策略和预期 Oracle。</p>
+        </div>
+        <span class="chip">{{ manifests | select | list | length }} 个清单</span>
+      </div>
+      <div class="panel__body">
+        <div class="manifest-list">
+          {% for manifest in manifests if manifest %}
+          <a href="/specs/manifest/{{ manifest.id }}" hx-get="/specs/manifest/{{ manifest.id }}" hx-target="#main-content" hx-swap="innerHTML" class="manifest-link" data-nav-link>
+            <span class="manifest-link__icon"><i data-lucide="file-code-2" aria-hidden="true"></i></span>
+            <span class="manifest-link__copy"><strong>{{ manifest.name }}</strong><small>{{ manifest.id }}</small></span>
+            <span class="manifest-link__type {% if manifest.suite_type == 'negative' %}manifest-link__type--negative{% endif %}">{{ manifest.suite_type }}</span>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="dimensions-heading">
+      <div class="panel__header">
+        <div>
+          <h2 id="dimensions-heading" class="panel__heading">测试维度</h2>
+          <p class="panel__description">因子的稳定维度标识及其业务语义。</p>
+        </div>
+      </div>
+      <div class="panel__body">
+        <div class="dimension-list">
+          {% for dimension_id, dimension in factor.dimensions.items() %}
+          <article class="dimension-item"><code>{{ dimension_id }}</code><p>{{ dimension.description }}</p></article>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    {% if open_questions %}
+    <section class="panel" aria-labelledby="questions-heading" style="border-color:#fed7aa;">
+      <div class="panel__header" style="background:#fff7ed;border-color:#ffedd5;">
+        <div>
+          <h2 id="questions-heading" class="panel__heading" style="color:#9a3412;">待验证问题</h2>
+          <p class="panel__description" style="color:#b45309;">这些事实保留溯源，但在验证前不会成为硬约束。</p>
+        </div>
+        <span class="chip chip--warning">{{ open_questions | length }} 项</span>
+      </div>
+      <div class="panel__body">
+        <div class="page-stack" style="gap:12px;">
+          {% for fact in open_questions %}
+          <article class="callout callout--warning"><i data-lucide="circle-help" aria-hidden="true"></i><div><span class="mono-id" style="color:#b45309;">{{ fact.id }}</span><div style="margin-top:3px;">{{ fact.statement }}</div></div></article>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+    {% endif %}
+  </div>
+</section>

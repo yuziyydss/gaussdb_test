@@ -12,6 +12,7 @@ from typing import List, Dict, Set, Any, Optional
 
 from .spec_model import SpecRegistry, SyntaxDef, MatrixDef, ManifestDef, SlotDef
 from .generator import GeneratedCase
+from .constraint_solver import ConstraintError, ConstraintRule
 
 
 @dataclass
@@ -33,6 +34,12 @@ class SlotCoverageItem:
 
     @property
     def covered_count(self) -> int:
+        # A slot without a declared finite domain is a binary coverage item:
+        # either at least one runtime value exercised it, or it was not used.
+        # Counting every observed dynamic value against a denominator of one
+        # makes aggregate coverage exceed 100%.
+        if not self.total_values:
+            return 1 if self.covered_values else 0
         return len(self.covered_values)
 
     @property
@@ -177,10 +184,7 @@ class SpecCoverageMeter:
             gen = SpecSQLGenerator(self.registry)
             cases = []
             for _, man in self.registry.manifests.items():
-                try:
-                    cases.extend(gen.generate_cases_for_manifest(man))
-                except Exception:
-                    pass
+                cases.extend(gen.generate_cases_for_manifest(man))
 
         # 1. 语法插槽覆盖率统计
         syntax_details: Dict[str, List[SlotCoverageItem]] = {}
@@ -252,15 +256,21 @@ class SpecCoverageMeter:
             # 标记激活的 CSP 规则
             for mat_item in matrix_details.values():
                 for r in mat_item.total_rules:
-                    # 如果用例参数满足规则前提，视为已覆盖该规则的组合测试
-                    mat_item.exercised_rules.add(r)
+                    # 仅在蕴含前提实际成立的 case 中标记规则被覆盖；
+                    # 不再因“规则存在”就伪造 100% 覆盖率。
+                    try:
+                        if ConstraintRule(r).is_triggered(params):
+                            mat_item.exercised_rules.add(r)
+                    except ConstraintError:
+                        # 规则与该 case 不处于同一参数空间，不算已覆盖。
+                        continue
 
         # 4. 汇总统计数据与缺口列表 (Gaps)
         gap_items: List[Dict[str, Any]] = []
 
         for syn_id, slots in syntax_details.items():
             for s in slots:
-                covered_slot_values += len(s.covered_values)
+                covered_slot_values += s.covered_count
                 if s.covered_values:
                     covered_slots += 1
                 if s.uncovered_values:

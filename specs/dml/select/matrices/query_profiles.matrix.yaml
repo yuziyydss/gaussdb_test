@@ -1,0 +1,484 @@
+schema_version: 1
+kind: matrix
+id: matrix_select_query_profiles
+name: SELECT 完整查询能力剖面
+status: needs_review
+description: 保存内部一致的完整 SELECT 代表语句、对象依赖、环境条件和目标违规属性。
+factor_ref: select
+
+profile_property_defaults:
+  hierarchy_lock_compatible: true
+  set_lock_compatible: true
+  window_frame_bound_valid: true
+  prior_placement_valid: true
+  pivot_function_supported: true
+  distinct_order_compatible: true
+
+profiles:
+  - id: select_basic_star
+    render: SELECT * FROM t_select_source
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [basic, wildcard_projection], source_tables: [t_select_source], source_columns: [col_1, col_2, name], output_column_count: 3}
+    fact_refs: [select_fact_purpose, select_fact_target_list, select_fact_from_sources]
+
+  - id: select_explicit_where
+    render: SELECT col_1, col_2 FROM t_select_source WHERE col_1 > 0
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [explicit_columns, where], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_target_list, select_fact_where]
+
+  - id: select_aliases
+    render: SELECT col_1 AS c1, col_2 c2 FROM t_select_source
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [output_alias], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_target_list]
+
+  - id: select_all_keyword
+    render: SELECT ALL col_1, col_2 FROM t_select_source
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [all], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_all_distinct]
+
+  - id: select_distinct
+    render: SELECT DISTINCT col_1, col_2 FROM t_select_source
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [distinct], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_all_distinct]
+
+  - id: select_distinct_on
+    render: SELECT DISTINCT ON (col_1) col_1, col_2 FROM t_select_source ORDER BY col_1, col_2 DESC
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [distinct_on, order_by], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_all_distinct, select_fact_order_by]
+
+  - id: select_constant_without_from
+    render: SELECT 1 AS col_1, 'value' AS name
+    validity: valid
+    properties: {features: [no_from, output_alias], source_tables: [], source_columns: [], output_column_count: 2}
+    fact_refs: [select_fact_target_list]
+
+  - id: select_cte
+    render: WITH cte AS (SELECT col_1, col_2 FROM t_select_source) SELECT col_1, col_2 FROM cte
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [cte], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_cte]
+
+  - id: select_recursive_cte
+    render: WITH RECURSIVE nums(n) AS (VALUES (1) UNION ALL SELECT n + 1 FROM nums WHERE n < 3) SELECT n FROM nums
+    validity: valid
+    properties: {features: [cte, recursive_cte], source_tables: [], source_columns: [], output_column_count: 1}
+    fact_refs: [select_fact_cte]
+
+  - id: select_materialized_cte
+    render: WITH cte AS MATERIALIZED (SELECT col_1, col_2 FROM t_select_source) SELECT col_1 FROM cte
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [cte, materialized], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 1}
+    fact_refs: [select_fact_cte]
+
+  - id: select_not_materialized_cte
+    render: WITH cte AS NOT MATERIALIZED (SELECT col_1, col_2 FROM t_select_source) SELECT col_1 FROM cte
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [cte, not_materialized], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 1}
+    fact_refs: [select_fact_cte]
+
+  - id: select_from_subquery
+    render: SELECT s.col_1, s.col_2 FROM (SELECT col_1, col_2 FROM t_select_source) AS s
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [subquery_source], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_from_sources]
+
+  - id: select_from_function
+    render: SELECT value FROM generate_series(1, 3) AS g(value)
+    validity: valid
+    properties: {features: [function_source], source_tables: [], source_columns: [], output_column_count: 1}
+    fact_refs: [select_fact_from_sources]
+
+  - id: select_inner_join
+    render: SELECT l.col_1, r.col_2 FROM t_select_source AS l INNER JOIN t_select_right AS r ON l.col_1 = r.col_1
+    validity: valid
+    fixture_refs: [fixture_select_source, fixture_select_right_source]
+    properties: {features: [inner_join, join_on], source_tables: [t_select_source, t_select_right], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_join]
+
+  - id: select_left_join
+    render: SELECT l.col_1, r.col_2 FROM t_select_source AS l LEFT JOIN t_select_right AS r ON l.col_1 = r.col_1
+    validity: valid
+    fixture_refs: [fixture_select_source, fixture_select_right_source]
+    properties: {features: [left_join, join_on], source_tables: [t_select_source, t_select_right], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_join]
+
+  - id: select_right_join
+    render: SELECT l.col_1, r.col_2 FROM t_select_source AS l RIGHT JOIN t_select_right AS r ON l.col_1 = r.col_1
+    validity: valid
+    fixture_refs: [fixture_select_source, fixture_select_right_source]
+    properties: {features: [right_join, join_on], source_tables: [t_select_source, t_select_right], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_join]
+
+  - id: select_full_join
+    render: SELECT l.col_1, r.col_2 FROM t_select_source AS l FULL JOIN t_select_right AS r ON l.col_1 = r.col_1
+    validity: valid
+    fixture_refs: [fixture_select_source, fixture_select_right_source]
+    properties: {features: [full_join, join_on], source_tables: [t_select_source, t_select_right], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_join]
+
+  - id: select_cross_join
+    render: SELECT l.col_1, r.col_2 FROM t_select_source AS l CROSS JOIN t_select_right AS r
+    validity: valid
+    fixture_refs: [fixture_select_source, fixture_select_right_source]
+    properties: {features: [cross_join], source_tables: [t_select_source, t_select_right], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_join]
+
+  - id: select_natural_join
+    render: SELECT l.col_1, l.col_2 FROM t_select_source AS l NATURAL JOIN t_select_right AS r
+    validity: valid
+    fixture_refs: [fixture_select_source, fixture_select_right_source]
+    properties: {features: [natural_join], source_tables: [t_select_source, t_select_right], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_join]
+
+  - id: select_tablesample_system
+    render: SELECT col_1 FROM t_select_source TABLESAMPLE SYSTEM (50) REPEATABLE (1)
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [tablesample, system, repeatable], source_tables: [t_select_source], source_columns: [col_1], output_column_count: 1}
+    fact_refs: [select_fact_tablesample]
+
+  - id: select_tablesample_bernoulli
+    render: SELECT col_1 FROM t_select_source TABLESAMPLE BERNOULLI (50)
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [tablesample, bernoulli], source_tables: [t_select_source], source_columns: [col_1], output_column_count: 1}
+    fact_refs: [select_fact_tablesample]
+
+  - id: select_tablesample_hybrid
+    render: SELECT col_1 FROM t_select_source TABLESAMPLE HYBRID (50, 50)
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [tablesample, hybrid], source_tables: [t_select_source], source_columns: [col_1], output_column_count: 1}
+    fact_refs: [select_fact_tablesample]
+
+  - id: select_flashback_timestamp
+    render: SELECT col_1, col_2 FROM t_select_flashback TIMECAPSULE TIMESTAMP (CURRENT_TIMESTAMP - INTERVAL '1 minute')
+    validity: valid
+    fixture_refs: [fixture_select_flashback_source]
+    properties: {features: [flashback, timecapsule_timestamp], source_tables: [t_select_flashback], source_columns: [col_1, col_2], output_column_count: 2, storage_engine: ustore, requires_history: true}
+    fact_refs: [select_fact_flashback]
+
+  - id: select_flashback_csn
+    render: SELECT col_1, col_2 FROM t_select_flashback TIMECAPSULE CSN 1
+    validity: valid
+    fixture_refs: [fixture_select_flashback_source]
+    properties: {features: [flashback, timecapsule_csn], source_tables: [t_select_flashback], source_columns: [col_1, col_2], output_column_count: 2, storage_engine: ustore, requires_valid_csn: true}
+    fact_refs: [select_fact_flashback]
+
+  - id: select_partition_name
+    render: SELECT col_1, col_2 FROM t_select_partitioned PARTITION (p1)
+    validity: valid
+    fixture_refs: [fixture_select_partitioned_source]
+    properties: {features: [partition, partition_name], source_tables: [t_select_partitioned], source_columns: [col_1, col_2], output_column_count: 2, requires_partition_name: p1}
+    fact_refs: [select_fact_partition]
+
+  - id: select_partition_for
+    render: SELECT col_1, col_2 FROM t_select_partitioned PARTITION FOR (1)
+    validity: valid
+    fixture_refs: [fixture_select_partitioned_source]
+    properties: {features: [partition, partition_for], source_tables: [t_select_partitioned], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_partition]
+
+  - id: select_subpartition
+    render: SELECT col_1, col_2 FROM t_select_partitioned SUBPARTITION (sp1)
+    validity: valid
+    fixture_refs: [fixture_select_partitioned_source]
+    properties: {features: [partition, subpartition], source_tables: [t_select_partitioned], source_columns: [col_1, col_2], output_column_count: 2, requires_subpartition_name: sp1}
+    fact_refs: [select_fact_partition]
+
+  - id: select_unpivot
+    render: SELECT metric_name, metric_value FROM t_select_source UNPIVOT (metric_value FOR metric_name IN (col_1 AS 'COL_1', col_2 AS 'COL_2'))
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [unpivot], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2, compatibility_mode: A}
+    fact_refs: [select_fact_unpivot]
+
+  - id: select_pivot
+    render: SELECT * FROM t_select_source PIVOT (SUM(col_2) FOR col_1 IN (1 AS one, 2 AS two))
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [pivot], source_tables: [t_select_source], source_columns: [col_1, col_2], compatibility_mode: A}
+    fact_refs: [select_fact_pivot]
+
+  - id: select_hierarchy
+    render: SELECT name, id, parent_id, LEVEL FROM t_select_hierarchy START WITH id = 1 CONNECT BY PRIOR id = parent_id
+    validity: valid
+    fixture_refs: [fixture_select_hierarchy_source]
+    properties: {features: [hierarchy, start_with, connect_by, prior, level], source_tables: [t_select_hierarchy], source_columns: [name, id, parent_id], output_column_count: 4}
+    fact_refs: [select_fact_hierarchy]
+
+  - id: select_hierarchy_nocycle_siblings
+    render: SELECT name, id, parent_id FROM t_select_hierarchy START WITH id = 1 CONNECT BY NOCYCLE PRIOR id = parent_id ORDER SIBLINGS BY id DESC
+    validity: valid
+    fixture_refs: [fixture_select_hierarchy_source]
+    properties: {features: [hierarchy, nocycle, order_siblings], source_tables: [t_select_hierarchy], source_columns: [name, id, parent_id], output_column_count: 3}
+    fact_refs: [select_fact_hierarchy, select_fact_order_siblings]
+
+  - id: select_group_by
+    render: SELECT col_1, COUNT(*) AS cnt FROM t_select_source GROUP BY col_1
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [group_by, aggregate], source_tables: [t_select_source], source_columns: [col_1], output_column_count: 2}
+    fact_refs: [select_fact_group_by]
+
+  - id: select_rollup
+    render: SELECT col_1, col_2, COUNT(*) AS cnt FROM t_select_source GROUP BY ROLLUP (col_1, col_2)
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [group_by, rollup, aggregate], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 3}
+    fact_refs: [select_fact_group_by]
+
+  - id: select_cube
+    render: SELECT col_1, col_2, COUNT(*) AS cnt FROM t_select_source GROUP BY CUBE (col_1, col_2)
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [group_by, cube, aggregate], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 3}
+    fact_refs: [select_fact_group_by]
+
+  - id: select_grouping_sets
+    render: SELECT col_1, col_2, COUNT(*) AS cnt FROM t_select_source GROUP BY GROUPING SETS ((col_1), (col_2), ())
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [group_by, grouping_sets, aggregate], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 3}
+    fact_refs: [select_fact_group_by]
+
+  - id: select_having
+    render: SELECT col_1, COUNT(*) AS cnt FROM t_select_source GROUP BY col_1 HAVING COUNT(*) > 0
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [group_by, having, aggregate], source_tables: [t_select_source], source_columns: [col_1], output_column_count: 2}
+    fact_refs: [select_fact_group_by, select_fact_having]
+
+  - id: select_window
+    render: SELECT col_1, SUM(col_2) OVER w AS running_sum FROM t_select_source WINDOW w AS (ORDER BY col_1 ROWS BETWEEN 1 PRECEDING AND CURRENT ROW)
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [window, window_frame], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_window]
+
+  - id: select_union
+    render: SELECT col_1, col_2 FROM t_select_source UNION SELECT col_1, col_2 FROM t_select_right
+    validity: valid
+    fixture_refs: [fixture_select_source, fixture_select_right_source]
+    properties: {features: [union], source_tables: [t_select_source, t_select_right], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_set_operations]
+
+  - id: select_union_all
+    render: SELECT col_1, col_2 FROM t_select_source UNION ALL SELECT col_1, col_2 FROM t_select_right
+    validity: valid
+    fixture_refs: [fixture_select_source, fixture_select_right_source]
+    properties: {features: [union, all], source_tables: [t_select_source, t_select_right], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_set_operations]
+
+  - id: select_intersect
+    render: SELECT col_1, col_2 FROM t_select_source INTERSECT SELECT col_1, col_2 FROM t_select_right
+    validity: valid
+    fixture_refs: [fixture_select_source, fixture_select_right_source]
+    properties: {features: [intersect], source_tables: [t_select_source, t_select_right], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_set_operations]
+
+  - id: select_except
+    render: SELECT col_1, col_2 FROM t_select_source EXCEPT SELECT col_1, col_2 FROM t_select_right
+    validity: valid
+    fixture_refs: [fixture_select_source, fixture_select_right_source]
+    properties: {features: [except], source_tables: [t_select_source, t_select_right], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_set_operations]
+
+  - id: select_except_all
+    render: SELECT col_1, col_2 FROM t_select_source EXCEPT ALL SELECT col_1, col_2 FROM t_select_right
+    validity: valid
+    fixture_refs: [fixture_select_source, fixture_select_right_source]
+    properties: {features: [except, all], source_tables: [t_select_source, t_select_right], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_set_operations]
+
+  - id: select_minus
+    render: SELECT col_1, col_2 FROM t_select_source MINUS SELECT col_1, col_2 FROM t_select_right
+    validity: valid
+    fixture_refs: [fixture_select_source, fixture_select_right_source]
+    properties: {features: [minus], source_tables: [t_select_source, t_select_right], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_set_operations]
+
+  - id: select_order_nulls
+    render: SELECT col_1, col_2 FROM t_select_source ORDER BY col_1 DESC NULLS LAST, col_2 ASC NULLS FIRST
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [order_by, nulls_position], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_order_by]
+
+  - id: select_nls_sort
+    render: SELECT name FROM t_select_source ORDER BY NLSSORT(name, ' NLS_SORT = generic_m_ci ')
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [order_by, nlssort], source_tables: [t_select_source], source_columns: [name], output_column_count: 1, requires_supported_encoding: true}
+    fact_refs: [select_fact_order_by, select_fact_nls_sort]
+
+  - id: select_limit
+    render: SELECT col_1, col_2 FROM t_select_source ORDER BY col_1 LIMIT 10
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [order_by, limit], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_limit_offset_fetch]
+
+  - id: select_limit_offset
+    render: SELECT col_1, col_2 FROM t_select_source ORDER BY col_1 LIMIT 10 OFFSET 1
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [order_by, limit, offset], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_limit_offset_fetch]
+
+  - id: select_offset_rows
+    render: SELECT col_1, col_2 FROM t_select_source ORDER BY col_1 OFFSET 1 ROWS
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [order_by, offset_rows], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_limit_offset_fetch]
+
+  - id: select_fetch
+    render: SELECT col_1, col_2 FROM t_select_source ORDER BY col_1 FETCH FIRST 2 ROWS ONLY
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [order_by, fetch], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2}
+    fact_refs: [select_fact_limit_offset_fetch]
+
+  - id: select_for_update
+    render: SELECT col_1, col_2 FROM t_select_source FOR UPDATE
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [locking, for_update], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2, requires_update_privilege: true}
+    fact_refs: [select_fact_locking]
+
+  - id: select_for_no_key_update
+    render: SELECT col_1, col_2 FROM t_select_source FOR NO KEY UPDATE
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [locking, for_no_key_update], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2, requires_update_privilege: true}
+    fact_refs: [select_fact_locking]
+
+  - id: select_for_share
+    render: SELECT col_1, col_2 FROM t_select_source FOR SHARE
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [locking, for_share], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2, requires_update_privilege: true}
+    fact_refs: [select_fact_locking]
+
+  - id: select_for_key_share
+    render: SELECT col_1, col_2 FROM t_select_source FOR KEY SHARE
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [locking, for_key_share], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2, requires_update_privilege: true}
+    fact_refs: [select_fact_locking]
+
+  - id: select_lock_nowait
+    render: SELECT col_1, col_2 FROM t_select_source FOR UPDATE NOWAIT
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [locking, nowait], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2, requires_update_privilege: true}
+    fact_refs: [select_fact_locking]
+
+  - id: select_lock_wait
+    render: SELECT col_1, col_2 FROM t_select_source FOR UPDATE WAIT 1
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [locking, wait], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2, requires_update_privilege: true}
+    fact_refs: [select_fact_locking]
+
+  - id: select_lock_skip_locked
+    render: SELECT col_1, col_2 FROM t_select_source FOR UPDATE SKIP LOCKED
+    validity: valid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [locking, skip_locked], source_tables: [t_select_source], source_columns: [col_1, col_2], output_column_count: 2, requires_update_privilege: true}
+    fact_refs: [select_fact_locking]
+
+  - id: select_invalid_hierarchy_lock
+    render: SELECT name, id FROM t_select_hierarchy START WITH id = 1 CONNECT BY PRIOR id = parent_id FOR UPDATE
+    validity: invalid
+    fixture_refs: [fixture_select_hierarchy_source]
+    properties: {features: [hierarchy, locking], source_tables: [t_select_hierarchy], source_columns: [name, id, parent_id], hierarchy_lock_compatible: false}
+    fact_refs: [select_fact_hierarchy]
+
+  - id: select_invalid_union_lock
+    render: SELECT col_1 FROM t_select_source UNION SELECT col_1 FROM t_select_right FOR UPDATE
+    validity: invalid
+    fixture_refs: [fixture_select_source, fixture_select_right_source]
+    properties: {features: [union, locking], source_tables: [t_select_source, t_select_right], source_columns: [col_1], set_lock_compatible: false}
+    fact_refs: [select_fact_set_operations]
+
+  - id: select_invalid_window_negative_frame
+    render: SELECT SUM(col_2) OVER (ORDER BY col_1 ROWS -1 PRECEDING) FROM t_select_source
+    validity: invalid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [window, invalid_frame], source_tables: [t_select_source], source_columns: [col_1, col_2], window_frame_bound_valid: false}
+    fact_refs: [select_fact_window]
+
+  - id: select_invalid_prior_in_start
+    render: SELECT name, id FROM t_select_hierarchy START WITH PRIOR id = 1 CONNECT BY PRIOR id = parent_id
+    validity: invalid
+    fixture_refs: [fixture_select_hierarchy_source]
+    properties: {features: [hierarchy, invalid_prior], source_tables: [t_select_hierarchy], source_columns: [name, id, parent_id], prior_placement_valid: false}
+    fact_refs: [select_fact_hierarchy]
+
+  - id: select_invalid_pivot_xml
+    render: SELECT * FROM t_select_source PIVOT XML (SUM(col_2) FOR col_1 IN (1 AS one, 2 AS two))
+    validity: invalid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [pivot, pivot_xml], source_tables: [t_select_source], source_columns: [col_1, col_2], pivot_function_supported: false, compatibility_mode: A}
+    fact_refs: [select_fact_pivot]
+
+  - id: select_invalid_distinct_order
+    render: SELECT DISTINCT col_1 FROM t_select_source ORDER BY col_2
+    validity: invalid
+    fixture_refs: [fixture_select_source]
+    properties: {features: [distinct, order_by], source_tables: [t_select_source], source_columns: [col_1, col_2], distinct_order_compatible: false}
+    fact_refs: [select_fact_order_by]
+
+documented_features:
+  - {id: basic_select, profile_refs: [select_basic_star, select_explicit_where], status: covered, fact_refs: [select_fact_purpose]}
+  - {id: target_alias, profile_refs: [select_aliases], status: covered, fact_refs: [select_fact_target_list]}
+  - {id: all_distinct, profile_refs: [select_all_keyword, select_distinct, select_distinct_on], status: covered, fact_refs: [select_fact_all_distinct]}
+  - {id: cte_variants, profile_refs: [select_cte, select_recursive_cte, select_materialized_cte, select_not_materialized_cte], status: covered, fact_refs: [select_fact_cte]}
+  - {id: from_variants, profile_refs: [select_from_subquery, select_from_function], status: covered, fact_refs: [select_fact_from_sources]}
+  - {id: joins, profile_refs: [select_inner_join, select_left_join, select_right_join, select_full_join, select_cross_join, select_natural_join], status: covered, fact_refs: [select_fact_join]}
+  - {id: table_sampling, profile_refs: [select_tablesample_system, select_tablesample_bernoulli, select_tablesample_hybrid], status: covered, fact_refs: [select_fact_tablesample]}
+  - {id: flashback, profile_refs: [select_flashback_timestamp, select_flashback_csn], status: covered, fact_refs: [select_fact_flashback]}
+  - {id: partitions, profile_refs: [select_partition_name, select_partition_for, select_subpartition], status: covered, fact_refs: [select_fact_partition, select_fact_partition_global_index]}
+  - {id: unpivot, profile_refs: [select_unpivot], status: covered, fact_refs: [select_fact_unpivot]}
+  - {id: pivot, profile_refs: [select_pivot, select_invalid_pivot_xml], status: covered, fact_refs: [select_fact_pivot]}
+  - {id: where, profile_refs: [select_explicit_where], status: covered, fact_refs: [select_fact_where]}
+  - {id: hierarchy, profile_refs: [select_hierarchy, select_hierarchy_nocycle_siblings], status: covered, fact_refs: [select_fact_hierarchy, select_fact_order_siblings]}
+  - {id: grouping, profile_refs: [select_group_by, select_rollup, select_cube, select_grouping_sets, select_having], status: covered, fact_refs: [select_fact_group_by, select_fact_having]}
+  - {id: window, profile_refs: [select_window], status: covered, fact_refs: [select_fact_window]}
+  - {id: set_operations, profile_refs: [select_union, select_union_all, select_intersect, select_except, select_except_all, select_minus], status: covered, fact_refs: [select_fact_set_operations]}
+  - {id: order_by, profile_refs: [select_distinct_on, select_order_nulls], status: covered, fact_refs: [select_fact_order_by]}
+  - {id: pagination, profile_refs: [select_limit, select_limit_offset, select_offset_rows, select_fetch], status: covered, fact_refs: [select_fact_limit_offset_fetch]}
+  - {id: locking, profile_refs: [select_for_update, select_for_no_key_update, select_for_share, select_for_key_share, select_lock_nowait, select_lock_wait, select_lock_skip_locked], status: covered, fact_refs: [select_fact_locking, select_fact_permissions]}
+  - {id: nls_sort, profile_refs: [select_nls_sort], status: covered, fact_refs: [select_fact_nls_sort]}
+  - {id: plan_hint, profile_refs: [], status: needs_profile, fact_refs: [select_fact_plan_hint, select_open_plan_hint_profile]}
+  - {id: dense_rank, profile_refs: [], status: needs_profile, fact_refs: [select_open_dense_rank_profile]}
+  - {id: into_user_variable, profile_refs: [], status: needs_profile, fact_refs: [select_fact_into, select_open_into_execution]}
+  - {id: into_outfile_dumpfile, profile_refs: [], status: needs_profile, fact_refs: [select_fact_into, select_open_into_execution]}
+  - {id: xmltable, profile_refs: [], status: needs_profile, fact_refs: [select_fact_xmltable, select_open_xmltable_example]}
+  - {id: alias_cross_reference, profile_refs: [], status: needs_profile, fact_refs: [select_fact_alias_reference, select_open_alias_profiles]}
+  - {id: table_shorthand, value_refs: [select_statement_table], status: covered, fact_refs: [select_fact_table_shorthand]}
+  - {id: legacy_outer_join, profile_refs: [], status: needs_profile, fact_refs: [select_fact_where, select_open_outer_join_matrix]}
+  - {id: full_group_mode_matrix, profile_refs: [], status: needs_profile, fact_refs: [select_fact_group_by, select_open_group_mode_matrix]}
+  - {id: order_expression_equivalence, profile_refs: [], status: needs_profile, fact_refs: [select_fact_order_by, select_open_order_equivalence]}
+
+fact_refs:
+  - select_fact_main_grammar
+  - select_fact_target_list
+  - select_fact_from_sources

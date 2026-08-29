@@ -1,67 +1,43 @@
-<!-- Database Config Modal Fragment -->
-<div id="db-config-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-  <div class="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden">
-    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <i data-lucide="database" class="w-4 h-4 text-blue-600"></i>
-        <h3 class="text-sm font-semibold text-slate-800">GaussDB 数据库连接配置</h3>
-      </div>
-      <button onclick="document.getElementById('db-config-modal').remove()" class="text-slate-400 hover:text-slate-600">
-        <i data-lucide="x" class="w-4 h-4"></i>
-      </button>
+<div id="db-config-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="db-config-title" onclick="if (event.target === this) this.remove()">
+  <div class="modal-card">
+    <div class="modal-card__header">
+      <h2 id="db-config-title" class="modal-card__title"><i data-lucide="database" aria-hidden="true"></i>GaussDB 数据库连接配置</h2>
+      <button type="button" class="light-button" style="width:40px;padding:0;" aria-label="关闭数据库配置" onclick="document.getElementById('db-config-modal').remove()"><i data-lucide="x" aria-hidden="true" style="width:16px;height:16px;"></i></button>
     </div>
 
-    <form hx-post="/api/db-config" hx-target="#db-config-feedback" hx-swap="innerHTML" class="p-5 space-y-3.5">
-      <div class="grid grid-cols-3 gap-3">
-        <div class="col-span-2">
-          <label class="block text-xs font-medium text-slate-600 mb-1">主机 Host</label>
-          <input type="text" name="host" value="{{ config.host }}" class="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none">
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">端口 Port</label>
-          <input type="number" name="port" value="{{ config.port }}" class="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none">
-        </div>
+    <form hx-post="/api/db-config" hx-target="#db-config-feedback" hx-swap="innerHTML" class="modal-card__body">
+      <div class="callout"><i data-lucide="info" aria-hidden="true"></i><div>连接信息仅用于可选的真实执行阶段；静态因子抽取与 SQL 生成不依赖数据库。</div></div>
+
+      <div class="form-grid">
+        <div class="field"><label for="db-host">主机 Host</label><input id="db-host" type="text" name="host" value="{{ config.host }}" autocomplete="hostname" spellcheck="false"></div>
+        <div class="field"><label for="db-port">端口 Port</label><input id="db-port" type="number" name="port" value="{{ config.port }}" inputmode="numeric"></div>
+      </div>
+      <div class="field"><label for="db-name">数据库名称 Database</label><input id="db-name" type="text" name="database" value="{{ config.database }}" autocomplete="off" spellcheck="false"></div>
+      <div class="form-grid form-grid--equal">
+        <div class="field"><label for="db-user">用户名 User</label><input id="db-user" type="text" name="user" value="{{ config.user }}" autocomplete="username" spellcheck="false"></div>
+        <div class="field"><label for="db-password">密码 Password</label><input id="db-password" type="password" name="password" value="{{ config.password }}" autocomplete="current-password"></div>
       </div>
 
-      <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">数据库名称 Database</label>
-        <input type="text" name="database" value="{{ config.database }}" class="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none">
+      <div class="checkbox-stack">
+        <label class="checkbox-row" for="db-enabled"><input id="db-enabled" type="checkbox" name="enabled" value="true" {% if config.enabled %}checked{% endif %}><span>启用真实执行（非桩模式）</span></label>
+        <label class="checkbox-row" for="db-sandbox"><input id="db-sandbox" type="checkbox" name="use_sandbox" value="true" {% if config.use_sandbox %}checked{% endif %}><span>使用 Schema 临时沙箱隔离</span></label>
       </div>
 
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">用户名 User</label>
-          <input type="text" name="user" value="{{ config.user }}" class="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none">
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">密码 Password</label>
-          <input type="password" name="password" value="{{ config.password }}" class="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none">
-        </div>
-      </div>
-
-      <div class="flex items-center gap-4 pt-1">
-        <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-600">
-          <input type="checkbox" name="enabled" value="true" {% if config.enabled %}checked{% endif %} class="rounded text-blue-600 focus:ring-blue-500">
-          <span>启用真实执行 (非桩模式)</span>
-        </label>
-        <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-600">
-          <input type="checkbox" name="use_sandbox" value="true" {% if config.use_sandbox %}checked{% endif %} class="rounded text-blue-600 focus:ring-blue-500">
-          <span>Schema 临时沙箱隔离</span>
-        </label>
-      </div>
-
-      <div id="db-config-feedback" class="text-xs min-h-[20px]"></div>
-
-      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-        <button type="button" hx-post="/api/db-config/test" hx-include="closest form" hx-target="#db-config-feedback"
-                class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg transition-colors">
-          测试连通性
-        </button>
-        <button type="submit" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors">
-          保存配置
-        </button>
+      <div id="db-config-feedback" class="fine-print" style="min-height:20px;" role="status" aria-live="polite"></div>
+      <div class="form-actions">
+        <button type="button" hx-post="/api/db-config/test" hx-include="closest form" hx-target="#db-config-feedback" class="light-button">测试连通性</button>
+        <button type="submit" class="primary-button">保存配置</button>
       </div>
     </form>
   </div>
 </div>
-<script>lucide.createIcons();</script>
+<script>
+  (function () {
+    const modal = document.getElementById('db-config-modal');
+    const firstField = document.getElementById('db-host');
+    firstField?.focus();
+    modal?.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') modal.remove();
+    });
+  })();
+</script>

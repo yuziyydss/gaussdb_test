@@ -1,82 +1,47 @@
-<!-- Scenario Pipeline Visualizer & Execution Fragment -->
-<div class="max-w-5xl space-y-6">
-  <div class="flex items-center justify-between">
-    <div>
-      <div class="flex items-center gap-2">
-        <span class="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-purple-50 text-purple-600 rounded border border-purple-200">
-          Module 2 · 状态机与符号表
-        </span>
-      </div>
-      <h2 class="text-xl font-bold text-slate-800 mt-1">{{ scenario.name }}</h2>
-      <p class="text-xs text-slate-400 mt-0.5">{{ scenario.description }}</p>
+<section class="page-shell" aria-labelledby="scenario-title">
+  <header class="page-header">
+    <div class="page-header__copy">
+      <div class="page-header__meta"><span class="overline">Scenario Pipeline</span><span class="chip">{{ scenario.steps | length }} 个步骤</span><span class="mono-id">{{ scenario.id }}</span></div>
+      <h1 id="scenario-title" class="page-title">{{ scenario.name }}</h1>
+      <p class="page-description">{{ scenario.description }}</p>
     </div>
-
     <form hx-post="/scenarios/execute" hx-target="#main-content" hx-swap="innerHTML" hx-indicator="#scenario-indicator">
       <input type="hidden" name="scenario_id" value="{{ scenario.id }}">
-      <button type="submit" class="flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">
-        <i data-lucide="play-circle" class="w-4 h-4"></i>
-        一键运行场景链测试
-      </button>
+      <button type="submit" class="primary-button"><i data-lucide="play-circle" aria-hidden="true"></i>运行场景链</button>
     </form>
-  </div>
-  <div id="scenario-indicator" class="htmx-indicator text-xs text-purple-600 font-medium">
-    正在驱动 SchemaContext 时序状态机并在沙箱中执行流水线...
-  </div>
+  </header>
+  <div id="scenario-indicator" class="htmx-indicator callout" role="status"><i data-lucide="loader-circle" aria-hidden="true"></i><span>正在驱动 SchemaContext 状态机，并在沙箱中执行流水线…</span></div>
 
-  <!-- Pipeline Step Cards -->
-  <div class="relative border-l-2 border-purple-200 ml-4 pl-6 space-y-6">
-    {% for step in scenario.steps %}
-    <div class="relative bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:border-purple-300 transition-colors">
-      <span class="absolute -left-[31px] top-4 w-4 h-4 rounded-full bg-purple-600 border-4 border-white shadow-sm"></span>
-      <div class="flex items-center justify-between mb-2">
-        <div class="flex items-center gap-2">
-          <span class="text-xs font-bold text-slate-500 font-mono">Step {{ loop.index }}</span>
-          <span class="text-sm font-semibold text-slate-800">{{ step.step_name }}</span>
-          <span class="px-2 py-0.5 text-[11px] bg-slate-100 text-slate-600 rounded">因子: {{ step.factor_id }}</span>
+  <div class="page-stack">
+    <section class="panel" aria-labelledby="pipeline-heading">
+      <div class="panel__header"><div><h2 id="pipeline-heading" class="panel__heading">状态迁移步骤</h2><p class="panel__description">后续步骤可以从前一步的符号表中绑定表、列和对象状态。</p></div></div>
+      <div class="panel__body">
+        <ol style="list-style:none;margin:0;padding:0;display:grid;gap:10px;">
+          {% for step in scenario.steps %}
+          <li style="display:grid;grid-template-columns:42px 1fr;gap:12px;">
+            <span style="width:36px;height:36px;display:grid;place-items:center;border-radius:10px;background:#eff6ff;color:#1d4ed8;font-family:monospace;font-size:11px;font-weight:800;">{{ loop.index }}</span>
+            <article class="dimension-item">
+              <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;"><strong style="font-size:12px;color:#1e293b;">{{ step.step_name }}</strong><span class="chip">{{ step.strategy }}</span></div>
+              <div class="token-list" style="margin-top:8px;"><span class="token">factor: {{ step.factor_id }}</span></div>
+              <code class="sql-block" style="margin-top:9px;">{% if step.params_override %}# 覆盖参数
+{{ step.params_override }}{% else %}# 从上一阶段 SchemaContext 动态绑定表名与列名{% endif %}</code>
+            </article>
+          </li>
+          {% endfor %}
+        </ol>
+      </div>
+    </section>
+
+    {% if result_case %}
+    <section class="panel" aria-labelledby="scenario-results-heading">
+      <div class="panel__header"><div><h2 id="scenario-results-heading" class="panel__heading">时序状态机执行记录</h2><p class="panel__description">已完成 {{ result_case.step_cases | length }} 步，并执行 Schema 沙箱清理。</p></div><span class="chip chip--success">执行完成</span></div>
+      <div class="panel__body">
+        <div class="page-stack" style="gap:10px;">
+          {% for sc in result_case.step_cases %}<article class="dimension-item"><div style="display:flex;justify-content:space-between;gap:8px;"><span class="mono-id">{{ sc.case_id }}</span><span class="status-text status-text--success">SUCCESS</span></div><code class="sql-block" style="margin-top:8px;">{{ sc.sql }}</code></article>{% endfor %}
         </div>
-        <span class="text-xs text-slate-400">策略: {{ step.strategy }}</span>
+        <details class="disclosure" style="margin-top:14px;border-color:#dfe6ef;background:#fafcff;"><summary style="color:#334155;"><i data-lucide="braces" aria-hidden="true" style="width:14px;height:14px;"></i>查看 SchemaContext 符号表快照</summary><div class="disclosure__body" style="border-color:#dfe6ef;"><pre class="fixture-details" style="max-height:360px;overflow:auto;margin:0;border-radius:9px;background:#0f172a;color:#cbd5e1;padding:12px;font-size:10px;">{{ context_json }}</pre></div></details>
       </div>
-
-      <div class="text-xs text-slate-500 bg-slate-50 rounded-lg p-2.5 font-mono">
-        {% if step.params_override %}
-          <span class="text-slate-400"># 覆盖参数:</span> {{ step.params_override }}
-        {% else %}
-          <span class="text-purple-600"># 动态从上一阶段 SchemaContext 自动绑定表名与列名</span>
-        {% endif %}
-      </div>
-    </div>
-    {% endfor %}
+    </section>
+    {% endif %}
   </div>
-
-  {% if result_case %}
-  <!-- Execution Results Details -->
-  <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-      <h3 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-        <i data-lucide="check-circle-2" class="w-4 h-4 text-green-600"></i>
-        时序状态机执行记录 ({{ result_case.step_cases | length }} 步)
-      </h3>
-      <span class="text-xs text-slate-400">已自动完成 Schema 沙箱隔离与清理</span>
-    </div>
-
-    <div class="space-y-3">
-      {% for sc in result_case.step_cases %}
-      <div class="border border-slate-100 rounded-lg p-3 bg-slate-50/50">
-        <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
-          <span class="font-mono font-bold text-purple-700">{{ sc.case_id }}</span>
-          <span class="text-green-600 font-medium font-mono">SUCCESS</span>
-        </div>
-        <code class="text-xs text-slate-800 font-mono block break-all bg-white p-2 rounded border border-slate-100">{{ sc.sql }}</code>
-      </div>
-      {% endfor %}
-    </div>
-
-    <!-- Final SchemaContext Symbol Snapshot -->
-    <div class="pt-3 border-t border-slate-100">
-      <h4 class="text-xs font-bold text-slate-700 mb-2">当前符号表状态快照 (SchemaContext):</h4>
-      <pre class="text-[11px] font-mono bg-slate-900 text-slate-200 p-3 rounded-lg overflow-x-auto">{{ context_json }}</pre>
-    </div>
-  </div>
-  {% endif %}
-</div>
-<script>lucide.createIcons();</script>
+</section>

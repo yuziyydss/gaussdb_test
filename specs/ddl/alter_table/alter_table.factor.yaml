@@ -1,0 +1,264 @@
+schema_version: 1
+kind: factor
+id: alter_table
+name: ALTER TABLE
+category: DDL
+status: needs_review
+description: ALTER TABLE 顶层语句、表目标、列操作、约束、在线 DDL 和环境能力的 V1 验证包。
+
+source:
+  product: GaussDB
+  document: ALTER TABLE 产品文档原文
+  version: unknown
+  artifact_sha256: 1a41ed3efef0ad2144c81947bf1f93c9e653a8c341bf5ef2cf7f4493c0c456d0
+  extraction_date: "2026-08-29"
+
+source_ledger_ref: source_ledger_alter_table
+syntax_ref: syntax_alter_table_v1
+
+dimensions:
+  statement_form:
+    description: ALTER TABLE 的独立顶层产生式。
+    default_value_id: at_statement_action
+    classes:
+      - id: at_statement_class
+        meaning: 通用 action 与不能并入 action 列表的顶层语句。
+        values:
+          - {id: at_statement_action, render: "", representative: true, validity: valid}
+          - {id: at_statement_rename_table, render: "", representative: true, validity: valid, fact_refs: [at_fact_rename]}
+          - {id: at_statement_rename_column, render: "", representative: true, validity: valid, fact_refs: [at_fact_rename]}
+          - {id: at_statement_rename_constraint, render: "", representative: true, validity: valid, fact_refs: [at_fact_rename]}
+          - {id: at_statement_set_schema, render: "", representative: true, validity: valid, fact_refs: [at_fact_set_schema]}
+          - {id: at_statement_add_multi, render: "", representative: true, validity: valid, fact_refs: [at_fact_multi_action]}
+          - {id: at_statement_modify_multi, render: "", representative: true, validity: conditional, fact_refs: [at_open_b_compat_fixture]}
+
+  ddl_mode:
+    description: 默认、离线、在线及在线参数边界。
+    default_value_id: at_mode_default
+    classes:
+      - id: at_mode_valid_class
+        meaning: 文档明确的模式与合法在线参数。
+        values:
+          - {id: at_mode_default, render: "", representative: true, validity: valid, properties: {online: false, parameter_valid: true}}
+          - {id: at_mode_offline, render: "OFFLINE ", representative: true, validity: valid, properties: {online: false, parameter_valid: true}, fact_refs: [at_fact_online_mode]}
+          - {id: at_mode_online, render: "ONLINE ", representative: true, validity: valid, properties: {online: true, parameter_valid: true}, fact_refs: [at_fact_online_mode]}
+          - {id: at_mode_online_parallel4, render: "ONLINE WITH (parallel_threads = 4) ", representative: true, validity: valid, properties: {online: true, parameter_valid: true}, fact_refs: [at_fact_online_parameters]}
+          - {id: at_mode_online_catchup10, render: "ONLINE WITH (max_catchup_times = 10) ", representative: true, validity: valid, properties: {online: true, parameter_valid: true}, fact_refs: [at_fact_online_parameters]}
+      - id: at_mode_invalid_class
+        meaning: 文档明确越界的在线参数。
+        values:
+          - {id: at_mode_online_parallel0, render: "ONLINE WITH (parallel_threads = 0) ", representative: true, validity: invalid, properties: {online: true, parameter_valid: false}, fact_refs: [at_fact_online_parameters]}
+          - {id: at_mode_online_parallel33, render: "ONLINE WITH (parallel_threads = 33) ", representative: true, validity: invalid, properties: {online: true, parameter_valid: false}, fact_refs: [at_fact_online_parameters]}
+          - {id: at_mode_online_catchup51, render: "ONLINE WITH (max_catchup_times = 51) ", representative: true, validity: invalid, properties: {online: true, parameter_valid: false}, fact_refs: [at_fact_online_parameters]}
+
+  if_exists:
+    description: 目标表不存在时 ERROR 或 NOTICE。
+    default_value_id: at_if_exists_none
+    classes:
+      - id: at_if_exists_class
+        meaning: 默认行为或 IF EXISTS。
+        values:
+          - {id: at_if_exists_none, render: "", representative: true, validity: valid}
+          - {id: at_if_exists, render: "IF EXISTS ", representative: true, validity: valid, fact_refs: [at_fact_if_exists]}
+
+  target_form:
+    description: 表及继承层级目标形式。
+    default_value_id: at_target_plain
+    classes:
+      - id: at_target_form_class
+        meaning: 默认包含后代、显式星号或 ONLY 当前表。
+        values:
+          - {id: at_target_plain, render: "", representative: true, validity: valid, fact_refs: [at_fact_target_scope]}
+          - {id: at_target_star, render: "", representative: true, validity: valid, fact_refs: [at_fact_target_scope]}
+          - {id: at_target_only, render: "", representative: true, validity: valid, fact_refs: [at_fact_target_scope]}
+          - {id: at_target_only_parenthesized, render: "", representative: true, validity: valid, fact_refs: [at_fact_target_scope]}
+
+  table_profile:
+    description: 普通、分区、临时和条件环境目标表。
+    profile_source:
+      matrix_ref: matrix_alter_table_table_profiles
+      profile_id_path: profiles.id
+
+  action_profile:
+    description: 通用 action 产生式及其目标列、兼容性和环境契约。
+    profile_source:
+      matrix_ref: matrix_alter_table_action_profiles
+      profile_id_path: profiles.id
+
+  rename_operator:
+    description: 重命名表支持的三个同义连接符。
+    default_value_id: at_rename_to
+    classes:
+      - id: at_rename_operator_class
+        meaning: TO、AS 和等号。
+        values:
+          - {id: at_rename_to, render: "TO", representative: true, validity: valid, fact_refs: [at_fact_rename]}
+          - {id: at_rename_as, render: "AS", representative: true, validity: valid, fact_refs: [at_fact_rename]}
+          - {id: at_rename_equals, render: "=", representative: true, validity: valid, fact_refs: [at_fact_rename]}
+
+  column_keyword:
+    description: RENAME COLUMN 中 COLUMN 的可选性。
+    default_value_id: at_column_keyword
+    classes:
+      - id: at_column_keyword_class
+        meaning: 省略或显式 COLUMN。
+        values:
+          - {id: at_column_keyword_none, render: "", representative: true, validity: valid, fact_refs: [at_fact_rename]}
+          - {id: at_column_keyword, render: "COLUMN ", representative: true, validity: valid, fact_refs: [at_fact_rename]}
+
+rules:
+  - id: at_rule_online_parameter_range
+    kind: requires
+    expression: ddl_mode.properties.parameter_valid == True
+    severity: error
+    fact_refs: [at_fact_online_parameters]
+
+  - id: at_rule_partition_action_supported
+    kind: requires
+    expression: table_profile.properties.partitioned == True => action_profile.properties.partition_forbidden == False
+    severity: error
+    fact_refs: [at_fact_partition_restrictions]
+
+  - id: at_rule_rls_target_supported
+    kind: requires
+    expression: action_profile.properties.enables_rls == True => table_profile.properties.rls_supported == True
+    severity: error
+    fact_refs: [at_fact_rls]
+
+  - id: at_rule_orientation_immutable
+    kind: requires
+    expression: action_profile.properties.changes_orientation == False
+    severity: error
+    fact_refs: [at_fact_orientation_restriction]
+
+  - id: at_rule_nextval_default_unsupported
+    kind: requires
+    expression: action_profile.properties.default_uses_nextval == False
+    severity: error
+    fact_refs: [at_fact_add_column_default]
+
+  - id: at_rule_statistics_target_range
+    kind: requires
+    expression: action_profile.properties.statistics_target_valid == True
+    severity: error
+    fact_refs: [at_fact_column_statistics]
+
+  - id: at_rule_identity_type_supported
+    kind: requires
+    expression: action_profile.properties.identity_type_supported == True
+    severity: error
+    fact_refs: [at_fact_identity]
+
+  - id: at_rule_gsiwaitall_unsupported
+    kind: requires
+    expression: action_profile.properties.current_version_supported == True
+    severity: error
+    fact_refs: [at_fact_gsiwaitall]
+
+facts:
+  - {id: at_fact_purpose, type: syntax, statement: "ALTER TABLE 修改表定义、名称、模式、列、约束和安全属性。", status: confirmed, source_anchor: "功能描述"}
+  - {id: at_fact_permissions, type: environment, statement: "ALTER 权限、Owner、系统管理员和三权分立共同决定执行及属主/模式变更权限。", status: confirmed, source_anchor: "注意事项/权限"}
+  - {id: at_fact_partition_restrictions, type: constraint, statement: "分区表不能修改表级 TABLESPACE、分区键字段或转换分区键字符集。", status: confirmed, source_anchor: "注意事项/分区表"}
+  - {id: at_fact_orientation_restriction, type: constraint, statement: "不支持修改 ORIENTATION 存储参数。", status: confirmed, source_anchor: "注意事项/ORIENTATION"}
+  - {id: at_fact_set_schema, type: environment, statement: "SET SCHEMA 只支持用户模式且需要新模式 CREATE 权限；关联索引约束随表移动，序列不随表移动。", status: confirmed, source_anchor: "注意事项与 SET SCHEMA"}
+  - {id: at_fact_add_column_default, type: constraint, statement: "新增列不支持 nextval() 默认值；已有行按 DEFAULT 或 NULL 初始化，非空默认可能重写表。", status: confirmed, source_anchor: "注意事项/ADD COLUMN"}
+  - {id: at_fact_serial_compat, type: environment, statement: "PG 兼容模式下 SERIAL 系列新增列仅支持普通表且受表持久性和存储引擎限制。", status: confirmed, source_anchor: "注意事项/SERIAL"}
+  - {id: at_fact_column_position, type: environment, statement: "FIRST/AFTER 仅 B 模式且受加密列、规则、外表和 SET 类型限制，并会触发表重写。", status: confirmed, source_anchor: "注意事项与参数/FIRST AFTER"}
+  - {id: at_fact_constraint_limit, type: constraint, statement: "单表约束数不能超过 32767。", status: confirmed, source_anchor: "注意事项/约束数"}
+  - {id: at_fact_system_columns, type: constraint, statement: "系统列及 rowid/rowno 不支持若干列变更，按约束名删除主键不会删除 NOT NULL。", status: confirmed, source_anchor: "注意事项/系统列"}
+  - {id: at_fact_online_mode, type: lifecycle, statement: "ONLINE/OFFLINE 控制在线 DDL；不支持的 ONLINE 形态通过 NOTICE 降级为离线而非语法错误。", status: confirmed, source_anchor: "注意事项与参数/ONLINE"}
+  - {id: at_fact_online_environment, type: environment, statement: "在线 DDL 受事务、存储过程、兼容模式、表形态、升级状态、磁盘和并发资源限制。", status: confirmed, source_anchor: "注意事项/在线 DDL 环境"}
+  - {id: at_fact_online_lifecycle, type: lifecycle, statement: "在线 DDL 会创建 online$$ 临时 Schema、追增 DML，取消或故障可能残留对象和 append_mode 状态。", status: confirmed, source_anchor: "注意事项与参数/在线 DDL 生命周期"}
+  - {id: at_fact_online_parameters, type: constraint, statement: "parallel_threads 合法范围 1~32，max_catchup_times 合法范围 1~50。", status: confirmed, source_anchor: "参数说明/online_parameter"}
+  - {id: at_fact_main_grammar, type: syntax, statement: "ALTER TABLE 包含通用 action、多列、MODIFY、重命名、SET SCHEMA 与 GSIWAITALL 等顶层产生式。", status: confirmed, source_anchor: "语法格式"}
+  - {id: at_fact_constraint_actions, type: syntax, statement: "通用 action 包含增加、验证、删除约束和 USING INDEX。", status: confirmed, source_anchor: "action/约束"}
+  - {id: at_fact_cluster, type: syntax, statement: "CLUSTER ON 选择未来聚簇默认索引，SET WITHOUT CLUSTER 清除选择。", status: confirmed, source_anchor: "action/CLUSTER"}
+  - {id: at_fact_rowid, type: environment, statement: "SET WITH ROWID 仅 A 模式且不支持系统、临时、unlogged、外表及冲突系统列。", status: confirmed, source_anchor: "action/ROWID"}
+  - {id: at_fact_table_storage, type: constraint, statement: "SET/RESET 修改表存储参数；部分参数为内部参数或仅适用于特定表形态。", status: confirmed, source_anchor: "action 与参数/storage_parameter"}
+  - {id: at_fact_owner, type: environment, statement: "OWNER TO 受角色成员关系、模式权限和三权分立限制。", status: confirmed, source_anchor: "action/OWNER"}
+  - {id: at_fact_tablespace, type: lifecycle, statement: "SET TABLESPACE 移动表数据文件但不移动索引。", status: confirmed, source_anchor: "action/SET TABLESPACE"}
+  - {id: at_fact_internal_distribution, type: environment, statement: "GROUP/NODE/SLICE 等扩缩容语法仅供扩展模式或内部工具。", status: confirmed, source_anchor: "action/内部扩缩容"}
+  - {id: at_fact_triggers, type: behavior_oracle, statement: "触发器可按单个、ALL、USER、REPLICA、ALWAYS 启停，并受复制角色影响。", status: confirmed, source_anchor: "action/TRIGGER"}
+  - {id: at_fact_rls, type: behavior_oracle, statement: "行访问控制支持 ENABLE/DISABLE/FORCE/NO FORCE，但不能对外表或临时表开启。", status: confirmed, source_anchor: "action/RLS"}
+  - {id: at_fact_tde_rotation, type: lifecycle, statement: "ENCRYPTION KEY ROTATION 仅用于已开启 TDE 的加密表。", status: confirmed, source_anchor: "action/ENCRYPTION KEY ROTATION"}
+  - {id: at_fact_replica_identity, type: behavior_oracle, statement: "REPLICA IDENTITY 支持 DEFAULT、USING INDEX、FULL、NOTHING、UNIQUE，并受主键和 ustore 语义影响。", status: confirmed, source_anchor: "action/REPLICA IDENTITY"}
+  - {id: at_fact_auto_increment, type: constraint, statement: "AUTO_INCREMENT 仅 B 模式，值必须非负且不超过 2^127-1，且仅大于当前计数器时生效。", status: confirmed, source_anchor: "action/AUTO_INCREMENT"}
+  - {id: at_fact_charset, type: environment, statement: "表和列字符集/字符序变更仅 B 模式并受编码、类型映射和继承规则限制。", status: confirmed, source_anchor: "action 与参数/CHARSET"}
+  - {id: at_fact_ilm, type: environment, statement: "ILM 支持增加、启停、删除表/分区/子分区策略，行表达式依赖函数白名单。", status: confirmed, source_anchor: "action/ILM"}
+  - {id: at_fact_colview, type: environment, statement: "COLVIEW/NOCOLVIEW 与优先级属于 HTAP/IMCV 环境能力。", status: confirmed, source_anchor: "action/COLVIEW"}
+  - {id: at_fact_add_column, type: syntax, statement: "ADD COLUMN 支持 IF NOT EXISTS、类型、字符集、排序、约束和 FIRST/AFTER。", status: confirmed, source_anchor: "column_clause/ADD"}
+  - {id: at_fact_modify_column, type: environment, statement: "MODIFY/CHANGE 的扩展语法主要受 B 模式、加密列、分区键和依赖对象限制。", status: confirmed, source_anchor: "column_clause/MODIFY CHANGE"}
+  - {id: at_fact_drop_column, type: lifecycle, statement: "DROP COLUMN 支持 IF EXISTS、RESTRICT/CASCADE；删除是逻辑隐藏，空间由后续 VACUUM 回收。", status: confirmed, source_anchor: "column_clause/DROP"}
+  - {id: at_fact_alter_type, type: lifecycle, statement: "ALTER TYPE 支持 COLLATE/USING；二进制不兼容时重写表并需处理默认值、索引和依赖。", status: confirmed, source_anchor: "column_clause/ALTER TYPE"}
+  - {id: at_fact_column_default, type: behavior_oracle, statement: "SET/DROP DEFAULT 只影响后续 INSERT，不修改已有行。", status: confirmed, source_anchor: "column_clause/DEFAULT"}
+  - {id: at_fact_not_null, type: behavior_oracle, statement: "SET NOT NULL 要求现有数据满足约束，DROP NOT NULL 取消限制。", status: confirmed, source_anchor: "column_clause/NOT NULL"}
+  - {id: at_fact_column_statistics, type: constraint, statement: "列统计目标为 -1 或 0~10000；PERCENT 为 0~100；多列统计列数受 GUC 控制。", status: confirmed, source_anchor: "column_clause/STATISTICS"}
+  - {id: at_fact_attribute_storage, type: constraint, statement: "列属性只允许 n_distinct；SET STORAGE 支持 PLAIN/EXTERNAL/EXTENDED/MAIN。", status: confirmed, source_anchor: "column_clause/属性与 STORAGE"}
+  - {id: at_fact_identity, type: constraint, statement: "IDENTITY 仅支持数值类型、每表一个、默认 NOT NULL，且与 DEFAULT 等属性互斥。", status: confirmed, source_anchor: "column_clause/IDENTITY"}
+  - {id: at_fact_column_constraints, type: syntax, statement: "列约束包含 NULL、CHECK、DEFAULT、ON UPDATE、生成列、IDENTITY、AUTO_INCREMENT、注释、唯一、主键、加密和引用。", status: confirmed, source_anchor: "column_constraint"}
+  - {id: at_fact_table_constraints, type: syntax, statement: "表约束包含 CHECK、UNIQUE、PRIMARY KEY、FOREIGN KEY、延迟属性与索引参数。", status: confirmed, source_anchor: "table_constraint"}
+  - {id: at_fact_rename, type: syntax, statement: "支持重命名表、列和约束；表名连接符支持 TO、AS、等号。", status: confirmed, source_anchor: "重命名产生式"}
+  - {id: at_fact_multi_action, type: syntax, statement: "除 RENAME 和 SET SCHEMA 外可在同一命令组合多个 action，并提供 ADD/MODIFY 多列形式。", status: confirmed, source_anchor: "多 action 与多列"}
+  - {id: at_fact_gsiwaitall, type: constraint, statement: "当前版本不支持 GSIWAITALL。", status: confirmed, source_anchor: "GSIWAITALL"}
+  - {id: at_fact_if_exists, type: lifecycle, statement: "IF EXISTS 在表不存在时发出 NOTICE 而不是 ERROR。", status: confirmed, source_anchor: "参数说明/IF EXISTS"}
+  - {id: at_fact_target_scope, type: syntax, statement: "默认和星号包含后代，ONLY 仅修改当前表。", status: confirmed, source_anchor: "参数说明/table_name"}
+  - {id: at_fact_index_constraint_compat, type: environment, statement: "约束名、索引名、USING method、排序和表达式约束受 A/B/M 兼容模式及 ASTORE/USTORE 影响。", status: confirmed, source_anchor: "参数说明/约束索引"}
+  - {id: at_fact_storage_parameters, type: environment, statement: "TDE、parallel_workers、hasuids、统计粒度、ROWID、在线 DDL 和 VACUUM 参数各有值域与适用环境。", status: confirmed, source_anchor: "参数说明/storage_parameter"}
+  - {id: at_fact_check_generated, type: constraint, statement: "CHECK 不支持子查询；生成列表达式必须不可变且不能引用其他生成列、系统列、聚合或窗口。", status: confirmed, source_anchor: "参数说明/CHECK 与生成列"}
+  - {id: at_fact_on_update, type: environment, statement: "ON UPDATE 时间戳属性受兼容版本、数据类型、精度、生成列和分区键限制。", status: confirmed, source_anchor: "参数说明/ON UPDATE"}
+  - {id: at_fact_foreign_key, type: behavior_oracle, statement: "外键支持 MATCH、ON DELETE/UPDATE 动作；MATCH PARTIAL 暂不支持且临时表与永久表不能交叉引用。", status: confirmed, source_anchor: "参数说明/FOREIGN KEY"}
+  - {id: at_fact_deferrable, type: behavior_oracle, statement: "UNIQUE、主键和外键可延迟，并由 INITIALLY IMMEDIATE/DEFERRED 决定检查时机。", status: confirmed, source_anchor: "参数说明/DEFERRABLE"}
+  - {id: at_fact_comments, type: syntax, statement: "COMMENT 可用于表、列及主键/唯一索引。", status: confirmed, source_anchor: "参数说明/COMMENT"}
+  - {id: at_fact_examples, type: example, statement: "示例覆盖重命名、模式、Owner、表空间、列、约束和在线变更。", status: confirmed, source_anchor: "示例"}
+  - {id: at_open_online_environment_fixture, type: open_question, statement: "缺少能够声明事务、存储过程、升级状态、磁盘和在线 DDL 临时 Schema 的环境 Fixture。", status: needs_verification, source_anchor: "注意事项/在线 DDL"}
+  - {id: at_open_b_compat_fixture, type: open_question, statement: "缺少可切换数据库级 B 兼容版本和行为参数的 Fixture，MODIFY/CHANGE/FIRST/AFTER/AUTO_INCREMENT 暂不进入默认正向集。", status: needs_verification, source_anchor: "B 兼容语法"}
+  - {id: at_open_a_compat_fixture, type: open_question, statement: "缺少可切换数据库级 A 兼容模式并验证 ROWID 系统列的 Fixture。", status: needs_verification, source_anchor: "SET WITH ROWID"}
+  - {id: at_open_tde_fixture, type: open_question, statement: "缺少 KMS、TDE GUC 和加密表 Fixture。", status: needs_verification, source_anchor: "TDE 参数与密钥轮转"}
+  - {id: at_open_ilm_whitelist, type: open_question, statement: "ILM 行表达式函数白名单只由失效 CHM 链接给出。", status: needs_verification, source_anchor: "ILM"}
+  - {id: at_open_colview_fixture, type: open_question, statement: "缺少 HTAP/IMCV 环境和 COLVIEW 元数据 Oracle。", status: needs_verification, source_anchor: "COLVIEW"}
+  - {id: at_open_index_method_source, type: open_question, statement: "ADD CONSTRAINT 的 USING method 取值范围位于外链章节，本页未完整列出。", status: needs_verification, source_anchor: "参数说明/USING method"}
+  - {id: at_open_encrypted_column_fixture, type: open_question, statement: "缺少密态内存、列密钥与加密列 Fixture。", status: needs_verification, source_anchor: "加密列"}
+  - {id: at_open_external_table_fixture, type: open_question, statement: "缺少可复用外表 Fixture，外表限制只登记不生成。", status: needs_verification, source_anchor: "外表限制"}
+  - {id: at_open_subpartition_fixture, type: open_question, statement: "缺少二级分区与分区级 ILM Fixture。", status: needs_verification, source_anchor: "ILM 子分区"}
+
+manifest_refs:
+  - manifest_alter_table_core_positive
+  - manifest_alter_table_rename_table_positive
+  - manifest_alter_table_rename_column_positive
+  - manifest_alter_table_rename_constraint_positive
+  - manifest_alter_table_set_schema_add_multi_positive
+  - manifest_alter_table_online_positive
+  - manifest_alter_table_partition_positive
+  - manifest_alter_table_partition_negative
+  - manifest_alter_table_rls_negative
+  - manifest_alter_table_default_negative
+  - manifest_alter_table_storage_negative
+  - manifest_alter_table_statistics_negative
+  - manifest_alter_table_identity_negative
+  - manifest_alter_table_online_parameter_negative
+  - manifest_alter_table_gsiwaitall_negative
+matrix_refs: [matrix_alter_table_table_profiles, matrix_alter_table_action_profiles]
+fixture_refs:
+  - fixture_alter_table_regular
+  - fixture_alter_table_partitioned
+  - fixture_alter_table_temporary
+  - fixture_alter_table_multistat
+scenario_refs:
+  - scenario_alter_table_permissions
+  - scenario_alter_table_if_exists
+  - scenario_alter_table_add_column_data
+  - scenario_alter_table_online_effective
+  - scenario_alter_table_online_downgrade
+  - scenario_alter_table_online_failure_cleanup
+  - scenario_alter_table_rename_metadata
+  - scenario_alter_table_set_schema
+  - scenario_alter_table_constraint_behavior
+  - scenario_alter_table_rowid
+  - scenario_alter_table_triggers
+  - scenario_alter_table_tde
+  - scenario_alter_table_replica_identity
+  - scenario_alter_table_b_compatibility
+  - scenario_alter_table_ilm_colview
+  - scenario_alter_table_dependency_rebuild
+  - scenario_alter_table_rewrite_cost
+  - scenario_alter_table_internal_distribution

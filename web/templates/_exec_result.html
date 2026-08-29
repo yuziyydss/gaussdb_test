@@ -1,85 +1,56 @@
-<!-- Execution Result Fragment (Enhanced: shows expected + verdict) -->
-<div class="max-w-5xl">
-  <div class="flex items-center gap-3 mb-4">
-    <div>
-      <h2 class="text-lg font-semibold text-slate-800">{{ factor.name }} · 执行结果</h2>
-      <p class="text-xs text-slate-400">策略: {{ strategy }} | 共 {{ cases | length }} 条</p>
+<section class="page-shell" aria-labelledby="result-title">
+  <header class="page-header">
+    <div class="page-header__copy">
+      <div class="page-header__meta"><span class="overline">Execution Report</span><span class="chip">{{ strategy }}</span><span class="mono-id">{{ cases | length }} 条结果</span></div>
+      <h1 id="result-title" class="page-title">{{ factor.name }} · 执行结果</h1>
+      <p class="page-description">判定基于每条用例的预期结果与目标 Oracle；基础设施异常单独标记为 CRASH。</p>
     </div>
-    <div class="flex-1"></div>
-    <a href="/report/{{ report_name }}" target="_blank"
-       class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
-      <i data-lucide="download" class="w-3.5 h-3.5"></i>
-      下载报告
-    </a>
-  </div>
+    <a href="/report/{{ report_name }}" target="_blank" rel="noopener" class="primary-button"><i data-lucide="download" aria-hidden="true"></i>下载完整报告</a>
+  </header>
 
-  <!-- Summary: 动态计算 verdict 计数 -->
   {% set pass_count = results.values() | selectattr('verdict', 'equalto', 'pass') | list | length %}
   {% set fail_count = results.values() | selectattr('verdict', 'equalto', 'fail') | list | length %}
   {% set crash_count = results.values() | selectattr('verdict', 'equalto', 'crash') | list | length %}
   {% set skip_count = results.values() | selectattr('verdict', 'equalto', 'skip') | list | length %}
-  <div class="grid grid-cols-5 gap-3 mb-4">
-    <div class="bg-white rounded-lg border border-slate-200 px-4 py-3">
-      <div class="text-xl font-bold text-slate-700">{{ cases | length }}</div>
-      <div class="text-[11px] text-slate-400 mt-0.5">总用例</div>
-    </div>
-    <div class="bg-white rounded-lg border border-slate-200 px-4 py-3">
-      <div class="text-xl font-bold text-green-600">{{ pass_count }}</div>
-      <div class="text-[11px] text-slate-400 mt-0.5">Pass</div>
-    </div>
-    <div class="bg-white rounded-lg border border-slate-200 px-4 py-3">
-      <div class="text-xl font-bold text-red-600">{{ fail_count }}</div>
-      <div class="text-[11px] text-slate-400 mt-0.5">Fail</div>
-    </div>
-    <div class="bg-white rounded-lg border border-slate-200 px-4 py-3">
-      <div class="text-xl font-bold text-red-800">{{ crash_count }}</div>
-      <div class="text-[11px] text-slate-400 mt-0.5">Crash</div>
-    </div>
-    <div class="bg-white rounded-lg border border-slate-200 px-4 py-3">
-      <div class="text-xl font-bold text-slate-400">{{ skip_count }}</div>
-      <div class="text-[11px] text-slate-400 mt-0.5">Skip</div>
-    </div>
-  </div>
 
-  <!-- Detail: 预期 + 判定 列 -->
-  <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="bg-slate-50 border-b border-slate-200 text-xs text-slate-400 uppercase tracking-wider">
-          <th class="py-2 px-3 text-left font-medium w-20">ID</th>
-          <th class="py-2 px-3 text-left font-medium">SQL</th>
-          <th class="py-2 px-3 text-left font-medium w-24">预期</th>
-          <th class="py-2 px-3 text-left font-medium w-20">判定</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-50">
-        {% for case in cases %}
-        {% set result = results.get(case.case_id) %}
-        <tr class="hover:bg-slate-50 transition-colors">
-          <td class="py-2 px-3 font-mono text-xs text-slate-400 align-top">{{ case.case_id }}</td>
-          <td class="py-2 px-3 sql-code text-xs text-slate-700 leading-relaxed break-all">{{ case.sql }}</td>
-          <td class="py-2 px-3 text-xs align-top">
-            {% if case.expected == 'success' %}<span class="text-green-500">success</span>
-            {% elif case.expected == 'error' %}<span class="text-red-500">error</span>
-            {% if case.expected_sqlstates %}<br><span class="text-slate-400 font-mono text-[10px]">{{ case.expected_sqlstates | join('/') }}</span>
-            {% elif case.expected_sqlstate %}<br><span class="text-slate-400 font-mono text-[10px]">{{ case.expected_sqlstate }}</span>{% endif %}
-            {% elif case.expected == 'skipped' %}<span class="text-slate-400">skipped</span>{% endif %}
-          </td>
-          <td class="py-2 px-3 text-xs align-top">
-            {% if result %}
-              {% if result.verdict == 'pass' %}<span class="text-green-600 font-medium">PASS</span>
-              {% elif result.verdict == 'fail' %}<span class="text-red-600 font-medium">FAIL</span>
-              {% elif result.verdict == 'crash' %}<span class="text-red-800 font-bold">CRASH</span>
-              {% elif result.verdict == 'skip' %}<span class="text-slate-400">SKIP</span>
-              {% else %}<span class="text-slate-400">{{ result.verdict }}</span>{% endif %}
-            {% else %}
-              <span class="text-slate-400">pending</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="page-stack">
+    <section class="metric-grid metric-grid--six" aria-label="执行结果统计">
+      <article class="metric-card"><span class="metric-card__label">总用例</span><strong class="metric-card__value">{{ cases | length }}</strong></article>
+      <article class="metric-card metric-card--accent"><span class="metric-card__label">Pass</span><strong class="metric-card__value metric-card__value--success">{{ pass_count }}</strong></article>
+      <article class="metric-card"><span class="metric-card__label">Fail</span><strong class="metric-card__value metric-card__value--danger">{{ fail_count }}</strong></article>
+      <article class="metric-card"><span class="metric-card__label">Crash</span><strong class="metric-card__value metric-card__value--danger">{{ crash_count }}</strong></article>
+      <article class="metric-card"><span class="metric-card__label">Skip</span><strong class="metric-card__value">{{ skip_count }}</strong></article>
+      <article class="metric-card metric-card--dark"><span class="metric-card__label">通过率</span><strong class="metric-card__value">{% if cases | length %}{{ ((pass_count / (cases | length)) * 100) | round(1) }}%{% else %}—{% endif %}</strong></article>
+    </section>
+
+    <div class="data-table-wrap" tabindex="0" aria-label="执行结果表格，可横向滚动">
+      <table class="data-table">
+        <caption class="sr-only">{{ factor.name }} 的执行结果</caption>
+        <thead><tr><th scope="col" style="width:110px;">Case ID</th><th scope="col">SQL</th><th scope="col" style="width:145px;">预期</th><th scope="col" style="width:100px;">判定</th></tr></thead>
+        <tbody>
+          {% for case in cases %}
+          {% set result = results.get(case.case_id) %}
+          <tr>
+            <td><span class="mono-id">{{ case.case_id }}</span></td>
+            <td><code class="sql-block">{{ case.sql }}</code></td>
+            <td>
+              {% if case.expected == 'success' %}<span class="status-text status-text--success">SUCCESS</span>
+              {% elif case.expected == 'error' %}<span class="status-text status-text--danger">ERROR</span>{% if case.expected_sqlstates %}<div class="mono-id" style="margin-top:4px;">{{ case.expected_sqlstates | join(' / ') }}</div>{% elif case.expected_sqlstate %}<div class="mono-id" style="margin-top:4px;">{{ case.expected_sqlstate }}</div>{% endif %}
+              {% elif case.expected == 'skipped' %}<span class="status-text status-text--muted">SKIPPED</span>{% endif %}
+            </td>
+            <td>
+              {% if result %}
+                {% if result.verdict == 'pass' %}<span class="chip chip--success">PASS</span>
+                {% elif result.verdict == 'fail' %}<span class="chip chip--danger">FAIL</span>
+                {% elif result.verdict == 'crash' %}<span class="chip chip--danger">CRASH</span>
+                {% elif result.verdict == 'skip' %}<span class="chip">SKIP</span>
+                {% else %}<span class="chip">{{ result.verdict }}</span>{% endif %}
+              {% else %}<span class="chip">PENDING</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
-</div>
-<script>lucide.createIcons();</script>
+</section>

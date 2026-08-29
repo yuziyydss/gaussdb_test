@@ -1,0 +1,38 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_view_permissions
+name: CREATE VIEW 权限与系统模式限制
+status: planned
+description: 验证 CREATE ANY TABLE 权限范围和非初始用户替换系统视图的限制。
+factor_ref: create_view
+fact_refs:
+  - cv_fact_create_any_table_permission
+  - cv_fact_system_view_replace_permission
+  - cv_fact_view_hides_unexposed_data
+  - cv_fact_view_permission_boundary
+  - cv_open_force_missing_privilege
+
+variants:
+  - id: create_any_table_public_schema
+    actor: user_with_create_any_table
+    operation: 在 public 模式创建视图。
+    expected: success
+  - id: create_any_table_user_schema
+    actor: user_with_create_any_table
+    operation: 在用户模式创建视图。
+    expected: success
+  - id: replace_system_view_non_initial_user
+    actor: non_initial_user
+    schemas: [SYS, DBE_PERF, INFORMATION_SCHEMA]
+    operation: CREATE OR REPLACE 系统视图。
+    expected: error
+  - id: force_without_query_privilege
+    actor: user_without_source_query_privilege
+    operation: CREATE FORCE VIEW 引用无查询权限对象。
+    expected: needs_verification
+  - id: view_only_grant_hides_base_columns
+    actor: user_with_view_select_without_base_table_select
+    operation: 查询仅投影部分基表列的视图，并尝试直接查询基表或未投影列。
+    expected: 视图已投影列可查询；基表和未投影字段不可通过该权限边界直接访问。
+
+execution_requirements: [database, multiple_users, privilege_management]

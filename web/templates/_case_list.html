@@ -1,59 +1,91 @@
-<!-- Case List Fragment (Enhanced: shows expected + context) -->
-<div class="max-w-5xl">
-  <div class="flex items-center gap-3 mb-4">
-    <div>
-      <h2 class="text-lg font-semibold text-slate-800">{{ factor.name }} · 测试用例</h2>
-      <p class="text-xs text-slate-400">策略: {{ strategy }} | 共 {{ cases | length }} 条</p>
+<section class="page-shell" aria-labelledby="cases-title">
+  <header class="page-header">
+    <div class="page-header__copy">
+      <div class="page-header__meta">
+        <span class="overline">Generated Cases</span>
+        <span class="chip chip--success">{{ strategy }}</span>
+        <span class="mono-id">{{ cases | length }} 条 SQL</span>
+      </div>
+      <h2 id="cases-title" class="page-title">{{ factor.name }} · 测试用例</h2>
+      <p class="page-description">每条 SQL 都保留预期结果、目标错误 Oracle、上下文和 Fixture 生命周期，便于静态校对。</p>
     </div>
-    <div class="flex-1"></div>
+    {% if allow_execute %}
     <form hx-post="/execute" hx-target="#main-content" hx-swap="innerHTML" hx-indicator="#exec-indicator">
       <input type="hidden" name="factor_id" value="{{ factor.id }}">
       <input type="hidden" name="strategy" value="{{ strategy }}">
-      <button type="submit"
-              class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors border border-slate-200">
-        <i data-lucide="play" class="w-3.5 h-3.5"></i>
+      <button type="submit" class="ghost-button">
+        <i data-lucide="play" aria-hidden="true"></i>
         执行并生成报告
       </button>
+      <span id="exec-indicator" class="htmx-indicator sr-only" role="status">正在执行测试用例</span>
     </form>
-    <span id="exec-indicator" class="htmx-indicator text-xs text-blue-500">执行中...</span>
-  </div>
+    {% endif %}
+  </header>
 
-  <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="bg-slate-50 border-b border-slate-200 text-xs text-slate-400 uppercase tracking-wider">
-          <th class="py-2 px-3 text-left font-medium w-20">ID</th>
-          <th class="py-2 px-3 text-left font-medium">SQL 语句</th>
-          <th class="py-2 px-3 text-left font-medium w-24">预期</th>
-          <th class="py-2 px-3 text-left font-medium w-20">上下文</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-50">
-        {% for case in cases %}
-        <tr class="hover:bg-slate-50 transition-colors">
-          <td class="py-2 px-3 font-mono text-xs text-slate-400 align-top">{{ case.case_id }}</td>
-          <td class="py-2 px-3 sql-code text-xs text-slate-700 leading-relaxed break-all">{{ case.sql }}</td>
-          <td class="py-2 px-3 text-xs align-top">
-            {% if case.expected == 'success' %}
-            <span class="text-green-500">success</span>
-            {% elif case.expected == 'error' %}
-            <span class="text-red-500">error</span>
-            {% if case.expected_sqlstates %}
-            <br><span class="text-slate-400 font-mono text-[10px]">{{ case.expected_sqlstates | join('/') }}</span>
-            {% elif case.expected_sqlstate %}
-            <br><span class="text-slate-400 font-mono text-[10px]">{{ case.expected_sqlstate }}</span>
-            {% endif %}
-            {% elif case.expected == 'skipped' %}
-            <span class="text-slate-400">skipped</span>
-            {% endif %}
-          </td>
-          <td class="py-2 px-3 text-xs text-slate-400 align-top">
-            {{ case.context if case.context != 'default' else '' }}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="page-stack">
+    {% if report %}
+    <section aria-labelledby="coverage-summary-title">
+      <div style="display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:8px;margin-bottom:10px;">
+        <div><h3 id="coverage-summary-title" class="panel__heading">组合覆盖摘要</h3><p class="panel__description">候选空间 {{ report.candidate_combination_estimate }}{% if report.feasible_combination_count is not none %} · 约束过滤后 {{ report.feasible_combination_count }} 个可行组合{% endif %}</p></div>
+        <span class="chip {% if report.missing_pairs %}chip--danger{% else %}chip--success{% endif %}">{% if report.missing_pairs %}覆盖未完成{% else %}Pairwise 100%{% endif %}</span>
+      </div>
+      <div class="metric-grid">
+        <article class="metric-card"><span class="metric-card__label">生成用例</span><strong class="metric-card__value">{{ report.generated_case_count }}</strong></article>
+        <article class="metric-card"><span class="metric-card__label">可行 Pair</span><strong class="metric-card__value">{{ report.feasible_pair_count }}</strong></article>
+        <article class="metric-card metric-card--accent"><span class="metric-card__label">已覆盖 Pair</span><strong class="metric-card__value metric-card__value--success">{{ report.covered_pair_count }}</strong></article>
+        <article class="metric-card {% if report.missing_pairs %}{% else %}metric-card--dark{% endif %}"><span class="metric-card__label">缺失 Pair</span><strong class="metric-card__value {% if report.missing_pairs %}metric-card__value--danger{% endif %}">{{ report.missing_pairs | length }}</strong></article>
+      </div>
+    </section>
+    {% endif %}
+
+    {% if cases %}
+    <div class="data-table-wrap" tabindex="0" aria-label="SQL 用例表格，可横向滚动">
+      <table class="data-table">
+        <caption class="sr-only">{{ factor.name }} 的 {{ cases | length }} 条生成 SQL</caption>
+        <thead>
+          <tr>
+            <th scope="col" style="width:110px;">Case ID</th>
+            <th scope="col">SQL 语句与 Fixture</th>
+            <th scope="col" style="width:145px;">预期 Oracle</th>
+            <th scope="col" style="width:120px;">上下文</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for case in cases %}
+          <tr>
+            <td><span class="mono-id">{{ case.case_id }}</span></td>
+            <td>
+              <code class="sql-block">{{ case.sql }}</code>
+              {% if case.setup_sqls or case.teardown_sqls %}
+              <details class="fixture-details">
+                <summary>Fixture · setup {{ case.setup_sqls | length }} / teardown {{ case.teardown_sqls | length }}</summary>
+                {% if case.setup_sqls %}<pre><strong>SETUP</strong>
+{{ case.setup_sqls | join('\n') }}</pre>{% endif %}
+                {% if case.teardown_sqls %}<pre><strong>TEARDOWN</strong>
+{{ case.teardown_sqls | join('\n') }}</pre>{% endif %}
+              </details>
+              {% endif %}
+            </td>
+            <td>
+              {% if case.expected == 'success' %}
+              <span class="status-text status-text--success">SUCCESS</span>
+              {% elif case.expected == 'error' %}
+              <span class="status-text status-text--danger">ERROR</span>
+              {% if case.expected_error_category %}<div class="mono-id" style="margin-top:5px;color:#b91c1c;">{{ case.expected_error_category }}</div>{% endif %}
+              {% if case.expected_sqlstates %}<div class="mono-id" style="margin-top:3px;">SQLSTATE {{ case.expected_sqlstates | join(' / ') }}</div>{% elif case.expected_sqlstate %}<div class="mono-id" style="margin-top:3px;">SQLSTATE {{ case.expected_sqlstate }}</div>{% endif %}
+              {% if case.expected_error_regex %}<div class="fine-print" style="margin-top:4px;overflow-wrap:anywhere;">regex: {{ case.expected_error_regex }}</div>{% endif %}
+              {% elif case.expected == 'skipped' %}
+              <span class="status-text status-text--muted">SKIPPED</span>
+              {% endif %}
+            </td>
+            <td>{% if case.context != 'default' %}<span class="token">{{ case.context }}</span>{% else %}<span class="fine-print">默认</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><span class="empty-state__icon"><i data-lucide="file-x-2" aria-hidden="true"></i></span><strong>没有生成 SQL</strong><p>当前清单未产生可行组合，请检查 bindings、约束与 Fixture 契约。</p></div>
+    {% endif %}
   </div>
-</div>
-<script>lucide.createIcons();</script>
+</section>

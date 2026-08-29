@@ -1,0 +1,126 @@
+schema_version: 1
+kind: syntax
+id: syntax_alter_table_v1
+name: ALTER TABLE 多顶层 AST
+category: DDL
+status: ready
+factor_ref: alter_table
+description: 使用顶层 choice、目标表 choice 和通用 action profile 表达 ALTER TABLE 的主要产生式。
+
+ast:
+  kind: choice
+  selector: statement_form
+  branches:
+    at_statement_action: {kind: ref, ref: generic_action}
+    at_statement_rename_table: {kind: ref, ref: rename_table}
+    at_statement_rename_column: {kind: ref, ref: rename_column}
+    at_statement_rename_constraint: {kind: ref, ref: rename_constraint}
+    at_statement_set_schema: {kind: ref, ref: set_schema}
+    at_statement_add_multi: {kind: ref, ref: add_multi}
+    at_statement_modify_multi: {kind: ref, ref: modify_multi}
+
+subgrammars:
+  prefix:
+    kind: sequence
+    items:
+      - {kind: literal, text: "ALTER TABLE "}
+      - {kind: slot, slot: ddl_mode}
+      - {kind: slot, slot: if_exists}
+
+  target:
+    kind: choice
+    selector: target_form
+    branches:
+      at_target_plain: {kind: slot, slot: table_profile}
+      at_target_star:
+        kind: sequence
+        items:
+          - {kind: slot, slot: table_profile}
+          - {kind: literal, text: "*"}
+      at_target_only:
+        kind: sequence
+        items:
+          - {kind: literal, text: "ONLY "}
+          - {kind: slot, slot: table_profile}
+      at_target_only_parenthesized:
+        kind: sequence
+        items:
+          - {kind: literal, text: "ONLY ("}
+          - {kind: slot, slot: table_profile}
+          - {kind: literal, text: ")"}
+
+  generic_action:
+    kind: sequence
+    items:
+      - {kind: ref, ref: prefix}
+      - {kind: ref, ref: target}
+      - {kind: literal, text: " "}
+      - {kind: slot, slot: action_profile}
+
+  rename_table:
+    kind: sequence
+    items:
+      - {kind: ref, ref: prefix}
+      - {kind: slot, slot: table_profile}
+      - {kind: literal, text: " RENAME "}
+      - {kind: slot, slot: rename_operator}
+      - {kind: literal, text: " t_at_renamed"}
+
+  rename_column:
+    kind: sequence
+    items:
+      - {kind: ref, ref: prefix}
+      - {kind: ref, ref: target}
+      - {kind: literal, text: " RENAME "}
+      - {kind: slot, slot: column_keyword}
+      - {kind: literal, text: "code TO code_new"}
+
+  rename_constraint:
+    kind: sequence
+    items:
+      - {kind: ref, ref: prefix}
+      - {kind: ref, ref: target}
+      - {kind: literal, text: " RENAME CONSTRAINT ck_at_amount_nonnegative TO ck_at_amount_renamed"}
+
+  set_schema:
+    kind: sequence
+    items:
+      - {kind: ref, ref: prefix}
+      - {kind: slot, slot: table_profile}
+      - {kind: literal, text: " SET SCHEMA at_target_schema"}
+
+  add_multi:
+    kind: sequence
+    items:
+      - {kind: ref, ref: prefix}
+      - {kind: slot, slot: table_profile}
+      - {kind: literal, text: " ADD (extra_a INTEGER, extra_b VARCHAR(20))"}
+
+  modify_multi:
+    kind: sequence
+    items:
+      - {kind: ref, ref: prefix}
+      - {kind: slot, slot: table_profile}
+      - {kind: literal, text: " MODIFY (note VARCHAR(96), amount NOT NULL)"}
+
+rendering: {whitespace: collapse, statement_terminator: ";"}
+
+slots:
+  statement_form: {type: ast_selector, optional: false, dimension_ref: alter_table.statement_form}
+  ddl_mode: {type: sql_fragment, optional: true, dimension_ref: alter_table.ddl_mode}
+  if_exists: {type: token, optional: true, dimension_ref: alter_table.if_exists}
+  target_form: {type: ast_selector, optional: false, dimension_ref: alter_table.target_form}
+  table_profile: {type: table_profile, optional: false, dimension_ref: alter_table.table_profile, symbol_action: alters_relation}
+  action_profile: {type: sql_fragment, optional: false, dimension_ref: alter_table.action_profile}
+  rename_operator: {type: token, optional: false, dimension_ref: alter_table.rename_operator}
+  column_keyword: {type: token, optional: true, dimension_ref: alter_table.column_keyword}
+
+source_fact_refs:
+  - at_fact_purpose
+  - at_fact_main_grammar
+  - at_fact_rename
+  - at_fact_set_schema
+  - at_fact_multi_action
+  - at_fact_target_scope
+  - at_fact_online_mode
+  - at_fact_column_constraints

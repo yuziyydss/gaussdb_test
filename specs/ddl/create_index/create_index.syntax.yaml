@@ -1,0 +1,100 @@
+schema_version: 1
+kind: syntax
+id: syntax_create_index_v1
+name: CREATE INDEX 双顶层 AST
+category: DDL
+status: ready
+factor_ref: create_index
+description: 使用普通表/分区表 choice、命名 subgrammar 和键列表 repeat 表达 CREATE INDEX。
+
+ast:
+  kind: choice
+  selector: statement_form
+  branches:
+    ci_statement_regular: {kind: ref, ref: regular_index}
+    ci_statement_partition: {kind: ref, ref: partition_index}
+
+subgrammars:
+  prefix:
+    kind: sequence
+    items:
+      - {kind: literal, text: "CREATE "}
+      - {kind: slot, slot: unique_modifier}
+      - {kind: literal, text: "INDEX "}
+      - {kind: slot, slot: concurrently}
+      - {kind: slot, slot: if_not_exists}
+      - {kind: ref, ref: index_name}
+      - {kind: literal, text: "ON "}
+      - {kind: slot, slot: table_profile}
+      - {kind: slot, slot: method}
+      - {kind: literal, text: " ("}
+      - {kind: repeat, slot: key_profile, separator: ", ", items_property: items}
+      - {kind: literal, text: ")"}
+
+  index_name:
+    kind: choice
+    selector: index_name_presence
+    branches:
+      ci_index_name_present:
+        kind: sequence
+        items:
+          - {kind: slot, slot: index_name}
+          - {kind: literal, text: " "}
+      ci_index_name_absent: {kind: literal, text: ""}
+
+  regular_index:
+    kind: sequence
+    items:
+      - {kind: ref, ref: prefix}
+      - {kind: slot, slot: include_profile}
+      - {kind: slot, slot: storage_profile}
+      - {kind: slot, slot: comment_clause}
+      - {kind: slot, slot: visibility_clause}
+      - {kind: slot, slot: tablespace_clause}
+
+  partition_index:
+    kind: sequence
+    items:
+      - {kind: ref, ref: prefix}
+      - {kind: slot, slot: scope_clause}
+      - {kind: slot, slot: include_profile}
+      - {kind: slot, slot: storage_profile}
+      - {kind: slot, slot: comment_clause}
+      - {kind: slot, slot: visibility_clause}
+      - {kind: slot, slot: tablespace_clause}
+
+rendering: {whitespace: collapse, statement_terminator: ";"}
+
+slots:
+  statement_form: {type: ast_selector, optional: false, dimension_ref: create_index.statement_form}
+  unique_modifier: {type: token, optional: true, dimension_ref: create_index.unique_modifier}
+  concurrently: {type: token, optional: true, dimension_ref: create_index.concurrently}
+  if_not_exists: {type: token, optional: true, dimension_ref: create_index.if_not_exists}
+  index_name_presence: {type: ast_selector, optional: false, dimension_ref: create_index.index_name_presence}
+  index_name: {type: identifier, optional: true, symbol_action: creates_index, identifier_role: index}
+  table_profile: {type: table_profile, optional: false, dimension_ref: create_index.table_profile, symbol_action: reads_relation}
+  method: {type: sql_fragment, optional: true, dimension_ref: create_index.method}
+  key_profile: {type: ast_repeat, optional: false, dimension_ref: create_index.key_profile}
+  scope_clause: {type: sql_fragment, optional: true, dimension_ref: create_index.scope_clause}
+  include_profile: {type: sql_fragment, optional: true, dimension_ref: create_index.include_profile}
+  storage_profile: {type: sql_fragment, optional: true, dimension_ref: create_index.storage_profile}
+  comment_clause: {type: sql_fragment, optional: true, dimension_ref: create_index.comment_clause}
+  visibility_clause: {type: sql_fragment, optional: true, dimension_ref: create_index.visibility_clause}
+  tablespace_clause: {type: sql_fragment, optional: true, dimension_ref: create_index.tablespace_clause}
+
+source_fact_refs:
+  - ci_fact_purpose
+  - ci_fact_main_grammar
+  - ci_fact_partition_grammar
+  - ci_fact_unique
+  - ci_fact_concurrently
+  - ci_fact_if_not_exists
+  - ci_fact_identifiers
+  - ci_fact_method_btree
+  - ci_fact_sort_nulls
+  - ci_fact_include
+  - ci_fact_index_partition_clause
+  - ci_fact_fillfactor
+  - ci_fact_comment
+  - ci_fact_visibility
+  - ci_fact_tablespace

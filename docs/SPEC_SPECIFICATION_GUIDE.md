@@ -1,5 +1,7 @@
 # 三类标准规格文件设计范式与编写规范
 
+> **Legacy V0：** 本文描述当前旧运行时使用的三文件结构，仅用于维护兼容代码。新的文档抽取请使用 [Factor Package Schema V1](FACTOR_PACKAGE_SCHEMA_V1.md)，不要继续向 V0 双写产品规则。
+
 > 本规范定义了从 GaussDB 产品文档中抽取并维护的三类标准化规格文件：**语法规范 (`*.syntax.yaml`)**、**全局兼容矩阵 (`*.matrix.yaml`)** 与 **组合测试清单 (`*.manifest.yaml`)** 的详细 Schema、字段语义、设计范式与编写准则。
 
 ---

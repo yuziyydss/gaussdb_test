@@ -1,0 +1,27 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_view_or_replace
+name: CREATE VIEW OR REPLACE 生命周期
+status: planned
+description: 验证已有视图被重新定义后的查询定义、列数、列类型和列名变化。
+factor_ref: create_view
+fact_refs: [cv_fact_or_replace, cv_example_replace_shape]
+
+preconditions:
+  - 提供两张列形态不同的永久表，并创建初始视图。
+
+steps:
+  - id: replace_query_source
+    action: execute_sql
+    sql: CREATE OR REPLACE VIEW v_cv_replace AS SELECT col_1, col_2 FROM t_view_source_b
+  - id: replace_projection
+    action: execute_sql
+    sql: CREATE OR REPLACE VIEW v_cv_replace AS SELECT col_2::TEXT AS c2_new, col_3 FROM t_view_source_b
+
+oracles:
+  - kind: query_result_shape
+    expected: 视图查询来源、列数、列类型和列名与最后一次定义一致。
+  - kind: metadata
+    expected: 系统目录中只有一个同名视图对象，定义已更新。
+
+execution_requirements: [database, metadata_query]

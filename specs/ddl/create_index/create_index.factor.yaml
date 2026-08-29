@@ -1,0 +1,374 @@
+schema_version: 1
+kind: factor
+id: create_index
+name: CREATE INDEX
+category: DDL
+status: needs_review
+description: CREATE INDEX 普通表/分区表语法、键定义、在线创建、存储参数和行为场景的 V1 验证包。
+
+source:
+  product: GaussDB
+  document: CREATE INDEX 产品文档原文
+  version: unknown
+  artifact_sha256: 753dd73b4d8310dc8146a5d4793f739a581c73f6116f7b9b81bf9e5ba4a77a07
+  extraction_date: "2026-08-29"
+
+source_ledger_ref: source_ledger_create_index
+syntax_ref: syntax_create_index_v1
+
+dimensions:
+  statement_form:
+    description: 普通表和分区表两个顶层产生式。
+    default_value_id: ci_statement_regular
+    classes:
+      - id: ci_statement_form_class
+        meaning: 选择普通表或分区表产生式。
+        values:
+          - {id: ci_statement_regular, render: "", representative: true, validity: valid}
+          - {id: ci_statement_partition, render: "", representative: true, validity: valid}
+
+  unique_modifier:
+    description: 是否创建唯一索引。
+    default_value_id: ci_unique_none
+    classes:
+      - id: ci_unique_class
+        meaning: 普通或唯一索引。
+        values:
+          - {id: ci_unique_none, render: "", representative: true, validity: valid}
+          - {id: ci_unique, render: "UNIQUE ", representative: true, validity: valid, fact_refs: [ci_fact_unique]}
+
+  concurrently:
+    description: 是否在线创建索引。
+    default_value_id: ci_concurrently_none
+    classes:
+      - id: ci_concurrently_class
+        meaning: 离线或 CONCURRENTLY 在线创建。
+        values:
+          - {id: ci_concurrently_none, render: "", representative: true, validity: valid}
+          - {id: ci_concurrently, render: "CONCURRENTLY ", representative: true, validity: valid, fact_refs: [ci_fact_concurrently]}
+
+  if_not_exists:
+    description: 同名 relation 已存在时返回 NOTICE 而不是 ERROR。
+    default_value_id: ci_if_not_exists_none
+    classes:
+      - id: ci_if_not_exists_class
+        meaning: 默认冲突处理或 IF NOT EXISTS。
+        values:
+          - {id: ci_if_not_exists_none, render: "", representative: true, validity: valid}
+          - {id: ci_if_not_exists, render: "IF NOT EXISTS ", representative: true, validity: valid, fact_refs: [ci_fact_if_not_exists]}
+
+  index_name_presence:
+    description: 显式生成索引名或让数据库生成名称。
+    default_value_id: ci_index_name_present
+    classes:
+      - id: ci_index_name_class
+        meaning: 有名或省略索引名。
+        values:
+          - {id: ci_index_name_present, render: "", representative: true, validity: valid}
+          - {id: ci_index_name_absent, render: "", representative: true, validity: valid, fact_refs: [ci_fact_main_grammar]}
+
+  table_profile:
+    description: 普通、临时、分区和待实现二级分区目标表能力。
+    profile_source:
+      matrix_ref: matrix_create_index_table_profiles
+      profile_id_path: profiles.id
+
+  method:
+    description: 文档当前明确支持的索引方法。
+    default_value_id: ci_method_default
+    classes:
+      - id: ci_method_class
+        meaning: 省略方法或显式 BTREE。
+        values:
+          - {id: ci_method_default, render: "", representative: true, validity: valid}
+          - {id: ci_method_btree, render: " USING btree", representative: true, validity: valid, fact_refs: [ci_fact_method_btree]}
+
+  key_profile:
+    description: 索引键列表、排序、空值位置、表达式和列能力契约。
+    profile_source:
+      matrix_ref: matrix_create_index_key_profiles
+      profile_id_path: profiles.id
+
+  scope_clause:
+    description: 分区索引 LOCAL/GLOBAL 及显式索引分区列表。
+    default_value_id: ci_scope_none
+    classes:
+      - id: ci_scope_class
+        meaning: 普通索引无 scope，或分区索引显式选择 scope。
+        values:
+          - id: ci_scope_none
+            render: ""
+            representative: true
+            validity: valid
+            properties: {local_scope: false, global_scope: false}
+          - id: ci_scope_local
+            render: " LOCAL"
+            representative: true
+            validity: valid
+            properties: {local_scope: true, global_scope: false}
+            fact_refs: [ci_fact_partition_scope]
+          - id: ci_scope_global
+            render: " GLOBAL"
+            representative: true
+            validity: valid
+            properties: {local_scope: false, global_scope: true}
+            fact_refs: [ci_fact_partition_scope]
+          - id: ci_scope_local_named
+            render: " LOCAL (PARTITION idx_p_low, PARTITION idx_p_max)"
+            representative: true
+            validity: valid
+            properties: {local_scope: true, global_scope: false, explicit_partitions: true}
+            fact_refs: [ci_fact_index_partition_clause]
+
+  include_profile:
+    description: INCLUDE 非键列列表和列数契约。
+    default_value_id: ci_include_none
+    classes:
+      - id: ci_include_class
+        meaning: 不包含或包含一至两个非键列。
+        values:
+          - id: ci_include_none
+            render: ""
+            representative: true
+            validity: valid
+            properties: {include_column_count: 0, source_columns: []}
+          - id: ci_include_note
+            render: " INCLUDE (note)"
+            representative: true
+            validity: valid
+            properties: {include_column_count: 1, source_columns: [note]}
+            fact_refs: [ci_fact_include]
+          - id: ci_include_note_postcode
+            render: " INCLUDE (note, postcode)"
+            representative: true
+            validity: valid
+            properties: {include_column_count: 2, source_columns: [note, postcode]}
+            fact_refs: [ci_fact_include]
+
+  storage_profile:
+    description: WITH 存储参数及其值域和适用形态。
+    default_value_id: ci_storage_none
+    classes:
+      - id: ci_storage_class_core
+        meaning: 无参数或合法 FILLFACTOR。
+        values:
+          - id: ci_storage_none
+            render: ""
+            representative: true
+            validity: valid
+            properties: {online_supported: true, user_settable: true, value_domain_valid: true, lpi: false}
+          - id: ci_fillfactor_10
+            render: " WITH (fillfactor = 10)"
+            representative: false
+            validity: valid
+            properties: {online_supported: true, user_settable: true, value_domain_valid: true, lpi: false}
+            fact_refs: [ci_fact_fillfactor]
+          - id: ci_fillfactor_70
+            render: " WITH (fillfactor = 70)"
+            representative: true
+            validity: valid
+            properties: {online_supported: true, user_settable: true, value_domain_valid: true, lpi: false}
+            fact_refs: [ci_fact_fillfactor]
+          - id: ci_fillfactor_100
+            render: " WITH (fillfactor = 100)"
+            representative: false
+            validity: valid
+            properties: {online_supported: true, user_settable: true, value_domain_valid: true, lpi: false}
+            fact_refs: [ci_fact_fillfactor]
+      - id: ci_storage_class_partition
+        meaning: LOCAL 分区索引并行方式。
+        values:
+          - id: ci_lpi_partition
+            render: " WITH (lpi_parallel_method = 'partition')"
+            representative: true
+            validity: valid
+            properties: {online_supported: false, user_settable: true, value_domain_valid: true, lpi: true}
+            fact_refs: [ci_fact_lpi_parallel]
+      - id: ci_storage_class_environment
+        meaning: 需要 TDE 基表和 GUC 的加密索引。
+        values:
+          - id: ci_enable_tde_on
+            render: " WITH (enable_tde = on)"
+            representative: true
+            validity: conditional
+            properties: {online_supported: false, user_settable: true, value_domain_valid: true, lpi: false}
+            fact_refs: [ci_open_tde_fixture]
+      - id: ci_storage_class_invalid
+        meaning: 文档明确越界或禁止用户主动设置的参数。
+        values:
+          - id: ci_fillfactor_9
+            render: " WITH (fillfactor = 9)"
+            representative: true
+            validity: invalid
+            properties: {online_supported: true, user_settable: true, value_domain_valid: false, lpi: false}
+            fact_refs: [ci_fact_fillfactor]
+          - id: ci_fillfactor_101
+            render: " WITH (fillfactor = 101)"
+            representative: true
+            validity: invalid
+            properties: {online_supported: true, user_settable: true, value_domain_valid: false, lpi: false}
+            fact_refs: [ci_fact_fillfactor]
+          - id: ci_encrypt_algo_manual
+            render: " WITH (encrypt_algo = 'AES_128_CTR')"
+            representative: true
+            validity: invalid
+            properties: {online_supported: false, user_settable: false, value_domain_valid: true, lpi: false}
+            fact_refs: [ci_fact_tde_parameters]
+
+  comment_clause:
+    description: 索引注释。
+    default_value_id: ci_comment_none
+    classes:
+      - id: ci_comment_class
+        meaning: 无注释或短注释。
+        values:
+          - {id: ci_comment_none, render: "", representative: true, validity: valid}
+          - {id: ci_comment_basic, render: " COMMENT 'factor index'", representative: true, validity: valid, fact_refs: [ci_fact_comment]}
+
+  visibility_clause:
+    description: 索引可见性。
+    default_value_id: ci_visibility_none
+    classes:
+      - id: ci_visibility_class
+        meaning: 默认、显式可见或不可见。
+        values:
+          - {id: ci_visibility_none, render: "", representative: true, validity: valid}
+          - {id: ci_visibility_visible, render: " VISIBLE", representative: true, validity: valid, fact_refs: [ci_fact_visibility]}
+          - {id: ci_visibility_invisible, render: " INVISIBLE", representative: true, validity: valid, fact_refs: [ci_fact_visibility]}
+
+  tablespace_clause:
+    description: 索引表空间。
+    default_value_id: ci_tablespace_none
+    classes:
+      - id: ci_tablespace_class
+        meaning: 默认表空间或显式 gs_default。
+        values:
+          - {id: ci_tablespace_none, render: "", representative: true, validity: valid}
+          - {id: ci_tablespace_default, render: " TABLESPACE gs_default", representative: true, validity: valid, fact_refs: [ci_fact_tablespace]}
+
+rules:
+  - id: ci_rule_key_definition_supported
+    kind: requires
+    expression: key_profile.properties.definition_supported == True
+    severity: error
+    fact_refs: [ci_fact_expression, ci_fact_lob_restriction]
+
+  - id: ci_rule_online_shape_supported
+    kind: requires
+    expression: >-
+      concurrently == 'ci_concurrently'
+      => key_profile.properties.online_supported == True
+      and storage_profile.properties.online_supported == True
+    severity: error
+    fact_refs: [ci_fact_online_restrictions]
+
+  - id: ci_rule_unique_local_contains_partition_key
+    kind: requires
+    expression: >-
+      unique_modifier == 'ci_unique'
+      and scope_clause in ['ci_scope_local', 'ci_scope_local_named']
+      => key_profile.properties.contains_partition_key == True
+    severity: error
+    fact_refs: [ci_fact_partition_selection]
+
+  - id: ci_rule_storage_parameter_domain
+    kind: requires
+    expression: >-
+      storage_profile.properties.user_settable == True
+      and storage_profile.properties.value_domain_valid == True
+    severity: error
+    fact_refs: [ci_fact_fillfactor, ci_fact_tde_parameters]
+
+  - id: ci_rule_lpi_shape_supported
+    kind: requires
+    expression: >-
+      storage_profile.properties.lpi == True
+      => statement_form == 'ci_statement_partition'
+      and scope_clause in ['ci_scope_local', 'ci_scope_local_named']
+      and concurrently == 'ci_concurrently_none'
+    severity: error
+    fact_refs: [ci_fact_lpi_parallel]
+
+  - id: ci_rule_partition_key_syntax_supported
+    kind: requires
+    expression: >-
+      statement_form == 'ci_statement_partition'
+      => key_profile.properties.partition_supported == True
+    severity: error
+    fact_refs: [ci_fact_partition_grammar, ci_fact_sort_nulls]
+
+structural_checks:
+  - id: ci_struct_index_column_count
+    kind: index_column_count_contract
+    fact_refs: [ci_fact_key_column_limits, ci_fact_concurrent_column_limits, ci_fact_include]
+
+facts:
+  - {id: ci_fact_purpose, type: syntax, statement: "CREATE INDEX 在指定表上创建索引。", status: confirmed, source_anchor: "功能描述"}
+  - {id: ci_fact_usage_guidance, type: environment, statement: "文档建议为高频查询、连接、过滤、排序、分组和去重列建立索引，并警告索引资源与写入成本。", status: confirmed, source_anchor: "功能描述/建议"}
+  - {id: ci_fact_partition_selection, type: behavior_oracle, statement: "分区索引类型受显式 GLOBAL/LOCAL、指定分区、UNIQUE 是否包含全部分区键等条件影响。", status: confirmed, source_anchor: "功能描述/分区索引判断"}
+  - {id: ci_open_partition_default_scope, type: open_question, statement: "原文一处称分区表默认 GLOBAL，另一处称默认 LOCAL，省略 scope 的实际结果需要版本证据或数据库验证。", status: needs_verification, source_anchor: "L13 与 L81 冲突"}
+  - {id: ci_fact_immutable, type: constraint, statement: "索引定义和 WHERE 中的函数、操作符必须 immutable。", status: confirmed, source_anchor: "注意事项/immutable"}
+  - {id: ci_fact_partition_scope, type: metadata_oracle, statement: "LOCAL 索引绑定具体分区，GLOBAL 索引覆盖整个分区表。", status: confirmed, source_anchor: "注意事项/分区索引"}
+  - {id: ci_fact_permissions, type: environment, statement: "CREATE ANY INDEX 及表达式索引权限受模式、表 Owner、初始用户和三权分立状态影响。", status: confirmed, source_anchor: "注意事项/权限"}
+  - {id: ci_fact_method_btree, type: syntax, statement: "本页明确支持并只列出 btree 方法。", status: confirmed, source_anchor: "注意事项与 USING method"}
+  - {id: ci_fact_index_size, type: constraint, statement: "索引数据长度受 2617/2613 字节限制，索引元组不能超过页面三分之一。", status: confirmed, source_anchor: "注意事项/长度限制"}
+  - {id: ci_fact_plan_change, type: behavior_oracle, statement: "创建索引可能改变访问方式和查询计划。", status: confirmed, source_anchor: "注意事项/执行计划"}
+  - {id: ci_fact_expression_permissions, type: environment, statement: "表达式索引函数按表 Owner 权限执行，并受用户身份和三权分立限制。", status: confirmed, source_anchor: "注意事项/表达式索引权限"}
+  - {id: ci_fact_online_restrictions, type: constraint, statement: "在线创建仅支持 B-Tree，且不支持表达式、部分/条件、COLLATE、OPCLASS、SMP 和分类索引，WITH 仅支持 FILLFACTOR。", status: confirmed, source_anchor: "注意事项/在线创建"}
+  - {id: ci_fact_lob_restriction, type: constraint, statement: "普通与表达式索引均不支持 CLOB/BLOB 索引列。", status: confirmed, source_anchor: "注意事项/CLOB/BLOB"}
+  - {id: ci_fact_main_grammar, type: syntax, statement: "普通表 CREATE INDEX 支持 UNIQUE、CONCURRENTLY、IF NOT EXISTS、可选名称、USING、键列表、INCLUDE、WITH、COMMENT、可见性和 TABLESPACE。", status: confirmed, source_anchor: "语法格式/普通表"}
+  - {id: ci_fact_partition_grammar, type: syntax, statement: "分区表产生式支持 LOCAL/GLOBAL、索引分区列表和 NULLS LAST，但不列出 CONCURRENTLY、IF NOT EXISTS 或 NULLS FIRST。", status: confirmed, source_anchor: "语法格式/分区表"}
+  - {id: ci_fact_unique, type: behavior_oracle, statement: "UNIQUE 在写入时检查重复值并拒绝导致重复的插入或更新。", status: confirmed, source_anchor: "参数说明/UNIQUE"}
+  - {id: ci_fact_concurrently, type: lifecycle, statement: "CONCURRENTLY 以 ShareUpdateExclusiveLock 在线创建且不阻塞 DML，但不能在事务内执行。", status: confirmed, source_anchor: "参数说明/CONCURRENTLY"}
+  - {id: ci_fact_concurrent_column_limits, type: constraint, statement: "CONCURRENTLY 时普通表键列加 INCLUDE 不超过 29，分区表不超过 28。", status: confirmed, source_anchor: "参数说明/CONCURRENTLY 列数"}
+  - {id: ci_fact_concurrent_lifecycle, type: lifecycle, statement: "在线创建使用 cctmp 增量表，失败可能残留 NOT VALID/ready 索引并需要清理。", status: confirmed, source_anchor: "参数说明/CONCURRENTLY 生命周期"}
+  - {id: ci_fact_concurrent_performance, type: environment, statement: "在线创建受 DDL、长事务、I/O、CPU 和并发 DML 影响，文档给出性能范围与低谷期建议。", status: confirmed, source_anchor: "参数说明/CONCURRENTLY 性能"}
+  - {id: ci_fact_if_not_exists, type: lifecycle, statement: "IF NOT EXISTS 对当前 Schema 同名 relation 返回 NOTICE；未指定时返回 ERROR。", status: confirmed, source_anchor: "参数说明/IF NOT EXISTS"}
+  - {id: ci_open_if_not_exists_unnamed, type: open_question, statement: "主语法把 IF NOT EXISTS 与可选索引名分别放在方括号中，但同名 relation 检查语义需要名称；无名组合暂不生成。", status: needs_verification, source_anchor: "语法格式与参数说明/IF NOT EXISTS"}
+  - {id: ci_fact_identifiers, type: syntax, statement: "索引可使用模式限定名，索引模式与目标表相同，目标表可由模式限定。", status: confirmed, source_anchor: "参数说明/schema/index/table"}
+  - {id: ci_fact_key_column_limits, type: constraint, statement: "GLOBAL 索引最多 31 个键列，其他索引最多 32 个键列。", status: confirmed, source_anchor: "参数说明/column_name"}
+  - {id: ci_fact_expression, type: constraint, statement: "表达式索引通常用圆括号，函数调用可省略；包含 IS NULL 的表达式索引无效。", status: confirmed, source_anchor: "参数说明/expression"}
+  - {id: ci_fact_sort_nulls, type: syntax, statement: "索引键支持 ASC/DESC 和 NULLS FIRST/LAST，并具有依排序方向变化的默认值。", status: confirmed, source_anchor: "参数说明/ASC/DESC/NULLS"}
+  - {id: ci_fact_include, type: behavior_oracle, statement: "INCLUDE 保存非键列用于 Index Only Scan，不参与搜索或唯一性判断，并增加空间和宽度风险。", status: confirmed, source_anchor: "参数说明/INCLUDE"}
+  - {id: ci_fact_index_partition_clause, type: syntax, statement: "LOCAL 索引可逐一声明 PARTITION/SUBPARTITION 名称和表空间，数量必须与目标表分区对应。", status: confirmed, source_anchor: "参数说明/PARTITION"}
+  - {id: ci_open_subpartition_fixture, type: open_question, statement: "二级分区 Fixture、索引子分区数量和命名规则需要补充建表章节后实现。", status: needs_verification, source_anchor: "参数说明/SUBPARTITION"}
+  - {id: ci_fact_fillfactor, type: constraint, statement: "FILLFACTOR 的合法值为 10 到 100。", status: confirmed, source_anchor: "参数说明/FILLFACTOR"}
+  - {id: ci_fact_tde_parameters, type: constraint, statement: "enable_tde 需要 TDE GUC、密钥和加密基表且仅支持 btree；encrypt_algo、dek_cipher、key_type、cmk_id 由数据库复制或生成，不能主动设置。", status: confirmed, source_anchor: "参数说明/TDE"}
+  - {id: ci_open_tde_fixture, type: open_question, statement: "缺少安全可复用的密钥服务和加密基表 Fixture，enable_tde 仅登记为条件能力。", status: needs_verification, source_anchor: "参数说明/enable_tde"}
+  - {id: ci_fact_lpi_parallel, type: constraint, statement: "LPI_PARALLEL_METHOD 支持 PAGE/PARTITION/AUTO，仅适用于分区表 BTREE LOCAL 非在线索引。", status: confirmed, source_anchor: "参数说明/LPI_PARALLEL_METHOD"}
+  - {id: ci_fact_comment, type: syntax, statement: "COMMENT 为索引添加最多 1024 字符的注释。", status: confirmed, source_anchor: "参数说明/COMMENT"}
+  - {id: ci_fact_visibility, type: environment, statement: "VISIBLE 为默认，INVISIBLE 隐藏索引；disable_keyword_options 可分别禁用关键字。", status: confirmed, source_anchor: "参数说明/VISIBLE/INVISIBLE"}
+  - {id: ci_fact_tablespace, type: syntax, statement: "TABLESPACE 指定索引表空间，省略时使用 gs_default。", status: confirmed, source_anchor: "参数说明/TABLESPACE"}
+  - {id: ci_fact_examples, type: example, statement: "文档示例覆盖普通、唯一、表达式以及 LOCAL/GLOBAL 分区索引。", status: confirmed, source_anchor: "示例"}
+  - {id: ci_fact_optimization_limits, type: constraint, statement: "相同属性列的分区 LOCAL 与 GLOBAL 索引不能共存，创建内存受 maintenance_work_mem 限制。", status: confirmed, source_anchor: "优化建议"}
+  - {id: ci_open_partial_index_grammar, type: open_question, statement: "正文提及在线创建不支持部分/条件索引，但本页主语法未给出离线 WHERE 子句，需要补充章节确认。", status: needs_verification, source_anchor: "注意事项/在线创建与语法格式"}
+
+manifest_refs:
+  - manifest_create_index_regular_positive
+  - manifest_create_index_schema_positive
+  - manifest_create_index_concurrent_positive
+  - manifest_create_index_partition_positive
+  - manifest_create_index_key_definition_negative
+  - manifest_create_index_online_expression_negative
+  - manifest_create_index_unique_local_key_negative
+  - manifest_create_index_storage_negative
+  - manifest_create_index_lpi_global_negative
+  - manifest_create_index_partition_nulls_first_negative
+matrix_refs: [matrix_create_index_table_profiles, matrix_create_index_key_profiles]
+fixture_refs:
+  - fixture_create_index_regular
+  - fixture_create_index_temporary
+  - fixture_create_index_partitioned
+scenario_refs:
+  - scenario_create_index_permissions
+  - scenario_create_index_if_not_exists
+  - scenario_create_index_unique_behavior
+  - scenario_create_index_concurrently
+  - scenario_create_index_online_failure_cleanup
+  - scenario_create_index_partition_default_scope
+  - scenario_create_index_partition_metadata
+  - scenario_create_index_expression
+  - scenario_create_index_tde
+  - scenario_create_index_visibility
+  - scenario_create_index_performance
+  - scenario_create_index_limits

@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 from typing import List, Dict, Tuple
 from .spec_model import SpecRegistry, SyntaxDef, MatrixDef, ManifestDef
-from .constraint_solver import ConstraintRule
+from .constraint_solver import ConstraintError, ConstraintRule, ConstraintSolver
 
 
 @dataclass
@@ -32,6 +32,7 @@ class SpecLinter:
         issues.extend(self.lint_syntaxes())
         issues.extend(self.lint_matrices())
         issues.extend(self.lint_manifests())
+        issues.extend(self.lint_fixtures())
         return issues
 
     def lint_syntaxes(self) -> List[LintIssue]:
@@ -40,12 +41,20 @@ class SpecLinter:
             # 检查 production 中的占位符是否在 slots 中定义
             placeholders = re.findall(r"\{([a-zA-Z0-9_]+)\}", syntax.production)
             for p in placeholders:
-                if p not in syntax.slots and p != "table_name":
+                if p not in syntax.slots:
                     issues.append(LintIssue(
                         file_type="syntax",
                         spec_id=sid,
-                        level="WARNING",
+                        level="ERROR",
                         message=f"产生式中的占位符 '{{{p}}}' 未在 slots 字典中显式声明定义"
+                    ))
+            for slot_name in syntax.slots:
+                if slot_name not in placeholders:
+                    issues.append(LintIssue(
+                        file_type="syntax",
+                        spec_id=sid,
+                        level="ERROR",
+                        message=f"slots 中的 '{slot_name}' 未被 production 消费"
                     ))
         return issues
 
@@ -55,7 +64,7 @@ class SpecLinter:
             for rule in matrix.compatibility_rules:
                 try:
                     _ = ConstraintRule(rule)
-                except Exception as e:
+                except ConstraintError as e:
                     issues.append(LintIssue(
                         file_type="matrix",
                         spec_id=mid,
@@ -82,19 +91,48 @@ class SpecLinter:
                     issues.append(LintIssue(
                         file_type="manifest",
                         spec_id=man_id,
-                        level="WARNING",
+                    level="ERROR",
                         message=f"引用的 import_matrix '{mref}' 未在已加载矩阵中找到"
                     ))
 
-            # 3. 检查附加约束规则
-            for rule in manifest.additional_constraints:
-                try:
-                    _ = ConstraintRule(rule)
-                except Exception as e:
+            # 3. 检查 bindings、fixture 与约束引用是否闭合。
+            syntax = self.registry.get_syntax(manifest.target_syntax)
+            if syntax:
+                available = syntax.all_slot_names()
+                unknown_bindings = sorted(set(manifest.bindings) - available)
+                if unknown_bindings:
                     issues.append(LintIssue(
-                        file_type="manifest",
-                        spec_id=man_id,
-                        level="ERROR",
-                        message=f"测试清单附加约束语法错误: '{rule}' -> {e}"
+                        file_type="manifest", spec_id=man_id, level="ERROR",
+                        message=f"bindings 引用了未知 slot: {', '.join(unknown_bindings)}"
+                    ))
+                for fixture_id in manifest.fixtures:
+                    if fixture_id not in self.registry.fixtures:
+                        issues.append(LintIssue(
+                            file_type="manifest", spec_id=man_id, level="ERROR",
+                            message=f"引用的 fixture '{fixture_id}' 不存在"
+                        ))
+                rules = list(manifest.additional_constraints)
+                for matrix_id in manifest.import_matrices:
+                    matrix = self.registry.get_matrix(matrix_id)
+                    if matrix:
+                        rules.extend(matrix.compatibility_rules)
+                try:
+                    solver = ConstraintSolver(rules)
+                    solver.validate_references(available)
+                except ConstraintError as e:
+                    issues.append(LintIssue(
+                        file_type="manifest", spec_id=man_id, level="ERROR",
+                        message=f"测试清单约束错误: {e}"
+                    ))
+        return issues
+
+    def lint_fixtures(self) -> List[LintIssue]:
+        issues: List[LintIssue] = []
+        for fixture_id, fixture in self.registry.fixtures.items():
+            for table in fixture.tables:
+                if not table.columns:
+                    issues.append(LintIssue(
+                        file_type="fixture", spec_id=fixture_id, level="WARNING",
+                        message=f"fixture 表 '{table.name}' 未声明列，无法参与列级静态校验"
                     ))
         return issues

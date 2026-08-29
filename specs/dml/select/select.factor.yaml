@@ -1,0 +1,487 @@
+schema_version: 1
+kind: factor
+id: select
+name: SELECT
+category: DML
+status: needs_review
+description: SELECT 主语法、查询能力、文档约束和执行前置条件的 V1 适配验证包。
+
+source:
+  product: GaussDB
+  document: SELECT 产品文档原文
+  version: unknown
+  artifact_sha256: 5e8a4e12707cea415d14b0f46517d30c17f5eb6cf7f371579190413440b95573
+  extraction_date: "2026-08-28"
+
+source_ledger_ref: source_ledger_select
+syntax_ref: syntax_select_v1
+
+dimensions:
+  query_profile:
+    description: 完整且内部一致的 SELECT 查询形态；用于避免把递归子文法机械笛卡尔积后生成伪合法 SQL。
+    default_value_id: select_basic_star
+    profile_source:
+      matrix_ref: matrix_select_query_profiles
+      profile_id_path: profiles.id
+
+  statement_form:
+    description: SELECT 文档的顶层产生式或兼容完整 profile 入口。
+    default_value_id: select_statement_legacy_profile
+    classes:
+      - id: select_statement_form_class
+        meaning: 选择完整 profile、AST SELECT 或 TABLE 顶层产生式。
+        values:
+          - id: select_statement_legacy_profile
+            render: ""
+            representative: true
+            validity: valid
+            properties: {uses_select_contract: false}
+          - id: select_statement_ast
+            render: ""
+            representative: true
+            validity: valid
+            properties: {uses_select_contract: true}
+          - id: select_statement_table
+            render: ""
+            representative: true
+            validity: valid
+            properties: {uses_select_contract: false}
+
+  with_clause:
+    description: AST SELECT 的 WITH 前缀。
+    default_value_id: select_with_none
+    classes:
+      - id: select_with_class
+        meaning: 无 CTE、普通 CTE 或递归 CTE。
+        values:
+          - id: select_with_none
+            render: ""
+            representative: true
+            validity: valid
+            properties: {provides_cte: false}
+          - id: select_with_simple
+            render: "WITH cte_ast AS (SELECT col_1, col_2 FROM t_select_source) "
+            representative: true
+            validity: valid
+            properties: {provides_cte: true, recursive: false}
+          - id: select_with_recursive
+            render: "WITH RECURSIVE cte_ast(col_1, col_2) AS (VALUES (1, 10) UNION ALL SELECT col_1 + 1, col_2 + 10 FROM cte_ast WHERE col_1 < 3) "
+            representative: true
+            validity: valid
+            properties: {provides_cte: true, recursive: true}
+
+  select_modifier:
+    description: AST SELECT 的行去重修饰符。
+    default_value_id: select_modifier_default
+    classes:
+      - id: select_modifier_class
+        meaning: 默认、ALL 或 DISTINCT。
+        values:
+          - id: select_modifier_default
+            render: ""
+            representative: true
+            validity: valid
+            properties: {distinct: false}
+          - id: select_modifier_all
+            render: "ALL "
+            representative: true
+            validity: valid
+            properties: {distinct: false}
+          - id: select_modifier_distinct
+            render: "DISTINCT "
+            representative: true
+            validity: valid
+            properties: {distinct: true}
+
+  target_list:
+    description: AST repeat 渲染的投影表达式及输出列契约。
+    default_value_id: select_target_col1
+    classes:
+      - id: select_target_class
+        meaning: 一列、两列、分组投影或无 FROM 常量。
+        values:
+          - id: select_target_col1
+            render: ""
+            representative: true
+            validity: valid
+            properties:
+              items: [col_1]
+              referenced_columns: [col_1]
+              output_columns: [col_1]
+              output_types: [INTEGER]
+              nonaggregate_columns: [col_1]
+              has_aggregate: false
+          - id: select_target_col1_col2
+            render: ""
+            representative: true
+            validity: valid
+            properties:
+              items: [col_1, col_2]
+              referenced_columns: [col_1, col_2]
+              output_columns: [col_1, col_2]
+              output_types: [INTEGER, INTEGER]
+              nonaggregate_columns: [col_1, col_2]
+              has_aggregate: false
+          - id: select_target_group_count
+            render: ""
+            representative: true
+            validity: valid
+            properties:
+              items: [col_1, "COUNT(*) AS cnt"]
+              referenced_columns: [col_1]
+              output_columns: [col_1, cnt]
+              output_types: [INTEGER, BIGINT]
+              nonaggregate_columns: [col_1]
+              has_aggregate: true
+          - id: select_target_constant
+            render: ""
+            representative: true
+            validity: valid
+            properties:
+              items: ["42 AS answer"]
+              referenced_columns: []
+              output_columns: [answer]
+              output_types: [INTEGER]
+              nonaggregate_columns: []
+              has_aggregate: false
+
+  source_form:
+    description: AST FROM 的表、嵌套子查询、CTE 或省略分支。
+    default_value_id: select_source_table
+    classes:
+      - id: select_source_class
+        meaning: 选择 AST 查询源分支。
+        values:
+          - id: select_source_table
+            render: ""
+            representative: true
+            validity: valid
+            properties:
+              source_tables: [t_select_source]
+              source_columns: [col_1, col_2, name]
+              available_columns: [col_1, col_2, name]
+              available_types: [INTEGER, INTEGER, VARCHAR]
+          - id: select_source_subquery
+            render: ""
+            representative: true
+            validity: valid
+            properties:
+              source_tables: [t_select_source]
+              source_columns: [col_1, col_2]
+              contract_source_dimension: inner_target_list
+          - id: select_source_cte
+            render: ""
+            representative: true
+            validity: valid
+            properties:
+              source_tables: [t_select_source]
+              source_columns: [col_1, col_2]
+              available_columns: [col_1, col_2]
+              available_types: [INTEGER, INTEGER]
+              requires_cte: true
+          - id: select_source_none
+            render: ""
+            representative: true
+            validity: valid
+            properties:
+              source_tables: []
+              source_columns: []
+              available_columns: []
+              available_types: []
+
+  inner_target_list:
+    description: 嵌套 SELECT 的 repeat 投影和派生表输出契约。
+    default_value_id: select_inner_target_col1
+    classes:
+      - id: select_inner_target_class
+        meaning: 嵌套查询输出一列或两列。
+        values:
+          - id: select_inner_target_col1
+            render: ""
+            representative: true
+            validity: valid
+            properties: {items: [col_1], output_columns: [col_1], output_types: [INTEGER]}
+          - id: select_inner_target_col1_col2
+            render: ""
+            representative: true
+            validity: valid
+            properties: {items: [col_1, col_2], output_columns: [col_1, col_2], output_types: [INTEGER, INTEGER]}
+
+  where_clause:
+    description: AST WHERE 片段及引用列契约。
+    default_value_id: select_where_none
+    classes:
+      - id: select_where_class
+        meaning: 无过滤或整数列过滤。
+        values:
+          - id: select_where_none
+            render: ""
+            representative: true
+            validity: valid
+            properties: {referenced_columns: []}
+          - id: select_where_col1_nonnegative
+            render: " WHERE col_1 >= 0"
+            representative: true
+            validity: valid
+            properties: {referenced_columns: [col_1]}
+
+  group_by_list:
+    description: AST GROUP BY repeat 列表。
+    default_value_id: select_group_none
+    classes:
+      - id: select_group_class
+        meaning: 无分组或按 col_1 分组。
+        values:
+          - id: select_group_none
+            render: ""
+            representative: true
+            validity: valid
+            properties: {items: [], columns: [], active: false}
+          - id: select_group_col1
+            render: ""
+            representative: true
+            validity: valid
+            properties: {items: [col_1], columns: [col_1], active: true}
+
+  set_operator:
+    description: AST 集合运算分支。
+    default_value_id: select_set_none
+    classes:
+      - id: select_set_class
+        meaning: 无集合运算、UNION 或 INTERSECT。
+        values:
+          - id: select_set_none
+            render: ""
+            representative: true
+            validity: valid
+            properties: {active: false}
+          - id: select_set_union
+            render: UNION
+            representative: true
+            validity: valid
+            properties: {active: true}
+          - id: select_set_intersect
+            render: INTERSECT
+            representative: true
+            validity: valid
+            properties: {active: true}
+
+  right_target_list:
+    description: 集合运算右侧投影列契约。
+    default_value_id: select_right_target_col1
+    classes:
+      - id: select_right_target_class
+        meaning: 集合右侧一列或两列。
+        values:
+          - id: select_right_target_col1
+            render: ""
+            representative: true
+            validity: valid
+            properties: {items: [col_1], output_columns: [col_1], output_types: [INTEGER]}
+          - id: select_right_target_col1_col2
+            render: ""
+            representative: true
+            validity: valid
+            properties: {items: [col_1, col_2], output_columns: [col_1, col_2], output_types: [INTEGER, INTEGER]}
+
+  order_by_list:
+    description: AST ORDER BY repeat 列表及可见列契约。
+    default_value_id: select_order_none
+    classes:
+      - id: select_order_class
+        meaning: 无排序或不同长度的排序表达式列表。
+        values:
+          - id: select_order_none
+            render: ""
+            representative: true
+            validity: valid
+            properties: {items: [], columns: []}
+          - id: select_order_col1
+            render: ""
+            representative: true
+            validity: valid
+            properties: {items: ["col_1 ASC"], columns: [col_1]}
+          - id: select_order_col1_col2
+            render: ""
+            representative: true
+            validity: valid
+            properties: {items: ["col_1 ASC", "col_2 DESC"], columns: [col_1, col_2]}
+          - id: select_order_count
+            render: ""
+            representative: true
+            validity: valid
+            properties: {items: ["cnt DESC"], columns: [cnt]}
+
+  limit_clause:
+    description: AST 行数限制。
+    default_value_id: select_limit_none
+    classes:
+      - id: select_limit_class
+        meaning: 无限制或 LIMIT 5。
+        values:
+          - id: select_limit_none
+            render: ""
+            representative: true
+            validity: valid
+          - id: select_limit_five
+            render: " LIMIT 5"
+            representative: true
+            validity: valid
+
+  lock_clause:
+    description: AST 行锁子句。
+    default_value_id: select_lock_none
+    classes:
+      - id: select_lock_class
+        meaning: 无锁或 FOR UPDATE。
+        values:
+          - id: select_lock_none
+            render: ""
+            representative: true
+            validity: valid
+          - id: select_lock_update
+            render: " FOR UPDATE"
+            representative: true
+            validity: valid
+
+  table_target:
+    description: TABLE 顶层产生式的目标表。
+    default_value_id: select_table_source
+    classes:
+      - id: select_table_target_class
+        meaning: 基础 SELECT Fixture 表。
+        values:
+          - id: select_table_source
+            render: t_select_source
+            representative: true
+            validity: valid
+            properties: {source_tables: [t_select_source], source_columns: [col_1, col_2, name]}
+
+structural_checks:
+  - id: select_struct_expression_and_column_contract
+    kind: select_expression_contract
+    fact_refs:
+      - select_fact_target_list
+      - select_fact_group_by
+      - select_fact_order_by
+      - select_fact_set_operations
+
+rules:
+  - id: select_rule_hierarchy_rejects_locking
+    kind: requires
+    expression: query_profile.properties.hierarchy_lock_compatible != False
+    severity: error
+    fact_refs: [select_fact_hierarchy]
+
+  - id: select_rule_set_operation_rejects_locking
+    kind: requires
+    expression: query_profile.properties.set_lock_compatible != False
+    severity: error
+    fact_refs: [select_fact_set_operations]
+
+  - id: select_rule_window_frame_bound_nonnegative
+    kind: requires
+    expression: query_profile.properties.window_frame_bound_valid != False
+    severity: error
+    fact_refs: [select_fact_window]
+
+  - id: select_rule_prior_not_in_start_with
+    kind: requires
+    expression: query_profile.properties.prior_placement_valid != False
+    severity: error
+    fact_refs: [select_fact_hierarchy]
+
+  - id: select_rule_pivot_xml_not_functional
+    kind: requires
+    expression: query_profile.properties.pivot_function_supported != False
+    severity: error
+    fact_refs: [select_fact_pivot]
+
+  - id: select_rule_distinct_order_expression_selected
+    kind: requires
+    expression: query_profile.properties.distinct_order_compatible != False
+    severity: error
+    fact_refs: [select_fact_order_by]
+
+facts:
+  - {id: select_fact_purpose, type: syntax, statement: "SELECT 从表或视图读取并过滤数据。", status: confirmed, source_anchor: "功能描述"}
+  - {id: select_fact_permissions, type: environment, statement: "读取对象和字段需要 SELECT 权限，锁定查询还需要 UPDATE 权限。", status: confirmed, source_anchor: "注意事项/权限"}
+  - {id: select_fact_partition_global_index, type: behavior_oracle, statement: "指定分区查询当前不能执行全局索引扫描。", status: confirmed, source_anchor: "注意事项/指定分区"}
+  - {id: select_fact_main_grammar, type: syntax, statement: "SELECT 主语法包含 WITH、投影、FROM、过滤、层次、分组、窗口、集合、排序、分页、INTO 和锁定分支。", status: confirmed, source_anchor: "语法格式/查询数据"}
+  - {id: select_fact_alias_reference, type: constraint, statement: "targetlist 别名只能由同层后续表达式引用，并排除 volatile、窗口函数、JOIN ON 和多别名歧义场景。", status: confirmed, source_anchor: "语法格式/targetlist 别名"}
+  - {id: select_fact_where_in_performance, type: environment, statement: "缓存计划场景中 WHERE IN 候选集合建议不超过 100，以避免计划和内存膨胀。", status: confirmed, source_anchor: "注意事项/WHERE IN"}
+  - {id: select_fact_cte, type: behavior_oracle, statement: "WITH 支持递归、数据修改子句以及 MATERIALIZED/NOT MATERIALIZED，并影响内联或物化计划。", status: confirmed, source_anchor: "参数说明/WITH"}
+  - {id: select_fact_plan_hint, type: syntax, statement: "SELECT 后可放置一个生效的 /*+ plan_hint */ 注释块。", status: confirmed, source_anchor: "参数说明/plan_hint"}
+  - {id: select_fact_all_distinct, type: behavior_oracle, statement: "ALL 保留全部行；DISTINCT 去重；DISTINCT ON 保留每组第一行且通常应配合 ORDER BY。", status: confirmed, source_anchor: "参数说明/ALL/DISTINCT"}
+  - {id: select_fact_target_list, type: syntax, statement: "SELECT 列表支持通配符、表达式、输出别名和聚集表达式。", status: confirmed, source_anchor: "参数说明/SELECT列表"}
+  - {id: select_fact_into, type: environment, statement: "INTO 可写用户变量、OUTFILE 或 DUMPFILE，并涉及兼容模式、GUC、权限和文件系统副作用。", status: confirmed, source_anchor: "参数说明/INTO"}
+  - {id: select_fact_from_sources, type: syntax, statement: "FROM 支持表、子查询、CTE、函数、XMLTABLE、PIVOT/UNPIVOT 和连接项。", status: confirmed, source_anchor: "参数说明/FROM"}
+  - {id: select_fact_tablesample, type: behavior_oracle, statement: "TABLESAMPLE 支持 SYSTEM、BERNOULLI、HYBRID 以及可重复种子。", status: confirmed, source_anchor: "参数说明/TABLESAMPLE"}
+  - {id: select_fact_flashback, type: environment, statement: "TIMECAPSULE 支持 TIMESTAMP/CSN，但受表类型、历史版本、DDL 和回收窗口限制。", status: confirmed, source_anchor: "参数说明/TIMECAPSULE"}
+  - {id: select_fact_partition, type: syntax, statement: "分区表查询支持 PARTITION、PARTITION FOR、SUBPARTITION 及其键值定位。", status: confirmed, source_anchor: "参数说明/PARTITION"}
+  - {id: select_fact_join, type: syntax, statement: "FROM 支持 INNER、LEFT、RIGHT、FULL、CROSS、NATURAL、ON 和 USING 连接。", status: confirmed, source_anchor: "参数说明/JOIN"}
+  - {id: select_fact_xmltable, type: environment, statement: "XMLTABLE 的 XML 类型、可省略项和错误行为依赖 A/PG 兼容模式并带有多项 XPath 限制。", status: confirmed, source_anchor: "参数说明/XMLTABLE"}
+  - {id: select_fact_unpivot, type: environment, statement: "UNPIVOT 仅支持 A 兼容模式，且列数、别名和常量表达式必须满足文档约束。", status: confirmed, source_anchor: "参数说明/UNPIVOT"}
+  - {id: select_fact_pivot, type: environment, statement: "PIVOT 仅支持 A 兼容模式；PIVOT XML 只有语法而无功能支持。", status: confirmed, source_anchor: "参数说明/PIVOT"}
+  - {id: select_fact_where, type: constraint, statement: "WHERE 接收布尔条件；旧式 (+) 外连接受位置、连接方式和表达式类型等限制。", status: confirmed, source_anchor: "参数说明/WHERE"}
+  - {id: select_fact_hierarchy, type: behavior_oracle, statement: "START WITH/CONNECT BY 支持 PRIOR、NOCYCLE、伪列和深度遍历语义，并禁止与锁定子句组合。", status: confirmed, source_anchor: "参数说明/START WITH/CONNECT BY"}
+  - {id: select_fact_order_siblings, type: behavior_oracle, statement: "ORDER SIBLINGS BY 控制层次查询同层顺序，并限制可用表达式。", status: confirmed, source_anchor: "参数说明/ORDER SIBLINGS BY"}
+  - {id: select_fact_group_by, type: environment, statement: "GROUP BY 支持 ROLLUP、CUBE、GROUPING SETS，非聚集列检查受 ONLY_FULL_GROUP_BY 影响。", status: confirmed, source_anchor: "参数说明/GROUP BY"}
+  - {id: select_fact_having, type: syntax, statement: "HAVING 对分组结果进行过滤。", status: confirmed, source_anchor: "参数说明/HAVING"}
+  - {id: select_fact_window, type: constraint, statement: "WINDOW 支持命名窗口和 frame；VALUE 边界有类型、非负和常量限制。", status: confirmed, source_anchor: "参数说明/WINDOW"}
+  - {id: select_fact_set_operations, type: constraint, statement: "UNION、INTERSECT、EXCEPT、MINUS 有列契约、结合顺序和禁止锁定等约束。", status: confirmed, source_anchor: "参数说明/集合运算"}
+  - {id: select_fact_order_by, type: constraint, statement: "ORDER BY 支持方向、USING、NULLS 和 NLSSORT，并受 DISTINCT/GROUP BY 投影约束。", status: confirmed, source_anchor: "参数说明/ORDER BY"}
+  - {id: select_fact_limit_offset_fetch, type: syntax, statement: "SELECT 支持 LIMIT、OFFSET 和 FETCH 行数控制语法。", status: confirmed, source_anchor: "参数说明/LIMIT/OFFSET/FETCH"}
+  - {id: select_fact_locking, type: environment, statement: "锁定子句支持四种锁模式及 NOWAIT、WAIT、SKIP LOCKED，并受权限、表引擎和远端表限制。", status: confirmed, source_anchor: "参数说明/锁定子句"}
+  - {id: select_fact_nls_sort, type: environment, statement: "NLSSORT 支持中文拼音或纯英文大小写不敏感排序，并依赖数据库编码。", status: confirmed, source_anchor: "参数说明/NLS_SORT"}
+  - {id: select_fact_table_shorthand, type: syntax, statement: "TABLE table_name 是与 SELECT 主语法并列的简化查询顶层产生式。", status: confirmed, source_anchor: "语法格式/TABLE"}
+
+  - {id: select_open_document_version, type: open_question, statement: "正文未显式给出文档版本；失效本地链接中的 Kernel 507.0.0 不自动提升为版本事实。", status: needs_verification, source_anchor: "全文/本地链接"}
+  - {id: select_open_plan_hint_profile, type: open_question, statement: "原文未展开具体 hint 子语法，不能从关键字名称猜测可执行 hint。", status: needs_verification, source_anchor: "参数说明/plan_hint"}
+  - {id: select_open_dense_rank_profile, type: open_question, statement: "DENSE_RANK 详细语法位于失效外部章节，当前原文不足以形成可执行 profile。", status: needs_verification, source_anchor: "参数说明/DENSE_RANK"}
+  - {id: select_open_into_execution, type: open_question, statement: "三处 INTO 的互斥关系、文件权限和安全路径需要目标环境验证。", status: needs_verification, source_anchor: "参数说明/INTO"}
+  - {id: select_open_xmltable_example, type: open_question, statement: "粘贴原文中的 XML 节点内容已丢失，不能可靠复原官方示例 SQL。", status: needs_verification, source_anchor: "参数说明/XMLTABLE/示例"}
+  - {id: select_open_alias_profiles, type: open_question, statement: "别名跨表达式引用规则需要表达式级子文法，V1 完整查询 profile 暂不能系统组合。", status: needs_verification, source_anchor: "语法格式/targetlist 别名"}
+  - {id: select_open_outer_join_matrix, type: open_question, statement: "旧式 (+) 的完整合法/非法表达式矩阵尚未形成结构化 profile。", status: needs_verification, source_anchor: "参数说明/WHERE/(+)"}
+  - {id: select_open_group_mode_matrix, type: open_question, statement: "ONLY_FULL_GROUP_BY 与键约束、JOIN 方向的完整组合需要模式化 fixture 和行为验证。", status: needs_verification, source_anchor: "参数说明/GROUP BY"}
+  - {id: select_open_order_equivalence, type: open_question, statement: "DISTINCT 与 ORDER BY 的表达式等价判定涉及重写和函数易变性，当前生成器不具备表达式 AST。", status: needs_verification, source_anchor: "参数说明/ORDER BY"}
+
+manifest_refs:
+  - manifest_select_core_positive
+  - manifest_select_environment_positive
+  - manifest_select_ast_core_positive
+  - manifest_select_ast_cte_positive
+  - manifest_select_ast_group_positive
+  - manifest_select_ast_set_one_positive
+  - manifest_select_ast_set_two_positive
+  - manifest_select_ast_nested_positive
+  - manifest_select_ast_no_from_positive
+  - manifest_select_ast_table_positive
+  - manifest_select_hierarchy_lock_negative
+  - manifest_select_set_lock_negative
+  - manifest_select_window_frame_negative
+  - manifest_select_prior_placement_negative
+  - manifest_select_pivot_xml_negative
+  - manifest_select_distinct_order_negative
+
+matrix_refs: [matrix_select_query_profiles]
+fixture_refs:
+  - fixture_select_source
+  - fixture_select_right_source
+  - fixture_select_hierarchy_source
+  - fixture_select_partitioned_source
+  - fixture_select_flashback_source
+
+scenario_refs:
+  - scenario_select_permissions
+  - scenario_select_cte_materialization
+  - scenario_select_sampling
+  - scenario_select_flashback
+  - scenario_select_partition_scan
+  - scenario_select_xml_and_compatibility
+  - scenario_select_hierarchy_behavior
+  - scenario_select_group_mode
+  - scenario_select_ordering_behavior
+  - scenario_select_locking
+  - scenario_select_into_outputs
+  - scenario_select_where_in_plan_cache

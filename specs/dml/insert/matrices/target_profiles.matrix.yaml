@@ -1,0 +1,85 @@
+schema_version: 1
+kind: matrix
+id: matrix_insert_target_profiles
+name: INSERT 目标对象与列能力剖面
+status: needs_review
+description: 将目标对象 SQL 与显式/隐式列数、类型、分区和冲突能力绑定。
+factor_ref: insert
+
+profile_property_defaults:
+  duplicate_supported: true
+  partition_alias_supported: true
+
+profiles:
+  - id: insert_target_table_implicit
+    render: t_insert_target
+    validity: valid
+    fixture_refs: [fixture_insert_target]
+    properties: {target_kind: table, explicit_columns: false, available_column_count: 2, available_types: [INTEGER, VARCHAR]}
+    fact_refs: [insert_fact_target_table, insert_fact_column_mapping]
+  - id: insert_target_table_two_columns
+    render: t_insert_target (id, note)
+    validity: valid
+    fixture_refs: [fixture_insert_target]
+    properties: {target_kind: table, explicit_columns: true, target_column_count: 2, target_types: [INTEGER, VARCHAR], available_column_count: 2, available_types: [INTEGER, VARCHAR]}
+    fact_refs: [insert_fact_column_mapping]
+  - id: insert_target_table_note
+    render: t_insert_target (note)
+    validity: valid
+    fixture_refs: [fixture_insert_target]
+    properties: {target_kind: table, explicit_columns: true, target_column_count: 1, target_types: [VARCHAR], available_column_count: 2, available_types: [INTEGER, VARCHAR]}
+    fact_refs: [insert_fact_column_mapping]
+  - id: insert_target_alias_as
+    render: t_insert_target AS dst (dst.id, dst.note)
+    validity: valid
+    fixture_refs: [fixture_insert_target]
+    properties: {target_kind: table, explicit_columns: true, target_column_count: 2, target_types: [INTEGER, VARCHAR], available_column_count: 2, available_types: [INTEGER, VARCHAR]}
+    fact_refs: [insert_fact_alias_and_partition, insert_fact_column_mapping]
+  - id: insert_target_alias_bare
+    render: t_insert_target dst (dst.id, dst.note)
+    validity: valid
+    fixture_refs: [fixture_insert_target]
+    properties: {target_kind: table, explicit_columns: true, target_column_count: 2, target_types: [INTEGER, VARCHAR], available_column_count: 2, available_types: [INTEGER, VARCHAR]}
+    fact_refs: [insert_fact_alias_and_partition, insert_fact_column_mapping]
+  - id: insert_target_unique_columns
+    render: t_insert_unique (id, note)
+    validity: valid
+    fixture_refs: [fixture_insert_unique_target]
+    properties: {target_kind: table, explicit_columns: true, target_column_count: 2, target_types: [INTEGER, VARCHAR], available_column_count: 2, available_types: [INTEGER, VARCHAR]}
+    fact_refs: [insert_fact_duplicate_semantics]
+  - id: insert_target_partition
+    render: t_insert_partitioned PARTITION (p_low) (id, note)
+    validity: valid
+    fixture_refs: [fixture_insert_partition_target]
+    properties: {target_kind: partition, explicit_columns: true, target_column_count: 2, target_types: [INTEGER, VARCHAR], available_column_count: 2, available_types: [INTEGER, VARCHAR]}
+    fact_refs: [insert_fact_partition]
+  - id: insert_target_partition_bare_alias_invalid
+    render: t_insert_partitioned p PARTITION (p_low) (p.id, p.note)
+    validity: invalid
+    fixture_refs: [fixture_insert_partition_target]
+    properties: {target_kind: partition, explicit_columns: true, target_column_count: 2, target_types: [INTEGER, VARCHAR], available_column_count: 2, available_types: [INTEGER, VARCHAR], partition_alias_supported: false}
+    fact_refs: [insert_fact_alias_and_partition]
+  - id: insert_target_view
+    render: v_insert_target (id, note)
+    validity: valid
+    fixture_refs: [fixture_insert_view_target]
+    properties: {target_kind: view, explicit_columns: true, target_column_count: 2, target_types: [INTEGER, VARCHAR], available_column_count: 2, available_types: [INTEGER, VARCHAR], duplicate_supported: false}
+    fact_refs: [insert_fact_view_subquery_grammar, insert_fact_view_subquery_constraints]
+  - id: insert_target_subquery
+    render: (SELECT id, note FROM t_insert_view_base) AS sq (id, note)
+    validity: valid
+    fixture_refs: [fixture_insert_view_target]
+    properties: {target_kind: subquery, explicit_columns: true, target_column_count: 2, target_types: [INTEGER, VARCHAR], available_column_count: 2, available_types: [INTEGER, VARCHAR], duplicate_supported: false}
+    fact_refs: [insert_fact_view_subquery_grammar, insert_fact_subquery_grammar, insert_fact_view_subquery_constraints]
+
+documented_features:
+  - {id: insert_feature_table_target, profile_refs: [insert_target_table_implicit, insert_target_table_two_columns], status: covered, fact_refs: [insert_fact_target_table]}
+  - {id: insert_feature_explicit_columns, profile_refs: [insert_target_table_two_columns, insert_target_table_note], status: covered, fact_refs: [insert_fact_column_mapping]}
+  - {id: insert_feature_alias, profile_refs: [insert_target_alias_as, insert_target_alias_bare], status: covered, fact_refs: [insert_fact_alias_and_partition]}
+  - {id: insert_feature_partition, profile_refs: [insert_target_partition], status: covered, fact_refs: [insert_fact_partition]}
+  - {id: insert_feature_view_target, profile_refs: [insert_target_view], status: covered, fact_refs: [insert_fact_view_subquery_grammar]}
+  - {id: insert_feature_subquery_target, profile_refs: [insert_target_subquery], status: covered, fact_refs: [insert_fact_view_subquery_grammar]}
+  - {id: insert_feature_dblink, status: needs_profile, fact_refs: [insert_open_dblink_profile]}
+
+fact_refs: [insert_fact_target_table, insert_fact_column_mapping, insert_fact_view_subquery_constraints]
+

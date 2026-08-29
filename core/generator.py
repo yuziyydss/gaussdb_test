@@ -15,8 +15,12 @@ class GeneratedCase:
                  expected: str = "success",
                  expected_sqlstate: str = "",
                  expected_sqlstates: List[str] = None,
+                 expected_error_category: str = "",
+                 expected_error_regex: str = "",
                  setup_sqls: List[str] = None,
-                 context: str = "default"):
+                 teardown_sqls: List[str] = None,
+                 context: str = "default",
+                 preconditions: List[str] = None):
         self.factor_id = factor_id
         self.case_id = case_id
         self.strategy = strategy
@@ -35,8 +39,13 @@ class GeneratedCase:
             self.expected_sqlstate = ""
             self.expected_sqlstates = []
 
+        self.expected_error_category = expected_error_category
+        self.expected_error_regex = expected_error_regex
         self.setup_sqls = setup_sqls or []
+        self.teardown_sqls = teardown_sqls or []
         self.context = context
+        # 保留 fixture ID 以便报告追溯；setup/teardown 已编译进本用例。
+        self.preconditions = preconditions or []
 
     def to_dict(self) -> dict:
         return {
@@ -48,8 +57,12 @@ class GeneratedCase:
             "expected": self.expected,
             "expected_sqlstate": self.expected_sqlstate,
             "expected_sqlstates": self.expected_sqlstates,
+            "expected_error_category": self.expected_error_category,
+            "expected_error_regex": self.expected_error_regex,
             "setup_sqls": self.setup_sqls,
+            "teardown_sqls": self.teardown_sqls,
             "context": self.context,
+            "preconditions": self.preconditions,
         }
 
 

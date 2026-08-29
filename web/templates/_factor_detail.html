@@ -1,65 +1,46 @@
-<!-- Factor Detail Fragment -->
-<div class="max-w-4xl">
-  <!-- Header -->
-  <div class="mb-5">
-    <div class="flex items-center gap-2 mb-1">
-      <span class="text-xs font-semibold uppercase tracking-wider text-blue-500">{{ factor.category }}</span>
+<section class="page-shell" aria-labelledby="legacy-factor-title">
+  <header class="page-header">
+    <div class="page-header__copy">
+      <div class="page-header__meta"><span class="overline">Legacy Factor V0</span><span class="chip">{{ factor.category }}</span><span class="mono-id">{{ factor.id }}</span></div>
+      <h1 id="legacy-factor-title" class="page-title">{{ factor.name }}</h1>
+      <p class="page-description">{{ factor.description }}</p>
     </div>
-    <h2 class="text-xl font-semibold text-slate-800">{{ factor.name }}</h2>
-    <p class="text-sm text-slate-500 mt-0.5">{{ factor.description }}</p>
-  </div>
+  </header>
 
-  <!-- Params Overview -->
-  <div class="bg-white rounded-lg border border-slate-200 mb-5">
-    <div class="px-4 py-2.5 border-b border-slate-100 flex items-center gap-2">
-      <i data-lucide="settings-2" class="w-4 h-4 text-slate-400"></i>
-      <span class="text-sm font-medium text-slate-600">参数维度</span>
-      <span class="text-xs text-slate-400 ml-auto">{{ factor.params | length }} 个参数</span>
-    </div>
-    <div class="divide-y divide-slate-50">
-      {% for pname, pdef in factor.params.items() %}
-      <div class="px-4 py-2.5">
-        <div class="flex items-center gap-2">
-          <code class="text-sm font-medium text-blue-600">{{ pname }}</code>
-          <span class="text-xs text-slate-400">{{ pdef.description }}</span>
-          <span class="text-xs text-slate-300 ml-auto">{{ pdef.representative | length }} 代表值</span>
-        </div>
-        <div class="mt-1 flex flex-wrap gap-1">
-          {% for cls in pdef.classes %}
-          <span class="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{{ cls.name }}</span>
+  <div class="page-stack">
+    <section class="panel" aria-labelledby="legacy-params-title">
+      <div class="panel__header"><div><h2 id="legacy-params-title" class="panel__heading">参数维度</h2><p class="panel__description">旧版因子的等价类与代表值，仅用于兼容现有入口。</p></div><span class="chip">{{ factor.params | length }} 个参数</span></div>
+      <div class="panel__body">
+        <div class="dimension-list">
+          {% for pname, pdef in factor.params.items() %}
+          <article class="dimension-item">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;"><code>{{ pname }}</code><span class="fine-print">{{ pdef.representative | length }} 个代表值</span></div>
+            <p>{{ pdef.description }}</p>
+            <div class="token-list" style="margin-top:9px;">{% for cls in pdef.classes %}<span class="token">{{ cls.name }}</span>{% endfor %}</div>
+          </article>
           {% endfor %}
         </div>
       </div>
-      {% endfor %}
-    </div>
-  </div>
+    </section>
 
-  <!-- Strategy + Generate -->
-  <form hx-post="/generate" hx-target="#main-content" hx-swap="innerHTML"
-        class="bg-white rounded-lg border border-slate-200 p-4">
-    <input type="hidden" name="factor_id" value="{{ factor.id }}">
-    <div class="flex items-center gap-4">
-      <div class="flex items-center gap-2">
-        <i data-lucide="git-branch" class="w-4 h-4 text-slate-400"></i>
-        <span class="text-sm font-medium text-slate-600">覆盖策略</span>
+    <form hx-post="/generate" hx-target="#main-content" hx-swap="innerHTML" class="panel">
+      <input type="hidden" name="factor_id" value="{{ factor.id }}">
+      <div class="panel__header"><div><h2 id="strategy-title" class="panel__heading">选择覆盖策略</h2><p class="panel__description">Pairwise 适合常规组合审计；全笛卡尔只应用于受控的小参数空间。</p></div></div>
+      <div class="panel__body" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;">
+        <fieldset style="border:0;margin:0;padding:0;min-width:0;">
+          <legend class="sr-only">覆盖策略</legend>
+          <div style="display:flex;flex-wrap:wrap;gap:7px;">
+            {% set strategies = [("equivalence", "等价类"), ("pairwise", "Pairwise"), ("full_cartesian", "全笛卡尔")] %}
+            {% for val, label in strategies %}
+            <label class="strategy-option">
+              <input type="radio" name="strategy" value="{{ val }}" class="sr-only peer" {% if val == factor.default_strategy %}checked{% endif %}>
+              <span class="light-button" style="display:inline-flex;align-items:center;">{{ label }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </fieldset>
+        <button type="submit" class="primary-button"><i data-lucide="sparkles" aria-hidden="true"></i>生成测试用例</button>
       </div>
-      <div class="flex rounded-lg border border-slate-200 overflow-hidden">
-        {% set strategies = [("equivalence", "等价类"), ("pairwise", "Pairwise"), ("full_cartesian", "全笛卡尔")] %}
-        {% for val, label in strategies %}
-        <label class="cursor-pointer">
-          <input type="radio" name="strategy" value="{{ val }}" class="sr-only peer"
-                 {% if val == factor.default_strategy %}checked{% endif %}>
-          <span class="block px-3 py-1.5 text-xs font-medium text-slate-500 peer-checked:bg-blue-600 peer-checked:text-white transition-colors hover:bg-slate-50 peer-checked:hover:bg-blue-600">{{ label }}</span>
-        </label>
-        {% endfor %}
-      </div>
-      <div class="flex-1"></div>
-      <button type="submit"
-              class="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
-        <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-        生成
-      </button>
-    </div>
-  </form>
-</div>
-<script>lucide.createIcons();</script>
+    </form>
+  </div>
+</section>

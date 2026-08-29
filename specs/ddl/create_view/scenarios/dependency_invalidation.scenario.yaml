@@ -1,0 +1,24 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_view_dependency_invalidation
+name: CREATE VIEW 依赖失效
+status: planned
+description: 验证依赖视图列变化和分区 OID 变化造成的视图失效。
+factor_ref: create_view
+fact_refs: [cv_fact_dependency_column_invalidation, cv_fact_partition_oid_invalidation]
+
+variants:
+  - id: dependent_view_column_change
+    environment_matrix:
+      enable_view_invalidation: ["on", "off"]
+    operations: [rename_column, change_column_type, drop_column]
+    expected: 依赖视图失效，与 enable_view_invalidation 开关无关。
+  - id: partition_oid_change
+    operations: [drop_partition, split_partition, merge_partition]
+    expected: 引用指定分区 OID 的视图失效。
+
+oracles:
+  - kind: metadata_validity
+    expected: 目标视图的有效状态变为 false。
+
+execution_requirements: [database, guc_control, partitioned_table, metadata_query]

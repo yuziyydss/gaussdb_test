@@ -1,0 +1,61 @@
+schema_version: 1
+kind: matrix
+id: matrix_alter_table_table_profiles
+name: ALTER TABLE 目标表能力剖面
+status: needs_review
+description: 普通表、分区表、临时表以及需要专用环境的目标对象。
+factor_ref: alter_table
+profile_property_defaults:
+  partitioned: false
+  temporary: false
+  external: false
+  rls_supported: true
+  online_supported: true
+  compatibility: default
+  source_tables: []
+profiles:
+  - id: at_table_regular
+    render: t_at_regular
+    validity: valid
+    fixture_refs: [fixture_alter_table_regular]
+    properties: {source_tables: [t_at_regular]}
+    fact_refs: [at_fact_main_grammar]
+  - id: at_table_partitioned
+    render: t_at_partitioned
+    validity: valid
+    fixture_refs: [fixture_alter_table_partitioned]
+    properties: {partitioned: true, source_tables: [t_at_partitioned]}
+    fact_refs: [at_fact_partition_restrictions]
+  - id: at_table_temporary
+    render: t_at_temp
+    validity: valid
+    fixture_refs: [fixture_alter_table_temporary]
+    properties: {temporary: true, rls_supported: false, online_supported: false, source_tables: [t_at_temp]}
+    fact_refs: [at_fact_rls, at_fact_online_environment]
+  - id: at_table_b_compat
+    render: t_at_regular
+    validity: conditional
+    fixture_refs: [fixture_alter_table_regular]
+    properties: {compatibility: B, source_tables: [t_at_regular]}
+    fact_refs: [at_open_b_compat_fixture]
+  - id: at_table_external
+    render: t_at_external
+    validity: conditional
+    properties: {external: true, rls_supported: false, online_supported: false, source_tables: [t_at_external]}
+    fact_refs: [at_open_external_table_fixture]
+  - id: at_table_tde
+    render: t_at_tde
+    validity: conditional
+    properties: {source_tables: [t_at_tde]}
+    fact_refs: [at_open_tde_fixture]
+
+documented_features:
+  - {id: at_feature_regular_table, profile_refs: [at_table_regular], status: covered, fact_refs: [at_fact_main_grammar]}
+  - {id: at_feature_partition_table, profile_refs: [at_table_partitioned], status: covered, fact_refs: [at_fact_partition_restrictions]}
+  - {id: at_feature_temporary_table, profile_refs: [at_table_temporary], status: covered, fact_refs: [at_fact_rls]}
+  - {id: at_feature_b_compatibility, status: needs_profile, fact_refs: [at_open_b_compat_fixture]}
+  - {id: at_feature_external_table, status: needs_profile, fact_refs: [at_open_external_table_fixture]}
+  - {id: at_feature_tde_table, status: needs_profile, fact_refs: [at_open_tde_fixture]}
+  - {id: at_feature_subpartition, status: needs_profile, fact_refs: [at_open_subpartition_fixture]}
+fact_refs: [at_fact_main_grammar, at_fact_partition_restrictions, at_fact_rls]
+

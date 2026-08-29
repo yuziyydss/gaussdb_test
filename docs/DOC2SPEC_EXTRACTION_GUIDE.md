@@ -1,5 +1,7 @@
 # Doc2Spec 产品文档自动抽取指南与 Prompt 模板
 
+> **Legacy V0：** 本文模板面向旧三文件结构。新的抽取流程以 [Doc2Spec Extraction Rules V1](DOC2SPEC_EXTRACTION_RULES_V1.md) 为准，并输出 Factor Package V1。
+
 > 本文档指导如何利用大语言模型（LLM: DeepSeek / Gemini / GPT-4）从 GaussDB 官方产品手册、SQL 参考文档及约束说明中，标准化抽取生成 **语法规范 (`*.syntax.yaml`)**、**兼容矩阵 (`*.matrix.yaml`)** 与 **测试清单 (`*.manifest.yaml`)**。
 
 ---

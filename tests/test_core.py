@@ -97,6 +97,51 @@ class TestFactorCore(unittest.TestCase):
         r3.compute_verdict()
         self.assertEqual(r3.verdict, "pass")
 
+        # 负向用例不能再以“任意报错”通过：必须命中 SQLSTATE 或目标消息 Oracle。
+        no_oracle = ExecResult(
+            case_id="c4",
+            sql="SELECT bad",
+            status="error",
+            expected="error",
+            error_msg="unrelated failure",
+        )
+        no_oracle.compute_verdict()
+        self.assertEqual(no_oracle.verdict, "fail")
+
+        regex_match = ExecResult(
+            case_id="c5",
+            sql="SELECT DISTINCT col_1 ORDER BY col_2",
+            status="error",
+            expected="error",
+            expected_error_category="distinct_order_expression_not_selected",
+            expected_error_regex=r"(?i)(distinct|select list)",
+            error_msg="ORDER BY expressions must appear in select list for SELECT DISTINCT",
+        )
+        regex_match.compute_verdict()
+        self.assertEqual(regex_match.verdict, "pass")
+
+        wrong_error = ExecResult(
+            case_id="c6",
+            sql="SELECT DISTINCT col_1 ORDER BY col_2",
+            status="error",
+            expected="error",
+            expected_error_category="distinct_order_expression_not_selected",
+            expected_error_regex=r"(?i)(distinct|select list)",
+            error_msg="relation does not exist",
+        )
+        wrong_error.compute_verdict()
+        self.assertEqual(wrong_error.verdict, "fail")
+
+        fixture_error = ExecResult(
+            case_id="c7",
+            sql="SELECT 1",
+            status="fixture_error",
+            expected="error",
+            expected_error_regex=".*",
+        )
+        fixture_error.compute_verdict()
+        self.assertEqual(fixture_error.verdict, "fail")
+
     def test_yaml_factors_loading_and_generation(self):
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         factors_dir = os.path.join(base_dir, "factors")
@@ -116,6 +161,81 @@ class TestFactorCore(unittest.TestCase):
         # 验证生成的用例带 expected_sqlstates
         has_multi_ss = any(len(c.expected_sqlstates) > 1 for c in ins_cases)
         self.assertTrue(has_multi_ss)
+
+    def test_executor_runs_fixture_test_and_teardown_in_order(self):
+        statements = []
+
+        class RecordingCursor:
+            def execute(self, sql):
+                statements.append(sql)
+
+            def close(self):
+                pass
+
+        class RecordingConnection:
+            def cursor(self):
+                return RecordingCursor()
+
+        executor = Executor(ExecConfig(enabled=True, use_sandbox=False))
+        executor._conn = RecordingConnection()
+        executor._check_alive = lambda: True
+        case = GeneratedCase(
+            factor_id="fixture_test",
+            case_id="fixture_test_1",
+            strategy="pairwise",
+            params={},
+            sql="SELECT col_1 FROM t_fixture;",
+            setup_sqls=[
+                "CREATE TABLE t_fixture (col_1 INTEGER);",
+                "INSERT INTO t_fixture VALUES (1);",
+            ],
+            teardown_sqls=["DROP TABLE IF EXISTS t_fixture;"],
+        )
+        result = executor.execute_one(case)
+        self.assertEqual(result.verdict, "pass")
+        self.assertEqual(statements, [
+            "CREATE TABLE t_fixture (col_1 INTEGER);",
+            "INSERT INTO t_fixture VALUES (1);",
+            "SELECT col_1 FROM t_fixture;",
+            "DROP TABLE IF EXISTS t_fixture;",
+        ])
+
+    def test_executor_fixture_failure_cannot_satisfy_negative_case(self):
+        statements = []
+
+        class FailingCursor:
+            def execute(self, sql):
+                statements.append(sql)
+                if sql.startswith("CREATE TABLE"):
+                    raise RuntimeError("fixture relation creation failed")
+
+            def close(self):
+                pass
+
+        class FailingConnection:
+            def cursor(self):
+                return FailingCursor()
+
+        executor = Executor(ExecConfig(enabled=True, use_sandbox=False))
+        executor._conn = FailingConnection()
+        executor._check_alive = lambda: True
+        case = GeneratedCase(
+            factor_id="fixture_test",
+            case_id="fixture_test_negative",
+            strategy="pairwise",
+            params={},
+            sql="SELECT invalid_syntax;",
+            expected="error",
+            expected_error_category="target_syntax_error",
+            expected_error_regex="syntax",
+            setup_sqls=["CREATE TABLE t_fixture (col_1 INTEGER);"],
+            teardown_sqls=["DROP TABLE IF EXISTS t_fixture;"],
+        )
+        result = executor.execute_one(case)
+        self.assertEqual(result.status, "fixture_error")
+        self.assertEqual(result.verdict, "fail")
+        self.assertNotIn(case.sql, statements)
+        self.assertIn("DROP TABLE IF EXISTS t_fixture;", statements)
 
     def test_reporter_and_exec_batch_mock(self):
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

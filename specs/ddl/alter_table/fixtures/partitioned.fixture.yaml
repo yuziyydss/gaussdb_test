@@ -1,0 +1,33 @@
+schema_version: 1
+kind: fixture
+id: fixture_alter_table_partitioned
+name: ALTER TABLE 分区表
+status: ready
+description: 为分区表允许的列操作及禁止的分区键/TABLESPACE 操作提供目标对象。
+factor_ref: alter_table
+provides:
+  tables:
+    - name: t_at_partitioned
+      persistence: permanent
+      table_kind: partitioned
+      columns:
+        - {name: id, type: INTEGER, nullable: false}
+        - {name: code, type: VARCHAR(32), nullable: false}
+        - {name: note, type: VARCHAR(64), nullable: true}
+        - {name: amount, type: INTEGER, nullable: false}
+seed:
+  required: true
+  rows:
+    - {id: 1, code: P001, note: low, amount: 10}
+    - {id: 101, code: P101, note: high, amount: 20}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - "DROP TABLE IF EXISTS t_at_partitioned CASCADE;"
+    - "CREATE TABLE t_at_partitioned (id INTEGER NOT NULL, code VARCHAR(32) NOT NULL, note VARCHAR(64), amount INTEGER NOT NULL) PARTITION BY RANGE (id) (PARTITION p_low VALUES LESS THAN (100), PARTITION p_max VALUES LESS THAN (MAXVALUE));"
+    - "INSERT INTO t_at_partitioned (id, code, note, amount) VALUES (1, 'P001', 'low', 10), (101, 'P101', 'high', 20);"
+  teardown_sqls:
+    - "DROP TABLE IF EXISTS t_at_partitioned CASCADE;"
+  note: id 是分区键；其他列用于合法列操作。
+

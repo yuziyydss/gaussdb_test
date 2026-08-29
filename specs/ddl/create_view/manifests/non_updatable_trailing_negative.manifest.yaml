@@ -1,0 +1,53 @@
+schema_version: 1
+kind: manifest
+id: manifest_create_view_non_updatable_trailing_negative
+name: CREATE VIEW 非可更新查询与尾部 CHECK OPTION 负向组合
+status: ready
+description: 验证尾部 CHECK OPTION 只能用于可更新视图这一文档规则。
+factor_ref: create_view
+syntax_ref: syntax_create_view
+suite_type: negative
+strategy: pairwise
+fixture_refs: [fixture_create_view_source_two_ints, fixture_create_view_flashback_source]
+
+identifier_policy:
+  view_name:
+    generator: deterministic
+    prefix: v_cv_bad_tail_check
+    unique_per_case: true
+
+bindings:
+  or_replace: [or_replace_absent]
+  temp_modifier: [temp_absent]
+  force_modifier: [force_absent]
+  column_list: [column_list_inherited, column_list_two_aliases]
+  view_options_profile: [view_options_none]
+  query_profile:
+    - query_distinct_two_columns
+    - query_group_by_two_columns
+    - query_having_two_columns
+    - query_limit_two_columns
+    - query_offset_two_columns
+    - query_for_update_two_columns
+    - query_fetch_two_columns
+    - query_union_two_columns
+    - query_intersect_two_columns
+    - query_except_two_columns
+    - query_aggregate_two_columns
+    - query_window_two_columns
+    - query_set_returning_two_columns
+    - query_unpivot_two_columns
+    - query_start_with_connect_by_two_columns
+    - query_flashback_two_columns
+  post_query_option: [check_default, check_cascaded, check_local]
+
+violates_rule_refs: [cv_rule_trailing_check_requires_updatable]
+expected:
+  default: error
+  scope: syntax_and_semantics
+  error_category: check_option_requires_updatable_view
+  error_message_regex: "(?i)(check[ _]?option|updatable|view)"
+
+coverage_requirements:
+  strength: 2
+  require_all_feasible_pairs: true

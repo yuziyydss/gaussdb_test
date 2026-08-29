@@ -1,0 +1,37 @@
+schema_version: 1
+kind: fixture
+id: fixture_select_partitioned_source
+name: SELECT 分区源表
+status: needs_review
+description: 为 PARTITION、PARTITION FOR 和 SUBPARTITION 查询声明两级分区能力。
+factor_ref: select
+provides:
+  tables:
+    - name: t_select_partitioned
+      persistence: permanent
+      table_kind: range_subpartitioned_p1_sp1
+      columns:
+        - {name: col_1, type: INTEGER, nullable: false}
+        - {name: col_2, type: INTEGER, nullable: true}
+seed:
+  required: true
+  rows:
+    - {col_1: 1, col_2: 10}
+    - {col_1: 101, col_2: 20}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - DROP TABLE IF EXISTS t_select_partitioned CASCADE;
+    - >-
+      CREATE TABLE t_select_partitioned (col_1 INTEGER NOT NULL, col_2 INTEGER)
+      PARTITION BY RANGE (col_1) SUBPARTITION BY RANGE (col_2)
+      (PARTITION p1 VALUES LESS THAN (100)
+       (SUBPARTITION sp1 VALUES LESS THAN (1000),
+        SUBPARTITION sp1_max VALUES LESS THAN (MAXVALUE)),
+       PARTITION pmax VALUES LESS THAN (MAXVALUE)
+       (SUBPARTITION spmax VALUES LESS THAN (MAXVALUE)));
+    - INSERT INTO t_select_partitioned (col_1, col_2) VALUES (1, 10), (101, 20);
+  teardown_sqls:
+    - DROP TABLE IF EXISTS t_select_partitioned CASCADE;
+  note: 显式声明分区键、边界和 p1/sp1，使分区查询 profile 可独立执行。

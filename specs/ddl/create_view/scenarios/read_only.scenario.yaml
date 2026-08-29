@@ -1,0 +1,30 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_view_read_only
+name: CREATE VIEW WITH READ ONLY 行为
+status: planned
+description: 创建只读视图后分别验证 INSERT、UPDATE 和 DELETE 均被拒绝。
+factor_ref: create_view
+fixture_refs: [fixture_create_view_source_two_ints]
+fact_refs: [cv_fact_read_only_behavior]
+
+steps:
+  - id: create_read_only_view
+    action: execute_sql
+    sql: CREATE VIEW v_cv_read_only AS SELECT col_1, col_2 FROM t_view_source WITH READ ONLY
+  - id: try_insert
+    action: expect_error
+    sql: INSERT INTO v_cv_read_only VALUES (5, 6)
+  - id: try_update
+    action: expect_error
+    sql: UPDATE v_cv_read_only SET col_2 = 6 WHERE col_1 = 1
+  - id: try_delete
+    action: expect_error
+    sql: DELETE FROM v_cv_read_only WHERE col_1 = 1
+
+oracles:
+  - kind: operation_rejected
+    steps: [try_insert, try_update, try_delete]
+    expected: DML operation cannot be performed on a read-only view.
+
+execution_requirements: [database, error_assertion]

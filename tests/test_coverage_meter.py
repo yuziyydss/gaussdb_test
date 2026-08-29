@@ -23,6 +23,11 @@ class TestCoverageMeter(unittest.TestCase):
         self.assertGreater(report.syntax_coverage_pct, 0.0)
         self.assertGreaterEqual(report.type_coverage_pct, 0.0)
         self.assertGreater(report.overall_spec_coverage_pct, 0.0)
+        self.assertLessEqual(report.covered_slot_values, report.total_slot_values)
+        self.assertLessEqual(report.syntax_coverage_pct, 100.0)
+        self.assertLessEqual(report.type_coverage_pct, 100.0)
+        self.assertLessEqual(report.rule_coverage_pct, 100.0)
+        self.assertLessEqual(report.overall_spec_coverage_pct, 100.0)
 
         # 检查是否有详细分项
         self.assertIn("syntax_create_table", report.syntax_details)
@@ -46,6 +51,20 @@ class TestCoverageMeter(unittest.TestCase):
         self.assertIn("summary", data)
         self.assertIn("gaps", data)
         self.assertIsInstance(data["gaps"], list)
+
+    def test_dynamic_slot_counts_as_one_covered_item(self):
+        from core.coverage_meter import SlotCoverageItem
+
+        item = SlotCoverageItem(
+            syntax_id="dynamic_syntax",
+            slot_name="expression",
+            slot_type="token",
+            total_values=[],
+            covered_values={"a", "b", "c"},
+        )
+        self.assertEqual(item.total_count, 1)
+        self.assertEqual(item.covered_count, 1)
+        self.assertEqual(item.coverage_pct, 100.0)
 
 
 if __name__ == "__main__":

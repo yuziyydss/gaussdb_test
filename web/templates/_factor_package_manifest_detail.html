@@ -1,0 +1,63 @@
+<section class="page-shell" aria-labelledby="manifest-title">
+  <header class="page-header">
+    <div class="page-header__copy">
+      <div class="page-header__meta">
+        <span class="overline">V1 Manifest</span>
+        <span class="mono-id">{{ manifest.id }}</span>
+        <span class="chip {% if manifest.suite_type == 'negative' %}chip--danger{% else %}chip--success{% endif %}">{{ manifest.suite_type }}</span>
+      </div>
+      <h1 id="manifest-title" class="page-title">{{ manifest.name }}</h1>
+      <p class="page-description">{{ manifest.description }}</p>
+    </div>
+    <form hx-post="/specs/manifest/generate" hx-target="#manifest-cases-area" hx-swap="innerHTML" hx-indicator="#global-loading">
+      <input type="hidden" name="manifest_id" value="{{ manifest.id }}">
+      <button type="submit" class="primary-button">
+        <i data-lucide="sparkles" aria-hidden="true"></i>
+        生成并验证 SQL
+      </button>
+    </form>
+  </header>
+
+  <div class="page-stack">
+    <section class="metric-grid" aria-label="清单概要">
+      <article class="metric-card"><span class="metric-card__label">Factor</span><strong class="metric-card__value" style="font-size:14px;overflow-wrap:anywhere;">{{ manifest.factor_ref }}</strong></article>
+      <article class="metric-card"><span class="metric-card__label">Syntax</span><strong class="metric-card__value" style="font-size:14px;overflow-wrap:anywhere;">{{ manifest.syntax_ref }}</strong></article>
+      <article class="metric-card metric-card--accent"><span class="metric-card__label">组合策略</span><strong class="metric-card__value" style="font-size:16px;color:#1d4ed8;">{{ manifest.strategy }}</strong></article>
+      <article class="metric-card {% if manifest.expected.default == 'error' %}{% else %}metric-card--dark{% endif %}"><span class="metric-card__label">默认预期</span><strong class="metric-card__value {% if manifest.expected.default == 'error' %}metric-card__value--danger{% endif %}" style="font-size:16px;">{{ manifest.expected.default }}</strong></article>
+    </section>
+
+    {% if manifest.violates_rule_refs %}
+    <aside class="callout callout--danger" aria-label="负向目标 Oracle">
+      <i data-lucide="shield-alert" aria-hidden="true"></i>
+      <div>
+        <strong>这是目标化负向清单</strong>
+        <div style="margin-top:3px;">违反规则：<span class="mono-id" style="color:inherit;">{{ manifest.violates_rule_refs | join(', ') }}</span>；其他因子规则仍必须满足。</div>
+        <div style="margin-top:3px;">错误类别：<span class="mono-id" style="color:inherit;">{{ manifest.expected.error_category }}</span>{% if manifest.expected.sqlstates %} · SQLSTATE：<span class="mono-id" style="color:inherit;">{{ manifest.expected.sqlstates | join(', ') }}</span>{% endif %}</div>
+        {% if manifest.expected.error_message_regex %}<div style="margin-top:3px;overflow-wrap:anywhere;">消息匹配：<span class="mono-id" style="color:inherit;">{{ manifest.expected.error_message_regex }}</span></div>{% endif %}
+      </div>
+    </aside>
+    {% endif %}
+
+    <section class="panel" aria-labelledby="bindings-heading">
+      <div class="panel__header">
+        <div>
+          <h2 id="bindings-heading" class="panel__heading">Bindings 使用稳定值 ID</h2>
+          <p class="panel__description">清单只选择值域，实际 SQL 片段由因子值定义与语法渲染共同决定。</p>
+        </div>
+        <span class="chip">{{ manifest.bindings | length }} 个维度</span>
+      </div>
+      <div class="panel__body">
+        <div class="binding-list">
+          {% for dimension, values in manifest.bindings.items() %}
+          <div class="binding-row">
+            <div class="binding-row__name">{{ dimension }}</div>
+            <div class="token-list">{% for value in values %}<span class="token">{{ value }}</span>{% endfor %}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section id="manifest-cases-area" aria-live="polite" aria-label="生成的 SQL 用例"></section>
+  </div>
+</section>

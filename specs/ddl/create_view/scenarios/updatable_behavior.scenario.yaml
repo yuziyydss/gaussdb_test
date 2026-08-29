@@ -1,0 +1,35 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_view_updatable_behavior
+name: CREATE VIEW 普通可更新视图行为
+status: planned
+description: 验证基表变化可通过视图观察、普通单表视图支持 DML，以及直接引用的用户列具有可更新元数据。
+factor_ref: create_view
+fixture_refs: [fixture_create_view_source_two_ints]
+fact_refs:
+  - cv_fact_base_change_visibility
+  - cv_fact_updatable_column_criteria
+  - cv_fact_updatable_metadata
+  - cv_example_updatable_view_dml
+
+variants:
+  - id: base_table_change_visible
+    operations:
+      - 在 t_view_source 上创建普通两列视图。
+      - 向基表插入新行后查询视图。
+    expected: 新行可通过视图查询到。
+  - id: insert_update_delete_through_view
+    operations: [insert_through_view, update_through_view, delete_through_view]
+    expected: 三类 DML 均作用于对应基表行。
+  - id: direct_user_columns_updatable
+    preconditions: [视图列直接引用基表普通用户列]
+    expected: information_schema.columns.is_updatable 对两个视图列均返回 YES。
+
+oracles:
+  - kind: query_result
+    expected: 视图查询结果与基表变化及视图 DML 结果一致。
+  - kind: metadata_value
+    query: SELECT column_name, is_updatable FROM information_schema.columns WHERE table_schema = current_schema AND table_name = :view_name
+    expected: 直接引用的普通用户列 is_updatable = YES。
+
+execution_requirements: [database, dml, metadata_query]

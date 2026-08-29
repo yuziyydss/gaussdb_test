@@ -50,11 +50,15 @@ def generate_report(cases: List[GeneratedCase],
             "expected": case.expected,
             "expected_sqlstate": case.expected_sqlstate,
             "expected_sqlstates": expected_sqlstates,
+            "expected_error_category": getattr(case, "expected_error_category", ""),
+            "expected_error_regex": getattr(case, "expected_error_regex", ""),
             "setup_sqls": case.setup_sqls,
+            "teardown_sqls": getattr(case, "teardown_sqls", []),
             "status": r.status if r else "pending",
             "actual_sqlstate": r.actual_sqlstate if r else "",
             "verdict": r.verdict if r else "pending",
             "error_msg": r.error_msg if r else "",
+            "cleanup_error_msg": r.cleanup_error_msg if r else "",
             "duration_ms": r.duration_ms if r else 0,
         }
         detail.append(entry)
@@ -87,6 +91,8 @@ def _render_html(summary: dict, detail: list) -> str:
         }.get(d["verdict"], "text-gray-500")
 
         expected_text = d["expected"]
+        if d.get("expected_error_category"):
+            expected_text += f" [{d['expected_error_category']}]"
         sqlstates = d.get("expected_sqlstates") or ([d["expected_sqlstate"]] if d.get("expected_sqlstate") else [])
         if sqlstates:
             expected_text += f" ({'/'.join(sqlstates)})"

@@ -6,6 +6,7 @@
   use_sandbox=True (默认): Schema 级沙箱隔离，执行完毕后自动 CASCADE 清理，杜绝 DDL 污染
 """
 import os
+import re
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -19,13 +20,16 @@ class ExecResult:
     """单条 SQL 的执行结果。"""
     case_id: str
     sql: str
-    status: str = "skipped"        # success | error | core | skipped
+    status: str = "skipped"        # success | error | fixture_error | cleanup_error | core | skipped
     error_msg: str = ""
     duration_ms: float = 0.0
     expected: str = ""             # 来自 GeneratedCase 的预期 (success | error)
     expected_sqlstate: str = ""   # 主预期 SQLSTATE (向后兼容)
     expected_sqlstates: List[str] = field(default_factory=list) # 预期合法 SQLSTATE 候选集合
+    expected_error_category: str = ""
+    expected_error_regex: str = ""
     actual_sqlstate: str = ""      # 实际捕获的 SQLSTATE
+    cleanup_error_msg: str = ""
     verdict: str = ""             # pass | fail | crash | skip | pending
 
     def compute_verdict(self):
@@ -36,6 +40,9 @@ class ExecResult:
         if self.status == "core":
             self.verdict = "crash"
             return
+        if self.status in {"fixture_error", "cleanup_error"}:
+            self.verdict = "fail"
+            return
 
         # 整理所有合法的预期 SQLSTATE 候选集
         candidates = set(self.expected_sqlstates)
@@ -43,14 +50,18 @@ class ExecResult:
             candidates.add(self.expected_sqlstate)
 
         if self.status == "error" and self.expected == "error":
-            # 预期报错且确实报错 — 若指定了预期错误码集合，校验是否命中
+            oracle_results = []
             if candidates:
-                if self.actual_sqlstate and self.actual_sqlstate in candidates:
-                    self.verdict = "pass"
-                else:
-                    self.verdict = "fail"
-            else:
-                self.verdict = "pass"
+                oracle_results.append(
+                    bool(self.actual_sqlstate and self.actual_sqlstate in candidates)
+                )
+            if self.expected_error_regex:
+                oracle_results.append(bool(re.search(
+                    self.expected_error_regex,
+                    self.error_msg,
+                )))
+            # 任意明确目标 Oracle 命中即可；没有 Oracle 的 error 不再允许假通过。
+            self.verdict = "pass" if oracle_results and any(oracle_results) else "fail"
             return
 
         if self.status == "success" and self.expected == "success":
@@ -169,6 +180,8 @@ class Executor:
     def execute_one(self, case: GeneratedCase) -> ExecResult:
         """执行单条 SQL，返回结果。"""
         expected_sqlstates = getattr(case, "expected_sqlstates", [])
+        expected_error_category = getattr(case, "expected_error_category", "")
+        expected_error_regex = getattr(case, "expected_error_regex", "")
         if not self.config.enabled:
             r = ExecResult(
                 case_id=case.case_id,
@@ -177,35 +190,23 @@ class Executor:
                 expected=case.expected,
                 expected_sqlstate=case.expected_sqlstate,
                 expected_sqlstates=expected_sqlstates,
+                expected_error_category=expected_error_category,
+                expected_error_regex=expected_error_regex,
             )
             r.compute_verdict()
             return r
 
         start = time.time()
+        stage = "setup"
+        cur = None
+        r = None
         try:
             cur = self._conn.cursor()
-
-            # 自动表状态重置：若即将执行建表或 setup 中包含建表，先清理同名旧表，防止批次执行时 "table already exists" 串扰
-            all_sqls_to_run = list(case.setup_sqls) + [case.sql]
-            for s in all_sqls_to_run:
-                match = re.search(r"CREATE\s+(?:(?:GLOBAL\s+)?TEMPORARY\s+|UNLOGGED\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-zA-Z0-9_\.\"]+)", s, re.IGNORECASE)
-                if match:
-                    tbl_name = match.group(1)
-                    try:
-                        cur.execute(f"DROP TABLE IF EXISTS {tbl_name} CASCADE;")
-                    except Exception:
-                        pass
-
-            # 执行 setup SQL (fixture 链)
             for setup_sql in case.setup_sqls:
-                try:
-                    cur.execute(setup_sql)
-                except Exception:
-                    pass  # setup 失败不阻断, 继续跑 test SQL
+                cur.execute(setup_sql)
 
-            # 执行 test SQL
+            stage = "test"
             cur.execute(case.sql)
-            cur.close()
             duration = (time.time() - start) * 1000
             r = ExecResult(
                 case_id=case.case_id,
@@ -215,17 +216,14 @@ class Executor:
                 expected=case.expected,
                 expected_sqlstate=case.expected_sqlstate,
                 expected_sqlstates=expected_sqlstates,
+                expected_error_category=expected_error_category,
+                expected_error_regex=expected_error_regex,
             )
         except Exception as e:
             duration = (time.time() - start) * 1000
             err_msg = str(e)
 
-            # 提取 SQLSTATE (支持 pgcode 与 diag.sqlstate)
-            actual_sqlstate = ""
-            if hasattr(e, "pgcode") and e.pgcode:
-                actual_sqlstate = str(e.pgcode)
-            elif hasattr(e, "diag") and hasattr(e.diag, "sqlstate"):
-                actual_sqlstate = str(e.diag.sqlstate or "")
+            actual_sqlstate = self._extract_sqlstate(e)
 
             # 检测 core dump: 执行后连接是否断开
             if not self._check_alive():
@@ -238,21 +236,65 @@ class Executor:
                     expected=case.expected,
                     expected_sqlstate=case.expected_sqlstate,
                     expected_sqlstates=expected_sqlstates,
+                    expected_error_category=expected_error_category,
+                    expected_error_regex=expected_error_regex,
                 )
             else:
                 r = ExecResult(
                     case_id=case.case_id,
                     sql=case.sql,
-                    status="error",
-                    error_msg=err_msg,
+                    status="fixture_error" if stage == "setup" else "error",
+                    error_msg=(
+                        f"fixture setup failed: {err_msg}"
+                        if stage == "setup" else err_msg
+                    ),
                     duration_ms=round(duration, 1),
                     expected=case.expected,
                     expected_sqlstate=case.expected_sqlstate,
                     expected_sqlstates=expected_sqlstates,
+                    expected_error_category=expected_error_category,
+                    expected_error_regex=expected_error_regex,
                     actual_sqlstate=actual_sqlstate,
+                )
+        finally:
+            if cur is not None:
+                try:
+                    cur.close()
+                except Exception:
+                    pass
+
+            cleanup_errors = []
+            if self._conn and self._check_alive():
+                cleanup_cur = None
+                try:
+                    cleanup_cur = self._conn.cursor()
+                    for teardown_sql in getattr(case, "teardown_sqls", []):
+                        cleanup_cur.execute(teardown_sql)
+                except Exception as cleanup_exc:
+                    cleanup_errors.append(str(cleanup_exc))
+                finally:
+                    if cleanup_cur is not None:
+                        try:
+                            cleanup_cur.close()
+                        except Exception:
+                            pass
+            if cleanup_errors and r is not None and r.status != "core":
+                r.status = "cleanup_error"
+                r.cleanup_error_msg = "; ".join(cleanup_errors)
+                r.error_msg = (
+                    f"{r.error_msg}; cleanup failed: {r.cleanup_error_msg}"
+                    if r.error_msg else f"cleanup failed: {r.cleanup_error_msg}"
                 )
         r.compute_verdict()
         return r
+
+    @staticmethod
+    def _extract_sqlstate(error: Exception) -> str:
+        if hasattr(error, "pgcode") and error.pgcode:
+            return str(error.pgcode)
+        if hasattr(error, "diag") and hasattr(error.diag, "sqlstate"):
+            return str(error.diag.sqlstate or "")
+        return ""
 
     def execute_batch(self, cases: List[GeneratedCase]) -> List[ExecResult]:
         """批量执行用例，在独立的 Schema 沙箱环境中运行并在结束时自动级联清理。"""
@@ -273,4 +315,3 @@ class Executor:
                 self.drop_sandbox(sandbox)
 
         return results
-

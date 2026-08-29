@@ -1,0 +1,627 @@
+schema_version: 1
+kind: factor
+id: create_view
+name: CREATE VIEW
+category: DDL
+status: needs_review
+description: 创建或替换普通、临时、强制、带视图选项、检查选项或只读属性的视图。
+
+source:
+  product: GaussDB
+  document: CREATE VIEW 产品文档原文
+  version: unknown
+  artifact_sha256: 29f390c3509b249495992def92633e0a8e217806af2f789c7e943d8153329dd3
+  extraction_date: "2026-08-28"
+
+source_ledger_ref: source_ledger_create_view
+syntax_ref: syntax_create_view
+
+dimensions:
+  or_replace:
+    description: 已存在视图的处理方式。
+    classes:
+      - id: or_replace_class_create
+        meaning: 不显式要求替换。
+        values:
+          - id: or_replace_absent
+            render: ""
+            representative: true
+            validity: valid
+      - id: or_replace_class_replace
+        meaning: 视图存在时重新定义，不存在时创建。
+        values:
+          - id: or_replace_keyword
+            render: OR REPLACE
+            representative: true
+            validity: valid
+
+  temp_modifier:
+    description: 显式临时视图修饰符。
+    classes:
+      - id: temp_class_implicit_persistence
+        meaning: 不显式指定临时性。
+        values:
+          - id: temp_absent
+            render: ""
+            representative: true
+            validity: valid
+      - id: temp_class_explicit_temporary
+        meaning: 显式创建会话级临时视图。
+        values:
+          - id: temp_keyword
+            render: TEMP
+            representative: true
+            validity: valid
+          - id: temporary_keyword
+            render: TEMPORARY
+            representative: false
+            validity: valid
+
+  force_modifier:
+    description: 是否允许依赖对象不存在或缺少查询权限时先创建视图。
+    classes:
+      - id: force_class_normal
+        meaning: 按普通依赖检查创建。
+        values:
+          - id: force_absent
+            render: ""
+            representative: true
+            validity: valid
+      - id: force_class_deferred_dependency
+        meaning: 允许带编译错误或权限问题入库，后续行为需要场景验证。
+        values:
+          - id: force_keyword
+            render: FORCE
+            representative: true
+            validity: valid
+
+  column_list:
+    description: 视图输出列名列表。
+    classes:
+      - id: column_list_class_inherited
+        meaning: 从查询结果继承列名。
+        values:
+          - id: column_list_inherited
+            render: ""
+            output_column_count: inherited
+            representative: true
+            validity: valid
+      - id: column_list_class_explicit
+        meaning: 显式指定与查询输出列数相同的列名。
+        values:
+          - id: column_list_two_aliases
+            render: "(c1, c2)"
+            output_column_count: 2
+            representative: true
+            validity: valid
+
+  view_options_profile:
+    description: WITH (...) 中的视图参数列表；使用 profile 避免重复结构与单值枚举混淆。
+    classes:
+      - id: view_options_class_none
+        meaning: 不指定视图参数。
+        values:
+          - id: view_options_none
+            render: ""
+            properties: {security_barrier: unset, check_option: unset, supported_name: true, value_domain_valid: true}
+            representative: true
+            validity: valid
+      - id: view_options_class_security
+        meaning: 指定 security_barrier 布尔值。
+        values:
+          - id: view_option_security_true
+            render: WITH (security_barrier = true)
+            properties: {security_barrier: true, check_option: unset, supported_name: true, value_domain_valid: true}
+            representative: true
+            validity: valid
+          - id: view_option_security_false
+            render: WITH (security_barrier = false)
+            properties: {security_barrier: false, check_option: unset, supported_name: true, value_domain_valid: true}
+            representative: false
+            validity: valid
+          - id: view_option_security_bare
+            render: WITH (security_barrier)
+            properties: {security_barrier: implicit, check_option: unset, supported_name: true, value_domain_valid: unknown}
+            representative: false
+            validity: unknown
+            fact_refs: [cv_open_security_barrier_bare]
+      - id: view_options_class_check
+        meaning: 在 WITH (...) 中指定更新检查模式。
+        values:
+          - id: view_option_check_cascaded
+            render: WITH (check_option = CASCADED)
+            properties: {security_barrier: unset, check_option: CASCADED, supported_name: true, value_domain_valid: true}
+            representative: true
+            validity: valid
+          - id: view_option_check_local
+            render: WITH (check_option = LOCAL)
+            properties: {security_barrier: unset, check_option: LOCAL, supported_name: true, value_domain_valid: true}
+            representative: false
+            validity: valid
+          - id: view_option_check_bare
+            render: WITH (check_option)
+            properties: {security_barrier: unset, check_option: implicit, supported_name: true, value_domain_valid: unknown}
+            representative: false
+            validity: unknown
+            fact_refs: [cv_open_bare_check_option]
+      - id: view_options_class_combined
+        meaning: security_barrier 与 check_option 组成参数列表。
+        values:
+          - id: view_options_security_true_check_local
+            render: WITH (security_barrier = true, check_option = LOCAL)
+            properties: {security_barrier: true, check_option: LOCAL, supported_name: true, value_domain_valid: true}
+            representative: true
+            validity: valid
+          - id: view_options_security_false_check_cascaded
+            render: WITH (security_barrier = false, check_option = CASCADED)
+            properties: {security_barrier: false, check_option: CASCADED, supported_name: true, value_domain_valid: true}
+            representative: false
+            validity: valid
+          - id: view_options_check_local_security_true
+            render: WITH (check_option = LOCAL, security_barrier = true)
+            properties: {security_barrier: true, check_option: LOCAL, supported_name: true, value_domain_valid: true}
+            representative: false
+            validity: valid
+          - id: view_options_check_cascaded_security_false
+            render: WITH (check_option = CASCADED, security_barrier = false)
+            properties: {security_barrier: false, check_option: CASCADED, supported_name: true, value_domain_valid: true}
+            representative: false
+            validity: valid
+      - id: view_options_class_invalid
+        meaning: 文档明确不支持的参数名或参数值，用于可解释负向用例。
+        values:
+          - id: view_option_unknown_name
+            render: WITH (unknown_option = true)
+            properties: {security_barrier: unset, check_option: unset, supported_name: false, value_domain_valid: true}
+            representative: true
+            validity: invalid
+            fact_refs: [cv_fact_view_option_names]
+          - id: view_option_security_invalid
+            render: WITH (security_barrier = not_bool)
+            properties: {security_barrier: invalid, check_option: unset, supported_name: true, value_domain_valid: false}
+            representative: true
+            validity: invalid
+            fact_refs: [cv_fact_security_barrier_type]
+          - id: view_option_check_invalid
+            render: WITH (check_option = INVALID)
+            properties: {security_barrier: unset, check_option: INVALID, supported_name: true, value_domain_valid: false}
+            representative: true
+            validity: invalid
+            fact_refs: [cv_fact_view_option_check]
+
+  query_profile:
+    description: 为视图提供行和列的 SELECT 或 VALUES 查询形态。
+    profile_source:
+      matrix_ref: matrix_create_view_query_capabilities
+      profile_id_path: profiles.id
+
+  post_query_option:
+    description: AS query 后互斥的检查或只读子句。
+    classes:
+      - id: post_query_class_none
+        meaning: 不指定更新检查或只读限制。
+        values:
+          - id: post_query_none
+            render: ""
+            properties: {check_option: unset, read_only: false}
+            representative: true
+            validity: valid
+      - id: post_query_class_check
+        meaning: 对 INSERT 和 UPDATE 结果执行可见性检查。
+        values:
+          - id: check_default
+            render: WITH CHECK OPTION
+            properties: {check_option: CASCADED, spelling: DEFAULT, read_only: false}
+            representative: true
+            validity: valid
+          - id: check_cascaded
+            render: WITH CASCADED CHECK OPTION
+            properties: {check_option: CASCADED, spelling: CASCADED, read_only: false}
+            representative: false
+            validity: valid
+          - id: check_local
+            render: WITH LOCAL CHECK OPTION
+            properties: {check_option: LOCAL, spelling: LOCAL, read_only: false}
+            representative: false
+            validity: valid
+      - id: post_query_class_read_only
+        meaning: 禁止通过该视图执行 INSERT、UPDATE 和 DELETE。
+        values:
+          - id: read_only
+            render: WITH READ ONLY
+            properties: {check_option: unset, read_only: true}
+            representative: true
+            validity: valid
+
+rules:
+  - id: cv_rule_trailing_check_requires_updatable
+    kind: requires
+    expression: >-
+      post_query_option in ['check_default', 'check_cascaded', 'check_local']
+      => query_profile.properties.updatable == True
+    severity: error
+    fact_refs: [cv_fact_check_updatable_only]
+
+  - id: cv_rule_option_check_requires_updatable
+    kind: requires
+    expression: >-
+      view_options_profile.properties.check_option in ['CASCADED', 'LOCAL']
+      => query_profile.properties.updatable == True
+    severity: error
+    fact_refs: [cv_fact_check_updatable_only, cv_fact_view_option_check]
+
+  - id: cv_rule_view_option_name_supported
+    kind: requires
+    expression: view_options_profile.properties.supported_name == True
+    severity: error
+    fact_refs: [cv_fact_view_option_names]
+
+  - id: cv_rule_view_option_value_domain
+    kind: requires
+    expression: view_options_profile.properties.value_domain_valid != False
+    severity: error
+    fact_refs: [cv_fact_security_barrier_type, cv_fact_view_option_check]
+
+structural_checks:
+  - id: cv_struct_column_count_matches_query
+    kind: column_count_matches_query
+    fact_refs: [cv_fact_column_names, cv_inferred_column_count_matches_query]
+
+facts:
+  - id: cv_fact_main_grammar
+    type: syntax
+    statement: CREATE VIEW 支持 OR REPLACE、TEMP/TEMPORARY、FORCE、列名列表、WITH 参数列表、AS query，以及互斥的尾部 CHECK OPTION 或 READ ONLY。
+    status: confirmed
+    source_anchor: 语法格式
+
+  - id: cv_fact_or_replace
+    type: lifecycle
+    statement: 如果视图已存在，OR REPLACE 重新定义该视图。
+    status: confirmed
+    source_anchor: 参数说明/OR REPLACE
+
+  - id: cv_fact_temp_session
+    type: lifecycle
+    statement: TEMP 或 TEMPORARY 创建的临时视图在当前会话结束时自动删除。
+    status: confirmed
+    source_anchor: 参数说明/TEMP | TEMPORARY
+
+  - id: cv_fact_temp_dependency
+    type: lifecycle
+    statement: 如果视图引用的任何表是临时表，即使未指定 TEMP 或 TEMPORARY，视图也会被创建为临时视图。
+    status: confirmed
+    source_anchor: 参数说明/TEMP | TEMPORARY
+
+  - id: cv_fact_temp_no_auto_recompile
+    type: lifecycle
+    statement: 临时视图不支持自动重编译。
+    status: confirmed
+    source_anchor: 参数说明/TEMP | TEMPORARY
+
+  - id: cv_fact_force_dependency
+    type: lifecycle
+    statement: 指定 FORCE 后，依赖对象不存在或缺少查询权限时，视图仍可创建入库。
+    status: confirmed
+    source_anchor: 参数说明/FORCE
+
+  - id: cv_fact_force_invalid_then_compile
+    type: metadata_oracle
+    statement: 文档示例中，FORCE 创建缺失依赖的视图后 pg_object.valid 为 false；补建依赖并 ALTER VIEW COMPILE 后变为 true。
+    status: confirmed
+    source_anchor: 示例/视图一次性入库
+
+  - id: cv_fact_schema_qualified_name
+    type: syntax
+    statement: view_name 可以使用模式名修饰。
+    status: confirmed
+    source_anchor: 参数说明/view_name
+
+  - id: cv_fact_column_names
+    type: constraint
+    statement: 可选 column_name 列表作为视图字段名；省略时字段名取自查询输出字段名。
+    status: confirmed
+    source_anchor: 参数说明/column_name
+
+  - id: cv_inferred_column_count_matches_query
+    type: constraint
+    statement: 显式视图列名数量应与查询输出列数量一致；该关系用于生成器结构校验，但提供的原文没有直接描述其失败行为。
+    status: inferred
+    source_anchor: 参数说明/column_name 的结构性推导
+
+  - id: cv_fact_view_option_names
+    type: syntax
+    statement: 当前 view_option_name 仅支持 security_barrier 和 check_option。
+    status: confirmed
+    source_anchor: 参数说明/view_option_name
+
+  - id: cv_fact_security_barrier_type
+    type: constraint
+    statement: security_barrier 的取值是 Boolean 类型 true 或 false，适用于提供行级安全的视图。
+    status: confirmed
+    source_anchor: 参数说明/view_option_name/security_barrier
+
+  - id: cv_fact_view_option_check
+    type: syntax
+    statement: WITH 参数列表中的 check_option 支持 CASCADED 和 LOCAL。
+    status: confirmed
+    source_anchor: 参数说明/view_option_name/check_option
+
+  - id: cv_fact_query_select_or_values
+    type: syntax
+    statement: query 可以是为视图提供行和列的 SELECT 或 VALUES 语句。
+    status: confirmed
+    source_anchor: 参数说明/query
+
+  - id: cv_fact_partition_oid_invalidation
+    type: lifecycle
+    statement: 查询指定分区时会记录分区 OID；导致该 OID 变化的 DROP、SPLIT、MERGE 等分区 DDL 会使视图失效。
+    status: confirmed
+    source_anchor: 参数说明/query
+
+  - id: cv_fact_check_behavior
+    type: behavior_oracle
+    statement: CHECK OPTION 会拒绝使新行不满足视图可见条件的 INSERT 或 UPDATE。
+    status: confirmed
+    source_anchor: 参数说明/WITH CHECK OPTION
+
+  - id: cv_fact_check_default_cascaded
+    type: constraint
+    statement: 未显式指定 LOCAL 或 CASCADED 的 WITH CHECK OPTION 默认采用 CASCADED。
+    status: confirmed
+    source_anchor: 参数说明/WITH CHECK OPTION
+
+  - id: cv_fact_check_cascaded_semantics
+    type: behavior_oracle
+    statement: CASCADED 检查当前视图以及所有底层视图定义的条件。
+    status: confirmed
+    source_anchor: 参数说明/WITH CHECK OPTION/CASCADED
+
+  - id: cv_fact_check_local_semantics
+    type: behavior_oracle
+    statement: LOCAL 只检查当前视图条件；底层视图只有自身定义 CHECK OPTION 时才检查其条件。
+    status: confirmed
+    source_anchor: 参数说明/WITH CHECK OPTION/LOCAL
+
+  - id: cv_fact_read_only_behavior
+    type: behavior_oracle
+    statement: WITH READ ONLY 定义的视图不允许 INSERT、UPDATE 和 DELETE。
+    status: confirmed
+    source_anchor: 参数说明/WITH READ ONLY
+
+  - id: cv_fact_check_updatable_only
+    type: constraint
+    statement: CHECK OPTION 只能定义在可更新视图上。
+    status: confirmed
+    source_anchor: 参数说明/可更新视图
+
+  - id: cv_fact_non_updatable_features
+    type: constraint
+    statement: 可更新视图不包含 DISTINCT、GROUP BY、HAVING、LIMIT、OFFSET、UNPIVOT、FOR UPDATE、FETCH、START WITH CONNECT BY、UNION、INTERSECT、EXCEPT、聚集函数、窗口函数、返回集合函数或闪回。
+    status: confirmed
+    source_anchor: 参数说明/可更新视图
+
+  - id: cv_fact_updatable_metadata
+    type: metadata_oracle
+    statement: information_schema.columns.is_updatable、information_schema.views.is_updatable/is_insertable_into 和 information_schema.tables.is_insertable_into 可辅助确认可更新性。
+    status: confirmed
+    source_anchor: 参数说明/可更新列与可更新视图
+
+  - id: cv_fact_instead_trigger_check
+    type: behavior_oracle
+    statement: 可更新视图拥有 INSTEAD OF 触发器或 INSTEAD 规则时，CHECK OPTION 不检查该视图上的条件。
+    status: confirmed
+    source_anchor: 参数说明/CHECK OPTION 与 INSTEAD
+
+  - id: cv_fact_instead_rule_rewrite
+    type: behavior_oracle
+    statement: 当前可更新视图或任一底层关系存在导致 INSERT/UPDATE 重写的 INSTEAD 规则时，CHECK OPTION 不检查所有视图条件。
+    status: confirmed
+    source_anchor: 参数说明/CHECK OPTION 与 INSTEAD 规则重写
+
+  - id: cv_fact_compatibility_check
+    type: environment
+    statement: 底层视图有 INSTEAD OF 触发器且上层使用 CASCADED 时，非 A 兼容模式和 A 兼容模式的检查行为不同；A 兼容模式下相关 CHECK OPTION 均失效。
+    status: confirmed
+    source_anchor: 参数说明/CHECK OPTION 与兼容模式
+
+  - id: cv_fact_cascaded_overrides_local
+    type: behavior_oracle
+    statement: 上层视图的 CASCADED CHECK OPTION 会覆盖底层视图的 LOCAL CHECK OPTION。
+    status: confirmed
+    source_anchor: 参数说明/CHECK OPTION 嵌套规则
+
+  - id: cv_fact_join_check_restrictions
+    type: constraint
+    statement: 指定 CHECK OPTION 后，多表连接视图或多表连接子查询的连接列不能插入或更新；重复基表且不全是保留键表时不能删除。
+    status: confirmed
+    source_anchor: 参数说明/连接视图限制
+
+  - id: cv_fact_key_preserved_detection
+    type: constraint
+    statement: 当前仅支持依据 JOIN 条件判断保留键表，不支持联合 JOIN 条件和 WHERE 条件形成的等价类判断。
+    status: confirmed
+    source_anchor: 参数说明/保留键表
+
+  - id: cv_fact_create_any_table_permission
+    type: environment
+    statement: 被授予 CREATE ANY TABLE 权限的用户可以在 public 模式和用户模式下创建视图。
+    status: confirmed
+    source_anchor: 注意事项
+
+  - id: cv_fact_system_view_replace_permission
+    type: environment
+    statement: 非初始用户不允许对 SYS、DBE_PERF、INFORMATION_SCHEMA 模式的系统视图执行 CREATE OR REPLACE。
+    status: confirmed
+    source_anchor: 注意事项
+
+  - id: cv_fact_dependency_column_invalidation
+    type: lifecycle
+    statement: 修改被依赖视图的列名、列类型或删除列会使依赖视图失效，与 enable_view_invalidation 是否开启无关。
+    status: confirmed
+    source_anchor: 语法格式后注意说明
+
+  - id: cv_fact_base_change_visibility
+    type: behavior_oracle
+    statement: 基本表数据发生变化后，通过视图查询得到的数据也随之变化。
+    status: confirmed
+    source_anchor: 功能描述/基表变化反映到视图
+
+  - id: cv_fact_view_hides_unexposed_data
+    type: behavior_oracle
+    statement: 用户通过视图只能查询视图定义暴露的数据，未投影的基表字段和结构保持隐藏。
+    status: confirmed
+    source_anchor: 功能描述/隐藏基表字段
+
+  - id: cv_fact_view_permission_boundary
+    type: environment
+    statement: 可以只授予用户使用视图的权限，以视图作为基表数据访问的权限边界。
+    status: confirmed
+    source_anchor: 功能描述/视图权限管理
+
+  - id: cv_fact_no_check_allows_invisible_rows
+    type: behavior_oracle
+    statement: 未指定 CHECK OPTION 时，允许通过 INSERT 或 UPDATE 创建不满足视图条件、因而不能通过该视图看到的行。
+    status: confirmed
+    source_anchor: 参数说明/WITH CHECK OPTION
+
+  - id: cv_fact_join_view_definition
+    type: syntax
+    statement: 连接视图是由多张表通过 JOIN 创建的视图。
+    status: confirmed
+    source_anchor: 参数说明/连接视图
+
+  - id: cv_fact_key_preserved_definition
+    type: constraint
+    statement: 若源表每一行与连接视图行一一对应，不会因 JOIN 映射为多行，则该源表是保留键表。
+    status: confirmed
+    source_anchor: 参数说明/保留键表
+
+  - id: cv_fact_top_lower_relations
+    type: constraint
+    statement: DML 直接操作的视图是顶层关系；构成视图的表、视图、子查询及 WITH 中关系是底层关系。
+    status: confirmed
+    source_anchor: 参数说明/顶层与底层关系
+
+  - id: cv_fact_updatable_column_criteria
+    type: constraint
+    statement: 非系统列、非 whole-row reference 且直接引用基表用户列的视图列是可更新列。
+    status: confirmed
+    source_anchor: 参数说明/可更新列
+
+  - id: cv_fact_non_updatable_profile_syntax
+    type: syntax
+    statement: 补充的 GaussDB 官方 SELECT 文档给出了 UNPIVOT、START WITH CONNECT BY 与 TIMECAPSULE 闪回查询的代表语法。
+    status: confirmed
+    source_anchor: 补充来源/GaussDB SELECT 语法与闪回查询
+
+  - id: cv_example_replace_shape
+    type: example
+    statement: 文档示例使用 OR REPLACE 改变查询来源、列数、列类型和列名。
+    status: confirmed
+    source_anchor: 示例/REPLACE 的应用
+
+  - id: cv_example_basic_view
+    type: example
+    statement: 文档普通视图示例使用 SELECT * 和 WHERE 条件创建视图，并从视图查询基表变化后的数据。
+    status: confirmed
+    source_anchor: 示例/普通视图
+
+  - id: cv_example_check_metadata
+    type: example
+    statement: 文档示例展示 CHECK OPTION 拒绝不可见行，并通过 information_schema.views 查看 CASCADED 与可更新状态。
+    status: confirmed
+    source_anchor: 示例/对视图进行插入、更新、删除
+
+  - id: cv_example_updatable_view_dml
+    type: example
+    statement: 文档示例展示普通单表可更新视图的 INSERT、UPDATE 和 DELETE，以及列级可更新性元数据查询。
+    status: confirmed
+    source_anchor: 示例/对视图进行插入、更新、删除
+
+  - id: cv_open_security_barrier_bare
+    type: open_question
+    statement: 正文示例性描述使用 WITH(security_barrier)，但参数说明要求 Boolean true/false；省略值是否等价于 true 需要验证。
+    status: needs_verification
+    source_anchor: 语法格式后说明 与 参数说明/view_option_name
+
+  - id: cv_open_bare_check_option
+    type: open_question
+    statement: 通用视图参数产生式允许省略值，但正文只给出 check_option=CASCADED/LOCAL；裸写 WITH(check_option) 是否合法以及默认值需要验证。
+    status: needs_verification
+    source_anchor: 参数说明/view_option_name [= view_option_value]
+
+  - id: cv_open_dual_check_syntax
+    type: open_question
+    statement: 文档同时提供 WITH(check_option=...) 和尾部 WITH ... CHECK OPTION，但未说明二者同时出现时的合法性与优先级。
+    status: needs_verification
+    source_anchor: 语法格式 与 参数说明/view_option_name
+
+  - id: cv_open_duplicate_view_options
+    type: open_question
+    statement: WITH 参数列表允许重复结构，但未说明相同 view_option_name 重复出现时是否报错或后值覆盖前值。
+    status: needs_verification
+    source_anchor: 语法格式/WITH 参数列表
+
+  - id: cv_open_check_and_read_only
+    type: open_question
+    statement: 文档没有说明 WITH(check_option=...) 与尾部 WITH READ ONLY 同时出现时是否合法，以及只读属性是否使检查参数无意义。
+    status: needs_verification
+    source_anchor: 语法格式中的两个独立可选位置
+
+  - id: cv_open_force_missing_privilege
+    type: open_question
+    statement: FORCE 对缺失查询权限的创建、告警、valid 状态和后续重编译条件没有完整示例。
+    status: needs_verification
+    source_anchor: 参数说明/FORCE
+
+  - id: cv_open_values_updatable
+    type: open_question
+    statement: 文档允许 VALUES 作为 query，但未说明 VALUES 视图的可更新性以及是否允许 CHECK OPTION。
+    status: needs_verification
+    source_anchor: 参数说明/query
+
+  - id: cv_open_identifier_rules
+    type: open_question
+    statement: view_name 与 column_name 的取值范围链接是失效的本地 CHM 地址，标识符完整规则需从对应章节补抽取。
+    status: needs_verification
+    source_anchor: 参数说明/view_name 与 column_name
+
+  - id: cv_open_security_barrier_oracle
+    type: open_question
+    statement: 文档说明 security_barrier 的安全目的，但没有给出稳定、可自动化的行为或 metadata oracle。
+    status: needs_verification
+    source_anchor: 语法格式后说明 与 参数说明/security_barrier
+
+  - id: cv_open_document_version
+    type: open_question
+    statement: 提供的正文没有显式产品文档版本；失效链接中的 Kernel 507.0.0 不能直接视为当前正文版本。
+    status: needs_verification
+    source_anchor: 来源元数据
+
+manifest_refs:
+  - manifest_create_view_basic_positive
+  - manifest_create_view_options_positive
+  - manifest_create_view_non_updatable_trailing_negative
+  - manifest_create_view_non_updatable_option_negative
+  - manifest_create_view_read_only_non_updatable_positive
+  - manifest_create_view_schema_qualified_positive
+  - manifest_create_view_invalid_options_negative
+
+matrix_refs:
+  - matrix_create_view_query_capabilities
+
+fixture_refs:
+  - fixture_create_view_source_two_ints
+  - fixture_create_view_flashback_source
+
+scenario_refs:
+  - scenario_create_view_or_replace
+  - scenario_create_view_force_compile
+  - scenario_create_view_temporary_lifecycle
+  - scenario_create_view_read_only
+  - scenario_create_view_check_option
+  - scenario_create_view_dependency_invalidation
+  - scenario_create_view_permissions
+  - scenario_create_view_advanced_check_option
+  - scenario_create_view_join_key_preserved
+  - scenario_create_view_updatable_behavior

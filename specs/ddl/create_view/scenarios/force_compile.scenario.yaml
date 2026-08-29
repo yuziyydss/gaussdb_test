@@ -1,0 +1,35 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_view_force_compile
+name: CREATE FORCE VIEW 缺失依赖与重编译
+status: planned
+description: 验证缺失依赖时视图可入库但无效，补齐依赖并重编译后变为有效。
+factor_ref: create_view
+fact_refs: [cv_fact_force_dependency, cv_fact_force_invalid_then_compile]
+
+preconditions:
+  - 关系 t_cv_missing 不存在。
+
+steps:
+  - id: create_invalid_view
+    action: execute_sql
+    sql: CREATE FORCE VIEW v_cv_force AS SELECT col_1, col_2 FROM t_cv_missing
+  - id: inspect_invalid_state
+    action: query_metadata
+    sql: SELECT c.relname, o.valid FROM pg_object o JOIN pg_class c ON c.oid = o.object_oid WHERE c.relname = 'v_cv_force'
+  - id: create_dependency
+    action: execute_sql
+    sql: CREATE TABLE t_cv_missing (col_1 INTEGER, col_2 INTEGER)
+  - id: compile_view
+    action: execute_sql
+    sql: ALTER VIEW v_cv_force COMPILE
+  - id: inspect_valid_state
+    action: query_metadata
+    sql: SELECT c.relname, o.valid FROM pg_object o JOIN pg_class c ON c.oid = o.object_oid WHERE c.relname = 'v_cv_force'
+
+oracles:
+  - {after_step: create_invalid_view, kind: statement_result, expected: success_with_compilation_warning}
+  - {after_step: inspect_invalid_state, kind: metadata_value, expected: "valid = false"}
+  - {after_step: inspect_valid_state, kind: metadata_value, expected: "valid = true"}
+
+execution_requirements: [database, metadata_query]

@@ -1,0 +1,28 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_view_temporary_lifecycle
+name: CREATE TEMP VIEW 会话生命周期
+status: planned
+description: 验证显式临时视图和因临时依赖而隐式临时的视图均具有会话级生命周期。
+factor_ref: create_view
+fact_refs: [cv_fact_temp_session, cv_fact_temp_dependency, cv_fact_temp_no_auto_recompile]
+
+variants:
+  - id: explicit_temp
+    preconditions: [会话 A 中存在永久源表 t_view_source]
+    create_sql: CREATE TEMP VIEW v_cv_temp AS SELECT col_1, col_2 FROM t_view_source
+  - id: implicit_temp_from_dependency
+    preconditions: [会话 A 中存在临时源表 t_cv_temp_source]
+    create_sql: CREATE VIEW v_cv_temp_implicit AS SELECT col_1, col_2 FROM t_cv_temp_source
+  - id: temporary_view_no_auto_recompile
+    preconditions: [会话 A 中存在可被依赖变更置为失效的临时视图]
+    operation: 修改依赖对象并触发普通视图的自动重编译路径。
+    expected: 临时视图不发生自动重编译，状态或访问结果按失效重编译机制呈现。
+
+oracles:
+  - kind: session_a_metadata
+    expected: 视图位于 pg_temp 前缀模式并且可访问。
+  - kind: session_b_visibility
+    expected: 会话 A 结束后，新会话中同一临时视图不可见。
+
+execution_requirements: [database, multiple_sessions, dependency_invalidation, metadata_query]
