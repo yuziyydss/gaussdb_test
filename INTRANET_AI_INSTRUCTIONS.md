@@ -37,6 +37,6 @@ python3 scripts/manage_extraction_queue.py update \
 python3 scripts/manage_extraction_queue.py verify --task-id <TASK_ID>
 ```
 
-只有三道门禁全部成功，工具才会写入 `static_complete`。它表示“文档到静态 SQL 生成闭环”，不表示 planned scenario、真实数据库行为或目标 SQLSTATE 已经执行验证。
+只有任务信封对账和三道程序门禁全部成功，工具才会写入 `static_complete`。它表示“文档到静态 SQL 生成闭环”，不表示 planned scenario、真实数据库行为或目标 SQLSTATE 已经执行验证。
 
 完整操作、目录约定、失败恢复和批量策略见 [内网批量抽取运行手册](docs/INTRANET_AI_BATCH_EXTRACTION.md)。Factor Package 数据契约见 [Factor Package Schema V1](docs/FACTOR_PACKAGE_SCHEMA_V1.md)。

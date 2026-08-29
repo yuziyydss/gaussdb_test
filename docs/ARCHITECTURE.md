@@ -1,105 +1,157 @@
-# GaussDB 测试因子系统架构概览 (Next-Gen Architecture)
+# 当前系统架构
 
-> 规格驱动的 GaussDB 自动化测试系统：从产品文档到高质量测试用例与执行闭环。
+状态：Factor Package V1 是新规格的唯一写入格式；Legacy V0 仅为现有页面和旧用例提供兼容。
 
----
+## 1. 当前目标
 
-## 一、 系统全景架构与数据流
+当前系统解决的是静态生成可信度：把一个产品文档章节转成可追溯规格，证明原文被逐项处置、规格引用闭合、约束可解析、所有可行 Pair 被覆盖，并生成稳定 SQL 快照。
 
-```
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                   GaussDB 产品文档 (SQL 参考手册 / 约束限制 / 引擎特性)                   │
-└───────────────────────────────────────────┬────────────────────────────────────────────┘
-                                            │ (Doc2Spec 抽取工具链)
-        ┌───────────────────────────────────┼───────────────────────────────────┐
-        ▼                                   ▼                                   ▼
-【语法规范 (grammars/)】            【全局语义矩阵 (matrices/)】         【测试清单 (manifests/)】
-• BNF 产生式与 AST 插槽             • 数据类型等价类池                  • 针对特性的参数空间绑定
-• 子语法与 element_list 列表展开    • 存储引擎/表形态兼容矩阵           • 组合策略 (Pairwise / 3-way)
-• 符号行为 (creates / consumes)     • CSP 互斥规则 & 错误码集合         • 场景级附加约束规则
-        │                                   │                                   │
-        └───────────────────────────────────┼───────────────────────────────────┘
-                                            │
-                                            ▼
-                               ┌─────────────────────────┐
-                               │ SpecRegistry 规格注册表  │
-                               │ SpecLinter 静态完整性检查│
-                               └────────────┬────────────┘
-                                            │
-        ┌───────────────────────────────────┼───────────────────────────────────┐
-        ▼                                   ▼                                   ▼
-【CSP 约束求解器】                  【AST 插槽生成引擎】                【动态符号表与场景流水线】
-• ConstraintSolver 规则求值         • SpecSQLGenerator 递归展开         • SchemaContext 对象状态管理
-• 前置可行域剪枝                    • 自动推导 expected & SQLSTATE      • ScenarioEngine 时序状态机
-• 过滤非法搜索空间                  • DataSeeder 测试数据合成发生器     • 动态表/列符号消费与绑定
-        │                                   │                                   │
-        └───────────────────────────────────┼───────────────────────────────────┘
-                                            │
-                                            ▼
-                               ┌─────────────────────────┐
-                               │  List[GeneratedCase]    │
-                               │  (SQL + 预期错误码集合)  │
-                               └────────────┬────────────┘
-                                            │
-        ┌───────────────────────────────────┼───────────────────────────────────┐
-        ▼                                   ▼                                   ▼
-【Schema 沙箱执行器 (Executor)】    【TLP 蜕变测试 Oracle】             【测试报告与 Web UI】
-• 动态临时 Schema 隔离              • TLP 三值逻辑分区派生              • HTML / JSON 丰富测试报告
-• 执行完毕自动 DROP CASCADE 清理    • 完备性与谓词真值数学断言          • Web 场景流水线可视化看板
-• 杜绝 DDL 隐式提交污染测试库       • 验证查询优化器计算正确性          • 数据库连接管理与连通性测试
-```
+当前不宣称完成真实数据库行为闭环。V1 fixture/scenario 的执行、真实 SQLSTATE 校准、权限和多会话生命周期验证仍属于后续阶段。
 
----
+## 2. 数据流
 
-## 二、 核心模块职责划分
-
-### 1. 规格定义与生成层
-* **`core/spec_model.py`**：定义三类解耦规格文件的 Pydantic 数据模型契约（`SyntaxDef`, `MatrixDef`, `ManifestDef`）及扫描注册表 `SpecRegistry`。
-* **`core/spec_generator.py`**：下一代文法编译与生成引擎。消费测试清单，展开 AST 插槽与 `element_list` 多列列表，自动推导负向用例的 `expected: error` 与 `expected_sqlstates`。
-* **`core/spec_linter.py`**：规格静态校验器。在测试生成前检查语法插槽闭合性、矩阵引用完整性与 CSP 约束语法。
-* **`core/data_seeder.py`**：类型感知的数据发生器。为 `SchemaContext` 中的表自动填充涵盖极值、0、空串、特殊字符与 NULL 的高质量测试数据。
-
-### 2. 状态机与符号拓扑层
-* **`core/symbol_table.py`**：定义 `ColumnSymbol`, `TableSymbol`, `IndexSymbol` 与核心容器 `SchemaContext`。提供类型分类推断与智能符号推荐器（`pick_table`, `pick_column`, `pick_compatible_columns`），并内置 DDL 状态推进器（`apply_sql_effect_to_context`）。
-* **`core/scenario.py`**：业务场景流水线引擎（`ScenarioEngine`）。编排多因子时序执行，驱动 `[建表] -> [插数据] -> [查数据] -> [结构变更]` 全生命周期状态迁移。
-
-### 3. 组合算法与约束求解层
-* **`core/combinator.py`**：纯算法模块，提供等价类笛卡尔积、IPOG 两两覆盖（Pairwise）与全笛卡尔积。
-* **`core/constraint_solver.py`**：CSP 约束满足求解器。解析并执行一阶逻辑蕴含规则（`P => Q`），在前置阶段裁剪非法组合空间。
-
-### 4. Oracle 断言与执行层
-* **`core/oracle.py`**：TLP（三值逻辑分区）蜕变测试 Oracle。自动将带有 WHERE 过滤的查询派生为 4 条三值聚合查询，并在真库执行时验证数学等式不变性，全自动校验 GaussDB 查询优化器的计算正确性。
-* **`core/executor.py`**：具备 **Schema 级临时沙箱隔离** 能力的 GaussDB 执行器。支持环境变量自动加载配置、多 SQLSTATE 候选集合容错匹配、连接存活检查与 Core Dump 崩溃捕获。
-* **`core/reporter.py`**：生成包含预期错误码集合、捕获 SQLSTATE 与判定结论的 Tailwind HTML / JSON 报告。
-
-### 5. Web UI 与交互层
-* **`main.py` & `web/`**：FastAPI Web 服务。支持因子浏览、单因子用例生成、全生命周期场景流水线可视化执行、以及 GaussDB 数据库连接配置与连通性测试。
-
----
-
-## 三、 三类标准规格文件与目录结构
-
-```
-gaussdb_test/
-├── grammars/              # 语法规范定义 (*.syntax.yaml)
-│   ├── ddl/               # DDL 语法 (CREATE TABLE, ALTER TABLE, CREATE INDEX 等)
-│   ├── dml/               # DML 语法 (INSERT, SELECT, UPDATE, DELETE 等)
-│   └── tcl/               # TCL 语法 (TRANSACTION, SAVEPOINT 等)
-├── matrices/              # 全局语义兼容矩阵 (*.matrix.yaml)
-│   └── gaussdb_core.matrix.yaml  # 全局数据类型池 + 存储引擎兼容规则
-├── manifests/             # 组合测试清单 (*.manifest.yaml)
-│   ├── ddl/               # DDL 组合测试清单
-│   └── dml/               # DML / TLP 蜕变测试清单
-├── factors/               # 兼容旧版单一因子 YAML 目录
-├── core/                  # 核心测试引擎与算法
-├── web/                   # Web 页面与模板
-├── tests/                 # 自动化单元测试套件
-└── reports/               # 生成的 HTML/JSON 测试报告
+```text
+UTF-8产品文档章节
+  │
+  ├─ source path / SHA-256 / line count
+  ▼
+manage_extraction_queue.py
+  │ pending → in_progress → generated → static_complete/needs_review
+  ▼
+AI任务文件
+  │ 一次只允许处理一个章节和一个 OUTPUT_DIR
+  ▼
+Factor Package V1
+  │
+  ├─ source ledger：每个原文单元的去向
+  ├─ factor：事实、维度、规则、结构契约和引用
+  ├─ syntax：递归AST
+  ├─ matrix：能力Profile
+  ├─ fixture：setup/provides/teardown
+  ├─ manifest：选择值、覆盖策略、目标Oracle
+  └─ scenario：多步骤行为和元数据断言
+  │
+  ▼
+FactorPackageRegistry
+  │ 严格Schema、全局ID、引用、值域和约束校验
+  ├─────────────────────┐
+  ▼                     ▼
+FactorPackageSQLGenerator  FactorCoverageAuditor
+  │                     │
+  ├─结构契约过滤          ├─source unit/行/原子性
+  ├─约束感知可行域        ├─fact溯源与消费
+  ├─Pairwise选择与补缺    ├─有效值与规则正负证据
+  ├─case ID唯一性         ├─Pairwise与重复项
+  └─SQL基础结构校验       └─feature/scenario结论
+  │                     │
+  └──────────┬──────────┘
+             ▼
+确定性SQL快照、JSON报告和Web/API展示
 ```
 
----
+## 3. Factor Package 职责
 
-## 四、 向后兼容机制
+| 文件类型 | 只负责 | 不负责 |
+|---|---|---|
+| `source_ledger` | 原文行和原子事实如何处置 | SQL结构和组合选择 |
+| `factor` | 产品事实、维度、值域、规则、结构契约、引用索引 | 具体测试批次选择 |
+| `syntax` | SQL产生式和递归AST | 重复维护产品值域和能力矩阵 |
+| `matrix` | 表、查询、键、输入等复杂能力Profile | 决定本批次选择哪些Profile |
+| `fixture` | setup、provides、teardown和对象契约 | 多会话状态迁移 |
+| `manifest` | 本批次绑定、策略、预期和目标负向规则 | 产品事实的唯一来源 |
+| `scenario` | 生命周期、权限、行为和元数据的步骤与断言 | 单条SQL的Pairwise生成 |
 
-* 系统对旧版 `factors/*.yaml` 保持 **100% 向后兼容**。
-* 旧版单文件因子与新版三层解耦规格可并存运行，统一由 `core/executor.py` 在沙箱中执行并生成标准测试报告。
+详细字段以 [Factor Package Schema V1](FACTOR_PACKAGE_SCHEMA_V1.md) 为准。
+
+## 4. 核心模块
+
+### V1模型与注册表
+
+- `core/factor_package_model.py`：所有 V1 Pydantic模型、严格加载和引用校验。
+- `FactorPackageRegistry`：扫描 `specs/`，建立全局 ID注册表并解析跨文件引用。
+
+### 生成器
+
+- `core/factor_package_generator.py`：解析 manifest、构建参数空间、应用规则和结构契约、展开AST并生成 case。
+- `core/combinator.py`：组合选择算法。
+- `core/constraint_solver.py`：受限约束DSL；解析失败必须报错，不能静默放行。
+
+V1 Pairwise 流程：
+
+```text
+参数值域
+  → 枚举或增量构造候选
+  → 产品规则和结构契约过滤
+  → 计算可行 Pair 集合
+  → 贪心选择测试组合
+  → 补齐缺失 Pair
+  → 硬后置条件验证100%覆盖
+```
+
+所谓“理论 Pair”只包括至少出现在一个合法完整组合中的参数对，非法组合不会被算作覆盖目标。
+
+### 覆盖审计
+
+- `core/factor_coverage_auditor.py`：汇总原文、事实、值、规则、manifest、feature 和 scenario。
+
+报告分别输出：
+
+- `source_extraction_complete`：原文行、unit、fact账本和原子性是否闭合；
+- `generation_model_complete`：值域、规则证据、生成异常、重复项和Pairwise是否闭合；
+- `static_coverage_complete`：在前两项基础上，feature和confirmed fact消费是否闭合；
+- `behavior_coverage_complete`：在静态闭合基础上，没有planned scenario、缺失行为fact和未决问题。
+
+不能把其中任意一项简写成“文档已全覆盖”。
+
+### 离线队列
+
+- `scripts/manage_extraction_queue.py`：只管理本地文件，不调用任何 AI API。
+- `prompts/factor_package_v1_extraction.md`：任何内网 AI 共用的单任务契约。
+
+任务信封把 `factor_id`、原文SHA-256、行数和输出目录固定下来。verify 首先核对生成 package 是否对应同一份原文，防止旧规格冒充新结果。
+
+### Web/API
+
+- `main.py` 和 `web/`：同时展示 Legacy V0 与 Factor Package V1。
+- V1页面使用注册表、生成器和覆盖审计器，不依赖数据库即可浏览和生成SQL。
+
+### Legacy V0
+
+- `core/spec_model.py`、`core/spec_generator.py`、`grammars/`、`matrices/`、`manifests/`：旧三文件规格运行时。
+- `core/factor_model.py`、`core/registry.py`、`factors/`：更早的单文件因子运行时。
+
+这些代码当前不能直接删除，因为 Web/API 和兼容测试仍在使用。新产品事实不得继续写入 V0。
+
+## 5. 静态门禁
+
+```bash
+python3 scripts/lint_factor_packages_v1.py specs
+python3 scripts/generate_factor_package_sql.py --factor <factor_id>
+python3 scripts/audit_factor_coverage_v1.py --factor <factor_id> --fail-on-gaps
+```
+
+内网队列的 `verify` 还会在以上三项之前校验任务信封：
+
+```bash
+python3 scripts/manage_extraction_queue.py verify --task-id <task_id>
+```
+
+## 6. 当前边界
+
+已经实现：
+
+- V1严格加载、递归AST、结构契约；
+- 约束感知Pairwise和覆盖后置验证；
+- Fixture SQL静态生成；
+- 目标错误Oracle数据模型；
+- Source Unit原子性审计；
+- 确定性SQL快照和Web/API；
+- AI无关的内网任务队列。
+
+尚未实现或尚未闭环：
+
+- V1 fixture/scenario真实数据库执行；
+- 目标SQLSTATE在具体版本上的校准；
+- 多会话权限、事务和对象生命周期执行；
+- GUC、函数、操作符、系统目录等非SQL命令的专用抽取Schema；
+- 5800页文档全量任务目录和完整抽取。

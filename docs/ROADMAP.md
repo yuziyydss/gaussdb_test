@@ -1,75 +1,92 @@
-# GaussDB 测试因子系统开发路线图 (Roadmap)
+# 项目路线图
 
----
+本路线图只记录已由代码和测试证明的能力，以及具有明确验收条件的下一阶段。数据库执行和5800页全量抽取未完成前，不使用“工业级闭环”描述。
 
-## 路线图总览
+## 当前阶段
 
+```text
+Legacy V0兼容
+      │
+      ├── 已完成：生成器正确性加固
+      ├── 已完成：Factor Package V1静态架构
+      ├── 已完成：5个代表性因子适配
+      ├── 已完成：内网离线任务队列
+      ▼
+当前：关闭基线缺口 + 内网10章节试点
+      ▼
+下一步：一个完整SQL子目录
+      ▼
+后续：V1真实执行与非SQL参考Schema
 ```
-[Phase 1: 原型与单因子] ────> [Phase 2: 架构加固与状态机] ────> [Phase 3: 三层规格解耦] ────> [Phase 4: 规模化与文档抽取]
-      (已完成)                       (已完成)                      (已完成)                     (进行中)
-```
 
----
+## 已完成并有自动化证据
 
-## Phase 1: 原型与基础能力 (已完成)
+- [x] 约束解析失败即报错，不再静默放行。
+- [x] 约束感知Pairwise生成和100%可行Pair后置验证。
+- [x] case ID和跨manifest SQL重复检测。
+- [x] Pydantic严格模式、重复ID和引用闭合校验。
+- [x] Factor Package V1单一写入目录和七类文件职责。
+- [x] 递归AST、重复结构和嵌套查询。
+- [x] SELECT、INSERT和CREATE INDEX结构契约。
+- [x] Fixture setup/provides/teardown静态模型。
+- [x] 负向用例目标错误类别、SQLSTATE集合和错误正则。
+- [x] Source Unit逐行账本和原子性审计器。
+- [x] CREATE VIEW、CREATE INDEX、ALTER TABLE、SELECT、INSERT五个V1示例。
+- [x] 56个manifest生成865个唯一case。
+- [x] 69项自动化测试通过。
+- [x] AI厂商无关的内网任务队列、SHA-256对账和断点恢复。
 
-- [x] 因子基础数据模型 (Pydantic)
-- [x] 三种组合算法 (Equivalence / Pairwise IPOG / Full Cartesian)
-- [x] 基础 SQL 模板渲染
-- [x] YAML 加载器与桩执行模式
-- [x] Web UI 基础交互 (FastAPI + HTMX + Tailwind)
-- [x] HTML 与 JSON 格式测试报告生成
+## 阶段A：关闭当前基线缺口
 
----
+目标：让现有五个示例成为内网AI可以可靠模仿的基线。
 
-## Phase 2: 架构加固与状态机引擎 (已完成)
+验收：
 
-- [x] **Schema 临时沙箱隔离**：执行前后自动创建并级联删除独立 Schema，彻底根治 DDL 隐式提交污染测试库
-- [x] **多 SQLSTATE 容错匹配**：支持 `expected_sqlstates` 集合判定，消除语法/语义多阶段错误码假阳性误报
-- [x] **数据库动态符号表 (`SchemaContext`)**：
-  - `ColumnSymbol`, `TableSymbol`, `IndexSymbol` 元数据模型
-  - 智能类型推荐器 (`pick_table`, `pick_column`, `pick_compatible_columns`)
-  - 快照与回滚机制 (`snapshot` / `restore`)
-  - DDL 状态推进器 (`apply_sql_effect_to_context`)
-- [x] **业务场景流水线 (`ScenarioEngine`)**：支持 `[建表] -> [插数据] -> [查数据] -> [加列]` 时序状态机执行
-- [x] **Web UI 场景链与数据库配置看板**：
-  - 场景流水线可视化看板与一键执行
-  - GaussDB 实例连接配置弹窗与异步连通性测试
+- CREATE VIEW和SELECT的source unit全部完成原子性复核；
+- matrix中 `needs_profile` feature有明确处理结果；
+- 每个confirmed非example fact都有下游消费者；
+- `audit_factor_coverage_v1.py --fail-on-gaps` 对目标factor返回0；
+- 不通过删除事实或降低门禁制造“绿色”。
 
----
+## 阶段B：内网10章节试点
 
-## Phase 3: 规格解耦与高级 Oracle 体系 (已完成)
+建议选择 UPDATE、DELETE、MERGE、CREATE TABLE、CREATE SEQUENCE、DROP TABLE、TRUNCATE、GRANT 和一到两个复杂权限/事务章节。
 
-- [x] **三层解耦规格体系**：
-  - 语法规范层 (`grammars/*.syntax.yaml`)：BNF 产生式、AST 插槽定义、多列列表展开 (`element_list`)
-  - 全局兼容矩阵层 (`matrices/*.matrix.yaml`)：全局数据类型池、存储引擎客观限制规则
-  - 组合测试清单层 (`manifests/*.manifest.yaml`)：参数绑定空间、组合强度定义 (T-way)
-- [x] **下一代文法编译生成引擎 (`SpecSQLGenerator`)**：
-  - 递归插槽展开与产生式渲染
-  - 负向用例自动推导（选取非法类型时自动置为 `expected: error` 并继承 `expected_sqlstates`）
-- [x] **CSP 智能约束求解器 (`ConstraintSolver`)**：支持一阶逻辑蕴含规则 (`P => Q`) 前置剪枝
-- [x] **TLP (三值逻辑分区) 蜕变测试 Oracle**：自动派生 4 条三值聚合查询，全自动验证查询优化器计算正确性
-- [x] **测试数据合成发生器 (`DataSeeder`)**：自动生成包含 0、极值、空串、特殊字符与 NULL 的测试数据
-- [x] **规格静态校验工具 (`SpecLinter`)**：检查插槽闭合性、矩阵引用完整性与 CSP 语法
+验收：
 
----
+- 每个章节对应一个稳定任务和一个Factor Package；
+- 任务信封SHA-256、行数与package一致；
+- 统计首轮门禁通过率、重试次数、open question和人工抽检错误率；
+- 发现的模型缺口先集中评审，不让单个AI私自修改Schema；
+- 10个任务完成后再决定是否扩大批量。
 
-## Phase 4: 文档自动化抽取与规格资产扩充 (当前阶段)
+## 阶段C：完整SQL子目录
 
-- [ ] **Doc2Spec 自动化抽取工具链**：利用 LLM 自动将 GaussDB 官方 SQL 参考手册转化为 `*.syntax.yaml` 与 `*.matrix.yaml`
-- [ ] **核心语法规范库扩充 (目标 30+ 语法)**：
-  - DDL 语法：`CREATE INDEX` (B-tree/UBTree/GIN/GIST), `CREATE VIEW`, `CREATE SEQUENCE`, `CREATE TYPE`
-  - DML 语法：`UPDATE`, `DELETE`, `TRUNCATE`, `INSERT MULTI`, `MERGE INTO`
-  - TCL 语法：`TRANSACTION`, `SAVEPOINT`, `SET TRANSACTION ISOLATION LEVEL`
-  - 专有特性：`USTORE TABLE`, 分区表 (`RANGE` / `LIST` / `HASH`)
-- [ ] **全局矩阵扩展**：GaussDB 兼容模式差异矩阵 (`sql_compatibility = 'PG' | 'B' | 'A' | 'TD'`)
-- [ ] **规格覆盖率度量器 (Spec Coverage Meter)**：自动统计文档产生式与兼容矩阵的测试覆盖率与缺口报告
+优先选择DML或DDL中的一个完整目录，不同时展开全部文档类型。
 
----
+验收：
 
-## Phase 5: GaussDB 深度企业级能力 (规划中)
+- 文档总目录与语料任务清单可以取差集；
+- 相同命令的general、M/B兼容模式彼此隔离；
+- 全库严格加载和全局ID检查持续通过；
+- 失败原因可以归类为原文问题、抽取问题、模型缺口或生成器缺陷；
+- 人工抽检达到团队设定的质量阈值后才扩容。
 
-- [ ] **Astore vs Ustore 跨引擎差分测试**：同一查询在两引擎并发回放，自动比对结果集
-- [ ] **分布式架构特性测试**：分布键 (`DISTRIBUTE BY HASH / REPLICATION`)、CN/DN 协同验证
-- [ ] **用例自动最小化 (Delta Debugging)**：发生 Core Dump 或结果错误时，自动二分剪枝生成最小复现用例 (MRE)
-- [ ] **CI/CD 流水线深度集成**：Git 提交触发增量特性测试与回归测试快照对比
+## 阶段D：V1数据库执行
+
+范围：把V1 fixture、manifest Oracle和scenario接入执行器。
+
+验收：
+
+- fixture setup失败不能满足目标负向用例；
+- teardown在成功和失败路径都可恢复；
+- 负向用例匹配目标SQLSTATE/错误类别，而非任意错误；
+- planned scenario能记录真实执行状态；
+- 权限、多会话和生命周期场景使用隔离环境；
+- 静态闭环与行为闭环仍分开报告。
+
+## 阶段E：非SQL命令参考
+
+数据类型、函数、操作符、GUC和系统目录不应强行套用单条SQL命令Factor。先分别确定输入、事实类型和Oracle，再建立专用Schema或共享能力包。
+
+在此之前，相关内容只能登记为任务库存或未来需求，不能计入SQL Factor覆盖率。

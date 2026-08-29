@@ -1,223 +1,65 @@
-# 海量文档（5800+页）抽取防遗漏管理与 GUC 参数归档规范
+# 海量文档抽取与 GUC 建模边界
 
-> 本指南用于解决两大工业级实战场景：
-> 1. **5800+ 页海量 GaussDB 官方产品手册** 如何切片抽取、避免遗漏并实现端到端对账；
-> 2. **GaussDB 上千个 GUC（Grand Unified Configuration）系统参数** 如何优雅归档到因子库，并结合 NoREC 实施优化器等价性验证。
+状态：当前海量文档执行入口是 [内网批量 Doc2Spec 运行手册](INTRANET_AI_BATCH_EXTRACTION.md)。本文只说明文档分类和GUC边界，不再定义另一套抽取流程。
 
----
+## 1. 5800页不能作为一个任务
 
-## 目录
+整本PDF必须在内网先转换为稳定的UTF-8章节语料。一个任务对应一个可独立验收的章节，目录页只负责建立任务库存，不作为产品事实。
 
-- [一、 5800+ 页海量文档抽取与防遗漏管理体系](#一-5800-页海量文档抽取与防遗漏管理体系)
-  - [1. 章节切片与过滤策略 (Chapter Slicing)](#1-章节切片与过滤策略-chapter-slicing)
-  - [2. 建立《文档大纲 TOC 特征索引总表》](#2-建立文档大纲-toc-特征索引总表)
-  - [3. 自动化 TOC 对账机制 (TOC Reconciler)](#3-自动化-toc-对账机制-toc-reconciler)
-  - [4. 基于 SpecCoverageMeter 的深层缺口动态排查](#4-基于-speccoveragemeter-的深层缺口动态排查)
-- [二、 GaussDB GUC 参数归档与建模规范](#二-gaussdb-guc-参数归档与建模规范)
-  - [1. GUC 参数的核心定位：上下文修饰因子 (Context Modifier)](#1-guc-参数的核心定位上下文修饰因子-context-modifier)
-  - [2. 归档层级 1：全局 GUC 参数池 (`matrices/guc_parameters.matrix.yaml`)](#2-归档层级-1全局-guc-参数池-matricesguc_parametersmatrixyaml)
-  - [3. 归档层级 2：测试清单场景叠加 (`guc_overlays`)](#3-归档层级-2测试清单场景叠加-guc_overlays)
-  - [4. 归档层级 3：驱动 NoREC 优化器正确性差分测试](#4-归档层级-3驱动-norec-优化器正确性差分测试)
+第一阶段只处理SQL命令章节：
 
----
-
-## 一、 5800+ 页海量文档抽取与防遗漏管理体系
-
-GaussDB 官方文档体系非常庞大（通常包含《开发者指南》、《SQL参考》、《管理员指南》、《系统参数参考》等，合计超过 5800 页）。直接全量抽取必然会导致大模型上下文溢出和抽样遗漏。
-
-### 1. 章节切片与过滤策略 (Chapter Slicing)
-
-首先对 5800 页文档进行粗粒度过滤，精准定位与 SQL 语法及语义相关的核心篇章：
-
-```
-GaussDB 5800+ 页文档总集
-├── 架构概览与安装部署篇 (~1200页) ───> 【跳过】(与语法测试无关)
-├── SQL 语法参考篇 (~1800页) ─────────> 【核心抽取目标 1】──> 转化为 `grammars/*.syntax.yaml`
-├── 数据类型与函数篇 (~1000页) ───────> 【核心抽取目标 2】──> 转化为 `matrices/gaussdb_core.matrix.yaml`
-├── GUC 系统参数篇 (~1000页) ─────────> 【核心抽取目标 3】──> 转化为 `matrices/guc_parameters.matrix.yaml`
-└── PL/SQL 与存储过程篇 (~800页) ─────> 【二期抽取目标】──> 转化为 `grammars/plsql/*.syntax.yaml`
+```text
+intranet_corpus/<variant>/<category>/<statement>.txt
 ```
 
----
+例如：
 
-### 2. 建立《文档大纲 TOC 特征索引总表》
-
-利用脚本一次性提取 PDF 目录书签或 HTML 目录树（Table of Contents），建立基准索引清册（如 `docs/gaussdb_doc_catalog.yaml`）：
-
-```yaml
-# docs/gaussdb_doc_catalog.yaml (对账基准)
-metadata:
-  total_sections: 142
-  doc_version: "GaussDB 3.0"
-
-sections:
-  - id: "sec_ddl_create_table"
-    doc_ref: "SQL参考/DDL/CREATE-TABLE"
-    title: "CREATE TABLE"
-    status: "extracted"       # 已抽取 -> grammars/ddl/create_table.syntax.yaml
-
-  - id: "sec_ddl_create_index"
-    doc_ref: "SQL参考/DDL/CREATE-INDEX"
-    title: "CREATE INDEX"
-    status: "pending"         # 待抽取
-
-  - id: "sec_dml_update"
-    doc_ref: "SQL参考/DML/UPDATE"
-    title: "UPDATE"
-    status: "pending"
+```text
+intranet_corpus/general/ddl/create_table.txt
+intranet_corpus/general/dml/update.txt
+intranet_corpus/m_compat/dml/select.txt
 ```
 
----
+任务登记、认领、状态机和静态门禁全部由 `scripts/manage_extraction_queue.py` 完成。详细命令见当前运行手册。
 
-### 3. 自动化 TOC 对账机制 (TOC Reconciler)
+## 2. 文档类型需要不同出口
 
-通过对账程序定期扫描项目：
-1. 自动读取 `grammars/` 中所有 YAML 文件的 `doc_ref` 属性；
-2. 与 `gaussdb_doc_catalog.yaml` 取差集（Set Difference）；
-3. **输出未抽取章节清单**：
-   ```
-   [TOC 对账结果]
-   总章节数: 142 | 已抽取入库: 15 (10.5%) | 待抽取: 127
-   未覆盖核心章节 TOP 5:
-   - SQL参考/DDL/CREATE-INDEX
-   - SQL参考/DML/UPDATE
-   - SQL参考/DML/DELETE
-   - SQL参考/DDL/CREATE-VIEW
-   - SQL参考/DDL/CREATE-SEQUENCE
-   ```
+| 文档类型 | 当前处理方式 |
+|---|---|
+| SQL DDL/DML/DCL/TCL命令 | Factor Package V1 |
+| 兼容模式SQL命令 | 独立variant和factor ID，禁止与general混写 |
+| 数据类型 | 未来共享类型能力Schema/matrix |
+| 函数与操作符 | 未来表达式目录、签名和结果Oracle |
+| GUC参数 | 未来环境能力与overlay模型 |
+| 系统表/系统视图 | 未来metadata oracle目录 |
+| 安装、部署、运维 | 不直接生成SQL factor；单独登记范围 |
 
----
+因此不能用“生成了多少factor”衡量整本手册覆盖。必须先有文档总目录账本，再按文档类型分别对账。
 
-### 4. 基于 `SpecCoverageMeter` 的深层缺口动态排查
+## 3. GUC不是SQL语法槽位
 
-即使某章节已生成 `*.syntax.yaml`，大模型可能漏掉了某个冷门 AST 插槽或选项：
-* 运行覆盖率度量器：`python3 -m unittest tests.test_coverage_meter` 或打开 Web 页面；
-* 仪表盘与导出的 Markdown 缺口报告会精确指出：
-  * **插槽级未覆盖**：如 `syntax_create_table.storage_options` 缺少了 `WITH (ORIENTATION = COLUMN)`；
-  * **数据类型级未覆盖**：如 `matrix_gaussdb_core` 中的 `BYTEA` 尚未被任何测试清单绑定。
+GUC会改变优化器、事务、兼容模式、内存和执行行为，它属于环境能力，不应硬编码进单条SQL syntax。
 
----
+未来GUC模型至少需要：
 
-## 二、 GaussDB GUC 参数归档与建模规范
+- 参数名、类型、默认值和值域；
+- 生效层级：实例、数据库、用户、会话或事务；
+- 是否需要重启/重载；
+- 适用部署形态和兼容模式；
+- 与其他参数的依赖或互斥；
+- 可验证的metadata/behavior oracle；
+- 恢复原值和环境清理方式。
 
-GaussDB 拥有大量的 GUC（Grand Unified Configuration）参数，直接决定了查询执行计划、兼容模式、存储引擎行为与事务隔离级别。
+在专用Schema和执行器完成前，根目录 `matrices/guc_parameters.matrix.yaml` 只是Legacy V0样例，不能据此宣称GUC抽取或NoREC已经闭环。
 
-### 1. GUC 参数的核心定位：上下文修饰因子 (Context Modifier)
+## 4. NoREC和差分测试状态
 
-* **核心原则**：**GUC 参数严禁硬编码在单条 SQL 语法文件中！**
-* GUC 是跨所有 SQL 全局通用的环境修饰因子，应当归档在 `matrices/` 中并按需在 `manifests/` 中叠加。
+NoREC、Astore/Ustore差分和跨版本结果比对都需要真实数据库、稳定fixture、会话级GUC控制和结果集Oracle。当前V1静态生成阶段没有实现这些执行闭环，因此它们只属于路线图，不计入已完成功能。
 
----
+## 5. 推荐批量顺序
 
-### 2. 归档层级 1：全局 GUC 参数池 (`matrices/guc_parameters.matrix.yaml`)
-
-将优化器算子开关、兼容模式、事务行为与内存参数归档在全局参数池中：
-
-```yaml
-# matrices/guc_parameters.matrix.yaml
-id: matrix_gaussdb_guc
-name: "GaussDB 核心 GUC 参数等价类池"
-description: "覆盖优化器算子开关、兼容模式多态、事务隔离级别与存储引擎控制参数"
-
-guc_parameters:
-  # 1. 优化器算子执行开关
-  enable_seqscan:
-    scope: "session"
-    type: "boolean"
-    classes:
-      - { name: "开启全表扫描", value: "on" }
-      - { name: "强制禁用全表扫描", value: "off" }
-
-  enable_indexscan:
-    scope: "session"
-    type: "boolean"
-    classes:
-      - { name: "开启索引扫描", value: "on" }
-      - { name: "强制禁用索引扫描", value: "off" }
-
-  # 2. 数据库兼容模式
-  sql_compatibility:
-    scope: "session / db_init"
-    type: "enum"
-    classes:
-      - { name: "PostgreSQL 兼容模式", value: "'PG'" }
-      - { name: "MySQL 兼容模式(B模式)", value: "'B'" }
-      - { name: "Oracle 兼容模式(A模式)", value: "'A'" }
-
-  # 3. 事务隔离级别
-  default_transaction_isolation:
-    scope: "session"
-    type: "enum"
-    classes:
-      - { name: "读已提交", value: "'read committed'" }
-      - { name: "可重复读", value: "'repeatable read'" }
-```
-
----
-
-### 3. 归档层级 2：测试清单场景叠加 (`guc_overlays`)
-
-在具体的测试清单中，引入 GUC 场景叠加配置。执行器在执行目标 SQL 前自动下发 `SET ...;` 命令：
-
-```yaml
-# manifests/dml/select_optimizer_guc.manifest.yaml
-id: manifest_select_optimizer_guc
-name: "SELECT 查询 × 优化器 GUC 算子开关矩阵测试"
-target_syntax: "syntax_select"
-
-import_matrices:
-  - "matrix_gaussdb_guc"
-
-# GUC 上下文场景叠加
-guc_overlays:
-  - name: "场景1: 纯全表扫描回放"
-    set_sqls:
-      - "SET enable_seqscan = on;"
-      - "SET enable_indexscan = off;"
-
-  - name: "场景2: 强制索引扫描回放"
-    set_sqls:
-      - "SET enable_seqscan = off;"
-      - "SET enable_indexscan = on;"
-
-  - name: "场景3: B模式 MySQL 兼容回放"
-    set_sqls:
-      - "SET dolphin.b_compatibility_mode = on;"
-```
-
----
-
-### 4. 归档层级 3：驱动 NoREC 优化器正确性差分测试
-
-利用 GUC 参数可以全自动实施数据库测试领域的 **NoREC (Non-optimizing Reference Engine Construction)** 测试：
-
-```
-                               ┌───────────────────────────┐
-                               │ 目标查询 Q (带过滤与聚合)  │
-                               └─────────────┬─────────────┘
-                                             │
-                      ┌──────────────────────┴──────────────────────┐
-                      ▼                                             ▼
-          【执行环境 1: 禁用索引优化】                   【执行环境 2: 强制索引优化】
-           SET enable_indexscan = off;                    SET enable_indexscan = on;
-           SET enable_seqscan = on;                       SET enable_seqscan = off;
-                      │                                             │
-                      ▼                                             ▼
-               得到基线结果集 R1                             得到优化结果集 R2
-                      │                                             │
-                      └──────────────────────┬──────────────────────┘
-                                             │
-                                             ▼
-                                   【断言比对: R1 == R2】
-                           不相等则 100% 捕获优化器/索引算子 Bug!
-```
-
----
-
-### 三、 实施检查清单 (Checklist)
-
-- [x] 在 `matrices/guc_parameters.matrix.yaml` 中建立核心 GUC 参数池；
-- [x] 在 `docs/gaussdb_doc_catalog.yaml` 中登记文档章节大纲目录；
-- [x] 通过 `SpecCoverageMeter` 实时监控未抽取的文档特性与插槽；
-- [x] 在测试清单中通过 `guc_overlays` 叠加执行计划与兼容模式；
-- [x] 利用 GUC 开关组合验证 NoREC 优化器结果集等价性。
+1. 关闭当前五个示例的静态审计缺口；
+2. 在内网完成10个SQL章节试点；
+3. 扩展一个完整DML或DDL子目录；
+4. 隔离general和各兼容模式；
+5. SQL命令稳定后，再分别设计数据类型、函数、GUC和系统目录Schema。

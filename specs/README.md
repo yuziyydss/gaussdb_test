@@ -8,6 +8,8 @@
 
 - [Factor Package Schema V1](../docs/FACTOR_PACKAGE_SCHEMA_V1.md)
 - [Doc2Spec Extraction Rules V1](../docs/DOC2SPEC_EXTRACTION_RULES_V1.md)
+- [当前系统架构](../docs/ARCHITECTURE.md)
+- [内网批量运行手册](../docs/INTRANET_AI_BATCH_EXTRACTION.md)
 
 当前边界：
 
@@ -15,6 +17,7 @@
 - 新文档抽取只写入 `specs/<category>/<statement>/`。
 - V1 严格加载器、静态生成器和 Web/API 已读取该目录；数据库执行器仍未接入 V1 fixture/scenario。
 - 不要在 V0 与 V1 之间手工双写规则。迁移应由单独的校验与转换任务完成。
+- 当前目录包含 5 个 factor、19 个 fixture、56 个 manifest、8 个 matrix、61 个 scenario、5 个 source ledger 和 5 个 syntax；这些是当前提交的基线，不代表产品文档全量覆盖。
 
 静态检查：
 

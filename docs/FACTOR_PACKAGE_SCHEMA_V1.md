@@ -1,6 +1,6 @@
 # Factor Package Schema V1
 
-状态：已定稿；严格加载器、递归 AST 静态生成器、Fixture 生命周期、目标错误 Oracle 和 Web/API 已接入。planned scenario 执行仍不在当前范围。
+状态：已定稿；严格加载器、递归 AST 静态生成器、Fixture 静态生命周期模型、目标错误 Oracle 数据模型和 Web/API 已接入。V1 fixture/scenario 的真实数据库执行仍不在当前范围。
 
 ## 1. 目标
 
