@@ -1,64 +1,92 @@
 schema_version: 1
 kind: matrix
 id: matrix_insert_source_profiles
-name: INSERT 输入行与查询输出剖面
-status: ready
-description: 为 DEFAULT VALUES、VALUES/VALUE 和 SELECT 输入声明行列表、列数与类型。
+name: INSERT 输入分支与列契约
+status: needs_review
+description: 每个 profile 完整渲染 DEFAULT VALUES、VALUES/VALUE 或 SELECT 输入，并声明目标列数校验所需的输出契约。
 factor_ref: insert
 
-profile_property_defaults: {}
+profile_property_defaults: {requires_cte: false, items: []}
 
 profiles:
   - id: insert_source_default_values
-    render: ""
+    render: DEFAULT VALUES
     validity: valid
-    properties: {source_kind: default_values, items: []}
-    fact_refs: [insert_fact_default]
+    properties: {source_kind: default_values}
+    fact_refs: [insert_fact_main_grammar, insert_fact_default]
   - id: insert_source_values_one
-    render: ""
+    render: "VALUES (101, 'alpha')"
     validity: valid
-    properties: {source_kind: values, items: ["(101, 'alpha')"], output_column_count: 2, output_types: [INTEGER, VARCHAR]}
-    fact_refs: [insert_fact_expression, insert_fact_column_mapping]
-  - id: insert_source_values_two
-    render: ""
+    properties: {source_kind: values, output_column_count: 2, output_types: [INTEGER, VARCHAR]}
+    fact_refs: [insert_fact_expression, insert_fact_column_mapping, insert_example_core]
+  - id: insert_source_values_many
+    render: "VALUES (102, 'beta'), (103, 'gamma')"
     validity: valid
-    properties: {source_kind: values, items: ["(102, 'beta')", "(103, 'gamma')"], output_column_count: 2, output_types: [INTEGER, VARCHAR]}
-    fact_refs: [insert_fact_purpose, insert_fact_expression]
-  - id: insert_source_value_two
-    render: ""
+    properties: {source_kind: values, output_column_count: 2, output_types: [INTEGER, VARCHAR]}
+    fact_refs: [insert_fact_purpose, insert_example_core, insert_fact_performance_values]
+  - id: insert_source_value_many
+    render: "VALUE (104, 'delta'), (105, DEFAULT)"
     validity: valid
-    properties: {source_kind: value, items: ["(104, 'delta')", "(105, DEFAULT)"], output_column_count: 2, output_types: [INTEGER, VARCHAR]}
+    properties: {source_kind: value, output_column_count: 2, output_types: [INTEGER, VARCHAR]}
     fact_refs: [insert_fact_main_grammar, insert_fact_default]
   - id: insert_source_values_id
-    render: ""
+    render: "VALUES (106)"
     validity: valid
-    properties: {source_kind: values, items: ["(106)"], output_column_count: 1, output_types: [INTEGER]}
+    properties: {source_kind: values, output_column_count: 1, output_types: [INTEGER]}
     fact_refs: [insert_fact_column_mapping]
   - id: insert_source_values_note
-    render: ""
+    render: "VALUES ('note only')"
     validity: valid
-    properties: {source_kind: values, items: ["('note only')"], output_column_count: 1, output_types: [VARCHAR]}
+    properties: {source_kind: values, output_column_count: 1, output_types: [VARCHAR]}
     fact_refs: [insert_fact_column_mapping]
+  - id: insert_source_values_with_default
+    render: "VALUES (DEFAULT, 'uses default')"
+    validity: valid
+    properties: {source_kind: values, output_column_count: 2, output_types: [DEFAULT, VARCHAR]}
+    fact_refs: [insert_fact_expression, insert_fact_default]
+  - id: insert_source_partition_low
+    render: "VALUES (1, 'partition low')"
+    validity: valid
+    properties: {source_kind: values, output_column_count: 2, output_types: [INTEGER, VARCHAR]}
+    fact_refs: [insert_fact_partition_behavior, insert_example_ignore]
   - id: insert_source_query
     render: SELECT col_1, name FROM t_insert_source
     validity: valid
     fixture_refs: [fixture_insert_source]
-    properties: {source_kind: query, items: [], output_column_count: 2, output_types: [INTEGER, VARCHAR], source_tables: [t_insert_source], source_columns: [col_1, name], requires_cte: false}
-    fact_refs: [insert_fact_query_source, insert_fact_permissions]
+    properties: {source_kind: query, output_column_count: 2, output_types: [INTEGER, VARCHAR], source_tables: [t_insert_source], source_columns: [col_1, name]}
+    fact_refs: [insert_fact_query_source, insert_fact_permissions, insert_example_core]
   - id: insert_source_cte_query
     render: SELECT col_1, name FROM src_insert
     validity: valid
-    fixture_refs: [fixture_insert_source]
-    properties: {source_kind: query, items: [], output_column_count: 2, output_types: [INTEGER, VARCHAR], source_tables: [t_insert_source], source_columns: [col_1, name], requires_cte: true}
-    fact_refs: [insert_fact_cte_syntax, insert_fact_query_source]
+    fixture_refs: []
+    properties: {source_kind: query, output_column_count: 2, output_types: [INTEGER, VARCHAR], source_columns: [col_1, name], requires_cte: true}
+    fact_refs: [insert_fact_with_declaration, insert_fact_query_source]
 
 documented_features:
   - {id: insert_feature_default_values, profile_refs: [insert_source_default_values], status: covered, fact_refs: [insert_fact_default]}
-  - {id: insert_feature_values_one, profile_refs: [insert_source_values_one], status: covered, fact_refs: [insert_fact_expression]}
-  - {id: insert_feature_values_many, profile_refs: [insert_source_values_two], status: covered, fact_refs: [insert_fact_purpose]}
-  - {id: insert_feature_value_synonym, profile_refs: [insert_source_value_two], status: covered, fact_refs: [insert_fact_main_grammar]}
-  - {id: insert_feature_query, profile_refs: [insert_source_query], status: covered, fact_refs: [insert_fact_query_source]}
-  - {id: insert_feature_cte_query, profile_refs: [insert_source_cte_query], status: covered, fact_refs: [insert_fact_cte_syntax]}
+  - {id: insert_feature_values, profile_refs: [insert_source_values_one, insert_source_values_many, insert_source_values_with_default, insert_source_partition_low], status: covered, fact_refs: [insert_fact_main_grammar, insert_fact_expression]}
+  - {id: insert_feature_value_synonym, profile_refs: [insert_source_value_many], status: covered, fact_refs: [insert_fact_main_grammar]}
+  - {id: insert_feature_query, profile_refs: [insert_source_query], status: covered, coverage_mode: representative, fact_refs: [insert_fact_query_source]}
+  - {id: insert_feature_with_select, profile_refs: [insert_source_cte_query], value_refs: [insert_with_select, insert_with_recursive_select], status: covered, fact_refs: [insert_fact_with_declaration, insert_fact_with_recursive]}
+  - {id: insert_feature_with_multiple, value_refs: [insert_with_multiple_selects], status: covered, fact_refs: [insert_fact_with_declaration]}
+  - {id: insert_feature_with_materialization, value_refs: [insert_with_materialized_select, insert_with_not_materialized_select], status: covered, fact_refs: [insert_fact_with_body_forms]}
+  - {id: insert_feature_with_values_body, value_refs: [insert_with_values_body], status: covered, fact_refs: [insert_fact_with_body_forms]}
+  - {id: insert_feature_with_dml_body, value_refs: [insert_with_dml_returning_body], status: covered, fact_refs: [insert_fact_with_body_forms]}
   - {id: insert_feature_plan_hint, status: needs_profile, fact_refs: [insert_open_plan_hint_profile]}
+  - {id: insert_feature_ignore_modifier, status: needs_profile, fact_refs: [insert_fact_ignore_environment, insert_fact_ignore_semantics, insert_open_ignore_fixture_matrix]}
+  - {id: insert_feature_duplicate_nothing, value_refs: [insert_duplicate_nothing], status: covered, fact_refs: [insert_fact_duplicate_semantics]}
+  - {id: insert_feature_duplicate_update, value_refs: [insert_duplicate_update_values, insert_duplicate_update_excluded, insert_duplicate_update_multiple_where], status: covered, fact_refs: [insert_fact_duplicate_semantics, insert_fact_duplicate_source_references]}
+  - {id: insert_feature_duplicate_where, value_refs: [insert_duplicate_update_multiple_where], status: covered, fact_refs: [insert_fact_main_grammar]}
+  - {id: insert_feature_on_conflict, status: needs_profile, fact_refs: [insert_fact_conflict_semantics, insert_fact_conflict_environment, insert_open_conflict_pg_fixture]}
+  - {id: insert_feature_returning, value_refs: [insert_returning_all, insert_returning_expression], status: covered, fact_refs: [insert_fact_returning, insert_fact_returning_output]}
 
-fact_refs: [insert_fact_main_grammar, insert_fact_query_source, insert_fact_cte_syntax]
+fact_refs:
+  - insert_fact_main_grammar
+  - insert_fact_with_declaration
+  - insert_fact_with_recursive
+  - insert_fact_with_materialization
+  - insert_fact_with_body_forms
+  - insert_fact_column_mapping
+  - insert_fact_expression
+  - insert_fact_default
+  - insert_fact_query_source

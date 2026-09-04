@@ -1,30 +1,39 @@
-# INSERT Factor Package 适配验证
+# INSERT Factor Package（V10 文档重建）
 
-本目录使用 Factor Package Schema V1 抽取用户提供的 276 行 GaussDB `INSERT` 产品文档，用它验证现有架构能否承载 DML 写入语句的目标列、输入行、查询输出、冲突处理和环境行为。
+本目录只以 `intranet_corpus/general/dml/insert.txt` 及其 `catalog.json` 章节记录为主事实源。旧规格只用于发现候选项，任何未被本章原文支持的 confirmed 断言均不保留。章节边界止于 INSERT 的第 918 行；下一章 `INSERT ALL` 不属于本因子。
 
-来源：
+来源契约：
 
-- 文档标题：`INSERT`
-- 产品版本：正文未显式标注，记为 `unknown`
-- 原文 SHA-256：`31b8470b1c3e84a4849471102344dd74d0fb2417b8800af5bbaa7104d749eaa4`
+- 产品版本：`V2.0-10.0.0`
+- document_id：`gaussdb_v2_0_10_0_0_centralized_reference_01`
+- source_relpath：`general/dml/insert.txt`
+- 章节 SHA-256：`5383f2eca79ecbe64ce3e880c8e3a2a39178a6bd93ca328401740bf36c16fae5`
+- 父 PDF SHA-256：`716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe`
+- 抽取规则：`gaussdb-pdf-outline-v1`
+- catalog：`intranet_corpus/catalog.json`（主绑定同时保存父 PDF、抽取规则和 document_id/source_relpath/chapter_sha256）
+- 目录路径：`1 SQL参考 > 1.13 SQL语法 > 1.13.14 I > 1.13.14.7 INSERT`
+- 物理页：1737–1752；印刷页：1688–1703；结束 destination 为下一章第 1753 物理页的精确截断点（exclusive）。
 
-## 当前静态结果
+## 当前职责
 
-- 116 个 source unit 加 9 个空行登记了 276/276 行；全部完成 `atomic/grouped` 复核，原子性缺口为 0。
-- 31 条 confirmed fact、1 条 inferred 结构事实和 2 条 open question；confirmed 非示例事实均有下游消费者。
-- 目标和输入拆为两个 capability matrix；AST 使用 `choice + repeat + ref` 表达 DEFAULT VALUES、VALUES/VALUE、查询输入和 CTE。
-- 生成器新增 `insert_input_contract`，在组合覆盖计算前校验显式/隐式目标列数、输入输出类型和 CTE 前置条件。
-- 8 个 manifest 生成 45 条 SQL：40 条正向、5 条具有目标错误类别/消息 Oracle 的负向；所有可行 Pair 100% 覆盖，case ID 和 SQL 全局唯一。
-- 5 个可执行 fixture 为普通目标表、唯一键目标表、查询源、分区目标以及视图/子查询目标生成 setup/seed/teardown。
-- 9 个环境或行为 scenario 已登记但仍为 `planned`，未连接数据库执行。
+- `insert.source.yaml`：245 个 unit 连续处置 918/918 行；页标记、空行和标题也明确标为 `out_of_scope`，没有 ignored 或 unmapped。原复合的触发器路径、视图示例和性能约束已拆分为独立义务；封闭枚举值域附有具体原子性理由，atomicity gap 为 0。
+- `insert.factor.yaml`：保存文档事实、条件值、跨维规则与目标/输入结构契约；主来源绑定章节 SHA 和 catalog ref。
+- `insert.syntax.yaml`：只装配顶层语句顺序；目标、输入和冲突子文法由 profile/value 完整渲染。
+- `matrices/`：枚举可静态生成的普通表、别名、视图、子查询、DEFAULT/VALUES/VALUE/query/SELECT CTE；视图、子查询和通用 query 只计代表性覆盖，不冒充完整语义矩阵。
+- `manifests/`：14 个清单生成 98 条静态 SQL（87 条正向、11 条负向）；所有适用的可行 Pair 完整，case ID/SQL 无重复。多 CTE、MATERIALIZED/NOT MATERIALIZED、VALUES 和 DML CTE 以 `syntax_only` 覆盖，不将未执行的命令标签、计划或数据副作用冒充为已验证。PG ON CONFLICT 与 B/5.7/s1 IGNORE 的目标负向清单已带机器可判定环境门禁；另外 4 个 PG conditional 值尚未进入清单，所以 generation 仍为 false。
+- `fixtures/`：普通目标、唯一目标、查询源、单表视图/子查询和分区目标具备声明式生命周期；二级分区及复杂对象能力继续保持缺口。
+- `scenarios/`：12 个行为/环境场景均为 `planned`，包括权限、生成列与截断、IGNORE、CTE、视图/子查询、PG 冲突、触发器、分区、RETURNING、性能、DBLINK 和文档示例逐例回放。
 
-审计结论：
+## 如实保留的缺口
 
-- `source_extraction_complete=true`
-- `generation_model_complete=true`
-- `static_coverage_complete=false`
-- `behavior_coverage_complete=false`
+当前 source 抽取层已闭环；generation/static/behavior 三项仍为 false。具体缺口为：4 个未选择的 PG conditional 值、10 个 feature domain gap（含 3 项明确标记的代表性覆盖）、7 个 open question、8 个未校准错误 Oracle 和 12 个 planned scenario。缺口集中在 `plan_hint`、DATABASE LINK、保留键定义、二级分区、复杂字段、B/5.7/s1 IGNORE、PG ON CONFLICT，以及 CTE 命令标签/物化计划/数据副作用的实际回放。
 
-静态覆盖没有闭环的两个显式缺口是：原文没有给出具体可执行 `plan_hint`；DATABASE LINK 的目标语法依赖失效的外部章节。`IGNORE` 和 `ON CONFLICT` 的语法事实已保存，但由于需要 B 5.7/s1 或 PG 兼容数据库，目前保留为条件值并进入 planned scenario，不生成默认环境 success 用例。
+校验命令：
 
-生成结果位于 `generated/factor_packages/insert/`，全局报告位于 `generated/factor_packages/generation_report.json`，因子审计位于 `generated/factor_packages/insert/coverage_audit.json`。
+```bash
+python3 scripts/lint_factor_packages_v1.py specs
+python3 scripts/generate_factor_package_sql.py --factor insert
+python3 scripts/audit_factor_coverage_v1.py --factor insert --fail-on-gaps
+```
+
+最后一条在上述真实静态缺口消除前应返回非零；这表示覆盖缺口仍在，不表示审计脚本异常。

@@ -1,0 +1,83 @@
+schema_version: 1
+kind: syntax
+id: syntax_delete_v1
+name: DELETE 顶层有限 AST
+category: DML
+status: needs_review
+factor_ref: delete
+description: WITH 始终位于 DELETE 语句之前；单表、多表 USING 和多表 FROM 为互斥顶层分支。WITH RECURSIVE 仅由 factor 中 max_depth=2 的值有限展开，更深域保留为 open question。
+
+ast:
+  kind: sequence
+  items:
+    - {kind: slot, slot: with_clause}
+    - {kind: literal, text: "DELETE "}
+    - {kind: slot, slot: plan_hint}
+    - kind: choice
+      selector: delete_form
+      branches:
+        delete_form_single: {kind: ref, ref: single_delete}
+        delete_form_multi_using: {kind: ref, ref: multi_using_delete}
+        delete_form_multi_from: {kind: ref, ref: multi_from_delete}
+
+subgrammars:
+  single_delete:
+    kind: sequence
+    items:
+      - {kind: slot, slot: single_from_keyword}
+      - {kind: slot, slot: single_target_profile}
+      - {kind: slot, slot: single_using_clause}
+      - {kind: slot, slot: single_predicate}
+      - {kind: slot, slot: order_clause}
+      - {kind: slot, slot: limit_clause}
+      - {kind: slot, slot: returning_clause}
+  multi_using_delete:
+    kind: sequence
+    items:
+      - {kind: slot, slot: multi_from_keyword}
+      - {kind: slot, slot: multi_target_profile}
+      - {kind: slot, slot: multi_using_clause}
+      - {kind: slot, slot: multi_predicate}
+  multi_from_delete:
+    kind: sequence
+    items:
+      - {kind: slot, slot: multi_target_profile}
+      - {kind: slot, slot: multi_from_clause}
+      - {kind: slot, slot: multi_predicate}
+
+rendering: {whitespace: collapse, statement_terminator: ";"}
+
+slots:
+  with_clause: {type: ast_fragment, optional: true, dimension_ref: delete.with_clause}
+  plan_hint: {type: sql_fragment, optional: true, dimension_ref: delete.plan_hint}
+  delete_form: {type: selector, optional: false, dimension_ref: delete.delete_form}
+  single_from_keyword: {type: token, optional: true, dimension_ref: delete.single_from_keyword}
+  single_target_profile: {type: target_profile, optional: false, dimension_ref: delete.single_target_profile, symbol_action: writes_relation}
+  single_using_clause: {type: sql_fragment, optional: true, dimension_ref: delete.single_using_clause, symbol_action: reads_relations}
+  single_predicate: {type: sql_fragment, optional: true, dimension_ref: delete.single_predicate}
+  order_clause: {type: sql_fragment, optional: true, dimension_ref: delete.order_clause}
+  limit_clause: {type: sql_fragment, optional: true, dimension_ref: delete.limit_clause}
+  returning_clause: {type: sql_fragment, optional: true, dimension_ref: delete.returning_clause}
+  multi_from_keyword: {type: token, optional: true, dimension_ref: delete.multi_from_keyword}
+  multi_target_profile: {type: target_profile, optional: false, dimension_ref: delete.multi_target_profile, symbol_action: writes_relations}
+  multi_using_clause: {type: sql_fragment, optional: true, dimension_ref: delete.multi_using_clause, symbol_action: reads_relations}
+  multi_from_clause: {type: sql_fragment, optional: true, dimension_ref: delete.multi_from_clause, symbol_action: reads_relations}
+  multi_predicate: {type: sql_fragment, optional: true, dimension_ref: delete.multi_predicate}
+
+source_fact_refs:
+  - select::select_fact_from_sources
+  - delete_fact_single_grammar
+  - delete_fact_multi_grammar
+  - delete_fact_target_grammar
+  - delete_fact_row_selection_grammar
+  - delete_fact_order_limit_grammar
+  - delete_fact_returning_grammar
+  - delete_fact_with_body_grammar
+  - delete_fact_from_item_grammar
+  - delete_fact_plan_hint_position
+  - delete_fact_table_target
+  - delete_fact_view_target
+  - delete_fact_alias
+  - delete_fact_using_clause
+  - delete_fact_condition_behavior
+  - delete_fact_current_of_grammar

@@ -8,10 +8,16 @@ description: 创建或替换普通、临时、强制、带视图选项、检查�
 
 source:
   product: GaussDB
-  document: CREATE VIEW 产品文档原文
-  version: unknown
-  artifact_sha256: 29f390c3509b249495992def92633e0a8e217806af2f789c7e943d8153329dd3
-  extraction_date: "2026-08-28"
+  document: 集中式版参考 / 1.13.9.60 CREATE VIEW
+  version: V2.0-10.0.0
+  artifact_sha256: e66079b4f289b10874a1e5fa5abdfc5fdc8b1d026ebdfb05e3c593d64f7eedc5
+  parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+  extraction_rule_version: gaussdb-pdf-outline-v1
+  extraction_date: "2026-09-04"
+  catalog_chapter_ref:
+    document_id: gaussdb_v2_0_10_0_0_centralized_reference_01
+    source_relpath: general/ddl/create_view.txt
+    chapter_sha256: e66079b4f289b10874a1e5fa5abdfc5fdc8b1d026ebdfb05e3c593d64f7eedc5
 
 source_ledger_ref: source_ledger_create_view
 syntax_ref: syntax_create_view
@@ -114,11 +120,13 @@ dimensions:
             properties: {security_barrier: true, check_option: unset, supported_name: true, value_domain_valid: true}
             representative: true
             validity: valid
+            fact_refs: [cv_fact_security_barrier_type]
           - id: view_option_security_false
             render: WITH (security_barrier = false)
             properties: {security_barrier: false, check_option: unset, supported_name: true, value_domain_valid: true}
             representative: false
             validity: valid
+            fact_refs: [cv_fact_security_barrier_type]
           - id: view_option_security_bare
             render: WITH (security_barrier)
             properties: {security_barrier: implicit, check_option: unset, supported_name: true, value_domain_valid: unknown}
@@ -336,9 +344,15 @@ facts:
 
   - id: cv_fact_security_barrier_type
     type: constraint
-    statement: security_barrier 的取值是 Boolean 类型 true 或 false，适用于提供行级安全的视图。
+    statement: security_barrier 的取值范围是 Boolean 类型 true 或 false。
     status: confirmed
     source_anchor: 参数说明/view_option_name/security_barrier
+
+  - id: cv_fact_security_barrier_purpose
+    type: behavior_oracle
+    statement: 提供行级安全的视图应使用 security_barrier；文档说明 WITH(security_barrier) 可降低攻击者借低成本函数 RAISE 打印隐藏基表数据的风险。
+    status: confirmed
+    source_anchor: 语法格式后说明 与 参数说明/security_barrier
 
   - id: cv_fact_view_option_check
     type: syntax
@@ -405,6 +419,12 @@ facts:
     statement: information_schema.columns.is_updatable、information_schema.views.is_updatable/is_insertable_into 和 information_schema.tables.is_insertable_into 可辅助确认可更新性。
     status: confirmed
     source_anchor: 参数说明/可更新列与可更新视图
+
+  - id: cv_fact_updatable_view_definition
+    type: constraint
+    statement: 可以通过视图执行插入、更新和删除操作的视图称为可更新视图。
+    status: confirmed
+    source_anchor: 参数说明/可更新视图
 
   - id: cv_fact_instead_trigger_check
     type: behavior_oracle
@@ -485,7 +505,7 @@ facts:
     source_anchor: 参数说明/WITH CHECK OPTION
 
   - id: cv_fact_join_view_definition
-    type: syntax
+    type: constraint
     statement: 连接视图是由多张表通过 JOIN 创建的视图。
     status: confirmed
     source_anchor: 参数说明/连接视图
@@ -508,12 +528,6 @@ facts:
     status: confirmed
     source_anchor: 参数说明/可更新列
 
-  - id: cv_fact_non_updatable_profile_syntax
-    type: syntax
-    statement: 补充的 GaussDB 官方 SELECT 文档给出了 UNPIVOT、START WITH CONNECT BY 与 TIMECAPSULE 闪回查询的代表语法。
-    status: confirmed
-    source_anchor: 补充来源/GaussDB SELECT 语法与闪回查询
-
   - id: cv_example_replace_shape
     type: example
     statement: 文档示例使用 OR REPLACE 改变查询来源、列数、列类型和列名。
@@ -522,7 +536,7 @@ facts:
 
   - id: cv_example_basic_view
     type: example
-    statement: 文档普通视图示例使用 SELECT * 和 WHERE 条件创建视图，并从视图查询基表变化后的数据。
+    statement: 文档普通视图示例创建两列整数表并插入 1 到 100，随后用 SELECT * 和 col1 < 3 条件创建视图，查询返回两行。
     status: confirmed
     source_anchor: 示例/普通视图
 
@@ -537,6 +551,12 @@ facts:
     statement: 文档示例展示普通单表可更新视图的 INSERT、UPDATE 和 DELETE，以及列级可更新性元数据查询。
     status: confirmed
     source_anchor: 示例/对视图进行插入、更新、删除
+
+  - id: cv_example_key_preserved_detection
+    type: example
+    statement: 文档示例为两表建立唯一索引，但仅由 JOIN 与 WHERE 联合才能推导键保留；对内联连接视图更新时返回非保留键表错误。
+    status: confirmed
+    source_anchor: 示例/不支持等价类方式判断保留键表
 
   - id: cv_open_security_barrier_bare
     type: open_question
@@ -582,7 +602,7 @@ facts:
 
   - id: cv_open_identifier_rules
     type: open_question
-    statement: view_name 与 column_name 的取值范围链接是失效的本地 CHM 地址，标识符完整规则需从对应章节补抽取。
+    statement: 本章只要求 view_name 与 column_name 符合标识符命名规范，没有给出规范正文；完整取值和边界需从对应章节补抽取。
     status: needs_verification
     source_anchor: 参数说明/view_name 与 column_name
 
@@ -592,11 +612,22 @@ facts:
     status: needs_verification
     source_anchor: 语法格式后说明 与 参数说明/security_barrier
 
-  - id: cv_open_document_version
+  - id: cv_open_non_updatable_profile_syntax
     type: open_question
-    statement: 提供的正文没有显式产品文档版本；失效链接中的 Kernel 507.0.0 不能直接视为当前正文版本。
+    statement: 本章把 UNPIVOT、START WITH CONNECT BY 和闪回列为不可更新特性，但没有给出三者的完整 SELECT 子语法，不能据此生成可执行 profile。
     status: needs_verification
-    source_anchor: 来源元数据
+    source_anchor: 参数说明/可更新视图
+
+  - id: cv_open_constraint_error_identity
+    type: open_question
+    statement: 本章给出视图参数值域和 CHECK OPTION 仅限可更新视图的规则，但没有给出非法参数或在不可更新视图上指定 CHECK OPTION 时的 SQLSTATE 与错误文本。
+    status: needs_verification
+    source_anchor: 参数说明/view_option_name 与 可更新视图
+
+exported_fact_refs:
+  - cv_example_basic_view
+  - cv_fact_read_only_behavior
+  - cv_fact_key_preserved_definition
 
 manifest_refs:
   - manifest_create_view_basic_positive
@@ -612,7 +643,6 @@ matrix_refs:
 
 fixture_refs:
   - fixture_create_view_source_two_ints
-  - fixture_create_view_flashback_source
 
 scenario_refs:
   - scenario_create_view_or_replace
@@ -625,3 +655,5 @@ scenario_refs:
   - scenario_create_view_advanced_check_option
   - scenario_create_view_join_key_preserved
   - scenario_create_view_updatable_behavior
+  - scenario_create_view_documented_basic_example
+  - scenario_create_view_security_barrier

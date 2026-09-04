@@ -1,0 +1,17 @@
+schema_version: 1
+kind: scenario
+id: scenario_grant_object_behavior
+name: GRANT 对象和字段权限行为
+status: planned
+description: 以多用户会话验证表、字段、序列和模式权限的实际操作边界。
+factor_ref: grant
+fixture_refs: [fixture_grant_core_objects]
+fact_refs: [grant_fact_object_grants, grant_fact_public_semantics, grant_fact_column_permission_precondition, grant_fact_schema_usage_precondition, grant_fact_privilege_semantics, grant_fact_existing_identifiers]
+preconditions: [以对象所有者执行授权, 可切换到 grant_recipient 和 grant_recipient_two]
+steps:
+  - {id: grant_table, action: execute_as_owner, sql: "GRANT SELECT, UPDATE ON TABLE grant_schema.grant_table TO grant_recipient"}
+  - {id: grant_columns, action: execute_as_owner, sql: "GRANT SELECT (col_1), UPDATE (col_2) ON TABLE grant_schema.grant_table TO grant_recipient_two"}
+  - {id: exercise, action: execute_as_grantee, detail: "分别查询授权列、未授权列并执行允许或不允许的更新"}
+oracles:
+  - {kind: privilege_operation_matrix, expected: "仅被授予的对象、操作和字段成功；目标拒绝错误身份待校准"}
+execution_requirements: [database, multiple_users, role_switching, target_error_calibration]

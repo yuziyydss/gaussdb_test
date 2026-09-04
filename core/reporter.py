@@ -35,6 +35,7 @@ def generate_report(cases: List[GeneratedCase],
         "fail": verdicts["fail"],
         "crash": verdicts["crash"],
         "skip": verdicts["skip"],
+        "pending": verdicts["pending"],
         "timestamp": timestamp,
     }
 
@@ -52,6 +53,12 @@ def generate_report(cases: List[GeneratedCase],
             "expected_sqlstates": expected_sqlstates,
             "expected_error_category": getattr(case, "expected_error_category", ""),
             "expected_error_regex": getattr(case, "expected_error_regex", ""),
+            "expected_oracle_status": getattr(case, "expected_oracle_status", "confirmed"),
+            "expected_scope": getattr(case, "expected_scope", "syntax_and_semantics"),
+            "environment_requirements": getattr(case, "environment_requirements", []),
+            "unmet_environment_requirements": (
+                getattr(r, "unmet_environment_requirements", []) if r else []
+            ),
             "setup_sqls": case.setup_sqls,
             "teardown_sqls": getattr(case, "teardown_sqls", []),
             "status": r.status if r else "pending",
@@ -120,12 +127,13 @@ def _render_html(summary: dict, detail: list) -> str:
 <div class="max-w-7xl mx-auto px-6 py-8">
   <h1 class="text-2xl font-bold text-gray-800 mb-1">测试报告</h1>
   <p class="text-sm text-gray-500 mb-6">{_esc(summary['factor_name'])} | 策略: {_esc(summary['strategy'])} | {summary['timestamp']}</p>
-  <div class="grid grid-cols-5 gap-4 mb-6">
+  <div class="grid grid-cols-6 gap-4 mb-6">
     <div class="bg-white rounded-lg shadow-sm p-4"><div class="text-2xl font-bold text-gray-800">{summary['total']}</div><div class="text-xs text-gray-500">总用例</div></div>
     <div class="bg-white rounded-lg shadow-sm p-4"><div class="text-2xl font-bold text-green-600">{summary['pass']}</div><div class="text-xs text-gray-500">Pass</div></div>
     <div class="bg-white rounded-lg shadow-sm p-4"><div class="text-2xl font-bold text-red-600">{summary['fail']}</div><div class="text-xs text-gray-500">Fail</div></div>
     <div class="bg-white rounded-lg shadow-sm p-4"><div class="text-2xl font-bold text-red-700">{summary['crash']}</div><div class="text-xs text-gray-500">Crash</div></div>
     <div class="bg-white rounded-lg shadow-sm p-4"><div class="text-2xl font-bold text-gray-400">{summary['skip']}</div><div class="text-xs text-gray-500">Skip</div></div>
+    <div class="bg-white rounded-lg shadow-sm p-4"><div class="text-2xl font-bold text-amber-600">{summary['pending']}</div><div class="text-xs text-gray-500">Pending</div></div>
   </div>
   <div class="bg-white rounded-lg shadow-sm overflow-hidden">
     <table class="w-full"><thead><tr class="bg-gray-100 text-xs text-gray-500 uppercase">

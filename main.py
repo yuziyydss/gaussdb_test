@@ -1,5 +1,7 @@
 """GaussDB 测试因子库 — Web 应用入口。"""
+import json
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -31,12 +33,9 @@ app = FastAPI(title="GaussDB 测试因子库")
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
-# 初始化旧版因子与新版规格注册表
+# Legacy 注册表只在兼容路由中按需加载；默认工作台只读取 PDF-first V1。
 registry = FactorRegistry(str(FACTORS_DIR))
-registry.load()
-
 spec_registry = SpecRegistry(str(BASE_DIR))
-spec_registry.load_all()
 
 factor_package_registry = FactorPackageRegistry(SPECS_DIR)
 factor_package_registry.load_all()
@@ -45,17 +44,91 @@ factor_package_registry.load_all()
 executor = Executor(ExecConfig(enabled=False))
 
 
+def _factor_package_coverage_report() -> dict:
+    """Compute one live, evidence-layered report for all PDF factor packages."""
+    factor_package_registry.load_all()
+    auditor = FactorCoverageAuditor(factor_package_registry)
+    audits = {
+        factor_id: auditor.audit(factor_id)
+        for factor_id in sorted(factor_package_registry.factors)
+    }
+    catalog_path = BASE_DIR / "generated" / "audit" / "pdf_catalog_coverage.json"
+    catalog_summary = {
+        "total": 0,
+        "cataloged": 0,
+        "extracted": len(audits),
+        "package_bound": len(audits),
+        "static_complete": sum(
+            audit["conclusions"]["static_coverage_complete"]
+            for audit in audits.values()
+        ),
+    }
+    if catalog_path.exists():
+        catalog_payload = json.loads(catalog_path.read_text(encoding="utf-8"))
+        stored_summary = catalog_payload.get("summary", {})
+        if isinstance(stored_summary, dict):
+            # The catalog inventory is persistent evidence, while package binding and
+            # completion counts are live.  Do not let a first-batch audit snapshot
+            # overwrite the current registry after later batches are added.
+            catalog_summary.update({
+                key: int(stored_summary.get(key, catalog_summary[key]))
+                for key in ("total", "cataloged")
+            })
+    return {
+        "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "catalog": catalog_summary,
+        "factor_count": len(audits),
+        "manifest_count": len(factor_package_registry.manifests),
+        "generated_case_count": sum(
+            audit["manifests"]["generated_case_count"]
+            for audit in audits.values()
+        ),
+        "source_complete_count": sum(
+            audit["conclusions"]["source_extraction_complete"]
+            for audit in audits.values()
+        ),
+        "generation_complete_count": sum(
+            audit["conclusions"]["generation_model_complete"]
+            for audit in audits.values()
+        ),
+        "static_complete_count": sum(
+            audit["conclusions"]["static_coverage_complete"]
+            for audit in audits.values()
+        ),
+        "behavior_complete_count": sum(
+            audit["conclusions"]["behavior_coverage_complete"]
+            for audit in audits.values()
+        ),
+        "atomicity_gap_count": sum(
+            len(audit["source_units"]["atomicity"]["gaps"])
+            for audit in audits.values()
+        ),
+        "value_gap_count": sum(
+            len(audit["values"]["coverage_gaps"])
+            for audit in audits.values()
+        ),
+        "feature_gap_count": sum(
+            len(audit["documented_features"]["coverage_gaps"])
+            for audit in audits.values()
+        ),
+        "unresolved_oracle_count": sum(
+            len(audit["manifests"]["unresolved_error_oracles"])
+            for audit in audits.values()
+        ),
+        "planned_scenario_count": sum(
+            len(audit["scenarios"]["planned"])
+            for audit in audits.values()
+        ),
+        "factors": audits,
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    """主页：侧边栏 + 欢迎区。"""
-    registry.load()
-    spec_registry.load_all()
+    """PDF-first V1 主页：不扫描历史 226 因子。"""
     factor_package_registry.load_all()
     return templates.TemplateResponse(request, "index.html", {
         "request": request,
-        "categories": registry.by_category(),
-        "factor_count": len(registry.all()),
-        "manifests": spec_registry.manifests,
         "v1_factors": factor_package_registry.factors,
         "v1_manifests": factor_package_registry.manifests,
     })
@@ -100,6 +173,28 @@ async def factor_package_manifest_detail(request: Request, manifest_id: str):
     return templates.TemplateResponse(request, "_factor_package_manifest_detail.html", {
         "request": request,
         "manifest": manifest,
+    })
+
+
+@app.get("/specs/scenarios", response_class=HTMLResponse)
+async def factor_package_scenarios(request: Request):
+    """列出 PDF-first V1 planned/ready 场景，不触发数据库执行。"""
+    try:
+        factor_package_registry.load_all()
+    except FactorPackageLoadError as exc:
+        return HTMLResponse(str(exc), status_code=422)
+    scenarios_by_factor = {
+        factor_id: [
+            factor_package_registry.scenarios[scenario_id]
+            for scenario_id in factor.scenario_refs
+            if scenario_id in factor_package_registry.scenarios
+        ]
+        for factor_id, factor in factor_package_registry.factors.items()
+    }
+    return templates.TemplateResponse(request, "_factor_package_scenarios.html", {
+        "request": request,
+        "scenarios_by_factor": scenarios_by_factor,
+        "scenario_count": sum(map(len, scenarios_by_factor.values())),
     })
 
 
@@ -157,12 +252,12 @@ async def manifest_generate(request: Request, manifest_id: str = Form(...)):
 
 @app.get("/coverage", response_class=HTMLResponse)
 async def coverage_view(request: Request):
-    """规格覆盖率看板与测试缺口分析（HTMX 片段）。"""
-    from core.coverage_meter import SpecCoverageMeter
-    spec_registry.load_all()
-    meter = SpecCoverageMeter(spec_registry)
-    report = meter.compute_coverage()
-    return templates.TemplateResponse(request, "_coverage_view.html", {
+    """展示 PDF 目录、V1 静态模型与行为层的分层结论。"""
+    try:
+        report = _factor_package_coverage_report()
+    except (FactorPackageLoadError, ValueError) as exc:
+        return HTMLResponse(str(exc), status_code=422)
+    return templates.TemplateResponse(request, "_factor_package_coverage.html", {
         "request": request,
         "report": report,
     })
@@ -170,33 +265,53 @@ async def coverage_view(request: Request):
 
 @app.get("/api/coverage/export-md")
 async def coverage_export_md():
-    """下载 Markdown 格式的文档特性未覆盖缺口报告。"""
-    from core.coverage_meter import SpecCoverageMeter
+    """下载当前 PDF-first V1 分层覆盖报告。"""
     from fastapi.responses import Response
-    spec_registry.load_all()
-    meter = SpecCoverageMeter(spec_registry)
-    report = meter.compute_coverage()
-    md_content = report.generate_markdown_gap_report()
+    report = _factor_package_coverage_report()
+    lines = [
+        "# PDF-first Factor Package 覆盖报告",
+        "",
+        f"生成时间：{report['created_at']}",
+        "",
+        "## PDF 目录口径",
+        "",
+        f"- cataloged: {report['catalog']['cataloged']}",
+        f"- extracted: {report['catalog']['extracted']}",
+        f"- package_bound: {report['catalog']['package_bound']}",
+        f"- static_complete: {report['catalog']['static_complete']}",
+        "",
+        "## 五章校准包",
+        "",
+        "| Factor | SQL | Source | Generation | Static | Behavior |",
+        "|---|---:|---|---|---|---|",
+    ]
+    for factor_id, audit in report["factors"].items():
+        conclusions = audit["conclusions"]
+        lines.append(
+            f"| {factor_id} | {audit['manifests']['generated_case_count']} | "
+            f"{conclusions['source_extraction_complete']} | "
+            f"{conclusions['generation_model_complete']} | "
+            f"{conclusions['static_coverage_complete']} | "
+            f"{conclusions['behavior_coverage_complete']} |"
+        )
+    md_content = "\n".join(lines) + "\n"
     return Response(
         content=md_content,
         media_type="text/markdown",
-        headers={"Content-Disposition": "attachment; filename=gaussdb_spec_gap_report.md"}
+        headers={"Content-Disposition": "attachment; filename=gaussdb_pdf_factor_coverage.md"}
     )
 
 
 @app.get("/api/coverage/summary")
 async def coverage_api_summary():
-    """JSON API：规格覆盖率核心指标。"""
-    from core.coverage_meter import SpecCoverageMeter
-    spec_registry.load_all()
-    meter = SpecCoverageMeter(spec_registry)
-    report = meter.compute_coverage()
-    return JSONResponse(report.to_dict())
+    """JSON API：PDF-first V1 的分层覆盖事实。"""
+    return JSONResponse(_factor_package_coverage_report())
 
 
 @app.get("/factor/{factor_id}", response_class=HTMLResponse)
 async def factor_detail(request: Request, factor_id: str):
-    """因子详情页（HTMX 片段）。"""
+    """Legacy V0 因子详情页（兼容入口，按需加载）。"""
+    registry.load()
     factor = registry.get(factor_id)
     if not factor:
         return HTMLResponse("因子未找到", status_code=404)
@@ -210,7 +325,8 @@ async def factor_detail(request: Request, factor_id: str):
 async def generate(request: Request,
                    factor_id: str = Form(...),
                    strategy: str = Form(...)):
-    """生成 SQL 测试用例（HTMX 片段）。"""
+    """Legacy V0 生成入口（兼容入口，按需加载）。"""
+    registry.load()
     factor = registry.get(factor_id)
     if not factor:
         return HTMLResponse("因子未找到", status_code=404)
@@ -258,20 +374,18 @@ async def download_report(report_name: str):
 
 @app.post("/api/reload")
 async def api_reload():
-    """重新扫描 Legacy factors 与 Factor Package V1。"""
-    registry.load()
+    """重新扫描默认 PDF-first Factor Package V1。"""
     factor_package_registry.load_all()
     return JSONResponse({
-        "count": len(registry.all()),
-        "factors": list(registry.all().keys()),
         "v1_factor_count": len(factor_package_registry.factors),
         "v1_factors": list(factor_package_registry.factors),
+        "v1_manifest_count": len(factor_package_registry.manifests),
     })
 
 
 @app.get("/api/factors")
 async def api_factors():
-    """JSON API：所有因子定义。"""
+    """Legacy V0 JSON API（兼容入口，按需加载）。"""
     registry.load()
     return JSONResponse({
         fid: {

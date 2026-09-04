@@ -1,0 +1,28 @@
+schema_version: 1
+kind: scenario
+id: scenario_begin_transaction_behavior
+name: BEGIN 访问模式与隔离可见性
+status: planned
+description: 多会话验证四个隔离级别的文档行为，以及 READ WRITE 和 READ ONLY 访问模式；每个 BEGIN 变体在同一 lifecycle 中显式配对 COMMIT 或 ROLLBACK。
+factor_ref: begin
+fixture_refs: [fixture_begin_transaction_table]
+fact_refs: [begin_fact_transaction_lifecycle_completion, begin_open_transaction_singleton_execution, begin_fact_isolation_purpose, begin_fact_read_committed, begin_fact_read_uncommitted, begin_fact_repeatable_read, begin_fact_serializable_alias, begin_fact_access_mode, begin_example_default_transaction, begin_example_repeatable_transaction]
+preconditions: [两个相互独立的数据库会话, 每个变体使用干净 fixture]
+variants:
+  - {id: default_commit, begin_sql: "BEGIN", finalizer_sql: "COMMIT"}
+  - {id: read_committed_commit, begin_sql: "BEGIN ISOLATION LEVEL READ COMMITTED", finalizer_sql: "COMMIT"}
+  - {id: read_uncommitted_rollback, begin_sql: "BEGIN ISOLATION LEVEL READ UNCOMMITTED", finalizer_sql: "ROLLBACK"}
+  - {id: repeatable_read_commit, begin_sql: "BEGIN ISOLATION LEVEL REPEATABLE READ", finalizer_sql: "COMMIT"}
+  - {id: serializable_rollback, begin_sql: "BEGIN ISOLATION LEVEL SERIALIZABLE", finalizer_sql: "ROLLBACK"}
+  - {id: read_write_commit, begin_sql: "BEGIN READ WRITE", finalizer_sql: "COMMIT"}
+  - {id: read_only_rollback, begin_sql: "BEGIN READ ONLY", finalizer_sql: "ROLLBACK"}
+steps:
+  - {id: begin_variant, action: execute_variant_sql, field: begin_sql}
+  - {id: concurrent_write, action: execute_other_session_transaction, sqls: ["BEGIN", "UPDATE t_begin_txn SET col2 = col2 + 1 WHERE col1 = 1", "COMMIT"]}
+  - {id: observe, action: query, sql: "SELECT col2 FROM t_begin_txn WHERE col1 = 1"}
+  - {id: exercise_access_mode, action: execute_variant_operation, detail: "READ WRITE 执行写入；READ ONLY 尝试写入并捕获目标错误"}
+  - {id: finalize_variant, action: execute_variant_sql, field: finalizer_sql, always_run: true, pairs_with: begin_variant}
+oracles:
+  - {kind: visibility_by_isolation_level, expected: "符合 READ COMMITTED、READ UNCOMMITTED 与其相同、REPEATABLE READ 以及 SERIALIZABLE 等价行为"}
+  - {kind: access_mode, expected: "READ WRITE 允许写；READ ONLY 的写操作被拒绝，目标错误身份待环境校准"}
+execution_requirements: [database, two_sessions, transaction_isolation, lifecycle_finalizer, target_error_calibration]

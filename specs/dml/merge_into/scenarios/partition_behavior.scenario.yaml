@@ -1,0 +1,17 @@
+schema_version: 1
+kind: scenario
+id: scenario_merge_partition_behavior
+name: MERGE 分区定位与不一致值
+status: planned
+description: 验证一级分区名称/FOR 值定位及值不一致异常；二级分区待被引用章节进入 catalog 后补齐。
+factor_ref: merge_into
+fixture_refs: [fixture_merge_partition_target, fixture_merge_source]
+fact_refs: [merge_fact_partition_value_mismatch, merge_fact_partition_key_resolution, merge_open_partition_cross_reference, merge_open_subpartition_fixture]
+variants:
+  - {id: partition_name, operations: [对 p_low 执行 MERGE, 查询分区], expected: 仅指定分区内行发生变化。}
+  - {id: partition_for, operations: [使用 PARTITION FOR (1) 执行 MERGE, 查询分区], expected: 键值组定位到 p_low。}
+  - {id: partition_value_mismatch, operations: [向指定分区合并不属于该分区的值], expected: 命中待校准的目标异常。}
+oracles:
+  - {kind: query_result, expected: 分区内行变化与定位形式一致。}
+  - {kind: target_error, expected: 值与分区不一致只接受目标异常。}
+execution_requirements: [database, partition_metadata, target_error_calibration, supplemental_chapter]

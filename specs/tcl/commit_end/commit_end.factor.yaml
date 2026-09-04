@@ -1,0 +1,60 @@
+schema_version: 1
+kind: factor
+id: commit_end
+name: COMMIT | END
+category: TCL
+status: needs_review
+description: 生成 COMMIT/END 及兼容关键字的单句语法，把提交效果和权限留给场景。
+source:
+  product: GaussDB
+  document: 集中式版参考 / 1.13.9.7 COMMIT | END
+  version: V2.0-10.0.0
+  artifact_sha256: c880c4b5eb110d4d6e72fefa313d13d8a6974c722a52e25a2bd456de81d96015
+  parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+  extraction_rule_version: gaussdb-pdf-outline-v1
+  extraction_date: "2026-09-04"
+  catalog_chapter_ref:
+    document_id: gaussdb_v2_0_10_0_0_centralized_reference_01
+    source_relpath: general/tcl/commit_end.txt
+    chapter_sha256: c880c4b5eb110d4d6e72fefa313d13d8a6974c722a52e25a2bd456de81d96015
+source_ledger_ref: source_ledger_commit_end
+syntax_ref: syntax_commit_end
+dimensions:
+  command_keyword:
+    description: 等价的提交命令关键字。
+    classes:
+      - id: commit_end_command_class
+        meaning: COMMIT 与 END 均提交当前事务。
+        values:
+          - {id: commit_end_command_commit, render: COMMIT, representative: true, validity: valid, fact_refs: [commit_end_fact_syntax, commit_end_fact_commit_effect]}
+          - {id: commit_end_command_end, render: END, representative: false, validity: valid, fact_refs: [commit_end_fact_syntax, commit_end_fact_commit_effect]}
+  compatibility_keyword:
+    description: 可选且无实际作用的兼容关键字。
+    classes:
+      - id: commit_end_compat_absent_class
+        meaning: 不写兼容关键字。
+        values:
+          - {id: commit_end_compat_absent, render: "", representative: true, validity: valid}
+      - id: commit_end_compat_present_class
+        meaning: 写 WORK 或 TRANSACTION。
+        values:
+          - {id: commit_end_compat_work, render: WORK, representative: true, validity: valid, fact_refs: [commit_end_fact_compatibility_tokens]}
+          - {id: commit_end_compat_transaction, render: TRANSACTION, representative: false, validity: valid, fact_refs: [commit_end_fact_compatibility_tokens]}
+rules: []
+structural_checks: []
+facts:
+  - {id: commit_end_fact_commit_effect, type: lifecycle, statement: "COMMIT 或 END 完成当前事务并提交全部操作。", status: confirmed, source_anchor: "L2-L5"}
+  - {id: commit_end_fact_executor_authorization, type: environment, statement: "命令执行者必须是事务创建者或系统管理员。", status: confirmed, source_anchor: "L6-L9"}
+  - {id: commit_end_fact_cross_session, type: lifecycle, statement: "事务创建和提交可以不在同一会话。", status: confirmed, source_anchor: "L8-L10"}
+  - {id: commit_end_open_cross_session_mechanism, type: open_question, statement: "本章未给出跨会话定位或接管待提交事务的具体机制。", status: needs_verification, source_anchor: "L8-L10"}
+  - {id: commit_end_fact_syntax, type: syntax, statement: "产生式是 COMMIT 或 END，后接可选 WORK 或 TRANSACTION。", status: confirmed, source_anchor: "L11-L12"}
+  - {id: commit_end_fact_visibility, type: behavior_oracle, statement: "提交使当前事务更改对其他事务可见。", status: confirmed, source_anchor: "L18-L19"}
+  - {id: commit_end_fact_compatibility_tokens, type: syntax, statement: "WORK 与 TRANSACTION 仅语法兼容且无实际含义。", status: confirmed, source_anchor: "L20-L21"}
+  - {id: commit_end_example_transaction, type: example, statement: "文档示例在事务内插入两行后 COMMIT 并查询。", status: confirmed, source_anchor: "L22-L56"}
+manifest_refs: [manifest_commit_end_positive]
+matrix_refs: []
+fixture_refs: [fixture_commit_end_table]
+scenario_refs:
+  - scenario_commit_end_visibility
+  - scenario_commit_end_authorization
+  - scenario_commit_end_documented_example

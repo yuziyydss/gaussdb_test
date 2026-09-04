@@ -1,0 +1,74 @@
+schema_version: 1
+kind: syntax
+id: syntax_update_v1
+name: UPDATE 顶层有限 AST
+category: DML
+status: needs_review
+factor_ref: update
+description: WITH 始终位于 UPDATE 之前；单表与多表是互斥顶层分支。递归 CTE 与目标子查询由 factor/matrix 作有限代表展开，未声称覆盖无限递归域。
+
+ast:
+  kind: sequence
+  items:
+    - {kind: slot, slot: with_clause}
+    - {kind: literal, text: "UPDATE "}
+    - {kind: slot, slot: plan_hint}
+    - kind: choice
+      selector: update_form
+      branches:
+        update_form_single: {kind: ref, ref: single_update}
+        update_form_multi: {kind: ref, ref: multi_update}
+
+subgrammars:
+  single_update:
+    kind: sequence
+    items:
+      - {kind: slot, slot: single_target_profile}
+      - {kind: literal, text: " SET "}
+      - {kind: slot, slot: set_profile}
+      - {kind: slot, slot: from_clause}
+      - {kind: slot, slot: predicate}
+      - {kind: slot, slot: order_clause}
+      - {kind: slot, slot: limit_clause}
+      - {kind: slot, slot: returning_clause}
+  multi_update:
+    kind: sequence
+    items:
+      - {kind: slot, slot: multi_target_profile}
+      - {kind: literal, text: " SET "}
+      - {kind: slot, slot: set_profile}
+      - {kind: slot, slot: from_clause}
+      - {kind: slot, slot: predicate}
+
+rendering: {whitespace: collapse, statement_terminator: ";"}
+
+slots:
+  with_clause: {type: ast_fragment, optional: true, dimension_ref: update.with_clause}
+  plan_hint: {type: sql_fragment, optional: true, dimension_ref: update.plan_hint}
+  update_form: {type: selector, optional: false, dimension_ref: update.update_form}
+  single_target_profile: {type: target_profile, optional: false, dimension_ref: update.single_target_profile, symbol_action: writes_relation}
+  set_profile: {type: assignment_profile, optional: false, dimension_ref: update.set_profile}
+  from_clause: {type: sql_fragment, optional: true, dimension_ref: update.from_clause, symbol_action: reads_relations}
+  predicate: {type: sql_fragment, optional: true, dimension_ref: update.predicate}
+  order_clause: {type: sql_fragment, optional: true, dimension_ref: update.order_clause}
+  limit_clause: {type: sql_fragment, optional: true, dimension_ref: update.limit_clause}
+  returning_clause: {type: sql_fragment, optional: true, dimension_ref: update.returning_clause}
+  multi_target_profile: {type: target_profile, optional: false, dimension_ref: update.multi_target_profile, symbol_action: writes_relation}
+
+source_fact_refs:
+  - select::select_fact_from_sources
+  - update_fact_single_grammar
+  - update_fact_multi_grammar
+  - update_fact_set_grammar
+  - update_fact_with_body_grammar
+  - update_fact_target_subquery_grammar
+  - update_fact_from_item_grammar
+  - update_fact_plan_hint_position
+  - update_fact_table_target
+  - update_fact_view_target
+  - update_fact_table_list
+  - update_fact_from_list
+  - update_fact_condition_behavior
+  - update_fact_current_of_grammar
+  - update_fact_order_limit
+  - update_fact_returning

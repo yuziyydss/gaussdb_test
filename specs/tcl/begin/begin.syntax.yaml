@@ -1,0 +1,52 @@
+schema_version: 1
+kind: syntax
+id: syntax_begin
+name: BEGIN 双形态有限 AST
+category: TCL
+status: needs_review
+factor_ref: begin
+description: 匿名块与事务使用顶层 choice；这里只渲染数据库驱动 SQL，匿名块后的客户端独立行 / 由场景表达；事务特征列表最多有限展开两个异类条目。
+ast:
+  kind: choice
+  selector: statement_form
+  branches:
+    begin_transaction_form:
+      kind: sequence
+      items:
+        - {kind: literal, text: "BEGIN"}
+        - {kind: slot, slot: transaction_keyword}
+        - kind: optional
+          selector: transaction_characteristics
+          enabled_values:
+            - begin_txn_read_committed
+            - begin_txn_read_uncommitted
+            - begin_txn_repeatable_read
+            - begin_txn_serializable
+            - begin_txn_read_write
+            - begin_txn_read_only
+            - begin_txn_read_committed_read_write
+            - begin_txn_read_only_repeatable
+          item: {kind: repeat, slot: transaction_characteristics, separator: ", ", items_property: items}
+        - {kind: literal, text: ";"}
+    begin_anonymous_form:
+      kind: sequence
+      items:
+        - {kind: slot, slot: declare_clause}
+        - {kind: literal, text: "BEGIN "}
+        - {kind: slot, slot: execution_profile}
+        - {kind: literal, text: " END;"}
+subgrammars: {}
+rendering: {whitespace: collapse, statement_terminator: ""}
+slots:
+  statement_form: {type: ast_selector, optional: false, dimension_ref: begin.statement_form}
+  transaction_keyword: {type: token, optional: true, dimension_ref: begin.transaction_keyword}
+  transaction_characteristics: {type: ast_repeat, optional: true, dimension_ref: begin.transaction_characteristics}
+  declare_clause: {type: sql_fragment, optional: true, dimension_ref: begin.declare_clause}
+  execution_profile: {type: sql_fragment, optional: false, dimension_ref: begin.execution_profile}
+source_fact_refs:
+  - begin_fact_two_forms
+  - begin_fact_anonymous_syntax
+  - begin_fact_transaction_syntax
+  - begin_fact_declarations
+  - begin_fact_execution_statements
+  - begin_fact_work_transaction_compatibility

@@ -1,0 +1,18 @@
+schema_version: 1
+kind: scenario
+id: scenario_begin_isolation_lifecycle
+name: BEGIN 隔离级别设置时点
+status: planned
+description: 验证首个数据修改语句前后设置隔离级别的状态约束，不伪造 SQLSTATE；目标错误后始终 ROLLBACK，避免 BEGIN 状态泄漏到后续用例。
+factor_ref: begin
+fixture_refs: [fixture_begin_transaction_table]
+fact_refs: [begin_fact_transaction_lifecycle_completion, begin_fact_isolation_change_timing, begin_open_transaction_singleton_execution]
+preconditions: [干净事务会话]
+steps:
+  - {id: begin, action: execute_sql, sql: "BEGIN"}
+  - {id: modify, action: execute_sql, sql: "UPDATE t_begin_txn SET col2 = col2 + 1 WHERE col1 = 1"}
+  - {id: reset_isolation, action: execute_sql, sql: "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"}
+  - {id: rollback, action: execute_sql, sql: "ROLLBACK", always_run: true, pairs_with: begin}
+oracles:
+  - {after_step: reset_isolation, kind: target_error_category, expected: isolation_level_change_after_data_modification_rejected}
+execution_requirements: [database, transaction_state, lifecycle_finalizer, target_error_calibration]

@@ -1,27 +1,31 @@
 # CREATE VIEW Factor Package
 
-本目录是 Factor Package Schema V1 的首个参考实现，来源为用户提供的 GaussDB `CREATE VIEW` 产品文档原文。
+本目录只建模 GaussDB 集中式版参考 `V2.0-10.0.0` 的 general 章节 `1.13.9.60 CREATE VIEW`。M-Compatibility 章节没有合并进本因子。
 
-来源摘要：
+主来源：
 
-- 文档标题：`CREATE VIEW`
-- 产品版本：原文正文未显式标注，记录为 `unknown`
-- 来源文件 SHA-256：`29f390c3509b249495992def92633e0a8e217806af2f789c7e943d8153329dd3`
-- 原文中嵌入的失效本地链接提到 `GaussDB Kernel 507.0.0`，但它不被提升为本文档版本事实
+- catalog：`intranet_corpus/catalog.json`
+- 章节文本：`intranet_corpus/general/ddl/create_view.txt`
+- document_id：`gaussdb_v2_0_10_0_0_centralized_reference_01`
+- 父 PDF SHA-256：`716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe`
+- 抽取规则：`gaussdb-pdf-outline-v1`
+- 章节 SHA-256：`e66079b4f289b10874a1e5fa5abdfc5fdc8b1d026ebdfb05e3c593d64f7eedc5`
+- outline：`1 SQL参考 > 1.13 SQL语法 > 1.13.9 C > 1.13.9.60 CREATE VIEW`
+- 物理页：1636–1642；印刷页：1587–1593
+- 起点：物理页 1636，`pdf_top=756.8504`；终点：物理页 1642，`pdf_top=262.6586`，end-exclusive
 
 文件职责：
 
-- `create_view.factor.yaml`：维度、等价类、文档事实、规则和待验证问题。
-- `create_view.source.yaml`：64 个原文 source unit 的行号、处置状态和 fact 映射账本。
-- `create_view.syntax.yaml`：CREATE VIEW 主产生式与槽位。
-- `matrices/query_capabilities.matrix.yaml`：可复用查询形态、输出列契约、可更新性，以及文档特性的覆盖台账。
-- `fixtures/source_two_ints.fixture.yaml`：基础 SQL 所需的两列整数表能力。
-- `fixtures/flashback_source.fixture.yaml`：TIMECAPSULE profile 所需的 Ustore 两列源表能力。
+- `create_view.factor.yaml`：来源绑定、维度、事实、硬规则与待验证问题。
+- `create_view.source.yaml`：406 行章节文本的逐行处置与 fact 映射账本。
+- `create_view.syntax.yaml`：CREATE VIEW 第 22–25 行主产生式和槽位顺序。
+- `matrices/query_capabilities.matrix.yaml`：本章足以支撑的查询候选 profile 与 16 类不可更新特性台账。
+- `fixtures/source_two_ints.fixture.yaml`：静态候选 SQL 共用的两列整数源表能力。
 - `manifests/*.manifest.yaml`：按目的拆分的静态生成清单。
-- `scenarios/*.scenario.yaml`：需要数据库状态、会话或后续 DML 的计划场景。
+- `scenarios/*.scenario.yaml`：需要数据库状态、会话、权限或后续 DML 的计划场景。
 
-当前原文账本：原文 71 行已全部登记（64 行由 source unit 覆盖，7 行为有理由忽略的标题或空行）。64 个 source unit 已全部处置（51 mapped、10 open question、3 out of scope），不存在 `unmapped`。原文未展开的 UNPIVOT、START WITH CONNECT BY 和闪回子语法使用两份带版本、URL、检索日期和锚点的 GaussDB 官方补充来源，不从名称猜测 SQL。
+来源账本共 116 个 unit，406/406 行已登记，其中 7 行是保留的 PDF 页码标记。对 PDF 同一行承载多个事实的 25 个重叠行已用 `overlap_group` 和理由显式登记；16 类不可更新特征、CHECK 限制和 3 个缺失子语法已逐项拆开，当前原子性审计无缺口，因此本章的 source extraction 层已闭环。外部 V8 网页与旧附件不再作为主依据或补充依据。
 
-当前静态生成：7 个 manifest、10 个 planned scenario、44 条 confirmed fact、10 条被隔离的 open question。43/43 个 valid value 均已进入 140 条生成用例，4 条硬规则均有正向与目标负向证据，全部 manifest 的可行 Pair 为 100%。文档列出的 16 类不可更新查询特征全部拥有已进入 manifest 的 query profile。
+当前静态模型包含 46 条 confirmed fact、11 条 open question、7 个 manifest 和 12 个 planned scenario。可由本章可靠实例化的 13 类不可更新查询特性保留 profile；UNPIVOT、START WITH CONNECT BY 与闪回仅在本章中被点名，没有完整 SELECT 子语法，因此标为 `needs_profile`，不会生成候选 SQL。文档普通示例和 security_barrier 安全目的由独立 scenario 承接，不能再由一个泛化查询 profile 冒充行为覆盖。对应的旧 V8 profile 和 Ustore 闪回 fixture 已移除。
 
-因子级审计的当前结论是：`source_extraction_complete=true`、`generation_model_complete=true`、`static_coverage_complete=true`、`behavior_coverage_complete=false`。报告保存在 `generated/factor_packages/create_view/coverage_audit.json`，也可从 `/api/specs/v1/audit/create_view` 查看。静态闭环只证明抽取、模型和候选 SQL 覆盖完整；数据库执行、10 个 planned scenario 和 10 个 open question 尚未验证，因此不代表 GaussDB 已实际接受这些 SQL。
+静态生成现为 122 条候选 SQL（54 条正向、68 条负向）；已建模值域与可行 Pair 完整，所以 `generation_model_complete=true`。source extraction 已闭环，但 feature domain 仍为 13/16，另有 11 个未决事实、3 个未校准错误 Oracle 和 12 个 planned scenario，因此 static/behavior 仍为 false，`--fail-on-gaps` 应诚实返回非零。这些候选不能表述为已被 GaussDB 实机接受。

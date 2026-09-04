@@ -7,6 +7,8 @@
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"group_by_list": "select_group_col1", "inner_target_list": "select_inner_target_col1", "limit_clause": "select_limit_none", "lock_clause": "select_lock_none", "order_by_list": "select_order_none", "query_profile": "select_basic_star", "right_target_list": "select_right_target_col1", "select_modifier": "select_modifier_default", "set_operator": "select_set_none", "source_form": "select_source_table", "statement_form": "select_statement_ast", "table_target": "select_table_source", "target_list": "select_target_group_count", "where_clause": "select_where_none", "with_clause": "select_with_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_select_source CASCADE;
@@ -22,6 +24,8 @@ DROP TABLE IF EXISTS t_select_source CASCADE;
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"group_by_list": "select_group_col1", "inner_target_list": "select_inner_target_col1", "limit_clause": "select_limit_five", "lock_clause": "select_lock_none", "order_by_list": "select_order_count", "query_profile": "select_basic_star", "right_target_list": "select_right_target_col1", "select_modifier": "select_modifier_default", "set_operator": "select_set_none", "source_form": "select_source_table", "statement_form": "select_statement_ast", "table_target": "select_table_source", "target_list": "select_target_group_count", "where_clause": "select_where_col1_nonnegative", "with_clause": "select_with_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_select_source CASCADE;
@@ -37,6 +41,8 @@ DROP TABLE IF EXISTS t_select_source CASCADE;
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"group_by_list": "select_group_col1", "inner_target_list": "select_inner_target_col1", "limit_clause": "select_limit_five", "lock_clause": "select_lock_none", "order_by_list": "select_order_none", "query_profile": "select_basic_star", "right_target_list": "select_right_target_col1", "select_modifier": "select_modifier_default", "set_operator": "select_set_none", "source_form": "select_source_table", "statement_form": "select_statement_ast", "table_target": "select_table_source", "target_list": "select_target_group_count", "where_clause": "select_where_none", "with_clause": "select_with_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_select_source CASCADE;
@@ -52,6 +58,8 @@ DROP TABLE IF EXISTS t_select_source CASCADE;
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"group_by_list": "select_group_col1", "inner_target_list": "select_inner_target_col1", "limit_clause": "select_limit_none", "lock_clause": "select_lock_none", "order_by_list": "select_order_count", "query_profile": "select_basic_star", "right_target_list": "select_right_target_col1", "select_modifier": "select_modifier_default", "set_operator": "select_set_none", "source_form": "select_source_table", "statement_form": "select_statement_ast", "table_target": "select_table_source", "target_list": "select_target_group_count", "where_clause": "select_where_none", "with_clause": "select_with_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_select_source CASCADE;
@@ -67,6 +75,8 @@ DROP TABLE IF EXISTS t_select_source CASCADE;
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"group_by_list": "select_group_col1", "inner_target_list": "select_inner_target_col1", "limit_clause": "select_limit_none", "lock_clause": "select_lock_none", "order_by_list": "select_order_none", "query_profile": "select_basic_star", "right_target_list": "select_right_target_col1", "select_modifier": "select_modifier_default", "set_operator": "select_set_none", "source_form": "select_source_table", "statement_form": "select_statement_ast", "table_target": "select_table_source", "target_list": "select_target_group_count", "where_clause": "select_where_col1_nonnegative", "with_clause": "select_with_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_select_source CASCADE;

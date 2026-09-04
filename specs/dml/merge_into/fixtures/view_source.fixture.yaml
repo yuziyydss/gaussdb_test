@@ -1,0 +1,37 @@
+schema_version: 1
+kind: fixture
+id: fixture_merge_view_source
+name: MERGE 视图源
+status: ready
+description: 用单表视图提供 USING view_name 的最小来源能力。
+factor_ref: merge_into
+provides:
+  tables:
+    - name: t_merge_view_base
+      persistence: permanent
+      table_kind: regular
+      columns:
+        - {name: id, type: INTEGER, nullable: false}
+        - {name: name, type: "VARCHAR(64)", nullable: true}
+        - {name: category, type: "VARCHAR(64)", nullable: true}
+    - name: v_merge_source
+      persistence: permanent
+      table_kind: view
+      columns:
+        - {name: id, type: INTEGER, nullable: false}
+        - {name: name, type: "VARCHAR(64)", nullable: true}
+        - {name: category, type: "VARCHAR(64)", nullable: true}
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - DROP VIEW IF EXISTS v_merge_source CASCADE;
+    - DROP TABLE IF EXISTS t_merge_view_base CASCADE;
+    - CREATE TABLE t_merge_view_base (id INTEGER NOT NULL, name VARCHAR(64), category VARCHAR(64));
+    - INSERT INTO t_merge_view_base (id, name, category) VALUES (1, 'view-one', 'updated'), (2, 'view-two', 'inserted');
+    - CREATE VIEW v_merge_source AS SELECT id, name, category FROM t_merge_view_base;
+  teardown_sqls:
+    - DROP VIEW IF EXISTS v_merge_source CASCADE;
+    - DROP TABLE IF EXISTS t_merge_view_base CASCADE;
+  note: provides 中显式列出视图及其基表，使静态列契约与实际 setup 一致。

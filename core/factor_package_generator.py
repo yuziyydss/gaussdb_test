@@ -188,10 +188,23 @@ class FactorPackageSQLGenerator:
                     f"{manifest.id}: Pairwise 返回了不满足目标规则的组合: {failed_rule}"
                 )
             case_id = self._stable_case_id(manifest.id, combo)
-            sql = self._render_sql(factor, manifest, combo, case_id, resolved)
-            fixture_refs = self._fixture_refs_for_combo(manifest, combo, resolved)
+            sql, consumed_dimension_ids = self._render_sql_with_consumption(
+                factor, manifest, combo, case_id, resolved
+            )
+            fixture_refs = self._fixture_refs_for_combo(
+                manifest,
+                combo,
+                resolved,
+                consumed_dimension_ids,
+            )
+            fixture_refs = self._ordered_fixture_refs(fixture_refs)
             self._validate_structural_contract(factor, combo, resolved)
-            self._validate_fixture_contract(combo, resolved, fixture_refs)
+            self._validate_fixture_contract(
+                combo,
+                resolved,
+                fixture_refs,
+                consumed_dimension_ids,
+            )
             setup_sqls, teardown_sqls = self._compile_fixture_lifecycle(fixture_refs)
             if case_id in seen_case_ids:
                 raise GenerationValidationError(f"{manifest.id}: 重复 case_id: {case_id}")
@@ -209,10 +222,17 @@ class FactorPackageSQLGenerator:
                 expected_sqlstates=list(manifest.expected.sqlstates),
                 expected_error_category=manifest.expected.error_category or "",
                 expected_error_regex=manifest.expected.error_message_regex or "",
+                expected_oracle_status=manifest.expected.oracle_status,
+                expected_scope=manifest.expected.scope,
                 setup_sqls=setup_sqls,
                 teardown_sqls=teardown_sqls,
                 context=f"factor_package_v1:{manifest.expected.scope}",
                 preconditions=fixture_refs,
+                consumed_dimension_ids=sorted(consumed_dimension_ids),
+                environment_requirements=[
+                    requirement.model_dump()
+                    for requirement in manifest.environment_requirements
+                ],
             ))
 
         report.generated_case_count = len(cases)
@@ -271,10 +291,28 @@ class FactorPackageSQLGenerator:
         case_id: str,
         resolved: Dict[str, Dict[str, ResolvedDimensionValue]],
     ) -> str:
+        sql, _ = self._render_sql_with_consumption(
+            factor, manifest, combo, case_id, resolved
+        )
+        return sql
+
+    def _render_sql_with_consumption(
+        self,
+        factor: FactorPackageDef,
+        manifest: FactorManifestDef,
+        combo: Dict[str, str],
+        case_id: str,
+        resolved: Dict[str, Dict[str, ResolvedDimensionValue]],
+    ) -> Tuple[str, Set[str]]:
         syntax = self.registry.get_syntax(manifest.syntax_ref)
         if syntax is None:
             raise GenerationValidationError(f"syntax 不存在: {manifest.syntax_ref}")
         scope: Dict[str, str] = {}
+        dimension_slots = {
+            slot_name
+            for slot_name, slot in syntax.slots.items()
+            if slot.dimension_ref is not None
+        }
         for slot_name, slot in syntax.slots.items():
             if slot.dimension_ref is not None:
                 selected_id = combo[slot_name]
@@ -293,6 +331,7 @@ class FactorPackageSQLGenerator:
                 f"{manifest.id}: slot '{slot_name}' 没有 dimension_ref 或 identifier_policy"
             )
         if syntax.ast is not None:
+            consumed_dimension_ids: Set[str] = set()
             raw_sql = self._render_ast_node(
                 syntax.ast,
                 syntax.subgrammars,
@@ -300,14 +339,19 @@ class FactorPackageSQLGenerator:
                 scope,
                 resolved,
                 [],
+                consumed_dimension_ids,
+                dimension_slots,
             )
         else:
+            consumed_dimension_ids = (
+                syntax.production_placeholders() & dimension_slots
+            )
             raw_sql = syntax.production.format(**scope)
         sql = self._collapse_whitespace(raw_sql)
         terminator = syntax.rendering.statement_terminator
         if terminator and not sql.endswith(terminator):
             sql += terminator
-        return sql
+        return sql, consumed_dimension_ids
 
     def _render_ast_node(
         self,
@@ -317,19 +361,36 @@ class FactorPackageSQLGenerator:
         scope: Dict[str, str],
         resolved: Dict[str, Dict[str, ResolvedDimensionValue]],
         ref_stack: List[str],
+        consumed_dimension_ids: Optional[Set[str]] = None,
+        dimension_slots: Optional[Set[str]] = None,
     ) -> str:
+        if consumed_dimension_ids is None:
+            consumed_dimension_ids = set()
+        if dimension_slots is None:
+            dimension_slots = set(combo)
         if node.kind == "literal":
             return node.text or ""
         if node.kind == "slot":
+            if node.slot in dimension_slots:
+                consumed_dimension_ids.add(node.slot)
             return scope[node.slot]
         if node.kind == "sequence":
             return "".join(
                 self._render_ast_node(
-                    child, subgrammars, combo, scope, resolved, ref_stack
+                    child,
+                    subgrammars,
+                    combo,
+                    scope,
+                    resolved,
+                    ref_stack,
+                    consumed_dimension_ids,
+                    dimension_slots,
                 )
                 for child in node.items
             )
         if node.kind == "choice":
+            if node.selector in dimension_slots:
+                consumed_dimension_ids.add(node.selector)
             selected_id = combo[node.selector]
             branch = node.branches.get(selected_id) or node.branches.get("*")
             if branch is None:
@@ -337,15 +398,33 @@ class FactorPackageSQLGenerator:
                     f"AST choice '{node.selector}' 没有值 '{selected_id}' 的 branch"
                 )
             return self._render_ast_node(
-                branch, subgrammars, combo, scope, resolved, ref_stack
+                branch,
+                subgrammars,
+                combo,
+                scope,
+                resolved,
+                ref_stack,
+                consumed_dimension_ids,
+                dimension_slots,
             )
         if node.kind == "optional":
+            if node.selector in dimension_slots:
+                consumed_dimension_ids.add(node.selector)
             if combo[node.selector] not in set(node.enabled_values):
                 return ""
             return self._render_ast_node(
-                node.item, subgrammars, combo, scope, resolved, ref_stack
+                node.item,
+                subgrammars,
+                combo,
+                scope,
+                resolved,
+                ref_stack,
+                consumed_dimension_ids,
+                dimension_slots,
             )
         if node.kind == "repeat":
+            if node.slot in dimension_slots:
+                consumed_dimension_ids.add(node.slot)
             selected_id = combo[node.slot]
             value = resolved[node.slot][selected_id]
             attribute_name = f"{node.slot}.properties.{node.items_property}"
@@ -375,6 +454,8 @@ class FactorPackageSQLGenerator:
                 scope,
                 resolved,
                 [*ref_stack, ref_name],
+                consumed_dimension_ids,
+                dimension_slots,
             )
         raise GenerationValidationError(f"未知 AST node kind: {node.kind}")
 
@@ -411,30 +492,25 @@ class FactorPackageSQLGenerator:
         manifest: FactorManifestDef,
         combo: Dict[str, str],
         resolved: Dict[str, Dict[str, ResolvedDimensionValue]],
+        consumed_dimension_ids: Optional[Set[str]] = None,
     ) -> List[str]:
         refs = list(manifest.fixture_refs)
-        active_dimensions = FactorPackageSQLGenerator._active_dimension_ids(combo)
+        active_dimensions = (
+            set(combo)
+            if consumed_dimension_ids is None
+            else set(consumed_dimension_ids)
+        )
         for dimension_id, selected_id in combo.items():
             if dimension_id not in active_dimensions:
                 continue
             refs.extend(resolved[dimension_id][selected_id].fixture_refs)
         return list(dict.fromkeys(refs))
 
-    @staticmethod
-    def _active_dimension_ids(combo: Dict[str, str]) -> Set[str]:
-        """Return dimensions that contribute semantics for the selected top-level AST branch."""
-        statement_form = combo.get("statement_form")
-        if statement_form == "select_statement_legacy_profile":
-            return {"statement_form", "query_profile"}
-        if statement_form == "select_statement_table":
-            return {"statement_form", "table_target"}
-        if statement_form == "select_statement_ast":
-            return set(combo) - {"query_profile", "table_target"}
-        return set(combo)
-
     def _compile_fixture_lifecycle(
         self, fixture_refs: List[str]
     ) -> Tuple[List[str], List[str]]:
+        fixture_refs = self._ordered_fixture_refs(fixture_refs)
+        self._fixture_table_contracts(fixture_refs)
         setup: List[str] = []
         teardown_groups: List[List[str]] = []
         seen_tables: Set[str] = set()
@@ -522,6 +598,46 @@ class FactorPackageSQLGenerator:
         ]
         return setup, teardown
 
+    def _fixture_table_contracts(
+        self,
+        fixture_refs: List[str],
+    ) -> Dict[str, Any]:
+        """Resolve one authoritative table contract per provided table name."""
+        fixture_refs = self._ordered_fixture_refs(fixture_refs)
+        tables: Dict[str, Any] = {}
+        owners: Dict[str, str] = {}
+        signatures: Dict[str, Tuple[Any, ...]] = {}
+        for fixture_id in fixture_refs:
+            fixture = self.registry.get_fixture(fixture_id)
+            if fixture is None:
+                raise GenerationValidationError(f"fixture 不存在: {fixture_id}")
+            for table in fixture.provides.tables:
+                signature = (
+                    table.persistence,
+                    table.table_kind,
+                    tuple(
+                        (column.name, column.type, column.nullable)
+                        for column in table.columns
+                    ),
+                )
+                existing = signatures.get(table.name)
+                if existing is not None and existing != signature:
+                    raise GenerationValidationError(
+                        f"fixture '{owners[table.name]}' 与 '{fixture_id}' "
+                        f"对同名表 '{table.name}' 的 provides 契约冲突"
+                    )
+                if existing is None:
+                    tables[table.name] = table
+                    owners[table.name] = fixture_id
+                    signatures[table.name] = signature
+        return tables
+
+    def _ordered_fixture_refs(self, fixture_refs: List[str]) -> List[str]:
+        try:
+            return self.registry.fixture_topological_order(fixture_refs)
+        except ValueError as exc:
+            raise GenerationValidationError(str(exc)) from exc
+
     @staticmethod
     def _validate_sql_identifier(value: str) -> None:
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
@@ -544,16 +660,18 @@ class FactorPackageSQLGenerator:
         combo: Dict[str, str],
         resolved: Dict[str, Dict[str, ResolvedDimensionValue]],
         fixture_refs: List[str],
+        consumed_dimension_ids: Optional[Set[str]] = None,
     ) -> None:
-        tables: Dict[str, Set[str]] = {}
-        for fixture_id in fixture_refs:
-            fixture = self.registry.get_fixture(fixture_id)
-            if fixture is None:
-                raise GenerationValidationError(f"fixture 不存在: {fixture_id}")
-            for table in fixture.provides.tables:
-                tables[table.name] = {column.name for column in table.columns}
-
-        active_dimensions = self._active_dimension_ids(combo)
+        fixture_tables = self._fixture_table_contracts(fixture_refs)
+        tables = {
+            table_name: {column.name for column in table.columns}
+            for table_name, table in fixture_tables.items()
+        }
+        active_dimensions = (
+            set(combo)
+            if consumed_dimension_ids is None
+            else set(consumed_dimension_ids)
+        )
         selected_values = [
             (dimension_id, resolved[dimension_id][selected_id])
             for dimension_id, selected_id in combo.items()
@@ -578,14 +696,75 @@ class FactorPackageSQLGenerator:
                 raise GenerationValidationError(
                     f"所选 profile 引用的表 '{table_name}' 未由 fixture 提供"
                 )
-        if required_columns:
-            available_columns = set().union(*tables.values()) if tables else set()
-            missing_columns = sorted(set(required_columns) - available_columns)
-            if missing_columns:
-                raise GenerationValidationError(
-                    f"所选 profile 引用了 fixture 中不存在的列: {missing_columns}"
-                )
         for dimension_id, value in selected_values:
+            profile_tables = value.attributes.get(
+                f"{dimension_id}.properties.source_tables", []
+            )
+            profile_columns = value.attributes.get(
+                f"{dimension_id}.properties.source_columns", []
+            )
+            columns_by_table = value.attributes.get(
+                f"{dimension_id}.properties.source_columns_by_table"
+            )
+            if columns_by_table is not None:
+                if not isinstance(columns_by_table, dict) or not all(
+                    isinstance(table_name, str)
+                    and isinstance(column_names, list)
+                    and all(isinstance(column_name, str) for column_name in column_names)
+                    for table_name, column_names in columns_by_table.items()
+                ):
+                    raise GenerationValidationError(
+                        f"profile '{value.id}' 的 source_columns_by_table 必须是表名到列名列表的映射"
+                    )
+                unknown_tables = sorted(set(columns_by_table) - set(profile_tables))
+                if unknown_tables:
+                    raise GenerationValidationError(
+                        f"profile '{value.id}' 的逐表列契约引用了 source_tables 之外的表: "
+                        f"{unknown_tables}"
+                    )
+                missing_table_contracts = sorted(set(profile_tables) - set(columns_by_table))
+                if missing_table_contracts:
+                    raise GenerationValidationError(
+                        f"profile '{value.id}' 的逐表列契约缺少表: {missing_table_contracts}"
+                    )
+                flattened_columns = {
+                    column_name
+                    for column_names in columns_by_table.values()
+                    for column_name in column_names
+                }
+                declared_columns = set(profile_columns)
+                if flattened_columns != declared_columns:
+                    raise GenerationValidationError(
+                        f"profile '{value.id}' 的 source_columns_by_table 扁平列集合"
+                        "与 source_columns 不一致: "
+                        f"by_table_only={sorted(flattened_columns - declared_columns)}, "
+                        f"flat_only={sorted(declared_columns - flattened_columns)}"
+                    )
+                for table_name, column_names in columns_by_table.items():
+                    if table_name not in tables:
+                        raise GenerationValidationError(
+                            f"所选 profile 引用的表 '{table_name}' 未由 fixture 提供"
+                        )
+                    missing_columns = sorted(set(column_names) - tables[table_name])
+                    if missing_columns:
+                        raise GenerationValidationError(
+                            f"profile '{value.id}' 引用的表 '{table_name}' 中不存在的列: "
+                            f"{missing_columns}"
+                        )
+            elif len(profile_tables) > 1 and profile_columns:
+                raise GenerationValidationError(
+                    f"多表 profile '{value.id}' 必须提供 source_columns_by_table 逐表列契约"
+                )
+            elif profile_columns and profile_tables:
+                missing_columns = sorted(
+                    set(profile_columns) - tables[profile_tables[0]]
+                )
+                if missing_columns:
+                    raise GenerationValidationError(
+                        f"所选 profile 引用的表 '{profile_tables[0]}' 中不存在的列: "
+                        f"{missing_columns}"
+                    )
+
             features = value.attributes.get(
                 f"{dimension_id}.properties.features", []
             )
@@ -636,18 +815,52 @@ class FactorPackageSQLGenerator:
                 )
 
     @staticmethod
+    def _effective_index_scope(
+        combo: Dict[str, str],
+        resolved: Dict[str, Dict[str, ResolvedDimensionValue]],
+    ) -> str:
+        """Return the documented effective scope for a CREATE INDEX shape."""
+        table = resolved["table_profile"][combo["table_profile"]]
+        if not bool(table.attributes.get(
+            "table_profile.properties.partitioned", False
+        )):
+            return "none"
+
+        scope = resolved["scope_clause"][combo["scope_clause"]]
+        if bool(scope.attributes.get(
+            "scope_clause.properties.local_scope", False
+        )) or bool(scope.attributes.get(
+            "scope_clause.properties.explicit_partitions", False
+        )):
+            return "local"
+        if bool(scope.attributes.get(
+            "scope_clause.properties.global_scope", False
+        )):
+            return "global"
+
+        key = resolved["key_profile"][combo["key_profile"]]
+        unique = combo.get("unique_modifier") == "ci_unique"
+        contains_partition_key = bool(key.attributes.get(
+            "key_profile.properties.contains_partition_key", False
+        ))
+        return "local" if unique and contains_partition_key else "global"
+
+    @staticmethod
     def _validate_index_column_count_contract(
         combo: Dict[str, str],
         resolved: Dict[str, Dict[str, ResolvedDimensionValue]],
     ) -> None:
-        """Validate CREATE INDEX key/INCLUDE counts against documented limits."""
+        """Validate documented CREATE INDEX key and INCLUDE column contracts.
+
+        The PDF limits *key fields* to 31 for global indexes and 32 for other
+        indexes.  INCLUDE columns are explicitly non-key columns, so they must
+        not be folded into that numeric limit without an independent source.
+        """
         required = {"key_profile", "include_profile", "table_profile", "scope_clause"}
         if not required.issubset(combo):
             return
         key = resolved["key_profile"][combo["key_profile"]]
         include = resolved["include_profile"][combo["include_profile"]]
-        table = resolved["table_profile"][combo["table_profile"]]
-        scope = resolved["scope_clause"][combo["scope_clause"]]
 
         key_items = key.attributes.get("key_profile.properties.items", [])
         key_count = key.attributes.get("key_profile.properties.key_column_count")
@@ -679,23 +892,13 @@ class FactorPackageSQLGenerator:
                 f"CREATE INDEX INCLUDE 必须是非键列，重复列: {overlap}"
             )
 
-        partitioned = bool(table.attributes.get(
-            "table_profile.properties.partitioned", False
-        ))
-        global_scope = bool(scope.attributes.get(
-            "scope_clause.properties.global_scope", False
-        ))
-        online = combo.get("concurrently") == "ci_concurrently"
-        if online:
-            limit = 28 if partitioned else 29
-        elif partitioned and global_scope:
-            limit = 31
-        else:
-            limit = 32
-        total = key_count + include_count
-        if total > limit:
+        effective_scope = FactorPackageSQLGenerator._effective_index_scope(
+            combo, resolved
+        )
+        limit = 31 if effective_scope == "global" else 32
+        if key_count > limit:
             raise GenerationValidationError(
-                f"CREATE INDEX 键列与 INCLUDE 列合计 {total}，超过当前形态上限 {limit}"
+                f"CREATE INDEX 键列数 {key_count}，超过当前形态上限 {limit}"
             )
 
     @staticmethod
@@ -961,7 +1164,7 @@ class FactorPackageSQLGenerator:
                 for index, (left_type, right_type) in enumerate(
                     zip(target_output_types, right_types), start=1
                 )
-                if not FactorPackageSQLGenerator._types_compatible(
+                if not FactorPackageSQLGenerator._set_types_equal(
                     left_type, right_type
                 )
             ]
@@ -982,6 +1185,17 @@ class FactorPackageSQLGenerator:
         }
         text = {"CHAR", "VARCHAR", "VARCHAR2", "NVARCHAR2", "TEXT"}
         return (left in numeric and right in numeric) or (left in text and right in text)
+
+    @staticmethod
+    def _set_types_equal(left_type: str, right_type: str) -> bool:
+        """Apply SELECT set-operation typing without INSERT coercion rules.
+
+        The SELECT chapter requires corresponding columns to have the same data
+        type and order.  INSERT intentionally uses the broader
+        ``_types_compatible`` coercion classes, but reusing those classes here
+        would incorrectly accept INTEGER/NUMERIC and VARCHAR/TEXT pairs.
+        """
+        return str(left_type).strip().upper() == str(right_type).strip().upper()
 
     @staticmethod
     def _pair_set(combos: List[Dict[str, str]], parameters: List[str]) -> Set[Pair]:

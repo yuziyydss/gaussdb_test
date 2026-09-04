@@ -16,11 +16,12 @@
 ## 2. 总体流水线
 
 ```text
-内网 PDF/HTML
-    │ 本地、确定性拆章；保留标题、行号和版本
+冻结的内网 PDF/HTML
+    │ PDF：书签路径、页内坐标和哈希驱动的确定性拆章
+    │ HTML/无书签文档：按同等证据契约人工建 catalog
     ▼
-intranet_corpus/<variant>/<category>/<section>.txt
-    │ inventory：SHA-256、行数、factor_id、输出目录
+intranet_corpus/catalog.json + <variant>/<category>/<section>.txt
+    │ inventory：校验父文档/目录/章节三层证据
     ▼
 work/doc2spec/queue.json
     │ claim：一个 worker 原子认领一个章节
@@ -63,9 +64,21 @@ INTRANET_AI_INSTRUCTIONS.md
 
 ## 4. 先把文档变成“可对账语料”
 
-### 4.1 不要直接把整本 PDF 交给 AI
+### 4.1 先由确定性程序拆章，再把单章交给 AI
 
-整本输入会同时造成上下文截断、章节边界混淆、重复命令覆盖和无法断点恢复。先在内网本地把 PDF/HTML 转成 UTF-8 章节文本。转换工具可按公司已有能力选择，但输出必须满足同一个契约：
+整本输入会同时造成上下文截断、章节边界混淆、重复命令覆盖和无法断点恢复。对于当前带书签的 GaussDB PDF，必须先运行项目自带的拆章器：
+
+```bash
+python3 scripts/extract_pdf_sections.py \
+  --pdf gaussdb-rf-cent.pdf \
+  --output-root intranet_corpus
+```
+
+拆章器以完整书签路径和 PDF 页内坐标确定 start-inclusive/end-exclusive 边界，同时记录父 PDF、catalog 和章节文本的哈希。AI 只读取任务所指向的单章文本；禁止把整本 PDF 直接交给一次抽取任务，也禁止只凭标题字符串或目录页切章。
+
+默认命令只生成五章框架校准集。第二批应使用多个 `--section` 精确选取约 10 个代表章节，之后每批 20～30 章；不要立即使用 `--all-general-statements`。准备冻结全部通用 SQL 分母时，才使用 `--all-general-statements --replace-catalog`；需要同时纳入 M-Compatibility 时使用 `--all-sql-statements --replace-catalog`。已有 catalog 的章节集合不得被无意缩减，工具会要求显式确认替换。不要在一批任务执行期间继续改写 catalog，否则来源快照必须整体重新盘点。
+
+其他 HTML 或无可用书签的 PDF 可以使用公司已有转换工具，但必须人工生成等价的 source catalog，并满足同一个证据契约：
 
 - 一个文件对应一个可独立抽取和验收的文档章节；
 - 文件包含章节标题、功能描述、注意事项、完整语法、参数说明、示例及该章脚注；
@@ -92,9 +105,11 @@ intranet_corpus/
 
 ### 4.2 建立总目录账本
 
-PDF 目录页只能作为任务库存，不能作为产品事实。建议在内网另外保存一份文档总目录，至少记录：文档版本、章节层级、起止页、variant、category、是否属于第一阶段、对应语料路径。随后用实际语料文件与总目录取差集，发现“目录里有、语料里没有”的章节。
+`intranet_corpus/catalog.json` 是全书任务库存和来源证据索引；章节正文才是产品事实。catalog 至少记录：文档身份与版本、父 PDF SHA-256、完整书签路径、起止坐标、variant、category、章节语料路径和章节 SHA-256。用 catalog 与实际语料、队列和 factor 绑定逐层取差集，才能发现“目录里有但未拆章”“已拆章但未建包”等缺口。
 
-当前 `inventory` 管理已经切出的语料；它不宣称自动理解任意 PDF 目录。这样可以避免目录解析错误被误报成抽取完成。
+使用 `--source-catalog` 后，inventory 把 catalog 当作封闭任务清单：语料目录里任何未被 `chapters[].source_relpath` 枚举的 `.txt/.md/.html` 都会使 inventory 失败。若文件属于本批，先重建并审核 catalog；若不属于本批，将它移出该 corpus。不能让额外文件以无 provenance 的普通任务混入 PDF 批次。
+
+`scripts/audit_pdf_catalog_coverage.py` 分别报告 `cataloged`、`extracted`、`package_bound` 和 `static_complete`，四个数字不得混写为一个完成率。
 
 ## 5. 初始化与日常命令
 
@@ -102,13 +117,15 @@ PDF 目录页只能作为任务库存，不能作为产品事实。建议在内�
 
 ```bash
 python3 scripts/manage_extraction_queue.py inventory \
-  --corpus-dir intranet_corpus
+  --corpus-dir intranet_corpus \
+  --source-catalog intranet_corpus/catalog.json
 ```
 
 默认队列是 `work/doc2spec/queue.json`。重复执行不会丢失未变化任务的状态：
 
 - 路径与 SHA-256 都没变化：保留状态、认领人、尝试次数和门禁结果；
 - 路径相同但 SHA-256 变化：自动重置为 `pending`；
+- catalog 即使只发生字节级变化：旧验证快照失效并重置为 `pending`；
 - 原文件消失：保留任务记录并标记 `blocked`；
 - 出现重复 `factor_id`：初始化失败，必须先修复 variant/category/文件名。
 
@@ -130,7 +147,7 @@ python3 scripts/manage_extraction_queue.py claim \
   --render
 ```
 
-认领在文件锁中完成，多个 worker 不会正常认领到同一项。输出 JSON 包含 `rendered_task_path`，把这个 Markdown 文件交给 AI 即可。若 AI 无法直接读取本地 `SOURCE_PATH`，可加 `--embed-source`；这只会把原文复制进内网的本地任务文件，不会联网。
+认领在文件锁中完成，多个 worker 不会正常认领到同一项。输出 JSON 包含 `rendered_task_path`，把这个 Markdown 文件交给 AI 即可。若 AI 无法直接读取本地 `SOURCE_PATH`，可加 `--embed-source`；这只会把原文复制进内网的本地任务文件，不会联网。没有普通 `pending` 时，claim 还可重新认领哈希复核后已陈旧的 `static_complete`；仍然新鲜的完成任务不会被认领。
 
 ### 5.3 AI 生成后登记状态
 
@@ -157,7 +174,7 @@ python3 scripts/manage_extraction_queue.py verify \
 3. `generate_factor_package_sql.py`：约束感知组合、100% 可行 pair、唯一 case_id、SQL 静态结构；
 4. `audit_factor_coverage_v1.py --fail-on-gaps`：source unit 原子性、值域、规则、manifest、feature 与 scenario 分类。
 
-任务信封对账和三项程序门禁都成功后，队列写入 `static_complete`。命令输出和返回码也保存在任务的 `checks` 中，方便后续审计。
+任务信封对账和三项程序门禁都成功后，队列写入 `static_complete`。命令输出和返回码保存在任务的 `checks` 中；`verification_snapshot` 同时保存章节文本、catalog、父 PDF、Factor Package YAML 和验证工具链哈希。之后 `summary` 与全局覆盖审计会重新计算这些哈希，任一输入变化都使该结论变为 stale，并允许通过 claim/verify 重验。
 
 ## 6. 队列状态机
 
@@ -191,17 +208,17 @@ python3 scripts/manage_extraction_queue.py verify \
 
 ## 8. 推荐批量节奏
 
-不要从 5 个样例直接跳到全部 5800 页。建议分四批：
+五个样本用于框架验收，不要等待它们的数据库行为覆盖 100%，也不要从 5 个样例直接跳到全部 5800 页。建议按以下节奏推进：
 
-### 批次 A：10 个代表性 SQL 章节
+### 第二批：约 10 个代表性 SQL 章节
 
 在现有 CREATE VIEW、SELECT、INSERT、CREATE INDEX、ALTER TABLE 基础上，再选择 UPDATE、DELETE、MERGE、CREATE TABLE、一个权限/事务限制较多的命令。目标是发现 V1 表达能力缺口，而不是追求数量。
 
 验收后固定：语料转换规则、任务粒度、ID 命名、open question 处理和门禁错误分类。
 
-### 批次 B：一个完整 SQL 子目录
+### 后续批次：每批 20～30 章
 
-例如全部 DML。统计平均章节行数、AI 重试率、needs_review 比例、单任务耗时和门禁失败原因。若 `needs_review` 持续很高，应修模型或提示词，不要扩大并发。
+每批混合若干简单章节与少量复杂章节，统计平均章节行数、AI 重试率、`needs_review` 比例、单任务耗时和门禁失败原因。自动失败或高风险章节进入 `needs_review`/`blocked` 队列，不阻断其他独立章节。若同一类框架缺口反复出现，再集中评审 V1 扩展，不允许单个 worker 私自改 core。
 
 ### 批次 C：通用 SQL 全量
 

@@ -1,0 +1,27 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_view_security_barrier
+name: CREATE VIEW security_barrier 安全行为
+status: planned
+description: 验证 security_barrier 的安全目的；布尔值语法覆盖不能替代该行为结论。
+factor_ref: create_view
+fixture_refs: [fixture_create_view_source_two_ints]
+fact_refs: [cv_fact_security_barrier_purpose, cv_open_security_barrier_oracle]
+
+preconditions:
+  - 设计一个能区分安全屏障前后执行顺序、且不会产生破坏性副作用的观测函数。
+
+steps:
+  - id: create_barrier_view
+    action: execute_sql
+    sql: CREATE VIEW v_cv_security_barrier WITH (security_barrier = true) AS SELECT col_1, col_2 FROM t_view_source WHERE col_1 > 0
+  - id: run_observation
+    action: query
+    sql: SELECT * FROM v_cv_security_barrier WHERE :safe_observation_predicate
+
+oracles:
+  - after_step: run_observation
+    kind: behavior_contract
+    expected: 低成本用户谓词不能在视图保护条件之前暴露被隐藏的基表数据。
+
+execution_requirements: [database, controlled_observation_function, security_oracle_calibration]

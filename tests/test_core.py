@@ -11,6 +11,22 @@ from core.reporter import generate_report
 
 class TestFactorCore(unittest.TestCase):
 
+    def test_generated_case_serializes_consumed_dimension_ids(self):
+        case = GeneratedCase(
+            factor_id="factor",
+            case_id="case_1",
+            strategy="pairwise",
+            params={"inactive": "default", "active": "selected"},
+            sql="SELECT 1",
+            consumed_dimension_ids=["active", "active"],
+        )
+
+        self.assertEqual(case.consumed_dimension_ids, ["active"])
+        self.assertEqual(
+            case.to_dict()["consumed_dimension_ids"],
+            ["active"],
+        )
+
     def test_equivalence_class_sqlstates_normalization(self):
         # 1. 只有单个 expected_sqlstate
         ec1 = EquivalenceClass(name="c1", values=["val1"], expected="error", expected_sqlstate="22P02")
@@ -142,6 +158,28 @@ class TestFactorCore(unittest.TestCase):
         fixture_error.compute_verdict()
         self.assertEqual(fixture_error.verdict, "fail")
 
+        unresolved_oracle = ExecResult(
+            case_id="c8",
+            sql="SELECT bad",
+            status="error",
+            expected="error",
+            expected_oracle_status="needs_verification",
+            expected_error_category="target_not_calibrated",
+            error_msg="some database error",
+        )
+        unresolved_oracle.compute_verdict()
+        self.assertEqual(unresolved_oracle.verdict, "pending")
+
+        syntax_only = ExecResult(
+            case_id="c9",
+            sql="SELECT 1",
+            status="success",
+            expected="success",
+            expected_scope="syntax_only",
+        )
+        syntax_only.compute_verdict()
+        self.assertEqual(syntax_only.verdict, "pending")
+
     def test_yaml_factors_loading_and_generation(self):
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         factors_dir = os.path.join(base_dir, "factors")
@@ -236,6 +274,36 @@ class TestFactorCore(unittest.TestCase):
         self.assertEqual(result.verdict, "fail")
         self.assertNotIn(case.sql, statements)
         self.assertIn("DROP TABLE IF EXISTS t_fixture;", statements)
+
+    def test_executor_skips_case_when_environment_gate_is_not_satisfied(self):
+        case = GeneratedCase(
+            factor_id="insert",
+            case_id="insert_pg_only",
+            strategy="equivalence",
+            params={},
+            sql="INSERT INTO t VALUES (1) ON CONFLICT DO NOTHING;",
+            environment_requirements=[{
+                "key": "compatibility_mode",
+                "allowed_values": ["PG"],
+                "fact_refs": ["insert_fact_conflict_environment"],
+            }],
+        )
+        executor = Executor(ExecConfig(
+            enabled=True,
+            use_sandbox=False,
+            environment_capabilities={"compatibility_mode": "B"},
+        ))
+
+        result = executor.execute_one(case)
+
+        self.assertEqual(result.status, "skipped")
+        self.assertEqual(result.verdict, "skip")
+        self.assertEqual(
+            result.environment_requirements,
+            case.environment_requirements,
+        )
+        self.assertIn("compatibility_mode='B'", result.error_msg)
+        self.assertTrue(result.unmet_environment_requirements)
 
     def test_reporter_and_exec_batch_mock(self):
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

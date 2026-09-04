@@ -14,6 +14,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from core.factor_package_generator import FactorPackageSQLGenerator
+from core.factor_coverage_auditor import FactorCoverageAuditor
 from core.factor_package_model import FactorPackageLoadError, FactorPackageRegistry
 from core.generator import validate_sql_syntax
 from core.spec_generator import GenerationValidationError
@@ -55,6 +56,8 @@ def render_sql_snapshot(manifest_id: str, cases: List[Any]) -> str:
             f"-- expected_error_category: {case.expected_error_category or '-'}",
             f"-- expected_sqlstates: {','.join(case.expected_sqlstates) or '-'}",
             f"-- expected_error_regex: {case.expected_error_regex or '-'}",
+            f"-- expected_oracle_status: {case.expected_oracle_status}",
+            f"-- expected_scope: {case.expected_scope}",
             f"-- params: {params}",
         ])
         if case.setup_sqls:
@@ -94,6 +97,7 @@ def main() -> int:
 
     generator = FactorPackageSQLGenerator(registry)
     reports: Dict[str, Any] = {}
+    pending_snapshots: Dict[Path, str] = {}
     global_case_ids = set()
     global_sql = set()
     for manifest_id in requested:
@@ -133,9 +137,8 @@ def main() -> int:
         global_sql.update(case.sql for case in cases)
 
         factor_dir = args.output_dir / manifest.factor_ref
-        factor_dir.mkdir(parents=True, exist_ok=True)
         sql_path = factor_dir / f"{manifest.id}.sql"
-        sql_path.write_text(render_sql_snapshot(manifest.id, cases), encoding="utf-8")
+        pending_snapshots[sql_path] = render_sql_snapshot(manifest.id, cases)
         reports[manifest.id] = {
             "suite_type": manifest.suite_type,
             "expected": manifest.expected.model_dump(),
@@ -157,45 +160,47 @@ def main() -> int:
             f"sql={display_path(sql_path)}"
         )
 
+    requested_by_factor: Dict[str, set[str]] = {}
+    for manifest_id in requested:
+        factor_id = registry.manifests[manifest_id].factor_ref
+        requested_by_factor.setdefault(factor_id, set()).add(manifest_id)
+    for factor_id, selected_ids in requested_by_factor.items():
+        factor_dir = args.output_dir / factor_id
+        factor_dir.mkdir(parents=True, exist_ok=True)
+        all_factor_ids = set(registry.factors[factor_id].manifest_refs)
+        if selected_ids == all_factor_ids:
+            expected_names = {f"{manifest_id}.sql" for manifest_id in selected_ids}
+            for existing in factor_dir.glob("*.sql"):
+                if existing.name not in expected_names:
+                    existing.unlink()
+        for path, content in pending_snapshots.items():
+            if path.parent == factor_dir:
+                path.write_text(content, encoding="utf-8")
+
     report_path = args.output_dir / "generation_report.json"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     factor_summaries: Dict[str, Any] = {}
+    auditor = FactorCoverageAuditor(registry)
     for factor_id in sorted({registry.manifests[item].factor_ref for item in requested}):
-        factor = registry.factors[factor_id]
-        matrices = [registry.matrices[item] for item in factor.matrix_refs]
-        documented_features = [
-            feature for matrix in matrices
-            for feature in matrix.all_documented_features
-        ]
-        ledger = registry.get_source_ledger(factor.source_ledger_ref)
-        unmapped_source_units = [
-            unit.id for unit in ledger.units if unit.status == "unmapped"
-        ]
-        unit_covered_lines = {
-            line
-            for unit in ledger.units
-            for line in range(unit.line_start, unit.line_end + 1)
-        }
-        factor_summaries[factor_id] = {
-            "status": factor.status,
-            "confirmed_fact_count": sum(fact.status == "confirmed" for fact in factor.facts),
-            "inferred_fact_count": sum(fact.status == "inferred" for fact in factor.facts),
-            "open_question_count": sum(fact.type == "open_question" for fact in factor.facts),
-            "hard_rule_count": len(factor.rules),
-            "structural_check_count": len(factor.structural_checks),
-            "documented_feature_count": len(documented_features),
-            "covered_feature_count": sum(item.status == "covered" for item in documented_features),
-            "feature_gaps": [item.id for item in documented_features if item.status == "needs_profile"],
-            "source_unit_total": len(ledger.units),
-            "source_unit_accounted": len(ledger.units) - len(unmapped_source_units),
-            "unmapped_source_units": unmapped_source_units,
-            "source_line_total": ledger.source_line_count,
-            "source_line_accounted": len(unit_covered_lines) + len(ledger.ignored_lines),
-        }
+        audit = auditor.audit(factor_id)
+        factor_summaries[factor_id] = audit
+        if requested_by_factor[factor_id] == set(registry.factors[factor_id].manifest_refs):
+            audit_path = args.output_dir / factor_id / "coverage_audit.json"
+            audit_path.write_text(
+                json.dumps(audit, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
     report_path.write_text(
         json.dumps({
             "manifest_count": len(reports),
             "global_case_id_count": len(global_case_ids),
+            "factor_dependencies": {
+                factor_id: sorted(dependencies)
+                for factor_id, dependencies in sorted(
+                    registry.factor_dependency_graph().items()
+                )
+            },
+            "factor_topological_order": registry.factor_topological_order(),
             "factor_coverage": factor_summaries,
             "manifests": reports,
         }, ensure_ascii=False, indent=2),

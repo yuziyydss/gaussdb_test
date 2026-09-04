@@ -1,0 +1,74 @@
+schema_version: 1
+kind: matrix
+id: matrix_update_single_targets
+name: UPDATE 单目标与文档特性台账
+status: needs_review
+description: 枚举本章可由现有 Fixture 生成的普通表、ONLY/*、别名、视图与单表子查询；分区、DATABASE LINK、生成列和其他表类型保留显式缺口。
+factor_ref: update
+
+profiles:
+  - {id: update_target_table, render: t_update_target, validity: valid, fixture_refs: [fixture_update_target], properties: {target_kind: regular_table, updatable: true}, fact_refs: [update_fact_table_target, update_fact_single_grammar]}
+  - {id: update_target_only, render: ONLY t_update_target, validity: valid, fixture_refs: [fixture_update_target], properties: {target_kind: regular_table, updatable: true, only: true}, fact_refs: [update_fact_single_grammar, update_fact_only_semantics]}
+  - {id: update_target_star, render: t_update_target *, validity: valid, fixture_refs: [fixture_update_target], properties: {target_kind: regular_table, updatable: true, star: true}, fact_refs: [update_fact_single_grammar]}
+  - {id: update_target_only_star, render: ONLY t_update_target *, validity: valid, fixture_refs: [fixture_update_target], properties: {target_kind: regular_table, updatable: true, only: true, star: true}, fact_refs: [update_fact_single_grammar, update_fact_only_semantics]}
+  - {id: update_target_alias_as, render: t_update_target AS u, validity: valid, fixture_refs: [fixture_update_target], properties: {target_kind: regular_table, updatable: true, alias_form: as, alias: u}, fact_refs: [update_fact_alias, update_fact_column_name]}
+  - {id: update_target_alias_bare, render: t_update_target u, validity: valid, fixture_refs: [fixture_update_target], properties: {target_kind: regular_table, updatable: true, alias_form: bare, alias: u}, fact_refs: [update_fact_alias, update_fact_column_name]}
+  - {id: update_target_view, render: v_update_target, validity: valid, fixture_refs: [fixture_update_view], properties: {target_kind: view, updatable: true}, fact_refs: [update_fact_view_target, update_example_view]}
+  - id: update_target_subquery
+    render: (SELECT id, note, qty FROM t_update_subquery_base)
+    validity: valid
+    fixture_refs: [fixture_update_subquery]
+    properties: {target_kind: subquery, updatable: true, source_tables: [t_update_subquery_base], source_columns: [id, note, qty]}
+    fact_refs: [update_fact_target_subquery_grammar, update_fact_subquery_target, update_example_subquery]
+
+documented_features:
+  - {id: update_feature_table_target, profile_refs: [update_target_table], status: covered, fact_refs: [update_fact_table_target]}
+  - {id: update_feature_only_target, profile_refs: [update_target_only, update_target_only_star], status: covered, fact_refs: [update_fact_only_semantics]}
+  - {id: update_feature_star_target, profile_refs: [update_target_star, update_target_only_star], status: covered, fact_refs: [update_fact_single_grammar]}
+  - {id: update_feature_alias_target, profile_refs: [update_target_alias_as, update_target_alias_bare], status: covered, fact_refs: [update_fact_alias, update_fact_column_name]}
+  - {id: update_feature_view_target, profile_refs: [update_target_view], status: covered, coverage_mode: representative, fact_refs: [update_fact_view_target, update_fact_view_subquery_restrictions, update_open_preserved_key_definition]}
+  - {id: update_feature_subquery_target, profile_refs: [update_target_subquery], status: covered, coverage_mode: representative, fact_refs: [update_fact_target_subquery_grammar, update_fact_subquery_target, update_open_subquery_depth]}
+  - {id: update_feature_partition_target, status: needs_profile, fact_refs: [update_fact_partition_grammar, update_fact_partition_union, update_open_partition_fixture]}
+  - {id: update_feature_dblink_target, status: needs_profile, fact_refs: [update_fact_table_target, update_open_dblink_profile]}
+  - {id: update_feature_generated_column, status: needs_profile, fact_refs: [update_fact_generated_column, update_open_generated_fixture]}
+  - {id: update_feature_non_regular_base_tables, status: needs_profile, fact_refs: [update_fact_supported_table_types, update_open_table_type_fixtures]}
+  - {id: update_feature_with_select, value_refs: [update_with_select, update_with_materialized_select, update_with_not_materialized_select], status: covered, fact_refs: [update_fact_with_declaration, update_fact_with_body_grammar]}
+  - {id: update_feature_with_recursive, value_refs: [update_with_recursive_select], status: covered, coverage_mode: representative, fact_refs: [update_fact_with_recursive, update_open_recursive_cte_depth]}
+  - {id: update_feature_with_values, value_refs: [update_with_values], status: covered, fact_refs: [update_fact_with_body_grammar]}
+  - {id: update_feature_with_dml, value_refs: [update_with_insert, update_with_update, update_with_delete], status: covered, fact_refs: [update_fact_with_body_grammar]}
+  - {id: update_feature_plan_hint, status: needs_profile, fact_refs: [update_fact_plan_hint_position, update_open_plan_hint_profile]}
+  - {id: update_feature_from_list, value_refs: [update_from_none, update_from_source], status: covered, fact_refs: [update_fact_from_list]}
+  - {id: update_feature_from_self_alias, value_refs: [update_from_self_alias, update_from_self_unaliased_invalid], status: covered, fact_refs: [update_fact_from_self_alias]}
+  - {id: update_feature_where_condition, value_refs: [update_predicate_none, update_predicate_where, update_predicate_alias, update_predicate_source_join, update_predicate_self_join], status: covered, fact_refs: [update_fact_condition_behavior]}
+  - {id: update_feature_update_scope, value_refs: [update_predicate_none, update_predicate_where], status: covered, fact_refs: [update_fact_purpose]}
+  - {id: update_feature_where_current_of, value_refs: [update_predicate_current_of], status: covered, fact_refs: [update_fact_current_of_grammar, update_fact_current_of_constraints]}
+  - {id: update_feature_order_by, value_refs: [update_order_expression, update_order_asc, update_order_desc, update_order_using], status: covered, fact_refs: [update_fact_order_limit]}
+  - {id: update_feature_limit, value_refs: [update_limit_one], status: covered, fact_refs: [update_fact_order_limit]}
+  - {id: update_feature_returning, value_refs: [update_returning_all, update_returning_expression, update_returning_from_field], status: covered, fact_refs: [update_fact_returning]}
+
+fact_refs:
+  - update_fact_purpose
+  - update_fact_single_grammar
+  - update_fact_table_target
+  - update_fact_only_semantics
+  - update_fact_alias
+  - update_fact_column_name
+  - update_fact_view_target
+  - update_fact_target_subquery_grammar
+  - update_fact_subquery_target
+  - update_fact_view_subquery_restrictions
+  - update_fact_supported_table_types
+  - update_fact_partition_grammar
+  - update_fact_partition_union
+  - update_fact_generated_column
+  - update_fact_with_declaration
+  - update_fact_with_recursive
+  - update_fact_with_body_grammar
+  - update_fact_plan_hint_position
+  - update_fact_from_list
+  - update_fact_from_self_alias
+  - update_fact_condition_behavior
+  - update_fact_current_of_grammar
+  - update_fact_current_of_constraints
+  - update_fact_order_limit
+  - update_fact_returning

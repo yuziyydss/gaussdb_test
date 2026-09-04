@@ -19,8 +19,38 @@ class TestApiRoutes(unittest.TestCase):
     def test_index_page(self):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
-        self.assertIn("GaussDB 测试因子库", response.text)
-        self.assertIn("表全生命周期场景", response.text)
+        self.assertIn("把产品文档变成", response.text)
+        self.assertIn("本地 PDF 是唯一产品事实源", response.text)
+        self.assertNotIn("Legacy V0", response.text)
+
+    def test_default_coverage_uses_pdf_factor_packages_not_legacy_meter(self):
+        response = self.client.get("/coverage")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("PDF 证据与测试因子覆盖", response.text)
+        self.assertIn("静态 SQL 候选，不是实机通过记录", response.text)
+
+        payload = self.client.get("/api/coverage/summary").json()
+        self.assertEqual(payload["factor_count"], len(payload["factors"]))
+        self.assertGreaterEqual(payload["factor_count"], 5)
+        self.assertEqual(
+            payload["manifest_count"],
+            sum(
+                audit["manifests"]["total"]
+                for audit in payload["factors"].values()
+            ),
+        )
+        self.assertEqual(
+            payload["generated_case_count"],
+            sum(
+                audit["manifests"]["generated_case_count"]
+                for audit in payload["factors"].values()
+            ),
+        )
+        self.assertGreater(payload["generated_case_count"], 0)
+        self.assertEqual(payload["catalog"]["cataloged"], 224)
+        self.assertEqual(payload["catalog"]["extracted"], payload["factor_count"])
+        self.assertEqual(payload["catalog"]["package_bound"], payload["factor_count"])
+        self.assertEqual(payload["static_complete_count"], 0)
 
     def test_factor_detail_and_generate(self):
         # 因子详情
@@ -35,7 +65,7 @@ class TestApiRoutes(unittest.TestCase):
     def test_factor_package_v1_pages_and_generation_api(self):
         index = self.client.get("/")
         self.assertEqual(index.status_code, 200)
-        self.assertIn("Factor Packages V1", index.text)
+        self.assertIn("PDF-first Factor Packages", index.text)
         self.assertIn("CREATE VIEW", index.text)
 
         detail = self.client.get("/specs/factor/create_view")
@@ -43,15 +73,15 @@ class TestApiRoutes(unittest.TestCase):
         self.assertIn("待验证问题", detail.text)
         self.assertIn("cv_open_security_barrier_bare", detail.text)
         self.assertIn("原文覆盖账本", detail.text)
-        self.assertIn("64 / 64", detail.text)
-        self.assertIn("71 / 71 行已登记", detail.text)
+        self.assertIn("116 / 116", detail.text)
+        self.assertIn("406 / 406 行已登记", detail.text)
         self.assertIn("生成模型：完整", detail.text)
 
         audit_api = self.client.get("/api/specs/v1/audit/create_view")
         self.assertEqual(audit_api.status_code, 200)
         audit = audit_api.json()
-        self.assertEqual(audit["source_units"]["accounted"], 64)
-        self.assertEqual(audit["source_units"]["total"], 64)
+        self.assertEqual(audit["source_units"]["accounted"], 116)
+        self.assertEqual(audit["source_units"]["total"], 116)
         self.assertEqual(audit["source_units"]["line_coverage"]["missing"], [])
         self.assertTrue(audit["conclusions"]["generation_model_complete"])
         self.assertFalse(audit["conclusions"]["static_coverage_complete"])
@@ -85,8 +115,8 @@ class TestApiRoutes(unittest.TestCase):
 
         detail = self.client.get("/specs/factor/insert")
         self.assertEqual(detail.status_code, 200)
-        self.assertIn("276 / 276 行已登记", detail.text)
-        self.assertIn("生成模型：完整", detail.text)
+        self.assertIn("918 / 918 行已登记", detail.text)
+        self.assertIn("生成模型：有缺口", detail.text)
         self.assertIn("insert_open_plan_hint_profile", detail.text)
 
         manifest_id = "manifest_insert_core_positive"
@@ -95,14 +125,33 @@ class TestApiRoutes(unittest.TestCase):
         )
         self.assertEqual(generated_html.status_code, 200)
         self.assertIn("INSERT INTO", generated_html.text)
-        self.assertIn("101", generated_html.text)
+        self.assertIn("110", generated_html.text)
 
         generated_api = self.client.get(f"/api/specs/v1/generate/{manifest_id}")
         self.assertEqual(generated_api.status_code, 200)
         payload = generated_api.json()
-        self.assertEqual(payload["count"], 21)
+        self.assertEqual(payload["count"], 24)
+        self.assertEqual(payload["report"]["covered_pair_count"], 110)
+        self.assertEqual(payload["report"]["feasible_pair_count"], 110)
         self.assertTrue(payload["report"]["pairwise_complete"])
         self.assertTrue(all(case["setup_sqls"] for case in payload["cases"]))
+
+    def test_select_factor_is_pdf_bound_and_generates_from_web_api(self):
+        detail = self.client.get("/specs/factor/select")
+        self.assertEqual(detail.status_code, 200)
+        self.assertIn("2333 / 2333 行已登记", detail.text)
+        self.assertIn("生成模型：完整", detail.text)
+        self.assertIn("select_open_plan_hint_profile", detail.text)
+
+        manifest_id = "manifest_select_core_positive"
+        generated_api = self.client.get(f"/api/specs/v1/generate/{manifest_id}")
+        self.assertEqual(generated_api.status_code, 200)
+        payload = generated_api.json()
+        self.assertEqual(payload["count"], 42)
+        self.assertEqual(payload["report"]["covered_pair_count"], 679)
+        self.assertEqual(payload["report"]["feasible_pair_count"], 679)
+        self.assertTrue(payload["report"]["pairwise_complete"])
+        self.assertTrue(all(case["sql"].endswith(";") for case in payload["cases"]))
 
     def test_create_index_factor_is_visible_and_generates_from_web_api(self):
         index = self.client.get("/")
@@ -111,9 +160,9 @@ class TestApiRoutes(unittest.TestCase):
 
         detail = self.client.get("/specs/factor/create_index")
         self.assertEqual(detail.status_code, 200)
-        self.assertIn("164 / 164 行已登记", detail.text)
-        self.assertIn("生成模型：完整", detail.text)
-        self.assertIn("ci_open_partition_default_scope", detail.text)
+        self.assertIn("899 / 899 行已登记", detail.text)
+        self.assertIn("生成模型：有缺口", detail.text)
+        self.assertIn("ci_open_unique_local_missing_partition_key", detail.text)
 
         manifest_id = "manifest_create_index_regular_positive"
         generated_html = self.client.post(
@@ -122,14 +171,14 @@ class TestApiRoutes(unittest.TestCase):
         self.assertEqual(generated_html.status_code, 200)
         self.assertIn("CREATE", generated_html.text)
         self.assertIn("INDEX", generated_html.text)
-        self.assertIn("486", generated_html.text)
+        self.assertIn("708", generated_html.text)
 
         generated_api = self.client.get(f"/api/specs/v1/generate/{manifest_id}")
         self.assertEqual(generated_api.status_code, 200)
         payload = generated_api.json()
-        self.assertEqual(payload["count"], 149)
-        self.assertEqual(payload["report"]["covered_pair_count"], 486)
-        self.assertEqual(payload["report"]["feasible_pair_count"], 486)
+        self.assertEqual(payload["count"], 229)
+        self.assertEqual(payload["report"]["covered_pair_count"], 708)
+        self.assertEqual(payload["report"]["feasible_pair_count"], 708)
         self.assertTrue(payload["report"]["pairwise_complete"])
         self.assertTrue(all(case["setup_sqls"] for case in payload["cases"]))
 
@@ -140,8 +189,8 @@ class TestApiRoutes(unittest.TestCase):
 
         detail = self.client.get("/specs/factor/alter_table")
         self.assertEqual(detail.status_code, 200)
-        self.assertIn("566 / 566 行已登记", detail.text)
-        self.assertIn("生成模型：完整", detail.text)
+        self.assertIn("1636 / 1636 行已登记", detail.text)
+        self.assertIn("生成模型：有缺口", detail.text)
         self.assertIn("at_open_online_environment_fixture", detail.text)
 
         manifest_id = "manifest_alter_table_core_positive"
@@ -150,14 +199,14 @@ class TestApiRoutes(unittest.TestCase):
         )
         self.assertEqual(generated_html.status_code, 200)
         self.assertIn("ALTER TABLE", generated_html.text)
-        self.assertIn("622", generated_html.text)
+        self.assertIn("741", generated_html.text)
 
         generated_api = self.client.get(f"/api/specs/v1/generate/{manifest_id}")
         self.assertEqual(generated_api.status_code, 200)
         payload = generated_api.json()
         self.assertEqual(payload["count"], 188)
-        self.assertEqual(payload["report"]["covered_pair_count"], 622)
-        self.assertEqual(payload["report"]["feasible_pair_count"], 622)
+        self.assertEqual(payload["report"]["covered_pair_count"], 741)
+        self.assertEqual(payload["report"]["feasible_pair_count"], 741)
         self.assertTrue(payload["report"]["pairwise_complete"])
         self.assertTrue(all(case["setup_sqls"] for case in payload["cases"]))
 

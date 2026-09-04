@@ -4,7 +4,7 @@
 
 ## 1. 5800页不能作为一个任务
 
-整本PDF必须在内网先转换为稳定的UTF-8章节语料。一个任务对应一个可独立验收的章节，目录页只负责建立任务库存，不作为产品事实。
+整本 PDF 必须先由 `scripts/extract_pdf_sections.py` 按书签路径和页内坐标转换为稳定的 UTF-8 章节语料及 `catalog.json`。一个任务对应一个可独立验收的章节；catalog 负责建立全书任务库存和来源边界，章节正文才作为产品事实。
 
 第一阶段只处理SQL命令章节：
 
@@ -20,7 +20,7 @@ intranet_corpus/general/dml/update.txt
 intranet_corpus/m_compat/dml/select.txt
 ```
 
-任务登记、认领、状态机和静态门禁全部由 `scripts/manage_extraction_queue.py` 完成。详细命令见当前运行手册。
+任务登记、认领、状态机和静态门禁全部由 `scripts/manage_extraction_queue.py` 完成。整本 PDF 的分母对账由 `scripts/audit_pdf_catalog_coverage.py` 完成。详细命令见当前运行手册。
 
 ## 2. 文档类型需要不同出口
 
@@ -34,7 +34,7 @@ intranet_corpus/m_compat/dml/select.txt
 | 系统表/系统视图 | 未来metadata oracle目录 |
 | 安装、部署、运维 | 不直接生成SQL factor；单独登记范围 |
 
-因此不能用“生成了多少factor”衡量整本手册覆盖。必须先有文档总目录账本，再按文档类型分别对账。
+因此不能用“生成了多少 factor”衡量整本手册覆盖。必须先有 PDF catalog 分母，再按文档类型以及 cataloged、extracted、package_bound、static_complete 四个阶段分别对账。
 
 ## 3. GUC不是SQL语法槽位
 

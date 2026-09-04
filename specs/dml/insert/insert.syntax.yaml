@@ -1,11 +1,11 @@
 schema_version: 1
 kind: syntax
 id: syntax_insert_v1
-name: INSERT 递归 Subgrammar AST
+name: INSERT 顶层 AST
 category: DML
-status: ready
+status: needs_review
 factor_ref: insert
-description: 使用 AST choice/repeat/ref 表达 INSERT 目标、三类输入、冲突处理与 RETURNING。
+description: 顶层 AST 只负责 INSERT 语句装配；目标、输入和冲突子文法由经证据标注的 profile/value 完整渲染，跨分支限制由 factor rules 负责。
 
 ast: {kind: ref, ref: insert_statement}
 
@@ -20,42 +20,9 @@ subgrammars:
       - {kind: literal, text: "INTO "}
       - {kind: slot, slot: target_profile}
       - {kind: literal, text: " "}
-      - {kind: ref, ref: input_source}
+      - {kind: slot, slot: source_profile}
       - {kind: slot, slot: conflict_clause}
       - {kind: slot, slot: returning_clause}
-
-  input_source:
-    kind: choice
-    selector: source_profile
-    branches:
-      insert_source_default_values: {kind: literal, text: "DEFAULT VALUES"}
-      insert_source_values_one:
-        kind: sequence
-        items:
-          - {kind: literal, text: "VALUES "}
-          - {kind: repeat, slot: source_profile, separator: ", ", items_property: items}
-      insert_source_values_two:
-        kind: sequence
-        items:
-          - {kind: literal, text: "VALUES "}
-          - {kind: repeat, slot: source_profile, separator: ", ", items_property: items}
-      insert_source_value_two:
-        kind: sequence
-        items:
-          - {kind: literal, text: "VALUE "}
-          - {kind: repeat, slot: source_profile, separator: ", ", items_property: items}
-      insert_source_values_id:
-        kind: sequence
-        items:
-          - {kind: literal, text: "VALUES "}
-          - {kind: repeat, slot: source_profile, separator: ", ", items_property: items}
-      insert_source_values_note:
-        kind: sequence
-        items:
-          - {kind: literal, text: "VALUES "}
-          - {kind: repeat, slot: source_profile, separator: ", ", items_property: items}
-      insert_source_query: {kind: slot, slot: source_profile}
-      insert_source_cte_query: {kind: slot, slot: source_profile}
 
 rendering: {whitespace: collapse, statement_terminator: ";"}
 
@@ -64,18 +31,26 @@ slots:
   plan_hint: {type: sql_fragment, optional: true, dimension_ref: insert.plan_hint}
   ignore_modifier: {type: token, optional: true, dimension_ref: insert.ignore_modifier}
   target_profile: {type: target_profile, optional: false, dimension_ref: insert.target_profile, symbol_action: writes_relation}
-  source_profile: {type: ast_selector, optional: false, dimension_ref: insert.source_profile, symbol_action: reads_relations}
+  source_profile: {type: sql_fragment, optional: false, dimension_ref: insert.source_profile, symbol_action: reads_relations}
   conflict_clause: {type: sql_fragment, optional: true, dimension_ref: insert.conflict_clause}
   returning_clause: {type: sql_fragment, optional: true, dimension_ref: insert.returning_clause}
 
 source_fact_refs:
+  - select::select_fact_target_list
   - insert_fact_main_grammar
   - insert_fact_view_subquery_grammar
-  - insert_fact_cte_syntax
+  - insert_fact_subquery_select_grammar
+  - insert_fact_from_item_grammar
+  - insert_fact_with_body_forms
+  - insert_fact_partition_grammar
+  - insert_fact_conflict_target_grammar
+  - insert_fact_conflict_action_grammar
+  - insert_fact_with_declaration
+  - insert_fact_with_recursive
   - insert_fact_column_mapping
+  - insert_fact_column_designators
+  - insert_fact_expression
   - insert_fact_default
   - insert_fact_query_source
   - insert_fact_returning
-  - insert_fact_duplicate_semantics
-  - insert_fact_conflict_semantics
-
+  - insert_fact_duplicate_source_references

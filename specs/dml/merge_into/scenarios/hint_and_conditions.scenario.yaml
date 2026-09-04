@@ -1,0 +1,19 @@
+schema_version: 1
+kind: scenario
+id: scenario_merge_hint_and_conditions
+name: MERGE hint 与条件限制
+status: planned
+description: 验证首 hint 生效、系统对象/列限制、系统列 WHERE 限制及数值 condition 的文档警告。
+factor_ref: merge_into
+fixture_refs: [fixture_merge_target, fixture_merge_source]
+fact_refs: [merge_fact_hint_first_only, merge_fact_system_target_restriction, merge_fact_where_system_column, merge_open_numeric_condition_policy]
+variants:
+  - {id: first_hint_only, operations: [构造两个可观测 hint 注释块, EXPLAIN MERGE], expected: 只有第一个 hint 块影响计划。}
+  - {id: system_target, operations: [尝试更新系统表或系统列], expected: 命中目标不支持错误且无系统对象副作用。}
+  - {id: where_system_column, operations: [在 action WHERE 引用系统列], expected: 命中目标不支持错误。}
+  - {id: numeric_condition, operations: [在隔离事务中使用 0 与非 0 数值条件], expected: 记录实际布尔转换与警告行为，不提升为硬禁止规则。}
+oracles:
+  - {kind: plan_property, expected: 只有第一个 hint 块具有可观测效果。}
+  - {kind: target_error, expected: 两类系统对象限制只接受校准后的目标错误。}
+  - {kind: query_result, expected: 数值 condition 的行为与记录的实现证据一致。}
+execution_requirements: [database, explain_plan, system_object_sandbox, target_error_calibration]

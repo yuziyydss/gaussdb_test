@@ -1,0 +1,111 @@
+schema_version: 1
+kind: matrix
+id: matrix_delete_single_targets
+name: DELETE 单目标与文档特性台账
+status: needs_review
+description: 保真枚举本章可用现有 Fixture 生成的普通表、ONLY/*、别名、视图与单表子查询；分区、DBLINK、其他基表类型和递归子查询保留显式缺口。
+factor_ref: delete
+
+profiles:
+  - id: delete_target_table
+    render: t_delete_target
+    validity: valid
+    fixture_refs: [fixture_delete_target]
+    properties: {target_kind: regular_table, updatable: true}
+    fact_refs: [delete_fact_table_target, delete_fact_target_grammar]
+  - id: delete_target_only
+    render: ONLY t_delete_target
+    validity: valid
+    fixture_refs: [fixture_delete_target]
+    properties: {target_kind: regular_table, updatable: true, only: true}
+    fact_refs: [delete_fact_target_grammar, delete_fact_only_semantics]
+  - id: delete_target_star
+    render: t_delete_target *
+    validity: valid
+    fixture_refs: [fixture_delete_target]
+    properties: {target_kind: regular_table, updatable: true, star: true}
+    fact_refs: [delete_fact_target_grammar]
+  - id: delete_target_only_star
+    render: ONLY t_delete_target *
+    validity: valid
+    fixture_refs: [fixture_delete_target]
+    properties: {target_kind: regular_table, updatable: true, only: true, star: true}
+    fact_refs: [delete_fact_target_grammar, delete_fact_only_semantics]
+  - id: delete_target_alias_as
+    render: t_delete_target AS d
+    validity: valid
+    fixture_refs: [fixture_delete_target]
+    properties: {target_kind: regular_table, updatable: true, alias_form: as}
+    fact_refs: [delete_fact_target_grammar, delete_fact_alias]
+  - id: delete_target_alias_bare
+    render: t_delete_target d
+    validity: valid
+    fixture_refs: [fixture_delete_target]
+    properties: {target_kind: regular_table, updatable: true, alias_form: bare}
+    fact_refs: [delete_fact_target_grammar, delete_fact_alias]
+  - id: delete_target_view
+    render: v_delete_target
+    validity: valid
+    fixture_refs: [fixture_delete_view]
+    properties: {target_kind: view, updatable: true}
+    fact_refs: [delete_fact_view_target, delete_example_view]
+  - id: delete_target_subquery
+    render: (SELECT id, note FROM t_delete_subquery_base)
+    validity: valid
+    fixture_refs: [fixture_delete_subquery]
+    properties:
+      target_kind: subquery
+      updatable: true
+      source_tables: [t_delete_subquery_base]
+      source_columns: [id, note]
+    fact_refs: [delete_fact_subquery_grammar, delete_fact_subquery_target, delete_example_subquery]
+
+documented_features:
+  - {id: delete_feature_table_target, profile_refs: [delete_target_table], status: covered, fact_refs: [delete_fact_table_target]}
+  - {id: delete_feature_only_target, profile_refs: [delete_target_only, delete_target_only_star], status: covered, fact_refs: [delete_fact_target_grammar, delete_fact_only_semantics]}
+  - {id: delete_feature_star_target, profile_refs: [delete_target_star, delete_target_only_star], status: covered, fact_refs: [delete_fact_target_grammar]}
+  - {id: delete_feature_alias_target, profile_refs: [delete_target_alias_as, delete_target_alias_bare], status: covered, fact_refs: [delete_fact_alias]}
+  - {id: delete_feature_view_target, profile_refs: [delete_target_view], status: covered, coverage_mode: representative, fact_refs: [delete_fact_view_target, delete_fact_view_subquery_restrictions, delete_open_preserved_key_definition]}
+  - {id: delete_feature_subquery_target, profile_refs: [delete_target_subquery], status: covered, coverage_mode: representative, fact_refs: [delete_fact_subquery_grammar, delete_fact_subquery_target, delete_open_subquery_depth]}
+  - {id: delete_feature_partition_target, status: needs_profile, fact_refs: [delete_fact_partition_grammar, delete_open_partition_fixture]}
+  - {id: delete_feature_partitions_target_b, status: needs_profile, fact_refs: [delete_fact_partitions_grammar, delete_fact_partitions_environment, delete_open_partition_fixture]}
+  - {id: delete_feature_dblink_target, status: needs_profile, fact_refs: [delete_fact_table_target, delete_open_dblink_profile]}
+  - {id: delete_feature_non_regular_base_tables, status: needs_profile, fact_refs: [delete_fact_supported_table_types, delete_open_table_type_fixtures]}
+  - {id: delete_feature_with_select, value_refs: [delete_with_select, delete_with_materialized_select, delete_with_not_materialized_select], status: covered, fact_refs: [delete_fact_with_declaration, delete_fact_with_body_grammar]}
+  - {id: delete_feature_with_recursive, value_refs: [delete_with_recursive_select], status: covered, coverage_mode: representative, fact_refs: [delete_fact_with_recursive, delete_open_recursive_cte_depth]}
+  - {id: delete_feature_with_values, value_refs: [delete_with_values], status: covered, fact_refs: [delete_fact_with_body_grammar]}
+  - {id: delete_feature_with_dml, value_refs: [delete_with_insert, delete_with_update, delete_with_delete], status: covered, fact_refs: [delete_fact_with_body_grammar]}
+  - {id: delete_feature_plan_hint, status: needs_profile, fact_refs: [delete_fact_plan_hint_position, delete_open_plan_hint_profile]}
+  - {id: delete_feature_single_using, value_refs: [delete_using_none, delete_using_lookup], status: covered, fact_refs: [delete_fact_using_clause]}
+  - {id: delete_feature_single_using_target_b, value_refs: [delete_using_target_b], status: covered, fact_refs: [delete_fact_using_repeat_scope, delete_fact_partitions_environment]}
+  - {id: delete_feature_where_condition, value_refs: [delete_predicate_none, delete_predicate_where], status: covered, fact_refs: [delete_fact_purpose, delete_fact_condition_behavior]}
+  - {id: delete_feature_where_current_of, value_refs: [delete_predicate_current_of], status: covered, fact_refs: [delete_fact_current_of_grammar, delete_fact_current_of_constraints]}
+  - {id: delete_feature_order_by, value_refs: [delete_order_expression, delete_order_asc, delete_order_desc, delete_order_using], status: covered, fact_refs: [delete_fact_order_limit_grammar]}
+  - {id: delete_feature_limit, value_refs: [delete_limit_one], status: covered, fact_refs: [delete_fact_order_limit_grammar]}
+  - {id: delete_feature_returning, value_refs: [delete_returning_all, delete_returning_expression], status: covered, fact_refs: [delete_fact_returning_grammar, delete_fact_returning_behavior]}
+
+fact_refs:
+  - delete_fact_target_grammar
+  - delete_fact_table_target
+  - delete_fact_only_semantics
+  - delete_fact_alias
+  - delete_fact_view_target
+  - delete_fact_subquery_grammar
+  - delete_fact_subquery_target
+  - delete_fact_view_subquery_restrictions
+  - delete_fact_supported_table_types
+  - delete_fact_partition_grammar
+  - delete_fact_partitions_grammar
+  - delete_fact_partitions_environment
+  - delete_fact_with_declaration
+  - delete_fact_with_recursive
+  - delete_fact_with_body_grammar
+  - delete_fact_plan_hint_position
+  - delete_fact_using_clause
+  - delete_fact_using_repeat_scope
+  - delete_fact_condition_behavior
+  - delete_fact_current_of_grammar
+  - delete_fact_current_of_constraints
+  - delete_fact_order_limit_grammar
+  - delete_fact_returning_grammar
+  - delete_fact_returning_behavior

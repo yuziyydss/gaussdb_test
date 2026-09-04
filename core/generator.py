@@ -17,10 +17,14 @@ class GeneratedCase:
                  expected_sqlstates: List[str] = None,
                  expected_error_category: str = "",
                  expected_error_regex: str = "",
+                 expected_oracle_status: str = "confirmed",
+                 expected_scope: str = "syntax_and_semantics",
                  setup_sqls: List[str] = None,
                  teardown_sqls: List[str] = None,
                  context: str = "default",
-                 preconditions: List[str] = None):
+                 preconditions: List[str] = None,
+                 consumed_dimension_ids: List[str] = None,
+                 environment_requirements: List[dict] = None):
         self.factor_id = factor_id
         self.case_id = case_id
         self.strategy = strategy
@@ -41,11 +45,19 @@ class GeneratedCase:
 
         self.expected_error_category = expected_error_category
         self.expected_error_regex = expected_error_regex
+        self.expected_oracle_status = expected_oracle_status
+        self.expected_scope = expected_scope
         self.setup_sqls = setup_sqls or []
         self.teardown_sqls = teardown_sqls or []
         self.context = context
         # 保留 fixture ID 以便报告追溯；setup/teardown 已编译进本用例。
         self.preconditions = preconditions or []
+        # 只记录实际参与本条 SQL 渲染的维度；params 仍保留完整组合，供 Pairwise
+        # 证据与 case_id 稳定性使用。
+        self.consumed_dimension_ids = sorted(set(consumed_dimension_ids or []))
+        # 执行环境是目标错误身份的一部分；不满足时只能跳过，不能用环境错误
+        # 误判目标 negative rule 已命中。
+        self.environment_requirements = environment_requirements or []
 
     def to_dict(self) -> dict:
         return {
@@ -59,10 +71,14 @@ class GeneratedCase:
             "expected_sqlstates": self.expected_sqlstates,
             "expected_error_category": self.expected_error_category,
             "expected_error_regex": self.expected_error_regex,
+            "expected_oracle_status": self.expected_oracle_status,
+            "expected_scope": self.expected_scope,
             "setup_sqls": self.setup_sqls,
             "teardown_sqls": self.teardown_sqls,
             "context": self.context,
             "preconditions": self.preconditions,
+            "consumed_dimension_ids": self.consumed_dimension_ids,
+            "environment_requirements": self.environment_requirements,
         }
 
 

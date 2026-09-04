@@ -1,43 +1,82 @@
 schema_version: 1
 kind: matrix
 id: matrix_create_index_table_profiles
-name: CREATE INDEX 目标表能力剖面
-status: needs_review
-description: 普通、临时、分区和待补充二级分区表目标。
+name: CREATE INDEX 目标表存储能力矩阵
+status: ready
+description: 区分 ASTORE/USTORE、普通/临时/分区以及倒排或 GiST 所需列类型。
 factor_ref: create_index
-profile_property_defaults: {}
+profile_property_defaults:
+  partitioned: false
+  temporary: false
+  online_supported: true
 profiles:
-  - id: ci_table_regular
-    render: t_ci_regular
+  - id: ci_table_astore_regular
+    render: t_ci_astore
     validity: valid
-    fixture_refs: [fixture_create_index_regular]
-    properties: {partitioned: false, temporary: false, source_tables: [t_ci_regular]}
-    fact_refs: [ci_fact_main_grammar]
-  - id: ci_table_temporary
+    fixture_refs: [fixture_create_index_astore_regular]
+    properties: {storage_engine: ASTORE, supported_methods: [ci_method_default, ci_method_btree, ci_method_ubtree], source_tables: [t_ci_astore]}
+    fact_refs: [ci_fact_main_grammar, ci_fact_method_storage_contract]
+  - id: ci_table_schema_astore
+    render: ci_target_schema.t_ci_schema
+    validity: valid
+    fixture_refs: [fixture_create_index_schema_qualified]
+    properties: {storage_engine: ASTORE, supported_methods: [ci_method_default, ci_method_btree, ci_method_ubtree], source_tables: [ci_target_schema.t_ci_schema]}
+    fact_refs: [ci_fact_identifiers, ci_fact_method_storage_contract]
+  - id: ci_table_ustore_regular
+    render: t_ci_ustore
+    validity: valid
+    fixture_refs: [fixture_create_index_ustore_regular]
+    properties: {storage_engine: USTORE, supported_methods: [ci_method_default, ci_method_btree, ci_method_ubtree], source_tables: [t_ci_ustore]}
+    fact_refs: [ci_fact_method_storage_contract]
+  - id: ci_table_astore_temporary
     render: t_ci_temp
     validity: valid
     fixture_refs: [fixture_create_index_temporary]
-    properties: {partitioned: false, temporary: true, source_tables: [t_ci_temp]}
+    properties: {storage_engine: ASTORE, supported_methods: [ci_method_default, ci_method_btree, ci_method_ubtree], temporary: true, source_tables: [t_ci_temp]}
     fact_refs: [ci_fact_concurrently]
-  - id: ci_table_partitioned
+  - id: ci_table_astore_partitioned
     render: t_ci_partitioned
     validity: valid
     fixture_refs: [fixture_create_index_partitioned]
-    properties: {partitioned: true, temporary: false, partition_key: id, partition_count: 2, source_tables: [t_ci_partitioned]}
+    properties: {storage_engine: ASTORE, supported_methods: [ci_method_default, ci_method_btree, ci_method_ubtree, ci_method_gin], partitioned: true, partition_key: id, partition_count: 2, source_tables: [t_ci_partitioned]}
     fact_refs: [ci_fact_partition_grammar, ci_fact_partition_scope]
+  - id: ci_table_ugin_text
+    render: t_ci_ugin_text
+    validity: valid
+    fixture_refs: [fixture_create_index_ugin_text]
+    properties: {storage_engine: USTORE, supported_methods: [ci_method_ugin], source_tables: [t_ci_ugin_text]}
+    fact_refs: [ci_fact_ugin_capability, ci_fact_ugin_opclass]
+  - id: ci_table_ugin_array
+    render: t_ci_ugin_array
+    validity: valid
+    fixture_refs: [fixture_create_index_ugin_array]
+    properties: {storage_engine: USTORE, supported_methods: [ci_method_ugin], source_tables: [t_ci_ugin_array]}
+    fact_refs: [ci_fact_ugin_capability, ci_fact_ugin_opclass]
+  - id: ci_table_gin_array
+    render: t_ci_gin_array
+    validity: valid
+    fixture_refs: [fixture_create_index_gin_array]
+    properties: {storage_engine: ASTORE, supported_methods: [ci_method_gin], source_tables: [t_ci_gin_array]}
+    fact_refs: [ci_fact_gin_capability]
+  - id: ci_table_gist_point
+    render: t_ci_gist_point
+    validity: valid
+    fixture_refs: [fixture_create_index_gist_point]
+    properties: {storage_engine: ASTORE, supported_methods: [ci_method_gist], source_tables: [t_ci_gist_point]}
+    fact_refs: [ci_fact_gist_capability]
   - id: ci_table_subpartitioned
     render: t_ci_subpartitioned
     validity: conditional
-    properties: {partitioned: true, subpartitioned: true, temporary: false, source_tables: [t_ci_subpartitioned]}
+    properties: {storage_engine: ASTORE, supported_methods: [ci_method_default, ci_method_btree, ci_method_ubtree], partitioned: true, subpartitioned: true, source_tables: [t_ci_subpartitioned], online_supported: false}
     fact_refs: [ci_open_subpartition_fixture]
-
 documented_features:
-  - {id: ci_feature_regular_table, profile_refs: [ci_table_regular], status: covered, fact_refs: [ci_fact_main_grammar]}
-  - {id: ci_feature_temporary_table, profile_refs: [ci_table_temporary], status: covered, fact_refs: [ci_fact_concurrently]}
-  - {id: ci_feature_partition_table, profile_refs: [ci_table_partitioned], status: covered, fact_refs: [ci_fact_partition_grammar]}
+  - {id: ci_feature_astore_regular, profile_refs: [ci_table_astore_regular], status: covered, fact_refs: [ci_fact_main_grammar]}
+  - {id: ci_feature_schema_qualified_table, profile_refs: [ci_table_schema_astore], status: covered, fact_refs: [ci_fact_identifiers]}
+  - {id: ci_feature_ustore_regular, profile_refs: [ci_table_ustore_regular], status: covered, fact_refs: [ci_fact_method_storage_contract]}
+  - {id: ci_feature_temporary_table, profile_refs: [ci_table_astore_temporary], status: covered, fact_refs: [ci_fact_concurrently]}
+  - {id: ci_feature_partition_table, profile_refs: [ci_table_astore_partitioned], status: covered, fact_refs: [ci_fact_partition_grammar]}
+  - {id: ci_feature_ugin_fixture, profile_refs: [ci_table_ugin_text, ci_table_ugin_array], status: covered, fact_refs: [ci_fact_ugin_capability]}
+  - {id: ci_feature_gin_fixture, profile_refs: [ci_table_gin_array], status: covered, fact_refs: [ci_fact_gin_capability]}
+  - {id: ci_feature_gist_fixture, profile_refs: [ci_table_gist_point], status: covered, fact_refs: [ci_fact_gist_capability]}
   - {id: ci_feature_subpartition_table, status: needs_profile, fact_refs: [ci_open_subpartition_fixture]}
-  - {id: ci_feature_default_partition_scope, status: needs_profile, fact_refs: [ci_open_partition_default_scope]}
-  - {id: ci_feature_tde_fixture, status: needs_profile, fact_refs: [ci_open_tde_fixture]}
-  - {id: ci_feature_partial_index_grammar, status: needs_profile, fact_refs: [ci_open_partial_index_grammar]}
-  - {id: ci_feature_if_not_exists_unnamed, status: needs_profile, fact_refs: [ci_open_if_not_exists_unnamed]}
-fact_refs: [ci_fact_main_grammar, ci_fact_partition_grammar]
+fact_refs: [ci_fact_main_grammar, ci_fact_partition_grammar, ci_fact_method_storage_contract]

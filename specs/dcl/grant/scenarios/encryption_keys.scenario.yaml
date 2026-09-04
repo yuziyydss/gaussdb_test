@@ -1,0 +1,17 @@
+schema_version: 1
+kind: scenario
+id: scenario_grant_encryption_keys
+name: GRANT CMK 与 CEK 文档示例
+status: planned
+description: 在密态客户端环境创建 CMK/CEK，授权 USAGE，并用 has_cek_privilege 验证 CEK 元数据。
+factor_ref: grant
+fixture_refs: []
+fact_refs: [grant_fact_encryption_environment, grant_fact_encryption_key_oracle, grant_example_encryption_keys]
+preconditions: [gsql 客户端启用 -C, 有效 KEY_STORE 与 KEY_PATH, 独立清理环境]
+steps:
+  - {id: create_keys, action: execute_documented_key_setup}
+  - {id: grant_keys, action: execute_sql, detail: "分别 GRANT USAGE ON COLUMN_ENCRYPTION_KEY 与 CLIENT_MASTER_KEY"}
+  - {id: inspect, action: query, sql: "SELECT has_cek_privilege('newuser', 'MyCEK1', 'USAGE')"}
+oracles:
+  - {after_step: inspect, kind: scalar_equals, expected: true}
+execution_requirements: [database, client_encryption, secret_parameters, metadata_query]

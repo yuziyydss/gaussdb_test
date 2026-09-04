@@ -8,10 +8,20 @@
 
 ## 入口命令
 
-首次把已经按章节拆分的内网语料登记为队列：
+首次处理带书签的完整 PDF，先冻结并拆章：
 
 ```bash
-python3 scripts/manage_extraction_queue.py inventory --corpus-dir intranet_corpus
+python3 scripts/extract_pdf_sections.py \
+  --pdf gaussdb-rf-cent.pdf \
+  --output-root intranet_corpus
+```
+
+再把带 source catalog 证据的章节语料登记为队列：
+
+```bash
+python3 scripts/manage_extraction_queue.py inventory \
+  --corpus-dir intranet_corpus \
+  --source-catalog intranet_corpus/catalog.json
 ```
 
 AI/操作者认领一项任务并生成任务文件：
@@ -38,5 +48,14 @@ python3 scripts/manage_extraction_queue.py verify --task-id <TASK_ID>
 ```
 
 只有任务信封对账和三道程序门禁全部成功，工具才会写入 `static_complete`。它表示“文档到静态 SQL 生成闭环”，不表示 planned scenario、真实数据库行为或目标 SQLSTATE 已经执行验证。
+
+整本 PDF 进度必须另外按目录分母审计：
+
+```bash
+python3 scripts/audit_pdf_catalog_coverage.py \
+  --source-catalog intranet_corpus/catalog.json \
+  --spec-root specs \
+  --queue work/doc2spec/queue.json
+```
 
 完整操作、目录约定、失败恢复和批量策略见 [内网批量抽取运行手册](docs/INTRANET_AI_BATCH_EXTRACTION.md)。Factor Package 数据契约见 [Factor Package Schema V1](docs/FACTOR_PACKAGE_SCHEMA_V1.md)。

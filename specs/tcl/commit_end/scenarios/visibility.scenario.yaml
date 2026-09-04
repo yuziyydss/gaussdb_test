@@ -1,0 +1,20 @@
+schema_version: 1
+kind: scenario
+id: scenario_commit_end_visibility
+name: COMMIT 与 END 提交可见性
+status: planned
+description: 分别使用 COMMIT 和 END，验证提交前后另一会话的数据可见性。
+factor_ref: commit_end
+fixture_refs: [fixture_commit_end_table]
+fact_refs: [commit_end_fact_commit_effect, commit_end_fact_visibility]
+preconditions: [两个独立数据库会话, 干净 fixture]
+steps:
+  - {id: begin, action: execute_session_a, sql: "BEGIN"}
+  - {id: insert, action: execute_session_a, sql: "INSERT INTO t_commit_end VALUES (1, 'pending')"}
+  - {id: before_commit, action: query_session_b, sql: "SELECT count(*) FROM t_commit_end WHERE id = 1"}
+  - {id: commit_variant, action: execute_session_a, variants: [COMMIT, END]}
+  - {id: after_commit, action: query_session_b, sql: "SELECT count(*) FROM t_commit_end WHERE id = 1"}
+oracles:
+  - {after_step: before_commit, kind: scalar_equals, expected: 0}
+  - {after_step: after_commit, kind: scalar_equals, expected: 1}
+execution_requirements: [database, two_sessions, transaction_control]

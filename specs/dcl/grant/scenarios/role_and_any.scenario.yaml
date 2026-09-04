@@ -1,0 +1,50 @@
+schema_version: 1
+kind: scenario
+id: scenario_grant_role_and_any
+name: GRANT 角色成员关系与 ANY 权限
+status: planned
+description: >-
+  将角色成员关系、SYSADMIN、ANY、DATABASE LINK 和 PUBLIC SYNONYM
+  五类会改变预置主体全局权限状态的授权隔离为计划中 lifecycle。
+  执行器必须先快照权限状态，只撤销本场景新增的差量，并证明收尾后与初始快照一致。
+factor_ref: grant
+fixture_refs: []
+fact_refs:
+  - grant_fact_role_syntax
+  - grant_fact_sysadmin_syntax
+  - grant_fact_any_syntax
+  - grant_fact_database_link_syntax
+  - grant_fact_database_link_public
+  - grant_fact_public_synonym_syntax
+  - grant_fact_public_synonym_builtin_roles
+  - grant_fact_system_privilege_noninheritance
+  - grant_fact_role_membership
+  - grant_fact_admin_option
+  - grant_fact_any_permissions
+  - grant_fact_any_database_scope
+  - grant_fact_any_owner_semantics
+  - grant_fact_any_privilege_semantics
+  - grant_fact_any_schema_usage
+  - grant_fact_role_admin_environment
+  - grant_fact_any_environment
+  - grant_fact_all_privileges_environment
+  - grant_example_role_membership
+preconditions:
+  - 专用隔离数据库与可查询的权限目录
+  - 由环境预置且允许本场景改变的测试角色
+  - 初始用户或符合三权分立限制的授权者
+  - 可跨数据库验证 ANY 作用域
+steps:
+  - {id: snapshot_before, action: snapshot_privilege_state, detail: "记录目标角色的成员关系、SYSADMIN、ANY、DATABASE LINK 和 PUBLIC SYNONYM 权限"}
+  - {id: role_variants, action: execute_grant_variants, detail: "验证单/双源角色、单/双接收角色和 ADMIN OPTION"}
+  - {id: sysadmin_variants, action: execute_grant_variants, detail: "验证 ALL PRIVILEGE 与 ALL PRIVILEGES 两种文档拼写"}
+  - {id: any_variants, action: execute_as_authority, detail: "逐项授予 ANY 权限并执行对应操作"}
+  - {id: database_link_variants, action: execute_grant_variants, detail: "验证 CREATE/ALTER/DROP 及可选 PUBLIC DATABASE LINK"}
+  - {id: public_synonym_variants, action: execute_grant_variants, detail: "验证 CREATE/DROP PUBLIC SYNONYM 及 ADMIN OPTION"}
+  - {id: scope_probe, action: execute_across_databases, detail: "比较当前数据库、其他数据库、public、用户模式和系统模式"}
+  - {id: revoke_exact_delta, action: restore_privilege_delta, detail: "仅撤销 snapshot_before 后新增的授权；不改动原有授权", always_run: true, pairs_with: snapshot_before}
+  - {id: snapshot_after, action: snapshot_privilege_state, detail: "重新读取权限目录"}
+oracles:
+  - {kind: role_and_any_matrix, expected: "对象权限随角色传播，系统权限不传播；ANY 仅在当前数据库按表 1-383 生效"}
+  - {kind: privilege_state_restored, expected: "snapshot_after 与 snapshot_before 完全一致"}
+execution_requirements: [database, multiple_users, multiple_databases, separation_of_duties_control, privilege_catalog_snapshot, reversible_privilege_cleanup, lifecycle_finalizer]

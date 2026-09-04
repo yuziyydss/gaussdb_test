@@ -1,0 +1,91 @@
+schema_version: 1
+kind: syntax
+id: syntax_grant
+name: GRANT 六类顶层产生式 AST
+category: DCL
+status: needs_review
+factor_ref: grant
+description: 使用顶层 choice 分离对象、角色、SYSADMIN、ANY、DATABASE LINK 和 PUBLIC SYNONYM；列表有限展开至一或二项。
+ast:
+  kind: choice
+  selector: statement_form
+  branches:
+    grant_form_object:
+      kind: sequence
+      items:
+        - {kind: literal, text: "GRANT "}
+        - {kind: slot, slot: object_privilege}
+        - {kind: literal, text: " ON "}
+        - {kind: slot, slot: object_target}
+        - {kind: literal, text: " TO "}
+        - {kind: slot, slot: object_grantee}
+        - {kind: slot, slot: grant_option}
+    grant_form_role_membership:
+      kind: sequence
+      items:
+        - {kind: literal, text: "GRANT "}
+        - {kind: slot, slot: role_source}
+        - {kind: literal, text: " TO "}
+        - {kind: slot, slot: role_recipient}
+        - {kind: slot, slot: admin_option}
+    grant_form_sysadmin:
+      kind: sequence
+      items:
+        - {kind: literal, text: "GRANT ALL "}
+        - {kind: slot, slot: sysadmin_spelling}
+        - {kind: literal, text: " TO "}
+        - {kind: slot, slot: role_recipient}
+    grant_form_any:
+      kind: sequence
+      items:
+        - {kind: literal, text: "GRANT "}
+        - {kind: slot, slot: any_privilege}
+        - {kind: literal, text: " TO "}
+        - {kind: slot, slot: role_recipient}
+        - {kind: slot, slot: admin_option}
+    grant_form_database_link:
+      kind: sequence
+      items:
+        - {kind: literal, text: "GRANT "}
+        - {kind: slot, slot: database_link_privilege}
+        - {kind: literal, text: " "}
+        - {kind: slot, slot: database_link_public}
+        - {kind: literal, text: "DATABASE LINK TO "}
+        - {kind: slot, slot: role_recipient}
+    grant_form_public_synonym:
+      kind: sequence
+      items:
+        - {kind: literal, text: "GRANT "}
+        - {kind: slot, slot: public_synonym_privilege}
+        - {kind: literal, text: " PUBLIC SYNONYM TO "}
+        - {kind: slot, slot: role_recipient}
+        - {kind: slot, slot: admin_option}
+subgrammars: {}
+rendering: {whitespace: collapse, statement_terminator: ";"}
+slots:
+  statement_form: {type: ast_selector, optional: false, dimension_ref: grant.statement_form}
+  object_privilege: {type: privilege_list, optional: true, dimension_ref: grant.object_privilege}
+  object_target: {type: object_target, optional: true, dimension_ref: grant.object_target}
+  object_grantee: {type: grantee_list, optional: true, dimension_ref: grant.object_grantee}
+  grant_option: {type: token, optional: true, dimension_ref: grant.grant_option}
+  role_source: {type: role_list, optional: true, dimension_ref: grant.role_source}
+  role_recipient: {type: role_list, optional: true, dimension_ref: grant.role_recipient}
+  admin_option: {type: token, optional: true, dimension_ref: grant.admin_option}
+  sysadmin_spelling: {type: choice, optional: true, dimension_ref: grant.sysadmin_spelling}
+  any_privilege: {type: privilege_list, optional: true, dimension_ref: grant.any_privilege}
+  database_link_privilege: {type: choice, optional: true, dimension_ref: grant.database_link_privilege}
+  database_link_public: {type: token, optional: true, dimension_ref: grant.database_link_public}
+  public_synonym_privilege: {type: choice, optional: true, dimension_ref: grant.public_synonym_privilege}
+source_fact_refs:
+  - grant_fact_purpose
+  - grant_fact_system_privileges
+  - grant_fact_object_grants
+  - grant_fact_role_syntax
+  - grant_fact_sysadmin_syntax
+  - grant_fact_any_syntax
+  - grant_fact_database_link_syntax
+  - grant_fact_public_synonym_syntax
+  - grant_fact_table_syntax
+  - grant_fact_column_syntax
+  - grant_fact_sequence_syntax
+  - grant_fact_schema_syntax

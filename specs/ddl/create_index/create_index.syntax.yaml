@@ -1,11 +1,14 @@
 schema_version: 1
 kind: syntax
 id: syntax_create_index_v1
-name: CREATE INDEX 双顶层 AST
+name: CREATE INDEX V10 双顶层 AST
 category: DDL
 status: ready
 factor_ref: create_index
-description: 使用普通表/分区表 choice、命名 subgrammar 和键列表 repeat 表达 CREATE INDEX。
+description: >-
+  严格按 V2.0-10.0.0 1.13.9.27 的普通表和分区表两个产生式建模；
+  共享尾部子句固定为 INCLUDE、WITH、ILM、TABLESPACE、COMMENT、可见性，
+  普通表产生式最后才允许 WHERE。
 
 ast:
   kind: choice
@@ -42,26 +45,29 @@ subgrammars:
           - {kind: literal, text: " "}
       ci_index_name_absent: {kind: literal, text: ""}
 
+  trailing_clauses:
+    kind: sequence
+    items:
+      - {kind: slot, slot: include_profile}
+      - {kind: slot, slot: storage_profile}
+      - {kind: slot, slot: ilm_clause}
+      - {kind: slot, slot: tablespace_clause}
+      - {kind: slot, slot: comment_clause}
+      - {kind: slot, slot: visibility_clause}
+
   regular_index:
     kind: sequence
     items:
       - {kind: ref, ref: prefix}
-      - {kind: slot, slot: include_profile}
-      - {kind: slot, slot: storage_profile}
-      - {kind: slot, slot: comment_clause}
-      - {kind: slot, slot: visibility_clause}
-      - {kind: slot, slot: tablespace_clause}
+      - {kind: ref, ref: trailing_clauses}
+      - {kind: slot, slot: predicate_clause}
 
   partition_index:
     kind: sequence
     items:
       - {kind: ref, ref: prefix}
       - {kind: slot, slot: scope_clause}
-      - {kind: slot, slot: include_profile}
-      - {kind: slot, slot: storage_profile}
-      - {kind: slot, slot: comment_clause}
-      - {kind: slot, slot: visibility_clause}
-      - {kind: slot, slot: tablespace_clause}
+      - {kind: ref, ref: trailing_clauses}
 
 rendering: {whitespace: collapse, statement_terminator: ";"}
 
@@ -78,9 +84,11 @@ slots:
   scope_clause: {type: sql_fragment, optional: true, dimension_ref: create_index.scope_clause}
   include_profile: {type: sql_fragment, optional: true, dimension_ref: create_index.include_profile}
   storage_profile: {type: sql_fragment, optional: true, dimension_ref: create_index.storage_profile}
+  ilm_clause: {type: sql_fragment, optional: true, dimension_ref: create_index.ilm_clause}
+  tablespace_clause: {type: sql_fragment, optional: true, dimension_ref: create_index.tablespace_clause}
   comment_clause: {type: sql_fragment, optional: true, dimension_ref: create_index.comment_clause}
   visibility_clause: {type: sql_fragment, optional: true, dimension_ref: create_index.visibility_clause}
-  tablespace_clause: {type: sql_fragment, optional: true, dimension_ref: create_index.tablespace_clause}
+  predicate_clause: {type: sql_fragment, optional: true, dimension_ref: create_index.predicate_clause}
 
 source_fact_refs:
   - ci_fact_purpose
@@ -90,11 +98,16 @@ source_fact_refs:
   - ci_fact_concurrently
   - ci_fact_if_not_exists
   - ci_fact_identifiers
-  - ci_fact_method_btree
+  - ci_fact_method_catalog
+  - ci_fact_prefix_key
+  - ci_fact_collation
+  - ci_fact_opclass
   - ci_fact_sort_nulls
   - ci_fact_include
   - ci_fact_index_partition_clause
-  - ci_fact_fillfactor
+  - ci_fact_storage_parameters
+  - ci_fact_ilm
+  - ci_fact_tablespace
   - ci_fact_comment
   - ci_fact_visibility
-  - ci_fact_tablespace
+  - ci_fact_partial_index

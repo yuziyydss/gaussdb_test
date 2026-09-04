@@ -2,257 +2,291 @@
 -- static_only: true
 -- case_count: 17
 
--- case_id: manifest_create_index_concurrent_positive_aba053ff1442
+-- case_id: manifest_create_index_concurrent_positive_3b517e92d5fa
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
--- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id", "method": "ci_method_default", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_storage_none", "table_profile": "ci_table_regular", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_none"}
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
+-- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "ilm_clause": "ci_ilm_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id", "method": "ci_method_default", "predicate_clause": "ci_predicate_none", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_storage_none", "table_profile": "ci_table_astore_regular", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_none"}
 -- fixture_setup:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
-CREATE TABLE t_ci_regular (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB);
-INSERT INTO t_ci_regular (id, note, name, postcode, payload) VALUES (1, 'one', 'Alpha', '100001', NULL), (2, 'two', 'Beta', '100002', NULL);
+DROP TABLE IF EXISTS t_ci_astore CASCADE;
+CREATE TABLE t_ci_astore (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6));
+INSERT INTO t_ci_astore (id, note, name, postcode) VALUES (1, 'one', 'Alpha', '100001'), (2, 'two', 'Beta', '100002');
 -- test_sql:
-CREATE INDEX CONCURRENTLY idx_ci_online_aba053ff ON t_ci_regular (id);
+CREATE INDEX CONCURRENTLY idx_ci_on_3b517e92 ON t_ci_astore (id);
 -- fixture_teardown:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
+DROP TABLE IF EXISTS t_ci_astore CASCADE;
 
--- case_id: manifest_create_index_concurrent_positive_91958b80edc8
+-- case_id: manifest_create_index_concurrent_positive_644e75d225d2
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
--- params: {"comment_clause": "ci_comment_basic", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists", "include_profile": "ci_include_note", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_name_asc_nulls_last", "method": "ci_method_btree", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_fillfactor_70", "table_profile": "ci_table_temporary", "tablespace_clause": "ci_tablespace_default", "unique_modifier": "ci_unique", "visibility_clause": "ci_visibility_visible"}
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
+-- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists", "ilm_clause": "ci_ilm_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id_note", "method": "ci_method_btree", "predicate_clause": "ci_predicate_none", "scope_clause": "ci_scope_local", "statement_form": "ci_statement_partition", "storage_profile": "ci_fillfactor_70", "table_profile": "ci_table_astore_partitioned", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique", "visibility_clause": "ci_visibility_none"}
+-- fixture_setup:
+DROP TABLE IF EXISTS t_ci_partitioned CASCADE;
+CREATE TABLE t_ci_partitioned (id INTEGER, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB, info INT[]) WITH (storage_type=astore) PARTITION BY RANGE (id) (PARTITION p_low VALUES LESS THAN (100), PARTITION p_max VALUES LESS THAN (MAXVALUE));
+INSERT INTO t_ci_partitioned (id, note, name, postcode, info) VALUES (1, 'one', 'Alpha', '300001', ARRAY[1,2]), (101, 'two', 'Beta', '300002', ARRAY[2,3]);
+-- test_sql:
+CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS idx_ci_on_644e75d2 ON t_ci_partitioned USING btree (id, note) LOCAL WITH (fillfactor = 70);
+-- fixture_teardown:
+DROP TABLE IF EXISTS t_ci_partitioned CASCADE;
+
+-- case_id: manifest_create_index_concurrent_positive_fcfad80b12ed
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
+-- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists", "ilm_clause": "ci_ilm_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_name_asc_nulls_last", "method": "ci_method_ubtree", "predicate_clause": "ci_predicate_none", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_fillfactor_70", "table_profile": "ci_table_ustore_regular", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_none"}
+-- fixture_setup:
+DROP TABLE IF EXISTS t_ci_ustore CASCADE;
+CREATE TABLE t_ci_ustore (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6)) WITH (storage_type=ustore);
+INSERT INTO t_ci_ustore (id, note, name, postcode) VALUES (1, 'one', 'Alpha', '100001'), (2, 'two', 'Beta', '100002');
+-- test_sql:
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_ci_on_fcfad80b ON t_ci_ustore USING ubtree (name ASC NULLS LAST) WITH (fillfactor = 70);
+-- fixture_teardown:
+DROP TABLE IF EXISTS t_ci_ustore CASCADE;
+
+-- case_id: manifest_create_index_concurrent_positive_c6fbf9877358
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
+-- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "ilm_clause": "ci_ilm_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_name_asc_nulls_last", "method": "ci_method_ubtree", "predicate_clause": "ci_predicate_none", "scope_clause": "ci_scope_global", "statement_form": "ci_statement_partition", "storage_profile": "ci_storage_none", "table_profile": "ci_table_astore_partitioned", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique", "visibility_clause": "ci_visibility_none"}
+-- fixture_setup:
+DROP TABLE IF EXISTS t_ci_partitioned CASCADE;
+CREATE TABLE t_ci_partitioned (id INTEGER, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB, info INT[]) WITH (storage_type=astore) PARTITION BY RANGE (id) (PARTITION p_low VALUES LESS THAN (100), PARTITION p_max VALUES LESS THAN (MAXVALUE));
+INSERT INTO t_ci_partitioned (id, note, name, postcode, info) VALUES (1, 'one', 'Alpha', '300001', ARRAY[1,2]), (101, 'two', 'Beta', '300002', ARRAY[2,3]);
+-- test_sql:
+CREATE UNIQUE INDEX CONCURRENTLY idx_ci_on_c6fbf987 ON t_ci_partitioned USING ubtree (name ASC NULLS LAST) GLOBAL;
+-- fixture_teardown:
+DROP TABLE IF EXISTS t_ci_partitioned CASCADE;
+
+-- case_id: manifest_create_index_concurrent_positive_5e1ec0a1e1a2
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
+-- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "ilm_clause": "ci_ilm_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id_note", "method": "ci_method_btree", "predicate_clause": "ci_predicate_none", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_storage_none", "table_profile": "ci_table_astore_temporary", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_ci_temp CASCADE;
 CREATE TEMP TABLE t_ci_temp (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB);
 INSERT INTO t_ci_temp (id, note, name, postcode, payload) VALUES (11, 'temp_one', 'TempAlpha', '200001', NULL), (12, 'temp_two', 'TempBeta', '200002', NULL);
 -- test_sql:
-CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS idx_ci_online_91958b80 ON t_ci_temp USING btree (name ASC NULLS LAST) INCLUDE (note) WITH (fillfactor = 70) COMMENT 'factor index' VISIBLE TABLESPACE gs_default;
+CREATE INDEX CONCURRENTLY idx_ci_on_5e1ec0a1 ON t_ci_temp USING btree (id, note);
 -- fixture_teardown:
 DROP TABLE IF EXISTS t_ci_temp CASCADE;
 
--- case_id: manifest_create_index_concurrent_positive_48c63d61cc20
+-- case_id: manifest_create_index_concurrent_positive_3522ed914461
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
--- params: {"comment_clause": "ci_comment_basic", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "include_profile": "ci_include_note_postcode", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_name_desc_nulls_first", "method": "ci_method_default", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_fillfactor_70", "table_profile": "ci_table_regular", "tablespace_clause": "ci_tablespace_default", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_invisible"}
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
+-- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists", "ilm_clause": "ci_ilm_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id", "method": "ci_method_default", "predicate_clause": "ci_predicate_none", "scope_clause": "ci_scope_global", "statement_form": "ci_statement_partition", "storage_profile": "ci_fillfactor_70", "table_profile": "ci_table_astore_partitioned", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_none"}
 -- fixture_setup:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
-CREATE TABLE t_ci_regular (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB);
-INSERT INTO t_ci_regular (id, note, name, postcode, payload) VALUES (1, 'one', 'Alpha', '100001', NULL), (2, 'two', 'Beta', '100002', NULL);
+DROP TABLE IF EXISTS t_ci_partitioned CASCADE;
+CREATE TABLE t_ci_partitioned (id INTEGER, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB, info INT[]) WITH (storage_type=astore) PARTITION BY RANGE (id) (PARTITION p_low VALUES LESS THAN (100), PARTITION p_max VALUES LESS THAN (MAXVALUE));
+INSERT INTO t_ci_partitioned (id, note, name, postcode, info) VALUES (1, 'one', 'Alpha', '300001', ARRAY[1,2]), (101, 'two', 'Beta', '300002', ARRAY[2,3]);
 -- test_sql:
-CREATE INDEX CONCURRENTLY idx_ci_online_48c63d61 ON t_ci_regular (name DESC NULLS FIRST) INCLUDE (note, postcode) WITH (fillfactor = 70) COMMENT 'factor index' INVISIBLE TABLESPACE gs_default;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_ci_on_3522ed91 ON t_ci_partitioned (id) GLOBAL WITH (fillfactor = 70);
 -- fixture_teardown:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
+DROP TABLE IF EXISTS t_ci_partitioned CASCADE;
 
--- case_id: manifest_create_index_concurrent_positive_4f8672291db8
+-- case_id: manifest_create_index_concurrent_positive_081ac9def6ca
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
--- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists", "include_profile": "ci_include_note_postcode", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_name_desc_nulls_last", "method": "ci_method_btree", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_storage_none", "table_profile": "ci_table_temporary", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique", "visibility_clause": "ci_visibility_invisible"}
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
+-- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "ilm_clause": "ci_ilm_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id", "method": "ci_method_default", "predicate_clause": "ci_predicate_none", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_storage_none", "table_profile": "ci_table_ustore_regular", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique", "visibility_clause": "ci_visibility_none"}
 -- fixture_setup:
-DROP TABLE IF EXISTS t_ci_temp CASCADE;
-CREATE TEMP TABLE t_ci_temp (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB);
-INSERT INTO t_ci_temp (id, note, name, postcode, payload) VALUES (11, 'temp_one', 'TempAlpha', '200001', NULL), (12, 'temp_two', 'TempBeta', '200002', NULL);
+DROP TABLE IF EXISTS t_ci_ustore CASCADE;
+CREATE TABLE t_ci_ustore (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6)) WITH (storage_type=ustore);
+INSERT INTO t_ci_ustore (id, note, name, postcode) VALUES (1, 'one', 'Alpha', '100001'), (2, 'two', 'Beta', '100002');
 -- test_sql:
-CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS idx_ci_online_4f867229 ON t_ci_temp USING btree (name DESC NULLS LAST) INCLUDE (note, postcode) INVISIBLE;
+CREATE UNIQUE INDEX CONCURRENTLY idx_ci_on_081ac9de ON t_ci_ustore (id);
 -- fixture_teardown:
-DROP TABLE IF EXISTS t_ci_temp CASCADE;
+DROP TABLE IF EXISTS t_ci_ustore CASCADE;
 
--- case_id: manifest_create_index_concurrent_positive_c7d7fc255103
+-- case_id: manifest_create_index_concurrent_positive_62037c381e44
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
--- params: {"comment_clause": "ci_comment_basic", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id_note", "method": "ci_method_btree", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_storage_none", "table_profile": "ci_table_temporary", "tablespace_clause": "ci_tablespace_default", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_none"}
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
+-- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "ilm_clause": "ci_ilm_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_name_asc_nulls_last", "method": "ci_method_btree", "predicate_clause": "ci_predicate_none", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_fillfactor_70", "table_profile": "ci_table_astore_regular", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique", "visibility_clause": "ci_visibility_none"}
 -- fixture_setup:
-DROP TABLE IF EXISTS t_ci_temp CASCADE;
-CREATE TEMP TABLE t_ci_temp (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB);
-INSERT INTO t_ci_temp (id, note, name, postcode, payload) VALUES (11, 'temp_one', 'TempAlpha', '200001', NULL), (12, 'temp_two', 'TempBeta', '200002', NULL);
+DROP TABLE IF EXISTS t_ci_astore CASCADE;
+CREATE TABLE t_ci_astore (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6));
+INSERT INTO t_ci_astore (id, note, name, postcode) VALUES (1, 'one', 'Alpha', '100001'), (2, 'two', 'Beta', '100002');
 -- test_sql:
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_ci_online_c7d7fc25 ON t_ci_temp USING btree (id, note) COMMENT 'factor index' TABLESPACE gs_default;
+CREATE UNIQUE INDEX CONCURRENTLY idx_ci_on_62037c38 ON t_ci_astore USING btree (name ASC NULLS LAST) WITH (fillfactor = 70);
 -- fixture_teardown:
-DROP TABLE IF EXISTS t_ci_temp CASCADE;
+DROP TABLE IF EXISTS t_ci_astore CASCADE;
 
--- case_id: manifest_create_index_concurrent_positive_83c29cb056a6
+-- case_id: manifest_create_index_concurrent_positive_e0459653acce
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
--- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "include_profile": "ci_include_note", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_name_asc_nulls_last", "method": "ci_method_default", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_storage_none", "table_profile": "ci_table_regular", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_visible"}
--- fixture_setup:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
-CREATE TABLE t_ci_regular (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB);
-INSERT INTO t_ci_regular (id, note, name, postcode, payload) VALUES (1, 'one', 'Alpha', '100001', NULL), (2, 'two', 'Beta', '100002', NULL);
--- test_sql:
-CREATE INDEX CONCURRENTLY idx_ci_online_83c29cb0 ON t_ci_regular (name ASC NULLS LAST) INCLUDE (note) VISIBLE;
--- fixture_teardown:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
-
--- case_id: manifest_create_index_concurrent_positive_4c4bd36ec0c9
--- expected: success
--- expected_error_category: -
--- expected_sqlstates: -
--- expected_error_regex: -
--- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id_note", "method": "ci_method_default", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_fillfactor_70", "table_profile": "ci_table_regular", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique", "visibility_clause": "ci_visibility_none"}
--- fixture_setup:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
-CREATE TABLE t_ci_regular (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB);
-INSERT INTO t_ci_regular (id, note, name, postcode, payload) VALUES (1, 'one', 'Alpha', '100001', NULL), (2, 'two', 'Beta', '100002', NULL);
--- test_sql:
-CREATE UNIQUE INDEX CONCURRENTLY idx_ci_online_4c4bd36e ON t_ci_regular (id, note) WITH (fillfactor = 70);
--- fixture_teardown:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
-
--- case_id: manifest_create_index_concurrent_positive_d369005a9e52
--- expected: success
--- expected_error_category: -
--- expected_sqlstates: -
--- expected_error_regex: -
--- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_name_desc_nulls_last", "method": "ci_method_btree", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_fillfactor_70", "table_profile": "ci_table_regular", "tablespace_clause": "ci_tablespace_default", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_visible"}
--- fixture_setup:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
-CREATE TABLE t_ci_regular (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB);
-INSERT INTO t_ci_regular (id, note, name, postcode, payload) VALUES (1, 'one', 'Alpha', '100001', NULL), (2, 'two', 'Beta', '100002', NULL);
--- test_sql:
-CREATE INDEX CONCURRENTLY idx_ci_online_d369005a ON t_ci_regular USING btree (name DESC NULLS LAST) WITH (fillfactor = 70) VISIBLE TABLESPACE gs_default;
--- fixture_teardown:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
-
--- case_id: manifest_create_index_concurrent_positive_1d864180d676
--- expected: success
--- expected_error_category: -
--- expected_sqlstates: -
--- expected_error_regex: -
--- params: {"comment_clause": "ci_comment_basic", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists", "include_profile": "ci_include_note", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id", "method": "ci_method_default", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_fillfactor_70", "table_profile": "ci_table_temporary", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique", "visibility_clause": "ci_visibility_invisible"}
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
+-- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists", "ilm_clause": "ci_ilm_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_name_asc_nulls_last", "method": "ci_method_default", "predicate_clause": "ci_predicate_none", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_storage_none", "table_profile": "ci_table_astore_temporary", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique", "visibility_clause": "ci_visibility_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_ci_temp CASCADE;
 CREATE TEMP TABLE t_ci_temp (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB);
 INSERT INTO t_ci_temp (id, note, name, postcode, payload) VALUES (11, 'temp_one', 'TempAlpha', '200001', NULL), (12, 'temp_two', 'TempBeta', '200002', NULL);
 -- test_sql:
-CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS idx_ci_online_1d864180 ON t_ci_temp (id) INCLUDE (note) WITH (fillfactor = 70) COMMENT 'factor index' INVISIBLE;
+CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS idx_ci_on_e0459653 ON t_ci_temp (name ASC NULLS LAST);
 -- fixture_teardown:
 DROP TABLE IF EXISTS t_ci_temp CASCADE;
 
--- case_id: manifest_create_index_concurrent_positive_61432d393cd5
+-- case_id: manifest_create_index_concurrent_positive_dd8631bdc579
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
--- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "include_profile": "ci_include_note", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_name_desc_nulls_first", "method": "ci_method_btree", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_storage_none", "table_profile": "ci_table_temporary", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique", "visibility_clause": "ci_visibility_none"}
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
+-- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "ilm_clause": "ci_ilm_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id", "method": "ci_method_ubtree", "predicate_clause": "ci_predicate_none", "scope_clause": "ci_scope_local", "statement_form": "ci_statement_partition", "storage_profile": "ci_storage_none", "table_profile": "ci_table_astore_partitioned", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_none"}
+-- fixture_setup:
+DROP TABLE IF EXISTS t_ci_partitioned CASCADE;
+CREATE TABLE t_ci_partitioned (id INTEGER, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB, info INT[]) WITH (storage_type=astore) PARTITION BY RANGE (id) (PARTITION p_low VALUES LESS THAN (100), PARTITION p_max VALUES LESS THAN (MAXVALUE));
+INSERT INTO t_ci_partitioned (id, note, name, postcode, info) VALUES (1, 'one', 'Alpha', '300001', ARRAY[1,2]), (101, 'two', 'Beta', '300002', ARRAY[2,3]);
+-- test_sql:
+CREATE INDEX CONCURRENTLY idx_ci_on_dd8631bd ON t_ci_partitioned USING ubtree (id) LOCAL;
+-- fixture_teardown:
+DROP TABLE IF EXISTS t_ci_partitioned CASCADE;
+
+-- case_id: manifest_create_index_concurrent_positive_56cbf6fa0df3
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
+-- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists", "ilm_clause": "ci_ilm_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id_note", "method": "ci_method_ubtree", "predicate_clause": "ci_predicate_none", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_storage_none", "table_profile": "ci_table_astore_regular", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_none"}
+-- fixture_setup:
+DROP TABLE IF EXISTS t_ci_astore CASCADE;
+CREATE TABLE t_ci_astore (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6));
+INSERT INTO t_ci_astore (id, note, name, postcode) VALUES (1, 'one', 'Alpha', '100001'), (2, 'two', 'Beta', '100002');
+-- test_sql:
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_ci_on_56cbf6fa ON t_ci_astore USING ubtree (id, note);
+-- fixture_teardown:
+DROP TABLE IF EXISTS t_ci_astore CASCADE;
+
+-- case_id: manifest_create_index_concurrent_positive_464096335629
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
+-- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "ilm_clause": "ci_ilm_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id", "method": "ci_method_btree", "predicate_clause": "ci_predicate_none", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_fillfactor_70", "table_profile": "ci_table_astore_temporary", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_ci_temp CASCADE;
 CREATE TEMP TABLE t_ci_temp (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB);
 INSERT INTO t_ci_temp (id, note, name, postcode, payload) VALUES (11, 'temp_one', 'TempAlpha', '200001', NULL), (12, 'temp_two', 'TempBeta', '200002', NULL);
 -- test_sql:
-CREATE UNIQUE INDEX CONCURRENTLY idx_ci_online_61432d39 ON t_ci_temp USING btree (name DESC NULLS FIRST) INCLUDE (note);
+CREATE INDEX CONCURRENTLY idx_ci_on_46409633 ON t_ci_temp USING btree (id) WITH (fillfactor = 70);
 -- fixture_teardown:
 DROP TABLE IF EXISTS t_ci_temp CASCADE;
 
--- case_id: manifest_create_index_concurrent_positive_15fd8c6b759e
+-- case_id: manifest_create_index_concurrent_positive_4f10918c1688
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
--- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists", "include_profile": "ci_include_note_postcode", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id", "method": "ci_method_btree", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_storage_none", "table_profile": "ci_table_regular", "tablespace_clause": "ci_tablespace_default", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_visible"}
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
+-- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "ilm_clause": "ci_ilm_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id_note", "method": "ci_method_default", "predicate_clause": "ci_predicate_none", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_partition", "storage_profile": "ci_storage_none", "table_profile": "ci_table_astore_partitioned", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_none"}
 -- fixture_setup:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
-CREATE TABLE t_ci_regular (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB);
-INSERT INTO t_ci_regular (id, note, name, postcode, payload) VALUES (1, 'one', 'Alpha', '100001', NULL), (2, 'two', 'Beta', '100002', NULL);
+DROP TABLE IF EXISTS t_ci_partitioned CASCADE;
+CREATE TABLE t_ci_partitioned (id INTEGER, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB, info INT[]) WITH (storage_type=astore) PARTITION BY RANGE (id) (PARTITION p_low VALUES LESS THAN (100), PARTITION p_max VALUES LESS THAN (MAXVALUE));
+INSERT INTO t_ci_partitioned (id, note, name, postcode, info) VALUES (1, 'one', 'Alpha', '300001', ARRAY[1,2]), (101, 'two', 'Beta', '300002', ARRAY[2,3]);
 -- test_sql:
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_ci_online_15fd8c6b ON t_ci_regular USING btree (id) INCLUDE (note, postcode) VISIBLE TABLESPACE gs_default;
+CREATE INDEX CONCURRENTLY idx_ci_on_4f10918c ON t_ci_partitioned (id, note);
 -- fixture_teardown:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
+DROP TABLE IF EXISTS t_ci_partitioned CASCADE;
 
--- case_id: manifest_create_index_concurrent_positive_677a29962848
+-- case_id: manifest_create_index_concurrent_positive_db5e254da474
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
--- params: {"comment_clause": "ci_comment_basic", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "include_profile": "ci_include_note", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_name_desc_nulls_last", "method": "ci_method_default", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_storage_none", "table_profile": "ci_table_regular", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_none"}
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
+-- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "ilm_clause": "ci_ilm_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id_note", "method": "ci_method_btree", "predicate_clause": "ci_predicate_none", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_storage_none", "table_profile": "ci_table_ustore_regular", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_none"}
 -- fixture_setup:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
-CREATE TABLE t_ci_regular (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB);
-INSERT INTO t_ci_regular (id, note, name, postcode, payload) VALUES (1, 'one', 'Alpha', '100001', NULL), (2, 'two', 'Beta', '100002', NULL);
+DROP TABLE IF EXISTS t_ci_ustore CASCADE;
+CREATE TABLE t_ci_ustore (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6)) WITH (storage_type=ustore);
+INSERT INTO t_ci_ustore (id, note, name, postcode) VALUES (1, 'one', 'Alpha', '100001'), (2, 'two', 'Beta', '100002');
 -- test_sql:
-CREATE INDEX CONCURRENTLY idx_ci_online_677a2996 ON t_ci_regular (name DESC NULLS LAST) INCLUDE (note) COMMENT 'factor index';
+CREATE INDEX CONCURRENTLY idx_ci_on_db5e254d ON t_ci_ustore USING btree (id, note);
 -- fixture_teardown:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
+DROP TABLE IF EXISTS t_ci_ustore CASCADE;
 
--- case_id: manifest_create_index_concurrent_positive_c90442dfd420
+-- case_id: manifest_create_index_concurrent_positive_6c23c3a63567
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
--- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_name_asc_nulls_last", "method": "ci_method_default", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_storage_none", "table_profile": "ci_table_regular", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_invisible"}
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
+-- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "ilm_clause": "ci_ilm_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_name_asc_nulls_last", "method": "ci_method_default", "predicate_clause": "ci_predicate_none", "scope_clause": "ci_scope_local", "statement_form": "ci_statement_partition", "storage_profile": "ci_storage_none", "table_profile": "ci_table_astore_partitioned", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_none"}
 -- fixture_setup:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
-CREATE TABLE t_ci_regular (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB);
-INSERT INTO t_ci_regular (id, note, name, postcode, payload) VALUES (1, 'one', 'Alpha', '100001', NULL), (2, 'two', 'Beta', '100002', NULL);
+DROP TABLE IF EXISTS t_ci_partitioned CASCADE;
+CREATE TABLE t_ci_partitioned (id INTEGER, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB, info INT[]) WITH (storage_type=astore) PARTITION BY RANGE (id) (PARTITION p_low VALUES LESS THAN (100), PARTITION p_max VALUES LESS THAN (MAXVALUE));
+INSERT INTO t_ci_partitioned (id, note, name, postcode, info) VALUES (1, 'one', 'Alpha', '300001', ARRAY[1,2]), (101, 'two', 'Beta', '300002', ARRAY[2,3]);
 -- test_sql:
-CREATE INDEX CONCURRENTLY idx_ci_online_c90442df ON t_ci_regular (name ASC NULLS LAST) INVISIBLE;
+CREATE INDEX CONCURRENTLY idx_ci_on_6c23c3a6 ON t_ci_partitioned (name ASC NULLS LAST) LOCAL;
 -- fixture_teardown:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
+DROP TABLE IF EXISTS t_ci_partitioned CASCADE;
 
--- case_id: manifest_create_index_concurrent_positive_756caff9922c
+-- case_id: manifest_create_index_concurrent_positive_e498d95503cb
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
--- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "include_profile": "ci_include_note_postcode", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_name_asc_nulls_last", "method": "ci_method_default", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_storage_none", "table_profile": "ci_table_regular", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_none"}
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
+-- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "ilm_clause": "ci_ilm_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id_note", "method": "ci_method_btree", "predicate_clause": "ci_predicate_none", "scope_clause": "ci_scope_global", "statement_form": "ci_statement_partition", "storage_profile": "ci_storage_none", "table_profile": "ci_table_astore_partitioned", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_none"}
 -- fixture_setup:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
-CREATE TABLE t_ci_regular (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB);
-INSERT INTO t_ci_regular (id, note, name, postcode, payload) VALUES (1, 'one', 'Alpha', '100001', NULL), (2, 'two', 'Beta', '100002', NULL);
+DROP TABLE IF EXISTS t_ci_partitioned CASCADE;
+CREATE TABLE t_ci_partitioned (id INTEGER, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB, info INT[]) WITH (storage_type=astore) PARTITION BY RANGE (id) (PARTITION p_low VALUES LESS THAN (100), PARTITION p_max VALUES LESS THAN (MAXVALUE));
+INSERT INTO t_ci_partitioned (id, note, name, postcode, info) VALUES (1, 'one', 'Alpha', '300001', ARRAY[1,2]), (101, 'two', 'Beta', '300002', ARRAY[2,3]);
 -- test_sql:
-CREATE INDEX CONCURRENTLY idx_ci_online_756caff9 ON t_ci_regular (name ASC NULLS LAST) INCLUDE (note, postcode);
+CREATE INDEX CONCURRENTLY idx_ci_on_e498d955 ON t_ci_partitioned USING btree (id, note) GLOBAL;
 -- fixture_teardown:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
+DROP TABLE IF EXISTS t_ci_partitioned CASCADE;
 
--- case_id: manifest_create_index_concurrent_positive_cbef2744189e
+-- case_id: manifest_create_index_concurrent_positive_ef6c6ee3552f
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
--- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_name_desc_nulls_first", "method": "ci_method_default", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_storage_none", "table_profile": "ci_table_regular", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_visible"}
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
+-- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "ilm_clause": "ci_ilm_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id", "method": "ci_method_ubtree", "predicate_clause": "ci_predicate_none", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_storage_none", "table_profile": "ci_table_astore_temporary", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_none"}
 -- fixture_setup:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
-CREATE TABLE t_ci_regular (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB);
-INSERT INTO t_ci_regular (id, note, name, postcode, payload) VALUES (1, 'one', 'Alpha', '100001', NULL), (2, 'two', 'Beta', '100002', NULL);
+DROP TABLE IF EXISTS t_ci_temp CASCADE;
+CREATE TEMP TABLE t_ci_temp (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB);
+INSERT INTO t_ci_temp (id, note, name, postcode, payload) VALUES (11, 'temp_one', 'TempAlpha', '200001', NULL), (12, 'temp_two', 'TempBeta', '200002', NULL);
 -- test_sql:
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_ci_online_cbef2744 ON t_ci_regular (name DESC NULLS FIRST) VISIBLE;
+CREATE INDEX CONCURRENTLY idx_ci_on_ef6c6ee3 ON t_ci_temp USING ubtree (id);
 -- fixture_teardown:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
-
--- case_id: manifest_create_index_concurrent_positive_0ff3917ac2b0
--- expected: success
--- expected_error_category: -
--- expected_sqlstates: -
--- expected_error_regex: -
--- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id_note", "method": "ci_method_default", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_storage_none", "table_profile": "ci_table_regular", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_visible"}
--- fixture_setup:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
-CREATE TABLE t_ci_regular (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB);
-INSERT INTO t_ci_regular (id, note, name, postcode, payload) VALUES (1, 'one', 'Alpha', '100001', NULL), (2, 'two', 'Beta', '100002', NULL);
--- test_sql:
-CREATE INDEX CONCURRENTLY idx_ci_online_0ff3917a ON t_ci_regular (id, note) VISIBLE;
--- fixture_teardown:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
-
--- case_id: manifest_create_index_concurrent_positive_98f1b02bb38d
--- expected: success
--- expected_error_category: -
--- expected_sqlstates: -
--- expected_error_regex: -
--- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently", "if_not_exists": "ci_if_not_exists_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id_note", "method": "ci_method_default", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_storage_none", "table_profile": "ci_table_regular", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_invisible"}
--- fixture_setup:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
-CREATE TABLE t_ci_regular (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6), payload BLOB);
-INSERT INTO t_ci_regular (id, note, name, postcode, payload) VALUES (1, 'one', 'Alpha', '100001', NULL), (2, 'two', 'Beta', '100002', NULL);
--- test_sql:
-CREATE INDEX CONCURRENTLY idx_ci_online_98f1b02b ON t_ci_regular (id, note) INVISIBLE;
--- fixture_teardown:
-DROP TABLE IF EXISTS t_ci_regular CASCADE;
+DROP TABLE IF EXISTS t_ci_temp CASCADE;

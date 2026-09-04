@@ -1,15 +1,18 @@
 schema_version: 1
 kind: matrix
 id: matrix_create_index_key_profiles
-name: CREATE INDEX 键定义能力剖面
+name: CREATE INDEX 键定义与类型契约矩阵
 status: ready
-description: 保存列、组合键、排序空值位置和表达式的有限键列表及结构属性。
+description: >-
+  保存普通列、组合键、排序、表达式、前缀 length、COLLATE、opclass 以及
+  UGIN/GIN/GiST 专用键，并显式声明每个键可配的方法与 Fixture 列契约。
 factor_ref: create_index
 profile_property_defaults:
   definition_supported: true
   online_supported: true
   partition_supported: true
   contains_partition_key: false
+  allowed_methods: [ci_method_default, ci_method_btree, ci_method_ubtree]
 profiles:
   - id: ci_key_id
     render: ""
@@ -31,37 +34,90 @@ profiles:
     validity: valid
     properties: {items: ["name DESC NULLS FIRST"], key_column_count: 1, source_columns: [name], expression: false, partition_supported: false}
     fact_refs: [ci_fact_sort_nulls, ci_fact_partition_grammar]
-  - id: ci_key_name_desc_nulls_last
-    render: ""
-    validity: valid
-    properties: {items: ["name DESC NULLS LAST"], key_column_count: 1, source_columns: [name], expression: false}
-    fact_refs: [ci_fact_sort_nulls]
   - id: ci_key_expression_lower_name
     render: ""
     validity: valid
-    properties: {items: ["(lower(name))"], key_column_count: 1, source_columns: [name], expression: true, immutable: true, online_supported: false}
+    properties: {items: ["(lower(name))"], key_column_count: 1, source_columns: [name], expression: true, immutable: true}
     fact_refs: [ci_fact_expression, ci_fact_immutable]
   - id: ci_key_expression_abs_id
     render: ""
     validity: valid
-    properties: {items: ["(abs(id))"], key_column_count: 1, source_columns: [id], expression: true, immutable: true, online_supported: false, contains_partition_key: false}
+    properties: {items: ["(abs(id))"], key_column_count: 1, source_columns: [id], expression: true, immutable: true, contains_partition_key: false}
     fact_refs: [ci_fact_expression, ci_fact_immutable]
+  - id: ci_key_prefix_name_8
+    render: ""
+    validity: valid
+    properties: {items: ["name (8)"], key_column_count: 1, source_columns: [name], expression: true, prefix_length: 8}
+    fact_refs: [ci_fact_prefix_key]
+  - id: ci_key_name_collate_c
+    render: ""
+    validity: valid
+    properties: {items: ["name COLLATE \"C\""], key_column_count: 1, source_columns: [name], expression: false}
+    fact_refs: [ci_fact_collation]
+  - id: ci_key_name_pattern_ops
+    render: ""
+    validity: valid
+    properties: {items: ["name varchar_pattern_ops"], key_column_count: 1, source_columns: [name], expression: false}
+    fact_refs: [ci_fact_opclass]
+  - id: ci_key_ugin_trgm
+    render: ""
+    validity: valid
+    properties: {items: ["name ugin_trgm_ops"], key_column_count: 1, source_columns: [name], expression: false, online_supported: false, partition_supported: false, allowed_methods: [ci_method_ugin]}
+    fact_refs: [ci_fact_ugin_capability, ci_fact_ugin_opclass]
+  - id: ci_key_ugin_bool_array
+    render: ""
+    validity: valid
+    properties: {items: ["tags _bool_ops"], key_column_count: 1, source_columns: [tags], expression: false, online_supported: false, partition_supported: false, allowed_methods: [ci_method_ugin]}
+    fact_refs: [ci_fact_ugin_capability, ci_fact_ugin_opclass]
+  - id: ci_key_gin_array
+    render: ""
+    validity: valid
+    properties: {items: [info], key_column_count: 1, source_columns: [info], expression: false, online_supported: false, allowed_methods: [ci_method_gin]}
+    fact_refs: [ci_fact_gin_capability]
+  - id: ci_key_gist_point
+    render: ""
+    validity: valid
+    properties: {items: [location], key_column_count: 1, source_columns: [location], expression: false, online_supported: false, allowed_methods: [ci_method_gist]}
+    fact_refs: [ci_fact_gist_capability]
+  - id: ci_key_ugin_two_columns_invalid
+    render: ""
+    validity: invalid
+    properties: {items: ["name ugin_trgm_ops", "note ugin_trgm_ops"], key_column_count: 2, source_columns: [name, note], expression: false, online_supported: false, partition_supported: false, allowed_methods: [ci_method_ugin]}
+    fact_refs: [ci_fact_ugin_capability, ci_fact_ugin_opclass]
   - id: ci_key_expression_is_null_invalid
     render: ""
     validity: invalid
-    properties: {items: ["(id IS NULL)"], key_column_count: 1, source_columns: [id], expression: true, immutable: true, online_supported: false, definition_supported: false}
+    properties: {items: ["(id IS NULL)"], key_column_count: 1, source_columns: [id], expression: true, immutable: true, definition_supported: false}
     fact_refs: [ci_fact_expression]
-  - id: ci_key_blob_invalid
+  - id: ci_key_rowid_invalid
     render: ""
     validity: invalid
-    properties: {items: [payload], key_column_count: 1, source_columns: [payload], expression: false, definition_supported: false}
-    fact_refs: [ci_fact_lob_restriction]
-
+    properties: {items: [rowid], key_column_count: 1, source_columns: [], expression: false, definition_supported: false}
+    fact_refs: [ci_fact_system_column_restriction]
+  - id: ci_key_prefix_name_0_invalid
+    render: ""
+    validity: invalid
+    properties: {items: ["name (0)"], key_column_count: 1, source_columns: [name], expression: true, prefix_length: 0, definition_supported: false}
+    fact_refs: [ci_fact_prefix_key]
+  - id: ci_key_prefix_id_invalid
+    render: ""
+    validity: invalid
+    properties: {items: ["id (4)"], key_column_count: 1, source_columns: [id], expression: true, prefix_length: 4, definition_supported: false}
+    fact_refs: [ci_fact_prefix_key]
 documented_features:
   - {id: ci_feature_single_key, profile_refs: [ci_key_id], status: covered, fact_refs: [ci_fact_main_grammar]}
-  - {id: ci_feature_composite_key, profile_refs: [ci_key_id_note], status: covered, fact_refs: [ci_fact_key_column_limits]}
-  - {id: ci_feature_sort_and_nulls, profile_refs: [ci_key_name_asc_nulls_last, ci_key_name_desc_nulls_first, ci_key_name_desc_nulls_last], status: covered, fact_refs: [ci_fact_sort_nulls]}
-  - {id: ci_feature_expression, profile_refs: [ci_key_expression_lower_name, ci_key_expression_abs_id], status: covered, fact_refs: [ci_fact_expression]}
-  - {id: ci_feature_is_null_invalid, profile_refs: [ci_key_expression_is_null_invalid], status: covered, fact_refs: [ci_fact_expression]}
-  - {id: ci_feature_lob_invalid, profile_refs: [ci_key_blob_invalid], status: covered, fact_refs: [ci_fact_lob_restriction]}
-fact_refs: [ci_fact_expression, ci_fact_sort_nulls, ci_fact_lob_restriction]
+  - {id: ci_feature_composite_key_representative, profile_refs: [ci_key_id_note], status: covered, coverage_mode: representative, fact_refs: [ci_fact_key_column_limits]}
+  - {id: ci_feature_sort_and_nulls_representative, profile_refs: [ci_key_name_asc_nulls_last, ci_key_name_desc_nulls_first], status: covered, coverage_mode: representative, fact_refs: [ci_fact_sort_nulls]}
+  - {id: ci_feature_sort_and_nulls_full_domain, status: needs_profile, fact_refs: [ci_open_key_profile_domain_completion]}
+  - {id: ci_feature_expression_representative, profile_refs: [ci_key_expression_lower_name, ci_key_expression_abs_id], status: covered, coverage_mode: representative, fact_refs: [ci_fact_expression]}
+  - {id: ci_feature_prefix_length_representative, profile_refs: [ci_key_prefix_name_8], status: covered, coverage_mode: representative, fact_refs: [ci_fact_prefix_key]}
+  - {id: ci_feature_prefix_length_boundaries, status: needs_profile, fact_refs: [ci_open_key_profile_domain_completion]}
+  - {id: ci_feature_collate_representative, profile_refs: [ci_key_name_collate_c], status: covered, coverage_mode: representative, fact_refs: [ci_fact_collation]}
+  - {id: ci_feature_opclass_representative, profile_refs: [ci_key_name_pattern_ops], status: covered, coverage_mode: representative, fact_refs: [ci_fact_opclass]}
+  - {id: ci_feature_ugin_key_representatives, profile_refs: [ci_key_ugin_trgm, ci_key_ugin_bool_array], status: covered, coverage_mode: representative, fact_refs: [ci_fact_ugin_opclass]}
+  - {id: ci_feature_ugin_key_full_domain, status: needs_profile, fact_refs: [ci_open_key_profile_domain_completion]}
+  - {id: ci_feature_gin_key_representative, profile_refs: [ci_key_gin_array], status: covered, coverage_mode: representative, fact_refs: [ci_fact_gin_capability]}
+  - {id: ci_feature_gin_key_full_domain, status: needs_profile, fact_refs: [ci_open_key_profile_domain_completion]}
+  - {id: ci_feature_gist_key_representative, profile_refs: [ci_key_gist_point], status: covered, coverage_mode: representative, fact_refs: [ci_fact_gist_capability]}
+  - {id: ci_feature_gist_key_full_domain, status: needs_profile, fact_refs: [ci_open_key_profile_domain_completion]}
+fact_refs: [ci_fact_expression, ci_fact_prefix_key, ci_fact_collation, ci_fact_opclass, ci_fact_sort_nulls]

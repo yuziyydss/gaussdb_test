@@ -7,6 +7,8 @@
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_inherited", "force_modifier": "force_absent", "or_replace": "or_replace_absent", "post_query_option": "post_query_none", "query_profile": "query_select_star", "temp_modifier": "temp_absent", "view_options_profile": "view_options_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_view_source CASCADE;
@@ -22,6 +24,8 @@ DROP TABLE IF EXISTS t_view_source CASCADE;
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_two_aliases", "force_modifier": "force_keyword", "or_replace": "or_replace_keyword", "post_query_option": "check_default", "query_profile": "query_simple_two_columns", "temp_modifier": "temp_keyword", "view_options_profile": "view_options_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_view_source CASCADE;
@@ -37,6 +41,8 @@ DROP TABLE IF EXISTS t_view_source CASCADE;
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_two_aliases", "force_modifier": "force_absent", "or_replace": "or_replace_absent", "post_query_option": "check_cascaded", "query_profile": "query_filtered_two_columns", "temp_modifier": "temporary_keyword", "view_options_profile": "view_options_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_view_source CASCADE;
@@ -52,21 +58,19 @@ DROP TABLE IF EXISTS t_view_source CASCADE;
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_inherited", "force_modifier": "force_keyword", "or_replace": "or_replace_keyword", "post_query_option": "read_only", "query_profile": "query_values_two_columns", "temp_modifier": "temporary_keyword", "view_options_profile": "view_options_none"}
--- fixture_setup:
-DROP TABLE IF EXISTS t_view_source CASCADE;
-CREATE TABLE t_view_source (col_1 INTEGER, col_2 INTEGER);
-INSERT INTO t_view_source (col_1, col_2) VALUES (1, 2), (3, 4);
 -- test_sql:
 CREATE OR REPLACE TEMPORARY FORCE VIEW v_cv_basic_cd90ca8a AS VALUES (1, 2), (3, 4) WITH READ ONLY;
--- fixture_teardown:
-DROP TABLE IF EXISTS t_view_source CASCADE;
 
 -- case_id: manifest_create_view_basic_positive_f61f7b4c56e5
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_inherited", "force_modifier": "force_absent", "or_replace": "or_replace_absent", "post_query_option": "check_local", "query_profile": "query_simple_two_columns", "temp_modifier": "temp_keyword", "view_options_profile": "view_options_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_view_source CASCADE;
@@ -82,6 +86,8 @@ DROP TABLE IF EXISTS t_view_source CASCADE;
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_two_aliases", "force_modifier": "force_keyword", "or_replace": "or_replace_keyword", "post_query_option": "check_local", "query_profile": "query_select_star", "temp_modifier": "temp_absent", "view_options_profile": "view_options_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_view_source CASCADE;
@@ -97,21 +103,19 @@ DROP TABLE IF EXISTS t_view_source CASCADE;
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_two_aliases", "force_modifier": "force_absent", "or_replace": "or_replace_absent", "post_query_option": "read_only", "query_profile": "query_values_two_columns", "temp_modifier": "temp_absent", "view_options_profile": "view_options_none"}
--- fixture_setup:
-DROP TABLE IF EXISTS t_view_source CASCADE;
-CREATE TABLE t_view_source (col_1 INTEGER, col_2 INTEGER);
-INSERT INTO t_view_source (col_1, col_2) VALUES (1, 2), (3, 4);
 -- test_sql:
 CREATE VIEW v_cv_basic_7f80c765 (c1, c2) AS VALUES (1, 2), (3, 4) WITH READ ONLY;
--- fixture_teardown:
-DROP TABLE IF EXISTS t_view_source CASCADE;
 
 -- case_id: manifest_create_view_basic_positive_018fe5facc9c
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_inherited", "force_modifier": "force_keyword", "or_replace": "or_replace_absent", "post_query_option": "check_default", "query_profile": "query_filtered_two_columns", "temp_modifier": "temp_absent", "view_options_profile": "view_options_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_view_source CASCADE;
@@ -127,6 +131,8 @@ DROP TABLE IF EXISTS t_view_source CASCADE;
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_two_aliases", "force_modifier": "force_absent", "or_replace": "or_replace_keyword", "post_query_option": "post_query_none", "query_profile": "query_filtered_two_columns", "temp_modifier": "temp_keyword", "view_options_profile": "view_options_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_view_source CASCADE;
@@ -142,6 +148,8 @@ DROP TABLE IF EXISTS t_view_source CASCADE;
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_inherited", "force_modifier": "force_keyword", "or_replace": "or_replace_keyword", "post_query_option": "check_cascaded", "query_profile": "query_simple_two_columns", "temp_modifier": "temp_absent", "view_options_profile": "view_options_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_view_source CASCADE;
@@ -157,6 +165,8 @@ DROP TABLE IF EXISTS t_view_source CASCADE;
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_inherited", "force_modifier": "force_absent", "or_replace": "or_replace_absent", "post_query_option": "check_default", "query_profile": "query_select_star", "temp_modifier": "temporary_keyword", "view_options_profile": "view_options_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_view_source CASCADE;
@@ -172,6 +182,8 @@ DROP TABLE IF EXISTS t_view_source CASCADE;
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_inherited", "force_modifier": "force_keyword", "or_replace": "or_replace_absent", "post_query_option": "post_query_none", "query_profile": "query_simple_two_columns", "temp_modifier": "temporary_keyword", "view_options_profile": "view_options_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_view_source CASCADE;
@@ -187,6 +199,8 @@ DROP TABLE IF EXISTS t_view_source CASCADE;
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_inherited", "force_modifier": "force_absent", "or_replace": "or_replace_absent", "post_query_option": "check_cascaded", "query_profile": "query_select_star", "temp_modifier": "temp_keyword", "view_options_profile": "view_options_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_view_source CASCADE;
@@ -202,6 +216,8 @@ DROP TABLE IF EXISTS t_view_source CASCADE;
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_inherited", "force_modifier": "force_absent", "or_replace": "or_replace_absent", "post_query_option": "read_only", "query_profile": "query_select_star", "temp_modifier": "temp_keyword", "view_options_profile": "view_options_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_view_source CASCADE;
@@ -217,21 +233,19 @@ DROP TABLE IF EXISTS t_view_source CASCADE;
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_inherited", "force_modifier": "force_absent", "or_replace": "or_replace_absent", "post_query_option": "post_query_none", "query_profile": "query_values_two_columns", "temp_modifier": "temp_keyword", "view_options_profile": "view_options_none"}
--- fixture_setup:
-DROP TABLE IF EXISTS t_view_source CASCADE;
-CREATE TABLE t_view_source (col_1 INTEGER, col_2 INTEGER);
-INSERT INTO t_view_source (col_1, col_2) VALUES (1, 2), (3, 4);
 -- test_sql:
 CREATE TEMP VIEW v_cv_basic_fe7a1b2b AS VALUES (1, 2), (3, 4);
--- fixture_teardown:
-DROP TABLE IF EXISTS t_view_source CASCADE;
 
 -- case_id: manifest_create_view_basic_positive_f7f1836b1ce2
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_inherited", "force_modifier": "force_absent", "or_replace": "or_replace_absent", "post_query_option": "check_local", "query_profile": "query_filtered_two_columns", "temp_modifier": "temporary_keyword", "view_options_profile": "view_options_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_view_source CASCADE;
@@ -247,6 +261,8 @@ DROP TABLE IF EXISTS t_view_source CASCADE;
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_inherited", "force_modifier": "force_absent", "or_replace": "or_replace_absent", "post_query_option": "read_only", "query_profile": "query_simple_two_columns", "temp_modifier": "temp_absent", "view_options_profile": "view_options_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_view_source CASCADE;
@@ -262,6 +278,8 @@ DROP TABLE IF EXISTS t_view_source CASCADE;
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_inherited", "force_modifier": "force_absent", "or_replace": "or_replace_absent", "post_query_option": "read_only", "query_profile": "query_filtered_two_columns", "temp_modifier": "temp_absent", "view_options_profile": "view_options_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_view_source CASCADE;

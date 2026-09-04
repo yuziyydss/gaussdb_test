@@ -1,0 +1,33 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_view_documented_basic_example
+name: CREATE VIEW 文档普通视图示例
+status: planned
+description: 精确复现本章普通视图示例；不能用无 WHERE 条件的通用查询 profile 代替该示例。
+factor_ref: create_view
+fixture_refs: []
+fact_refs: [cv_example_basic_view]
+
+preconditions:
+  - 当前 schema 中不存在 test_tb1 和 test_v1。
+
+steps:
+  - id: create_source
+    action: execute_sql
+    sql: CREATE TABLE test_tb1(col1 int, col2 int)
+  - id: seed_source
+    action: execute_sql
+    sql: INSERT INTO test_tb1 VALUES (generate_series(1,100),generate_series(1,100))
+  - id: create_view
+    action: execute_sql
+    sql: CREATE VIEW test_v1 AS SELECT * FROM test_tb1 WHERE col1 < 3
+  - id: query_view
+    action: query
+    sql: SELECT * FROM test_v1
+
+oracles:
+  - after_step: query_view
+    kind: result_rows
+    expected: [[1, 1], [2, 2]]
+
+execution_requirements: [database, result_set_assertion]

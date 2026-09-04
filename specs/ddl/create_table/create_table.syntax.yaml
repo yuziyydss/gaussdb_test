@@ -1,0 +1,38 @@
+schema_version: 1
+kind: syntax
+id: syntax_create_table_v1
+name: CREATE TABLE 有界普通表核心 AST
+category: DDL
+status: needs_review
+factor_ref: create_table
+description: >-
+  仅实现主产生式中可由本章示例直接支撑的有限核心：持久性修饰、IF NOT EXISTS、
+  确定性表名和一至两项普通列定义。无界列列表以 repeat 节点表达，但 matrix 有意封顶为两项；
+  LIKE、表/列约束、表选项、HTAP、WITH、ON COMMIT、ILM、TABLESPACE 与分区未进入此 AST。
+ast:
+  kind: sequence
+  items:
+    - {kind: literal, text: "CREATE "}
+    - {kind: slot, slot: persistence_modifier}
+    - {kind: literal, text: "TABLE "}
+    - {kind: slot, slot: if_not_exists}
+    - {kind: slot, slot: table_name}
+    - {kind: literal, text: " ("}
+    - {kind: repeat, slot: column_profile, separator: ", ", items_property: items}
+    - {kind: literal, text: ")"}
+rendering: {whitespace: collapse, statement_terminator: ";"}
+slots:
+  persistence_modifier: {type: token, optional: true, dimension_ref: create_table.persistence_modifier}
+  if_not_exists: {type: token, optional: true, dimension_ref: create_table.if_not_exists}
+  table_name: {type: identifier, optional: false, symbol_action: creates_relation, identifier_role: table}
+  column_profile: {type: ast_repeat, optional: false, dimension_ref: create_table.column_profile}
+source_fact_refs:
+  - ct_fact_purpose
+  - ct_fact_main_grammar
+  - ct_fact_temp_scope
+  - ct_fact_temp_kinds
+  - ct_fact_if_not_exists
+  - ct_fact_table_name
+  - ct_fact_column_name
+  - ct_fact_data_type
+  - ct_fact_example_basic

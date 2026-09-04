@@ -1,0 +1,21 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_sequence_system_column_oracle
+name: OWNED BY 系统列错误 Oracle 校准
+status: planned
+description: >-
+  rowid 与 rowno 均是 PDF 明确禁止的 OWNED BY 目标，但普通 id 列 fixture
+  不能证明它们在目标表上确实按系统列解析。本场景等待专用系统列目标
+  profile 和真实 GaussDB 错误 Oracle 校准，不参与普通静态生成。
+factor_ref: create_sequence
+fixture_refs: []
+fact_refs: [cs_fact_system_column_restriction, cs_open_system_column_error_identity]
+preconditions: [专用目标表可将 rowid 与 rowno 解析为真实系统列, 当前用户拥有该表与序列]
+steps:
+  - {id: provision_target, action: provision_system_column_profile, detail: "建立能正确解析 rowid/rowno 的专用表形"}
+  - {id: reject_rowid, action: execute_target_sql, sql: "CREATE SEQUENCE seq_cs_rowid OWNED BY <system_column_table>.rowid"}
+  - {id: reject_rowno, action: execute_target_sql, sql: "CREATE SEQUENCE seq_cs_rowno OWNED BY <system_column_table>.rowno"}
+oracles:
+  - {kind: target_error_category, expected: "两条语句均命中系统列关联限制，而非表或列缺失"}
+  - {kind: calibrated_error_identity, expected: "记录稳定 SQLSTATE 或窄错误消息后才可升级为可执行负向 manifest"}
+execution_requirements: [真实 GaussDB, 专用系统列 target profile, 错误 Oracle 校准]

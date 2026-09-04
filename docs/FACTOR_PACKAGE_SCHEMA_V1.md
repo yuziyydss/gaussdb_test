@@ -1,6 +1,6 @@
 # Factor Package Schema V1
 
-状态：已定稿；严格加载器、递归 AST 静态生成器、Fixture 静态生命周期模型、目标错误 Oracle 数据模型和 Web/API 已接入。V1 fixture/scenario 的真实数据库执行仍不在当前范围。
+状态：已定稿；严格加载器、有限展开的结构化 AST 静态生成器、Fixture 静态生命周期模型、目标错误 Oracle 数据模型和 Web/API 已接入。V1 fixture/scenario 的真实数据库执行仍不在当前范围。
 
 ## 1. 目标
 
@@ -63,7 +63,7 @@ description: 简短说明
 
 ## 4. factor：产品事实与测试模型
 
-`*.factor.yaml` 是因子包的索引，也是产品事实的唯一事实源。它负责回答：文档说了什么、有哪些测试维度、值如何分类、哪些组合受什么规则约束。
+`*.factor.yaml` 是因子包的规范化索引，不是产品事实的原始来源。产品事实的唯一权威证据是 catalog 固定的本地 PDF 章节；factor 只负责把该证据派生为事实、测试维度和值域，任何内容都必须能回溯到 source ledger 与 PDF 哈希。
 
 ### 4.1 必要结构
 
@@ -77,10 +77,16 @@ status: needs_review
 
 source:
   product: GaussDB
-  document: CREATE VIEW 产品文档
-  version: unknown
-  artifact_sha256: 原文文件的 SHA-256
+  document: GaussDB Kernel 参考
+  version: V2.0-10.0.0
+  artifact_sha256: 稳定章节文本的 SHA-256
+  parent_pdf_sha256: 父 PDF 的 SHA-256
+  extraction_rule_version: gaussdb-pdf-outline-v1
   extraction_date: YYYY-MM-DD
+  catalog_chapter_ref:
+    document_id: gaussdb-kernel-reference-v2.0-10.0.0-doc01
+    source_relpath: general/ddl/create_view.txt
+    chapter_sha256: 与 artifact_sha256 相同
 
 source_ledger_ref: source_ledger_create_view
 syntax_ref: syntax_create_view
@@ -89,13 +95,21 @@ dimensions: {}
 rules: []
 structural_checks: []
 facts: []
+exported_fact_refs: []
 manifest_refs: []
 matrix_refs: []
 fixture_refs: []
 scenario_refs: []
 ```
 
-`source.version` 未知时必须写 `unknown`，禁止从相邻文档或文件名猜测。
+`source.version` 未知时必须写 `unknown`，禁止从相邻文档或文件名猜测。若来源由 PDF catalog 管理，`parent_pdf_sha256`、`extraction_rule_version` 与 `catalog_chapter_ref` 必须存在并和任务信封一致；完整书签路径和精确页内边界仍通过 catalog 解析。章节哈希、父 PDF 哈希和抽取规则版本分别绑定“内容、容器、算法”，任一变化都使旧静态结论失效。
+
+跨包事实引用使用 `factor_id::fact_id`，例如
+`create_view::cv_fact_key_preserved_definition`。被引用事实必须由来源 factor 的
+`exported_fact_refs` 显式导出且状态为 `confirmed`；未导出的内部事实不能形成隐式
+耦合。本地引用继续使用原有 `fact_id`，旧 V1 包无需迁移。Registry 会校验目标
+factor、fact、消费者要求的事实类型，并由限定引用自动生成因子依赖图、检测环。
+引用外章已确认定义不能自动关闭本章的行为 open question。
 
 ### 4.2 dimension、class 与 value
 
@@ -194,7 +208,12 @@ SELECT 类结构可使用 `select_expression_contract`。相关 dimension value 
 
 INSERT 类结构可使用 `insert_input_contract`。`target_profile` 声明显式目标列数/类型或隐式目标的可用列数/类型，`source_profile` 声明输入形态、输出列数/类型和有限行列表。生成器在 Pairwise 目标计算前过滤列数或类型不兼容的组合，并验证需要 CTE 的输入确实由 WITH 分支提供；`DEFAULT VALUES` 不参与输入列数匹配。
 
-CREATE INDEX 类结构可使用 `index_column_count_contract`。`key_profile` 声明有限键项、键列数和引用列，`include_profile` 声明非键列和数量，`table_profile`/`scope_clause` 声明普通、分区和 GLOBAL 形态。生成器拒绝空键列表、声明列数与 AST 项数不一致、INCLUDE 与键列重叠，以及超过普通 32、GLOBAL 31、在线普通 29、在线分区 28 的组合。
+任意 profile 引用多张源表时，不能只给一份扁平的 `source_columns`。必须用
+`properties.source_columns_by_table` 把每个引用列精确归属到对应表；生成器按表
+核对 fixture 契约，禁止“另一张表恰好有同名列”掩盖当前表缺列。单表 profile
+可以继续使用 `source_columns`。
+
+CREATE INDEX 类结构可使用 `index_column_count_contract`。`key_profile` 声明有限键项、键列数和引用列，`include_profile` 声明非键列和数量，`table_profile`/`scope_clause` 声明普通、分区和 GLOBAL 形态。生成器拒绝空键列表、声明列数与 AST 项数不一致、INCLUDE 与键列重叠，以及超过本版 PDF 明示的 GLOBAL 31、其他索引 32 个键列的组合。INCLUDE 是非键列；没有独立来源时不得把它并入该键列上限，也不得沿用其他版本的在线 28/29 限制。
 
 ## 5. source ledger：原文单元覆盖账本
 
@@ -211,12 +230,14 @@ ignored_lines:
   - line: 2
     rationale: 章节标题，语义由其下 source units 承载。
 supplemental_sources:
-  - id: gaussdb_select_v8
-    document: GaussDB SELECT SQL语法
-    version: V2.0-8.x
-    url: https://support.huaweicloud.com/...
-    retrieval_date: YYYY-MM-DD
-    source_anchor: UNPIVOT；START WITH/CONNECT BY
+  - id: gaussdb_select_same_pdf
+    document: GaussDB Kernel 参考
+    version: V2.0-10.0.0
+    catalog_chapter_ref:
+      document_id: gaussdb-kernel-reference-v2.0-10.0.0-doc01
+      source_relpath: general/dml/select.txt
+      chapter_sha256: 对应章节文本的 SHA-256
+    source_anchor: 被当前章节明确引用的 SELECT 子语法
 units:
   - id: cv_su_temp_dependency
     section: 参数说明
@@ -238,6 +259,8 @@ units:
     status: unmapped
     rationale: 尚未建立连接视图 query profile 与行为场景。
 ```
+
+主来源来自 PDF catalog 时，factor 的 `catalog_chapter_ref`、账本的 `artifact_sha256` 和任务信封必须指向同一个稳定章节。补充来源必须且只能选择远程 `url` 或同一 catalog 中的 `catalog_chapter_ref`；不得使用旧网页补全当前 PDF 中已改变或缺失的事实。
 
 原文单元状态只有四种：
 
@@ -322,6 +345,10 @@ syntax_ref: syntax_create_view
 suite_type: positive
 strategy: pairwise
 fixture_refs: [fixture_create_view_source_two_ints]
+environment_requirements:
+  - key: compatibility_mode
+    allowed_values: [PG]
+    fact_refs: [cv_fact_example_environment]
 identifier_policy:
   view_name:
     generator: deterministic
@@ -336,6 +363,14 @@ expected:
   scope: syntax_and_semantics
 ```
 
+`environment_requirements` 是可执行门禁，不是备注。每一项必须引用本地或其他包
+显式导出的 `status: confirmed`、`type: environment` fact；执行器只有在环境能力的键和值均匹配时
+才运行用例，否则结果为 `skip` 并记录缺失条件。可通过
+`GAUSSDB_ENVIRONMENT_JSON` 统一传入能力映射，或用
+`GAUSSDB_COMPATIBILITY_MODE`、`GAUSSDB_B_FORMAT_VERSION`、
+`GAUSSDB_B_FORMAT_DEV_VERSION` 传入当前已支持的三个键。环境不匹配导致的错误
+绝不能满足负向用例的目标 Oracle。
+
 manifest 可以省略具有 `default_value_id` 的维度；生成器会补成单值域。没有默认值的维度仍必须显式 binding。Pairwise 的“适用”只按至少两个真正有多个候选值的交互维度判断，固定默认值不会伪装成子句交互覆盖。
 
 `prefix` 与可选的 `schema_prefix` 只接受安全的未引用标识符片段；对象名哈希同时包含 manifest ID 和参数组合，因此不同 manifest 即使复用前缀，也不会因相同组合产生同名对象。标识符长度、引用标识符和 Unicode 边界应在对应产品章节补齐后另建 profile，不能由通用生成器猜测。
@@ -344,7 +379,9 @@ manifest 可以省略具有 `default_value_id` 的维度；生成器会补成单
 
 负向 manifest 使用 `violates_rule_refs` 声明“有意违反”的 confirmed 规则。生成器计算该清单的候选与覆盖目标时，仅对这些规则切换为“必须违反”，其他通用规则仍必须满足；否则负向组合会先被普通可行性过滤掉，永远无法生成。
 
-负向 expected 还必须声明目标错误 Oracle：稳定时优先给出 `sqlstates`；没有可靠 SQLSTATE 证据时至少给出 `error_category` 与足够窄的 `error_message_regex`。执行器只有在目标 SQLSTATE 或目标消息模式命中时才判定通过；fixture 报错、清理报错、任意其他数据库错误均为失败。
+负向 expected 还必须声明目标错误 Oracle：稳定时设置 `oracle_status: confirmed`（默认），优先给出 `sqlstates`；没有 SQLSTATE 时给出 `error_category` 与足够窄的 `error_message_regex`，并用 `fact_refs` 引用当前因子的 confirmed `behavior_oracle` 事实。`.*`、`.+` 等可匹配任意错误的正则会被严格加载器拒绝。若 PDF 只确认“应失败”而没有给出可识别的错误身份，必须设置 `oracle_status: needs_verification`、保留 `error_category`，且不得伪造 SQLSTATE 或正则；这种 manifest 必须保持 `needs_review`，执行结果只能是 `pending`，不能计为通过。fixture 报错、清理报错、任意其他数据库错误均为失败。
+
+`scope` 也是执行判定的一部分：仅 `syntax_and_semantics` 的单语句执行结果可以直接判 pass/fail；`syntax_only`、`behavior`、`metadata` 必须由专用场景或 Oracle 收口，裸执行结果保持 `pending`。
 
 Pairwise 覆盖所有经过规则过滤后仍可行的二元值对。因此 V1 不提供含义模糊的 `high_priority_dimensions`，当前只接受 `strength: 2` 和 `require_all_feasible_pairs: true`。三维交互属于后续生成器能力，不能只在 YAML 中写 `strength: 3` 假装已经支持。
 
@@ -374,6 +411,7 @@ documented_features:
   - id: recursive_cte
     profile_refs: [query_recursive_cte]
     status: covered
+    coverage_mode: all
     fact_refs: [select_fact_cte]
   - id: xmltable
     profile_refs: []
@@ -382,6 +420,8 @@ documented_features:
 ```
 
 当 feature 由 AST dimension value 而不是 matrix profile 覆盖时，使用 `value_refs`。例如 TABLE 顶层产生式由 `select_statement_table` 覆盖。`covered` 必须至少引用一个 `profile_refs` 或 `value_refs`，且该值必须实际进入生成用例。
+
+`coverage_mode` 明确“命中一个代表值”和“值域完整”的区别：`all`（默认）要求列出的全部引用均实际进入 SQL；`any` 仅适用于经人工证明彼此等价、任一代表即可覆盖的引用；`representative` 只表示已有样例，永远不能关闭静态全域覆盖缺口。审计同时输出 required、selected、missing refs，禁止把“任意一个引用被选中”简写成 feature 全覆盖。文档已列举但尚未写入 `profile_refs/value_refs` 的变体，必须单列 feature 或使用 `needs_profile + open_question`，不能靠缩小分母获得 100%。
 
 `documented_non_updatable_features` 仅为既有 CREATE VIEW 包保留的兼容字段；新因子应使用 `documented_features`。
 
@@ -418,20 +458,33 @@ provides:
         - {name: col_1, type: INTEGER, nullable: true}
 ```
 
-Fixture 还必须声明执行方式：
+Fixture 还必须声明执行方式；依赖其他 Fixture 时显式引用，而不是复制 setup SQL：
 
 ```yaml
 seed:
   required: true
   rows:
     - {col_1: 1, col_2: 2}
+requires_fixture_refs: [fixture_shared_role]
 execution:
   status: ready
   mode: auto
   note: 由编译器生成幂等生命周期 SQL。
 ```
 
-`auto` 为受支持的普通表、临时表和 Ustore 表生成幂等 DROP、CREATE、INSERT 与逆序 teardown；分区等特殊表形态使用 `explicit`，并必须同时提供 `setup_sqls` 和 `teardown_sqls`。`not_implemented` fixture 不能进入可生成清单。SQL 引用的表和列必须能由 fixture 解析；setup 失败记为 `fixture_error`，teardown 失败记为 `cleanup_error`，二者都不能满足负向用例。
+`requires_fixture_refs` 会递归展开并做拓扑排序：依赖项先 setup、消费者后 setup，teardown 采用严格逆序；缺失引用和循环依赖在加载期失败。`auto` 为受支持的普通表、临时表和 Ustore 表生成幂等 DROP、CREATE、INSERT 与逆序 teardown；分区等特殊表形态使用 `explicit`，并必须同时提供 `setup_sqls` 和 `teardown_sqls`。`not_implemented` fixture 不能进入可生成清单。SQL 引用的表和列必须能由 fixture 解析；setup 失败记为 `fixture_error`，teardown 失败记为 `cleanup_error`，二者都不能满足负向用例。
+
+队列会把限定 Fact 引用和跨包 Fixture 依赖同步为
+`depends_on_factor_refs`，按拓扑顺序认领任务。验证快照记录直接及传递依赖的
+章节 SHA-256 与 Factor Package SHA-256；上游发生变化时，只把依赖闭包内的
+下游 `static_complete` 判为 stale。处于 `needs_review` 但已经产生有效包的上游
+可以提供已确认事实，不要求所有上游先达到行为闭环。
+
+若依赖章节在队列中，快照同时保存正文绝对路径并校验实际文件 SHA-256；即使尚未
+运行 inventory，正文漂移也会使下游失效。跨批测试必须把依赖章节及正文纳入验证
+批次。没有正文路径的旧快照或批次外包只能核对声明哈希与包哈希，不应据此声称
+已检查磁盘正文。依赖失效粒度是章节/包，不是单个 Fact。父 PDF 或公共工具链
+变化仍会使绑定它们的所有快照失效。
 
 ## 10. scenario：状态变化与行为断言
 
@@ -443,7 +496,7 @@ execution:
 - `CHECK OPTION` / `READ ONLY`：创建后执行 DML 并验证错误。
 - 依赖失效、权限、兼容模式等环境行为。
 
-在执行能力未实现前，scenario 使用 `status: planned`，但仍须记录 `fact_refs`、前置条件、步骤和 oracle。
+在执行能力未实现前，scenario 使用 `status: planned`，但仍须记录 `fact_refs`、前置条件、步骤和 oracle。只有包含结构化 `steps`/`variants` 以及至少一个带 `kind`、`expected` 的 Oracle 时，scenario 才能标记为 `ready`；`planned`、`draft`、`needs_review` 均不能计入行为闭环。
 
 ## 11. 单一事实源
 
@@ -494,7 +547,7 @@ python3 -B scripts/audit_factor_coverage_v1.py --factor create_view
 python3 -B scripts/audit_factor_coverage_v1.py --factor create_view --fail-on-gaps
 ```
 
-第一条用于日常查看并写入 `generated/factor_packages/<factor>/coverage_audit.json`；第二条用于严格 CI，只要静态覆盖尚不完整就返回非零。审计结论分开报告：`source_extraction_complete`、`generation_model_complete`、`static_coverage_complete`、`behavior_coverage_complete`，禁止把“生成器完整”简写成“文档全覆盖”。已明确隔离、且没有进入正向稳定值域的 open question 不阻断静态闭环，但在问题解决和场景执行前会阻断行为闭环。
+第一条用于日常查看并写入 `generated/factor_packages/<factor>/coverage_audit.json`；第二条用于严格 CI，只要静态覆盖尚不完整就返回非零。审计结论分开报告：`source_extraction_complete`、`generation_model_complete`、`static_coverage_complete`、`behavior_coverage_complete`，禁止把“生成器完整”简写成“文档全覆盖”。任何 `needs_verification` fact（包括 open question）都会阻断静态闭环；它可以保留在校准包中，但必须如实显示为未闭环。
 
 ## 14. 静态验收标准
 
@@ -510,8 +563,8 @@ python3 -B scripts/audit_factor_coverage_v1.py --factor create_view --fail-on-ga
 8. 生成后 case ID 唯一，所有约束满足，可行 pair 覆盖率为 100%。
 9. 任何推断和文档歧义保存在 open question 中，不进入硬过滤规则。
 10. negative manifest 只能违反 `violates_rule_refs` 列出的规则，并且每个生成用例确实触发至少一条目标规则。
-11. 每条 confirmed 非示例事实至少被 syntax、rule、matrix、scenario 或 structural check 消费。
-12. 文档枚举能力必须标成 `covered` 或 `needs_profile`；后者必须引用 open question。
+11. 每条 confirmed 非示例事实至少被与事实类型匹配的消费者使用，例如 syntax 事实进入 syntax/value，constraint 进入 rule/negative，lifecycle/behavior/metadata 进入 scenario 或 Oracle；任意引用不能冒充有效消费。
+12. 文档枚举能力必须标成 `covered` 或 `needs_profile`，并声明真实覆盖模式；代表值覆盖不得冒充全域覆盖，`needs_profile` 必须引用 open question。
 13. source ledger 的原文哈希与 factor 一致，所有 source unit 都有显式处置，且不存在 `unmapped` 或原子性审计缺口。
 14. 因子级审计的原文抽取、生成模型和静态覆盖结论均为完整。
 

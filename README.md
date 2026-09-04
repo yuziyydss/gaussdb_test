@@ -8,7 +8,7 @@
 
 - Factor Package V1：每条 SQL 语句使用一个自包含目录，统一管理 source ledger、factor、syntax、manifest、matrix、fixture 和 scenario。
 - 严格规格加载：未知字段、重复 ID、悬空引用、非法值域和无法编译的约束都会阻止加载。
-- 递归 AST：支持顶层多产生式、choice、optional、repeat、subgrammar 和嵌套查询。
+- 有限展开的结构化 AST：支持顶层多产生式、choice、optional、repeat、subgrammar 和受控嵌套；不把有限层代表误报为递归语法域全覆盖。
 - 结构契约：校验列数、列类型、GROUP BY/ORDER BY、集合运算、INSERT 输入和索引键能力。
 - 约束感知 Pairwise：先计算可行组合，再覆盖全部可行参数对；生成后验证缺失 pair 和重复 case ID。
 - Fixture 与目标错误 Oracle：生成 setup/test/teardown，并为负向用例保存目标错误类别、SQLSTATE 候选集或错误正则。
@@ -16,44 +16,41 @@
 - 离线内网任务队列：支持 SHA-256 对账、任务认领、断点续跑、失败恢复和与 AI 厂商无关的任务文件。
 - Web/API：浏览 V1 factor、manifest、覆盖报告和生成 SQL。
 
-当前仓库包含5个 V1示例因子：CREATE VIEW、CREATE INDEX、ALTER TABLE、SELECT 和 INSERT。
+首批五个 PDF 校准因子是 CREATE VIEW、CREATE INDEX、ALTER TABLE、SELECT 和
+INSERT。仓库随后按独立批次加入代表性 DDL、DML、DCL 与 TCL 因子；当前数量、
+生成用例和覆盖结论始终以严格 lint、生成报告和批次队列的实时输出为准，不在
+README 中维护容易漂移的固定数字。
+
+跨章依赖批次可通过 `python3 scripts/verify_cross_chapter_dependencies.py` 重跑，
+需要当前 Python 安装 `pypdf` 且 PATH 中有 `pdftotext`；也可以使用
+`--pdf-python /path/to/python` 指定单独的 PDF 运行环境。
+批次选择、逐项证据和验收边界见 [12 章依赖验证](docs/CROSS_CHAPTER_DEPENDENCY_RESULT.md)。
 
 ## 当前验证基线
 
-截至当前提交：
+当前基线不再使用历史“226 个因子”作为分母。唯一产品证据是仓库中的冻结 PDF 与其 `catalog.json`；CREATE VIEW、CREATE INDEX、ALTER TABLE、SELECT、INSERT 是首批五章校准集。实时数量和结论由下列命令重算，README 不复制容易陈旧的 case 数：
 
-| 项目 | 当前结果 |
-|---|---:|
-| V1规格文件 | 159 |
-| Factor | 5 |
-| Fixture | 19 |
-| Manifest | 56 |
-| Matrix | 8 |
-| Scenario | 61 |
-| 确定性生成SQL | 865 |
-| 自动化测试 | 69项通过 |
+```bash
+python3 scripts/lint_factor_packages_v1.py specs
+python3 scripts/generate_factor_package_sql.py
+python3 scripts/audit_factor_coverage_v1.py
+python3 scripts/audit_pdf_catalog_coverage.py \
+  --source-catalog intranet_corpus/catalog.json \
+  --spec-root specs \
+  --queue work/doc2spec/queue.json \
+  --output generated/audit/pdf_catalog_coverage.json
+```
 
-这些数字表示当前仓库的静态基线，不表示5800页文档已经抽取完成，也不表示 planned scenario 已在数据库执行。
-
-当前已确认：
-
-- 159个 V1文件可以严格加载；
-- 56个 manifest 可以生成865个全局唯一 case；
-- 适用 Pairwise 的 manifest 均完成可行 pair 覆盖；
-- 69项自动化测试通过。
-
-当前尚未闭环：
-
-- 现有样例仍有 source unit 原子性和 documented feature 缺口；
-- 61个 scenario 中仍有 planned 场景；
-- V1 fixture/scenario 尚未接入真实数据库执行器；
-- 生成SQL通过的是静态结构校验，不等于特定 GaussDB 版本已实际接受。
+五章均已绑定 PDF 版本、父文档/章节哈希、完整书签路径和精确页内边界。静态生成的 SQL 是“文档驱动候选”，只有在 source、值域、feature domain、规则、Fixture 和目标 Oracle 的审计缺口全部关闭后，才可称为静态闭环；只有在指定 GaussDB 版本执行并通过行为/元数据 Oracle 后，才可称为数据库验证通过。Pairwise 100% 只证明已建模且可行的二元交互，不证明 PDF 全章、全值域或数据库行为覆盖。
 
 ## 架构
 
 ```text
-产品文档章节
-    │ 内网本地切片；保留版本、行号和 SHA-256
+冻结的产品 PDF
+    │ 书签路径+页内坐标精确拆章
+    ▼
+PDF source catalog + 稳定章节文本
+    │ 保留产品版本、父PDF/章节哈希、页码和坐标
     ▼
 Doc2Spec 离线任务队列
     │ 一次认领一个章节；任意内网 AI 只写一个输出目录
@@ -61,14 +58,14 @@ Doc2Spec 离线任务队列
 specs/<category>/<factor>/
     ├── *.source.yaml       原文单元覆盖账本
     ├── *.factor.yaml       事实、维度、值域、规则与引用索引
-    ├── *.syntax.yaml       SQL递归AST
+    ├── *.syntax.yaml       SQL结构化AST（有限展开）
     ├── manifests/          测试选择、策略和目标Oracle
     ├── matrices/           对象与语义能力Profile
     ├── fixtures/           setup/provides/teardown
     └── scenarios/          多步骤状态变化和行为断言
              │
              ▼
-FactorPackageRegistry 严格加载与引用校验
+FactorPackageRegistry 严格加载、限定 Fact/Fixture 引用与依赖 DAG 校验
              │
        ┌─────┴────────┐
        ▼              ▼
@@ -79,7 +76,7 @@ FactorPackageRegistry 严格加载与引用校验
 generated/factor_packages/ + Web/API
 ```
 
-更详细的职责和数据流见 [当前架构说明](docs/ARCHITECTURE.md)。
+更详细的职责和数据流见 [当前架构说明](docs/ARCHITECTURE.md)。整本 PDF 入口见 [PDF 到 Factor Package 权威流程](docs/PDF_DOC2SPEC_PIPELINE.md)。
 
 ## 目录
 
@@ -88,7 +85,7 @@ gaussdb_test/
 ├── specs/                         Factor Package V1 唯一写入位置
 ├── core/
 │   ├── factor_package_model.py    V1严格模型与注册表
-│   ├── factor_package_generator.py V1递归AST与组合生成器
+│   ├── factor_package_generator.py V1结构化AST与组合生成器
 │   ├── factor_coverage_auditor.py V1因子级覆盖审计
 │   ├── constraint_solver.py       约束DSL解析与求值
 │   └── combinator.py              组合覆盖算法
@@ -127,7 +124,7 @@ python3 -m pip install -r requirements.txt
 python3 -m unittest discover -s tests
 ```
 
-当前预期：69项测试通过。
+测试数量会随 PDF 校准持续变化；以命令退出码和本次完整输出为准，不在文档中固定一个会陈旧的数字。
 
 ### 严格加载 V1
 
@@ -184,10 +181,20 @@ intranet_corpus/
   m_compat/dml/select.txt
 ```
 
+输入是含书签的整本 PDF 时，先生成 source catalog 和章节文本：
+
+```bash
+python3 scripts/extract_pdf_sections.py \
+  --pdf gaussdb-rf-cent.pdf \
+  --output-root intranet_corpus
+```
+
 创建队列并认领任务：
 
 ```bash
-python3 scripts/manage_extraction_queue.py inventory --corpus-dir intranet_corpus
+python3 scripts/manage_extraction_queue.py inventory \
+  --corpus-dir intranet_corpus \
+  --source-catalog intranet_corpus/catalog.json
 python3 scripts/manage_extraction_queue.py claim --worker company-ai-01 --render
 ```
 
@@ -205,21 +212,22 @@ python3 scripts/manage_extraction_queue.py verify --task-id <TASK_ID>
 
 ## 文档入口
 
-当前文档索引见 [docs/README.md](docs/README.md)。最重要的四份文档是：
+当前文档索引见 [docs/README.md](docs/README.md)。最重要的五份文档是：
 
 - [Factor Package Schema V1](docs/FACTOR_PACKAGE_SCHEMA_V1.md)
+- [Factor Package V1 冻结与批次推进规则](docs/FACTOR_PACKAGE_V1_FREEZE_POLICY.md)
 - [Doc2Spec Extraction Rules V1](docs/DOC2SPEC_EXTRACTION_RULES_V1.md)
 - [内网批量 Doc2Spec 运行手册](docs/INTRANET_AI_BATCH_EXTRACTION.md)
 - [当前架构说明](docs/ARCHITECTURE.md)
 
 ## 下一步
 
-下一阶段不是直接导入全部5800页，而是：
+五个首批因子是框架验收样本，不是要在扩批前做到数据库行为 100%。后续节奏为：
 
-1. 关闭现有5个样例的静态审计缺口；
-2. 在内网选择10个代表性 SQL章节完成试点；
-3. 根据首轮门禁失败原因修正规格模型和提示词；
-4. 扩展到一个完整 DML目录；
-5. 最后再进行通用 SQL全量和兼容模式分批抽取。
+1. 以当前五章回归结果冻结 Factor Package V1 模型、抽取规则和生成接口；
+2. 立即抽取第二批约 10 个代表性 SQL 章节，覆盖简单 DDL、DCL、事务语句、普通 DML 和复杂语法；
+3. 第二批通过后，按每批 20～30 章扩大，不逐个手工精修；
+4. 自动抽取失败、原文异常或高风险章节进入 `needs_review`/`blocked` 人工队列，不阻塞其他章节；
+5. 数据库行为验证作为独立轨道逐步补齐，不是第二批的前置条件。
 
-完整路线见 [ROADMAP.md](docs/ROADMAP.md)。
+冻结边界见 [Factor Package V1 冻结与批次规则](docs/FACTOR_PACKAGE_V1_FREEZE_POLICY.md)，完整路线见 [ROADMAP.md](docs/ROADMAP.md)。

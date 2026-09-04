@@ -10,6 +10,15 @@ from .factor_package_model import FactorPackageRegistry
 from .spec_generator import GenerationValidationError
 
 
+# A rationale is an explicit, reviewable exception to the compound-statement
+# heuristic.  Reusing the exact same waiver across a large batch of units is
+# itself evidence that the units were not reviewed individually.  Keep the
+# threshold high enough for a few genuinely identical example steps, while
+# rejecting bulk boilerplate such as one sentence copied across a whole
+# chapter.
+MAX_IDENTICAL_ATOMICITY_RATIONALE_USES = 8
+
+
 def _iter_fact_refs(node: Any) -> Iterable[str]:
     if isinstance(node, dict):
         for key, value in node.items():
@@ -60,6 +69,12 @@ class FactorCoverageAuditor:
             )
             manifest_details[manifest_id] = {
                 "suite_type": manifest.suite_type,
+                "status": manifest.status,
+                "oracle_status": manifest.expected.oracle_status,
+                "environment_requirements": [
+                    requirement.model_dump()
+                    for requirement in manifest.environment_requirements
+                ],
                 "dimension_count": len(manifest.bindings),
                 "interaction_dimension_count": interaction_dimension_count,
                 "pairwise_applicable": interaction_dimension_count >= 2,
@@ -106,6 +121,24 @@ class FactorCoverageAuditor:
         ]
         accounted_source_units = len(ledger.units) - len(unmapped_units)
         atomicity_gaps: List[Dict[str, Any]] = []
+        units_by_line: Dict[int, List[Any]] = defaultdict(list)
+        for unit in ledger.units:
+            for line in range(unit.line_start, unit.line_end + 1):
+                units_by_line[line].append(unit)
+        declared_overlap_lines = {
+            str(line): {
+                "unit_ids": [unit.id for unit in units],
+                "overlap_group": units[0].overlap_group,
+                "rationale": units[0].overlap_rationale,
+            }
+            for line, units in sorted(units_by_line.items())
+            if len(units) > 1
+        }
+        atomic_rationale_counts = Counter(
+            unit.atomicity_rationale.strip()
+            for unit in ledger.units
+            if unit.atomicity == "atomic" and unit.atomicity_rationale
+        )
         for unit in ledger.units:
             span = unit.line_end - unit.line_start + 1
             reasons: List[str] = []
@@ -115,6 +148,19 @@ class FactorCoverageAuditor:
                     reasons.append("long_unit_not_reviewed")
             if span > 12 and unit.atomicity == "atomic":
                 reasons.append("atomic_unit_span_too_large")
+            if (
+                unit.atomicity == "atomic"
+                and unit.statement.count("、") >= 2
+                and not unit.atomicity_rationale
+            ):
+                reasons.append("compound_statement_requires_atomicity_rationale")
+            if (
+                unit.atomicity == "atomic"
+                and unit.atomicity_rationale
+                and atomic_rationale_counts[unit.atomicity_rationale.strip()]
+                > MAX_IDENTICAL_ATOMICITY_RATIONALE_USES
+            ):
+                reasons.append("atomicity_rationale_reused_as_bulk_waiver")
             if (
                 unit.atomicity == "grouped"
                 and unit.status in {"mapped", "open_question"}
@@ -130,36 +176,90 @@ class FactorCoverageAuditor:
                     "atomicity": unit.atomicity,
                     "independent_claim_count": unit.independent_claim_count,
                     "fact_ref_count": len(set(unit.fact_refs)),
+                    "atomicity_rationale": unit.atomicity_rationale,
                     "reasons": reasons,
                 })
 
         ledgered_fact_ids = {
             fact_id for unit in ledger.units for fact_id in unit.fact_refs
         }
-        related_entities: List[Any] = []
-        syntax = self.registry.get_syntax(factor.syntax_ref)
-        if syntax is not None:
-            related_entities.append(syntax)
-        for refs, collection in (
-            (factor.manifest_refs, self.registry.manifests),
-            (factor.matrix_refs, self.registry.matrices),
-            (factor.fixture_refs, self.registry.fixtures),
-            (factor.scenario_refs, self.registry.scenarios),
-        ):
-            related_entities.extend(
-                collection[entity_id] for entity_id in refs if entity_id in collection
-            )
-        downstream_fact_ids: Set[str] = set()
-        for rule in factor.rules:
-            downstream_fact_ids.update(rule.fact_refs)
-        for check in factor.structural_checks:
-            downstream_fact_ids.update(check.fact_refs)
-        for dimension in factor.dimensions.values():
-            for equivalence_class in dimension.classes:
-                for value in equivalence_class.values:
-                    downstream_fact_ids.update(value.fact_refs)
-        for entity in related_entities:
-            downstream_fact_ids.update(_iter_fact_refs(entity.model_dump()))
+        fact_consumers: Dict[str, Set[str]] = defaultdict(set)
+        external_fact_consumers: Dict[str, Set[str]] = defaultdict(set)
+
+        def record_consumers(
+            refs: Iterable[str],
+            consumer: str,
+            owner_factor_id: str,
+        ) -> None:
+            for fact_ref in refs:
+                target_factor_id, target_fact_id = self.registry._split_fact_ref(
+                    owner_factor_id, fact_ref
+                )
+                if target_factor_id != factor.id or target_fact_id is None:
+                    continue
+                fact_consumers[target_fact_id].add(consumer)
+                if owner_factor_id != factor.id:
+                    external_fact_consumers[target_fact_id].add(
+                        f"{owner_factor_id}:{consumer}"
+                    )
+
+        def record_factor_consumers(consumer_factor: Any) -> None:
+            owner_factor_id = consumer_factor.id
+            syntax = self.registry.get_syntax(consumer_factor.syntax_ref)
+            if syntax is not None:
+                record_consumers(
+                    _iter_fact_refs(syntax.model_dump()), "syntax", owner_factor_id
+                )
+            for rule in consumer_factor.rules:
+                record_consumers(rule.fact_refs, "rule", owner_factor_id)
+            for check in consumer_factor.structural_checks:
+                record_consumers(
+                    check.fact_refs, "structural_check", owner_factor_id
+                )
+            for dimension in consumer_factor.dimensions.values():
+                for equivalence_class in dimension.classes:
+                    for value in equivalence_class.values:
+                        record_consumers(
+                            value.fact_refs, "dimension_value", owner_factor_id
+                        )
+            for manifest_id in consumer_factor.manifest_refs:
+                manifest = self.registry.get_manifest(manifest_id)
+                if manifest is None:
+                    continue
+                for local_rule in manifest.local_rules:
+                    record_consumers(
+                        local_rule.fact_refs, "manifest_rule", owner_factor_id
+                    )
+                for requirement in manifest.environment_requirements:
+                    record_consumers(
+                        requirement.fact_refs, "environment_gate", owner_factor_id
+                    )
+                record_consumers(
+                    manifest.expected.fact_refs, "error_oracle", owner_factor_id
+                )
+            for matrix_id in consumer_factor.matrix_refs:
+                matrix = self.registry.matrices.get(matrix_id)
+                if matrix is not None:
+                    record_consumers(
+                        _iter_fact_refs(matrix.model_dump()), "matrix", owner_factor_id
+                    )
+            for fixture_id in consumer_factor.fixture_refs:
+                fixture = self.registry.fixtures.get(fixture_id)
+                if fixture is not None:
+                    record_consumers(
+                        _iter_fact_refs(fixture.model_dump()), "fixture", owner_factor_id
+                    )
+            for scenario_id in consumer_factor.scenario_refs:
+                scenario = self.registry.scenarios.get(scenario_id)
+                if scenario is not None:
+                    record_consumers(
+                        _iter_fact_refs(scenario.model_dump()), "scenario", owner_factor_id
+                    )
+
+        for consumer_factor in self.registry.factors.values():
+            record_factor_consumers(consumer_factor)
+
+        downstream_fact_ids = set(fact_consumers)
 
         unledgered_facts = sorted(
             fact.id for fact in factor.facts
@@ -175,11 +275,52 @@ class FactorCoverageAuditor:
             fact.id for fact in factor.facts
             if fact.type == "open_question" and fact.status == "needs_verification"
         )
+        unresolved_facts = sorted(
+            fact.id for fact in factor.facts if fact.status == "needs_verification"
+        )
+        allowed_consumers = {
+            "syntax": {"syntax", "dimension_value", "matrix"},
+            "constraint": {
+                "dimension_value", "matrix", "rule", "structural_check",
+                "manifest_rule", "error_oracle", "scenario",
+            },
+            "environment": {
+                "dimension_value", "matrix", "fixture", "scenario",
+                "environment_gate",
+            },
+            "lifecycle": {"scenario"},
+            "behavior_oracle": {"scenario", "error_oracle"},
+            "metadata_oracle": {"scenario"},
+            "example": {
+                "syntax", "dimension_value", "matrix", "fixture", "scenario",
+                "rule", "structural_check", "manifest_rule", "error_oracle",
+            },
+            "open_question": {"dimension_value", "matrix", "scenario", "manifest_rule"},
+        }
+        wrong_consumer_facts = sorted(
+            fact.id
+            for fact in factor.facts
+            if fact.status == "confirmed"
+            and fact.type != "example"
+            and fact_consumers.get(fact.id)
+            and not (fact_consumers[fact.id] & allowed_consumers[fact.type])
+        )
 
         selected_values: Dict[str, Set[str]] = defaultdict(set)
+        selected_values_by_suite: Dict[str, Set[tuple[str, str]]] = defaultdict(set)
         for case in cases:
+            manifest = self.registry.get_manifest(case.case_id.rsplit("_", 1)[0])
+            consumed_dimension_ids = set(
+                getattr(case, "consumed_dimension_ids", case.params.keys())
+            )
             for dimension_id, value_id in case.params.items():
+                if dimension_id not in consumed_dimension_ids:
+                    continue
                 selected_values[dimension_id].add(value_id)
+                if manifest is not None:
+                    selected_values_by_suite[manifest.suite_type].add(
+                        (dimension_id, value_id)
+                    )
         all_values = {
             (dimension_id, value.id): value
             for dimension_id, values in resolved.items()
@@ -188,15 +329,54 @@ class FactorCoverageAuditor:
         valid_values = {
             key for key, value in all_values.items() if value.validity == "valid"
         }
+        invalid_values = {
+            key for key, value in all_values.items() if value.validity == "invalid"
+        }
+        conditional_values = {
+            key for key, value in all_values.items() if value.validity == "conditional"
+        }
+        unknown_values = {
+            key for key, value in all_values.items() if value.validity == "unknown"
+        }
         actually_selected = {
             (dimension_id, value_id)
             for dimension_id, values in selected_values.items()
             for value_id in values
         }
+        positive_selected = selected_values_by_suite.get("positive", set())
+        negative_selected = selected_values_by_suite.get("negative", set())
         valid_unselected = sorted(
             f"{dimension_id}.{value_id}"
             for dimension_id, value_id in valid_values - actually_selected
         )
+        known_unselected = sorted(
+            f"{dimension_id}.{value_id}"
+            for dimension_id, value_id in (
+                valid_values | invalid_values | conditional_values
+            ) - actually_selected
+        )
+        valid_without_positive = sorted(
+            f"{dimension_id}.{value_id}"
+            for dimension_id, value_id in valid_values - positive_selected
+        )
+        invalid_without_negative = sorted(
+            f"{dimension_id}.{value_id}"
+            for dimension_id, value_id in invalid_values - negative_selected
+        )
+        conditional_unselected = sorted(
+            f"{dimension_id}.{value_id}"
+            for dimension_id, value_id in conditional_values - actually_selected
+        )
+        unknown_selected = sorted(
+            f"{dimension_id}.{value_id}"
+            for dimension_id, value_id in unknown_values & actually_selected
+        )
+        value_coverage_gaps = sorted(set(
+            valid_without_positive
+            + invalid_without_negative
+            + conditional_unselected
+            + unknown_selected
+        ))
         unselected_by_validity: Dict[str, List[str]] = defaultdict(list)
         for (dimension_id, value_id), value in all_values.items():
             if (dimension_id, value_id) not in actually_selected:
@@ -257,22 +437,37 @@ class FactorCoverageAuditor:
             for feature in self.registry.matrices[matrix_id].all_documented_features
         ]
         selected_profile_ids = set().union(*selected_values.values()) if selected_values else set()
-        documented_feature_details = {
-            feature.id: {
+        documented_feature_details: Dict[str, Any] = {}
+        feature_representation_gaps: List[str] = []
+        feature_domain_gaps: List[str] = []
+        for feature in documented_features:
+            required_refs = set(feature.coverage_refs)
+            selected_refs = required_refs & selected_profile_ids
+            represented = feature.status == "covered" and bool(selected_refs)
+            if feature.coverage_mode == "all":
+                domain_complete = represented and required_refs <= selected_refs
+            elif feature.coverage_mode == "any":
+                domain_complete = represented
+            else:
+                domain_complete = False
+            missing_refs = sorted(required_refs - selected_refs)
+            documented_feature_details[feature.id] = {
                 "status": feature.status,
+                "coverage_mode": feature.coverage_mode,
                 "profile_refs": list(feature.profile_refs),
                 "value_refs": list(feature.value_refs),
-                "selected_profile_refs": sorted(
-                    set(feature.coverage_refs) & selected_profile_ids
-                ),
+                "selected_refs": sorted(selected_refs),
+                "missing_refs": missing_refs,
+                "represented": represented,
+                "domain_complete": domain_complete,
             }
-            for feature in documented_features
-        }
-        feature_gaps = sorted(
-            feature.id for feature in documented_features
-            if feature.status == "needs_profile"
-            or not (set(feature.coverage_refs) & selected_profile_ids)
-        )
+            if not represented:
+                feature_representation_gaps.append(feature.id)
+            if not domain_complete:
+                feature_domain_gaps.append(feature.id)
+        feature_representation_gaps.sort()
+        feature_domain_gaps.sort()
+        feature_gaps = sorted(set(feature_representation_gaps + feature_domain_gaps))
 
         scenarios = [
             self.registry.scenarios[scenario_id]
@@ -292,6 +487,17 @@ class FactorCoverageAuditor:
         planned_scenarios = sorted(
             scenario.id for scenario in scenarios if scenario.status == "planned"
         )
+        non_ready_scenarios = sorted(
+            scenario.id for scenario in scenarios if scenario.status != "ready"
+        )
+        unresolved_error_oracles = sorted(
+            manifest_id
+            for manifest_id in factor.manifest_refs
+            for manifest in [self.registry.get_manifest(manifest_id)]
+            if manifest is not None
+            and manifest.expected.default == "error"
+            and manifest.expected.oracle_status == "needs_verification"
+        )
 
         pairwise_incomplete = sorted(
             manifest_id for manifest_id, detail in manifest_details.items()
@@ -302,7 +508,7 @@ class FactorCoverageAuditor:
             duplicate_case_ids,
             duplicate_sql,
             pairwise_incomplete,
-            valid_unselected,
+            value_coverage_gaps,
             rule_gaps,
         ))
         source_extraction_complete = (
@@ -316,10 +522,13 @@ class FactorCoverageAuditor:
             and generation_model_complete
             and not feature_gaps
             and not unconsumed_confirmed_facts
+            and not wrong_consumer_facts
+            and not unresolved_facts
+            and not unresolved_error_oracles
         )
         behavior_coverage_complete = (
             static_coverage_complete
-            and not planned_scenarios
+            and not non_ready_scenarios
             and not missing_scenario_facts
             and not unresolved_open_questions
         )
@@ -359,14 +568,28 @@ class FactorCoverageAuditor:
                     "gaps": atomicity_gaps,
                     "complete": not atomicity_gaps,
                 },
+                "declared_overlaps": {
+                    "line_count": len(declared_overlap_lines),
+                    "lines": declared_overlap_lines,
+                },
             },
             "facts": {
                 "total": len(factor.facts),
                 "confirmed": sum(fact.status == "confirmed" for fact in factor.facts),
                 "open_questions": sum(fact.type == "open_question" for fact in factor.facts),
                 "unresolved_open_questions": unresolved_open_questions,
+                "unresolved": unresolved_facts,
                 "unledgered": unledgered_facts,
                 "unconsumed_confirmed": unconsumed_confirmed_facts,
+                "wrong_consumer_type": wrong_consumer_facts,
+                "consumers": {
+                    fact_id: sorted(consumers)
+                    for fact_id, consumers in sorted(fact_consumers.items())
+                },
+                "external_consumers": {
+                    fact_id: sorted(consumers)
+                    for fact_id, consumers in sorted(external_fact_consumers.items())
+                },
             },
             "values": {
                 "total": len(all_values),
@@ -374,6 +597,12 @@ class FactorCoverageAuditor:
                 "valid_total": len(valid_values),
                 "valid_selected": len(valid_values & actually_selected),
                 "valid_unselected": valid_unselected,
+                "known_unselected": known_unselected,
+                "valid_without_positive": valid_without_positive,
+                "invalid_without_negative": invalid_without_negative,
+                "conditional_unselected": conditional_unselected,
+                "unknown_selected": unknown_selected,
+                "coverage_gaps": value_coverage_gaps,
                 "unselected_by_validity": dict(sorted(unselected_by_validity.items())),
             },
             "rules": {
@@ -391,17 +620,28 @@ class FactorCoverageAuditor:
                 "duplicate_sql": sorted(duplicate_sql),
                 "pairwise_applicable": pairwise_applicable_manifests,
                 "profile_enumeration_only": not pairwise_applicable_manifests,
+                "unresolved_error_oracles": unresolved_error_oracles,
             },
             "documented_features": {
                 "total": len(documented_features),
-                "covered": sum(feature.status == "covered" for feature in documented_features),
+                "covered": sum(
+                    detail["domain_complete"]
+                    for detail in documented_feature_details.values()
+                ),
+                "represented": sum(
+                    detail["represented"]
+                    for detail in documented_feature_details.values()
+                ),
                 "details": documented_feature_details,
-                "needs_profile": feature_gaps,
+                "needs_profile": feature_representation_gaps,
+                "not_domain_complete": feature_domain_gaps,
+                "coverage_gaps": feature_gaps,
             },
             "scenarios": {
                 "total": len(scenarios),
                 "status_counts": dict(sorted(scenario_status_counts.items())),
                 "planned": planned_scenarios,
+                "non_ready": non_ready_scenarios,
                 "missing_required_fact_coverage": missing_scenario_facts,
             },
             "conclusions": {

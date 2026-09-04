@@ -1,0 +1,44 @@
+schema_version: 1
+kind: matrix
+id: matrix_delete_multi_targets
+name: DELETE 多目标列表
+status: needs_review
+description: 两个正向 profile 都以 a 作为辅助目标表别名，使共享谓词具备稳定引用；修饰 profile 另覆盖 ONLY/*。一个负向 profile 专门触发多表删除不支持视图的明示规则。
+factor_ref: delete
+
+profile_property_defaults: {multi_supported: true}
+
+profiles:
+  - id: delete_multi_targets_basic
+    render: t_delete_target, t_delete_aux AS a
+    validity: valid
+    fixture_refs: [fixture_delete_target, fixture_delete_aux]
+    properties: {target_kind: multi_table, target_count: 2, has_alias: true}
+    fact_refs: [delete_fact_multi_grammar, delete_fact_alias]
+  - id: delete_multi_targets_modified
+    render: ONLY t_delete_target *, t_delete_aux AS a
+    validity: valid
+    fixture_refs: [fixture_delete_target, fixture_delete_aux]
+    properties: {target_kind: multi_table, target_count: 2, has_only: true, has_star: true, has_alias: true}
+    fact_refs: [delete_fact_multi_grammar, delete_fact_target_grammar, delete_fact_only_semantics, delete_fact_alias]
+  - id: delete_multi_targets_view_invalid
+    render: v_delete_target, t_delete_aux
+    validity: invalid
+    fixture_refs: [fixture_delete_view, fixture_delete_aux]
+    properties: {target_kind: multi_with_view, target_count: 2, multi_supported: false}
+    fact_refs: [delete_fact_multi_target_restrictions]
+
+documented_features:
+  - {id: delete_feature_multi_target_basic, profile_refs: [delete_multi_targets_basic, delete_multi_targets_modified], status: covered, fact_refs: [delete_fact_multi_grammar]}
+  - {id: delete_feature_multi_using_form, value_refs: [delete_form_multi_using, delete_multi_from, delete_multi_without_from, delete_multi_using_none, delete_multi_using_lookup, delete_multi_using_target], status: covered, fact_refs: [delete_fact_multi_grammar, delete_fact_using_clause, delete_fact_using_repeat_scope]}
+  - {id: delete_feature_multi_from_form, value_refs: [delete_form_multi_from, delete_multi_source_none, delete_multi_source_lookup, delete_multi_source_target], status: covered, fact_refs: [delete_fact_multi_grammar, delete_fact_using_clause, delete_fact_using_repeat_scope]}
+  - {id: delete_feature_multi_view_restriction, profile_refs: [delete_multi_targets_view_invalid], status: covered, fact_refs: [delete_fact_multi_target_restrictions]}
+
+fact_refs:
+  - delete_fact_multi_grammar
+  - delete_fact_multi_target_restrictions
+  - delete_fact_target_grammar
+  - delete_fact_only_semantics
+  - delete_fact_alias
+  - delete_fact_using_clause
+  - delete_fact_using_repeat_scope

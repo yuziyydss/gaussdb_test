@@ -1,36 +1,35 @@
 schema_version: 1
 kind: manifest
 id: manifest_create_index_regular_positive
-name: CREATE INDEX 普通表核心组合
+name: CREATE INDEX ASTORE 普通表核心组合
 status: ready
-description: 约束感知 Pairwise 覆盖唯一性、名称、BTREE、键形态、INCLUDE、FILLFACTOR、注释、可见性和表空间。
+description: 覆盖树方法、普通/组合/表达式/前缀/COLLATE/opclass 键、WITH、ILM、TABLESPACE 与末尾 WHERE。
 factor_ref: create_index
 syntax_ref: syntax_create_index_v1
 suite_type: positive
 strategy: pairwise
 fixture_refs: []
-identifier_policy:
-  index_name: {generator: deterministic, prefix: idx_ci_regular, unique_per_case: true}
+identifier_policy: {index_name: {generator: deterministic, prefix: idx_ci_ast, unique_per_case: true}}
 bindings:
   statement_form: [ci_statement_regular]
   unique_modifier: [ci_unique_none, ci_unique]
   concurrently: [ci_concurrently_none]
   if_not_exists: [ci_if_not_exists_none, ci_if_not_exists]
   index_name_presence: [ci_index_name_present, ci_index_name_absent]
-  table_profile: [ci_table_regular]
-  method: [ci_method_default, ci_method_btree]
-  key_profile: [ci_key_id, ci_key_id_note, ci_key_name_asc_nulls_last, ci_key_name_desc_nulls_first, ci_key_name_desc_nulls_last, ci_key_expression_lower_name, ci_key_expression_abs_id]
+  table_profile: [ci_table_astore_regular]
+  method: [ci_method_default, ci_method_btree, ci_method_ubtree]
+  key_profile: [ci_key_id, ci_key_id_note, ci_key_name_asc_nulls_last, ci_key_name_desc_nulls_first, ci_key_expression_lower_name, ci_key_expression_abs_id, ci_key_prefix_name_8, ci_key_name_collate_c, ci_key_name_pattern_ops]
   scope_clause: [ci_scope_none]
-  include_profile: [ci_include_none, ci_include_note, ci_include_note_postcode]
-  storage_profile: [ci_storage_none, ci_fillfactor_10, ci_fillfactor_70, ci_fillfactor_100]
-  comment_clause: [ci_comment_none, ci_comment_basic]
-  visibility_clause: [ci_visibility_none, ci_visibility_visible, ci_visibility_invisible]
+  include_profile: [ci_include_none]
+  storage_profile: [ci_storage_none, ci_fillfactor_10, ci_fillfactor_70, ci_fillfactor_100, ci_storage_type_astore, ci_deduplication_on, ci_stat_state_locked]
+  ilm_clause: [ci_ilm_none, ci_ilm_explicit_none, ci_ilm_turbo_high]
   tablespace_clause: [ci_tablespace_none, ci_tablespace_default]
+  comment_clause: [ci_comment_none]
+  visibility_clause: [ci_visibility_none]
+  predicate_clause: [ci_predicate_none, ci_predicate_id_not_null, ci_predicate_note_like]
 local_rules:
-  - expression: >-
-      if_not_exists == 'ci_if_not_exists'
-      => index_name_presence == 'ci_index_name_present'
-    rationale: 无名 IF NOT EXISTS 的语法与同名查找语义矛盾，等待 open question 解决前不生成。
+  - expression: if_not_exists == 'ci_if_not_exists' => index_name_presence == 'ci_index_name_present'
+    rationale: 无名 IF NOT EXISTS 的同名匹配语义尚未由文档解释。
     fact_refs: [ci_open_if_not_exists_unnamed]
 expected: {default: success, scope: syntax_and_semantics}
 coverage_requirements: {strength: 2, require_all_feasible_pairs: true}

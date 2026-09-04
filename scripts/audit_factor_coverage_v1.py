@@ -79,9 +79,15 @@ def main() -> int:
             f"unmapped={len(source['unmapped'])} "
             f"atomicity_gaps={len(source['atomicity']['gaps'])} "
             f"valid_values={values['valid_selected']}/{values['valid_total']} "
+            f"value_gaps={len(values['coverage_gaps'])} "
             f"rule_gaps={len(rules['gaps'])} "
             f"pairs_complete={not report['manifests']['pairwise_incomplete']} "
-            f"features={features['covered']}/{features['total']} "
+            f"unresolved_error_oracles={len(report['manifests']['unresolved_error_oracles'])} "
+            f"features_domain_complete={features['covered']}/{features['total']} "
+            f"features_represented={features['represented']}/{features['total']} "
+            f"feature_gaps={len(features['coverage_gaps'])} "
+            f"unresolved_facts={len(report['facts']['unresolved'])} "
+            f"wrong_fact_consumers={len(report['facts']['wrong_consumer_type'])} "
             f"planned_scenarios={len(scenarios['planned'])}"
         )
         print(

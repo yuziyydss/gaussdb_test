@@ -5,6 +5,7 @@
   enabled=True: 真实执行，捕获 SQLSTATE，检测 core dump，与 expected 集合比对
   use_sandbox=True (默认): Schema 级沙箱隔离，执行完毕后自动 CASCADE 清理，杜绝 DDL 污染
 """
+import json
 import os
 import re
 import time
@@ -28,6 +29,10 @@ class ExecResult:
     expected_sqlstates: List[str] = field(default_factory=list) # 预期合法 SQLSTATE 候选集合
     expected_error_category: str = ""
     expected_error_regex: str = ""
+    expected_oracle_status: str = "confirmed"
+    expected_scope: str = "syntax_and_semantics"
+    environment_requirements: List[dict] = field(default_factory=list)
+    unmet_environment_requirements: List[str] = field(default_factory=list)
     actual_sqlstate: str = ""      # 实际捕获的 SQLSTATE
     cleanup_error_msg: str = ""
     verdict: str = ""             # pass | fail | crash | skip | pending
@@ -42,6 +47,15 @@ class ExecResult:
             return
         if self.status in {"fixture_error", "cleanup_error"}:
             self.verdict = "fail"
+            return
+        if self.expected_scope != "syntax_and_semantics":
+            # Executing the target statement alone cannot close a syntax-only,
+            # behavior, or metadata contract.  A dedicated scenario/oracle must
+            # promote these results instead of treating mere SQL success as pass.
+            self.verdict = "pending"
+            return
+        if self.expected == "error" and self.expected_oracle_status != "confirmed":
+            self.verdict = "pending"
             return
 
         # 整理所有合法的预期 SQLSTATE 候选集
@@ -87,6 +101,29 @@ class ExecConfig:
     enabled: bool = field(default_factory=lambda: os.getenv("GAUSSDB_ENABLED", "false").lower() in ("true", "1", "yes"))
     use_sandbox: bool = field(default_factory=lambda: os.getenv("GAUSSDB_USE_SANDBOX", "true").lower() in ("true", "1", "yes"))
     sandbox_prefix: str = "factortest_sandbox"
+    environment_capabilities: dict = field(default_factory=lambda: _load_environment_capabilities())
+
+
+def _load_environment_capabilities() -> dict:
+    raw = os.getenv("GAUSSDB_ENVIRONMENT_JSON", "").strip()
+    if raw:
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"GAUSSDB_ENVIRONMENT_JSON 不是合法 JSON: {exc}") from exc
+        if not isinstance(parsed, dict):
+            raise ValueError("GAUSSDB_ENVIRONMENT_JSON 必须是 JSON object")
+        return {str(key): str(value) for key, value in parsed.items()}
+    mapping = {
+        "compatibility_mode": "GAUSSDB_COMPATIBILITY_MODE",
+        "b_format_version": "GAUSSDB_B_FORMAT_VERSION",
+        "b_format_dev_version": "GAUSSDB_B_FORMAT_DEV_VERSION",
+    }
+    return {
+        key: os.environ[env_name]
+        for key, env_name in mapping.items()
+        if os.getenv(env_name)
+    }
 
 
 class Executor:
@@ -182,6 +219,41 @@ class Executor:
         expected_sqlstates = getattr(case, "expected_sqlstates", [])
         expected_error_category = getattr(case, "expected_error_category", "")
         expected_error_regex = getattr(case, "expected_error_regex", "")
+        expected_oracle_status = getattr(case, "expected_oracle_status", "confirmed")
+        expected_scope = getattr(case, "expected_scope", "syntax_and_semantics")
+        environment_requirements = getattr(case, "environment_requirements", [])
+        unmet_environment_requirements = []
+        for requirement in environment_requirements:
+            key = str(requirement.get("key", ""))
+            allowed_values = {
+                str(value) for value in requirement.get("allowed_values", [])
+            }
+            actual = self.config.environment_capabilities.get(key)
+            if actual is None or str(actual) not in allowed_values:
+                unmet_environment_requirements.append(
+                    f"{key}={actual!r}, required={sorted(allowed_values)}"
+                )
+        if unmet_environment_requirements:
+            r = ExecResult(
+                case_id=case.case_id,
+                sql=case.sql,
+                status="skipped",
+                error_msg=(
+                    "execution environment does not satisfy manifest gate: "
+                    + "; ".join(unmet_environment_requirements)
+                ),
+                expected=case.expected,
+                expected_sqlstate=case.expected_sqlstate,
+                expected_sqlstates=expected_sqlstates,
+                expected_error_category=expected_error_category,
+                expected_error_regex=expected_error_regex,
+                expected_oracle_status=expected_oracle_status,
+                expected_scope=expected_scope,
+                environment_requirements=environment_requirements,
+                unmet_environment_requirements=unmet_environment_requirements,
+            )
+            r.compute_verdict()
+            return r
         if not self.config.enabled:
             r = ExecResult(
                 case_id=case.case_id,
@@ -192,6 +264,9 @@ class Executor:
                 expected_sqlstates=expected_sqlstates,
                 expected_error_category=expected_error_category,
                 expected_error_regex=expected_error_regex,
+                expected_oracle_status=expected_oracle_status,
+                expected_scope=expected_scope,
+                environment_requirements=environment_requirements,
             )
             r.compute_verdict()
             return r
@@ -218,6 +293,9 @@ class Executor:
                 expected_sqlstates=expected_sqlstates,
                 expected_error_category=expected_error_category,
                 expected_error_regex=expected_error_regex,
+                expected_oracle_status=expected_oracle_status,
+                expected_scope=expected_scope,
+                environment_requirements=environment_requirements,
             )
         except Exception as e:
             duration = (time.time() - start) * 1000
@@ -238,6 +316,9 @@ class Executor:
                     expected_sqlstates=expected_sqlstates,
                     expected_error_category=expected_error_category,
                     expected_error_regex=expected_error_regex,
+                    expected_oracle_status=expected_oracle_status,
+                    expected_scope=expected_scope,
+                    environment_requirements=environment_requirements,
                 )
             else:
                 r = ExecResult(
@@ -254,6 +335,9 @@ class Executor:
                     expected_sqlstates=expected_sqlstates,
                     expected_error_category=expected_error_category,
                     expected_error_regex=expected_error_regex,
+                    expected_oracle_status=expected_oracle_status,
+                    expected_scope=expected_scope,
+                    environment_requirements=environment_requirements,
                     actual_sqlstate=actual_sqlstate,
                 )
         finally:

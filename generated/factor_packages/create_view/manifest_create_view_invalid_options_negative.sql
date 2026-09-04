@@ -6,7 +6,9 @@
 -- expected: error
 -- expected_error_category: invalid_view_option
 -- expected_sqlstates: -
--- expected_error_regex: (?i)(option|security_barrier|check_option|invalid)
+-- expected_error_regex: -
+-- expected_oracle_status: needs_verification
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_inherited", "force_modifier": "force_absent", "or_replace": "or_replace_absent", "post_query_option": "post_query_none", "query_profile": "query_simple_two_columns", "temp_modifier": "temp_absent", "view_options_profile": "view_option_unknown_name"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_view_source CASCADE;
@@ -21,7 +23,9 @@ DROP TABLE IF EXISTS t_view_source CASCADE;
 -- expected: error
 -- expected_error_category: invalid_view_option
 -- expected_sqlstates: -
--- expected_error_regex: (?i)(option|security_barrier|check_option|invalid)
+-- expected_error_regex: -
+-- expected_oracle_status: needs_verification
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_inherited", "force_modifier": "force_absent", "or_replace": "or_replace_absent", "post_query_option": "post_query_none", "query_profile": "query_simple_two_columns", "temp_modifier": "temp_absent", "view_options_profile": "view_option_security_invalid"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_view_source CASCADE;
@@ -36,7 +40,9 @@ DROP TABLE IF EXISTS t_view_source CASCADE;
 -- expected: error
 -- expected_error_category: invalid_view_option
 -- expected_sqlstates: -
--- expected_error_regex: (?i)(option|security_barrier|check_option|invalid)
+-- expected_error_regex: -
+-- expected_oracle_status: needs_verification
+-- expected_scope: syntax_and_semantics
 -- params: {"column_list": "column_list_inherited", "force_modifier": "force_absent", "or_replace": "or_replace_absent", "post_query_option": "post_query_none", "query_profile": "query_simple_two_columns", "temp_modifier": "temp_absent", "view_options_profile": "view_option_check_invalid"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_view_source CASCADE;

@@ -1,0 +1,28 @@
+schema_version: 1
+kind: manifest
+id: manifest_create_sequence_regular_positive
+name: CREATE SEQUENCE 普通与 LARGE 选项组合
+status: ready
+description: 对有限整数代表域做约束感知 Pairwise，行为默认值另由 planned scenario 验证。
+factor_ref: create_sequence
+syntax_ref: syntax_create_sequence_v1
+suite_type: positive
+strategy: pairwise
+fixture_refs: []
+identifier_policy: {sequence_name: {generator: deterministic, prefix: seq_cs, unique_per_case: true}}
+bindings:
+  sequence_kind: [cs_kind_regular, cs_kind_large]
+  if_not_exists: [cs_if_absent, cs_if_present]
+  increment_clause: [cs_increment_default, cs_increment_positive, cs_increment_positive_by, cs_increment_negative]
+  min_clause: [cs_min_absent, cs_min_one, cs_min_no, cs_min_nomin]
+  max_clause: [cs_max_absent, cs_max_hundred, cs_max_no, cs_max_nomax]
+  start_clause: [cs_start_absent, cs_start_one, cs_start_with_ten]
+  cache_clause: [cs_cache_absent, cs_cache_one, cs_cache_five]
+  cycle_clause: [cs_cycle_absent, cs_cycle, cs_no_cycle, cs_nocycle]
+  owned_by_clause: [cs_owned_absent, cs_owned_none]
+local_rules:
+  - expression: "increment_clause != 'cs_increment_negative' or (min_clause != 'cs_min_one' and start_clause == 'cs_start_absent') or max_clause == 'cs_max_hundred'"
+    rationale: 递减序列省略 MAXVALUE 时默认最大值为 -1；正 MINVALUE 或正 START 仅与本清单的显式 MAXVALUE 100 组合，避免把边界冲突组合标为正向成功。
+    fact_refs: [cs_fact_min_defaults, cs_fact_max_defaults, cs_fact_start]
+expected: {default: success, scope: syntax_and_semantics}
+coverage_requirements: {strength: 2, require_all_feasible_pairs: true}

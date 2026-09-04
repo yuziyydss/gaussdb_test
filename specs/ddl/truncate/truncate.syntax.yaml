@@ -1,0 +1,61 @@
+schema_version: 1
+kind: syntax
+id: syntax_truncate_v1
+name: TRUNCATE 整表与分区双顶层 AST
+category: DDL
+status: ready
+factor_ref: truncate
+description: 整表列表和 PARTITION FOR 值使用有限 repeat profile；四种 ALTER TABLE 目标由 matrix 渲染。
+ast:
+  kind: choice
+  selector: statement_form
+  branches:
+    tr_form_full: {kind: ref, ref: full_table_truncate}
+    tr_form_partition: {kind: ref, ref: partition_truncate}
+subgrammars:
+  full_table_truncate:
+    kind: sequence
+    items:
+      - {kind: literal, text: "TRUNCATE "}
+      - {kind: slot, slot: table_keyword}
+      - {kind: slot, slot: full_scope}
+      - {kind: repeat, slot: full_table_profile, separator: ", ", items_property: items}
+      - {kind: slot, slot: identity_clause}
+      - {kind: slot, slot: dependency_clause}
+      - {kind: slot, slot: purge_clause}
+  partition_truncate:
+    kind: sequence
+    items:
+      - {kind: literal, text: "ALTER TABLE "}
+      - {kind: slot, slot: partition_if_exists}
+      - {kind: slot, slot: partition_table_profile}
+      - {kind: literal, text: " TRUNCATE PARTITION "}
+      - {kind: ref, ref: partition_selector_body}
+      - {kind: slot, slot: update_global_index}
+  partition_selector_body:
+    kind: choice
+    selector: partition_selector
+    branches:
+      tr_partition_by_name: {kind: slot, slot: partition_name}
+      tr_partition_by_values:
+        kind: sequence
+        items:
+          - {kind: literal, text: "FOR ("}
+          - {kind: repeat, slot: partition_value_profile, separator: ", ", items_property: items}
+          - {kind: literal, text: ")"}
+rendering: {whitespace: collapse, statement_terminator: ";"}
+slots:
+  statement_form: {type: ast_selector, optional: false, dimension_ref: truncate.statement_form}
+  table_keyword: {type: token, optional: true, dimension_ref: truncate.table_keyword}
+  full_scope: {type: token, optional: true, dimension_ref: truncate.full_scope}
+  full_table_profile: {type: ast_repeat, optional: false, dimension_ref: truncate.full_table_profile, symbol_action: writes_relation}
+  identity_clause: {type: token, optional: true, dimension_ref: truncate.identity_clause}
+  dependency_clause: {type: token, optional: true, dimension_ref: truncate.dependency_clause}
+  purge_clause: {type: token, optional: true, dimension_ref: truncate.purge_clause}
+  partition_if_exists: {type: token, optional: true, dimension_ref: truncate.partition_if_exists}
+  partition_table_profile: {type: table_profile, optional: false, dimension_ref: truncate.partition_table_profile, symbol_action: writes_relation}
+  partition_selector: {type: ast_selector, optional: false, dimension_ref: truncate.partition_selector}
+  partition_name: {type: token, optional: false, dimension_ref: truncate.partition_name}
+  partition_value_profile: {type: ast_repeat, optional: false, dimension_ref: truncate.partition_value_profile}
+  update_global_index: {type: token, optional: true, dimension_ref: truncate.update_global_index}
+source_fact_refs: [tr_fact_purpose, tr_fact_full_grammar, tr_fact_partition_grammar, tr_fact_only_scope, tr_fact_table_name, tr_fact_continue_identity, tr_fact_dependency_modes, tr_fact_purge, tr_fact_partition_name, tr_fact_partition_value, tr_fact_update_global_index]

@@ -1,0 +1,23 @@
+schema_version: 1
+kind: scenario
+id: scenario_merge_behavior
+name: MERGE 匹配与不匹配行为
+status: planned
+description: 用确定种子分别验证匹配 UPDATE、不匹配 INSERT、WHERE 过滤和 DEFAULT 行结果。
+factor_ref: merge_into
+fixture_refs: [fixture_merge_target, fixture_merge_source]
+fact_refs: [merge_fact_behavior, merge_fact_matched_behavior, merge_fact_not_matched_behavior, merge_fact_default_behavior, merge_example_basic, "create_table::ct_fact_default_semantics"]
+preconditions: [目标包含 id=1，源包含 id=1 与 id=2]
+variants:
+  - id: matched_and_not_matched
+    operations: [执行同时包含 MATCHED 与 NOT MATCHED 的 MERGE, 查询目标表]
+    expected: id=1 的值被更新且 id=2 被插入。
+  - id: action_where_filter
+    operations: [执行带 action WHERE 的 MERGE, 查询目标表]
+    expected: 仅满足各自 WHERE 的行发生变化。
+  - id: default_values
+    operations: [在允许 NULL 的目标上执行 INSERT DEFAULT VALUES 分支, 查询新增行]
+    expected: 无列缺省值时对应字段为 NULL。
+oracles:
+  - {kind: query_result, expected: 目标行集合与匹配更新及不匹配插入规则一致。}
+execution_requirements: [database, deterministic_seed, query_result]

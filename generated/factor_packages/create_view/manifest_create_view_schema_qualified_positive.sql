@@ -7,6 +7,8 @@
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_only
 -- params: {"column_list": "column_list_inherited", "force_modifier": "force_absent", "or_replace": "or_replace_absent", "post_query_option": "post_query_none", "query_profile": "query_simple_two_columns", "temp_modifier": "temp_absent", "view_options_profile": "view_options_none"}
 -- fixture_setup:
 DROP TABLE IF EXISTS t_view_source CASCADE;

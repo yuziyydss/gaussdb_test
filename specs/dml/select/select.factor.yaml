@@ -4,14 +4,22 @@ id: select
 name: SELECT
 category: DML
 status: needs_review
-description: SELECT 主语法、查询能力、文档约束和执行前置条件的 V1 适配验证包。
+description: >-
+  以 GaussDB V2.0-10.0.0 集中式参考 1.13.19.3 SELECT 章节为唯一主证据，
+  表达 SELECT/TABLE 顶层产生式、有限深度组合 AST、表达式/列契约、环境能力与行为场景。
 
 source:
   product: GaussDB
-  document: SELECT 产品文档原文
-  version: unknown
-  artifact_sha256: 5e8a4e12707cea415d14b0f46517d30c17f5eb6cf7f371579190413440b95573
-  extraction_date: "2026-08-28"
+  document: GaussDB V2.0-10.0.0 集中式参考 / 1.13.19.3 SELECT
+  version: V2.0-10.0.0
+  artifact_sha256: 704be074e80aa4db10f5bd8f4c587e31be2602640aced00c4985610d674fa4cc
+  parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+  extraction_rule_version: gaussdb-pdf-outline-v1
+  extraction_date: "2026-09-04"
+  catalog_chapter_ref:
+    document_id: gaussdb_v2_0_10_0_0_centralized_reference_01
+    source_relpath: general/dml/select.txt
+    chapter_sha256: 704be074e80aa4db10f5bd8f4c587e31be2602640aced00c4985610d674fa4cc
 
 source_ledger_ref: source_ledger_select
 syntax_ref: syntax_select_v1
@@ -244,7 +252,7 @@ dimensions:
             properties: {items: [col_1], columns: [col_1], active: true}
 
   set_operator:
-    description: AST 集合运算分支。
+    description: AST 的单层集合运算分支；不表示任意深度、结合顺序或括号组合已覆盖。
     default_value_id: select_set_none
     classes:
       - id: select_set_class
@@ -267,7 +275,7 @@ dimensions:
             properties: {active: true}
 
   right_target_list:
-    description: 集合运算右侧投影列契约。
+    description: 集合运算右侧投影、引用列与右表来源契约。
     default_value_id: select_right_target_col1
     classes:
       - id: select_right_target_class
@@ -277,12 +285,26 @@ dimensions:
             render: ""
             representative: true
             validity: valid
-            properties: {items: [col_1], output_columns: [col_1], output_types: [INTEGER]}
+            properties:
+              items: [col_1]
+              referenced_columns: [col_1]
+              output_columns: [col_1]
+              output_types: [INTEGER]
+              source_tables: [t_select_right]
+              source_columns: [col_1]
+              source_columns_by_table: {t_select_right: [col_1]}
           - id: select_right_target_col1_col2
             render: ""
             representative: true
             validity: valid
-            properties: {items: [col_1, col_2], output_columns: [col_1, col_2], output_types: [INTEGER, INTEGER]}
+            properties:
+              items: [col_1, col_2]
+              referenced_columns: [col_1, col_2]
+              output_columns: [col_1, col_2]
+              output_types: [INTEGER, INTEGER]
+              source_tables: [t_select_right]
+              source_columns: [col_1, col_2]
+              source_columns_by_table: {t_select_right: [col_1, col_2]}
 
   order_by_list:
     description: AST ORDER BY repeat 列表及可见列契约。
@@ -349,13 +371,32 @@ dimensions:
     default_value_id: select_table_source
     classes:
       - id: select_table_target_class
-        meaning: 基础 SELECT Fixture 表。
+        meaning: 原文 TABLE 产生式的普通、ONLY、括号 ONLY 和后置 * 形式。
         values:
           - id: select_table_source
             render: t_select_source
             representative: true
             validity: valid
             properties: {source_tables: [t_select_source], source_columns: [col_1, col_2, name]}
+            fact_refs: [select_fact_table_shorthand]
+          - id: select_table_only_source
+            render: ONLY t_select_source
+            representative: true
+            validity: valid
+            properties: {source_tables: [t_select_source], source_columns: [col_1, col_2, name]}
+            fact_refs: [select_fact_table_shorthand]
+          - id: select_table_only_parenthesized_source
+            render: ONLY (t_select_source)
+            representative: true
+            validity: valid
+            properties: {source_tables: [t_select_source], source_columns: [col_1, col_2, name]}
+            fact_refs: [select_fact_table_shorthand]
+          - id: select_table_source_star
+            render: t_select_source *
+            representative: true
+            validity: valid
+            properties: {source_tables: [t_select_source], source_columns: [col_1, col_2, name]}
+            fact_refs: [select_fact_table_shorthand]
 
 structural_checks:
   - id: select_struct_expression_and_column_contract
@@ -404,47 +445,231 @@ rules:
     fact_refs: [select_fact_order_by]
 
 facts:
-  - {id: select_fact_purpose, type: syntax, statement: "SELECT 从表或视图读取并过滤数据。", status: confirmed, source_anchor: "功能描述"}
-  - {id: select_fact_permissions, type: environment, statement: "读取对象和字段需要 SELECT 权限，锁定查询还需要 UPDATE 权限。", status: confirmed, source_anchor: "注意事项/权限"}
-  - {id: select_fact_partition_global_index, type: behavior_oracle, statement: "指定分区查询当前不能执行全局索引扫描。", status: confirmed, source_anchor: "注意事项/指定分区"}
-  - {id: select_fact_main_grammar, type: syntax, statement: "SELECT 主语法包含 WITH、投影、FROM、过滤、层次、分组、窗口、集合、排序、分页、INTO 和锁定分支。", status: confirmed, source_anchor: "语法格式/查询数据"}
-  - {id: select_fact_alias_reference, type: constraint, statement: "targetlist 别名只能由同层后续表达式引用，并排除 volatile、窗口函数、JOIN ON 和多别名歧义场景。", status: confirmed, source_anchor: "语法格式/targetlist 别名"}
-  - {id: select_fact_where_in_performance, type: environment, statement: "缓存计划场景中 WHERE IN 候选集合建议不超过 100，以避免计划和内存膨胀。", status: confirmed, source_anchor: "注意事项/WHERE IN"}
-  - {id: select_fact_cte, type: behavior_oracle, statement: "WITH 支持递归、数据修改子句以及 MATERIALIZED/NOT MATERIALIZED，并影响内联或物化计划。", status: confirmed, source_anchor: "参数说明/WITH"}
-  - {id: select_fact_plan_hint, type: syntax, statement: "SELECT 后可放置一个生效的 /*+ plan_hint */ 注释块。", status: confirmed, source_anchor: "参数说明/plan_hint"}
-  - {id: select_fact_all_distinct, type: behavior_oracle, statement: "ALL 保留全部行；DISTINCT 去重；DISTINCT ON 保留每组第一行且通常应配合 ORDER BY。", status: confirmed, source_anchor: "参数说明/ALL/DISTINCT"}
-  - {id: select_fact_target_list, type: syntax, statement: "SELECT 列表支持通配符、表达式、输出别名和聚集表达式。", status: confirmed, source_anchor: "参数说明/SELECT列表"}
-  - {id: select_fact_into, type: environment, statement: "INTO 可写用户变量、OUTFILE 或 DUMPFILE，并涉及兼容模式、GUC、权限和文件系统副作用。", status: confirmed, source_anchor: "参数说明/INTO"}
-  - {id: select_fact_from_sources, type: syntax, statement: "FROM 支持表、子查询、CTE、函数、XMLTABLE、PIVOT/UNPIVOT 和连接项。", status: confirmed, source_anchor: "参数说明/FROM"}
-  - {id: select_fact_tablesample, type: behavior_oracle, statement: "TABLESAMPLE 支持 SYSTEM、BERNOULLI、HYBRID 以及可重复种子。", status: confirmed, source_anchor: "参数说明/TABLESAMPLE"}
-  - {id: select_fact_flashback, type: environment, statement: "TIMECAPSULE 支持 TIMESTAMP/CSN，但受表类型、历史版本、DDL 和回收窗口限制。", status: confirmed, source_anchor: "参数说明/TIMECAPSULE"}
-  - {id: select_fact_partition, type: syntax, statement: "分区表查询支持 PARTITION、PARTITION FOR、SUBPARTITION 及其键值定位。", status: confirmed, source_anchor: "参数说明/PARTITION"}
-  - {id: select_fact_join, type: syntax, statement: "FROM 支持 INNER、LEFT、RIGHT、FULL、CROSS、NATURAL、ON 和 USING 连接。", status: confirmed, source_anchor: "参数说明/JOIN"}
-  - {id: select_fact_xmltable, type: environment, statement: "XMLTABLE 的 XML 类型、可省略项和错误行为依赖 A/PG 兼容模式并带有多项 XPath 限制。", status: confirmed, source_anchor: "参数说明/XMLTABLE"}
-  - {id: select_fact_unpivot, type: environment, statement: "UNPIVOT 仅支持 A 兼容模式，且列数、别名和常量表达式必须满足文档约束。", status: confirmed, source_anchor: "参数说明/UNPIVOT"}
-  - {id: select_fact_pivot, type: environment, statement: "PIVOT 仅支持 A 兼容模式；PIVOT XML 只有语法而无功能支持。", status: confirmed, source_anchor: "参数说明/PIVOT"}
-  - {id: select_fact_where, type: constraint, statement: "WHERE 接收布尔条件；旧式 (+) 外连接受位置、连接方式和表达式类型等限制。", status: confirmed, source_anchor: "参数说明/WHERE"}
-  - {id: select_fact_hierarchy, type: behavior_oracle, statement: "START WITH/CONNECT BY 支持 PRIOR、NOCYCLE、伪列和深度遍历语义，并禁止与锁定子句组合。", status: confirmed, source_anchor: "参数说明/START WITH/CONNECT BY"}
-  - {id: select_fact_order_siblings, type: behavior_oracle, statement: "ORDER SIBLINGS BY 控制层次查询同层顺序，并限制可用表达式。", status: confirmed, source_anchor: "参数说明/ORDER SIBLINGS BY"}
-  - {id: select_fact_group_by, type: environment, statement: "GROUP BY 支持 ROLLUP、CUBE、GROUPING SETS，非聚集列检查受 ONLY_FULL_GROUP_BY 影响。", status: confirmed, source_anchor: "参数说明/GROUP BY"}
-  - {id: select_fact_having, type: syntax, statement: "HAVING 对分组结果进行过滤。", status: confirmed, source_anchor: "参数说明/HAVING"}
-  - {id: select_fact_window, type: constraint, statement: "WINDOW 支持命名窗口和 frame；VALUE 边界有类型、非负和常量限制。", status: confirmed, source_anchor: "参数说明/WINDOW"}
-  - {id: select_fact_set_operations, type: constraint, statement: "UNION、INTERSECT、EXCEPT、MINUS 有列契约、结合顺序和禁止锁定等约束。", status: confirmed, source_anchor: "参数说明/集合运算"}
-  - {id: select_fact_order_by, type: constraint, statement: "ORDER BY 支持方向、USING、NULLS 和 NLSSORT，并受 DISTINCT/GROUP BY 投影约束。", status: confirmed, source_anchor: "参数说明/ORDER BY"}
-  - {id: select_fact_limit_offset_fetch, type: syntax, statement: "SELECT 支持 LIMIT、OFFSET 和 FETCH 行数控制语法。", status: confirmed, source_anchor: "参数说明/LIMIT/OFFSET/FETCH"}
-  - {id: select_fact_locking, type: environment, statement: "锁定子句支持四种锁模式及 NOWAIT、WAIT、SKIP LOCKED，并受权限、表引擎和远端表限制。", status: confirmed, source_anchor: "参数说明/锁定子句"}
-  - {id: select_fact_nls_sort, type: environment, statement: "NLSSORT 支持中文拼音或纯英文大小写不敏感排序，并依赖数据库编码。", status: confirmed, source_anchor: "参数说明/NLS_SORT"}
-  - {id: select_fact_table_shorthand, type: syntax, statement: "TABLE table_name 是与 SELECT 主语法并列的简化查询顶层产生式。", status: confirmed, source_anchor: "语法格式/TABLE"}
+  - {id: select_fact_purpose, type: syntax, statement: "SELECT 从表或视图取出并过滤数据。", status: confirmed, source_anchor: "L4-L7 功能描述"}
+  - {id: select_fact_permissions, type: environment, statement: "读取对象与每个引用字段需 SELECT 权限，四种锁定查询还需 UPDATE 权限。", status: confirmed, source_anchor: "L9-L16 注意事项"}
+  - {id: select_fact_partition_global_index, type: behavior_oracle, statement: "指定分区的 SELECT 目前无法执行全局索引扫描。", status: confirmed, source_anchor: "L17 注意事项"}
+  - {id: select_fact_main_grammar, type: syntax, statement: "SELECT 主产生式依次表达 WITH、hint、投影、三个 INTO 位置、FROM、WHERE、层次、分组、窗口、集合、排序、分页与锁定。", status: confirmed, source_anchor: "L19-L40 语法格式"}
+  - {id: select_fact_alias_reference, type: constraint, statement: "targetlist 别名只能被同层后续表达式引用，且排除 volatile、窗口函数、JOIN ON 与多别名歧义。", status: confirmed, source_anchor: "L42-L51 别名说明"}
+  - {id: select_fact_where_in_performance, type: environment, statement: "缓存计划场景中 WHERE IN 候选项建议不超过 100，以限制内存与计划模板膨胀。", status: confirmed, source_anchor: "L55-L61 WHERE IN 须知"}
+  - {id: select_fact_cte, type: behavior_oracle, statement: "WITH 可声明多个/递归 CTE，子句可为 SELECT、VALUES 或数据修改语句，MATERIALIZED 修饰会改变内联/物化计划。", status: confirmed, source_anchor: "L63-L65, L155-L180 WITH"}
+  - {id: select_fact_plan_hint, type: syntax, statement: "SELECT 关键字后可放 /*+ plan_hint */；每条语句只有第一个 hint 块生效，章末给出 indexscan 和 rows 示例。", status: confirmed, source_anchor: "L181-L184, L2298-L2329"}
+  - {id: select_fact_all_distinct, type: behavior_oracle, statement: "ALL 是保留全部行的默认值；DISTINCT 去重；DISTINCT ON 保留每组第一行并应配合 ORDER BY 获得稳定结果。", status: confirmed, source_anchor: "L185-L198 ALL/DISTINCT"}
+  - {id: select_fact_target_list, type: syntax, statement: "SELECT 列表可为 *、部分列、FROM 计算字段或带 AS/隐式别名的表达式。", status: confirmed, source_anchor: "L200-L206 SELECT 列表"}
+  - {id: select_fact_into, type: environment, statement: "INTO 可写用户变量、OUTFILE 或 DUMPFILE，在主产生式有三个可选位置，文件导出带字符集与 FIELDS/LINES 格式。", status: confirmed, source_anchor: "L67-L83, L214-L272 INTO"}
+  - {id: select_fact_from_sources, type: syntax, statement: "FROM 项支持表/视图、派生表、CTE、函数、XMLTABLE、PIVOT/UNPIVOT 与递归 JOIN。", status: confirmed, source_anchor: "L85-L96, L274-L423 FROM"}
+  - {id: select_fact_tablesample, type: behavior_oracle, statement: "TABLESAMPLE 支持按块 SYSTEM、按行 BERNOULLI、混合 HYBRID，REPEATABLE 在表未变时使相同种子选得相同样本。", status: confirmed, source_anchor: "L295-L316 TABLESAMPLE"}
+  - {id: select_fact_flashback, type: environment, statement: "TIMECAPSULE 支持 TIMESTAMP/CSN，但受表类型、PCR UBTree、历史回收、DDL/TRUNCATE 和时间精度限制。", status: confirmed, source_anchor: "L317-L347 TIMECAPSULE"}
+  - {id: select_fact_partition, type: syntax, statement: "分区查询支持 PARTITION 名称/键值、SUBPARTITION 名称/键值，且只适用于分区表。", status: confirmed, source_anchor: "L107-L115, L348-L363 分区"}
+  - {id: select_fact_join, type: syntax, statement: "JOIN 包含 INNER、LEFT、RIGHT、FULL、CROSS 及 NATURAL/ON/USING 条件；CROSS JOIN 不接受连接条件。", status: confirmed, source_anchor: "L372-L418 JOIN"}
+  - {id: select_fact_xmltable, type: environment, statement: "XMLTABLE 在 A/PG 模式使用 XMLTYPE/XML，实现 XPath 1.0，并对 namespace、PASSING、COLUMNS、typmod、1GB 上限与升级期有明确差异/限制。", status: confirmed, source_anchor: "L420-L623 XMLTABLE"}
+  - {id: select_fact_unpivot, type: environment, statement: "UNPIVOT 仅支持 A 模式，可选 INCLUDE/EXCLUDE NULLS，并约束输出列数、别名数、常量性和公共类型。", status: confirmed, source_anchor: "L625-L693 UNPIVOT"}
+  - {id: select_fact_pivot, type: environment, statement: "PIVOT 仅支持 A 模式，聚集别名、IN 常量表达式、输出列名长度受限，XML 分支只支持语法不支持功能。", status: confirmed, source_anchor: "L695-L748 PIVOT"}
+  - {id: select_fact_where, type: constraint, statement: "WHERE 接受布尔条件；A 式 (+) 外连接受位置、表达式类型、OR、跨层、单侧与参数化等限制。", status: confirmed, source_anchor: "L750-L813, L867-L896 WHERE"}
+  - {id: select_fact_hierarchy_pushdown, type: behavior_oracle, statement: "多表层次查询会按合取/析取拆分 WHERE，只下推当前层多表非子链接条件，不下推子链接、外层列与 PRIOR 条件。", status: confirmed, source_anchor: "L815-L866 层次 WHERE 下推"}
+  - {id: select_fact_hierarchy, type: behavior_oracle, statement: "START WITH/CONNECT BY 以 PRIOR 定义父子键，支持 NOCYCLE、LEVEL/叶子/循环伪列与路径/根函数，对 PRIOR 位置、类型和锁定组合有限制。", status: confirmed, source_anchor: "L898-L1049 层次查询"}
+  - {id: select_fact_order_siblings, type: behavior_oracle, statement: "ORDER SIBLINGS BY 为层次查询同层节点排序，仅支持普通列、列偏移和列窗口函数等文档列出表达式。", status: confirmed, source_anchor: "L1050-L1063 ORDER SIBLINGS BY"}
+  - {id: select_fact_group_by, type: environment, statement: "GROUP BY 支持 ROLLUP、CUBE、GROUPING SETS；ONLY_FULL_GROUP_BY 使非聚集列检查受分组列、主键/非空唯一键、常量等值谓词和 JOIN 方向影响。", status: confirmed, source_anchor: "L98-L105, L1065-L1112 GROUP BY"}
+  - {id: select_fact_having, type: syntax, statement: "HAVING 与 GROUP BY 配合，只保留满足组逻辑表达式的分组。", status: confirmed, source_anchor: "L1114-L1116 HAVING"}
+  - {id: select_fact_window, type: constraint, statement: "WINDOW 支持命名窗口、PARTITION/ORDER 和 RANGE/ROWS frame；VALUE 边界有列类型、值类型、非负与常量限制。", status: confirmed, source_anchor: "L1117-L1146 WINDOW"}
+  - {id: select_fact_set_operations, type: constraint, statement: "UNION/INTERSECT/EXCEPT/MINUS 要求左右投影列数、顺序和类型契约一致，有去重/ALL、结合优先级、子表达式与禁止锁定约束。", status: confirmed, source_anchor: "L1147-L1211 集合运算"}
+  - {id: select_fact_order_by, type: constraint, statement: "ORDER BY 支持多表达式、方向、USING、NULLS 与 NLSSORT，并对非整数常量、DISTINCT/GROUP BY 投影、表达式等价和函数易变性设限。", status: confirmed, source_anchor: "L1212-L1295 ORDER BY"}
+  - {id: select_fact_limit_offset_fetch, type: syntax, statement: "SELECT 支持 LIMIT count/ALL、LIMIT offset,count、OFFSET ROW/ROWS 与 FETCH FIRST/NEXT ... ONLY [OFFSET]；FETCH 默认 count=1。", status: confirmed, source_anchor: "L1296-L1311 分页"}
+  - {id: select_fact_cte_named_relation, type: behavior_oracle, statement: "WITH 声明可按名称引用的 CTE，执行计划会出现 CTE SCAN。", status: confirmed, source_anchor: "L155-L159"}
+  - {id: select_fact_cte_recursive_self_reference, type: behavior_oracle, statement: "RECURSIVE 允许 SELECT 子查询按名称自引用。", status: confirmed, source_anchor: "L160"}
+  - {id: select_fact_cte_query_grammar, type: behavior_oracle, statement: "with_query 可声明结果列名、物化属性以及查询或数据修改主体。", status: confirmed, source_anchor: "L161-L162"}
+  - {id: select_fact_cte_name, type: behavior_oracle, statement: "with_query_name 是主查询引用 CTE 结果集的名称。", status: confirmed, source_anchor: "L163-L164"}
+  - {id: select_fact_cte_column_name, type: behavior_oracle, statement: "column_name 指定 CTE 结果集中显示的列名。", status: confirmed, source_anchor: "L165"}
+  - {id: select_fact_cte_body_kinds, type: behavior_oracle, statement: "CTE 主体可为 SELECT、VALUES、INSERT、UPDATE 或 DELETE。", status: confirmed, source_anchor: "L167"}
+  - {id: select_fact_cte_recursive_placement, type: behavior_oracle, statement: "RECURSIVE 只能写在 WITH 后，多 CTE 时仅声明一次。", status: confirmed, source_anchor: "L168-L169"}
+  - {id: select_fact_cte_materialization_choice, type: behavior_oracle, statement: "MATERIALIZED 阻止与主查询联合优化；可内联的 NOT MATERIALIZED CTE 允许联合优化。", status: confirmed, source_anchor: "L170-L176"}
+  - {id: select_fact_cte_default_materialization, type: behavior_oracle, statement: "未显式声明物化属性时，是否内联由引用次数和语义条件决定。", status: confirmed, source_anchor: "L177-L178"}
+  - {id: select_fact_all_default, type: behavior_oracle, statement: "ALL 返回全部符合条件的行，是可省略的默认行为。", status: confirmed, source_anchor: "L185-L186"}
+  - {id: select_fact_distinct_deduplication, type: behavior_oracle, statement: "DISTINCT 从 SELECT 结果中删除重复行。", status: confirmed, source_anchor: "L187-L188"}
+  - {id: select_fact_distinct_on_first_row, type: behavior_oracle, statement: "DISTINCT ON 对每组相同表达式结果只保留第一行。", status: confirmed, source_anchor: "L189-L190"}
+  - {id: select_fact_distinct_on_ordering, type: behavior_oracle, statement: "DISTINCT ON 的首行选择不固定，需配合 ORDER BY 获得预期结果。", status: confirmed, source_anchor: "L195-L197"}
+  - {id: select_fact_distinct_on_noninteger_constant, type: behavior_oracle, statement: "DISTINCT ON 表达式不支持非整数常量排序。", status: confirmed, source_anchor: "L198"}
+  - {id: select_fact_tablesample_form, type: behavior_oracle, statement: "TABLESAMPLE 以采样方法及可选 REPEATABLE 从表中选择行子集。", status: confirmed, source_anchor: "L295-L299"}
+  - {id: select_fact_tablesample_system, type: behavior_oracle, statement: "SYSTEM 按数据块采样，percent 是 0 到 100 的块选中概率。", status: confirmed, source_anchor: "L300-L302"}
+  - {id: select_fact_tablesample_bernoulli, type: behavior_oracle, statement: "BERNOULLI 按行独立采样，percent 是 0 到 100 的行选中概率。", status: confirmed, source_anchor: "L304-L306"}
+  - {id: select_fact_tablesample_hybrid, type: behavior_oracle, statement: "HYBRID 先按块概率 p1 采样，再按行概率 p2 采样，二者范围均为 0 到 100。", status: confirmed, source_anchor: "L308-L311"}
+  - {id: select_fact_tablesample_repeatable, type: behavior_oracle, statement: "REPEATABLE 接受非空常量种子；表未变化时，相同种子和参数得到相同样本。", status: confirmed, source_anchor: "L312-L316"}
+  - {id: select_fact_flashback_form, type: environment, statement: "TIMECAPSULE 以 TIMESTAMP 或 CSN 查询指定历史点的表内容。", status: confirmed, source_anchor: "L317-L318"}
+  - {id: select_fact_flashback_object_exclusions, type: environment, statement: "闪回查询不支持文档列出的系统表、临时表、UNLOGGED 表及其他对象类型。", status: confirmed, source_anchor: "L319-L320"}
+  - {id: select_fact_flashback_timestamp, type: environment, statement: "TIMECAPSULE TIMESTAMP 要求过去的有效时间戳并返回该时间点结果。", status: confirmed, source_anchor: "L322-L324"}
+  - {id: select_fact_flashback_csn, type: environment, statement: "TIMECAPSULE CSN 按表 CSN 闪回，CSN 可从 gs_txn_snapshot 的 snpcsn 获取。", status: confirmed, source_anchor: "L326-L328"}
+  - {id: select_fact_flashback_expression, type: environment, statement: "闪回点 expression 可为常量、函数或 SQL 表达式。", status: confirmed, source_anchor: "L330-L331"}
+  - {id: select_fact_flashback_ddl_boundary, type: environment, statement: "闪回点至当前点之间若有改变表结构或物理存储的操作，闪回失败并按变更类型返回文档错误。", status: confirmed, source_anchor: "L334-L339"}
+  - {id: select_fact_flashback_index_scan, type: environment, statement: "闪回支持 PCR UBTree 索引扫描，否则只能使用顺序扫描。", status: confirmed, source_anchor: "L340-L341"}
+  - {id: select_fact_flashback_retention, type: environment, statement: "闪回版本已回收等导致历史点过旧时，以 Restore point too old 失败。", status: confirmed, source_anchor: "L342-L343"}
+  - {id: select_fact_flashback_time_precision, type: environment, statement: "以时间指定闪回点时，闪回数据与实际时间点最多偏差 3 秒。", status: confirmed, source_anchor: "L344"}
+  - {id: select_fact_flashback_truncate, type: environment, statement: "TRUNCATE 后按时间闪回报 Snapshot too old，按 CSN 闪回可能无数据或报同一错误。", status: confirmed, source_anchor: "L345-L347"}
+  - {id: select_fact_xmltable_row_expression, type: environment, statement: "row_expression 是 XPath 1.0 表达式，以传入文档为上下文选择生成虚拟表行的 XML 节点。", status: confirmed, source_anchor: "L433-L436"}
+  - {id: select_fact_xmltable_a_sequence_input, type: environment, statement: "A 模式下 row_expression 可接收由数字或 XML 文本组成的逗号分隔序列。", status: confirmed, source_anchor: "L437-L439"}
+  - {id: select_fact_xmltable_passing_input, type: environment, statement: "passing_clause 以 PASSING 开始并只接收单根 XMLTYPE/XML 数据；A 模式的 BY VALUE/BY REF 报错，PG 模式仅识别而不实现其功能。", status: confirmed, source_anchor: "L440-L447"}
+  - {id: select_fact_xmltable_columns_clause, type: environment, statement: "可选 columns_clause 描述 XMLTABLE 虚拟表生成列。", status: confirmed, source_anchor: "L448-L450"}
+  - {id: select_fact_xmltable_column_name, type: environment, statement: "XMLTABLE COLUMNS 的 name 指定列名。", status: confirmed, source_anchor: "L451"}
+  - {id: select_fact_xmltable_column_type, type: environment, statement: "XMLTABLE COLUMNS 的 type 指定列类型。", status: confirmed, source_anchor: "L452"}
+  - {id: select_fact_xmltable_column_path, type: environment, statement: "PATH 使用 XPath 1.0 从行节点生成列值并隐式转换类型，省略时以列名作为表达式。", status: confirmed, source_anchor: "L453-L457"}
+  - {id: select_fact_xmltable_column_default, type: environment, statement: "列路径得到 NULL 时，DEFAULT 表达式提供该列的替代值。", status: confirmed, source_anchor: "L458-L459"}
+  - {id: select_fact_xmltable_default_evaluation, type: environment, statement: "DEFAULT 按需计算，稳定表达式在需要时只计算一次。", status: confirmed, source_anchor: "L461-L462"}
+  - {id: select_fact_xmltable_column_nullability, type: environment, statement: "PG 模式可声明 XMLTABLE 列的 NOT NULL 或 NULL，列值违反声明时报错。", status: confirmed, source_anchor: "L463-L465"}
+  - {id: select_fact_xmltable_ordinality, type: environment, statement: "FOR ORDINALITY 创建从 1 开始的行号列，且最多只能有一列。", status: confirmed, source_anchor: "L466-L467"}
+  - {id: select_fact_xmltable_columns_omission, type: environment, statement: "A 模式允许省略 columns_clause，并在内部生成默认列定义。", status: confirmed, source_anchor: "L468-L469"}
+  - {id: select_fact_xmltable_xpath_version, type: environment, statement: "XMLTABLE 涉及的 XPath 表达式均为 XPath 1.0。", status: confirmed, source_anchor: "L476"}
+  - {id: select_fact_xmltable_row_namespace_restriction, type: environment, statement: "row_expression 不支持 namespace::* XPath 表达式。", status: confirmed, source_anchor: "L477"}
+  - {id: select_fact_xmltable_parent_path_restriction, type: environment, statement: "column_expression 不支持 '..' XPath 表达式。", status: confirmed, source_anchor: "L478"}
+  - {id: select_fact_xmltable_typmod_behavior, type: environment, statement: "列值超出正 typmod 时，A 模式对列出的字符类型截断，PG 模式报错。", status: confirmed, source_anchor: "L479-L483"}
+  - {id: select_fact_xmltable_input_limit, type: environment, statement: "XMLTABLE 输入的 XMLTYPE 或 XML 数据最大为 1GB。", status: confirmed, source_anchor: "L484-L485"}
+  - {id: select_fact_xmltable_upgrade_window, type: environment, statement: "从不支持 XMLTABLE 的版本升级时，升级观察期内不可使用 XMLTABLE。", status: confirmed, source_anchor: "L486-L487"}
+  - {id: select_fact_xmltable_wildcard_namespace, type: environment, statement: "只有 A 模式支持 XPath 的 *:nodename 命名空间忽略形式。", status: confirmed, source_anchor: "L488-L489"}
+  - {id: select_fact_xmltable_function_name_restriction, type: environment, statement: "XMLTABLE 不能作为 Functions as Table Sources 类型函数的函数名。", status: confirmed, source_anchor: "L490-L491"}
+  - {id: select_fact_xmltable_sequence_clause_exclusion, type: environment, statement: "A 模式数字/XML 序列输入不能与 passing_clause 或 columns_clause 联用。", status: confirmed, source_anchor: "L493"}
+  - {id: select_fact_xmltable_sequence_count, type: environment, statement: "A 模式序列输入的逗号分隔元素个数为 1 到 1024。", status: confirmed, source_anchor: "L494"}
+  - {id: select_fact_xmltable_sequence_expression_restriction, type: environment, statement: "A 模式序列输入不支持表达式作为序列元素。", status: confirmed, source_anchor: "L495"}
+  - {id: select_fact_xmltable_sequence_escaping, type: environment, statement: "XML 文本中的大于号、双引号和 & 不会自动转义为实体。", status: confirmed, source_anchor: "L496"}
+  - {id: select_fact_xmltable_node_whitespace, type: environment, statement: "XML 文本节点名与大于号之间允许空格，输出不会删除这些空格。", status: confirmed, source_anchor: "L497-L498"}
+  - {id: select_fact_xmltable_sequence_upgrade_window, type: environment, statement: "升级观察期不支持 A 模式数字/XML 序列输入功能。", status: confirmed, source_anchor: "L499"}
+  - {id: select_fact_xmltable_nested_path, type: environment, statement: "XMLTABLE 嵌套 XMLQUERY returning sequence 时，列 XPath 只支持 '.'。", status: confirmed, source_anchor: "L500-L501"}
+  - {id: select_fact_xmltable_dot_path_restriction, type: environment, statement: "XPath 的 '.' 后不能跟下标或谓词表达式。", status: confirmed, source_anchor: "L502"}
+  - {id: select_fact_xmltable_malformed_whitespace, type: environment, statement: "A 模式 XMLTYPE 输入非良构时，后续同级格式空白会被解析为文本节点，与 A 数据库行为不同。", status: confirmed, source_anchor: "L503-L506"}
+  - {id: select_fact_xmltable_path_language_comparison, type: environment, statement: "GaussDB 与 PG 使用 XPath 1.0，A 数据库对应位置使用 XQuery 1.0。", status: confirmed, source_anchor: "L527-L530"}
+  - {id: select_fact_xmltable_default_namespace_comparison, type: environment, statement: "GaussDB 与 PG 不支持默认命名空间，A 数据库支持。", status: confirmed, source_anchor: "L532-L533"}
+  - {id: select_fact_xmltable_passing_cardinality_comparison, type: environment, statement: "GaussDB 与 PG 的 PASSING 只接收单个无别名数据，A 数据库可接收多个并取别名。", status: confirmed, source_anchor: "L534-L537"}
+  - {id: select_fact_xmltable_passing_omission_comparison, type: environment, statement: "GaussDB 与 A 数据库可省略 passing_clause，PG 不可省略。", status: confirmed, source_anchor: "L539-L540"}
+  - {id: select_fact_xmltable_returning_sequence_comparison, type: environment, statement: "GaussDB 与 PG 不支持 PASSING 后的 RETURNING SEQUENCE BY REF，A 数据库支持。", status: confirmed, source_anchor: "L542-L546"}
+  - {id: select_fact_xmltable_columns_sequence_ref_comparison, type: environment, statement: "GaussDB 与 PG 不支持在 columns_clause 以 SEQUENCE BY REF 修饰返回数据，A 数据库支持。", status: confirmed, source_anchor: "L548-L552"}
+  - {id: select_fact_xmltable_default_path_case, type: environment, statement: "省略列 PATH 且列名未加双引号时，GaussDB 按小写节点名匹配。", status: confirmed, source_anchor: "L554-L561"}
+  - {id: select_fact_xmltable_column_type_omission_comparison, type: environment, statement: "GaussDB 与 PG 不支持省略列类型声明，A 数据库支持。", status: confirmed, source_anchor: "L563-L565"}
+  - {id: select_fact_xmltable_columns_omission_comparison, type: environment, statement: "GaussDB 仅在 A 模式允许省略 columns_clause，PG 模式不允许；A 数据库允许省略。", status: confirmed, source_anchor: "L567-L571"}
+  - {id: select_fact_xmltable_typmod_comparison, type: environment, statement: "A 模式超出 typmod 时截断，PG 模式超出时报错。", status: confirmed, source_anchor: "L573-L578"}
+  - {id: select_fact_unpivot_form, type: environment, statement: "UNPIVOT 将列转置为行，并由可选 NULL 策略和三个子句构成。", status: confirmed, source_anchor: "L625-L632"}
+  - {id: select_fact_unpivot_null_policy, type: environment, statement: "INCLUDE NULLS 保留含 NULL 的转置行，EXCLUDE NULLS 将其过滤；省略时默认采用 EXCLUDE NULLS。", status: confirmed, source_anchor: "L634-L638"}
+  - {id: select_fact_unpivot_output_columns, type: environment, statement: "unpivot_col_clause 由 unpivot_col_element 指定输出列。", status: confirmed, source_anchor: "L640-L641"}
+  - {id: select_fact_unpivot_column_element, type: environment, statement: "unpivot_col_element 可为单列或括号中的多列列表。", status: confirmed, source_anchor: "L646-L648"}
+  - {id: select_fact_unpivot_for_clause, type: environment, statement: "unpivot_for_clause 以 FOR 指定输出列，该列保存待转置列的列名或别名。", status: confirmed, source_anchor: "L650-L653"}
+  - {id: select_fact_unpivot_in_clause, type: environment, statement: "unpivot_in_clause 指定待转置列，其列名和值写入此前指定的输出列。", status: confirmed, source_anchor: "L655-L658"}
+  - {id: select_fact_unpivot_in_element, type: environment, statement: "unpivot_in_element 由列元素和可选别名元素组成。", status: confirmed, source_anchor: "L659-L660"}
+  - {id: select_fact_unpivot_composite_name, type: environment, statement: "多列待转置元素的列名以下划线连接后写入 FOR 输出列。", status: confirmed, source_anchor: "L661-L664"}
+  - {id: select_fact_unpivot_alias_output, type: environment, statement: "待转置列指定别名后，输出列保存别名而不是源列名。", status: confirmed, source_anchor: "L665-L666"}
+  - {id: select_fact_unpivot_a_mode, type: environment, statement: "UNPIVOT 仅支持 A 兼容模式。", status: confirmed, source_anchor: "L676"}
+  - {id: select_fact_unpivot_hint_restriction, type: environment, statement: "unpivot_clause 内不能与 hint 配合使用。", status: confirmed, source_anchor: "L677"}
+  - {id: select_fact_unpivot_column_count, type: environment, statement: "unpivot_col_clause 输出列数必须与 IN 中列元素的列数相同。", status: confirmed, source_anchor: "L678-L679"}
+  - {id: select_fact_unpivot_alias_count, type: environment, statement: "unpivot_for_clause 输出列数必须与 IN 中别名元素数相同。", status: confirmed, source_anchor: "L680-L681"}
+  - {id: select_fact_unpivot_alias_constant, type: environment, statement: "UNPIVOT IN 别名必须为常量或可转换为常量的表达式。", status: confirmed, source_anchor: "L682-L683"}
+  - {id: select_fact_unpivot_immutable_function, type: environment, statement: "UNPIVOT 常量表达式只支持不可变函数。", status: confirmed, source_anchor: "L684"}
+  - {id: select_fact_unpivot_common_type, type: environment, statement: "对应位置的转置列或别名类型不同时，UNPIVOT 尝试转换为公共类型。", status: confirmed, source_anchor: "L686-L690"}
+  - {id: select_fact_unpivot_common_type_example, type: environment, statement: "int 与 float 待转置列示例会把 int 值转换为公共 float 类型。", status: confirmed, source_anchor: "L691-L693"}
+  - {id: select_fact_pivot_form, type: environment, statement: "PIVOT 将行转置为列，由可选 XML、聚集函数、FOR 与 IN 子句构成。", status: confirmed, source_anchor: "L695-L702"}
+  - {id: select_fact_pivot_aggregate, type: environment, statement: "PIVOT 聚集函数计算表达式并把结果写入 IN 指定的输出列；其别名可省略 AS，并以“_别名”附加到输出列名。", status: confirmed, source_anchor: "L704-L708"}
+  - {id: select_fact_pivot_for_clause, type: environment, statement: "pivot_for_clause 以 FOR 指定一个或多个待转置行值列。", status: confirmed, source_anchor: "L710-L714"}
+  - {id: select_fact_pivot_in_clause, type: environment, statement: "pivot_in_clause 接受表达式元组及可选别名；表达式按顺序拼接输出列名，并在行值匹配时触发聚集。", status: confirmed, source_anchor: "L716-L731"}
+  - {id: select_fact_pivot_a_mode, type: environment, statement: "PIVOT 仅支持 A 兼容模式。", status: confirmed, source_anchor: "L737"}
+  - {id: select_fact_pivot_hint_restriction, type: environment, statement: "pivot_clause 内不能与 hint 配合使用。", status: confirmed, source_anchor: "L738"}
+  - {id: select_fact_pivot_aggregate_alias, type: environment, statement: "多个聚集函数中至多一个可无别名，其余必须指定别名。", status: confirmed, source_anchor: "L739-L740"}
+  - {id: select_fact_pivot_xml_syntax_only, type: environment, statement: "PIVOT XML 只支持语法，不支持功能。", status: confirmed, source_anchor: "L741"}
+  - {id: select_fact_pivot_in_expression, type: environment, statement: "PIVOT IN 表达式须为常量或可转常量；非一元表达式必须有别名。", status: confirmed, source_anchor: "L742-L743"}
+  - {id: select_fact_pivot_immutable_function, type: environment, statement: "PIVOT IN 常量表达式只支持 IMMUTABLE 函数。", status: confirmed, source_anchor: "L744-L745"}
+  - {id: select_fact_pivot_alias_keyword, type: environment, statement: "PIVOT IN 用 AS 指定别名时可用非保留关键字，否则不可用。", status: confirmed, source_anchor: "L746-L747"}
+  - {id: select_fact_pivot_output_name_limit, type: environment, statement: "PIVOT 输出列名最长 63，超出时报错。", status: confirmed, source_anchor: "L748"}
+  - {id: select_fact_hierarchy_start_with, type: behavior_oracle, statement: "START WITH 指定层次递归初始条件；省略时以表中所有行作为初始集合。", status: confirmed, source_anchor: "L898-L901"}
+  - {id: select_fact_hierarchy_connect_by, type: behavior_oracle, statement: "CONNECT BY 指定递归连接条件，并与 START WITH 配合完成层次遍历。", status: confirmed, source_anchor: "L902-L904"}
+  - {id: select_fact_hierarchy_prior_key, type: behavior_oracle, statement: "CONNECT BY 条件中的 PRIOR 将所修饰列指定为递归键。", status: confirmed, source_anchor: "L918"}
+  - {id: select_fact_hierarchy_nocycle_stop, type: behavior_oracle, statement: "CONNECT BY 使用 NOCYCLE 时，遇到循环记录会停止递归而非按默认行为报错。", status: confirmed, source_anchor: "L919-L920"}
+  - {id: select_fact_hierarchy_lock_restriction, type: constraint, statement: "含 START WITH ... CONNECT BY 的 SELECT 不支持 FOR SHARE/UPDATE 锁。", status: confirmed, source_anchor: "L919-L921"}
+  - {id: select_fact_hierarchy_execution_flow, type: behavior_oracle, statement: "层次查询先由 START WITH 建立工作集，再按 CONNECT BY 迭代产生下一轮工作集，直到工作集为空。", status: confirmed, source_anchor: "L922-L928"}
+  - {id: select_fact_hierarchy_pseudocolumns, type: behavior_oracle, statement: "数据库为层次查询选出的每行添加表示其递归或树状位置的伪列。", status: confirmed, source_anchor: "L929-L930"}
+  - {id: select_fact_hierarchy_level, type: behavior_oracle, statement: "LEVEL 返回节点层级，根节点层级为 1。", status: confirmed, source_anchor: "L931"}
+  - {id: select_fact_hierarchy_iscycle, type: behavior_oracle, statement: "CONNECT_BY_ISCYCLE 返回当前节点是否与父行或子行成环。", status: confirmed, source_anchor: "L932"}
+  - {id: select_fact_hierarchy_isleaf, type: behavior_oracle, statement: "CONNECT_BY_ISLEAF 在节点无子节点时为 1，否则为 0。", status: confirmed, source_anchor: "L934-L935"}
+  - {id: select_fact_hierarchy_cycle_handling, type: behavior_oracle, statement: "默认循环检测遇环报错且不返回数据；NOCYCLE 在首条重复数据处退出而不报错。", status: confirmed, source_anchor: "L958-L960"}
+  - {id: select_fact_hierarchy_rownum_evaluation, type: behavior_oracle, statement: "层次查询按深度优先顺序处理；START WITH/CONNECT BY 的 rownum 先递增再判断，丢弃记录时再递减。", status: confirmed, source_anchor: "L961-L964"}
+  - {id: select_fact_hierarchy_prior_start_with_restriction, type: constraint, statement: "PRIOR 不能出现在 START WITH 中。", status: confirmed, source_anchor: "L968"}
+  - {id: select_fact_hierarchy_prior_function_resolution, type: constraint, statement: "targetlist 之外的 prior(单列) 按 PRIOR 单列解析，不感知同名用户函数。", status: confirmed, source_anchor: "L969-L970"}
+  - {id: select_fact_hierarchy_prior_target_restriction, type: constraint, statement: "PRIOR 只能修饰表列，不支持表达式、伪列或类型转换。", status: confirmed, source_anchor: "L971-L972"}
+  - {id: select_fact_hierarchy_prior_pseudocolumn_condition, type: constraint, statement: "CONNECT BY 中 PRIOR 列不能与 LEVEL/ROWNUM 等伪列处于同一最上层 AND 条件，但可位于不同条件。", status: confirmed, source_anchor: "L973-L976"}
+  - {id: select_fact_hierarchy_pseudocolumn_sublink_restriction, type: constraint, statement: "START WITH/CONNECT BY 禁止在子链接中使用 ROWNUM 等伪列。", status: confirmed, source_anchor: "L977-L978"}
+  - {id: select_fact_hierarchy_connect_by_rownum_recommendation, type: environment, statement: "CONNECT BY 中不建议使用 ROWNUM；确需使用时应充分测试结果。", status: confirmed, source_anchor: "L979-L980"}
+  - {id: select_fact_hierarchy_cte_independence, type: constraint, statement: "在多个 CTE 上调用 START WITH/CONNECT BY 时，每个 CTE 定义不得依赖其他 CTE。", status: confirmed, source_anchor: "L981-L982"}
+  - {id: select_fact_hierarchy_max_recursive_times, type: environment, statement: "无实际环路却报 runs into cycle 时，应考虑增大 max_recursive_times。", status: confirmed, source_anchor: "L983-L984"}
+  - {id: select_fact_hierarchy_pseudocolumn_types, type: behavior_oracle, statement: "CONNECT_BY_ISLEAF、CONNECT_BY_ISCYCLE 和 LEVEL 的类型均为 int。", status: confirmed, source_anchor: "L985"}
+  - {id: select_fact_hierarchy_pseudocolumn_name_resolution, type: behavior_oracle, statement: "层次查询中三种伪列名按伪列解析，不按投影列中的同名别名解析。", status: confirmed, source_anchor: "L986-L987"}
+  - {id: select_fact_hierarchy_view_reference_recommendation, type: environment, statement: "定义含层次查询的视图时不建议引用其他视图。", status: confirmed, source_anchor: "L988"}
+  - {id: select_fact_hierarchy_index_tuning, type: environment, statement: "可按 CONNECT BY 条件建立索引以提升 START WITH 性能。", status: confirmed, source_anchor: "L989-L991"}
+  - {id: select_fact_hierarchy_work_mem_tuning, type: environment, statement: "递归内层计划因 work_mem 过小而对 tmp_result 建 Hash 或发生物化时，可调大 work_mem；小表缓存优化失效后可尝试索引。", status: confirmed, source_anchor: "L992-L999"}
+  - {id: select_fact_hierarchy_pseudocolumn_recommendation, type: environment, statement: "START WITH 中不建议使用伪列；确需使用时应充分测试结果。", status: confirmed, source_anchor: "L1000-L1001"}
+  - {id: select_fact_hierarchy_prior_type_whitelist, type: constraint, statement: "PRIOR 仅支持文档列举的类型，且不能通过强制类型转换绕过白名单。", status: confirmed, source_anchor: "L1002-L1008"}
+  - {id: select_fact_hierarchy_prior_enhance_guc, type: behavior_oracle, statement: "CONNECT BY 外使用 PRIOR 时，enable_startwith_prior_enhance 关闭会显示当前行值，开启后启用支持子句中的父行值语义。", status: confirmed, source_anchor: "L1009-L1015"}
+  - {id: select_fact_window_frame_boundaries, type: constraint, statement: "WINDOW frame 边界支持 UNBOUNDED PRECEDING、VALUE PRECEDING、CURRENT ROW、VALUE FOLLOWING 与 UNBOUNDED FOLLOWING。", status: confirmed, source_anchor: "L1130-L1135"}
+  - {id: select_fact_window_value_column_types, type: constraint, statement: "使用 VALUE frame 边界时，被聚集函数或窗口函数操作的表列仅支持文档列举的数值、时间与区间类型。", status: confirmed, source_anchor: "L1139-L1142"}
+  - {id: select_fact_window_value_types, type: constraint, statement: "WINDOW frame 的 VALUE 仅支持文档列举的整数、浮点、NUMERIC、INTERVAL 及可隐式转数字的字符串类型。", status: confirmed, source_anchor: "L1143-L1144"}
+  - {id: select_fact_window_value_nonnegative, type: constraint, statement: "WINDOW frame 的 VALUE 必须为非负数。", status: confirmed, source_anchor: "L1145"}
+  - {id: select_fact_window_value_constant_only, type: constraint, statement: "WINDOW frame 的 VALUE 上下边界只支持常量，不支持变量或表达式。", status: confirmed, source_anchor: "L1146"}
+  - {id: select_fact_union_semantics, type: constraint, statement: "UNION 计算 SELECT 结果并集；未声明 ALL 时默认去除重复行。", status: confirmed, source_anchor: "L1147-L1150"}
+  - {id: select_fact_set_projection_contract, type: constraint, statement: "UNION 各 SELECT 的列数、对应列数据类型及顺序必须相同。", status: confirmed, source_anchor: "L1151-L1152"}
+  - {id: select_fact_union_left_associativity, type: constraint, statement: "同一 SELECT 中多个 UNION 默认从左向右计算，除非用圆括号指定顺序。", status: confirmed, source_anchor: "L1153-L1154"}
+  - {id: select_fact_union_lock_restriction, type: constraint, statement: "UNION 的结果和输入均不能声明四种 FOR 锁定子句。", status: confirmed, source_anchor: "L1155-L1156"}
+  - {id: select_fact_union_all_order_guc, type: constraint, statement: "enable_union_all_order 开启时，仅 UNION ALL 且主查询未排序的情形支持子查询保序，其他情形不支持。", status: confirmed, source_anchor: "L1157-L1165"}
+  - {id: select_fact_union_form, type: constraint, statement: "UNION 的一般形式为 select_statement UNION [ALL] select_statement。", status: confirmed, source_anchor: "L1167-L1168"}
+  - {id: select_fact_union_input_clause_restriction, type: constraint, statement: "未加括号的 UNION 输入 SELECT 不得包含 ORDER BY、LIMIT 或四种 FOR 锁定子句。", status: confirmed, source_anchor: "L1170-L1171"}
+  - {id: select_fact_set_parenthesized_subexpression, type: constraint, statement: "集合运算子表达式用圆括号包围后，可在子表达式内附加 ORDER BY 和 LIMIT。", status: confirmed, source_anchor: "L1172"}
+  - {id: select_fact_union_all_count_recommendation, type: constraint, statement: "推荐 UNION ALL 子句少于 100 个；超出时需保证实例内存足够。", status: confirmed, source_anchor: "L1177-L1178"}
+  - {id: select_fact_set_null_projection_restriction, type: constraint, statement: "NULL 参与集合运算时，只支持 NULL 本身为投影列或为 FROM 子查询的投影列。", status: confirmed, source_anchor: "L1179-L1180"}
+  - {id: select_fact_set_null_complex_subquery_restriction, type: constraint, statement: "NULL 集合运算的 CTE 与递归查询场景不支持含 DISTINCT、GROUP BY、ORDER BY 或 PARTITION BY 的复杂子查询。", status: confirmed, source_anchor: "L1181-L1182"}
+  - {id: select_fact_intersect_semantics, type: constraint, statement: "INTERSECT 计算多个 SELECT 结果的交集并去除重复记录。", status: confirmed, source_anchor: "L1184-L1186"}
+  - {id: select_fact_intersect_left_associativity, type: constraint, statement: "同一 SELECT 中多个 INTERSECT 默认从左向右计算，除非用圆括号指定顺序。", status: confirmed, source_anchor: "L1187-L1188"}
+  - {id: select_fact_intersect_precedence, type: constraint, statement: "同一表达式同时含 UNION 与 INTERSECT 时，先处理 INTERSECT。", status: confirmed, source_anchor: "L1189-L1190"}
+  - {id: select_fact_intersect_form, type: constraint, statement: "INTERSECT 的一般形式为 select_statement INTERSECT select_statement。", status: confirmed, source_anchor: "L1191-L1192"}
+  - {id: select_fact_intersect_lock_restriction, type: constraint, statement: "INTERSECT 输入 SELECT 不得包含四种 FOR 锁定子句。", status: confirmed, source_anchor: "L1194-L1195"}
+  - {id: select_fact_except_form, type: constraint, statement: "EXCEPT 的一般形式为 select_statement EXCEPT [ALL] select_statement。", status: confirmed, source_anchor: "L1196-L1198"}
+  - {id: select_fact_except_lock_restriction, type: constraint, statement: "EXCEPT 的输入与结果均不得声明四种 FOR 锁定子句。", status: confirmed, source_anchor: "L1200-L1201, L1208-L1209"}
+  - {id: select_fact_except_semantics, type: constraint, statement: "EXCEPT 返回左侧 SELECT 输出中不存在于右侧输出的行。", status: confirmed, source_anchor: "L1202-L1203"}
+  - {id: select_fact_except_all_multiplicity, type: constraint, statement: "EXCEPT 默认去重；使用 ALL 时结果重数为 max(m-n,0)。", status: confirmed, source_anchor: "L1204-L1205"}
+  - {id: select_fact_except_associativity, type: constraint, statement: "多个 EXCEPT 默认左结合，且 EXCEPT 与 UNION 绑定级别相同。", status: confirmed, source_anchor: "L1206-L1207"}
+  - {id: select_fact_minus_equivalence, type: constraint, statement: "MINUS 与 EXCEPT 功能和用法相同。", status: confirmed, source_anchor: "L1210-L1211"}
+  - {id: select_fact_limit_count_all, type: behavior_oracle, statement: "LIMIT count 限制返回行数；LIMIT ALL 等价于省略 LIMIT。", status: confirmed, source_anchor: "L1296-L1299"}
+  - {id: select_fact_limit_offset_count, type: behavior_oracle, statement: "同时指定起始偏移与 count 时，先跳过 start 行再计算最多 count 行。", status: confirmed, source_anchor: "L1300-L1301"}
+  - {id: select_fact_limit_rownum_restriction, type: behavior_oracle, statement: "LIMIT 的 count 或 offset 不支持 ROWNUM。", status: confirmed, source_anchor: "L1303"}
+  - {id: select_fact_offset_form, type: behavior_oracle, statement: "SQL:2008 OFFSET 形式为 OFFSET start {ROW | ROWS}。", status: confirmed, source_anchor: "L1304-L1306"}
+  - {id: select_fact_offset_start, type: behavior_oracle, statement: "OFFSET start 表示在开始返回行前忽略 start 行。", status: confirmed, source_anchor: "L1307"}
+  - {id: select_fact_fetch_form_default, type: behavior_oracle, statement: "FETCH FIRST/NEXT 支持可选 OFFSET；省略 count 时默认值为 1。", status: confirmed, source_anchor: "L1308-L1311"}
+  - {id: select_fact_locking, type: behavior_oracle, statement: "锁定子句有 UPDATE、NO KEY UPDATE、SHARE、KEY SHARE 四种模式及 NOWAIT/WAIT/SKIP LOCKED，兼容性受表范围、最强锁、ustore、stream、DBLINK 和层次查询限制。", status: confirmed, source_anchor: "L1312-L1357 锁定子句"}
+  - {id: select_fact_nls_sort, type: environment, statement: "NLSSORT 支持 SCHINESE_PINYIN_M 与纯英文 generic_m_ci，需 UTF8/GB18030/GB18030_2022/GBK/ZHS16GBK 之一的数据库编码。", status: confirmed, source_anchor: "L116-L121, L1229-L1235, L1359-L1367"}
+  - {id: select_fact_table_shorthand, type: syntax, statement: "TABLE {ONLY ... | table_name [*]} 是与 SELECT 并列的顶层简化查询，功能相当于 SELECT * FROM table_name。", status: confirmed, source_anchor: "L120-L121, L2274-L2295"}
+  - {id: select_fact_subquery, type: syntax, statement: "SELECT 可在 FROM 或条件中嵌套单行/多行、关联/非关联子查询，多行比较支持 IN/ANY/ALL/SOME。", status: confirmed, source_anchor: "L1875-L1996 子查询"}
 
-  - {id: select_open_document_version, type: open_question, statement: "正文未显式给出文档版本；失效本地链接中的 Kernel 507.0.0 不自动提升为版本事实。", status: needs_verification, source_anchor: "全文/本地链接"}
-  - {id: select_open_plan_hint_profile, type: open_question, statement: "原文未展开具体 hint 子语法，不能从关键字名称猜测可执行 hint。", status: needs_verification, source_anchor: "参数说明/plan_hint"}
-  - {id: select_open_dense_rank_profile, type: open_question, statement: "DENSE_RANK 详细语法位于失效外部章节，当前原文不足以形成可执行 profile。", status: needs_verification, source_anchor: "参数说明/DENSE_RANK"}
-  - {id: select_open_into_execution, type: open_question, statement: "三处 INTO 的互斥关系、文件权限和安全路径需要目标环境验证。", status: needs_verification, source_anchor: "参数说明/INTO"}
-  - {id: select_open_xmltable_example, type: open_question, statement: "粘贴原文中的 XML 节点内容已丢失，不能可靠复原官方示例 SQL。", status: needs_verification, source_anchor: "参数说明/XMLTABLE/示例"}
-  - {id: select_open_alias_profiles, type: open_question, statement: "别名跨表达式引用规则需要表达式级子文法，V1 完整查询 profile 暂不能系统组合。", status: needs_verification, source_anchor: "语法格式/targetlist 别名"}
-  - {id: select_open_outer_join_matrix, type: open_question, statement: "旧式 (+) 的完整合法/非法表达式矩阵尚未形成结构化 profile。", status: needs_verification, source_anchor: "参数说明/WHERE/(+)"}
-  - {id: select_open_group_mode_matrix, type: open_question, statement: "ONLY_FULL_GROUP_BY 与键约束、JOIN 方向的完整组合需要模式化 fixture 和行为验证。", status: needs_verification, source_anchor: "参数说明/GROUP BY"}
-  - {id: select_open_order_equivalence, type: open_question, statement: "DISTINCT 与 ORDER BY 的表达式等价判定涉及重写和函数易变性，当前生成器不具备表达式 AST。", status: needs_verification, source_anchor: "参数说明/ORDER BY"}
+  - {id: select_example_xmltable, type: example, statement: "文档给出命名空间 XMLTABLE 与 A 模式数字/XML 序列示例及预期行。", status: confirmed, source_anchor: "L580-L623"}
+  - {id: select_example_like_escape, type: example, statement: "文档对比 ignore_like_default_escape 开关前后反斜杠 LIKE 结果。", status: confirmed, source_anchor: "L784-L813"}
+  - {id: select_example_outer_join, type: example, statement: "文档给出 (+) 公共表达式可/不可提取与占位符序号反例。", status: confirmed, source_anchor: "L874-L896"}
+  - {id: select_example_hierarchy_core, type: example, statement: "文档给出层次遍历、伪列、NOCYCLE、PRIOR、路径和同层排序示例。", status: confirmed, source_anchor: "L898-L1049, L1999-L2122"}
+  - {id: select_example_group_mode, type: example, statement: "文档完整对比 ONLY_FULL_GROUP_BY 开/关、键依赖、WHERE 常量与 JOIN 方向。", status: confirmed, source_anchor: "L1469-L1665"}
+  - {id: select_example_order_equivalence, type: example, statement: "文档给出 DISTINCT/ORDER BY 常量运算、强转、交换律、函数属性和位置序号案例。", status: confirmed, source_anchor: "L1236-L1295"}
+  - {id: select_example_simple, type: example, statement: "简单查询章示例覆盖部分列、*与列别名。", status: confirmed, source_anchor: "L1371-L1414"}
+  - {id: select_example_condition, type: example, statement: "条件查询章示例覆盖 WHERE 数值谓词。", status: confirmed, source_anchor: "L1417-L1436"}
+  - {id: select_example_group, type: example, statement: "分组查询章示例覆盖 COUNT、GROUP BY 与 HAVING。", status: confirmed, source_anchor: "L1439-L1467"}
+  - {id: select_example_pagination, type: example, statement: "分页查询章示例覆盖 LIMIT、FETCH 表达式/小数取整、offset,count 和 ALL。", status: confirmed, source_anchor: "L1668-L1759"}
+  - {id: select_example_partition, type: example, statement: "分区查询章使用范围分区表验证 PARTITION (p1) 计数。", status: confirmed, source_anchor: "L1762-L1788"}
+  - {id: select_example_join, type: example, statement: "连接查询章示例覆盖 INNER/LEFT/RIGHT/FULL 和多次混合 JOIN。", status: confirmed, source_anchor: "L1791-L1872"}
+  - {id: select_example_subquery, type: example, statement: "子查询章示例覆盖单行比较、IN/ANY/ALL 以及关联/派生表改写。", status: confirmed, source_anchor: "L1875-L1996"}
+  - {id: select_example_set, type: example, statement: "复合查询章示例覆盖 UNION、UNION ALL、INTERSECT 和 MINUS 结果。", status: confirmed, source_anchor: "L2125-L2182"}
+  - {id: select_example_pivot, type: example, statement: "行列转换章给出 PIVOT 行转列和 UNPIVOT 列转行的可执行示例与结果。", status: confirmed, source_anchor: "L2185-L2241"}
+  - {id: select_example_window, type: example, statement: "窗口函数章用 SUM(...) OVER (PARTITION BY null) 展示不折叠明细行的总量。", status: confirmed, source_anchor: "L2244-L2271"}
+  - {id: select_example_table, type: example, statement: "简化查询章给出 TABLE t1 与预期三列结果。", status: confirmed, source_anchor: "L2274-L2295"}
+  - {id: select_example_hint, type: example, statement: "Hint 查询章给出 indexscan(t1 it1) 与 rows(t1 t2 #5) 的 EXPLAIN 计划示例。", status: confirmed, source_anchor: "L2298-L2333"}
+
+  - {id: select_open_plan_hint_profile, type: open_question, statement: "本章只给出 indexscan 与 rows 两个示例，完整 plan_hint 子语法未在已拆分的 catalog 章节中展开。", status: needs_verification, source_anchor: "L181-L184, L2298-L2329"}
+  - {id: select_open_cte_dml_profile, type: open_question, statement: "CTE 中 INSERT/UPDATE/DELETE 主体需各语句章节的 RETURNING 与列契约合并后才能生成，本章未展开这些子语法。", status: needs_verification, source_anchor: "L63-L65, L161-L170"}
+  - {id: select_open_function_source_profile, type: open_question, statement: "FROM function_name 只给出形式参数，没有在 SELECT 章确认一个可用函数签名和输出列契约。", status: needs_verification, source_anchor: "L91-L92, L370-L371"}
+  - {id: select_open_dense_rank_profile, type: open_question, statement: "DENSE_RANK FIRST/LAST 的完整语法被指向聚集函数/窗口函数章，相应章节尚未从同一 catalog 拆出。", status: needs_verification, source_anchor: "L207-L212"}
+  - {id: select_open_into_execution, type: open_question, statement: "INTO 变量的 SET var_name 前置、服务端文件权限与安全路径需在目标环境校准。", status: needs_verification, source_anchor: "L214-L272"}
+  - {id: select_open_xmltable_compat_matrix, type: open_question, statement: "XMLTABLE 的 A/PG 模式、namespace、PASSING/COLUMNS、typmod 与 XPath 限制需 XML/XMLTYPE fixture 矩阵和目标错误 Oracle。", status: needs_verification, source_anchor: "L420-L623"}
+  - {id: select_open_alias_profiles, type: open_question, statement: "别名后向引用的完整正反表达式矩阵需表达式 AST，当前只能保留代表 profile。", status: needs_verification, source_anchor: "L42-L51"}
+  - {id: select_open_outer_join_matrix, type: open_question, statement: "(+) 的完整表达式合法矩阵与目标错误身份尚未从表达式章/错误码章拆分校准。", status: needs_verification, source_anchor: "L750-L782, L874-L896"}
+  - {id: select_open_group_mode_matrix, type: open_question, statement: "ONLY_FULL_GROUP_BY 的键依赖与 JOIN 方向组合需独立 fixture 与目标环境行为校准。", status: needs_verification, source_anchor: "L1081-L1112, L1469-L1665"}
+  - {id: select_open_order_equivalence, type: open_question, statement: "DISTINCT/ORDER BY 的强转、交换律、函数属性与位置规则需表达式 AST 才能系统生成。", status: needs_verification, source_anchor: "L1236-L1295"}
+  - {id: select_open_set_operation_recursive_ast, type: open_question, statement: "当前 AST 只展开一个集合右操作数，尚未建模多操作符左结合、INTERSECT 优先级、括号子表达式及其 ORDER BY/LIMIT 契约。", status: needs_verification, source_anchor: "L1147-L1211"}
+  - {id: select_open_database_link_contract, type: open_question, statement: "DATABASE LINK 远端表/同义词的详细使用约定位于未拆分的《开发指南》。", status: needs_verification, source_anchor: "L281-L282"}
+  - {id: select_open_hierarchy_functions, type: open_question, statement: "层次递归函数详细章节未拆分，本包只使用 SELECT 章已给出的两个函数形式。", status: needs_verification, source_anchor: "L950-L953"}
+  - {id: select_open_hierarchy_error_codes, type: open_question, statement: "PRIOR 误用引用 GAUSS-30618/30619/31782，相应错误码章尚未从 catalog 拆出，因此不推断 SQLSTATE/消息正则。", status: needs_verification, source_anchor: "L1013-L1029"}
 
 manifest_refs:
   - manifest_select_core_positive
@@ -471,6 +696,8 @@ fixture_refs:
   - fixture_select_hierarchy_source
   - fixture_select_partitioned_source
   - fixture_select_flashback_source
+  - fixture_select_hint_source
+  - fixture_select_group_mode_source
 
 scenario_refs:
   - scenario_select_permissions
@@ -485,3 +712,12 @@ scenario_refs:
   - scenario_select_locking
   - scenario_select_into_outputs
   - scenario_select_where_in_plan_cache
+  - scenario_select_subquery_behavior
+  - scenario_select_pagination_behavior
+  - scenario_select_join_behavior
+  - scenario_select_hint_plan
+
+exported_fact_refs:
+  - select_fact_subquery
+  - select_fact_from_sources
+  - select_fact_target_list

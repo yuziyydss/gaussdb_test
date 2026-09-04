@@ -11,9 +11,11 @@
 ## 2. 数据流
 
 ```text
-UTF-8产品文档章节
-  │
-  ├─ source path / SHA-256 / line count
+冻结的父 PDF
+  │ 书签路径 + 页内坐标，start-inclusive/end-exclusive
+  ▼
+source catalog + UTF-8产品文档章节
+  │ 父PDF/catalog/章节三层SHA-256、版本、行数
   ▼
 manage_extraction_queue.py
   │ pending → in_progress → generated → static_complete/needs_review
@@ -25,7 +27,7 @@ Factor Package V1
   │
   ├─ source ledger：每个原文单元的去向
   ├─ factor：事实、维度、规则、结构契约和引用
-  ├─ syntax：递归AST
+  ├─ syntax：有限展开的结构化AST
   ├─ matrix：能力Profile
   ├─ fixture：setup/provides/teardown
   ├─ manifest：选择值、覆盖策略、目标Oracle
@@ -55,7 +57,7 @@ FactorPackageSQLGenerator  FactorCoverageAuditor
 |---|---|---|
 | `source_ledger` | 原文行和原子事实如何处置 | SQL结构和组合选择 |
 | `factor` | 产品事实、维度、值域、规则、结构契约、引用索引 | 具体测试批次选择 |
-| `syntax` | SQL产生式和递归AST | 重复维护产品值域和能力矩阵 |
+| `syntax` | SQL产生式和有限展开的结构化AST | 重复维护产品值域和能力矩阵 |
 | `matrix` | 表、查询、键、输入等复杂能力Profile | 决定本批次选择哪些Profile |
 | `fixture` | setup、provides、teardown和对象契约 | 多会话状态迁移 |
 | `manifest` | 本批次绑定、策略、预期和目标负向规则 | 产品事实的唯一来源 |
@@ -68,7 +70,8 @@ FactorPackageSQLGenerator  FactorCoverageAuditor
 ### V1模型与注册表
 
 - `core/factor_package_model.py`：所有 V1 Pydantic模型、严格加载和引用校验。
-- `FactorPackageRegistry`：扫描 `specs/`，建立全局 ID注册表并解析跨文件引用。
+- `FactorPackageRegistry`：扫描 `specs/`，建立全局 ID 与限定 Fact 注册表，解析
+  `factor_id::fact_id` 和 Fixture 依赖，并生成无环的因子/Fixture 拓扑。
 
 ### 生成器
 
@@ -98,7 +101,7 @@ V1 Pairwise 流程：
 
 - `source_extraction_complete`：原文行、unit、fact账本和原子性是否闭合；
 - `generation_model_complete`：值域、规则证据、生成异常、重复项和Pairwise是否闭合；
-- `static_coverage_complete`：在前两项基础上，feature和confirmed fact消费是否闭合；
+- `static_coverage_complete`：在前两项基础上，feature、confirmed fact消费、open question 和负向目标错误 Oracle 是否闭合；
 - `behavior_coverage_complete`：在静态闭合基础上，没有planned scenario、缺失行为fact和未决问题。
 
 不能把其中任意一项简写成“文档已全覆盖”。
@@ -106,9 +109,11 @@ V1 Pairwise 流程：
 ### 离线队列
 
 - `scripts/manage_extraction_queue.py`：只管理本地文件，不调用任何 AI API。
+- 队列同步 Registry 的直接依赖并按拓扑顺序认领；静态验证快照固定直接/传递
+  依赖的章节与包哈希，使上游变化只精准失效依赖闭包内的下游任务。
 - `prompts/factor_package_v1_extraction.md`：任何内网 AI 共用的单任务契约。
 
-任务信封把 `factor_id`、原文SHA-256、行数和输出目录固定下来。verify 首先核对生成 package 是否对应同一份原文，防止旧规格冒充新结果。
+任务信封把 `factor_id`、父 PDF 与章节 SHA-256、文档版本、完整书签路径、精确边界、行数和输出目录固定下来。verify 首先重算来源链并核对生成 package 是否对应同一份原文，防止旧规格冒充新结果。
 
 ### Web/API
 
@@ -140,11 +145,14 @@ python3 scripts/manage_extraction_queue.py verify --task-id <task_id>
 
 已经实现：
 
-- V1严格加载、递归AST、结构契约；
+- V1严格加载、有限展开的结构化AST、结构契约；
 - 约束感知Pairwise和覆盖后置验证；
 - Fixture SQL静态生成；
 - 目标错误Oracle数据模型；
 - Source Unit原子性审计；
+- 跨包 confirmed Fact 的显式导出/限定引用、依赖 DAG 与循环检测；
+- Fixture `requires_fixture_refs` 拓扑 setup 和逆序 teardown；
+- 依赖感知任务认领与下游静态快照失效；
 - 确定性SQL快照和Web/API；
 - AI无关的内网任务队列。
 
@@ -154,4 +162,5 @@ python3 scripts/manage_extraction_queue.py verify --task-id <task_id>
 - 目标SQLSTATE在具体版本上的校准；
 - 多会话权限、事务和对象生命周期执行；
 - GUC、函数、操作符、系统目录等非SQL命令的专用抽取Schema；
+- 可跨包导入的全局 Capability Matrix 和公共 SELECT/表达式/数据类型 Subgrammar；
 - 5800页文档全量任务目录和完整抽取。

@@ -1,6 +1,6 @@
 # 项目路线图
 
-本路线图只记录已由代码和测试证明的能力，以及具有明确验收条件的下一阶段。数据库执行和5800页全量抽取未完成前，不使用“工业级闭环”描述。
+本路线图只记录已由代码和测试证明的能力，以及具有明确验收条件的下一阶段。数据库执行和当前 PDF（5686 个物理页）全量分类/抽取未完成前，不使用“工业级闭环”描述。
 
 ## 当前阶段
 
@@ -9,12 +9,12 @@ Legacy V0兼容
       │
       ├── 已完成：生成器正确性加固
       ├── 已完成：Factor Package V1静态架构
-      ├── 已完成：5个代表性因子适配
+      ├── 已完成：PDF五章框架验收与信任门禁校准
       ├── 已完成：内网离线任务队列
       ▼
-当前：关闭基线缺口 + 内网10章节试点
+已完成：冻结 Factor Package V1 公共契约并验收第二批 10 章
       ▼
-下一步：一个完整SQL子目录
+当前：每批 20～30 章扩展通用 SQL
       ▼
 后续：V1真实执行与非SQL参考Schema
 ```
@@ -26,31 +26,37 @@ Legacy V0兼容
 - [x] case ID和跨manifest SQL重复检测。
 - [x] Pydantic严格模式、重复ID和引用闭合校验。
 - [x] Factor Package V1单一写入目录和七类文件职责。
-- [x] 递归AST、重复结构和嵌套查询。
+- [x] 有限展开的结构化AST、重复结构和受控嵌套查询；任意深度递归仍按 feature gap 管理。
 - [x] SELECT、INSERT和CREATE INDEX结构契约。
 - [x] Fixture setup/provides/teardown静态模型。
 - [x] 负向用例目标错误类别、SQLSTATE集合和错误正则。
 - [x] Source Unit逐行账本和原子性审计器。
-- [x] CREATE VIEW、CREATE INDEX、ALTER TABLE、SELECT、INSERT五个V1示例。
-- [x] 56个manifest生成865个唯一case。
-- [x] 69项自动化测试通过。
+- [x] 本地冻结 PDF 的完整书签目录、父文档哈希和五章精确拆章文本。
+- [x] CREATE VIEW、CREATE INDEX、ALTER TABLE、SELECT、INSERT 五章均改为 PDF 绑定的 V1 校准包。
+- [x] 生成层区分实际消费的 AST 维度、代表值覆盖与 feature 全域覆盖。
 - [x] AI厂商无关的内网任务队列、SHA-256对账和断点恢复。
 
-## 阶段A：关闭当前基线缺口
+## 阶段A（已完成）：五章框架验收与 V1 冻结
 
-目标：让现有五个示例成为内网AI可以可靠模仿的基线。
+目标：让五个样本证明公共模型能发现错误生成、假 Pairwise、来源漂移、环境混淆和假闭环，然后冻结 V1 公共契约。
 
 验收：
 
-- CREATE VIEW和SELECT的source unit全部完成原子性复核；
-- matrix中 `needs_profile` feature有明确处理结果；
-- 每个confirmed非example fact都有下游消费者；
-- `audit_factor_coverage_v1.py --fail-on-gaps` 对目标factor返回0；
+- source unit 重叠、未审阅和复合主张都能被机器发现并使 source 结论为 false；未关闭的章节级项可留在队列中；
+- matrix 中每项 feature 都区分 `all/any/representative`，已知遗漏不得缩小分母；
+- 每个 confirmed 非 example fact 都有与事实类型匹配的下游消费者；
+- 负向错误 Oracle 有 PDF/实机证据；未校准错误保持 pending，不伪造 SQLSTATE；
+- 严格 lint、全量回归和 PDF 来源对账通过；已建模的可行 pair 全部覆盖；
 - 不通过删除事实或降低门禁制造“绿色”。
 
-## 阶段B：内网10章节试点
+阶段A不要求五章 `static_complete=true`，也不要求数据库行为 100%。章节级缺口继续作为并行质量队列。
 
-建议选择 UPDATE、DELETE、MERGE、CREATE TABLE、CREATE SEQUENCE、DROP TABLE、TRUNCATE、GRANT 和一到两个复杂权限/事务章节。
+## 阶段B（已完成）：第二批约 10 个代表性章节
+
+状态：已完成静态抽取与生成验收；10 个章节的公开缺口保留在
+`needs_review`。详细证据见 [第二批 PDF Doc2Spec 验收结果](BATCH_02_RESULT.md)。
+
+建议选择简单 DDL、DCL、TCL、普通 DML 和复杂语法的代表，例如 UPDATE、DELETE、MERGE、CREATE TABLE、CREATE SEQUENCE、DROP TABLE、TRUNCATE、GRANT、COMMIT/事务语句以及一个复杂章节。
 
 验收：
 
@@ -59,14 +65,17 @@ Legacy V0兼容
 - 统计首轮门禁通过率、重试次数、open question和人工抽检错误率；
 - 发现的模型缺口先集中评审，不让单个AI私自修改Schema；
 - 10个任务完成后再决定是否扩大批量。
+- 失败或高风险章节进入 `needs_review`/`blocked`，不阻断其他章节完成。
 
-## 阶段C：完整SQL子目录
+## 阶段C（当前）：每批 20～30 章扩展
 
-优先选择DML或DDL中的一个完整目录，不同时展开全部文档类型。
+第二批证明冻结契约可复用后，按每批 20～30 个独立章节推进，逐步扩展到完整 DML 或 DDL 目录。
 
 验收：
 
 - 文档总目录与语料任务清单可以取差集；
+- 跨包 confirmed Fact 与 Fixture 依赖形成无环 DAG，队列按拓扑推进；上游章节
+  或包哈希变化只把依赖闭包内的下游任务标为 stale；
 - 相同命令的general、M/B兼容模式彼此隔离；
 - 全库严格加载和全局ID检查持续通过；
 - 失败原因可以归类为原文问题、抽取问题、模型缺口或生成器缺陷；

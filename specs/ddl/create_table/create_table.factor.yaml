@@ -1,0 +1,341 @@
+schema_version: 1
+kind: factor
+id: create_table
+name: CREATE TABLE
+category: DDL
+status: needs_review
+description: >-
+  基于 GaussDB V2.0-10.0.0 集中式版 1.13.9.48 的有界 PDF-first 因子包；
+  自动生成仅覆盖普通、UNLOGGED、TEMP/TEMPORARY 与一至两列的有限核心，
+  LIKE、约束、存储、ILM、HTAP、分区及环境域保留为显式 gap。
+source:
+  product: GaussDB
+  document: GaussDB V2.0-10.0.0 集中式版参考 / 1.13.9.48 CREATE TABLE
+  version: V2.0-10.0.0
+  artifact_sha256: 72695d2ef4e74ead050103c403da14ae56d378333a41f421336d5e64a3215bc6
+  parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+  extraction_rule_version: gaussdb-pdf-outline-v1
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: gaussdb_v2_0_10_0_0_centralized_reference_01
+    source_relpath: general/ddl/create_table.txt
+    chapter_sha256: 72695d2ef4e74ead050103c403da14ae56d378333a41f421336d5e64a3215bc6
+source_ledger_ref: source_ledger_create_table
+syntax_ref: syntax_create_table_v1
+dimensions:
+  persistence_modifier:
+    description: 有界覆盖普通、UNLOGGED 及未指定 GLOBAL/LOCAL 的 TEMP 同义词。
+    default_value_id: ct_persistence_permanent
+    classes:
+      - id: ct_persistence_regular_class
+        meaning: 普通或 UNLOGGED 表。
+        values:
+          - {id: ct_persistence_permanent, render: "", representative: true, validity: valid, fact_refs: [ct_fact_main_grammar]}
+          - {id: ct_persistence_unlogged, render: "UNLOGGED ", representative: true, validity: valid, fact_refs: [ct_fact_main_grammar, ct_fact_unlogged_wal]}
+      - id: ct_persistence_temp_class
+        meaning: 未显式 GLOBAL/LOCAL 的本地临时表同义词。
+        values:
+          - {id: ct_persistence_temp, render: "TEMP ", representative: true, validity: valid, fact_refs: [ct_fact_temp_scope, ct_fact_temp_kinds]}
+          - {id: ct_persistence_temporary, render: "TEMPORARY ", representative: false, validity: valid, fact_refs: [ct_fact_temp_scope, ct_fact_temp_kinds]}
+  if_not_exists:
+    description: 省略或声明 IF NOT EXISTS；自动生成只针对尚不存在的目标名。
+    default_value_id: ct_if_absent
+    classes:
+      - id: ct_if_not_exists_class
+        meaning: 目标不存在时两种写法均应成功。
+        values:
+          - {id: ct_if_absent, render: "", representative: true, validity: valid}
+          - {id: ct_if_present, render: "IF NOT EXISTS ", representative: true, validity: valid, fact_refs: [ct_fact_if_not_exists]}
+  column_profile:
+    description: 仅使用本章示例明确出现的一列或两列普通定义。
+    default_value_id: ct_columns_integer
+    profile_source: {matrix_ref: matrix_create_table_column_profiles, profile_id_path: profiles.id}
+rules: []
+structural_checks: []
+facts:
+  - {id: ct_fact_purpose, type: syntax, statement: "CREATE TABLE 在当前数据库创建由执行者所有的新空表，默认为行存表。", status: confirmed, source_anchor: "L5-L6"}
+  - {id: ct_fact_default_row_storage, type: syntax, statement: "CREATE TABLE 在当前数据库创建由执行者所有的新空表，默认为行存表。", status: confirmed, source_anchor: "L5-L6"}
+  - {id: ct_fact_recovery_orphan_file, type: behavior_oracle, statement: "建表期间系统故障后可能遗留 0 字节磁盘文件，但不影响系统正常运行。", status: confirmed, source_anchor: "L10-L12"}
+  - {id: ct_fact_jdbc_prepared_default, type: environment, statement: "JDBC PreparedStatement 支持对 DEFAULT 值进行参数化。", status: confirmed, source_anchor: "L13"}
+  - {id: ct_fact_create_permissions, type: environment, statement: "CREATE ANY TABLE 允许在 public/用户模式建表；serial 列还需 CREATE ANY SEQUENCE。", status: confirmed, source_anchor: "L14-L16"}
+  - {id: ct_fact_serial_sequence_permission, type: syntax, statement: "CREATE ANY TABLE 允许在 public/用户模式建表；serial 列还需 CREATE ANY SEQUENCE。", status: confirmed, source_anchor: "L14-L16"}
+  - {id: ct_fact_xml_key_forbidden, type: constraint, statement: "XML 类型不能作为主键或外键。", status: confirmed, source_anchor: "L17"}
+  - {id: ct_fact_system_fk_forbidden, type: constraint, statement: "rowid/rowno 系统列不支持外键约束；本章未给稳定 SQLSTATE 或错误文本。", status: confirmed, source_anchor: "L18"}
+  - {id: ct_open_error_identity_calibration, type: open_question, statement: "rowid/rowno 系统列不支持外键约束；本章未给稳定 SQLSTATE 或错误文本。", status: needs_verification, source_anchor: "L18"}
+  - {id: ct_fact_ilm_expression_whitelist, type: syntax, statement: "ILM 行级表达式只支持白名单函数，但白名单仅由跨章链接指向。", status: confirmed, source_anchor: "L19-L21,L652-L659"}
+  - {id: ct_open_ilm_whitelist_source, type: open_question, statement: "ILM 行级表达式只支持白名单函数，但白名单仅由跨章链接指向。", status: needs_verification, source_anchor: "L19-L21"}
+  - {id: ct_fact_ilm_expression_compatibility, type: syntax, statement: "ILM 白名单函数输出可受兼容参数影响，文档以 B 5.7 s2 下 upper 无法转大写为例。", status: confirmed, source_anchor: "L25-L27,L660-L665"}
+  - {id: ct_fact_constraint_count_limit, type: constraint, statement: "表约束个数不能超过 32767。", status: confirmed, source_anchor: "L28"}
+  - {id: ct_fact_main_grammar, type: syntax, statement: "主产生式包含 GLOBAL/LOCAL TEMP、UNLOGGED、IF NOT EXISTS 和表名前缀。", status: confirmed, source_anchor: "L32,L33-L38,L39-L43,L44-L50"}
+  - {id: ct_fact_temp_scope, type: constraint, statement: "主产生式包含 GLOBAL/LOCAL TEMP、UNLOGGED、IF NOT EXISTS 和表名前缀。", status: confirmed, source_anchor: "L32,L126-L129,L130-L133"}
+  - {id: ct_open_table_element_repeat, type: open_question, statement: "表体可为列/表约束/LIKE 元素的无界列表，或直接 LIKE 源表。", status: needs_verification, source_anchor: "L33-L38"}
+  - {id: ct_open_storage_parameter_repeat, type: open_question, statement: "主产生式还包含无界 table_option/storage 参数、HTAP、WITHOUT OIDS 和 ON COMMIT。", status: needs_verification, source_anchor: "L39-L43"}
+  - {id: ct_fact_ilm_grammar, type: syntax, statement: "尾部语法列出 ADVANCED/TURBO/NONE ILM 策略、时间单位、可选行表达式和 TABLESPACE。", status: confirmed, source_anchor: "L44-L50,L642-L646"}
+  - {id: ct_open_expression_domains, type: open_question, statement: "尾部语法列出 ADVANCED/TURBO/NONE ILM 策略、时间单位、可选行表达式和 TABLESPACE。", status: needs_verification, source_anchor: "L44-L50,L652-L659"}
+  - {id: ct_fact_table_option_grammar, type: syntax, statement: "table_option 枚举 COMMENT、AUTO_INCREMENT、默认字符集/字符序和 InnoDB ENGINE。", status: confirmed, source_anchor: "L53-L57"}
+  - {id: ct_fact_htap_grammar, type: environment, statement: "htap_option 为 COLVIEW 及可选 HIGH/LOW/NONE PRIORITY，或 NOCOLVIEW。", status: confirmed, source_anchor: "L58-L61"}
+  - {id: ct_fact_column_constraint_grammar, type: syntax, statement: "列约束可选命名，并枚举 NULL/CHECK/DEFAULT/ON UPDATE/生成列/IDENTITY/自增/注释/HTAP；每列可重复约束。", status: confirmed, source_anchor: "L64-L75,L76-L83"}
+  - {id: ct_open_column_constraint_repeat, type: open_question, statement: "列约束可选命名，并枚举 NULL/CHECK/DEFAULT/ON UPDATE/生成列/IDENTITY/自增/注释/HTAP；每列可重复约束。", status: needs_verification, source_anchor: "L64-L75"}
+  - {id: ct_fact_table_constraint_name_grammar, type: syntax, statement: "table_constraint 可带可选 CONSTRAINT 名称。", status: confirmed, source_anchor: "L84-L85"}
+  - {id: ct_fact_table_check_grammar, type: syntax, statement: "表约束包含 CHECK (expression) 分支。", status: confirmed, source_anchor: "L86"}
+  - {id: ct_fact_table_unique_grammar, type: syntax, statement: "表约束包含带可选索引名、方法、键列表和索引参数的 UNIQUE 分支。", status: confirmed, source_anchor: "L87-L88"}
+  - {id: ct_fact_table_primary_key_grammar, type: syntax, statement: "表约束包含带可选方法、键列表和索引参数的 PRIMARY KEY 分支。", status: confirmed, source_anchor: "L89-L90"}
+  - {id: ct_fact_table_foreign_key_grammar, type: syntax, statement: "表约束包含复合 FOREIGN KEY、REFERENCES、MATCH 及引用动作分支。", status: confirmed, source_anchor: "L91-L93"}
+  - {id: ct_fact_table_deferrability_grammar, type: syntax, statement: "表约束可带 DEFERRABLE 与 INITIALLY 属性。", status: confirmed, source_anchor: "L94"}
+  - {id: ct_open_table_constraint_repeat, type: open_question, statement: "表约束还包含复合外键、可推迟属性和可重复约束注释。", status: needs_verification, source_anchor: "L91-L95"}
+  - {id: ct_fact_like_option_grammar, type: syntax, statement: "LIKE 选项为 INCLUDING/EXCLUDING 与十二类复制能力的无界组合。", status: confirmed, source_anchor: "L96-L101"}
+  - {id: ct_open_like_option_repeat, type: open_question, statement: "LIKE 选项为 INCLUDING/EXCLUDING 与十二类复制能力的无界组合。", status: needs_verification, source_anchor: "L96-L101"}
+  - {id: ct_fact_index_parameter_grammar, type: syntax, statement: "约束索引参数支持无界 WITH 存储参数和 USING INDEX TABLESPACE，完整参数域需跨章证据。", status: confirmed, source_anchor: "L102-L105"}
+  - {id: ct_open_index_method_domain, type: open_question, statement: "约束索引参数支持无界 WITH 存储参数和 USING INDEX TABLESPACE，完整参数域需跨章证据。", status: needs_verification, source_anchor: "L102-L105,L213-L216,L869-L875"}
+  - {id: ct_fact_update_expr_grammar, type: syntax, statement: "update_expr 枚举 CURRENT_TIMESTAMP、LOCALTIMESTAMP 和 NOW()。", status: confirmed, source_anchor: "L106-L108"}
+  - {id: ct_fact_identity_option_grammar, type: syntax, statement: "IDENTITY 选项含增量、边界、起点、缓存、循环与 SCALE 的可重复可选组合。", status: confirmed, source_anchor: "L109-L113"}
+  - {id: ct_open_identity_option_composition, type: open_question, statement: "IDENTITY 选项含增量、边界、起点、缓存、循环与 SCALE 的可重复可选组合。", status: needs_verification, source_anchor: "L109-L113"}
+  - {id: ct_fact_unlogged_wal, type: behavior_oracle, statement: "UNLOGGED 写入不记 WAL 因而较快，多类故障后数据清空，且内容不复制到备机。", status: confirmed, source_anchor: "L117-L121"}
+  - {id: ct_fact_unlogged_failure, type: behavior_oracle, statement: "UNLOGGED 写入不记 WAL 因而较快，多类故障后数据清空，且内容不复制到备机。", status: confirmed, source_anchor: "L117-L121"}
+  - {id: ct_fact_unlogged_replication, type: behavior_oracle, statement: "UNLOGGED 写入不记 WAL 因而较快，多类故障后数据清空，且内容不复制到备机。", status: confirmed, source_anchor: "L117-L121"}
+  - {id: ct_fact_unlogged_guidance, type: behavior_oracle, statement: "UNLOGGED 表应用于已备份场景；异常后索引数据丢失需重建。", status: confirmed, source_anchor: "L122-L125,L1294-L1300"}
+  - {id: ct_fact_unlogged_index_rebuild, type: behavior_oracle, statement: "UNLOGGED 表应用于已备份场景；异常后索引数据丢失需重建。", status: confirmed, source_anchor: "L122-L125"}
+  - {id: ct_fact_temp_kinds, type: syntax, statement: "TEMP 与 TEMPORARY 创建临时表，未指定 GLOBAL 时为本地临时表。", status: confirmed, source_anchor: "L130-L133"}
+  - {id: ct_fact_gtt_metadata_lifecycle, type: lifecycle, statement: "全局临时表元数据跨会话保留，数据/索引/统计信息会话隔离，并有会话级与事务级 ON COMMIT 模式。", status: confirmed, source_anchor: "L134-L140"}
+  - {id: ct_fact_gtt_data_isolation, type: lifecycle, statement: "全局临时表元数据跨会话保留，数据/索引/统计信息会话隔离，并有会话级与事务级 ON COMMIT 模式。", status: confirmed, source_anchor: "L134-L140"}
+  - {id: ct_fact_gtt_commit_modes, type: lifecycle, statement: "全局临时表元数据跨会话保留，数据/索引/统计信息会话隔离，并有会话级与事务级 ON COMMIT 模式。", status: confirmed, source_anchor: "L134-L140"}
+  - {id: ct_fact_ltt_lifecycle, type: lifecycle, statement: "本地临时表仅当前会话可见并会话结束自动删除；关于涉及临时表 DDL 均失败的表述过宽，需校准。", status: confirmed, source_anchor: "L141-L143,L1301-L1306"}
+  - {id: ct_open_ltt_ddl_wording, type: open_question, statement: "本地临时表仅当前会话可见并会话结束自动删除；关于涉及临时表 DDL 均失败的表述过宽，需校准。", status: needs_verification, source_anchor: "L141-L143"}
+  - {id: ct_fact_temp_schema_visibility, type: syntax, statement: "本地临时表依赖会话独立 pg_temp 模式；即使省略 TEMP，在当前 pg_temp 模式建表仍会成为临时表。", status: confirmed, source_anchor: "L147-L151"}
+  - {id: ct_fact_temp_schema_inference, type: syntax, statement: "本地临时表依赖会话独立 pg_temp 模式；即使省略 TEMP，在当前 pg_temp 模式建表仍会成为临时表。", status: confirmed, source_anchor: "L147-L151"}
+  - {id: ct_fact_gtt_concurrent_ddl_restriction, type: constraint, statement: "其他会话使用全局临时表时禁止多数 ALTER/DROP；TRUNCATE/REINDEX/ANALYZE 只影响当前会话数据和索引。", status: confirmed, source_anchor: "L152-L155"}
+  - {id: ct_fact_gtt_session_ddl_scope, type: lifecycle, statement: "其他会话使用全局临时表时禁止多数 ALTER/DROP；TRUNCATE/REINDEX/ANALYZE 只影响当前会话数据和索引。", status: confirmed, source_anchor: "L152-L155"}
+  - {id: ct_fact_gtt_enable_guc, type: environment, statement: "max_active_global_temporary_table 控制全局临时表功能，值 0 时关闭。", status: confirmed, source_anchor: "L156-L158"}
+  - {id: ct_fact_temp_parallel_unsupported, type: environment, statement: "临时表不支持与 parallel on 并行执行同用。", status: confirmed, source_anchor: "L159"}
+  - {id: ct_fact_temp_switchover_unsupported, type: environment, statement: "临时表不支持主备切换。", status: confirmed, source_anchor: "L160"}
+  - {id: ct_fact_gtt_clog_guidance, type: behavior_oracle, statement: "全局临时表不响应自动清理，长连接应用 DELETE ROWS 或定期 VACUUM 避免 clog 不回收。", status: confirmed, source_anchor: "L161-L163"}
+  - {id: ct_fact_gtt_sequence_restriction, type: constraint, statement: "不支持全局临时 SEQUENCE；各会话共享序列只保证唯一而不保证连续。", status: confirmed, source_anchor: "L165-L166"}
+  - {id: ct_fact_gtt_view_restriction, type: constraint, statement: "不支持全局临时视图。", status: confirmed, source_anchor: "L167"}
+  - {id: ct_fact_gtt_partition_restriction, type: constraint, statement: "全局临时表不支持分区表。", status: confirmed, source_anchor: "L168"}
+  - {id: ct_fact_gtt_hash_restriction, type: constraint, statement: "全局临时表不支持 Hash bucket 表。", status: confirmed, source_anchor: "L169"}
+  - {id: ct_fact_gtt_stats_restriction, type: constraint, statement: "全局临时表不支持扩展统计信息。", status: confirmed, source_anchor: "L170"}
+  - {id: ct_fact_gtt_drop_restriction, type: constraint, statement: "全局临时表不支持 ON COMMIT DROP。", status: confirmed, source_anchor: "L171,L635-L641"}
+  - {id: ct_fact_gtt_smp_restriction, type: constraint, statement: "全局临时表不支持 INSERT/UPDATE/DELETE SMP。", status: confirmed, source_anchor: "L172"}
+  - {id: ct_fact_if_not_exists, type: lifecycle, statement: "同名表已存在时 IF NOT EXISTS 不报错而发出通知。", status: confirmed, source_anchor: "L173-L176"}
+  - {id: ct_fact_table_name, type: syntax, statement: "table_name 是待创建的表名。", status: confirmed, source_anchor: "L177-L180"}
+  - {id: ct_fact_name_prefix_guidance, type: constraint, statement: "用户不应创建以 mlog_ 或 matviewmap_ 为前缀的表，以免影响物化视图逻辑。", status: confirmed, source_anchor: "L181-L185"}
+  - {id: ct_fact_column_name, type: syntax, statement: "column_name 命名新字段，constraint_name 命名建表约束。", status: confirmed, source_anchor: "L186-L189"}
+  - {id: ct_fact_constraint_name, type: syntax, statement: "column_name 命名新字段，constraint_name 命名建表约束。", status: confirmed, source_anchor: "L186-L189"}
+  - {id: ct_fact_constraint_name_mode, type: environment, statement: "constraint_name 在 B 模式可省略，其他模式必须给出。", status: confirmed, source_anchor: "L190-L198"}
+  - {id: ct_fact_index_name, type: syntax, statement: "index_name 是索引名，后续须知给出兼容模式限制。", status: confirmed, source_anchor: "L199-L205,L876-L884"}
+  - {id: ct_fact_index_name_mode, type: environment, statement: "index_name 仅 B 模式支持；外键同时命名时采用 constraint_name，唯一键采用 index_name。", status: confirmed, source_anchor: "L206-L212,L876-L884"}
+  - {id: ct_fact_fk_index_name_resolution, type: syntax, statement: "index_name 仅 B 模式支持；外键同时命名时采用 constraint_name，唯一键采用 index_name。", status: confirmed, source_anchor: "L206-L212"}
+  - {id: ct_fact_unique_index_name_resolution, type: constraint, statement: "index_name 仅 B 模式支持；外键同时命名时采用 constraint_name，唯一键采用 index_name。", status: confirmed, source_anchor: "L206-L212,L876-L884"}
+  - {id: ct_fact_using_method, type: syntax, statement: "USING method 指定索引方法，但取值域只指向 CREATE INDEX 章节。", status: confirmed, source_anchor: "L213-L216"}
+  - {id: ct_fact_using_method_mode, type: environment, statement: "USING method 仅 B 模式支持；ASTORE/USTORE 默认 btree/ubtree；USTORE 显式 btree 底层改建 ubtree。", status: confirmed, source_anchor: "L222-L227"}
+  - {id: ct_fact_default_index_method, type: syntax, statement: "USING method 仅 B 模式支持；ASTORE/USTORE 默认 btree/ubtree；USTORE 显式 btree 底层改建 ubtree。", status: confirmed, source_anchor: "L222-L227"}
+  - {id: ct_fact_ustore_btree_rewrite, type: constraint, statement: "USING method 仅 B 模式支持；ASTORE/USTORE 默认 btree/ubtree；USTORE 显式 btree 底层改建 ubtree。", status: confirmed, source_anchor: "L222-L227"}
+  - {id: ct_fact_sort_direction, type: syntax, statement: "ASC 是默认升序，DESC 指定降序。", status: confirmed, source_anchor: "L228-L230"}
+  - {id: ct_fact_sort_mode, type: environment, statement: "ASC/DESC 仅 B 和 M 模式支持；M 模式具体行为只有未展开的章节指引。", status: confirmed, source_anchor: "L231-L238"}
+  - {id: ct_open_cross_chapter_behavior, type: open_question, statement: "ASC/DESC 仅 B 和 M 模式支持；M 模式具体行为只有未展开的章节指引。", status: needs_verification, source_anchor: "L231-L238,L552-L557,L629-L632,L944-L947"}
+  - {id: ct_fact_expression_index, type: syntax, statement: "约束表达式索引必须用括号，UNIQUE 表达式索引仅 B 模式支持。", status: confirmed, source_anchor: "L239-L246"}
+  - {id: ct_fact_expression_unique_mode, type: environment, statement: "约束表达式索引必须用括号，UNIQUE 表达式索引仅 B 模式支持。", status: confirmed, source_anchor: "L239-L246"}
+  - {id: ct_fact_data_type, type: syntax, statement: "data_type 域本章未枚举；列可指定 CHARACTER SET/CHARSET。", status: confirmed, source_anchor: "L247-L250"}
+  - {id: ct_fact_column_charset, type: syntax, statement: "data_type 域本章未枚举；列可指定 CHARACTER SET/CHARSET。", status: confirmed, source_anchor: "L247-L250,L251-L259"}
+  - {id: ct_open_data_type_domain, type: open_question, statement: "data_type 域本章未枚举；列可指定 CHARACTER SET/CHARSET。", status: needs_verification, source_anchor: "L247-L250"}
+  - {id: ct_fact_column_collation, type: environment, statement: "单独列字符集会选其默认字符序；COLLATE 要求可排列类型，B 模式另列多个字符序。", status: confirmed, source_anchor: "L251-L259"}
+  - {id: ct_fact_b_collation_catalog, type: environment, statement: "单独列字符集会选其默认字符序；COLLATE 要求可排列类型，B 模式另列多个字符序。", status: confirmed, source_anchor: "L251-L259,L270-L276,L277-L282,L283-L289,L290-L295,L296-L306"}
+  - {id: ct_fact_binary_charset_mapping, type: syntax, statement: "字符集仅适用字符类型；binary 转换当前只有 TEXT→BLOB 映射；非 binary 要求数据库同编码并按表/模式/数据库继承。", status: confirmed, source_anchor: "L260-L269"}
+  - {id: ct_fact_charset_encoding_restriction, type: environment, statement: "字符集仅适用字符类型；binary 转换当前只有 TEXT→BLOB 映射；非 binary 要求数据库同编码并按表/模式/数据库继承。", status: confirmed, source_anchor: "L260-L269"}
+  - {id: ct_fact_charset_inheritance, type: syntax, statement: "字符集仅适用字符类型；binary 转换当前只有 TEXT→BLOB 映射；非 binary 要求数据库同编码并按表/模式/数据库继承。", status: confirmed, source_anchor: "L260-L269"}
+  - {id: ct_fact_like_base_copy, type: syntax, statement: "LIKE 声明新表并自动复制源表字段名、数据类型和非空约束。", status: confirmed, source_anchor: "L307-L310,L1301-L1306"}
+  - {id: ct_fact_like_independence, type: lifecycle, statement: "创建后新表与源表完全无关；显式或多个 LIKE 产生同名列/约束时报错。", status: confirmed, source_anchor: "L311-L314,L1301-L1306"}
+  - {id: ct_fact_like_name_conflict, type: constraint, statement: "创建后新表与源表完全无关；显式或多个 LIKE 产生同名列/约束时报错。", status: confirmed, source_anchor: "L311-L314"}
+  - {id: ct_fact_like_defaults, type: syntax, statement: "INCLUDING DEFAULTS 复制字段默认表达式，默认不复制且新列默认 NULL。", status: confirmed, source_anchor: "L315-L317,L1307-L1310"}
+  - {id: ct_fact_like_update, type: syntax, statement: "INCLUDING UPDATE 复制 ON UPDATE CURRENT_TIMESTAMP 属性，默认不复制。", status: confirmed, source_anchor: "L318-L319"}
+  - {id: ct_fact_like_generated, type: syntax, statement: "INCLUDING GENERATED 复制生成表达式，默认不复制。", status: confirmed, source_anchor: "L320-L321"}
+  - {id: ct_fact_like_constraints, type: syntax, statement: "INCLUDING CONSTRAINTS 仅复制 CHECK，其他约束不复制，NOT NULL 始终复制。", status: confirmed, source_anchor: "L322-L324,L1311-L1314"}
+  - {id: ct_fact_like_indexes, type: syntax, statement: "INCLUDING INDEXES 在新表建立源表索引并保持其表空间，默认不建。", status: confirmed, source_anchor: "L325-L327,L1315-L1318"}
+  - {id: ct_fact_like_storage, type: syntax, statement: "INCLUDING STORAGE 复制 STORAGE 设置，默认不复制。", status: confirmed, source_anchor: "L328-L329,L1319-L1321"}
+  - {id: ct_fact_like_comments, type: syntax, statement: "INCLUDING COMMENTS 复制字段、约束和索引注释，默认不复制。", status: confirmed, source_anchor: "L330-L331,L1322-L1324"}
+  - {id: ct_fact_like_partition, type: syntax, statement: "INCLUDING PARTITION 复制分区定义且默认不复制；与只复制索引组合有额外限制，但主语法未展开 PARTITION BY。", status: confirmed, source_anchor: "L332-L337,L1325-L1328"}
+  - {id: ct_open_partition_clause_omitted, type: open_question, statement: "INCLUDING PARTITION 复制分区定义且默认不复制；与只复制索引组合有额外限制，但主语法未展开 PARTITION BY。", status: needs_verification, source_anchor: "L332-L337,L733-L739,L1325-L1328"}
+  - {id: ct_fact_like_reloptions, type: syntax, statement: "INCLUDING RELOPTIONS 复制源表 WITH 存储参数，默认不复制。", status: confirmed, source_anchor: "L338-L339,L1335-L1338"}
+  - {id: ct_fact_like_identity, type: syntax, statement: "INCLUDING IDENTITY 复制字段 IDENTITY 属性，新表对应序列与源表序列相互独立。", status: confirmed, source_anchor: "L340-L342,L1339-L1342"}
+  - {id: ct_fact_like_ilm, type: syntax, statement: "INCLUDING ILM 复制源表 ILM 策略，默认不复制。", status: confirmed, source_anchor: "L343-L345"}
+  - {id: ct_fact_like_all, type: syntax, statement: "INCLUDING ALL 等价于选取本处枚举的全部可复制属性，EXCLUDING 可用于排除个别属性。", status: confirmed, source_anchor: "L346-L351,L1343-L1347"}
+  - {id: ct_fact_like_reloptions_engine, type: syntax, statement: "INCLUDING RELOPTIONS 对 orientation/storage_type 的复制受默认表引擎 GUC 影响。", status: confirmed, source_anchor: "L356-L358"}
+  - {id: ct_fact_like_owned_sequence, type: lifecycle, statement: "源表私有序列不会关联到新表；新表会创建参数相同的自有序列；只有未用 OWNED BY 的共享序列会被共享。", status: confirmed, source_anchor: "L359-L365"}
+  - {id: ct_fact_sequence_sharing_guidance, type: lifecycle, statement: "未用 OWNED BY 的共享序列可由 LIKE 新表继续共享；不建议把其他表私有序列用作源表默认值，多表应显式使用共享序列。", status: confirmed, source_anchor: "L363-L370"}
+  - {id: ct_fact_like_partition_excluding, type: syntax, statement: "EXCLUDING PARTITION 只有在同时指定 INCLUDING ALL 时生效。", status: confirmed, source_anchor: "L371-L372"}
+  - {id: ct_fact_like_rowid, type: behavior_oracle, statement: "源表为 ROWID 表时，INCLUDING ALL 或 RELOPTIONS 使新表也为 ROWID 表；仅 INCLUDING INDEXES 不复制 ROWID/ROWNO 索引属性。", status: confirmed, source_anchor: "L373-L375"}
+  - {id: ct_fact_direct_like_environment, type: environment, statement: "无括号直接 LIKE 仅在 B 模式 5.7 s2 支持，不接受 INCLUDING/EXCLUDING，且其复制行为等价于 INCLUDING ALL。", status: confirmed, source_anchor: "L376-L381"}
+  - {id: ct_fact_direct_like_all_behavior, type: behavior_oracle, statement: "无括号直接 LIKE 仅在 B 模式 5.7 s2 支持，不接受 INCLUDING/EXCLUDING，且其复制行为等价于 INCLUDING ALL。", status: confirmed, source_anchor: "L376-L381"}
+  - {id: ct_fact_auto_increment_table_start, type: constraint, statement: "表级 AUTO_INCREMENT 指定自增初值并受文档给出的取值域与 B 模式限制。", status: confirmed, source_anchor: "L382-L389"}
+  - {id: ct_fact_auto_increment_table_mode, type: environment, statement: "表级 AUTO_INCREMENT 指定自增初值并受文档给出的取值域与 B 模式限制。", status: confirmed, source_anchor: "L382-L389"}
+  - {id: ct_open_auto_increment_upper_bound, type: open_question, statement: "表级 AUTO_INCREMENT 指定自增初值并受文档给出的取值域与 B 模式限制。", status: needs_verification, source_anchor: "L382-L389"}
+  - {id: ct_fact_comments, type: syntax, statement: "COMMENT 可为表、列或约束指定注释。", status: confirmed, source_anchor: "L390-L395"}
+  - {id: ct_fact_comment_mode, type: environment, statement: "COMMENT 仅 B 模式支持，并分别限制表、列、约束注释长度和可注释的约束类型。", status: confirmed, source_anchor: "L396-L402"}
+  - {id: ct_fact_comment_limits, type: constraint, statement: "COMMENT 仅 B 模式支持，并分别限制表、列、约束注释长度和可注释的约束类型。", status: confirmed, source_anchor: "L396-L402"}
+  - {id: ct_fact_constraint_comment_scope, type: constraint, statement: "COMMENT 仅 B 模式支持，并分别限制表、列、约束注释长度和可注释的约束类型。", status: confirmed, source_anchor: "L396-L402"}
+  - {id: ct_fact_engine, type: syntax, statement: "ENGINE 表选项仅接受 InnoDB 并受兼容模式约束。", status: confirmed, source_anchor: "L403-L405"}
+  - {id: ct_fact_engine_like_forbidden, type: constraint, statement: "ENGINE 不能与直接 LIKE 或括号内 LIKE 同时使用。", status: confirmed, source_anchor: "L406-L411"}
+  - {id: ct_fact_colview, type: environment, statement: "COLVIEW/NOCOLVIEW 控制 HTAP 列存副本能力并依赖 enable_htap。", status: confirmed, source_anchor: "L412-L415"}
+  - {id: ct_fact_colview_like_forbidden, type: environment, statement: "COLVIEW/NOCOLVIEW 不能与直接 LIKE 或括号内 LIKE 同时使用。", status: confirmed, source_anchor: "L416-L420"}
+  - {id: ct_fact_priority, type: syntax, statement: "PRIORITY 为列存副本指定 HIGH、LOW 或 NONE 优先级。", status: confirmed, source_anchor: "L421-L423"}
+  - {id: ct_fact_with_storage, type: syntax, statement: "WITH 指定表或索引的存储参数。", status: confirmed, source_anchor: "L424-L426"}
+  - {id: ct_fact_oids_true_forbidden, type: constraint, statement: "WITH OIDS=TRUE 不再支持；文档建议为数值数据选用合适类型。", status: confirmed, source_anchor: "L427-L434"}
+  - {id: ct_fact_numeric_guidance, type: behavior_oracle, statement: "WITH OIDS=TRUE 不再支持；文档建议为数值数据选用合适类型。", status: confirmed, source_anchor: "L427-L434"}
+  - {id: ct_fact_fillfactor, type: syntax, statement: "FILLFACTOR 是表填充因子存储参数。", status: confirmed, source_anchor: "L436"}
+  - {id: ct_fact_fillfactor_range, type: constraint, statement: "FILLFACTOR 取值范围为 10~100。", status: confirmed, source_anchor: "L437,L444"}
+  - {id: ct_fact_fillfactor_defaults, type: behavior_oracle, statement: "USTORE 的 FILLFACTOR 默认 92，ASTORE 默认 100。", status: confirmed, source_anchor: "L437-L438"}
+  - {id: ct_fact_fillfactor_tradeoff, type: behavior_oracle, statement: "较小 FILLFACTOR 为同页更新预留空间；不更新的表适合 100，频繁更新的表适合较小值。", status: confirmed, source_anchor: "L439-L443"}
+  - {id: ct_fact_orientation, type: syntax, statement: "本章 ORIENTATION 仅列出 ROW；普通表空间默认 ROW，未提供其他产品形态的完整取值域。", status: confirmed, source_anchor: "L446-L453,L1348-L1351"}
+  - {id: ct_open_storage_environment_matrix, type: open_question, statement: "本章 ORIENTATION 仅列出 ROW；普通表空间默认 ROW，未提供其他产品形态的完整取值域。", status: needs_verification, source_anchor: "L446-L453,L475-L479,L495-L499,L611-L616"}
+  - {id: ct_fact_storage_type, type: syntax, statement: "STORAGE_TYPE 的本章取值为 USTORE 与 ASTORE。", status: confirmed, source_anchor: "L454,L458,L462"}
+  - {id: ct_fact_storage_type_immutable, type: constraint, statement: "STORAGE_TYPE 设置成功后不再支持修改。", status: confirmed, source_anchor: "L455"}
+  - {id: ct_fact_ustore_tracking_prerequisites, type: environment, statement: "使用 USTORE 必须开启 track_counts 与 track_activities，否则可能造成空间膨胀。", status: confirmed, source_anchor: "L458-L460"}
+  - {id: ct_fact_storage_type_default, type: behavior_oracle, statement: "同时不指定 ORIENTATION 和 STORAGE_TYPE 时默认创建 USTORE 表。", status: confirmed, source_anchor: "L463-L465"}
+  - {id: ct_fact_toast_storage, type: syntax, statement: "TOAST.TOAST_STORAGE_TYPE 取 ENHANCED_TOAST 或 TOAST。", status: confirmed, source_anchor: "L466,L472-L474,L475-L479"}
+  - {id: ct_fact_toast_upgrade_environment, type: environment, statement: "enable_enhance_toast_table=on 时，可通过 Vacuum Full 将 Toast 升级为 Enhanced Toast。", status: confirmed, source_anchor: "L467-L469"}
+  - {id: ct_fact_init_td, type: syntax, statement: "INIT_TD 指定行存页事务槽初值，文档给出范围与默认值。", status: confirmed, source_anchor: "L480-L486"}
+  - {id: ct_fact_compresslevel, type: syntax, statement: "COMPRESSLEVEL 指定同一压缩级别内的压缩水平。", status: confirmed, source_anchor: "L487"}
+  - {id: ct_fact_compresslevel_tradeoff, type: behavior_oracle, statement: "COMPRESSLEVEL 值越大，通常压缩比越大且压缩时间越长，反之亦然。", status: confirmed, source_anchor: "L488-L491"}
+  - {id: ct_fact_compresslevel_range, type: constraint, statement: "COMPRESSLEVEL 取值范围为 0~3。", status: confirmed, source_anchor: "L492"}
+  - {id: ct_fact_compresslevel_default, type: behavior_oracle, statement: "COMPRESSLEVEL 默认值为 0。", status: confirmed, source_anchor: "L494"}
+  - {id: ct_fact_segment, type: syntax, statement: "segment 控制段页式存储，并受表类型和环境限制。", status: confirmed, source_anchor: "L495-L499"}
+  - {id: ct_fact_tde_enable, type: environment, statement: "enable_tde 启用透明数据加密，要求环境配置且完整配置只在跨章文档中说明。", status: confirmed, source_anchor: "L500-L508"}
+  - {id: ct_open_tde_setup, type: open_question, statement: "enable_tde 启用透明数据加密，要求环境配置且完整配置只在跨章文档中说明。", status: needs_verification, source_anchor: "L500-L508"}
+  - {id: ct_fact_encrypt_algo, type: environment, statement: "encrypt_algo 与 enable_tde 配合，枚举 AES_128_CTR、SM4_CTR、两个 HMAC 变体及 AES_128_GCM，并按 GUC/开关决定默认值。", status: confirmed, source_anchor: "L509-L516"}
+  - {id: ct_fact_tde_managed_keys, type: environment, statement: "dek_cipher 为系统管理的 TDE 密钥参数，用户不能自行设置。", status: confirmed, source_anchor: "L517-L521,L522-L526,L527-L531"}
+  - {id: ct_fact_parallel_workers, type: syntax, statement: "parallel_workers 设置并行扫描工作线程建议值，文档给出默认值与范围。", status: confirmed, source_anchor: "L532-L536"}
+  - {id: ct_fact_hasuids, type: behavior_oracle, statement: "hasuids=on 时更新元组会分配表级唯一标识，取 on/off，默认 off。", status: confirmed, source_anchor: "L537-L541"}
+  - {id: ct_fact_internal_collate, type: syntax, statement: "内部 collate 参数控制字符数据排序规则并受环境约束。", status: confirmed, source_anchor: "L542-L546"}
+  - {id: ct_fact_stat_state, type: metadata_oracle, statement: "stat_state 指示表统计信息状态，文档给出系统使用语义。", status: confirmed, source_anchor: "L547-L551"}
+  - {id: ct_fact_statistic_granularity, type: syntax, statement: "statistic_granularity 的完整行为依赖 ANALYZE 章节和环境参数。", status: confirmed, source_anchor: "L552-L557"}
+  - {id: ct_fact_immediate_delete, type: behavior_oracle, statement: "immediate_delete 仅限向量数据库表；Astore 下启用会立即搜索并删除索引数据，普通表使用会降低删除/更新性能。", status: confirmed, source_anchor: "L558-L563"}
+  - {id: ct_fact_autovacuum_enabled, type: behavior_oracle, statement: "autovacuum_enabled 控制该表自动清理，并与 track_counts 相关。", status: confirmed, source_anchor: "L564-L567"}
+  - {id: ct_fact_autovacuum_thresholds, type: behavior_oracle, statement: "autovacuum_vacuum_threshold 设置触发 VACUUM 的最小更新/删除元组数。", status: confirmed, source_anchor: "L568-L572,L573-L577"}
+  - {id: ct_fact_autovacuum_scale_factors, type: behavior_oracle, statement: "autovacuum_vacuum_scale_factor 按表规模参与 VACUUM 触发阈值计算。", status: confirmed, source_anchor: "L578-L583,L584-L588"}
+  - {id: ct_fact_autovacuum_freeze_ages, type: behavior_oracle, statement: "autovacuum_freeze_min_age 为该表覆盖系统级最小冻结年龄。", status: confirmed, source_anchor: "L589-L593,L594-L600,L601-L605"}
+  - {id: ct_fact_vacuum_truncate, type: behavior_oracle, statement: "vacuum_truncate 控制 VACUUM 是否尝试截断表尾空页。", status: confirmed, source_anchor: "L606-L610,L611-L616"}
+  - {id: ct_fact_hasrowid, type: behavior_oracle, statement: "hasrowid 控制是否为表添加系统 ROWID 列。", status: confirmed, source_anchor: "L617-L621"}
+  - {id: ct_fact_hasrowid_mode, type: environment, statement: "hasrowid 只在指定兼容模式中支持。", status: confirmed, source_anchor: "L622-L625"}
+  - {id: ct_fact_hasrowid_shape_restrictions, type: constraint, statement: "hasrowid 对表形态及 ROWID 名称冲突有明确限制。", status: confirmed, source_anchor: "L626-L628"}
+  - {id: ct_fact_hasrowid_name_restrictions, type: constraint, statement: "hasrowid 对表形态及 ROWID 名称冲突有明确限制。", status: confirmed, source_anchor: "L626-L628"}
+  - {id: ct_fact_hasrowid_capacity, type: constraint, statement: "ROWID 容量与相关优化行为受文档给出的边界和跨章能力影响。", status: confirmed, source_anchor: "L629-L632"}
+  - {id: ct_fact_hasrowid_optimizations, type: behavior_oracle, statement: "ROWID 容量与相关优化行为受文档给出的边界和跨章能力影响。", status: confirmed, source_anchor: "L629-L632"}
+  - {id: ct_fact_without_oids, type: syntax, statement: "WITHOUT OIDS 是默认兼容语法，表示不分配 OID。", status: confirmed, source_anchor: "L633-L634"}
+  - {id: ct_fact_on_commit, type: syntax, statement: "ON COMMIT 枚举 PRESERVE ROWS、DELETE ROWS 与 DROP；文内对 DROP 和当前支持范围的表述存在张力。", status: confirmed, source_anchor: "L635-L641"}
+  - {id: ct_open_on_commit_support_conflict, type: open_question, statement: "ON COMMIT 枚举 PRESERVE ROWS、DELETE ROWS 与 DROP；文内对 DROP 和当前支持范围的表述存在张力。", status: needs_verification, source_anchor: "L635-L641"}
+  - {id: ct_fact_ilm_advanced, type: syntax, statement: "ADVANCED 策略以修改时间或创建时间为基准并配置时间阈值。", status: confirmed, source_anchor: "L647-L651"}
+  - {id: ct_fact_ilm_advanced_units, type: syntax, statement: "ADVANCED 时间阈值支持 DAY/MONTH/YEAR，行级策略还包含布尔表达式且受白名单约束。", status: confirmed, source_anchor: "L652-L659"}
+  - {id: ct_fact_ilm_expression, type: syntax, statement: "ADVANCED 时间阈值支持 DAY/MONTH/YEAR，行级策略还包含布尔表达式且受白名单约束。", status: confirmed, source_anchor: "L652-L659"}
+  - {id: ct_fact_ilm_default_level, type: behavior_oracle, statement: "ILM 表达式行为受兼容模式影响；未指定行表达式时策略作用于表级。", status: confirmed, source_anchor: "L660-L665,L673-L678"}
+  - {id: ct_fact_ilm_turbo, type: syntax, statement: "TURBO 策略按数据温度/时间配置压缩或存储优化，文档枚举其时间单位。", status: confirmed, source_anchor: "L666-L672"}
+  - {id: ct_fact_ilm_none, type: syntax, statement: "文档说明 TURBO 默认层级及 NONE 用于不配置 ILM 策略。", status: confirmed, source_anchor: "L673-L678"}
+  - {id: ct_fact_tablespace, type: environment, statement: "TABLESPACE 指定新表所在表空间，省略时使用默认表空间。", status: confirmed, source_anchor: "L679-L681"}
+  - {id: ct_fact_constraint_semantics, type: behavior_oracle, statement: "约束用于保证数据完整性；命名约束受自动命名及特定约束类型排除规则影响。", status: confirmed, source_anchor: "L682-L690"}
+  - {id: ct_fact_constraint_name_exclusions, type: syntax, statement: "约束用于保证数据完整性；命名约束受自动命名及特定约束类型排除规则影响。", status: confirmed, source_anchor: "L682-L690"}
+  - {id: ct_fact_not_null, type: constraint, statement: "NOT NULL 禁止空值；NULL 明示允许空值且为默认。", status: confirmed, source_anchor: "L691-L695"}
+  - {id: ct_fact_null_default, type: constraint, statement: "NOT NULL 禁止空值；NULL 明示允许空值且为默认。", status: confirmed, source_anchor: "L691-L695"}
+  - {id: ct_fact_check_semantics, type: constraint, statement: "CHECK 要求每行满足布尔表达式，列级 CHECK 只可引用本列。", status: confirmed, source_anchor: "L696-L700"}
+  - {id: ct_fact_check_scope, type: constraint, statement: "CHECK 要求每行满足布尔表达式，列级 CHECK 只可引用本列。", status: confirmed, source_anchor: "L696-L700"}
+  - {id: ct_fact_check_null_syntax_invalid, type: constraint, statement: "CHECK 后直接写 NULL 的语法无效，且系统列不能用于 CHECK。", status: confirmed, source_anchor: "L701-L706"}
+  - {id: ct_fact_check_system_forbidden, type: constraint, statement: "CHECK 后直接写 NULL 的语法无效，且系统列不能用于 CHECK。", status: confirmed, source_anchor: "L701-L706"}
+  - {id: ct_fact_default_semantics, type: behavior_oracle, statement: "DEFAULT 提供列缺省值；表达式须与类型匹配且不能包含子查询或引用本行其他列。", status: confirmed, source_anchor: "L707-L712"}
+  - {id: ct_fact_default_expression_limits, type: constraint, statement: "DEFAULT 提供列缺省值；表达式须与类型匹配且不能包含子查询或引用本行其他列。", status: confirmed, source_anchor: "L707-L712"}
+  - {id: ct_fact_on_update_behavior, type: behavior_oracle, statement: "ON UPDATE 在更新行且未显式赋值该列时自动写入当前时间。", status: confirmed, source_anchor: "L713-L719"}
+  - {id: ct_fact_on_update_environment, type: environment, statement: "ON UPDATE 只在特定 B 兼容版本/SQL 方言环境中支持。", status: confirmed, source_anchor: "L720-L725"}
+  - {id: ct_fact_on_update_synonyms, type: syntax, statement: "ON UPDATE 接受 CURRENT_TIMESTAMP、LOCALTIMESTAMP、NOW() 等本章形式；精度及兼容差异需环境矩阵校准。", status: confirmed, source_anchor: "L726-L732"}
+  - {id: ct_open_on_update_compatibility_matrix, type: open_question, statement: "ON UPDATE 接受 CURRENT_TIMESTAMP、LOCALTIMESTAMP、NOW() 等本章形式；精度及兼容差异需环境矩阵校准。", status: needs_verification, source_anchor: "L726-L732"}
+  - {id: ct_fact_on_update_types, type: constraint, statement: "ON UPDATE 仅适用于文档列出的时间类型；CTAS/LIKE/分区相关继承行为另有限制。", status: confirmed, source_anchor: "L733-L739"}
+  - {id: ct_fact_on_update_inheritance, type: syntax, statement: "ON UPDATE 仅适用于文档列出的时间类型；CTAS/LIKE/分区相关继承行为另有限制。", status: confirmed, source_anchor: "L733-L739"}
+  - {id: ct_fact_on_update_precision, type: constraint, statement: "ON UPDATE 精度需与列定义协调，且不得与部分生成/分区定义冲突。", status: confirmed, source_anchor: "L740-L745"}
+  - {id: ct_fact_on_update_conflicts, type: constraint, statement: "ON UPDATE 精度需与列定义协调，且不得与部分生成/分区定义冲突。", status: confirmed, source_anchor: "L740-L745"}
+  - {id: ct_fact_generated_semantics, type: behavior_oracle, statement: "GENERATED ALWAYS AS 定义由表达式计算的存储生成列。", status: confirmed, source_anchor: "L746-L748"}
+  - {id: ct_fact_generated_expression_limits, type: constraint, statement: "生成列表达式只能使用允许的不可变计算，不能包含子查询或引用不允许对象。", status: confirmed, source_anchor: "L749-L754"}
+  - {id: ct_fact_generated_default_forbidden, type: constraint, statement: "生成列不能有 DEFAULT、不能作分区键，并限制其参与外键动作与生命周期操作。", status: confirmed, source_anchor: "L755-L760"}
+  - {id: ct_fact_generated_partition_forbidden, type: constraint, statement: "生成列不能有 DEFAULT、不能作分区键，并限制其参与外键动作与生命周期操作。", status: confirmed, source_anchor: "L755-L760"}
+  - {id: ct_fact_generated_fk_action_restrictions, type: constraint, statement: "生成列不能有 DEFAULT、不能作分区键，并限制其参与外键动作与生命周期操作。", status: confirmed, source_anchor: "L755-L760"}
+  - {id: ct_fact_generated_lifecycle, type: lifecycle, statement: "生成列不能有 DEFAULT、不能作分区键，并限制其参与外键动作与生命周期操作。", status: confirmed, source_anchor: "L755-L760"}
+  - {id: ct_fact_generated_write_restriction, type: constraint, statement: "生成列不能直接写值但可写 DEFAULT；其权限控制与普通列相同。", status: confirmed, source_anchor: "L761-L763"}
+  - {id: ct_fact_generated_permissions, type: environment, statement: "生成列不能直接写值但可写 DEFAULT；其权限控制与普通列相同。", status: confirmed, source_anchor: "L761-L763"}
+  - {id: ct_fact_identity_semantics, type: behavior_oracle, statement: "IDENTITY 将列值绑定到隐式序列生成机制。", status: confirmed, source_anchor: "L764-L767"}
+  - {id: ct_fact_identity_modes, type: environment, statement: "IDENTITY 支持 ALWAYS、BY DEFAULT 和 BY DEFAULT ON NULL 三种写入覆盖模式。", status: confirmed, source_anchor: "L768-L775"}
+  - {id: ct_fact_identity_sequence_options, type: syntax, statement: "IDENTITY 序列选项可设置 INCREMENT 与 MINVALUE/NO MINVALUE。", status: confirmed, source_anchor: "L776-L782,L783-L790,L791-L800"}
+  - {id: ct_fact_identity_scale_environment, type: environment, statement: "IDENTITY 序列选项还包括 NO CACHE、CYCLE/NO CYCLE、SCALE/NO SCALE、EXTEND/NO EXTEND；SCALE 受环境限制。", status: confirmed, source_anchor: "L791-L800,L813-L819"}
+  - {id: ct_fact_identity_types, type: constraint, statement: "IDENTITY 仅支持特定整数类型，A 模式可对部分声明作兼容转换。", status: confirmed, source_anchor: "L801-L806"}
+  - {id: ct_fact_identity_a_mode_coercion, type: environment, statement: "IDENTITY 仅支持特定整数类型，A 模式可对部分声明作兼容转换。", status: confirmed, source_anchor: "L801-L806"}
+  - {id: ct_fact_identity_not_null, type: constraint, statement: "IDENTITY 列隐含非空、每表至多一个，并具有独立的序列生命周期。", status: confirmed, source_anchor: "L807-L812"}
+  - {id: ct_fact_identity_single, type: constraint, statement: "IDENTITY 列隐含非空、每表至多一个，并具有独立的序列生命周期。", status: confirmed, source_anchor: "L807-L812"}
+  - {id: ct_fact_identity_lifecycle, type: lifecycle, statement: "IDENTITY 列隐含非空、每表至多一个，并具有独立的序列生命周期。", status: confirmed, source_anchor: "L807-L812"}
+  - {id: ct_fact_identity_set_default_forbidden, type: constraint, statement: "IDENTITY 列不能配合外键 SET DEFAULT 动作；其隐式序列是不可直接 DROP/ALTER 的 LARGE SEQUENCE；SCALE 与加密列受环境限制。", status: confirmed, source_anchor: "L813-L819"}
+  - {id: ct_fact_identity_large_sequence, type: syntax, statement: "IDENTITY 列不能配合外键 SET DEFAULT 动作；其隐式序列是不可直接 DROP/ALTER 的 LARGE SEQUENCE；SCALE 与加密列受环境限制。", status: confirmed, source_anchor: "L813-L819"}
+  - {id: ct_fact_identity_encryption_forbidden, type: environment, statement: "IDENTITY 列不能配合外键 SET DEFAULT 动作；其隐式序列是不可直接 DROP/ALTER 的 LARGE SEQUENCE；SCALE 与加密列受环境限制。", status: confirmed, source_anchor: "L813-L819"}
+  - {id: ct_fact_auto_increment_semantics, type: behavior_oracle, statement: "AUTO_INCREMENT 列由系统按自增规则生成值，并定义显式写值对后续序列的影响。", status: confirmed, source_anchor: "L820-L828"}
+  - {id: ct_fact_auto_increment_mode, type: environment, statement: "AUTO_INCREMENT 受 B 模式、数值类型、每表单列及索引键位置等约束。", status: confirmed, source_anchor: "L829-L836"}
+  - {id: ct_fact_auto_increment_types, type: constraint, statement: "AUTO_INCREMENT 受 B 模式、数值类型、每表单列及索引键位置等约束。", status: confirmed, source_anchor: "L829-L836"}
+  - {id: ct_fact_auto_increment_single, type: constraint, statement: "AUTO_INCREMENT 受 B 模式、数值类型、每表单列及索引键位置等约束。", status: confirmed, source_anchor: "L829-L836"}
+  - {id: ct_fact_auto_increment_index_guidance, type: behavior_oracle, statement: "AUTO_INCREMENT 受 B 模式、数值类型、每表单列及索引键位置等约束。", status: confirmed, source_anchor: "L829-L836"}
+  - {id: ct_fact_auto_increment_default_forbidden, type: constraint, statement: "AUTO_INCREMENT 与 DEFAULT/表达式/可空性/序列及本地临时表之间存在文档限制。", status: confirmed, source_anchor: "L837-L844"}
+  - {id: ct_fact_auto_increment_expression_forbidden, type: constraint, statement: "AUTO_INCREMENT 与 DEFAULT/表达式/可空性/序列及本地临时表之间存在文档限制。", status: confirmed, source_anchor: "L837-L844"}
+  - {id: ct_fact_auto_increment_nullable, type: syntax, statement: "AUTO_INCREMENT 与 DEFAULT/表达式/可空性/序列及本地临时表之间存在文档限制。", status: confirmed, source_anchor: "L837-L844"}
+  - {id: ct_fact_auto_increment_sequence, type: syntax, statement: "AUTO_INCREMENT 与 DEFAULT/表达式/可空性/序列及本地临时表之间存在文档限制。", status: confirmed, source_anchor: "L837-L844"}
+  - {id: ct_fact_auto_increment_local_temp, type: syntax, statement: "AUTO_INCREMENT 与 DEFAULT/表达式/可空性/序列及本地临时表之间存在文档限制。", status: confirmed, source_anchor: "L837-L844"}
+  - {id: ct_fact_auto_increment_nontransactional, type: lifecycle, statement: "自增值分配不因事务回滚而回退，并受缓存/并发行为影响。", status: confirmed, source_anchor: "L845-L851"}
+  - {id: ct_fact_table_charset, type: syntax, statement: "表级 CHARSET/CHARACTER SET 与 COLLATE 指定表的默认字符集和字符序。", status: confirmed, source_anchor: "L852-L858"}
+  - {id: ct_fact_table_collation, type: environment, statement: "表级 CHARSET/CHARACTER SET 与 COLLATE 指定表的默认字符集和字符序。", status: confirmed, source_anchor: "L852-L858"}
+  - {id: ct_fact_table_charset_inheritance, type: syntax, statement: "表级字符集/字符序未指定时按文档层级继承默认值。", status: confirmed, source_anchor: "L859-L864"}
+  - {id: ct_fact_unique_semantics, type: constraint, statement: "列级 UNIQUE 要求键值唯一，B 模式还支持 KEY 同义形式。", status: confirmed, source_anchor: "L865-L868,L869-L875"}
+  - {id: ct_fact_unique_key_mode, type: environment, statement: "列级 UNIQUE 要求键值唯一，B 模式还支持 KEY 同义形式。", status: confirmed, source_anchor: "L865-L868"}
+  - {id: ct_fact_unique_nulls, type: constraint, statement: "表级 UNIQUE 可覆盖多列且允许多个 NULL；索引方法域依赖跨章说明。", status: confirmed, source_anchor: "L869-L875"}
+  - {id: ct_fact_primary_key, type: constraint, statement: "PRIMARY KEY 同时保证唯一和非空，每张表至多一个。", status: confirmed, source_anchor: "L885-L890"}
+  - {id: ct_fact_primary_key_single, type: constraint, statement: "PRIMARY KEY 同时保证唯一和非空，每张表至多一个。", status: confirmed, source_anchor: "L885-L890"}
+  - {id: ct_fact_foreign_key, type: constraint, statement: "FOREIGN KEY/REFERENCES 要求引用列满足键条件，且临时性必须与被引用表匹配。", status: confirmed, source_anchor: "L891-L898,L1241-L1250"}
+  - {id: ct_fact_fk_persistence_match, type: syntax, statement: "FOREIGN KEY/REFERENCES 要求引用列满足键条件，且临时性必须与被引用表匹配。", status: confirmed, source_anchor: "L891-L898"}
+  - {id: ct_fact_fk_match_modes, type: environment, statement: "外键 MATCH 枚举 FULL、SIMPLE 与 PARTIAL；SIMPLE 为默认，PARTIAL 当前不支持。", status: confirmed, source_anchor: "L899-L903"}
+  - {id: ct_fact_fk_actions, type: constraint, statement: "外键删除/更新动作包括 NO ACTION 与 RESTRICT，并说明其检查时机差异。", status: confirmed, source_anchor: "L904-L912,L913-L917"}
+  - {id: ct_fact_deferrable, type: constraint, statement: "DEFERRABLE/NOT DEFERRABLE 控制约束检查能否推迟到事务结束。", status: confirmed, source_anchor: "L918-L922"}
+  - {id: ct_fact_initially, type: syntax, statement: "INITIALLY IMMEDIATE/DEFERRED 指定可推迟约束的初始检查模式。", status: confirmed, source_anchor: "L923-L929"}
+  - {id: ct_fact_constraint_index_tablespace, type: environment, statement: "USING INDEX TABLESPACE 为约束索引指定表空间。", status: confirmed, source_anchor: "L930-L933"}
+  - {id: ct_fact_encrypted_column, type: environment, statement: "ENCRYPTED WITH 通过 CEK、加密类型和算法定义列加密；密钥准备依赖全密态环境。", status: confirmed, source_anchor: "L934-L943"}
+  - {id: ct_open_encryption_setup, type: open_question, statement: "ENCRYPTED WITH 通过 CEK、加密类型和算法定义列加密；密钥准备依赖全密态环境。", status: needs_verification, source_anchor: "L934-L943"}
+  - {id: ct_fact_colview_column, type: environment, statement: "COLVIEW 相关列配置引用 HTAP 章节，完整语义未在本章展开。", status: confirmed, source_anchor: "L944-L947"}
+  - {id: ct_fact_example_basic, type: example, statement: "示例创建含整数、字符和带 China 默认值字段的 customer_address 表。", status: confirmed, source_anchor: "L948-L957"}
+  - {id: ct_fact_example_storage, type: example, statement: "示例创建表并设置 FILLFACTOR。", status: confirmed, source_anchor: "L958-L966,L967-L978"}
+  - {id: ct_fact_example_tde, type: example, statement: "示例在满足前置环境时创建启用 TDE 的表。", status: confirmed, source_anchor: "L979-L987"}
+  - {id: ct_fact_example_temp, type: example, statement: "示例创建 ON COMMIT DELETE ROWS 的全局临时表并写入数据。", status: confirmed, source_anchor: "L988-L996,L997-L1005,L1006-L1015"}
+  - {id: ct_fact_example_charset, type: example, statement: "示例创建指定表级及列级字符集/字符序的表。", status: confirmed, source_anchor: "L1016-L1026,L1027-L1031"}
+  - {id: ct_fact_example_if_not_exists, type: example, statement: "示例比较同名表创建与 IF NOT EXISTS 行为；引导文字对存在条件疑有笔误。", status: confirmed, source_anchor: "L1032-L1036,L1037-L1043,L1044-L1050"}
+  - {id: ct_open_if_not_exists_wording_conflict, type: open_question, statement: "示例比较同名表创建与 IF NOT EXISTS 行为；引导文字对存在条件疑有笔误。", status: needs_verification, source_anchor: "L1032-L1036"}
+  - {id: ct_fact_if_not_exists_error_text, type: behavior_oracle, statement: "示例显示未使用 IF NOT EXISTS 时同名关系已存在会失败并给出错误文本。", status: confirmed, source_anchor: "L1037-L1043"}
+  - {id: ct_fact_if_not_exists_notice_text, type: behavior_oracle, statement: "示例显示使用 IF NOT EXISTS 时跳过创建并给出通知文本。", status: confirmed, source_anchor: "L1044-L1050"}
+  - {id: ct_fact_example_tablespace, type: example, statement: "示例在已准备表空间中创建表；表空间准备依赖外部环境。", status: confirmed, source_anchor: "L1051-L1061"}
+  - {id: ct_fact_example_auto_increment, type: example, statement: "示例创建含 AUTO_INCREMENT 列的表并插入初始行。", status: confirmed, source_anchor: "L1062-L1069,L1070-L1078,L1079-L1088,L1089-L1095"}
+  - {id: ct_fact_example_like, type: example, statement: "示例创建带约束、默认值和存储参数的 LIKE 源表。", status: confirmed, source_anchor: "L1096-L1106,L1107-L1118"}
+  - {id: ct_fact_example_not_null, type: example, statement: "示例引入 NOT NULL 约束验证场景。", status: confirmed, source_anchor: "L1119-L1124,L1125-L1131,L1132-L1139"}
+  - {id: ct_fact_not_null_error_text, type: behavior_oracle, statement: "示例插入空值失败并给出 NOT NULL 违反错误文本。", status: confirmed, source_anchor: "L1132-L1139,L1199-L1203"}
+  - {id: ct_fact_example_unique, type: example, statement: "示例创建单列 UNIQUE 表并插入有效数据。", status: confirmed, source_anchor: "L1140-L1151,L1152-L1160,L1161-L1171,L1172-L1176"}
+  - {id: ct_fact_unique_error_text, type: behavior_oracle, statement: "示例展示重复唯一键失败和 NULL 值处理，并给出错误文本。", status: confirmed, source_anchor: "L1161-L1171,L1204-L1210"}
+  - {id: ct_fact_example_primary, type: example, statement: "示例创建单列主键表并插入有效数据。", status: confirmed, source_anchor: "L1177-L1188,L1189-L1198,L1199-L1203,L1204-L1210"}
+  - {id: ct_fact_example_check, type: example, statement: "示例引入 CHECK 约束验证场景。", status: confirmed, source_anchor: "L1211-L1215,L1216-L1221,L1222-L1229,L1230-L1236"}
+  - {id: ct_fact_check_error_text, type: behavior_oracle, statement: "示例插入违反 CHECK 的数据失败并给出错误文本。", status: confirmed, source_anchor: "L1230-L1236"}
+  - {id: ct_fact_example_foreign_key, type: example, statement: "示例引入外键验证场景。", status: confirmed, source_anchor: "L1237-L1240,L1241-L1250,L1251-L1263,L1264-L1273,L1274-L1285,L1286-L1288"}
+  - {id: ct_fact_fk_error_text, type: behavior_oracle, statement: "示例插入不存在的引用值失败并给出外键错误文本。", status: confirmed, source_anchor: "L1274-L1285"}
+  - {id: ct_fact_like_partition_type_restriction, type: constraint, statement: "优化建议说明源表结构复制，并限制某些 list/hash 分区组合。", status: confirmed, source_anchor: "L1329-L1334"}
+  - {id: ct_open_like_all_enumeration_conflict, type: open_question, statement: "优化建议重述 INCLUDING ALL，但枚举与前文并不完全一致。", status: needs_verification, source_anchor: "L1343-L1347"}
+manifest_refs:
+  - manifest_create_table_core_positive
+  - manifest_create_table_temp_positive
+matrix_refs: [matrix_create_table_column_profiles]
+fixture_refs: [fixture_create_table_existing_relation, fixture_create_table_insert_view_base, fixture_create_table_drop_view_base]
+scenario_refs:
+  - scenario_create_table_general_contract
+  - scenario_create_table_temporary_lifecycle
+  - scenario_create_table_like_and_index_contracts
+  - scenario_create_table_storage_and_environment
+  - scenario_create_table_constraints_and_generated_columns
+  - scenario_create_table_examples
+  - scenario_create_table_model_gaps
+
+exported_fact_refs:
+  - ct_fact_primary_key
+  - ct_fact_not_null
+  - ct_fact_storage_type_default
+  - ct_fact_default_semantics

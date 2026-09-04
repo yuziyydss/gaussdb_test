@@ -1,0 +1,52 @@
+schema_version: 1
+kind: fixture
+id: fixture_select_group_mode_source
+name: SELECT ONLY_FULL_GROUP_BY 键依赖对象
+status: ready
+description: 按 SELECT 章 1.13.19.3.3 示例构造主键、唯一非空键和 JOIN 方向需要的三张表。
+factor_ref: select
+provides:
+  tables:
+    - name: t_select_group_mode
+      persistence: permanent
+      table_kind: primary_and_unique_not_null
+      columns:
+        - {name: id, type: INTEGER, nullable: false}
+        - {name: id_2, type: INTEGER, nullable: false}
+        - {name: s1, type: VARCHAR(10), nullable: true}
+        - {name: s2, type: INTEGER, nullable: true}
+        - {name: s3, type: VARCHAR(12), nullable: true}
+    - name: t_select_group_left
+      persistence: permanent
+      table_kind: regular
+      columns:
+        - {name: a, type: INTEGER, nullable: true}
+        - {name: b, type: INTEGER, nullable: true}
+        - {name: c, type: INTEGER, nullable: true}
+    - name: t_select_group_right
+      persistence: permanent
+      table_kind: regular
+      columns:
+        - {name: a, type: INTEGER, nullable: true}
+        - {name: b, type: INTEGER, nullable: true}
+seed:
+  required: true
+  rows: []
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - DROP TABLE IF EXISTS t_select_group_mode CASCADE;
+    - DROP TABLE IF EXISTS t_select_group_left CASCADE;
+    - DROP TABLE IF EXISTS t_select_group_right CASCADE;
+    - CREATE TABLE t_select_group_mode(id INTEGER PRIMARY KEY NOT NULL, id_2 INTEGER UNIQUE NOT NULL, s1 VARCHAR(10), s2 INTEGER, s3 VARCHAR(12));
+    - INSERT INTO t_select_group_mode VALUES (1,101,'a',1000,'aa'), (2,102,'b',2000,'aaa'), (3,103,'c',3000,'aaaa'), (4,104,'b',4000,'aaa'), (5,105,'c',5000,'aaaaa');
+    - CREATE TABLE t_select_group_left(a INTEGER, b INTEGER, c INTEGER);
+    - INSERT INTO t_select_group_left VALUES (1,4,11), (2,5,12), (2,6,13), (2,2,13);
+    - CREATE TABLE t_select_group_right(a INTEGER, b INTEGER);
+    - INSERT INTO t_select_group_right VALUES (2,7), (2,8), (3,9);
+  teardown_sqls:
+    - DROP TABLE IF EXISTS t_select_group_right CASCADE;
+    - DROP TABLE IF EXISTS t_select_group_left CASCADE;
+    - DROP TABLE IF EXISTS t_select_group_mode CASCADE;
+  note: 只提供确定性对象与 seed；sql_mode 开关由 scenario 控制并恢复。

@@ -1,0 +1,43 @@
+schema_version: 1
+kind: matrix
+id: matrix_update_multi_targets
+name: UPDATE 多表目标列表
+status: needs_review
+description: 两个正向 profile 表示普通与带修饰/子查询项的 table_list；一个专用负向 profile 触发多表更新不支持视图的明示规则。
+factor_ref: update
+
+profile_property_defaults: {multi_supported: true}
+
+profiles:
+  - id: update_multi_targets_basic
+    render: t_update_target AS u, t_update_aux AS a
+    validity: valid
+    fixture_refs: [fixture_update_target, fixture_update_aux]
+    properties: {target_kind: multi_table, target_count: 2, primary_alias: u}
+    fact_refs: [update_fact_multi_grammar, update_fact_table_list, update_fact_alias]
+  - id: update_multi_targets_modified
+    render: ONLY t_update_target * AS u, (SELECT id, note FROM t_update_aux) AS a
+    validity: valid
+    fixture_refs: [fixture_update_target, fixture_update_aux]
+    properties: {target_kind: multi_with_subquery, target_count: 2, primary_alias: u, has_only: true, has_star: true, has_subquery: true}
+    fact_refs: [update_fact_multi_grammar, update_fact_table_list, update_fact_only_semantics]
+  - id: update_multi_targets_view_invalid
+    render: v_update_target AS u, t_update_aux AS a
+    validity: invalid
+    fixture_refs: [fixture_update_view, fixture_update_aux]
+    properties: {target_kind: multi_with_view, target_count: 2, primary_alias: u, multi_supported: false}
+    fact_refs: [update_fact_multi_target_restrictions]
+
+documented_features:
+  - {id: update_feature_multi_target_basic, profile_refs: [update_multi_targets_basic], status: covered, fact_refs: [update_fact_multi_grammar, update_fact_table_list]}
+  - {id: update_feature_multi_target_subquery, profile_refs: [update_multi_targets_modified], status: covered, coverage_mode: representative, fact_refs: [update_fact_table_list, update_open_subquery_depth]}
+  - {id: update_feature_multi_view_restriction, profile_refs: [update_multi_targets_view_invalid], status: covered, fact_refs: [update_fact_multi_target_restrictions]}
+  - {id: update_feature_multi_rule_table_restriction, status: needs_profile, fact_refs: [update_fact_multi_target_restrictions, update_open_rule_table_fixture]}
+
+fact_refs:
+  - update_fact_multi_grammar
+  - update_fact_table_list
+  - update_fact_alias
+  - update_fact_only_semantics
+  - update_fact_multi_target_restrictions
+  - update_open_rule_table_fixture

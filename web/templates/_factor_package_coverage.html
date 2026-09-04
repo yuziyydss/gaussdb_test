@@ -1,0 +1,64 @@
+<section class="page-shell" aria-labelledby="coverage-title">
+  <header class="page-header">
+    <div class="page-header__copy">
+      <div class="page-header__meta">
+        <span class="overline">PDF-first Coverage</span>
+        <span class="mono-id">{{ report.created_at }}</span>
+      </div>
+      <h1 id="coverage-title" class="page-title">PDF 证据与测试因子覆盖</h1>
+      <p class="page-description">目录、原文、生成模型、静态覆盖和数据库行为分层统计。SQL 数量与 Pairwise 完整都不会被当作数据库已验证。</p>
+    </div>
+    <a href="/api/coverage/export-md" target="_blank" rel="noopener" class="primary-button"><i data-lucide="download" aria-hidden="true"></i>导出当前报告</a>
+  </header>
+
+  <div class="page-stack">
+    <section class="metric-grid" aria-label="PDF 目录进度">
+      <article class="metric-card metric-card--dark"><span class="metric-card__label">PDF 通用 SQL 目录</span><strong class="metric-card__value">{{ report.catalog.cataloged }}</strong><span class="metric-card__hint">书签目录中的稳定分母</span></article>
+      <article class="metric-card"><span class="metric-card__label">已精确拆章</span><strong class="metric-card__value">{{ report.catalog.extracted }}</strong><span class="metric-card__hint">绑定章节哈希与页内边界</span></article>
+      <article class="metric-card"><span class="metric-card__label">已绑定因子包</span><strong class="metric-card__value">{{ report.catalog.package_bound }}</strong><span class="metric-card__hint">当前校准包 {{ report.factor_count }} 个</span></article>
+      <article class="metric-card metric-card--accent"><span class="metric-card__label">静态完整</span><strong class="metric-card__value">{{ report.static_complete_count }} / {{ report.factor_count }}</strong><span class="metric-card__hint">有缺口时保持 needs_review</span></article>
+    </section>
+
+    <aside class="callout callout--warning" aria-label="当前边界">
+      <i data-lucide="shield-alert" aria-hidden="true"></i>
+      <div><strong>{{ report.generated_case_count }} 条是静态 SQL 候选，不是实机通过记录</strong><div style="margin-top:3px;">当前未执行数据库；负向错误身份、环境条件和 planned scenario 在校准前均不计为闭环。</div></div>
+    </aside>
+
+    <section class="panel" aria-labelledby="factor-audit-title">
+      <div class="panel__header">
+        <div><h2 id="factor-audit-title" class="panel__heading">五章校准包分层结论</h2><p class="panel__description">只有四个结论逐层满足，才允许把因子状态提升为完成。</p></div>
+        <span class="chip chip--warning">{{ report.static_complete_count }} 个静态闭环</span>
+      </div>
+      <div class="panel__body">
+        <div class="data-table-wrap" tabindex="0" aria-label="因子覆盖结论，可横向滚动">
+          <table class="data-table" style="min-width:980px;">
+            <caption class="sr-only">各 PDF 因子包的四层覆盖与缺口</caption>
+            <thead>
+              <tr><th scope="col">Factor</th><th scope="col">SQL 候选</th><th scope="col">原文</th><th scope="col">生成模型</th><th scope="col">静态</th><th scope="col">行为</th><th scope="col">主要缺口</th></tr>
+            </thead>
+            <tbody>
+              {% for factor_id, audit in report.factors.items() %}
+              <tr>
+                <td><a href="/specs/factor/{{ factor_id }}" hx-get="/specs/factor/{{ factor_id }}" hx-target="#main-content" hx-swap="innerHTML" data-nav-link><strong>{{ factor_id }}</strong></a></td>
+                <td>{{ audit.manifests.generated_case_count }}</td>
+                <td><span class="chip {% if audit.conclusions.source_extraction_complete %}chip--success{% else %}chip--warning{% endif %}">{% if audit.conclusions.source_extraction_complete %}完整{% else %}有缺口{% endif %}</span></td>
+                <td><span class="chip {% if audit.conclusions.generation_model_complete %}chip--success{% else %}chip--warning{% endif %}">{% if audit.conclusions.generation_model_complete %}完整{% else %}有缺口{% endif %}</span></td>
+                <td><span class="chip {% if audit.conclusions.static_coverage_complete %}chip--success{% else %}chip--warning{% endif %}">{% if audit.conclusions.static_coverage_complete %}完整{% else %}有缺口{% endif %}</span></td>
+                <td><span class="chip {% if audit.conclusions.behavior_coverage_complete %}chip--success{% else %}chip--warning{% endif %}">{% if audit.conclusions.behavior_coverage_complete %}完整{% else %}未执行{% endif %}</span></td>
+                <td class="fine-print">原子性 {{ audit.source_units.atomicity.gaps | length }} · 值域 {{ audit['values'].coverage_gaps | length }} · Feature {{ audit.documented_features.coverage_gaps | length }} · 错误 Oracle {{ audit.manifests.unresolved_error_oracles | length }} · 场景 {{ audit.scenarios.planned | length }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="metric-grid" aria-label="缺口总计">
+      <article class="metric-card"><span class="metric-card__label">Source 原子性缺口</span><strong class="metric-card__value">{{ report.atomicity_gap_count }}</strong><span class="metric-card__hint">需拆分或给出可审核理由</span></article>
+      <article class="metric-card"><span class="metric-card__label">值域 / Feature 缺口</span><strong class="metric-card__value">{{ report.value_gap_count }} / {{ report.feature_gap_count }}</strong><span class="metric-card__hint">不能被 Pairwise 掩盖</span></article>
+      <article class="metric-card"><span class="metric-card__label">未校准错误 Oracle</span><strong class="metric-card__value">{{ report.unresolved_oracle_count }}</strong><span class="metric-card__hint">任意错误不会判定通过</span></article>
+      <article class="metric-card"><span class="metric-card__label">Planned Scenario</span><strong class="metric-card__value">{{ report.planned_scenario_count }}</strong><span class="metric-card__hint">行为与元数据尚未执行</span></article>
+    </section>
+  </div>
+</section>

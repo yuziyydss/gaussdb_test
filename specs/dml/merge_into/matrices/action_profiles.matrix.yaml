@@ -1,0 +1,82 @@
+schema_version: 1
+kind: matrix
+id: matrix_merge_action_profiles
+name: MERGE action 组合
+status: needs_review
+description: 用有限、内部一致的 profile 表达两类 WHEN 的顺序、单分支、赋值、WHERE 及文档明确禁止的结构。
+factor_ref: merge_into
+profile_property_defaults:
+  has_action: true
+  duplicate_clause: false
+  multiple_values: false
+  updates_join_key: false
+profiles:
+  - id: merge_action_both_update_then_insert
+    render: "WHEN MATCHED THEN UPDATE SET name = src.name, category = src.category WHEN NOT MATCHED THEN INSERT (id, name, category) VALUES (src.id, src.name, src.category)"
+    validity: valid
+    properties: {has_action: true, duplicate_clause: false, multiple_values: false, updates_join_key: false, matched: true, not_matched: true, order: matched_first}
+    fact_refs: [merge_fact_matched_grammar, merge_fact_not_matched_grammar, merge_fact_clause_order, merge_fact_assignment_values]
+  - id: merge_action_both_insert_then_update
+    render: "WHEN NOT MATCHED THEN INSERT (id, name, category) VALUES (src.id, src.name, src.category) WHEN MATCHED THEN UPDATE SET name = src.name"
+    validity: valid
+    properties: {has_action: true, duplicate_clause: false, multiple_values: false, updates_join_key: false, matched: true, not_matched: true, order: not_matched_first}
+    fact_refs: [merge_fact_matched_grammar, merge_fact_not_matched_grammar, merge_fact_clause_order]
+  - id: merge_action_matched_only
+    render: "WHEN MATCHED THEN UPDATE SET name = src.name"
+    validity: valid
+    properties: {has_action: true, duplicate_clause: false, multiple_values: false, updates_join_key: false, matched: true, not_matched: false, order: single}
+    fact_refs: [merge_fact_matched_grammar, merge_fact_clause_order]
+  - id: merge_action_not_matched_only
+    render: "WHEN NOT MATCHED THEN INSERT (id, name, category) VALUES (src.id, src.name, src.category)"
+    validity: valid
+    properties: {has_action: true, duplicate_clause: false, multiple_values: false, updates_join_key: false, matched: false, not_matched: true, order: single}
+    fact_refs: [merge_fact_not_matched_grammar, merge_fact_clause_order]
+  - id: merge_action_tuple_update
+    render: "WHEN MATCHED THEN UPDATE SET (name, category) = (src.name, src.category)"
+    validity: valid
+    properties: {has_action: true, duplicate_clause: false, multiple_values: false, updates_join_key: false, matched: true, not_matched: false, assignment: tuple}
+    fact_refs: [merge_fact_matched_grammar, merge_fact_assignment_values]
+  - id: merge_action_with_where
+    render: "WHEN MATCHED THEN UPDATE SET name = src.name WHERE src.id > 0 WHEN NOT MATCHED THEN INSERT (id, name, category) VALUES (src.id, src.name, src.category) WHERE src.id > 0"
+    validity: valid
+    properties: {has_action: true, duplicate_clause: false, multiple_values: false, updates_join_key: false, matched: true, not_matched: true, where: true}
+    fact_refs: [merge_fact_where_grammar, merge_fact_matched_grammar, merge_fact_not_matched_grammar]
+  - id: merge_action_default_values
+    render: "WHEN NOT MATCHED THEN INSERT DEFAULT VALUES"
+    validity: valid
+    properties: {has_action: true, duplicate_clause: false, multiple_values: false, updates_join_key: false, matched: false, not_matched: true, default_values: true}
+    fact_refs: [merge_fact_not_matched_grammar, merge_fact_default_behavior]
+  - id: merge_action_none_invalid
+    render: ""
+    validity: invalid
+    properties: {has_action: false, duplicate_clause: false, multiple_values: false, updates_join_key: false}
+    fact_refs: [merge_fact_action_required]
+  - id: merge_action_duplicate_matched_invalid
+    render: "WHEN MATCHED THEN UPDATE SET name = src.name WHEN MATCHED THEN UPDATE SET category = src.category"
+    validity: invalid
+    properties: {has_action: true, duplicate_clause: true, multiple_values: false, updates_join_key: false}
+    fact_refs: [merge_fact_no_duplicate_clause]
+  - id: merge_action_multiple_values_invalid
+    render: "WHEN NOT MATCHED THEN INSERT (id, name, category) VALUES (src.id, src.name, src.category), (src.id + 100, src.name, src.category)"
+    validity: invalid
+    properties: {has_action: true, duplicate_clause: false, multiple_values: true, updates_join_key: false}
+    fact_refs: [merge_fact_no_multiple_values]
+  - id: merge_action_update_join_key_invalid
+    render: "WHEN MATCHED THEN UPDATE SET id = src.id"
+    validity: invalid
+    properties: {has_action: true, duplicate_clause: false, multiple_values: false, updates_join_key: true}
+    fact_refs: [merge_fact_join_key_immutable]
+documented_features:
+  - {id: merge_feature_matched_single_assignment, profile_refs: [merge_action_matched_only], status: covered, fact_refs: [merge_fact_matched_grammar]}
+  - {id: merge_feature_matched_tuple_assignment, profile_refs: [merge_action_tuple_update], status: covered, coverage_mode: representative, fact_refs: [merge_fact_matched_grammar, merge_fact_assignment_values]}
+  - {id: merge_feature_not_matched_columns_values, profile_refs: [merge_action_not_matched_only], status: covered, coverage_mode: representative, fact_refs: [merge_fact_not_matched_grammar]}
+  - {id: merge_feature_not_matched_default_values, profile_refs: [merge_action_default_values], status: covered, fact_refs: [merge_fact_not_matched_grammar, merge_fact_default_behavior]}
+  - {id: merge_feature_both_clause_orders, profile_refs: [merge_action_both_update_then_insert, merge_action_both_insert_then_update], status: covered, fact_refs: [merge_fact_clause_order]}
+  - {id: merge_feature_matched_only, profile_refs: [merge_action_matched_only], status: covered, fact_refs: [merge_fact_clause_order]}
+  - {id: merge_feature_not_matched_only, profile_refs: [merge_action_not_matched_only], status: covered, fact_refs: [merge_fact_clause_order]}
+  - {id: merge_feature_action_where, profile_refs: [merge_action_with_where], status: covered, coverage_mode: representative, fact_refs: [merge_fact_where_grammar]}
+  - {id: merge_feature_assignment_expression_domain, status: needs_profile, fact_refs: [merge_fact_assignment_values, merge_open_assignment_expression_profiles]}
+  - {id: merge_feature_assignment_subquery_domain, status: needs_profile, fact_refs: [merge_fact_assignment_values, merge_open_assignment_subquery_profile]}
+  - {id: merge_feature_multiple_assignment_items, status: needs_profile, fact_refs: [merge_fact_matched_grammar, merge_open_multiple_assignments_profile]}
+  - {id: merge_feature_insert_value_expression_domain, status: needs_profile, fact_refs: [merge_fact_not_matched_grammar, merge_open_insert_expression_profile]}
+fact_refs: [merge_fact_matched_grammar, merge_fact_not_matched_grammar, merge_fact_clause_order, merge_fact_where_grammar, merge_fact_assignment_values, merge_fact_default_behavior, merge_fact_action_required, merge_fact_no_duplicate_clause, merge_fact_no_multiple_values, merge_fact_join_key_immutable, merge_open_assignment_expression_profiles, merge_open_assignment_subquery_profile, merge_open_multiple_assignments_profile, merge_open_insert_expression_profile]

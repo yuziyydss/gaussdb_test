@@ -1,0 +1,33 @@
+{
+  "id": "cross_chapter_batch_12",
+  "description": "12 existing PDF chapters; dependency validation only, no database execution",
+  "catalogs": ["intranet_corpus/catalog.json", "work/doc2spec/batches/batch_02/corpus/catalog.json"],
+  "factors": ["select", "create_table", "create_view", "create_index", "create_sequence", "alter_table", "drop_table", "insert", "update", "delete", "merge_into", "truncate"],
+  "fact_links": [
+    {"consumer": "create_view", "entity": "syntax_create_view", "field": "source_fact_refs", "local_fact": "cv_fact_query_select_or_values", "provider": "select::select_fact_target_list", "reason": "AS query 的 SELECT 投影及输出列形式；不把全部 SELECT 分支当作视图可更新域。"},
+    {"consumer": "insert", "entity": "syntax_insert_v1", "field": "source_fact_refs", "local_fact": "insert_fact_query_source", "provider": "select::select_fact_target_list", "reason": "INSERT SELECT 的输入来自 SELECT 输出列。"},
+    {"consumer": "insert", "entity": "scenario_insert_view_subquery", "field": "fact_refs", "local_fact": "insert_fact_join_target_restrictions", "provider": "create_view::cv_fact_key_preserved_definition", "reason": "多表视图插入的保留键定义由 CREATE VIEW 提供。"},
+    {"consumer": "insert", "entity": "scenario_insert_view_subquery", "field": "fact_refs", "local_fact": "insert_example_view", "provider": "create_view::cv_fact_read_only_behavior", "reason": "只读视图写入场景复用禁止 DML 的规则。"},
+    {"consumer": "update", "entity": "syntax_update_v1", "field": "source_fact_refs", "local_fact": "update_fact_from_list", "provider": "select::select_fact_from_sources", "reason": "UPDATE FROM 的关联来源形式引用 SELECT FROM，具体 UPDATE 限制仍由本章负责。"},
+    {"consumer": "update", "entity": "scenario_update_view_subquery", "field": "fact_refs", "local_fact": "update_fact_preserved_key_restriction", "provider": "create_view::cv_fact_key_preserved_definition", "reason": "视图更新的保留键判定。"},
+    {"consumer": "update", "entity": "scenario_update_view_subquery", "field": "fact_refs", "local_fact": "update_fact_read_only_error", "provider": "create_view::cv_fact_read_only_behavior", "reason": "只读视图的 UPDATE 禁止行为。"},
+    {"consumer": "delete", "entity": "syntax_delete_v1", "field": "source_fact_refs", "local_fact": "delete_fact_from_item_grammar", "provider": "select::select_fact_from_sources", "reason": "DELETE 子查询目标的 FROM 来源形式。"},
+    {"consumer": "delete", "entity": "scenario_delete_view_subquery", "field": "fact_refs", "local_fact": "delete_fact_join_target_behavior", "provider": "create_view::cv_fact_key_preserved_definition", "reason": "连接视图删除的保留键定义。"},
+    {"consumer": "delete", "entity": "scenario_delete_view_subquery", "field": "fact_refs", "local_fact": "delete_fact_read_only_error", "provider": "create_view::cv_fact_read_only_behavior", "reason": "只读视图的 DELETE 禁止行为。"},
+    {"consumer": "merge_into", "entity": "syntax_merge_into_v1", "field": "source_fact_refs", "local_fact": "merge_fact_source_forms", "provider": "select::select_fact_subquery", "reason": "USING 子查询来源引用 SELECT 子查询定义。"},
+    {"consumer": "merge_into", "entity": "scenario_merge_behavior", "field": "fact_refs", "local_fact": "merge_fact_default_behavior", "provider": "create_table::ct_fact_default_semantics", "reason": "MERGE INSERT DEFAULT 分支依赖目标表列默认值。"},
+    {"consumer": "create_sequence", "entity": "scenario_create_sequence_owned_by", "field": "fact_refs", "local_fact": "cs_fact_owned_by_no_autoincrement", "provider": "create_table::ct_fact_default_semantics", "reason": "OWNED BY 只建立依赖；显式 nextval 列默认值才提供插入缺省值。"},
+    {"consumer": "create_index", "entity": "scenario_create_index_storage_contracts", "field": "fact_refs", "local_fact": "ci_fact_storage_type", "provider": "create_table::ct_fact_storage_type_default", "reason": "索引存储能力依赖基表实际存储引擎，不能把默认表假定为 ASTORE。"},
+    {"consumer": "alter_table", "entity": "scenario_alter_table_constraint_behavior", "field": "fact_refs", "local_fact": "at_fact_not_null", "provider": "create_table::ct_fact_not_null", "reason": "SET NOT NULL 使用表列非空约束定义。"},
+    {"consumer": "alter_table", "entity": "scenario_alter_table_constraint_behavior", "field": "fact_refs", "local_fact": "at_fact_table_constraints", "provider": "create_table::ct_fact_primary_key", "reason": "新增及删除主键场景使用唯一且非空的约束定义。"},
+    {"consumer": "drop_table", "entity": "scenario_drop_table_purge_and_dependency", "field": "fact_refs", "local_fact": "dt_fact_dependency_modes", "provider": "create_view::cv_example_basic_view", "reason": "依赖对象 fixture 使用单表视图示例的形态；CASCADE/RESTRICT 的结论仍来自 DROP TABLE。"},
+    {"consumer": "truncate", "entity": "scenario_truncate_identity_and_cascade", "field": "fact_refs", "local_fact": "tr_fact_continue_identity", "provider": "create_sequence::cs_fact_example_owned_by", "reason": "CONTINUE IDENTITY 场景需要显式序列默认值；复用文档 OWNED BY/nextval 示例建立前置条件。"},
+    {"consumer": "truncate", "entity": "scenario_truncate_partition_and_indexes", "field": "fact_refs", "local_fact": "tr_fact_update_global_index", "provider": "create_index::ci_fact_partition_scope", "reason": "验证全局索引失效前先确认 GLOBAL/LOCAL 的对象范围。"}
+  ],
+  "fixture_links": [
+    {"consumer": "fixture_insert_view_target", "provider": "fixture_create_table_insert_view_base", "local_fact": "insert_example_view", "reason": "先创建两列基表，再创建引用该表的插入目标视图。"},
+    {"consumer": "fixture_drop_table_dependent_view", "provider": "fixture_create_table_drop_view_base", "local_fact": "dt_fact_dependency_modes", "reason": "先创建基表，再建立被 DROP TABLE CASCADE/RESTRICT 检查的依赖视图。"}
+  ],
+  "mutation_providers": ["select", "create_table", "create_view", "create_sequence", "create_index"],
+  "known_limits": ["已声明依赖的调度，不是首次抽取前自动发现依赖", "跨章事实引用不等价于公共 Subgrammar 实现", "planned scenario 仍未执行", "失效粒度为章节/包及其下游，不是逐 fact 最小失效集合"]
+}

@@ -21,11 +21,18 @@
 
 在抽取任何 fact 前，先按“能够独立决定处置方式”的粒度切分 source unit。标题、语法分支、参数语义、限制、行为说明和示例应分别建单元；不要把整页原文当成一个单元，也不要为了提高覆盖率把一句话机械拆成词。
 
-每个 source unit 必须声明或保留原子性复核状态：单一主张为 `atomic`；暂时保留多个独立主张时使用 `grouped` 并填写 `independent_claim_count`；尚未复核为 `unreviewed`。原子性审计缺口会直接阻断 `source_extraction_complete`，因此“行号覆盖 100%”不再等价于“事实抽取完整”。
+每个 source unit 必须声明或保留原子性复核状态：单一主张为 `atomic`；暂时保留多个独立主张时使用 `grouped` 并填写 `independent_claim_count`；尚未复核为 `unreviewed`。包含多个枚举项却仍判为单一主张时，应填写 `atomicity_rationale` 解释为什么这些项共同构成一个不可再分的规则。原子性审计缺口会直接阻断 `source_extraction_complete`，因此“行号覆盖 100%”不再等价于“事实抽取完整”。source unit 行区间默认不得重叠；PDF 排版确实使同一行承载多个独立事实时，所有相关 unit 必须声明相同的 `overlap_group` 和非空 `overlap_rationale`，审计会单独列出这些例外。
+
+`atomicity_rationale` 是逐单元的可复核例外，不是批量消除告警的开关。不得把同一模板理由复制到整章；审计器会把大批量复用的完全相同理由视为 bulk waiver 并继续报告 atomicity gap。摘要若同时包含语法、默认值、环境、限制或可独立验证的行为，应拆成多个 unit/fact，而不能用“属于同一构造”概括放行。
 
 每个 source unit 必须且只能落入一种处置：`mapped`、`open_question`、`out_of_scope` 或 `unmapped`。覆盖率中的“已处置”包含前三种，不包含 `unmapped`；`out_of_scope` 必须说明边界理由，不能作为隐藏遗漏的垃圾桶。账本必须保留原文哈希、总行数、锚点和行号范围；每一行都必须被 unit 覆盖，或作为标题/空行进入带理由的 `ignored_lines`，使遗漏整段文字和后续文档变更能够被检测。
 
 主文档只枚举能力名称、但未展开合法子语法时，可以引用同产品的官方补充章节。补充来源必须记录稳定 ID、文档版本、URL、检索日期和锚点，并由对应 source unit 的 `supplemental_source_refs` 显式引用。不同产品、无版本博客或模型记忆不能用来把 `needs_profile` 强行改成 `covered`。
+
+本章需要复用另一 Factor Package 已确认事实时，使用
+`factor_id::fact_id` 限定引用；来源 factor 必须通过 `exported_fact_refs` 明确导出。
+不得复制外章事实到本章，也不得借外章定义关闭本章尚未验证的行为。限定 Fact 与
+跨包 Fixture 依赖会形成因子依赖图；环、缺失目标和类型不匹配必须在加载期失败。
 
 ## 2. 输入要求
 
@@ -33,9 +40,12 @@
 
 - 产品名、语句名和文档标题。
 - 文档版本；原文未给出时写 `unknown`。
-- 文档章节或锚点。
-- 完整原文或可稳定访问的来源。
+- 文档章节、完整书签路径以及精确起止位置。
+- 父文档 SHA-256、稳定章节文本 SHA-256 和可重算的 source catalog 引用。
+- 完整原文或可稳定访问的本地来源。
 - 与当前抽取无关但被文档引用的外部章节，记录为待补证据，不自行补全。
+
+当输入来自带书签 PDF 时，先运行确定性拆章器并校验 catalog。PDF 章节是唯一产品事实源；旧 Factor Package、旧网页和模型记忆只能用于差异提示，不能补写或覆盖 PDF 事实。同名语句出现在 general 与兼容模式章节时，必须作为独立 variant 建模。
 
 ## 3. 九步抽取流程
 
@@ -57,7 +67,7 @@
 - `identifier`：需要生成或绑定名称。
 - `sql_fragment`：由能力 profile 提供的子 SQL。
 
-简单语句可使用线性 production；存在多个顶层产生式、重复列表、可选子树或嵌套查询时，必须使用递归 AST 模型和命名 subgrammar。AST 的一次生成必须有限：循环 ref 必须被拒绝，候选重复项由 factor value 的结构化 `properties.items` 提供，不能重新退化成超长整句字符串。
+简单语句可使用线性 production；存在多个顶层产生式、重复列表、可选子树或嵌套查询时，必须使用命名 subgrammar 组成的结构化 AST。AST 的一次生成必须有限：循环 ref 必须被拒绝，可递归的 PDF 产生式必须声明当前展开深度，并将更深的语法域登记为 feature gap。候选重复项由 factor value 的结构化 `properties.items` 提供，不能重新退化成超长整句字符串。
 
 ### 第三步：建立测试维度和等价类
 
@@ -93,7 +103,10 @@ SELECT 等表达式型语句还必须同步提取列契约：查询源可见列�
 
 同一对象能力在 package 内只定义一次。普通两列整数表、临时表、分区表、GIN/GiST 特殊列等不得混为一个万能 fixture。
 
-文档枚举多个能力或限制时，要逐项建立覆盖账本：能安全构造代表 SQL 的标记 `covered + profile_refs`；缺少子语法或证据的标记 `needs_profile + open_question`。禁止只抽取容易写的几项而不记录剩余项。
+Fixture 依赖使用 `requires_fixture_refs`，由生成器拓扑展开；不得手工复制依赖
+Fixture 的 setup/teardown。共享依赖先 setup、后 teardown，循环依赖不得进入生成。
+
+文档枚举多个能力或限制时，要逐项建立覆盖账本：能安全构造 SQL 的标记 `covered + profile_refs/value_refs`，并用 `coverage_mode` 区分 `all`、经证明等价的 `any` 和仅有样例的 `representative`；缺少子语法或证据的标记 `needs_profile + open_question`。禁止只抽取容易写的几项、缩小引用分母或把一个代表值冒充全域覆盖。
 
 ### 第六步：拆分 positive、negative 和 scenario
 
@@ -105,7 +118,7 @@ SELECT 等表达式型语句还必须同步提取列契约：查询源可见列�
 
 对 negative manifest，`violates_rule_refs` 中的规则不是被忽略，而是从“必须满足”反转为“必须违反”；未列出的规则仍必须满足。这样可以确保每个负向用例只有可解释的目标违规，而不是任意非法 SQL。
 
-每个 negative manifest 必须另外给出目标错误 Oracle。优先使用文档或已验证环境中的 SQLSTATE；暂时没有稳定 SQLSTATE 时，至少声明稳定的错误类别标签和足够窄的消息正则。缺表、缺列、setup 失败等非目标错误绝不能让负向测试通过。
+每个 negative manifest 必须另外声明目标错误意图。优先使用文档或已验证环境中的 SQLSTATE；没有 SQLSTATE 但有稳定错误文本时，声明错误类别标签和足够窄的消息正则。确认的错误身份必须通过 `expected.fact_refs` 指向当前因子的 confirmed `behavior_oracle`，从而区分“文档/执行证据”与模型猜测。若本章只能确认“应失败”、无法确认错误身份，则设置 `oracle_status: needs_verification`，不得使用 `.*`、`.+` 等任意错误正则占位；该用例只能用于后续 Oracle 校准，不能计为执行通过。缺表、缺列、setup 失败等非目标错误绝不能让负向测试通过。
 
 ### 第七步：分类保存全部事实
 
@@ -131,6 +144,11 @@ manifest 只从 factor 中选择稳定 value ID 或 matrix profile ID。按测�
 
 正向 manifest 只能选择 `validity: valid` 的值。语法 token 已被文档确认、且 manifest 已显式绑定兼容模式/版本等环境 profile 时，token 可标为 `valid`，行为结果放入 scenario。若当前模型还不能把必要环境前置条件绑定到用例，值必须暂记为 `conditional` 并只进入 planned scenario，不能在默认环境下伪装成 success。真正连语法是否成立都没有证据时使用 `unknown`。
 
+如果合法性或目标错误只在特定兼容模式、版本或部署能力下成立，manifest 必须用
+`environment_requirements` 声明机器可判定的门禁，并引用 confirmed environment
+fact。自然语言 description、fixture 名称或 scenario 前置说明都不能替代执行门禁；
+环境不匹配时只能 skip，不能把环境错误计为负向命中。
+
 建议最小集合：
 
 - 基础正向语法。
@@ -146,6 +164,8 @@ expected 必须说明范围：
 - `syntax_and_semantics`：前置 fixture 满足时文档明确应成功或失败。
 - `behavior`：需要执行后续操作判断。
 - `metadata`：需要系统表或 information_schema 断言。
+
+单独执行目标 SQL 时，只有 `syntax_and_semantics` 可以直接形成 pass/fail。`syntax_only`、`behavior` 和 `metadata` 即使语句本身成功，也必须保持 `pending`，直到对应场景 Oracle 完成。
 
 优先级建议：明确的 negative rule > manifest 明确预期 > factor 值的固有 validity > 默认值。默认值不得覆盖已知非法事实。
 
@@ -165,6 +185,8 @@ Fixture 必须可编译成独立生命周期：setup 创建对象，seed 构造�
 
 每次报告至少输出：可行组合估计/计数、理论 pair 数、已覆盖 pair 数、缺失 pair、重复 case ID、规则过滤统计和无法解释的字段。
 
+值域覆盖也必须按意图核对：`valid` 值至少出现在正向 manifest，`invalid` 值至少出现在目标负向 manifest；`conditional` 值未进入任何清单时必须作为 SQL 生成缺口报告，`unknown` 值不得被可执行清单选中。Pairwise 只覆盖已经进入某个 manifest 的值，不能掩盖 manifest 从未选择的文档值。
+
 ## 6. 静态校验
 
 不连接数据库也必须检查：
@@ -182,7 +204,7 @@ Fixture 必须可编译成独立生命周期：setup 创建对象，seed 构造�
 - 列别名数量与查询输出列数相容。
 - SELECT 投影、GROUP BY、ORDER BY、集合运算的列数和类型契约相容。
 - INSERT 显式目标列数与 VALUES/查询输出列数相等；省略列列表时输入不超过目标可用列数，并按前 N 列校验类型；DEFAULT VALUES 单独处理。
-- CREATE INDEX 键列列表非空，INCLUDE 只能引用非键列；普通/分区/在线/GLOBAL 形态分别应用文档列数上限，目标表、键列和 INCLUDE 列必须由同一 Fixture 能力提供。
+- CREATE INDEX 键列列表非空，INCLUDE 只能引用非键列；按本版 PDF 明示的口径，GLOBAL 最多 31 个键列、其他索引最多 32 个键列，INCLUDE 非键列不得在没有独立文档依据时擅自并入该计数；目标表、键列和 INCLUDE 列必须由同一 Fixture 能力提供。
 - ALTER TABLE 必须把通用 action、RENAME、SET SCHEMA 和多列产生式拆成顶层 AST 分支；表目标的普通、星号、ONLY 和 ONLY(...) 形式不能靠字符串替换猜测。
 - 文档声明 ONLINE 被忽略并以 NOTICE 降级离线时，这是 lifecycle/behavior oracle，不是负向错误；只有明确越界参数或明确禁止的 action 才进入 negative manifest。
 - SQL 引用的对象/列由 fixture 或 scenario 提供。

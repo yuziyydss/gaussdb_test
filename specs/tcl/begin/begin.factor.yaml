@@ -1,0 +1,130 @@
+schema_version: 1
+kind: factor
+id: begin
+name: BEGIN
+category: TCL
+status: needs_review
+description: 有限建模 BEGIN 匿名块的数据库 SQL 与事务起始语法；客户端分隔符和完整事务生命周期分别留在传输及行为场景中。
+source:
+  product: GaussDB
+  document: 集中式版参考 / 1.13.8.1 BEGIN
+  version: V2.0-10.0.0
+  artifact_sha256: d3c556b3106b3fd6f0ba3f5161d0cd611022522c270b372e862bf6ae789eb707
+  parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+  extraction_rule_version: gaussdb-pdf-outline-v1
+  extraction_date: "2026-09-04"
+  catalog_chapter_ref:
+    document_id: gaussdb_v2_0_10_0_0_centralized_reference_01
+    source_relpath: general/tcl/begin.txt
+    chapter_sha256: d3c556b3106b3fd6f0ba3f5161d0cd611022522c270b372e862bf6ae789eb707
+source_ledger_ref: source_ledger_begin
+syntax_ref: syntax_begin
+dimensions:
+  statement_form:
+    description: BEGIN 的顶层语句形态。
+    default_value_id: begin_transaction_form
+    classes:
+      - id: begin_form_transaction_class
+        meaning: 开启事务。
+        values:
+          - {id: begin_transaction_form, render: "", representative: true, validity: valid, fact_refs: [begin_fact_two_forms, begin_fact_transaction_syntax]}
+      - id: begin_form_anonymous_class
+        meaning: 开启匿名过程块。
+        values:
+          - {id: begin_anonymous_form, render: "", representative: true, validity: valid, fact_refs: [begin_fact_two_forms, begin_fact_anonymous_syntax]}
+  transaction_keyword:
+    description: 事务 BEGIN 后的兼容关键字。
+    default_value_id: begin_txn_keyword_absent
+    classes:
+      - id: begin_txn_keyword_none_class
+        meaning: 不写兼容关键字。
+        values:
+          - {id: begin_txn_keyword_absent, render: "", representative: true, validity: valid}
+      - id: begin_txn_keyword_present_class
+        meaning: 写 WORK 或 TRANSACTION。
+        values:
+          - {id: begin_txn_keyword_work, render: " WORK", representative: true, validity: valid, fact_refs: [begin_fact_work_transaction_compatibility]}
+          - {id: begin_txn_keyword_transaction, render: " TRANSACTION", representative: false, validity: valid, fact_refs: [begin_fact_work_transaction_compatibility]}
+  transaction_characteristics:
+    description: 有限展开的事务隔离级别和访问模式列表；最多两个异类条目。
+    default_value_id: begin_txn_characteristics_none
+    classes:
+      - id: begin_txn_characteristics_none_class
+        meaning: 使用默认隔离级别和访问模式。
+        values:
+          - id: begin_txn_characteristics_none
+            render: ""
+            representative: true
+            validity: valid
+            properties: {items: []}
+      - id: begin_txn_characteristics_isolation_class
+        meaning: 指定一个隔离级别。
+        values:
+          - {id: begin_txn_read_committed, render: "", representative: true, validity: valid, properties: {items: [" ISOLATION LEVEL READ COMMITTED"]}, fact_refs: [begin_fact_read_committed]}
+          - {id: begin_txn_read_uncommitted, render: "", representative: false, validity: valid, properties: {items: [" ISOLATION LEVEL READ UNCOMMITTED"]}, fact_refs: [begin_fact_read_uncommitted]}
+          - {id: begin_txn_repeatable_read, render: "", representative: true, validity: valid, properties: {items: [" ISOLATION LEVEL REPEATABLE READ"]}, fact_refs: [begin_fact_repeatable_read]}
+          - {id: begin_txn_serializable, render: "", representative: false, validity: valid, properties: {items: [" ISOLATION LEVEL SERIALIZABLE"]}, fact_refs: [begin_fact_serializable_alias]}
+      - id: begin_txn_characteristics_access_class
+        meaning: 指定一个访问模式。
+        values:
+          - {id: begin_txn_read_write, render: "", representative: true, validity: valid, properties: {items: [" READ WRITE"]}, fact_refs: [begin_fact_access_mode]}
+          - {id: begin_txn_read_only, render: "", representative: true, validity: valid, properties: {items: [" READ ONLY"]}, fact_refs: [begin_fact_access_mode]}
+      - id: begin_txn_characteristics_pair_class
+        meaning: 以文档列表语法有限覆盖一个隔离级别和一个访问模式。
+        values:
+          - {id: begin_txn_read_committed_read_write, render: "", representative: true, validity: valid, properties: {items: [" ISOLATION LEVEL READ COMMITTED", "READ WRITE"]}, fact_refs: [begin_fact_transaction_syntax, begin_fact_read_committed, begin_fact_access_mode]}
+          - {id: begin_txn_read_only_repeatable, render: "", representative: false, validity: valid, properties: {items: [" READ ONLY", "ISOLATION LEVEL REPEATABLE READ"]}, fact_refs: [begin_fact_transaction_syntax, begin_fact_repeatable_read, begin_fact_access_mode]}
+  declare_clause:
+    description: 匿名块的可选 DECLARE 与声明语句。
+    default_value_id: begin_declare_absent
+    classes:
+      - id: begin_declare_none_class
+        meaning: 不写 DECLARE。
+        values:
+          - {id: begin_declare_absent, render: "", representative: true, validity: valid}
+      - id: begin_declare_present_class
+        meaning: 写 DECLARE，可带或不带声明。
+        values:
+          - {id: begin_declare_keyword_only, render: "DECLARE ", representative: false, validity: valid, fact_refs: [begin_fact_anonymous_syntax]}
+          - {id: begin_declare_one_integer, render: "DECLARE sales_cnt int; ", representative: true, validity: valid, fact_refs: [begin_fact_declarations]}
+  execution_profile:
+    description: 匿名块执行体的有限候选。
+    profile_source:
+      matrix_ref: matrix_begin_anonymous_execution
+      profile_id_path: profiles.id
+    default_value_id: begin_exec_print_hello
+rules: []
+structural_checks: []
+facts:
+  - {id: begin_fact_two_forms, type: syntax, statement: "BEGIN 同时是匿名块和事务的起始语法。", status: confirmed, source_anchor: "L2-L5"}
+  - {id: begin_fact_anonymous_lifecycle, type: lifecycle, statement: "匿名块动态执行过程代码且不持久化为数据库对象。", status: confirmed, source_anchor: "L6-L8"}
+  - {id: begin_fact_anonymous_syntax, type: syntax, statement: "匿名块的数据库 SQL 产生式包含可选 DECLARE、BEGIN、执行语句和 END;。", status: confirmed, source_anchor: "L9-L15"}
+  - {id: begin_fact_client_delimiter_scope, type: environment, statement: "匿名块产生式中 / 独占一行，是客户端提交分隔符；数据库驱动执行的单条 SQL 不包含该字符。", status: confirmed, source_anchor: "L9-L15; L83-L88"}
+  - {id: begin_fact_transaction_syntax, type: syntax, statement: "事务 BEGIN 可带兼容关键字及逗号分隔事务特征列表。", status: confirmed, source_anchor: "L20-L28"}
+  - {id: begin_fact_transaction_lifecycle_completion, type: lifecycle, statement: "文档的事务示例均在 BEGIN 及事务内操作之后以 END 完成事务；BEGIN 单独执行不构成完整生命周期。", status: confirmed, source_anchor: "L65-L78"}
+  - {id: begin_open_transaction_singleton_execution, type: open_question, statement: "V1 manifest 可将单条 BEGIN 标为 syntax_only，却没有包内字段禁止执行器单独发送该状态语句；在支持 scenario-only 执行前，数据库执行证据只能来自显式配对 COMMIT/ROLLBACK 的 lifecycle scenario。", status: needs_verification, source_anchor: "L65-L78"}
+  - {id: begin_open_characteristic_repetition, type: open_question, statement: "事务特征列表的重复上限、重复项和冲突项行为未由本章说明；当前只有限展开至两个异类条目。", status: needs_verification, source_anchor: "L22-L28"}
+  - {id: begin_fact_declarations, type: syntax, statement: "declare_statements 声明变量名和类型。", status: confirmed, source_anchor: "L34-L35"}
+  - {id: begin_fact_execution_statements, type: syntax, statement: "execution_statements 构成匿名块执行体。", status: confirmed, source_anchor: "L36-L37"}
+  - {id: begin_fact_execution_statement_domain, type: syntax, statement: "执行体可用 SELECT、INSERT、DELETE、UPDATE 或系统表已注册函数。", status: confirmed, source_anchor: "L39-L40"}
+  - {id: begin_open_dml_execution_profiles, type: open_question, statement: "本章只列出四类 DML 名称，未给匿名块中可直接执行的完整 DML 子语法；当前不能以裸关键字冒充有效执行体。", status: needs_verification, source_anchor: "L39-L40"}
+  - {id: begin_fact_work_transaction_compatibility, type: syntax, statement: "WORK 和 TRANSACTION 是无实际作用的可选关键字。", status: confirmed, source_anchor: "L41-L42"}
+  - {id: begin_fact_isolation_purpose, type: behavior_oracle, statement: "隔离级别控制并发事务间的数据可见性。", status: confirmed, source_anchor: "L43-L45"}
+  - {id: begin_fact_isolation_change_timing, type: lifecycle, statement: "首个数据修改语句后不能再次设置事务隔离级别。", status: confirmed, source_anchor: "L46-L49"}
+  - {id: begin_fact_read_committed, type: behavior_oracle, statement: "READ COMMITTED 只读已提交数据且为默认级别。", status: confirmed, source_anchor: "L50-L52"}
+  - {id: begin_fact_read_uncommitted, type: behavior_oracle, statement: "READ UNCOMMITTED 的行为等同 READ COMMITTED。", status: confirmed, source_anchor: "L53-L54"}
+  - {id: begin_fact_repeatable_read, type: behavior_oracle, statement: "REPEATABLE READ 看不到事务开始后其他事务提交的修改。", status: confirmed, source_anchor: "L55-L57"}
+  - {id: begin_fact_serializable_alias, type: behavior_oracle, statement: "SERIALIZABLE 当前不提供其名义功能，行为等同 REPEATABLE READ。", status: confirmed, source_anchor: "L58-L59"}
+  - {id: begin_fact_access_mode, type: behavior_oracle, statement: "事务可指定 READ WRITE 或 READ ONLY 访问模式。", status: confirmed, source_anchor: "L60-L61"}
+  - {id: begin_example_default_transaction, type: example, statement: "文档示例以 BEGIN 开始默认事务并以 END 提交。", status: confirmed, source_anchor: "L65-L73"}
+  - {id: begin_example_repeatable_transaction, type: example, statement: "文档示例以 REPEATABLE READ 开始事务。", status: confirmed, source_anchor: "L74-L78"}
+  - {id: begin_example_anonymous_block, type: example, statement: "文档示例在匿名块调用 dbe_output.print_line。", status: confirmed, source_anchor: "L82-L88"}
+manifest_refs:
+  - manifest_begin_transaction_positive
+  - manifest_begin_anonymous_positive
+matrix_refs: [matrix_begin_anonymous_execution]
+fixture_refs: [fixture_begin_transaction_table]
+scenario_refs:
+  - scenario_begin_transaction_behavior
+  - scenario_begin_isolation_lifecycle
+  - scenario_begin_anonymous_example
