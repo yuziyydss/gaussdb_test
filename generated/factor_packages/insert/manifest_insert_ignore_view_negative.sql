@@ -10,6 +10,7 @@
 -- expected_oracle_status: needs_verification
 -- expected_scope: syntax_and_semantics
 -- params: {"conflict_clause": "insert_conflict_none", "ignore_modifier": "insert_ignore_keyword", "plan_hint": "insert_hint_none", "returning_clause": "insert_returning_none", "source_profile": "insert_source_values_one", "target_profile": "insert_target_view", "with_clause": "insert_with_none"}
+-- environment_requirements: [{"allowed_values": ["B"], "fact_refs": ["insert_fact_ignore_environment"], "key": "compatibility_mode"}, {"allowed_values": ["5.7"], "fact_refs": ["insert_fact_ignore_environment"], "key": "b_format_version"}, {"allowed_values": ["s1"], "fact_refs": ["insert_fact_ignore_environment"], "key": "b_format_dev_version"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS t_insert_view_base CASCADE;
 CREATE TABLE t_insert_view_base (id INTEGER, note VARCHAR(64));
@@ -29,6 +30,7 @@ DROP TABLE IF EXISTS t_insert_view_base CASCADE;
 -- expected_oracle_status: needs_verification
 -- expected_scope: syntax_and_semantics
 -- params: {"conflict_clause": "insert_conflict_none", "ignore_modifier": "insert_ignore_keyword", "plan_hint": "insert_hint_none", "returning_clause": "insert_returning_none", "source_profile": "insert_source_values_one", "target_profile": "insert_target_subquery", "with_clause": "insert_with_none"}
+-- environment_requirements: [{"allowed_values": ["B"], "fact_refs": ["insert_fact_ignore_environment"], "key": "compatibility_mode"}, {"allowed_values": ["5.7"], "fact_refs": ["insert_fact_ignore_environment"], "key": "b_format_version"}, {"allowed_values": ["s1"], "fact_refs": ["insert_fact_ignore_environment"], "key": "b_format_dev_version"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS t_insert_view_base CASCADE;
 CREATE TABLE t_insert_view_base (id INTEGER, note VARCHAR(64));

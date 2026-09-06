@@ -1,0 +1,33 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_explain_plan_stored_label"
+name: "EXPLAIN PLAN stored_label"
+status: "planned"
+description: "只断言标签存在，不固定优化器相关计划明细。"
+factor_ref: "explain_plan"
+fixture_refs:
+  - "fixture_explain_plan_plan_cleanup"
+fact_refs:
+  - "explain_plan_fact_label"
+  - "explain_plan_fact_store_plan"
+preconditions:
+  - "独立新建会话，结束后关闭以释放无标签计划"
+steps:
+  -
+    id: "explain"
+    action: "execute_sql"
+    sql: "EXPLAIN PLAN SET STATEMENT_ID = 'fp_ep_basic' FOR SELECT col_1 FROM t_explain_plan;"
+  -
+    id: "read"
+    action: "execute_sql"
+    sql: "SELECT count(*) > 0 FROM plan_table WHERE statement_id = 'fp_ep_basic';"
+oracles:
+  -
+    after_step: "read"
+    kind: "result_rows"
+    expected:
+      -
+        - true
+execution_requirements:
+  - "database"
+  - "same_session"

@@ -25,11 +25,11 @@ from scripts.manage_extraction_queue import (
     QueueError, dependency_verification_snapshot, factor_package_sha256,
     inventory_state, refresh_task_dependencies, select_pending_task, sha256_file,
     static_completion_freshness, task_topological_order, utc_now,
-    verification_toolchain_sha256, verify_task, write_state,
+    verification_toolchain_sha256, verify_task, write_state, supplemental_verification_snapshot,
 )
 
 DEFAULT_CONFIG = ROOT / "tests/data/cross_chapter_batch.json"
-DEFAULT_OUTPUT = ROOT / "work/doc2spec/batches/cross_chapter_12"
+DEFAULT_OUTPUT = ROOT / "work/doc2spec/batches/cross_chapter_15"
 
 
 def require(condition, message):
@@ -93,6 +93,47 @@ def fact_evidence(registry, inputs, owner, fact_id):
     }
 
 
+def source_input_closure(config, registry, inputs):
+    """Include declared evidence bodies, not just executable factor DAG nodes."""
+    catalogs = {}
+    for name in config['catalogs']:
+        path = ROOT / name
+        catalog = json.loads(path.read_text(encoding='utf-8'))
+        for chapter in catalog['chapters']:
+            catalogs[chapter['source_relpath']] = (path, catalog, chapter)
+    bodies = {i['chapter']['source_relpath']: dict(i) for i in inputs.values()}
+    for factor_id in config['factors']:
+        factor = registry.factors[factor_id]
+        ledger = registry.source_ledgers[factor.source_ledger_ref]
+        for source in ledger.supplemental_sources:
+            ref = source.catalog_chapter_ref
+            require(ref is not None, f'{factor_id}: supplemental source outside frozen PDF')
+            require(ref.source_relpath in catalogs, f'{factor_id}: supplemental catalog entry missing: {ref.source_relpath}')
+            path, catalog, chapter = catalogs[ref.source_relpath]
+            require(ref.document_id == catalog['document_id'], f'{factor_id}: supplemental document mismatch')
+            require(catalog['parent_pdf_sha256'] == inputs[factor_id]['parent_pdf_sha256'],
+                    f'{factor_id}: supplemental PDF mismatch')
+            body_path = path.parent / ref.source_relpath
+            require(sha256_file(body_path) == ref.chapter_sha256 == chapter['chapter_sha256'],
+                    f'{factor_id}: supplemental source/catalog/package hash mismatch: {ref.source_relpath}')
+            bodies[ref.source_relpath] = {
+                'source_path': str(body_path.resolve()), 'chapter': chapter,
+                'parent_pdf_path': inputs[factor_id]['parent_pdf_path'],
+                'parent_pdf_sha256': catalog['parent_pdf_sha256'],
+            }
+    return bodies
+
+
+def select_batch_tasks(state, factors):
+    """Retain the reviewed factor scope; preserve all bodies in its catalog."""
+    selected = [t for t in state['tasks'] if t['factor_id'] in factors]
+    require(len(selected) == len(set(factors)) and {t['factor_id'] for t in selected} == set(factors),
+            'requested tasks missing or duplicated in source inventory')
+    excluded = [t for t in state['tasks'] if t['factor_id'] not in factors]
+    state['tasks'] = selected
+    return excluded
+
+
 def review_links(config, registry, inputs):
     facts, fixtures = [], []
     for link in config["fact_links"]:
@@ -120,7 +161,30 @@ def review_links(config, registry, inputs):
             "consumer_evidence": fact_evidence(registry, inputs, consumer.factor_ref, link["local_fact"]),
             "setup_order": registry.fixture_topological_order([consumer.id]),
         })
-    return {"facts": facts, "fixtures": fixtures}
+    return {"facts": facts, "fixtures": fixtures,
+            "fixture_closures": review_fixture_closures(config, registry)}
+
+
+def review_fixture_closures(config, registry):
+    """Check explicit expected owners against real profile imports and fixture DAGs."""
+    import yaml
+    results = []
+    for link in config.get("fixture_closures", []):
+        consumer, fixture_id = link["consumer"], link["fixture"]
+        if "matrix" in link:
+            path = registry.source_paths[link["matrix"]]
+            raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+            require(raw["factor_ref"] == consumer, f"wrong profile owner: {link}")
+            profile = next(p for p in raw["profiles"] if p["id"] == link["profile"])
+            require(fixture_id in profile.get("fixture_refs", []), f"missing profile fixture: {link}")
+        else:
+            require(registry.fixtures[fixture_id].factor_ref == consumer,
+                    f"wrong fixture owner: {link}")
+        order = registry.fixture_topological_order([fixture_id])
+        owners = {registry.fixtures[fid].factor_ref for fid in order} - {consumer}
+        require(owners == set(link["expected_external_owners"]), f"fixture owner closure drift: {link}")
+        results.append({**link, "setup_order": order, "passed": True})
+    return results
 
 
 def expected_graph(config):
@@ -130,6 +194,9 @@ def expected_graph(config):
     # Fixture owners are asserted separately from the derived registry graph.
     graph["insert"].add("create_table")
     graph["drop_table"].add("create_table")
+    for link in config.get("fixture_closures", []):
+        require(set(link["expected_external_owners"]) <= set(graph), "fixture provider outside batch")
+        graph[link["consumer"]].update(link["expected_external_owners"])
     return graph
 
 
@@ -228,9 +295,10 @@ def fixture_sql_probes(registry, config):
     return results
 
 
-def invalidation_probes(state, graph, providers):
+def invalidation_probes(state, graph, providers, body_consumers=None):
     """Use real files in a temporary copy, including raw source edits without inventory."""
     results = []
+    body_consumers = body_consumers or {}
     toolchain = verification_toolchain_sha256()
     with tempfile.TemporaryDirectory(prefix="gauss-dependency-probe-") as tmp:
         root = Path(tmp)
@@ -253,6 +321,8 @@ def invalidation_probes(state, graph, providers):
                 "catalog_sha256": sha256_file(root / "corpus/catalog.json"),
                 "parent_pdf_sha256": task["parent_pdf_sha256"],
                 "dependencies": dependency_verification_snapshot(trial, task),
+                "supplemental_sources": supplemental_verification_snapshot(
+                    Path(task['output_dir']), root / 'corpus/catalog.json', root / 'corpus'),
             }
 
         def freshness():
@@ -274,6 +344,9 @@ def invalidation_probes(state, graph, providers):
                     observed = freshness()
                     actual = {fid for fid,(ok,_) in observed.items() if not ok}
                     expected = descendants(graph, provider)
+                    if kind == 'source_change_without_inventory':
+                        for consumer in body_consumers.get(tasks[provider]['source_relpath'], []):
+                            expected |= descendants(graph, consumer)
                     require(actual == expected, f"{provider}/{kind}: expected={expected}, actual={actual}")
                     results.append({"provider": provider, "kind": kind,
                                     "expected_stale": sorted(expected), "actual_stale": sorted(actual),
@@ -284,6 +357,25 @@ def invalidation_probes(state, graph, providers):
                     path.write_bytes(original)
                 require(all(ok for ok,_ in freshness().values()), "restore did not restore freshness")
             print(f"invalidation {provider}: package/source changes correctly isolated", flush=True)
+        for relpath, consumers in body_consumers.items():
+            path = root / 'corpus' / relpath
+            original = path.read_bytes()
+            expected = set().union(*(descendants(graph, c) for c in consumers))
+            # A primary chapter also invalidates its owning package.
+            for fid, task in tasks.items():
+                if task['source_relpath'] == relpath:
+                    expected |= descendants(graph, fid)
+            try:
+                path.write_bytes(original + b'\n# body-only fault injection\n')
+                observed = freshness()
+                actual = {fid for fid, (ok, _) in observed.items() if not ok}
+                require(actual == expected, f'{relpath}: expected={expected}, actual={actual}')
+                results.append({'kind': 'supplemental_body_change_without_inventory',
+                    'source_relpath': relpath, 'expected_stale': sorted(expected),
+                    'actual_stale': sorted(actual), 'unaffected': sorted(set(graph) - actual), 'passed': True})
+            finally:
+                path.write_bytes(original)
+            require(all(ok for ok, _ in freshness().values()), 'body restore did not restore freshness')
     return {"simulation": True, "mutated_original_files": False, "checks": results}
 
 
@@ -301,6 +393,12 @@ def main():
               "database_executed": False, "known_limits": config["known_limits"]}
     try:
         registry, inputs = load_inputs(config, ROOT / "specs")
+        body_inputs = source_input_closure(config, registry, inputs)
+        report['source_body_closure'] = {
+            'factor_chapters': len(inputs), 'body_chapters': len(body_inputs),
+            'source_relpaths': sorted(body_inputs),
+            'body_only_relpaths': sorted(set(body_inputs) - {i['chapter']['source_relpath'] for i in inputs.values()}),
+        }
         baseline_path = ROOT / "generated/factor_packages/generation_report.json"
         baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
         selected_manifests = {mid for fid in config["factors"] for mid in registry.factors[fid].manifest_refs}
@@ -312,21 +410,23 @@ def main():
         require(graph == expected_graph(config), "actual dependencies differ from reviewed batch links")
         report["graph"] = {f: sorted(v) for f,v in sorted(graph.items())}
         require(set(registry.factor_topological_order(config["factors"])) == set(config["factors"]), "batch is not dependency closed")
-        print("Reviewed 12 chapters and all cross-package source anchors", flush=True)
+        print(f"Reviewed {len(inputs)} chapters and all cross-package source anchors", flush=True)
         command = [args.pdf_python, str(ROOT / "scripts/extract_pdf_sections.py"),
                    "--pdf", next(iter(inputs.values()))["parent_pdf_path"],
                    "--output-root", str(out / "corpus")]
-        for factor_id in config["factors"]:
-            command += ["--section", inputs[factor_id]["chapter"]["section_number"]]
+        for item in body_inputs.values():
+            command += ["--section", item["chapter"]["section_number"]]
         extraction = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
         report["pdf_reextraction"] = {"command": command, "returncode": extraction.returncode,
                                       "output": extraction.stdout + extraction.stderr}
         require(extraction.returncode == 0, report["pdf_reextraction"]["output"])
-        for factor_id, item in inputs.items():
+        for source_relpath, item in body_inputs.items():
             require(sha256_file(out / "corpus" / item["chapter"]["source_relpath"]) == item["chapter"]["chapter_sha256"],
-                    f"{factor_id}: fresh PDF extraction drift")
-        print("Fresh PDF extraction: 12/12 chapter hashes match", flush=True)
+                    f"{source_relpath}: fresh PDF extraction drift")
+        print(f"Fresh PDF extraction: {len(body_inputs)}/{len(body_inputs)} body hashes match ({len(inputs)} factor chapters)", flush=True)
         state = inventory_state(out / "corpus", ROOT / "specs", source_catalog_path=out / "corpus/catalog.json")
+        excluded = select_batch_tasks(state, config['factors'])
+        report['source_body_closure']['evidence_only_tasks_not_executed'] = [t['factor_id'] for t in excluded]
         refresh_task_dependencies(state, strict=True)
         report["queue_simulation"] = verify_claim_order(state, graph)
         report["load_faults"] = load_fault_probes(registry)
@@ -373,7 +473,8 @@ def main():
             "actual_cases": len(actual_targets), "unchanged": True,
             "batch_generation_report": str(out / "generated/generation_report.json"),
         }
-        report["invalidation"] = invalidation_probes(state, graph, config["mutation_providers"])
+        report["invalidation"] = invalidation_probes(
+            state, graph, config["mutation_providers"], config.get('supplemental_body_consumers'))
         report["factor_count"] = len(state["tasks"])
         report["unique_case_count"] = len(all_case_ids)
         report["passed"] = True

@@ -9,6 +9,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from .combinator import Pair, PairwiseGenerationError, generate_cartesian, generate_constraint_aware_pairwise
 from .constraint_solver import ConstraintSolver
+from .finite_sql_contract import inspect_write, finite_inline_nonnull_columns
 from .generator import GeneratedCase
 from .spec_generator import GenerationReport, GenerationValidationError
 from .factor_package_model import (
@@ -132,7 +133,24 @@ class FactorPackageSQLGenerator:
         candidate_estimate = math.prod(len(values) for values in param_space.values())
         solver = self._build_solver(factor, manifest, resolved)
 
-        if manifest.strategy == "pairwise":
+        if not param_space:
+            # A fixed SQL production has one empty assignment. Keep the legacy
+            # combinator's empty-input behavior unchanged, and still apply all
+            # product, structural, and targeted-negative constraints here.
+            combos = solver.filter_combos([{}])
+            if not combos:
+                raise GenerationValidationError("固定语句不满足目标规则")
+            report = GenerationReport(
+                manifest_id=manifest.id,
+                strategy=manifest.strategy,
+                candidate_combination_estimate=1,
+                feasible_combination_count=1,
+                feasible_pair_count=0,
+                covered_pair_count=0,
+                missing_pairs=[],
+                search_nodes=1,
+            )
+        elif manifest.strategy == "pairwise":
             if candidate_estimate <= 10_000:
                 combos, feasible_pairs, feasible_combo_count = self._small_space_pairwise(param_space, solver)
                 covered_pairs = self._pair_set(combos, list(param_space))
@@ -206,6 +224,16 @@ class FactorPackageSQLGenerator:
                 consumed_dimension_ids,
             )
             setup_sqls, teardown_sqls = self._compile_fixture_lifecycle(fixture_refs)
+            if manifest.expected.default == "success":
+                rendered_contract = inspect_write(sql, setup_sqls)
+                if rendered_contract["status"] == "rejected":
+                    raise GenerationValidationError(
+                        f"{manifest.id}: rendered SQL/fixture contradiction: "
+                        f"{rendered_contract['issues']}"
+                    )
+                # Unsupported expressions are not a proof of correctness.
+                # audit_rendered_sql_contracts records these as needs_review;
+                # do not silently filter them out of the declared pair domain.
             if case_id in seen_case_ids:
                 raise GenerationValidationError(f"{manifest.id}: 重复 case_id: {case_id}")
             if sql in seen_sql:
@@ -510,7 +538,7 @@ class FactorPackageSQLGenerator:
         self, fixture_refs: List[str]
     ) -> Tuple[List[str], List[str]]:
         fixture_refs = self._ordered_fixture_refs(fixture_refs)
-        self._fixture_table_contracts(fixture_refs)
+        table_contracts = self._fixture_table_contracts(fixture_refs)
         setup: List[str] = []
         teardown_groups: List[List[str]] = []
         seen_tables: Set[str] = set()
@@ -532,6 +560,11 @@ class FactorPackageSQLGenerator:
             fixture_teardown: List[str] = []
             for table in fixture.provides.tables:
                 self._validate_sql_identifier(table.name)
+                column_names = [column.name.lower() for column in table.columns]
+                if len(column_names) != len(set(column_names)):
+                    raise GenerationValidationError(
+                        f"fixture '{fixture_id}' 表 '{table.name}' 的未引号列名大小写重复"
+                    )
                 if table.name in seen_tables:
                     continue
                 seen_tables.add(table.name)
@@ -578,6 +611,11 @@ class FactorPackageSQLGenerator:
                         raise GenerationValidationError(
                             f"fixture '{fixture_id}' seed 包含未知列: {unknown}"
                         )
+                    for column in table.columns:
+                        if not column.nullable and row.get(column.name) is None:
+                            raise GenerationValidationError(
+                                f"fixture '{fixture_id}' seed 的非空列 '{column.name}' 缺值或为 NULL"
+                            )
                     rows.append(
                         "(" + ", ".join(
                             self._sql_literal(row.get(column_name))
@@ -590,6 +628,19 @@ class FactorPackageSQLGenerator:
                 )
             setup.extend(fixture_setup)
             teardown_groups.append(fixture_teardown)
+
+        # Only reject demonstrated contradictions. Missing/opaque DDL evidence
+        # does not establish nullable=True or a complete fixture contract.
+        declared_tables = {name.lower(): table for name, table in table_contracts.items()}
+        for name, nonnull_columns in finite_inline_nonnull_columns(setup).items():
+            table = declared_tables.get(name)
+            if table is None:
+                continue
+            for column in table.columns:
+                if column.nullable and column.name.lower() in nonnull_columns:
+                    raise GenerationValidationError(
+                        f"fixture 表 '{name}' 列 '{column.name}' 的 nullable=True 与实际 DDL 非空约束矛盾"
+                    )
 
         teardown = [
             sql
@@ -607,11 +658,22 @@ class FactorPackageSQLGenerator:
         tables: Dict[str, Any] = {}
         owners: Dict[str, str] = {}
         signatures: Dict[str, Tuple[Any, ...]] = {}
+        unquoted_spellings: Dict[str, str] = {}
         for fixture_id in fixture_refs:
             fixture = self.registry.get_fixture(fixture_id)
             if fixture is None:
                 raise GenerationValidationError(f"fixture 不存在: {fixture_id}")
             for table in fixture.provides.tables:
+                if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?", table.name):
+                    # Require one spelling rather than guessing the namespace's
+                    # case policy or silently composing DROP/CREATE aliases.
+                    normalized = table.name.lower()
+                    previous = unquoted_spellings.setdefault(normalized, table.name)
+                    if previous != table.name:
+                        raise GenerationValidationError(
+                            f"fixture 未引号表名 '{previous}' 与 '{table.name}' 仅大小写不同；"
+                            "请统一声明拼写，不能假定为两个独立对象"
+                        )
                 signature = (
                     table.persistence,
                     table.table_kind,
@@ -651,6 +713,10 @@ class FactorPackageSQLGenerator:
             return "NULL"
         if isinstance(value, bool):
             return "TRUE" if value else "FALSE"
+        if isinstance(value, float) and not math.isfinite(value):
+            raise GenerationValidationError(
+                "fixture seed 非有限浮点值需要注明目标类型的 explicit fixture，不能作为裸 SQL 数值生成"
+            )
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             return str(value)
         return "'" + str(value).replace("'", "''") + "'"

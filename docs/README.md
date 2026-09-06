@@ -4,12 +4,34 @@
 
 | 文档 | 用途 |
 |---|---|
+| [按包缺口收敛首批](PACKAGE_CLOSURE_FIRST_BATCH.md) | 168 包逐条缺口、56 包资产路线、INSERT 行结果计划与模型输入；不冒充生成/实机闭环 |
+| [进度口径与共享列契约评审](PROGRESS_AND_SHARED_COLUMN_REVIEW.md) | 四阶段展示、DEFAULT/视图契约边界、迁移与验收条件 |
+| [内部共享列契约首轮实现](SHARED_COLUMN_CONTRACT.md) | INSERT/UPDATE 共享 DEFAULT 与直接投影证据、失效边界、固定分母对账 |
+| [56个无普通清单包的核查路线](NO_MANIFEST_REVIEW_ROUTES.json) | 五类成员、下一步与验收；分类不改变支持或执行状态 |
+| [第三轮质量复核](QUALITY_ROUND_03.md) | 全量来源/待审 case 对账、补充正文持续失效与有限写入检查扩展 |
+| [第二轮质量复核](QUALITY_ROUND_02.md) | 实际 SQL/fixture 形状检查、8 包 20 条复核及 15 章依赖验证 |
+| [第一轮质量复核](QUALITY_ROUND_01.md) | 全库可执行待办、12 包有限域复核、修复与验收边界 |
 | [Factor Package Schema V1](FACTOR_PACKAGE_SCHEMA_V1.md) | V1文件类型、字段、引用和验收契约 |
 | [Factor Package V1 冻结与批次推进规则](FACTOR_PACKAGE_V1_FREEZE_POLICY.md) | 冻结范围、版本化变更门禁和 10 章/20～30 章批次节奏 |
 | [Factor Package V1.1 变更提案登记](FACTOR_PACKAGE_V1_1_CHANGE_PROPOSALS.md) | 第二批重复暴露的公共模型缺口、兼容方向和实现门禁 |
 | [第二批 PDF Doc2Spec 抽取计划](BATCH_02_EXTRACTION_PLAN.md) | 第二批 10 章的固定选择、独立队列、命令与验收口径 |
 | [第二批 PDF Doc2Spec 验收结果](BATCH_02_RESULT.md) | 第二批来源对账、生成指标、人工复核缺陷、诚实缺口与扩批结论 |
 | [12 章跨因子依赖验证](CROSS_CHAPTER_DEPENDENCY_RESULT.md) | 真实引用、拓扑认领、Fixture SQL 顺序及隔离副本中的失效传播实验 |
+| [第三批：20 个新章节与依赖正文](BATCH_03_EXTRACTION_PLAN.md) | 固定输入、章节选择与真实依赖边界 |
+| [第三批阶段抽取结果](BATCH_03_EXTRACTION_PROGRESS.md) | 已落地章节、SQL 候选、待审核项及继续顺序 |
+| [第四批：20 个新章节](BATCH_04_EXTRACTION_PLAN.md) | 完整批次输入、真实依赖与外部正文缺口 |
+| [第四批抽取与有限域生成结果](BATCH_04_EXTRACTION_PROGRESS.md) | 20 章候选清单、静态检查证据与未关闭的审核项 |
+| [第五批：程序对象、文本搜索与增量物化视图](BATCH_05_EXTRACTION_PLAN.md) | 20章新包、34章闭合来源输入与高风险能力门禁 |
+| [第五批抽取与有限域生成结果](BATCH_05_EXTRACTION_PROGRESS.md) | 有限候选、依赖顺序、回归测试与明确保留的能力缺口 |
+| [第六批：过程、触发器、规则和维护](BATCH_06_EXTRACTION_PLAN.md) | 20章固定输入、真实依赖与高风险边界 |
+| [第六批抽取与有限域生成结果](BATCH_06_EXTRACTION_PROGRESS.md) | 无参数生成修复、专项测试与任务证据 |
+| [第七批：类型、扩展与外部对象](BATCH_07_EXTRACTION_PROGRESS.md) | 26 个包的来源处置、有限 SQL 与支持性边界 |
+| [第八批：数据库与工具命令](BATCH_08_EXTRACTION_PROGRESS.md) | 25 个包及无普通清单的运行时契约 |
+| [第九批：身份、权限与安全标签](BATCH_09_EXTRACTION_PROGRESS.md) | 24 个包的角色、ACL 和专用对象生命周期 |
+| [第十批：策略、事件与包](BATCH_10_EXTRACTION_PROGRESS.md) | 29 个包及密钥、DBLINK、外表的明确缺口 |
+| [第十一批：分区、数据流与恢复](BATCH_11_EXTRACTION_PROGRESS.md) | 最后 25 个包、有限生成范围与未实现运行时 |
+| [剩余129包交付结果](REMAINING_129_EXTRACTION_RESULT.md) | 95→224 包的最终对账、有限候选 SQL 与未关闭边界 |
+| [PDF通用SQL进度与质量待办](PDF_GENERAL_EXTRACTION_BACKLOG.md) | 224章包已绑定、原文审计与未完成静态/行为验收的独立口径 |
 | [Doc2Spec Extraction Rules V1](DOC2SPEC_EXTRACTION_RULES_V1.md) | 从产品原文抽取 source/factor/syntax/manifest 等文件的规则 |
 | [PDF 到 Factor Package 权威流程](PDF_DOC2SPEC_PIPELINE.md) | 整本PDF目录、精确拆章、来源证据和五章校准门禁 |
 | [内网批量 Doc2Spec 运行手册](INTRANET_AI_BATCH_EXTRACTION.md) | 文档不能外传时的语料切片、任务队列、AI协作和批量节奏 |

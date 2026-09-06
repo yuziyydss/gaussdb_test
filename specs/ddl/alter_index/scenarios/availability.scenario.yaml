@@ -1,0 +1,47 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_alter_index_availability"
+name: "ALTER INDEX availability"
+status: "planned"
+description: "不可用→重建的有效性变化；未执行。"
+factor_ref: "alter_index"
+fixture_refs:
+  - "fixture_alter_index_regular"
+fact_refs:
+  - "alter_index_fact_purpose"
+  - "alter_index_fact_unusable"
+  - "alter_index_fact_rebuild"
+preconditions: []
+steps:
+  -
+    id: "unusable"
+    action: "execute_sql"
+    sql: "ALTER INDEX idx_ai_regular UNUSABLE;"
+  -
+    id: "invalid"
+    action: "execute_sql"
+    sql: "SELECT indisusable FROM pg_index WHERE indexrelid = 'idx_ai_regular'::regclass;"
+  -
+    id: "rebuild"
+    action: "execute_sql"
+    sql: "ALTER INDEX idx_ai_regular REBUILD;"
+  -
+    id: "valid"
+    action: "execute_sql"
+    sql: "SELECT indisusable FROM pg_index WHERE indexrelid = 'idx_ai_regular'::regclass;"
+oracles:
+  -
+    after_step: "invalid"
+    kind: "result_rows"
+    expected:
+      -
+        - false
+  -
+    after_step: "valid"
+    kind: "result_rows"
+    expected:
+      -
+        - true
+execution_requirements:
+  - "database"
+  - "same_session"

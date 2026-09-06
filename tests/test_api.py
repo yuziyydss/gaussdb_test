@@ -47,10 +47,41 @@ class TestApiRoutes(unittest.TestCase):
             ),
         )
         self.assertGreater(payload["generated_case_count"], 0)
+        progress = payload['progress']
+        self.assertEqual(progress['with_candidates_count'], sum(
+            a['manifests']['generated_case_count'] > 0 for a in payload['factors'].values()))
+        self.assertEqual(progress['static_covered_count'], sum(
+            a['display_progress']['static_status'] == 'covered' for a in payload['factors'].values()))
+        self.assertIsNone(progress['runtime_verified_count'])
+        self.assertEqual(payload['factors']['alter_language']['display_progress']['static_status'], 'no_cases')
+        self.assertNotIn('五章校准包', response.text)
+        self.assertIn('无用例，不计通过', response.text)
+        self.assertIn('未接入证据', response.text)
         self.assertEqual(payload["catalog"]["cataloged"], 224)
         self.assertEqual(payload["catalog"]["extracted"], payload["factor_count"])
         self.assertEqual(payload["catalog"]["package_bound"], payload["factor_count"])
-        self.assertEqual(payload["static_complete_count"], 0)
+        self.assertEqual(
+            payload["static_complete_count"],
+            sum(audit["conclusions"]["static_coverage_complete"] for audit in payload["factors"].values()),
+        )
+        # New simple chapters may close statically without any DB execution.
+        rollback = payload["factors"]["rollback"]["conclusions"]
+        self.assertTrue(rollback["static_coverage_complete"])
+        self.assertFalse(rollback["behavior_coverage_complete"])
+
+    def test_progress_export_and_zero_case_detail_do_not_claim_completion(self):
+        response = self.client.get('/api/coverage/export-md')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('全部因子包：四阶段进度', response.text)
+        row = next(line for line in response.text.splitlines() if line.startswith('| alter_language |'))
+        self.assertIn('无候选', row)
+        self.assertIn('无用例，不计通过', row)
+        self.assertIn('未接入证据', row)
+        detail = self.client.get('/specs/factor/alter_language')
+        self.assertEqual(detail.status_code, 200)
+        self.assertIn('无用例，不计通过', detail.text)
+        self.assertNotIn('闭环完成', detail.text)
+        self.assertNotIn('全部 100%', detail.text)
 
     def test_factor_detail_and_generate(self):
         # 因子详情
@@ -75,7 +106,7 @@ class TestApiRoutes(unittest.TestCase):
         self.assertIn("原文覆盖账本", detail.text)
         self.assertIn("116 / 116", detail.text)
         self.assertIn("406 / 406 行已登记", detail.text)
-        self.assertIn("生成模型：完整", detail.text)
+        self.assertIn("有候选（非全域覆盖）", detail.text)
 
         audit_api = self.client.get("/api/specs/v1/audit/create_view")
         self.assertEqual(audit_api.status_code, 200)
@@ -116,7 +147,8 @@ class TestApiRoutes(unittest.TestCase):
         detail = self.client.get("/specs/factor/insert")
         self.assertEqual(detail.status_code, 200)
         self.assertIn("918 / 918 行已登记", detail.text)
-        self.assertIn("生成模型：有缺口", detail.text)
+        self.assertIn("有候选（非全域覆盖）", detail.text)
+        self.assertIn("有缺口", detail.text)
         self.assertIn("insert_open_plan_hint_profile", detail.text)
 
         manifest_id = "manifest_insert_core_positive"
@@ -140,7 +172,7 @@ class TestApiRoutes(unittest.TestCase):
         detail = self.client.get("/specs/factor/select")
         self.assertEqual(detail.status_code, 200)
         self.assertIn("2333 / 2333 行已登记", detail.text)
-        self.assertIn("生成模型：完整", detail.text)
+        self.assertIn("有候选（非全域覆盖）", detail.text)
         self.assertIn("select_open_plan_hint_profile", detail.text)
 
         manifest_id = "manifest_select_core_positive"
@@ -161,7 +193,8 @@ class TestApiRoutes(unittest.TestCase):
         detail = self.client.get("/specs/factor/create_index")
         self.assertEqual(detail.status_code, 200)
         self.assertIn("899 / 899 行已登记", detail.text)
-        self.assertIn("生成模型：有缺口", detail.text)
+        self.assertIn("有候选（非全域覆盖）", detail.text)
+        self.assertIn("有缺口", detail.text)
         self.assertIn("ci_open_unique_local_missing_partition_key", detail.text)
 
         manifest_id = "manifest_create_index_regular_positive"
@@ -190,7 +223,8 @@ class TestApiRoutes(unittest.TestCase):
         detail = self.client.get("/specs/factor/alter_table")
         self.assertEqual(detail.status_code, 200)
         self.assertIn("1636 / 1636 行已登记", detail.text)
-        self.assertIn("生成模型：有缺口", detail.text)
+        self.assertIn("有候选（非全域覆盖）", detail.text)
+        self.assertIn("有缺口", detail.text)
         self.assertIn("at_open_online_environment_fixture", detail.text)
 
         manifest_id = "manifest_alter_table_core_positive"

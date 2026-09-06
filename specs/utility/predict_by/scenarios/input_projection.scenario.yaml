@@ -1,0 +1,46 @@
+schema_version: 1
+kind: scenario
+id: scenario_predict_by_input_projection
+name: PREDICT BY 有序预测输入投影
+status: planned
+description: >-
+  复用 CREATE MODEL 的真实十五行输入表，只核对示例所需 size、lot 两列，不混入 TARGET mark。
+  SELECT 输入投影不是 PREDICT BY 调用；此处没有训练好的模型，不算预测候选或预测行为通过。
+factor_ref: predict_by
+fixture_refs: [fixture_create_model_training_input]
+fact_refs:
+  - predict_by_fact_body_5
+  - predict_by_fact_body_20
+  - predict_by_fact_example_55
+  - predict_by_fact_example_62
+  - create_model::create_model_fact_body_27
+  - create_model::create_model_fact_example_232
+preconditions:
+  - 数据库执行须另行授权，独立新连接、专用命名空间、无外层事务。
+  - fp_model_houses_input 必须不存在；复用 fixture 定义不等于复用其他任务已经存在的表。
+  - >-
+    本场景不要求也不创建模型。未来预测场景必须另获成功训练记录、模型所有权和
+    有序特征签名；固定名称、表存在或静态投影成功不能替代这些证据。
+steps:
+  - {id: setup, action: execute_fixture_setup}
+  - {id: project, action: query, sql: "SELECT size, lot FROM fp_model_houses_input;"}
+  - {id: cleanup, action: execute_fixture_teardown, detail: "仅回滚本连接输入表；不调用预测，不 DROP MODEL，不关闭超时。"}
+oracles:
+  - kind: ordered_input_columns
+    expected:
+      - {name: size, type: INTEGER, nullable: true}
+      - {name: lot, type: INTEGER, nullable: true}
+    note: >-
+      严格保留本示例训练 FEATURES 的 size→lot 顺序，不能因为两列同为 INTEGER 而接受交换。
+      这是来源示例的一致性要求，不是本文已证明的所有算法特征规则。
+  - kind: ordered_seed_projection
+    query: SELECT size, lot FROM fp_model_houses_input ORDER BY id;
+    order_by: id
+    expected:
+      row_count: 15
+      normalized_sha256: a4c42ea4ba1603b08ea41eff2218d40608cae35c5c3f50cfc285ea09648a4eb1
+    normalization: >-
+      查询按 id 排序；整数二维 JSON 数组以 UTF-8、separators=(',', ':')、无空白和末尾换行编码后取 SHA256。
+      不断言任何预测标签或概率，因为模型尚未训练。
+  - {kind: cleanup, expected: 回滚后专用输入表不存在；保留实际清理证据，不清理任何模型。}
+execution_requirements: [独立数据库执行授权, 专用新连接, 隔离命名空间, 输入元数据与精确行结果, 实际清理证据]

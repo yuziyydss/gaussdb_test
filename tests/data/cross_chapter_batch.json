@@ -1,9 +1,22 @@
 {
-  "id": "cross_chapter_batch_12",
-  "description": "12 existing PDF chapters; dependency validation only, no database execution",
-  "catalogs": ["intranet_corpus/catalog.json", "work/doc2spec/batches/batch_02/corpus/catalog.json"],
-  "factors": ["select", "create_table", "create_view", "create_index", "create_sequence", "alter_table", "drop_table", "insert", "update", "delete", "merge_into", "truncate"],
+  "id": "cross_chapter_batch_15",
+  "description": "Original 12 chapters plus schema and partition providers required by the quality-round DML profiles; no database execution",
+  "catalogs": ["work/doc2spec/full_general_corpus/catalog.json", "work/doc2spec/batches/batch_03/supplemental/catalog.json"],
+  "factors": ["select", "create_table", "create_view", "create_index", "create_sequence", "alter_table", "drop_table", "insert", "update", "delete", "merge_into", "truncate", "create_schema", "create_table_partition", "create_table_subpartition"],
+  "fixture_closures": [
+    {"consumer": "update", "matrix": "matrix_update_single_targets", "profile": "update_target_payload_partition_name", "fixture": "fixture_create_table_partition_payload", "expected_external_owners": ["create_schema", "create_table_partition"]},
+    {"consumer": "update", "matrix": "matrix_update_single_targets", "profile": "update_target_payload_subpartition_name", "fixture": "fixture_create_table_subpartition_payload", "expected_external_owners": ["create_schema", "create_table_subpartition"]},
+    {"consumer": "delete", "matrix": "matrix_delete_single_targets", "profile": "delete_target_payload_partition_name", "fixture": "fixture_create_table_partition_payload", "expected_external_owners": ["create_schema", "create_table_partition"]},
+    {"consumer": "delete", "matrix": "matrix_delete_single_targets", "profile": "delete_target_payload_subpartition_name", "fixture": "fixture_create_table_subpartition_payload", "expected_external_owners": ["create_schema", "create_table_subpartition"]},
+    {"consumer": "update", "matrix": "matrix_update_single_targets", "profile": "update_target_partition_name", "fixture": "fixture_create_table_partition_range_source", "expected_external_owners": ["create_schema", "create_table_partition"]},
+    {"consumer": "update", "matrix": "matrix_update_single_targets", "profile": "update_target_subpartition_name", "fixture": "fixture_create_table_subpartition_range_range_source", "expected_external_owners": ["create_schema", "create_table_subpartition"]},
+    {"consumer": "delete", "matrix": "matrix_delete_single_targets", "profile": "delete_target_partition_name", "fixture": "fixture_create_table_partition_range_source", "expected_external_owners": ["create_schema", "create_table_partition"]},
+    {"consumer": "delete", "matrix": "matrix_delete_single_targets", "profile": "delete_target_subpartition_name", "fixture": "fixture_create_table_subpartition_range_range_source", "expected_external_owners": ["create_schema", "create_table_subpartition"]},
+    {"consumer": "create_table_partition", "fixture": "fixture_create_table_partition_namespace", "expected_external_owners": ["create_schema"]},
+    {"consumer": "create_table_subpartition", "fixture": "fixture_create_table_subpartition_namespace", "expected_external_owners": ["create_schema"]}
+  ],
   "fact_links": [
+    {"consumer": "create_table_subpartition", "entity": "scenario_create_table_subpartition_documented_contracts", "field": "fact_refs", "local_fact": "create_table_subpartition_fact_body_12", "provider": "create_table_partition::create_table_partition_fact_body_9_1", "reason": "二级分区的既有文档场景引用一级分区表规则；新增提供者必须纳入其真实依赖闭包。"},
     {"consumer": "create_view", "entity": "syntax_create_view", "field": "source_fact_refs", "local_fact": "cv_fact_query_select_or_values", "provider": "select::select_fact_target_list", "reason": "AS query 的 SELECT 投影及输出列形式；不把全部 SELECT 分支当作视图可更新域。"},
     {"consumer": "insert", "entity": "syntax_insert_v1", "field": "source_fact_refs", "local_fact": "insert_fact_query_source", "provider": "select::select_fact_target_list", "reason": "INSERT SELECT 的输入来自 SELECT 输出列。"},
     {"consumer": "insert", "entity": "scenario_insert_view_subquery", "field": "fact_refs", "local_fact": "insert_fact_join_target_restrictions", "provider": "create_view::cv_fact_key_preserved_definition", "reason": "多表视图插入的保留键定义由 CREATE VIEW 提供。"},
@@ -29,5 +42,15 @@
     {"consumer": "fixture_drop_table_dependent_view", "provider": "fixture_create_table_drop_view_base", "local_fact": "dt_fact_dependency_modes", "reason": "先创建基表，再建立被 DROP TABLE CASCADE/RESTRICT 检查的依赖视图。"}
   ],
   "mutation_providers": ["select", "create_table", "create_view", "create_sequence", "create_index"],
+  "supplemental_body_consumers": {
+    "general/dml/select.txt": ["insert", "update", "delete"],
+    "general/dml/update.txt": ["delete"],
+    "general/ddl/create_view.txt": ["insert", "create_schema"],
+    "general/ddl/create_table.txt": ["create_schema", "create_table_partition"],
+    "general/ddl/create_table_partition.txt": ["update", "delete", "create_table_subpartition"],
+    "general/ddl/create_table_subpartition.txt": ["update", "delete"],
+    "general/ddl/drop_schema.txt": ["create_schema"],
+    "general/utility/section_1_4_3.txt": ["create_schema"]
+  },
   "known_limits": ["已声明依赖的调度，不是首次抽取前自动发现依赖", "跨章事实引用不等价于公共 Subgrammar 实现", "planned scenario 仍未执行", "失效粒度为章节/包及其下游，不是逐 fact 最小失效集合"]
 }

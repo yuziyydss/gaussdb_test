@@ -1,0 +1,213 @@
+schema_version: 1
+kind: "factor"
+id: "savepoint"
+name: "SAVEPOINT"
+category: "TCL"
+status: "needs_review"
+description: "第三批 PDF 抽取；有限生成域与未执行场景分开报告。"
+source:
+  product: "GaussDB"
+  document: "集中式版参考 / 1.13.19.1 SAVEPOINT"
+  version: "V2.0-10.0.0"
+  artifact_sha256: "afbfa625632c644e7eb39b1fadd963b541d61db15f616288f1a7d4fb865940a1"
+  parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+  extraction_rule_version: "gaussdb-pdf-outline-v1"
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: "gaussdb_v2_0_10_0_0_centralized_reference_01"
+    source_relpath: "general/tcl/savepoint.txt"
+    chapter_sha256: "afbfa625632c644e7eb39b1fadd963b541d61db15f616288f1a7d4fb865940a1"
+source_ledger_ref: "source_ledger_savepoint"
+syntax_ref: "syntax_savepoint"
+dimensions:
+  savepoint_name:
+    description: "固定独占会话中的保存点名，不覆盖全部标识符域。"
+    classes:
+      -
+        id: "savepoint_savepoint_name_simple_class"
+        meaning: "simple"
+        values:
+          -
+            id: "savepoint_savepoint_name_simple"
+            render: "sp_test"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "savepoint_fact_name"
+rules: []
+structural_checks: []
+facts:
+  -
+    id: "savepoint_fact_create"
+    type: "lifecycle"
+    statement: "SAVEPOINT 在当前事务中建立新的保存点。"
+    status: "confirmed"
+    source_anchor: "L5-L5"
+  -
+    id: "savepoint_fact_restore"
+    type: "lifecycle"
+    statement: "保存点允许撤销之后的命令并恢复到保存点状态。"
+    status: "confirmed"
+    source_anchor: "L6-L7"
+  -
+    id: "savepoint_fact_release_preserves_changes"
+    type: "lifecycle"
+    statement: "ROLLBACK TO 回滚到保存点；RELEASE 删除保存点但保留之后的命令效果。"
+    status: "confirmed"
+    source_anchor: "L10-L11"
+  -
+    id: "savepoint_fact_rollback_to"
+    type: "lifecycle"
+    statement: "使用 ROLLBACK TO SAVEPOINT 回滚至保存点。"
+    status: "confirmed"
+    source_anchor: "L10-L11"
+  -
+    id: "savepoint_fact_transaction_required"
+    type: "environment"
+    statement: "保存点只能在事务块内建立。"
+    status: "confirmed"
+    source_anchor: "L12-L12"
+  -
+    id: "savepoint_fact_multiple"
+    type: "lifecycle"
+    statement: "一个事务内可以定义多个保存点。"
+    status: "confirmed"
+    source_anchor: "L12"
+  -
+    id: "savepoint_fact_error_identity"
+    type: "open_question"
+    statement: "事务外 SAVEPOINT 的具体错误身份未给出，负向执行 Oracle 待校准。"
+    status: "needs_verification"
+    source_anchor: "L12"
+  -
+    id: "savepoint_fact_node_failure"
+    type: "lifecycle"
+    statement: "节点故障导致节点线程或进程退出时不能回滚到保存点，整个事务回滚。"
+    status: "confirmed"
+    source_anchor: "L13-L15"
+  -
+    id: "savepoint_fact_communication_failure"
+    type: "lifecycle"
+    statement: "通信故障导致节点线程或进程退出时整个事务回滚。"
+    status: "confirmed"
+    source_anchor: "L13-L15"
+  -
+    id: "savepoint_fact_copy_shape_failure"
+    type: "lifecycle"
+    statement: "COPY FROM 源数据与目标表结构不一致报错时整个事务回滚。"
+    status: "confirmed"
+    source_anchor: "L13-L15"
+  -
+    id: "savepoint_fact_failure_setup_gap"
+    type: "open_question"
+    statement: "本批未纳入 COPY FROM 全章和故障注入环境，异常场景的可执行前置条件待补。"
+    status: "needs_verification"
+    source_anchor: "L13-L15"
+  -
+    id: "savepoint_fact_retain_old"
+    type: "lifecycle"
+    statement: "GaussDB 保留同名的旧保存点，而非按 SQL 标准自动删除旧点。"
+    status: "confirmed"
+    source_anchor: "L16-L20"
+  -
+    id: "savepoint_fact_latest_visible"
+    type: "lifecycle"
+    statement: "回滚或释放同名保存点时只使用最近定义的保存点。"
+    status: "confirmed"
+    source_anchor: "L16-L20"
+  -
+    id: "savepoint_fact_older_reappears"
+    type: "lifecycle"
+    statement: "释放最新同名保存点后，旧点再次可被 ROLLBACK TO 和 RELEASE 访问。"
+    status: "confirmed"
+    source_anchor: "L16-L20"
+  -
+    id: "savepoint_fact_syntax"
+    type: "syntax"
+    statement: "SAVEPOINT 后跟保存点名称。"
+    status: "confirmed"
+    source_anchor: "L23-L23"
+  -
+    id: "savepoint_fact_name"
+    type: "syntax"
+    statement: "savepoint_name 表示新保存点名称。"
+    status: "confirmed"
+    source_anchor: "L29-L30"
+  -
+    id: "savepoint_fact_nesting_advice"
+    type: "environment"
+    statement: "建议及时释放保存点且嵌套不超过 10000，以避免性能恶化；这是建议，不是硬上限。"
+    status: "confirmed"
+    source_anchor: "L36-L37"
+  -
+    id: "savepoint_fact_example_table"
+    type: "example"
+    statement: "示例创建 table1。"
+    status: "confirmed"
+    source_anchor: "L41-L42"
+  -
+    id: "savepoint_fact_example_begin"
+    type: "example"
+    statement: "示例开启事务。"
+    status: "confirmed"
+    source_anchor: "L44-L45"
+  -
+    id: "savepoint_fact_example_first"
+    type: "example"
+    statement: "示例在保存点之前插入 1。"
+    status: "confirmed"
+    source_anchor: "L47-L48"
+  -
+    id: "savepoint_fact_example_savepoint"
+    type: "example"
+    statement: "示例定义 my_savepoint。"
+    status: "confirmed"
+    source_anchor: "L50-L51"
+  -
+    id: "savepoint_fact_example_second"
+    type: "example"
+    statement: "示例在保存点之后插入 2。"
+    status: "confirmed"
+    source_anchor: "L53-L54"
+  -
+    id: "savepoint_fact_example_rollback"
+    type: "example"
+    statement: "示例回滚至保存点。"
+    status: "confirmed"
+    source_anchor: "L56-L57"
+  -
+    id: "savepoint_fact_example_third"
+    type: "example"
+    statement: "示例再次插入 3。"
+    status: "confirmed"
+    source_anchor: "L59-L60"
+  -
+    id: "savepoint_fact_example_commit"
+    type: "example"
+    statement: "示例提交事务。"
+    status: "confirmed"
+    source_anchor: "L62-L63"
+  -
+    id: "savepoint_fact_example_result"
+    type: "example"
+    statement: "示例最终有 1 和 3，没有已回滚的 2。"
+    status: "confirmed"
+    source_anchor: "L65-L66"
+exported_fact_refs:
+  - "savepoint_fact_create"
+  - "savepoint_fact_restore"
+  - "savepoint_fact_retain_old"
+  - "savepoint_fact_latest_visible"
+  - "savepoint_fact_older_reappears"
+manifest_refs:
+  - "manifest_savepoint_positive"
+matrix_refs: []
+fixture_refs:
+  - "fixture_savepoint_dependency_begin_transaction_table"
+  - "fixture_savepoint_defined"
+scenario_refs:
+  - "scenario_savepoint_documented_restore"
+  - "scenario_savepoint_same_name_stack"
+  - "scenario_savepoint_outside_transaction"
+  - "scenario_savepoint_failure_boundaries"
+  - "scenario_savepoint_nesting_cost"

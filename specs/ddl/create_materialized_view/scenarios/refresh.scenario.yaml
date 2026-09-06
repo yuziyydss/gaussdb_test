@@ -1,0 +1,51 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_create_materialized_view_refresh"
+name: "CREATE MATERIALIZED VIEW refresh"
+status: "planned"
+description: "创建后插入的数据仅在刷新后可见"
+factor_ref: "create_materialized_view"
+fixture_refs:
+  - "fixture_create_materialized_view_full"
+fact_refs:
+  - "create_materialized_view_fact_full"
+  - "create_materialized_view_fact_persist_query"
+  - "create_materialized_view_fact_refresh_sync"
+  - "create_materialized_view_fact_stale_example"
+  - "create_materialized_view_fact_result_example"
+preconditions: []
+steps:
+  -
+    id: "insert"
+    action: "execute_sql"
+    sql: "INSERT INTO t_mv_source VALUES (1, 2), (3, 4)"
+  -
+    id: "before"
+    action: "execute_sql"
+    sql: "SELECT col_1, col_2 FROM mv_full ORDER BY col_1"
+  -
+    id: "refresh"
+    action: "execute_sql"
+    sql: "REFRESH MATERIALIZED VIEW mv_full"
+  -
+    id: "after"
+    action: "execute_sql"
+    sql: "SELECT col_1, col_2 FROM mv_full ORDER BY col_1"
+oracles:
+  -
+    after_step: "before"
+    kind: "result_set_equals"
+    expected: []
+  -
+    after_step: "after"
+    kind: "result_set_equals"
+    expected:
+      -
+        - 1
+        - 2
+      -
+        - 3
+        - 4
+execution_requirements:
+  - "database"
+  - "same_session"

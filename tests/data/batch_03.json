@@ -1,0 +1,59 @@
+{
+  "id": "batch_03",
+  "source_catalog": "intranet_corpus/catalog.json",
+  "new_chapters": [
+    "ALTER VIEW", "DROP VIEW", "ALTER SEQUENCE", "DROP SEQUENCE",
+    "ALTER INDEX", "DROP INDEX", "CREATE SCHEMA", "ALTER SCHEMA", "DROP SCHEMA",
+    "PREPARE", "EXECUTE", "DEALLOCATE", "SAVEPOINT", "RELEASE SAVEPOINT",
+    "ROLLBACK TO SAVEPOINT", "ROLLBACK", "START TRANSACTION", "SET TRANSACTION",
+    "VALUES", "ABORT"
+  ],
+  "existing_providers": ["SELECT", "CREATE TABLE", "CREATE VIEW", "CREATE INDEX", "CREATE SEQUENCE", "BEGIN", "COMMIT | END", "GRANT", "INSERT", "UPDATE", "DELETE", "MERGE INTO", "ALTER TABLE", "DROP TABLE"],
+  "extraction_dependencies": {
+    "ALTER VIEW": ["CREATE VIEW", "CREATE SCHEMA", "GRANT"],
+    "DROP VIEW": ["CREATE VIEW", "GRANT"],
+    "ALTER SEQUENCE": ["CREATE SEQUENCE", "CREATE TABLE", "GRANT"],
+    "DROP SEQUENCE": ["CREATE SEQUENCE", "GRANT"],
+    "ALTER INDEX": ["CREATE INDEX", "CREATE TABLE", "GRANT"],
+    "DROP INDEX": ["CREATE INDEX", "GRANT"],
+    "CREATE SCHEMA": ["CREATE TABLE", "CREATE VIEW", "CREATE INDEX", "CREATE SEQUENCE", "GRANT"],
+    "ALTER SCHEMA": ["CREATE SCHEMA", "GRANT"],
+    "DROP SCHEMA": ["CREATE SCHEMA", "GRANT"],
+    "VALUES": ["SELECT", "INSERT"],
+    "PREPARE": ["SELECT", "INSERT", "UPDATE", "DELETE", "MERGE INTO", "VALUES"],
+    "EXECUTE": ["PREPARE", "ALTER TABLE"],
+    "DEALLOCATE": ["PREPARE"],
+    "START TRANSACTION": ["BEGIN", "COMMIT | END"],
+    "SET TRANSACTION": ["START TRANSACTION"],
+    "SAVEPOINT": ["START TRANSACTION"],
+    "RELEASE SAVEPOINT": ["SAVEPOINT"],
+    "ROLLBACK TO SAVEPOINT": ["SAVEPOINT"],
+    "ROLLBACK": ["BEGIN", "COMMIT | END", "CREATE TABLE", "ALTER TABLE"],
+    "ABORT": ["ROLLBACK"]
+  },
+  "supplemental_sections": [
+    {"section": "1.13.9.40", "title": "CREATE ROLE", "consumers": ["CREATE SCHEMA", "ALTER SCHEMA", "ALTER VIEW", "ALTER SEQUENCE"], "reason": "所有者和角色成员前置条件；只提供正文，不扩大本批因子完成分母"},
+    {"section": "1.13.9.58", "title": "CREATE USER", "consumers": ["ALTER SEQUENCE", "ALTER SCHEMA"], "reason": "所有者变更示例引用的用户创建"},
+    {"section": "1.13.9.50", "title": "CREATE TABLE PARTITION", "consumers": ["ALTER INDEX", "CREATE SCHEMA"], "reason": "索引分区和 schema_element 支持的分区表语法"},
+    {"section": "1.13.9.52", "title": "CREATE TABLESPACE", "consumers": ["ALTER INDEX"], "reason": "SET TABLESPACE 与 MOVE PARTITION 的现有表空间前置条件"},
+    {"section": "1.13.9.56", "title": "CREATE TRIGGER", "consumers": ["CREATE SCHEMA"], "reason": "schema_element 明确支持的子命令"},
+    {"section": "1.13.18.5", "title": "REINDEX", "consumers": ["ALTER INDEX"], "reason": "SET/RESET 存储参数可能需要重建索引"},
+    {"section": "1.13.10.2", "title": "DECLARE", "consumers": ["ROLLBACK TO SAVEPOINT"], "reason": "保存点内外的游标生命周期"},
+    {"section": "1.13.12.1", "title": "FETCH", "consumers": ["ROLLBACK TO SAVEPOINT", "SET TRANSACTION", "START TRANSACTION"], "reason": "游标位置不随保存点回滚；首次语句后的隔离级别限制"},
+    {"section": "1.13.9.4", "title": "CLOSE", "consumers": ["ROLLBACK TO SAVEPOINT"], "reason": "游标关闭不因保存点回滚撤销"},
+    {"section": "1.6.15", "title": "SEQUENCE函数", "consumers": ["ALTER SEQUENCE", "DROP SEQUENCE"], "reason": "nextval/setval/currval/lastval 和序列缓存、当前值"},
+    {"section": "1.9.2", "title": "操作符", "consumers": ["PREPARE", "VALUES"], "reason": "PREPARE 明确转引 unknown 参数的操作符解析规则"},
+    {"section": "1.9.3", "title": "函数", "consumers": ["PREPARE", "EXECUTE"], "reason": "PREPARE 明确转引 unknown 参数的函数解析规则"},
+    {"section": "1.9.5", "title": "UNION，CASE和相关构造", "consumers": ["VALUES"], "reason": "VALUES 跨行公共类型契约的相关类型推导正文，待核对可复用范围"},
+    {"section": "1.4.3", "title": "模式级字符集和字符序", "consumers": ["CREATE SCHEMA", "ALTER SCHEMA"], "reason": "模式默认字符集和字符序，B/M 兼容分支仅建门控规格"}
+  ],
+  "open_source_questions": [
+    {"consumer": "ALTER VIEW", "reference": "开发指南/特性使用指导/失效重编译", "reason": "本地仅有参考手册；不得将其示例当成开发指南的全部规则"},
+    {"consumer": "CREATE SCHEMA", "reference": "表1-379及M-Compatibility对应章节", "reason": "先核实表定位；M模式不属于本批general语法的无条件成功范围"},
+    {"consumer": "ALTER SCHEMA", "reference": "表1-379及M-Compatibility对应章节", "reason": "字符集/字符序值域及跨模式差异需独立核实"},
+    {"consumer": "SET TRANSACTION", "reference": "sql_compatibility、b_format_behavior_compat_options", "reason": "命令正文已给门控条件；完整参数定义尚未加入，禁止自动修改实例配置"},
+    {"consumer": "ALTER INDEX", "reference": "disable_keyword_options、enable_unique_checking_of_unusable_index", "reason": "命令正文已给条件；完整参数章节及运行环境尚未验证"}
+  ],
+  "review_status": "source_plan_reviewed",
+  "database_execution": false
+}

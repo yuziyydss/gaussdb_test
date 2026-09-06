@@ -1,0 +1,297 @@
+schema_version: 1
+kind: "factor"
+id: "drop_view"
+name: "DROP VIEW"
+category: "DDL"
+status: "needs_review"
+description: "第三批 PDF 抽取；有限生成域与未执行场景分开报告。"
+source:
+  product: "GaussDB"
+  document: "集中式版参考 / 1.13.10.49 DROP VIEW"
+  version: "V2.0-10.0.0"
+  artifact_sha256: "cdd8e65129dfc0d9aa807f58068651508044e4a156ecb617e5f23036ccd8ff21"
+  parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+  extraction_rule_version: "gaussdb-pdf-outline-v1"
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: "gaussdb_v2_0_10_0_0_centralized_reference_01"
+    source_relpath: "general/ddl/drop_view.txt"
+    chapter_sha256: "cdd8e65129dfc0d9aa807f58068651508044e4a156ecb617e5f23036ccd8ff21"
+source_ledger_ref: "source_ledger_drop_view"
+syntax_ref: "syntax_drop_view"
+dimensions:
+  if_exists:
+    description: "缺失对象容忍"
+    classes:
+      -
+        id: "drop_view_if_exists_absent_class"
+        meaning: "absent"
+        values:
+          -
+            id: "drop_view_if_exists_absent"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_view_fact_syntax"
+      -
+        id: "drop_view_if_exists_present_class"
+        meaning: "present"
+        values:
+          -
+            id: "drop_view_if_exists_present"
+            render: "IF EXISTS"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_view_fact_if_exists"
+  behavior:
+    description: "依赖处理"
+    classes:
+      -
+        id: "drop_view_behavior_default_class"
+        meaning: "default"
+        values:
+          -
+            id: "drop_view_behavior_default"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_view_fact_default_restrict"
+      -
+        id: "drop_view_behavior_restrict_class"
+        meaning: "restrict"
+        values:
+          -
+            id: "drop_view_behavior_restrict"
+            render: "RESTRICT"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_view_fact_restrict"
+      -
+        id: "drop_view_behavior_cascade_class"
+        meaning: "cascade"
+        values:
+          -
+            id: "drop_view_behavior_cascade"
+            render: "CASCADE"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_view_fact_cascade"
+  targets:
+    description: "一/两视图与缺失/依赖状态有限域"
+    classes:
+      -
+        id: "drop_view_targets_one_class"
+        meaning: "one"
+        values:
+          -
+            id: "drop_view_targets_one"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_view_fact_syntax"
+              - "drop_view_fact_name"
+            properties:
+              items:
+                - "v_dv_one"
+              exists: true
+              dependent: false
+      -
+        id: "drop_view_targets_two_class"
+        meaning: "two"
+        values:
+          -
+            id: "drop_view_targets_two"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_view_fact_syntax"
+              - "drop_view_fact_name"
+            properties:
+              items:
+                - "v_dv_one"
+                - "v_dv_two"
+              exists: true
+              dependent: false
+      -
+        id: "drop_view_targets_missing_class"
+        meaning: "missing"
+        values:
+          -
+            id: "drop_view_targets_missing"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_view_fact_notice"
+            properties:
+              items:
+                - "v_dv_missing"
+              exists: false
+              dependent: false
+      -
+        id: "drop_view_targets_dependent_class"
+        meaning: "dependent"
+        values:
+          -
+            id: "drop_view_targets_dependent"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_view_fact_cascade"
+              - "drop_view_fact_restrict"
+            properties:
+              items:
+                - "v_dv_base"
+              exists: true
+              dependent: true
+rules:
+  -
+    id: "drop_view_rule_exists"
+    kind: "requires"
+    expression: "if_exists == 'drop_view_if_exists_present' or targets.properties.exists == True"
+    fact_refs:
+      - "drop_view_fact_name"
+    severity: "error"
+  -
+    id: "drop_view_rule_dependencies"
+    kind: "requires"
+    expression: "behavior == 'drop_view_behavior_cascade' or targets.properties.dependent == False"
+    fact_refs:
+      - "drop_view_fact_restrict"
+    severity: "error"
+structural_checks: []
+facts:
+  - id: drop_view_fact_missing_error
+    type: behavior_oracle
+    statement: 由目标合法性条件导出的负向预期；具体错误类别及 SQLSTATE 需在目标版本校准。
+    status: needs_verification
+    source_anchor: L25-L27
+  -
+    id: "drop_view_fact_purpose"
+    type: "lifecycle"
+    statement: "删除数据库中的视图。"
+    status: "confirmed"
+    source_anchor: "L5-L5"
+  -
+    id: "drop_view_fact_authorization"
+    type: "environment"
+    statement: "视图所有者、模式所有者、获视图 DROP 或 DROP ANY TABLE 权限用户可删除。"
+    status: "confirmed"
+    source_anchor: "L9-L11"
+  -
+    id: "drop_view_fact_sysadmin"
+    type: "environment"
+    statement: "系统管理员的默认删除权限以三权分立关闭为条件。"
+    status: "confirmed"
+    source_anchor: "L9-L11"
+  -
+    id: "drop_view_fact_syntax"
+    type: "syntax"
+    statement: "DROP VIEW 可选 IF EXISTS，重复视图名列表及 CASCADE/RESTRICT。"
+    status: "confirmed"
+    source_anchor: "L14-L14"
+  -
+    id: "drop_view_fact_if_exists"
+    type: "syntax"
+    statement: "IF EXISTS 检查视图存在性。"
+    status: "confirmed"
+    source_anchor: "L20-L21"
+  -
+    id: "drop_view_fact_existing"
+    type: "behavior_oracle"
+    statement: "IF EXISTS 指定存在视图时删除成功。"
+    status: "confirmed"
+    source_anchor: "L22-L22"
+  -
+    id: "drop_view_fact_notice"
+    type: "behavior_oracle"
+    statement: "IF EXISTS 指定缺失视图时不删除，仅 NOTICE。"
+    status: "confirmed"
+    source_anchor: "L23-L24"
+  -
+    id: "drop_view_fact_name"
+    type: "constraint"
+    statement: "视图名引用已有视图；IF EXISTS 的缺失分支除外。"
+    status: "confirmed"
+    source_anchor: "L25-L27"
+  -
+    id: "drop_view_fact_default_restrict"
+    type: "behavior_oracle"
+    statement: "省略依赖处理子句时默认为 RESTRICT。"
+    status: "confirmed"
+    source_anchor: "L28-L29"
+  -
+    id: "drop_view_fact_cascade"
+    type: "lifecycle"
+    statement: "CASCADE 同时删除依赖视图的对象，例如其他视图。"
+    status: "confirmed"
+    source_anchor: "L30-L30"
+  -
+    id: "drop_view_fact_restrict"
+    type: "constraint"
+    statement: "RESTRICT 遇依赖对象时拒绝删除。"
+    status: "confirmed"
+    source_anchor: "L31-L31"
+  -
+    id: "drop_view_fact_restrict_error"
+    type: "behavior_oracle"
+    statement: "有依赖的 RESTRICT 删除应失败。"
+    status: "confirmed"
+    source_anchor: "L31-L31"
+  -
+    id: "drop_view_fact_error_identity"
+    type: "open_question"
+    statement: "正文未给依赖拒绝/缺失对象的 SQLSTATE；负向 Oracle 需校准。"
+    status: "needs_verification"
+    source_anchor: "L31-L31"
+  -
+    id: "drop_view_fact_example_table"
+    type: "example"
+    statement: "示例建立两列整数表。"
+    status: "confirmed"
+    source_anchor: "L35-L36"
+  -
+    id: "drop_view_fact_example_seed"
+    type: "example"
+    statement: "示例向两列整数表写入 1 至 100。"
+    status: "confirmed"
+    source_anchor: "L37-L37"
+  -
+    id: "drop_view_fact_example_view"
+    type: "example"
+    statement: "示例创建 col1<3 的过滤视图。"
+    status: "confirmed"
+    source_anchor: "L39-L40"
+  -
+    id: "drop_view_fact_example_rows"
+    type: "example"
+    statement: "示例查询过滤视图得 (1,1)、(2,2) 两行。"
+    status: "confirmed"
+    source_anchor: "L42-L48"
+  -
+    id: "drop_view_fact_example_drop"
+    type: "example"
+    statement: "示例随后删除视图。"
+    status: "confirmed"
+    source_anchor: "L50-L51"
+exported_fact_refs: []
+manifest_refs:
+  - "manifest_drop_view_missing_negative"
+  - "manifest_drop_view_positive"
+  - "manifest_drop_view_restrict_negative"
+matrix_refs: []
+fixture_refs:
+  - "fixture_drop_view_views"
+scenario_refs:
+  - "scenario_drop_view_delete_and_notice"
+  - "scenario_drop_view_dependencies"
+  - "scenario_drop_view_permissions"
+  - "scenario_drop_view_documented_example"

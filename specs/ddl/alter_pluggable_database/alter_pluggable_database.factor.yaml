@@ -1,0 +1,190 @@
+schema_version: 1
+kind: "factor"
+id: "alter_pluggable_database"
+name: "ALTER PLUGGABLE DATABASE"
+category: "DDL"
+status: "needs_review"
+description: "第八批 PDF 抽取；有限生成域与未执行场景分开报告。"
+source:
+  product: "GaussDB"
+  document: "集中式版参考 / 1.13.7.23 ALTER PLUGGABLE DATABASE"
+  version: "V2.0-10.0.0"
+  artifact_sha256: "5a62c0782e1c42ba9e353996561f659c3e2068c5c7be01c8eb9aaf96eb736750"
+  parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+  extraction_rule_version: "gaussdb-pdf-outline-v1"
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: "gaussdb_v2_0_10_0_0_centralized_reference_01"
+    source_relpath: "general/ddl/alter_pluggable_database.txt"
+    chapter_sha256: "5a62c0782e1c42ba9e353996561f659c3e2068c5c7be01c8eb9aaf96eb736750"
+source_ledger_ref: "source_ledger_alter_pluggable_database"
+syntax_ref: "syntax_alter_pluggable_database"
+dimensions:
+  pdb_name:
+    description: "专用已创建PDB"
+    classes:
+      -
+        id: "alter_pluggable_database_pdb_name_dedicated_class"
+        meaning: "dedicated"
+        values:
+          -
+            id: "alter_pluggable_database_pdb_name_dedicated"
+            render: "b8_test_pdb"
+            representative: true
+            validity: "conditional"
+            fact_refs:
+              - "alter_pluggable_database_fact_name"
+    default_value_id: "alter_pluggable_database_pdb_name_dedicated"
+  action:
+    description: "PDB状态动作"
+    classes:
+      -
+        id: "alter_pluggable_database_action_a0_class"
+        meaning: "a0"
+        values:
+          -
+            id: "alter_pluggable_database_action_a0"
+            render: "OPEN"
+            representative: true
+            validity: "conditional"
+            fact_refs:
+              - "alter_pluggable_database_fact_open"
+      -
+        id: "alter_pluggable_database_action_a1_class"
+        meaning: "a1"
+        values:
+          -
+            id: "alter_pluggable_database_action_a1"
+            render: "CLOSE"
+            representative: true
+            validity: "conditional"
+            fact_refs:
+              - "alter_pluggable_database_fact_close"
+      -
+        id: "alter_pluggable_database_action_a2_class"
+        meaning: "a2"
+        values:
+          -
+            id: "alter_pluggable_database_action_a2"
+            render: "CLOSE IMMEDIATE"
+            representative: true
+            validity: "conditional"
+            fact_refs:
+              - "alter_pluggable_database_fact_force_close"
+    default_value_id: "alter_pluggable_database_action_a0"
+rules: []
+structural_checks: []
+facts:
+  -
+    id: "alter_pluggable_database_fact_purpose"
+    type: "lifecycle"
+    statement: "打开、关闭或强制关闭PDB。"
+    status: "confirmed"
+    source_anchor: "L5-L5"
+  -
+    id: "alter_pluggable_database_fact_mtd"
+    type: "environment"
+    statement: "要求enable_mtd=on。"
+    status: "confirmed"
+    source_anchor: "L8-L8"
+  -
+    id: "alter_pluggable_database_fact_non_pdb_not_m"
+    type: "environment"
+    statement: "只在非PDB且非M兼容库执行。"
+    status: "confirmed"
+    source_anchor: "L9-L9"
+  -
+    id: "alter_pluggable_database_fact_privilege"
+    type: "environment"
+    statement: "要求PDB属主或sysadmin。"
+    status: "confirmed"
+    source_anchor: "L10-L11"
+  -
+    id: "alter_pluggable_database_fact_template_admin"
+    type: "environment"
+    statement: "只有初始用户可变更template_pdb。"
+    status: "confirmed"
+    source_anchor: "L12-L12"
+  -
+    id: "alter_pluggable_database_fact_template_connect"
+    type: "environment"
+    statement: "只有初始用户可连接模板PDB。"
+    status: "confirmed"
+    source_anchor: "L15-L15"
+  -
+    id: "alter_pluggable_database_fact_template_data"
+    type: "constraint"
+    statement: "禁止模板PDB内执行数据操作；例如模板表空间软链接不会被新PDB同步，可能发生异常。"
+    status: "confirmed"
+    source_anchor: "L16-L18"
+  -
+    id: "alter_pluggable_database_fact_name"
+    type: "syntax"
+    statement: "PDB名为符合标识符规范的字符串。"
+    status: "confirmed"
+    source_anchor: "L28-L30"
+  -
+    id: "alter_pluggable_database_fact_open"
+    type: "lifecycle"
+    statement: "OPEN启动服务，只有开启状态允许连接。"
+    status: "confirmed"
+    source_anchor: "L31-L35"
+  -
+    id: "alter_pluggable_database_fact_resource_plan"
+    type: "environment"
+    statement: "当前资源计划须有与PDB关联的资源计划指令才能打开。"
+    status: "confirmed"
+    source_anchor: "L38-L38"
+  -
+    id: "alter_pluggable_database_fact_close"
+    type: "lifecycle"
+    statement: "CLOSE停止服务并保留基本维护；有业务连接时最多等5秒，仍有连接则关闭失败。"
+    status: "confirmed"
+    source_anchor: "L39-L44"
+  -
+    id: "alter_pluggable_database_fact_force_close"
+    type: "lifecycle"
+    statement: "CLOSE IMMEDIATE主动清退业务连接后关闭PDB。"
+    status: "confirmed"
+    source_anchor: "L45-L47"
+  -
+    id: "alter_pluggable_database_fact_syntax"
+    type: "syntax"
+    statement: "PDB名称后为OPEN、CLOSE、CLOSE IMMEDIATE三选一。"
+    status: "confirmed"
+    source_anchor: "L22-L22"
+  -
+    id: "alter_pluggable_database_fact_prerequisite"
+    type: "example"
+    statement: "前置创建PDB。"
+    status: "confirmed"
+    source_anchor: "L50-L51"
+  -
+    id: "alter_pluggable_database_fact_reopen"
+    type: "example"
+    statement: "重新打开示例。"
+    status: "confirmed"
+    source_anchor: "L61-L63"
+  -
+    id: "alter_pluggable_database_fact_force"
+    type: "example"
+    statement: "强制关闭示例。"
+    status: "confirmed"
+    source_anchor: "L65-L67"
+  -
+    id: "alter_pluggable_database_fact_pdb_runtime_contract"
+    type: "open_question"
+    statement: "需要专用多租PDB、资源计划与业务连接控制；不能把三种动作视为同一初始状态下都成功。"
+    status: "needs_verification"
+    source_anchor: "L5-L5"
+exported_fact_refs:
+  - "alter_pluggable_database_fact_close"
+  - "alter_pluggable_database_fact_force_close"
+  - "alter_pluggable_database_fact_resource_plan"
+manifest_refs: []
+matrix_refs:
+  - "matrix_alter_pluggable_database_coverage"
+fixture_refs: []
+scenario_refs:
+  - "scenario_alter_pluggable_database_pdb_lifecycle"
+  - "scenario_alter_pluggable_database_documented_contracts"

@@ -1,0 +1,38 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_drop_index_concurrent_lifecycle"
+name: "DROP INDEX concurrent_lifecycle"
+status: "planned"
+description: "多会话调度 DML、DDL、超时及取消，核对阻塞、错误与非法索引状态后清理。"
+factor_ref: "drop_index"
+fixture_refs: []
+fact_refs:
+  - "drop_index_fact_online_dml"
+  - "drop_index_fact_lock_timeout"
+  - "drop_index_fact_deadlock"
+  - "drop_index_fact_invalid_residue"
+  - "drop_index_fact_retry_cleanup"
+  - "drop_index_fact_timing"
+preconditions:
+  - "独占测试实例、受控超时、取消权限；禁止共享业务负载"
+steps:
+  -
+    id: "schedule"
+    action: "multi_session_fault_matrix"
+    note: "分别记录锁/事务屏障及有效状态；错误与目录字段先校准。"
+  -
+    id: "cleanup"
+    action: "cleanup_test_indexes_only"
+    note: "先在线重试，失败才普通 DROP；只清理本次创建且已记录的索引。"
+oracles:
+  -
+    after_step: "schedule"
+    kind: "locking_and_state_trace"
+    expected: "与所选故障分支及文档一致"
+  -
+    after_step: "cleanup"
+    kind: "owned_index_residue"
+    expected: 0
+execution_requirements:
+  - "database"
+  - "same_session"

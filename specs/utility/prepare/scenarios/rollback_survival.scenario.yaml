@@ -1,0 +1,47 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_prepare_rollback_survival"
+name: "PREPARE rollback_survival"
+status: "planned"
+description: "在独占连接验证事务回滚后语句仍存在；未执行。"
+factor_ref: "prepare"
+fixture_refs:
+  - "fixture_prepare_isolated_session"
+fact_refs:
+  - "prepare_fact_purpose"
+  - "prepare_fact_rollback_survival"
+  - "prepare_fact_release"
+  - "prepare_fact_session_scope"
+preconditions:
+  - "runner 必须新建独占连接，禁止连接池复用业务会话。"
+steps:
+  -
+    id: "begin"
+    action: "execute_sql"
+    sql: "BEGIN;"
+  -
+    id: "prepare"
+    action: "execute_sql"
+    sql: "PREPARE p_ps_survive AS SELECT 1 AS a;"
+  -
+    id: "rollback"
+    action: "execute_sql"
+    sql: "ROLLBACK;"
+  -
+    id: "execute"
+    action: "execute_sql"
+    sql: "EXECUTE p_ps_survive;"
+  -
+    id: "release"
+    action: "execute_sql"
+    sql: "DEALLOCATE p_ps_survive;"
+oracles:
+  -
+    after_step: "execute"
+    kind: "result_rows"
+    expected:
+      -
+        - 1
+execution_requirements:
+  - "database"
+  - "same_session"

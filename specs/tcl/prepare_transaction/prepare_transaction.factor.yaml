@@ -1,0 +1,165 @@
+schema_version: 1
+kind: "factor"
+id: "prepare_transaction"
+name: "PREPARE TRANSACTION"
+category: "TCL"
+status: "needs_review"
+description: "第六批 PDF 抽取；有限生成域与未执行场景分开报告。"
+source:
+  product: "GaussDB"
+  document: "集中式版参考 / 1.13.17.3 PREPARE TRANSACTION"
+  version: "V2.0-10.0.0"
+  artifact_sha256: "3857642236c9f22bdcc47394f2eb3b6f715a827acc376f1ed7df74ec61185fac"
+  parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+  extraction_rule_version: "gaussdb-pdf-outline-v1"
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: "gaussdb_v2_0_10_0_0_centralized_reference_01"
+    source_relpath: "general/tcl/prepare_transaction.txt"
+    chapter_sha256: "3857642236c9f22bdcc47394f2eb3b6f715a827acc376f1ed7df74ec61185fac"
+source_ledger_ref: "source_ledger_prepare_transaction"
+syntax_ref: "syntax_prepare_transaction"
+dimensions:
+  transaction_id:
+    description: "ASCII 短标识符与199字节边界"
+    classes:
+      -
+        id: "prepare_transaction_transaction_id_short_class"
+        meaning: "short"
+        values:
+          -
+            id: "prepare_transaction_transaction_id_short"
+            render: "'fp_pt_short'"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "prepare_transaction_fact_id_length"
+              - "prepare_transaction_fact_unique"
+            fixture_refs:
+              - "fixture_prepare_transaction_active_0"
+            properties:
+              byte_length: 11
+      -
+        id: "prepare_transaction_transaction_id_max_valid_class"
+        meaning: "max_valid"
+        values:
+          -
+            id: "prepare_transaction_transaction_id_max_valid"
+            render: "'ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp'"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "prepare_transaction_fact_id_length"
+              - "prepare_transaction_fact_unique"
+            fixture_refs:
+              - "fixture_prepare_transaction_active_1"
+            properties:
+              byte_length: 199
+    default_value_id: "prepare_transaction_transaction_id_short"
+rules: []
+structural_checks: []
+facts:
+  -
+    id: "prepare_transaction_fact_purpose"
+    type: "lifecycle"
+    statement: "为当前事务准备两阶段提交。"
+    status: "confirmed"
+    source_anchor: "L5-L5"
+  -
+    id: "prepare_transaction_fact_durable"
+    type: "lifecycle"
+    statement: "准备后事务脱离会话，其状态保存在磁盘并跨崩溃保留。"
+    status: "confirmed"
+    source_anchor: "L7-L8"
+  -
+    id: "prepare_transaction_fact_complete"
+    type: "lifecycle"
+    statement: "准备好的事务可由任何会话提交或回滚。"
+    status: "confirmed"
+    source_anchor: "L10-L12"
+  -
+    id: "prepare_transaction_fact_visibility"
+    type: "behavior_oracle"
+    statement: "准备后原会话无活跃事务；预备事务效果在提交前不可见。"
+    status: "confirmed"
+    source_anchor: "L14-L16"
+  -
+    id: "prepare_transaction_fact_failure"
+    type: "behavior_oracle"
+    statement: "PREPARE TRANSACTION 失败时当前事务被取消。"
+    status: "confirmed"
+    source_anchor: "L18-L19"
+  -
+    id: "prepare_transaction_fact_internal"
+    type: "environment"
+    statement: "事务功能由数据库自动维护，不应显式使用。"
+    status: "confirmed"
+    source_anchor: "L22-L22"
+  -
+    id: "prepare_transaction_fact_capacity"
+    type: "environment"
+    statement: "执行前必须增大 max_prepared_transactions；建议至少等于 max_connections。"
+    status: "confirmed"
+    source_anchor: "L24-L26"
+  -
+    id: "prepare_transaction_fact_syntax"
+    type: "syntax"
+    statement: "PREPARE TRANSACTION 接受事务标识符。"
+    status: "confirmed"
+    source_anchor: "L29-L29"
+  -
+    id: "prepare_transaction_fact_unique"
+    type: "constraint"
+    statement: "预备事务标识符用于后续提交或回滚且不能与当前预备事务同名。"
+    status: "confirmed"
+    source_anchor: "L35-L38"
+  -
+    id: "prepare_transaction_fact_id_length"
+    type: "constraint"
+    statement: "事务标识符必须为字符串文本且小于 200 字节。"
+    status: "confirmed"
+    source_anchor: "L40-L40"
+  -
+    id: "prepare_transaction_fact_negative_profile"
+    type: "open_question"
+    statement: "200字节及多字节超限负向与冲突事务目标错误身份尚待验证；本批仅生成合法ASCII边界。"
+    status: "needs_verification"
+    source_anchor: "L40-L40"
+  -
+    id: "prepare_transaction_fact_cleanup_profile"
+    type: "open_question"
+    statement: "失败路径须按实际 prepared 状态清理；当前线性 teardown 不具备条件式恢复，禁止直接批量执行。"
+    status: "needs_verification"
+    source_anchor: "L18-L19"
+  -
+    id: "prepare_transaction_fact_example"
+    type: "example"
+    statement: "示例开始事务。"
+    status: "confirmed"
+    source_anchor: "L43-L46"
+  -
+    id: "prepare_transaction_fact_ex_prepare"
+    type: "example"
+    statement: "示例准备指定事务。"
+    status: "confirmed"
+    source_anchor: "L47-L50"
+  -
+    id: "prepare_transaction_fact_ex_rollback"
+    type: "example"
+    statement: "示例回滚指定预备事务。"
+    status: "confirmed"
+    source_anchor: "L51-L53"
+exported_fact_refs:
+  - "prepare_transaction_fact_syntax"
+  - "prepare_transaction_fact_id_length"
+  - "prepare_transaction_fact_internal"
+  - "prepare_transaction_fact_capacity"
+manifest_refs:
+  - "manifest_prepare_transaction_finite_identifiers"
+matrix_refs:
+  - "matrix_prepare_transaction_coverage"
+fixture_refs:
+  - "fixture_prepare_transaction_active_0"
+  - "fixture_prepare_transaction_active_1"
+scenario_refs:
+  - "scenario_prepare_transaction_two_phase_lifecycle"

@@ -1,0 +1,32 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_release_savepoint_aborted_state"
+name: "RELEASE SAVEPOINT aborted_state"
+status: "planned"
+description: "受控语句错误进入回滚态后尝试 RELEASE；只匹配目标禁止释放错误。"
+factor_ref: "release_savepoint"
+fixture_refs:
+  - "fixture_release_savepoint_dependency_savepoint_defined"
+fact_refs:
+  - "release_savepoint_fact_aborted_error"
+  - "release_savepoint_fact_error_identity"
+preconditions: []
+steps:
+  -
+    id: "fail"
+    action: "controlled_error_injection"
+    sql: "SELECT 1 / 0"
+    continue_on_expected_error: true
+  -
+    id: "release"
+    action: "execute_sql"
+    sql: "RELEASE sp_test"
+oracles:
+  -
+    after_step: "release"
+    kind: "target_error"
+    expected: "savepoint_release_in_aborted_transaction"
+    oracle_status: "needs_verification"
+execution_requirements:
+  - "database"
+  - "same_session"

@@ -1,0 +1,333 @@
+schema_version: 1
+kind: "factor"
+id: "cluster"
+name: "CLUSTER"
+category: "UTILITY"
+status: "needs_review"
+description: "第六批 PDF 抽取；有限生成域与未执行场景分开报告。"
+source:
+  product: "GaussDB"
+  document: "集中式版参考 / 1.13.9.5 CLUSTER"
+  version: "V2.0-10.0.0"
+  artifact_sha256: "88f51d4b7394cec0dac402707c47c9cef10e5b5c11e1dae08fbe7c9247b2a6b9"
+  parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+  extraction_rule_version: "gaussdb-pdf-outline-v1"
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: "gaussdb_v2_0_10_0_0_centralized_reference_01"
+    source_relpath: "general/utility/cluster.txt"
+    chapter_sha256: "88f51d4b7394cec0dac402707c47c9cef10e5b5c11e1dae08fbe7c9247b2a6b9"
+source_ledger_ref: "source_ledger_cluster"
+syntax_ref: "syntax_cluster"
+dimensions:
+  target:
+    description: "首次、重复与未指定索引的独立表"
+    classes:
+      -
+        id: "cluster_target_first_class"
+        meaning: "first"
+        values:
+          -
+            id: "cluster_target_first"
+            render: "t_cluster_source"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "cluster_fact_table"
+            properties:
+              clustered: false
+            fixture_refs:
+              - "fixture_cluster_indexed"
+      -
+        id: "cluster_target_repeat_class"
+        meaning: "repeat"
+        values:
+          -
+            id: "cluster_target_repeat"
+            render: "t_cluster_source"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "cluster_fact_table"
+            properties:
+              clustered: true
+            fixture_refs:
+              - "fixture_cluster_clustered"
+      -
+        id: "cluster_target_unset_class"
+        meaning: "unset"
+        values:
+          -
+            id: "cluster_target_unset"
+            render: "t_cluster_unset"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "cluster_fact_table"
+            properties:
+              clustered: false
+            fixture_refs:
+              - "fixture_cluster_fresh"
+    default_value_id: "cluster_target_first"
+  index:
+    description: "显式索引或依赖记录"
+    classes:
+      -
+        id: "cluster_index_using_class"
+        meaning: "using"
+        values:
+          -
+            id: "cluster_index_using"
+            render: "USING ix_cluster_source"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "cluster_fact_table_syntax"
+            properties:
+              specified: true
+      -
+        id: "cluster_index_none_class"
+        meaning: "none"
+        values:
+          -
+            id: "cluster_index_none"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "cluster_fact_table_syntax"
+            properties:
+              specified: false
+      -
+        id: "cluster_index_unset_using_class"
+        meaning: "unset_using"
+        values:
+          -
+            id: "cluster_index_unset_using"
+            render: "USING ix_cluster_unset"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "cluster_fact_index"
+            properties:
+              specified: true
+    default_value_id: "cluster_index_using"
+  verbose:
+    description: "详细信息"
+    classes:
+      -
+        id: "cluster_verbose_none_class"
+        meaning: "none"
+        values:
+          -
+            id: "cluster_verbose_none"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "cluster_fact_table_syntax"
+      -
+        id: "cluster_verbose_verbose_class"
+        meaning: "verbose"
+        values:
+          -
+            id: "cluster_verbose_verbose"
+            render: "VERBOSE"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "cluster_fact_verbose"
+    default_value_id: "cluster_verbose_none"
+rules:
+  -
+    id: "cluster_rule_first_index"
+    kind: "requires"
+    expression: "target.properties.clustered == False => index.properties.specified == True"
+    fact_refs:
+      - "cluster_fact_index_required"
+    severity: "error"
+structural_checks: []
+facts:
+  -
+    id: "cluster_fact_purpose"
+    type: "lifecycle"
+    statement: "按索引对表聚簇排序。"
+    status: "confirmed"
+    source_anchor: "L5-L5"
+  -
+    id: "cluster_fact_index"
+    type: "constraint"
+    statement: "聚簇指定索引必须已定义于目标表。"
+    status: "confirmed"
+    source_anchor: "L6-L7"
+  -
+    id: "cluster_fact_one_time"
+    type: "behavior_oracle"
+    statement: "聚簇按索引信息物理存储，后续更新不会自动维持聚簇顺序。"
+    status: "confirmed"
+    source_anchor: "L8-L10"
+  -
+    id: "cluster_fact_remember"
+    type: "lifecycle"
+    statement: "记录所用索引供再次聚簇；ALTER TABLE可设置或清除聚簇索引。"
+    status: "confirmed"
+    source_anchor: "L11-L15"
+  -
+    id: "cluster_fact_all"
+    type: "environment"
+    statement: "无参数时处理当前用户已聚簇表；管理员处理所有已聚簇表。"
+    status: "confirmed"
+    source_anchor: "L16-L18"
+  -
+    id: "cluster_fact_lock"
+    type: "lifecycle"
+    statement: "聚簇请求ACCESS EXCLUSIVE锁阻止读写。"
+    status: "confirmed"
+    source_anchor: "L19-L20"
+  -
+    id: "cluster_fact_btree"
+    type: "constraint"
+    statement: "仅行存B-Tree索引支持CLUSTER。"
+    status: "confirmed"
+    source_anchor: "L23-L23"
+  -
+    id: "cluster_fact_locality"
+    type: "behavior_oracle"
+    statement: "频繁访问同组特定数据可受益于聚簇。"
+    status: "confirmed"
+    source_anchor: "L25-L27"
+  -
+    id: "cluster_fact_range"
+    type: "behavior_oracle"
+    statement: "索引范围或同键多行访问可因页局部性减少磁盘访问。"
+    status: "confirmed"
+    source_anchor: "L28-L31"
+  -
+    id: "cluster_fact_disk"
+    type: "environment"
+    statement: "聚簇需临时表及索引备份，剩余磁盘至少为表与所有索引大小总和。"
+    status: "confirmed"
+    source_anchor: "L32-L34"
+  -
+    id: "cluster_fact_maintenance"
+    type: "lifecycle"
+    statement: "首次手动指定索引后可用周期维护脚本再次聚簇。"
+    status: "confirmed"
+    source_anchor: "L35-L37"
+  -
+    id: "cluster_fact_analyze"
+    type: "lifecycle"
+    statement: "聚簇后需ANALYZE更新排序统计以避免非最优规划。"
+    status: "confirmed"
+    source_anchor: "L38-L40"
+  -
+    id: "cluster_fact_no_transaction"
+    type: "environment"
+    statement: "CLUSTER不能在事务中执行。"
+    status: "confirmed"
+    source_anchor: "L41-L41"
+  -
+    id: "cluster_fact_system"
+    type: "environment"
+    statement: "未开启xc_maintenance_mode时忽略所有系统表。"
+    status: "confirmed"
+    source_anchor: "L42-L43"
+  -
+    id: "cluster_fact_expression_permission"
+    type: "environment"
+    statement: "表达式索引聚簇需要重建该索引的权限。"
+    status: "confirmed"
+    source_anchor: "L44-L44"
+  -
+    id: "cluster_fact_table_syntax"
+    type: "syntax"
+    statement: "CLUSTER可VERBOSE，表名后可USING索引。"
+    status: "confirmed"
+    source_anchor: "L47-L48"
+  -
+    id: "cluster_fact_partition_syntax"
+    type: "syntax"
+    statement: "表名后PARTITION括号指定分区，再可USING索引。"
+    status: "confirmed"
+    source_anchor: "L53-L54"
+  -
+    id: "cluster_fact_all_syntax"
+    type: "syntax"
+    statement: "CLUSTER可只带VERBOSE以重新聚簇已记录表。"
+    status: "confirmed"
+    source_anchor: "L59-L60"
+  -
+    id: "cluster_fact_verbose"
+    type: "behavior_oracle"
+    statement: "VERBOSE控制详细进度输出。"
+    status: "confirmed"
+    source_anchor: "L66-L67"
+  -
+    id: "cluster_fact_table"
+    type: "syntax"
+    statement: "目标表必须存在。"
+    status: "confirmed"
+    source_anchor: "L68-L71"
+  -
+    id: "cluster_fact_index_required"
+    type: "constraint"
+    statement: "首次聚簇必须指定既有索引；后续可省略并使用已记录索引。"
+    status: "confirmed"
+    source_anchor: "L72-L76"
+  -
+    id: "cluster_fact_partition"
+    type: "syntax"
+    statement: "目标分区必须存在。"
+    status: "confirmed"
+    source_anchor: "L77-L79"
+  -
+    id: "cluster_fact_example_first"
+    type: "example"
+    statement: "第一次USING索引聚簇并查看数据的例子。"
+    status: "confirmed"
+    source_anchor: "L82-L91"
+  -
+    id: "cluster_fact_example_again"
+    type: "example"
+    statement: "首次省略USING报错与重复聚簇的例子。"
+    status: "confirmed"
+    source_anchor: "L112-L121"
+  -
+    id: "cluster_fact_example_partition"
+    type: "example"
+    statement: "分区聚簇的例子。"
+    status: "confirmed"
+    source_anchor: "L137-L146"
+  -
+    id: "cluster_fact_partition_profile"
+    type: "open_question"
+    statement: "分区目标与索引对齐尚需专用分区fixture。"
+    status: "needs_verification"
+    source_anchor: "L53-L54"
+  -
+    id: "cluster_fact_all_profile"
+    type: "open_question"
+    statement: "无目标全库维护不进入默认清单，需独占实例授权。"
+    status: "needs_verification"
+    source_anchor: "L16-L18"
+  -
+    id: "cluster_fact_index_profile"
+    type: "open_question"
+    statement: "非B-Tree/非行存目标负向与表达式权限需独立能力profile。"
+    status: "needs_verification"
+    source_anchor: "L23-L23"
+exported_fact_refs: []
+manifest_refs:
+  - "manifest_cluster_first"
+  - "manifest_cluster_repeat"
+  - "manifest_cluster_first_missing_index"
+  - "manifest_cluster_first_unset_table"
+matrix_refs:
+  - "matrix_cluster_coverage"
+fixture_refs:
+  - "fixture_cluster_source"
+  - "fixture_cluster_indexed"
+  - "fixture_cluster_clustered"
+  - "fixture_cluster_fresh"
+scenario_refs:
+  - "scenario_cluster_cluster_lifecycle"

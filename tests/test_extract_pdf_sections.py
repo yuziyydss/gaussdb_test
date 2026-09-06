@@ -58,6 +58,17 @@ def bookmark(
 
 
 class PdfSectionExtractionTests(unittest.TestCase):
+    def test_chinese_supplemental_titles_use_section_identity(self):
+        paths = []
+        for section in ("1.9.2", "2.3.2"):
+            item = bookmark(
+                index=0, depth=2, path=("SQL参考", "类型转换", "操作符"),
+                section_number=section, title="操作符", variant="general",
+                page=10, y_from_top=90.0, printed="1",
+            )
+            paths.append(source_relpath_for(item, "utility"))
+        self.assertEqual(paths, ["general/utility/section_1_9_2.txt", "general/utility/section_2_3_2.txt"])
+
     def test_existing_catalog_requires_explicit_replacement_when_scope_changes(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "catalog.json"

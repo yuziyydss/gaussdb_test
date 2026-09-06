@@ -1,0 +1,53 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_reset_rollback"
+name: "RESET rollback"
+status: "planned"
+description: "比较 RESET 前后和 ROLLBACK 后的真实配置值；回滚只撤销事务内影响，不以 RESET 做测试清理。"
+factor_ref: "reset"
+fixture_refs: []
+fact_refs:
+  - "reset_fact_rollback"
+  - "set::set_fact_session_rollback"
+  - "reset_fact_defaults"
+  - "reset_fact_rome_example"
+  - "reset_fact_default_example"
+preconditions:
+  - "独占连接；缺省值单独从可信配置上下文取得；不固定 PRC。"
+steps:
+  -
+    id: "before"
+    action: "execute_sql"
+    sql: "SHOW timezone;"
+  -
+    id: "begin"
+    action: "execute_sql"
+    sql: "BEGIN;"
+  -
+    id: "change"
+    action: "execute_sql"
+    sql: "SET timezone TO 'Europe/Rome';"
+  -
+    id: "reset"
+    action: "execute_sql"
+    sql: "RESET timezone;"
+  -
+    id: "default"
+    action: "execute_sql"
+    sql: "SHOW timezone;"
+  -
+    id: "rollback"
+    action: "execute_sql"
+    sql: "ROLLBACK;"
+  -
+    id: "after"
+    action: "execute_sql"
+    sql: "SHOW timezone;"
+oracles:
+  -
+    after_step: "after"
+    kind: "result_equals_step"
+    expected: "before"
+execution_requirements:
+  - "database"
+  - "same_session"

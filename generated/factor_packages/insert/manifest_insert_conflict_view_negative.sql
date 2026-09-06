@@ -10,6 +10,7 @@
 -- expected_oracle_status: needs_verification
 -- expected_scope: syntax_and_semantics
 -- params: {"conflict_clause": "insert_on_conflict_nothing", "ignore_modifier": "insert_ignore_none", "plan_hint": "insert_hint_none", "returning_clause": "insert_returning_none", "source_profile": "insert_source_values_one", "target_profile": "insert_target_view", "with_clause": "insert_with_none"}
+-- environment_requirements: [{"allowed_values": ["PG"], "fact_refs": ["insert_fact_conflict_environment"], "key": "compatibility_mode"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS t_insert_view_base CASCADE;
 CREATE TABLE t_insert_view_base (id INTEGER, note VARCHAR(64));
@@ -29,6 +30,7 @@ DROP TABLE IF EXISTS t_insert_view_base CASCADE;
 -- expected_oracle_status: needs_verification
 -- expected_scope: syntax_and_semantics
 -- params: {"conflict_clause": "insert_on_conflict_nothing", "ignore_modifier": "insert_ignore_none", "plan_hint": "insert_hint_none", "returning_clause": "insert_returning_none", "source_profile": "insert_source_values_one", "target_profile": "insert_target_subquery", "with_clause": "insert_with_none"}
+-- environment_requirements: [{"allowed_values": ["PG"], "fact_refs": ["insert_fact_conflict_environment"], "key": "compatibility_mode"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS t_insert_view_base CASCADE;
 CREATE TABLE t_insert_view_base (id INTEGER, note VARCHAR(64));

@@ -1,0 +1,49 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_comment_replace_and_remove"
+name: "COMMENT replace_and_remove"
+status: "planned"
+description: "同对象替换注释后用NULL清除，不等同于字符串NULL。"
+factor_ref: "comment"
+fixture_refs:
+  - "fixture_comment_table"
+fact_refs:
+  - "comment_fact_lifecycle"
+preconditions: []
+steps:
+  -
+    id: "set"
+    action: "execute_sql"
+    sql: "COMMENT ON TABLE t_comment_source IS 'first';"
+  -
+    id: "replace"
+    action: "execute_sql"
+    sql: "COMMENT ON TABLE t_comment_source IS 'second';"
+  -
+    id: "read"
+    action: "execute_sql"
+    sql: "SELECT obj_description('t_comment_source'::regclass, 'pg_class');"
+  -
+    id: "clear"
+    action: "execute_sql"
+    sql: "COMMENT ON TABLE t_comment_source IS NULL;"
+  -
+    id: "after"
+    action: "execute_sql"
+    sql: "SELECT obj_description('t_comment_source'::regclass, 'pg_class');"
+oracles:
+  -
+    after_step: "read"
+    kind: "result_rows"
+    expected:
+      -
+        - "second"
+  -
+    after_step: "after"
+    kind: "result_rows"
+    expected:
+      -
+        - null
+execution_requirements:
+  - "database"
+  - "same_session"

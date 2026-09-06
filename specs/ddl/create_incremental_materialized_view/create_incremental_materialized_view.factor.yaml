@@ -1,0 +1,307 @@
+schema_version: 1
+kind: "factor"
+id: "create_incremental_materialized_view"
+name: "CREATE INCREMENTAL MATERIALIZED VIEW"
+category: "DDL"
+status: "needs_review"
+description: "第五批 PDF 抽取；有限生成域与未执行场景分开报告。"
+source:
+  product: "GaussDB"
+  document: "集中式版参考 / 1.13.9.26 CREATE INCREMENTAL MATERIALIZED VIEW"
+  version: "V2.0-10.0.0"
+  artifact_sha256: "46bc3101a4b14f36ab50ae93a7165cfd2d03e0775b439a290a69315c32b1b41f"
+  parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+  extraction_rule_version: "gaussdb-pdf-outline-v1"
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: "gaussdb_v2_0_10_0_0_centralized_reference_01"
+    source_relpath: "general/ddl/create_incremental_materialized_view.txt"
+    chapter_sha256: "46bc3101a4b14f36ab50ae93a7165cfd2d03e0775b439a290a69315c32b1b41f"
+source_ledger_ref: "source_ledger_create_incremental_materialized_view"
+syntax_ref: "syntax_create_incremental_materialized_view"
+dimensions:
+  columns:
+    description: "列别名数与输出列数受规则约束"
+    classes:
+      -
+        id: "create_incremental_materialized_view_columns_none_class"
+        meaning: "none"
+        values:
+          -
+            id: "create_incremental_materialized_view_columns_none"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "create_incremental_materialized_view_fact_column_count"
+            properties:
+              count: 0
+      -
+        id: "create_incremental_materialized_view_columns_two_class"
+        meaning: "two"
+        values:
+          -
+            id: "create_incremental_materialized_view_columns_two"
+            render: "(c1, c2)"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "create_incremental_materialized_view_fact_column_count"
+            properties:
+              count: 2
+      -
+        id: "create_incremental_materialized_view_columns_one_class"
+        meaning: "one"
+        values:
+          -
+            id: "create_incremental_materialized_view_columns_one"
+            render: "(c1)"
+            representative: true
+            validity: "invalid"
+            fact_refs:
+              - "create_incremental_materialized_view_fact_column_count"
+            properties:
+              count: 1
+    default_value_id: "create_incremental_materialized_view_columns_none"
+  query:
+    description: "普通源表有限查询，不用任意query文本"
+    classes:
+      -
+        id: "create_incremental_materialized_view_query_select_class"
+        meaning: "select"
+        values:
+          -
+            id: "create_incremental_materialized_view_query_select"
+            render: "SELECT col_1, col_2 FROM t_imv_source"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "create_incremental_materialized_view_fact_query"
+            properties:
+              column_count: 2
+              supported: true
+      -
+        id: "create_incremental_materialized_view_query_filter_class"
+        meaning: "filter"
+        values:
+          -
+            id: "create_incremental_materialized_view_query_filter"
+            render: "SELECT col_1, col_2 FROM t_imv_source WHERE col_1 > 0"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "create_incremental_materialized_view_fact_simple_union"
+            properties:
+              column_count: 2
+              supported: true
+      -
+        id: "create_incremental_materialized_view_query_union_class"
+        meaning: "union"
+        values:
+          -
+            id: "create_incremental_materialized_view_query_union"
+            render: "SELECT col_1, col_2 FROM t_imv_source UNION ALL SELECT col_1, col_2 FROM t_imv_right"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "create_incremental_materialized_view_fact_simple_union"
+            properties:
+              column_count: 2
+              supported: true
+      -
+        id: "create_incremental_materialized_view_query_table_class"
+        meaning: "table"
+        values:
+          -
+            id: "create_incremental_materialized_view_query_table"
+            render: "TABLE t_imv_source"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "create_incremental_materialized_view_fact_query"
+            properties:
+              column_count: 2
+              supported: true
+      -
+        id: "create_incremental_materialized_view_query_distinct_class"
+        meaning: "distinct"
+        values:
+          -
+            id: "create_incremental_materialized_view_query_distinct"
+            render: "SELECT DISTINCT col_1, col_2 FROM t_imv_source"
+            representative: true
+            validity: "invalid"
+            fact_refs:
+              - "create_incremental_materialized_view_fact_unsupported_queries"
+            properties:
+              column_count: 2
+              supported: false
+    default_value_id: "create_incremental_materialized_view_query_select"
+rules:
+  -
+    id: "create_incremental_materialized_view_rule_columns"
+    kind: "requires"
+    expression: "columns.properties.count == 0 or columns.properties.count == query.properties.column_count"
+    fact_refs:
+      - "create_incremental_materialized_view_fact_column_count"
+    severity: "error"
+  -
+    id: "create_incremental_materialized_view_rule_query"
+    kind: "requires"
+    expression: "query.properties.supported == True"
+    fact_refs:
+      - "create_incremental_materialized_view_fact_unsupported_queries"
+    severity: "error"
+structural_checks: []
+facts:
+  -
+    id: "create_incremental_materialized_view_fact_refresh_modes"
+    type: "lifecycle"
+    statement: "增量物化视图可全量刷新或增量刷新。"
+    status: "confirmed"
+    source_anchor: "L5-L7"
+  -
+    id: "create_incremental_materialized_view_fact_persistent"
+    type: "lifecycle"
+    statement: "持久化初始化查询以供刷新，物化视图不是临时表，不支持临时类型。"
+    status: "confirmed"
+    source_anchor: "L9-L12"
+  -
+    id: "create_incremental_materialized_view_fact_external_guide"
+    type: "open_question"
+    statement: "具体适用场景引用开发指南，当前 PDF 未给正文。"
+    status: "needs_verification"
+    source_anchor: "L16-L16"
+  -
+    id: "create_incremental_materialized_view_fact_source_restrictions"
+    type: "constraint"
+    statement: "不支持 DATABASE LINK/临时/全局临时基表。"
+    status: "confirmed"
+    source_anchor: "L19-L19"
+  -
+    id: "create_incremental_materialized_view_fact_simple_union"
+    type: "constraint"
+    statement: "仅简单过滤查询及基表 UNION ALL。"
+    status: "confirmed"
+    source_anchor: "L20-L20"
+  -
+    id: "create_incremental_materialized_view_fact_unsupported_queries"
+    type: "constraint"
+    statement: "不支持 WITH/GROUP BY/ORDER BY/LIMIT/WINDOW/DISTINCT/聚合及除 UNION ALL 外子查询。"
+    status: "confirmed"
+    source_anchor: "L21-L23"
+  -
+    id: "create_incremental_materialized_view_fact_base_ddl"
+    type: "constraint"
+    statement: "创建后基表绝大多数 DDL 不支持，未逐项枚举。"
+    status: "confirmed"
+    source_anchor: "L24-L24"
+  -
+    id: "create_incremental_materialized_view_fact_no_iud"
+    type: "constraint"
+    statement: "不支持对增量物化视图 INSERT/UPDATE/DELETE。"
+    status: "confirmed"
+    source_anchor: "L25-L25"
+  -
+    id: "create_incremental_materialized_view_fact_refresh_sync"
+    type: "behavior_oracle"
+    statement: "基表修改后需刷新同步物化结果。"
+    status: "confirmed"
+    source_anchor: "L26-L27"
+  -
+    id: "create_incremental_materialized_view_fact_no_ustore"
+    type: "constraint"
+    statement: "Ustore 不支持创建和使用物化视图。"
+    status: "confirmed"
+    source_anchor: "L28-L28"
+  -
+    id: "create_incremental_materialized_view_fact_syntax"
+    type: "syntax"
+    statement: "CREATE INCREMENTAL MATERIALIZED VIEW 可列别名和表空间，后接 AS query。"
+    status: "confirmed"
+    source_anchor: "L31-L34"
+  -
+    id: "create_incremental_materialized_view_fact_name"
+    type: "syntax"
+    statement: "物化视图名可模式限定，满足标识符规则。"
+    status: "confirmed"
+    source_anchor: "L40-L42"
+  -
+    id: "create_incremental_materialized_view_fact_column_count"
+    type: "constraint"
+    statement: "显式别名数须等于查询结果列数，省略则继承输出列名。"
+    status: "confirmed"
+    source_anchor: "L43-L47"
+  -
+    id: "create_incremental_materialized_view_fact_tablespace"
+    type: "syntax"
+    statement: "表空间可省略，省略采用默认。"
+    status: "confirmed"
+    source_anchor: "L48-L50"
+  -
+    id: "create_incremental_materialized_view_fact_query"
+    type: "syntax"
+    statement: "SELECT 或 TABLE 查询，运行于安全受限操作中。"
+    status: "confirmed"
+    source_anchor: "L51-L52"
+  -
+    id: "create_incremental_materialized_view_fact_create_example"
+    type: "example"
+    statement: "建表空间与 ASTORE 源表后创建增量视图。"
+    status: "confirmed"
+    source_anchor: "L55-L63"
+  -
+    id: "create_incremental_materialized_view_fact_stale_example"
+    type: "example"
+    statement: "基表写入但未刷新时物化结果为空。"
+    status: "confirmed"
+    source_anchor: "L65-L72"
+  -
+    id: "create_incremental_materialized_view_fact_refresh_example"
+    type: "example"
+    statement: "增量刷新后结果包含新行。"
+    status: "confirmed"
+    source_anchor: "L74-L82"
+  -
+    id: "create_incremental_materialized_view_fact_cleanup_example"
+    type: "example"
+    statement: "清理视图/表/表空间。"
+    status: "confirmed"
+    source_anchor: "L84-L91"
+  -
+    id: "create_incremental_materialized_view_fact_ddl_matrix"
+    type: "open_question"
+    statement: "绝大多数 DDL 的逐项禁止列表缺失，不能臆造全禁规则。"
+    status: "needs_verification"
+    source_anchor: "L24-L24"
+  -
+    id: "create_incremental_materialized_view_fact_tablespace_profile"
+    type: "open_question"
+    statement: "非默认表空间需预配置权限和目录，不在本批创建。"
+    status: "needs_verification"
+    source_anchor: "L48-L50"
+  -
+    id: "create_incremental_materialized_view_fact_complex_queries"
+    type: "open_question"
+    statement: "复杂查询目标负向仅选DISTINCT；其他禁止子句需独立负向和准确Oracle。"
+    status: "needs_verification"
+    source_anchor: "L21-L23"
+exported_fact_refs:
+  - "create_incremental_materialized_view_fact_syntax"
+  - "create_incremental_materialized_view_fact_no_ustore"
+  - "create_incremental_materialized_view_fact_refresh_sync"
+  - "create_incremental_materialized_view_fact_simple_union"
+manifest_refs:
+  - "manifest_create_incremental_materialized_view_ordinary"
+  - "manifest_create_incremental_materialized_view_columns_negative"
+  - "manifest_create_incremental_materialized_view_distinct_negative"
+matrix_refs:
+  - "matrix_create_incremental_materialized_view_coverage"
+fixture_refs:
+  - "fixture_create_incremental_materialized_view_source"
+  - "fixture_create_incremental_materialized_view_right"
+  - "fixture_create_incremental_materialized_view_target"
+  - "fixture_create_incremental_materialized_view_incremental"
+scenario_refs:
+  - "scenario_create_incremental_materialized_view_stale_then_refresh"
+  - "scenario_create_incremental_materialized_view_incremental_contracts"

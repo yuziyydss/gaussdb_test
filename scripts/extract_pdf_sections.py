@@ -292,6 +292,10 @@ def select_statement_bookmarks(
 
 def source_relpath_for(bookmark: Bookmark, category: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "_", bookmark.title.casefold()).strip("_")
+    # Dependency sources may have entirely Chinese titles (e.g. 操作符).
+    # Use the PDF section identity without changing existing SQL filenames.
+    if not slug and re.fullmatch(r"\d+(?:\.\d+)*", bookmark.section_number or ""):
+        slug = "section_" + bookmark.section_number.replace(".", "_")
     if not slug:
         raise PdfExtractionError(
             f"bookmark title cannot form a stable source filename: {bookmark.title!r}"

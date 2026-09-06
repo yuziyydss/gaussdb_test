@@ -1,0 +1,36 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_close_hold_rollback"
+name: "CLOSE hold_rollback"
+status: "planned"
+description: "WITH HOLD 不能掩盖创建事务回滚导致的关闭。"
+factor_ref: "close"
+fixture_refs:
+  - "fixture_close_transaction"
+fact_refs:
+  - "close_fact_hold_rollback"
+  - "close_fact_nonhold_end"
+preconditions: []
+steps:
+  -
+    id: "hold"
+    action: "execute_sql"
+    sql: "DECLARE c_close_hold WITH HOLD CURSOR FOR SELECT col_1 FROM t_cursor_source ORDER BY col_1;"
+  -
+    id: "rollback"
+    action: "execute_sql"
+    sql: "ROLLBACK;"
+  -
+    id: "absent"
+    action: "execute_sql"
+    sql: "SELECT count(*) FROM pg_cursors WHERE name = 'c_close_hold';"
+oracles:
+  -
+    after_step: "absent"
+    kind: "result_rows"
+    expected:
+      -
+        - 0
+execution_requirements:
+  - "database"
+  - "same_session"

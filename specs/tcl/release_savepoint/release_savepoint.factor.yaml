@@ -1,0 +1,227 @@
+schema_version: 1
+kind: "factor"
+id: "release_savepoint"
+name: "RELEASE SAVEPOINT"
+category: "TCL"
+status: "needs_review"
+description: "第三批 PDF 抽取；有限生成域与未执行场景分开报告。"
+source:
+  product: "GaussDB"
+  document: "集中式版参考 / 1.13.18.6 RELEASE SAVEPOINT"
+  version: "V2.0-10.0.0"
+  artifact_sha256: "a3b3b960a19b0e9592f5c76174cf472b2342f54c7a91188acc1da8964f41eeea"
+  parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+  extraction_rule_version: "gaussdb-pdf-outline-v1"
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: "gaussdb_v2_0_10_0_0_centralized_reference_01"
+    source_relpath: "general/tcl/release_savepoint.txt"
+    chapter_sha256: "a3b3b960a19b0e9592f5c76174cf472b2342f54c7a91188acc1da8964f41eeea"
+source_ledger_ref: "source_ledger_release_savepoint"
+syntax_ref: "syntax_release_savepoint"
+dimensions:
+  savepoint_keyword:
+    description: "可选 SAVEPOINT 关键字"
+    classes:
+      -
+        id: "release_savepoint_savepoint_keyword_absent_class"
+        meaning: "absent"
+        values:
+          -
+            id: "release_savepoint_savepoint_keyword_absent"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "release_savepoint_fact_syntax"
+      -
+        id: "release_savepoint_savepoint_keyword_present_class"
+        meaning: "present"
+        values:
+          -
+            id: "release_savepoint_savepoint_keyword_present"
+            render: "SAVEPOINT"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "release_savepoint_fact_syntax"
+  savepoint_name:
+    description: "目标名称与 fixture 已知存在状态"
+    classes:
+      -
+        id: "release_savepoint_savepoint_name_existing_class"
+        meaning: "existing"
+        values:
+          -
+            id: "release_savepoint_savepoint_name_existing"
+            render: "sp_test"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "release_savepoint_fact_name"
+              - "release_savepoint_fact_must_exist"
+            properties:
+              exists: true
+      -
+        id: "release_savepoint_savepoint_name_missing_class"
+        meaning: "missing"
+        values:
+          -
+            id: "release_savepoint_savepoint_name_missing"
+            render: "sp_missing"
+            representative: true
+            validity: "invalid"
+            fact_refs:
+              - "release_savepoint_fact_must_exist"
+            properties:
+              exists: false
+rules:
+  -
+    id: "release_savepoint_rule_exists"
+    kind: "requires"
+    expression: "savepoint_name.properties.exists == True"
+    fact_refs:
+      - "release_savepoint_fact_must_exist"
+    severity: "error"
+structural_checks: []
+facts:
+  -
+    id: "release_savepoint_fact_remove"
+    type: "lifecycle"
+    statement: "RELEASE 删除先前定义的保存点，使它不能再作为回滚点。"
+    status: "confirmed"
+    source_anchor: "L5-L9"
+  -
+    id: "release_savepoint_fact_preserve_changes"
+    type: "lifecycle"
+    statement: "释放保存点不会撤销其建立后的命令影响。"
+    status: "confirmed"
+    source_anchor: "L5-L9"
+  -
+    id: "release_savepoint_fact_resource_release"
+    type: "lifecycle"
+    statement: "不再需要的保存点可提前释放资源。"
+    status: "confirmed"
+    source_anchor: "L5-L9"
+  -
+    id: "release_savepoint_fact_remove_descendants"
+    type: "lifecycle"
+    statement: "RELEASE 同时删除目标保存点之后建立的全部保存点。"
+    status: "confirmed"
+    source_anchor: "L10-L10"
+  -
+    id: "release_savepoint_fact_must_exist"
+    type: "constraint"
+    statement: "RELEASE 目标必须是已定义的保存点。"
+    status: "confirmed"
+    source_anchor: "L13-L14"
+  -
+    id: "release_savepoint_fact_missing_error"
+    type: "behavior_oracle"
+    statement: "释放未定义保存点会报错。"
+    status: "confirmed"
+    source_anchor: "L13-L14"
+  -
+    id: "release_savepoint_fact_aborted_error"
+    type: "behavior_oracle"
+    statement: "事务在回滚状态时不能释放保存点。"
+    status: "confirmed"
+    source_anchor: "L13-L14"
+  -
+    id: "release_savepoint_fact_error_identity"
+    type: "open_question"
+    statement: "未定义保存点和回滚状态禁止释放的具体错误身份尚未给出，目标 Oracle 需校准。"
+    status: "needs_verification"
+    source_anchor: "L13-L14"
+  -
+    id: "release_savepoint_fact_latest"
+    type: "lifecycle"
+    statement: "多个同名保存点存在时，只释放最近定义的点。"
+    status: "confirmed"
+    source_anchor: "L15-L15"
+  -
+    id: "release_savepoint_fact_syntax"
+    type: "syntax"
+    statement: "RELEASE 后 SAVEPOINT 关键字可省略，再跟保存点名称。"
+    status: "confirmed"
+    source_anchor: "L18-L18"
+  -
+    id: "release_savepoint_fact_name"
+    type: "syntax"
+    statement: "savepoint_name 指定待删除保存点。"
+    status: "confirmed"
+    source_anchor: "L21-L23"
+  -
+    id: "release_savepoint_fact_example_schema"
+    type: "example"
+    statement: "示例创建模式。"
+    status: "confirmed"
+    source_anchor: "L27-L28"
+  -
+    id: "release_savepoint_fact_example_table"
+    type: "example"
+    statement: "示例创建单列表。"
+    status: "confirmed"
+    source_anchor: "L30-L31"
+  -
+    id: "release_savepoint_fact_example_start"
+    type: "example"
+    statement: "示例开启事务。"
+    status: "confirmed"
+    source_anchor: "L33-L34"
+  -
+    id: "release_savepoint_fact_example_before"
+    type: "example"
+    statement: "示例在保存点之前插入 3。"
+    status: "confirmed"
+    source_anchor: "L36-L37"
+  -
+    id: "release_savepoint_fact_example_savepoint"
+    type: "example"
+    statement: "示例创建保存点。"
+    status: "confirmed"
+    source_anchor: "L39-L40"
+  -
+    id: "release_savepoint_fact_example_after"
+    type: "example"
+    statement: "示例在保存点之后插入 4。"
+    status: "confirmed"
+    source_anchor: "L42-L43"
+  -
+    id: "release_savepoint_fact_example_release"
+    type: "example"
+    statement: "示例释放保存点。"
+    status: "confirmed"
+    source_anchor: "L45-L46"
+  -
+    id: "release_savepoint_fact_example_visible"
+    type: "example"
+    statement: "释放后查询仍有 3 和 4。"
+    status: "confirmed"
+    source_anchor: "L48-L54"
+  -
+    id: "release_savepoint_fact_example_commit"
+    type: "example"
+    statement: "示例提交事务。"
+    status: "confirmed"
+    source_anchor: "L56-L57"
+  -
+    id: "release_savepoint_fact_example_committed"
+    type: "example"
+    statement: "提交后查询仍有 3 和 4。"
+    status: "confirmed"
+    source_anchor: "L59-L65"
+exported_fact_refs: []
+manifest_refs:
+  - "manifest_release_savepoint_positive"
+  - "manifest_release_savepoint_missing_negative"
+matrix_refs: []
+fixture_refs:
+  - fixture_release_savepoint_dependency_begin_transaction_table
+  - fixture_release_savepoint_dependency_savepoint_defined
+scenario_refs:
+  - scenario_release_savepoint_resource_release
+  - "scenario_release_savepoint_preserve_changes"
+  - "scenario_release_savepoint_descendants"
+  - "scenario_release_savepoint_latest_only"
+  - "scenario_release_savepoint_aborted_state"

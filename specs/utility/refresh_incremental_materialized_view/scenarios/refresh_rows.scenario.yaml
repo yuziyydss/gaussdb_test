@@ -1,0 +1,60 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_refresh_incremental_materialized_view_refresh_rows"
+name: "REFRESH INCREMENTAL MATERIALIZED VIEW refresh_rows"
+status: "planned"
+description: "增量刷新后比较源变化，并重复刷新确认不重复增加行。"
+factor_ref: "refresh_incremental_materialized_view"
+fixture_refs:
+  - "fixture_refresh_incremental_materialized_view_changed"
+fact_refs:
+  - "refresh_incremental_materialized_view_fact_purpose"
+  - "refresh_incremental_materialized_view_fact_incremental_only"
+preconditions: []
+steps:
+  -
+    id: "refresh"
+    action: "execute_sql"
+    sql: "REFRESH INCREMENTAL MATERIALIZED VIEW mv_imv_ready;"
+  -
+    id: "rows"
+    action: "execute_sql"
+    sql: "SELECT col_1, col_2 FROM mv_imv_ready ORDER BY col_1;"
+  -
+    id: "again"
+    action: "execute_sql"
+    sql: "REFRESH INCREMENTAL MATERIALIZED VIEW mv_imv_ready;"
+  -
+    id: "rows_again"
+    action: "execute_sql"
+    sql: "SELECT col_1, col_2 FROM mv_imv_ready ORDER BY col_1;"
+oracles:
+  -
+    after_step: "rows"
+    kind: "result_rows"
+    expected:
+      -
+        - 1
+        - 2
+      -
+        - 3
+        - 4
+      -
+        - 5
+        - 6
+  -
+    after_step: "rows_again"
+    kind: "result_rows"
+    expected:
+      -
+        - 1
+        - 2
+      -
+        - 3
+        - 4
+      -
+        - 5
+        - 6
+execution_requirements:
+  - "database"
+  - "same_session"

@@ -1,0 +1,275 @@
+schema_version: 1
+kind: "factor"
+id: "rollback_to_savepoint"
+name: "ROLLBACK TO SAVEPOINT"
+category: "TCL"
+status: "needs_review"
+description: "第三批 PDF 抽取；有限生成域与未执行场景分开报告。"
+source:
+  product: "GaussDB"
+  document: "集中式版参考 / 1.13.18.13 ROLLBACK TO SAVEPOINT"
+  version: "V2.0-10.0.0"
+  artifact_sha256: "5c47cc22d48990c041acd22f5193a46e71d8a21a5cec07318148b73539bbf078"
+  parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+  extraction_rule_version: "gaussdb-pdf-outline-v1"
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: "gaussdb_v2_0_10_0_0_centralized_reference_01"
+    source_relpath: "general/tcl/rollback_to_savepoint.txt"
+    chapter_sha256: "5c47cc22d48990c041acd22f5193a46e71d8a21a5cec07318148b73539bbf078"
+source_ledger_ref: "source_ledger_rollback_to_savepoint"
+syntax_ref: "syntax_rollback_to_savepoint"
+dimensions:
+  compatibility_keyword:
+    description: "可选可读性关键字"
+    classes:
+      -
+        id: "rollback_to_savepoint_compatibility_keyword_absent_class"
+        meaning: "absent"
+        values:
+          -
+            id: "rollback_to_savepoint_compatibility_keyword_absent"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "rollback_to_savepoint_fact_syntax"
+      -
+        id: "rollback_to_savepoint_compatibility_keyword_work_class"
+        meaning: "work"
+        values:
+          -
+            id: "rollback_to_savepoint_compatibility_keyword_work"
+            render: "WORK"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "rollback_to_savepoint_fact_compatibility"
+      -
+        id: "rollback_to_savepoint_compatibility_keyword_transaction_class"
+        meaning: "transaction"
+        values:
+          -
+            id: "rollback_to_savepoint_compatibility_keyword_transaction"
+            render: "TRANSACTION"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "rollback_to_savepoint_fact_compatibility"
+  savepoint_keyword:
+    description: "可选 SAVEPOINT 关键字"
+    classes:
+      -
+        id: "rollback_to_savepoint_savepoint_keyword_absent_class"
+        meaning: "absent"
+        values:
+          -
+            id: "rollback_to_savepoint_savepoint_keyword_absent"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "rollback_to_savepoint_fact_syntax"
+      -
+        id: "rollback_to_savepoint_savepoint_keyword_present_class"
+        meaning: "present"
+        values:
+          -
+            id: "rollback_to_savepoint_savepoint_keyword_present"
+            render: "SAVEPOINT"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "rollback_to_savepoint_fact_syntax"
+  savepoint_name:
+    description: "由前置 fixture 决定目标是否存在"
+    classes:
+      -
+        id: "rollback_to_savepoint_savepoint_name_existing_class"
+        meaning: "existing"
+        values:
+          -
+            id: "rollback_to_savepoint_savepoint_name_existing"
+            render: "sp_test"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "rollback_to_savepoint_fact_name"
+              - "rollback_to_savepoint_fact_must_exist"
+            properties:
+              exists: true
+      -
+        id: "rollback_to_savepoint_savepoint_name_missing_class"
+        meaning: "missing"
+        values:
+          -
+            id: "rollback_to_savepoint_savepoint_name_missing"
+            render: "sp_missing"
+            representative: true
+            validity: "invalid"
+            fact_refs:
+              - "rollback_to_savepoint_fact_must_exist"
+            properties:
+              exists: false
+rules:
+  -
+    id: "rollback_to_savepoint_rule_exists"
+    kind: "requires"
+    expression: "savepoint_name.properties.exists == True"
+    fact_refs:
+      - "rollback_to_savepoint_fact_must_exist"
+    severity: "error"
+structural_checks: []
+facts:
+  -
+    id: "rollback_to_savepoint_fact_effect"
+    type: "lifecycle"
+    statement: "回滚指定保存点之后的操作。"
+    status: "confirmed"
+    source_anchor: "L5-L5"
+  -
+    id: "rollback_to_savepoint_fact_point_survives"
+    type: "lifecycle"
+    statement: "回滚后目标保存点仍然有效，可以再次回滚到该点。"
+    status: "confirmed"
+    source_anchor: "L6-L7"
+  -
+    id: "rollback_to_savepoint_fact_must_exist"
+    type: "constraint"
+    statement: "回滚目标必须是已定义的保存点。"
+    status: "confirmed"
+    source_anchor: "L10-L10"
+  -
+    id: "rollback_to_savepoint_fact_missing_error"
+    type: "behavior_oracle"
+    statement: "回滚到未定义保存点会报错。"
+    status: "confirmed"
+    source_anchor: "L10"
+  -
+    id: "rollback_to_savepoint_fact_error_identity"
+    type: "open_question"
+    statement: "本章未提供保存点或游标错误的稳定 SQLSTATE；目标错误 Oracle 需校准。"
+    status: "needs_verification"
+    source_anchor: "L10"
+  -
+    id: "rollback_to_savepoint_fact_new_cursor_closes"
+    type: "lifecycle"
+    statement: "保存点之后打开的游标会随回滚到该保存点而关闭。"
+    status: "confirmed"
+    source_anchor: "L11-L17"
+  -
+    id: "rollback_to_savepoint_fact_fetch_position"
+    type: "lifecycle"
+    statement: "在保存点之前已打开的游标，其 FETCH 位置不会因保存点回滚而恢复。"
+    status: "confirmed"
+    source_anchor: "L11-L17"
+  -
+    id: "rollback_to_savepoint_fact_close_persists"
+    type: "lifecycle"
+    statement: "关闭游标的操作不会被保存点回滚撤销。"
+    status: "confirmed"
+    source_anchor: "L11-L17"
+  -
+    id: "rollback_to_savepoint_fact_failed_cursor_unusable"
+    type: "lifecycle"
+    statement: "游标操作导致事务回滚后，即使用保存点恢复事务，该游标仍不可执行。"
+    status: "confirmed"
+    source_anchor: "L11-L17"
+  -
+    id: "rollback_to_savepoint_fact_release_contrast"
+    type: "lifecycle"
+    statement: "RELEASE 删除保存点但保留之后命令结果，与 ROLLBACK TO 不同。"
+    status: "confirmed"
+    source_anchor: "L18-L19"
+  -
+    id: "rollback_to_savepoint_fact_syntax"
+    type: "syntax"
+    statement: "ROLLBACK 后可选 WORK/TRANSACTION，TO 后可选 SAVEPOINT，再跟目标名称。"
+    status: "confirmed"
+    source_anchor: "L22-L22"
+  -
+    id: "rollback_to_savepoint_fact_compatibility"
+    type: "syntax"
+    statement: "WORK 和 TRANSACTION 仅增加可读性。"
+    status: "confirmed"
+    source_anchor: "L28-L29"
+  -
+    id: "rollback_to_savepoint_fact_name"
+    type: "syntax"
+    statement: "savepoint_name 指定回滚截至的保存点。"
+    status: "confirmed"
+    source_anchor: "L30-L31"
+  -
+    id: "rollback_to_savepoint_fact_example_begin"
+    type: "example"
+    statement: "示例启动事务。"
+    status: "confirmed"
+    source_anchor: "L34-L35"
+  -
+    id: "rollback_to_savepoint_fact_example_savepoint"
+    type: "example"
+    statement: "示例设置保存点。"
+    status: "confirmed"
+    source_anchor: "L37-L38"
+  -
+    id: "rollback_to_savepoint_fact_example_rollback"
+    type: "example"
+    statement: "示例回滚至保存点。"
+    status: "confirmed"
+    source_anchor: "L40-L41"
+  -
+    id: "rollback_to_savepoint_fact_example_cursor"
+    type: "example"
+    statement: "示例为 SELECT 1 UNION SELECT 2 声明游标。"
+    status: "confirmed"
+    source_anchor: "L43-L44"
+  -
+    id: "rollback_to_savepoint_fact_example_cursor_point"
+    type: "example"
+    statement: "示例在游标打开后设置保存点。"
+    status: "confirmed"
+    source_anchor: "L46-L47"
+  -
+    id: "rollback_to_savepoint_fact_example_first_fetch"
+    type: "example"
+    statement: "首次 FETCH 示例返回 1。"
+    status: "confirmed"
+    source_anchor: "L49-L53"
+  -
+    id: "rollback_to_savepoint_fact_example_restore"
+    type: "example"
+    statement: "示例回滚到游标打开后的保存点。"
+    status: "confirmed"
+    source_anchor: "L54-L55"
+  -
+    id: "rollback_to_savepoint_fact_example_next_fetch"
+    type: "example"
+    statement: "再次 FETCH 示例返回 2，位置未回退。"
+    status: "confirmed"
+    source_anchor: "L57-L61"
+  -
+    id: "rollback_to_savepoint_fact_example_release"
+    type: "example"
+    statement: "示例释放最初保存点。"
+    status: "confirmed"
+    source_anchor: "L62-L63"
+  -
+    id: "rollback_to_savepoint_fact_example_commit"
+    type: "example"
+    statement: "示例提交事务。"
+    status: "confirmed"
+    source_anchor: "L65-L66"
+exported_fact_refs: []
+manifest_refs:
+  - "manifest_rollback_to_savepoint_positive"
+  - "manifest_rollback_to_savepoint_missing_negative"
+matrix_refs: []
+fixture_refs:
+  - fixture_rollback_to_savepoint_dependency_begin_transaction_table
+  - fixture_rollback_to_savepoint_dependency_savepoint_defined
+scenario_refs:
+  - "scenario_rollback_to_savepoint_repeat_restore"
+  - "scenario_rollback_to_savepoint_cursor_position"
+  - "scenario_rollback_to_savepoint_new_cursor_closes"
+  - "scenario_rollback_to_savepoint_close_not_undone"
+  - "scenario_rollback_to_savepoint_failed_cursor"

@@ -21,6 +21,7 @@ from core.spec_generator import SpecSQLGenerator
 from core.factor_package_model import FactorPackageLoadError, FactorPackageRegistry
 from core.factor_package_generator import FactorPackageSQLGenerator
 from core.factor_coverage_auditor import FactorCoverageAuditor
+from core.progress_reporting import factor_progress, summarize_progress
 
 BASE_DIR = Path(__file__).resolve().parent
 FACTORS_DIR = BASE_DIR / "factors"
@@ -52,6 +53,9 @@ def _factor_package_coverage_report() -> dict:
         factor_id: auditor.audit(factor_id)
         for factor_id in sorted(factor_package_registry.factors)
     }
+    progress = summarize_progress(audits)
+    for audit in audits.values():
+        audit['display_progress'] = factor_progress(audit)
     catalog_path = BASE_DIR / "generated" / "audit" / "pdf_catalog_coverage.json"
     catalog_summary = {
         "total": 0,
@@ -78,6 +82,8 @@ def _factor_package_coverage_report() -> dict:
         "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "catalog": catalog_summary,
         "factor_count": len(audits),
+        "progress": progress,
+        "legacy_count_note": "*_complete_count 是兼容性规格指标，不是有用例或实机通过数；展示请使用 progress。",
         "manifest_count": len(factor_package_registry.manifests),
         "generated_case_count": sum(
             audit["manifests"]["generated_case_count"]
@@ -153,6 +159,7 @@ async def factor_package_detail(request: Request, factor_id: str):
         "confirmed_count": confirmed_count,
         "open_questions": open_questions,
         "coverage_audit": coverage_audit,
+        "progress": factor_progress(coverage_audit),
         "manifests": [
             factor_package_registry.get_manifest(manifest_id)
             for manifest_id in factor.manifest_refs
@@ -278,21 +285,24 @@ async def coverage_export_md():
         f"- cataloged: {report['catalog']['cataloged']}",
         f"- extracted: {report['catalog']['extracted']}",
         f"- package_bound: {report['catalog']['package_bound']}",
-        f"- static_complete: {report['catalog']['static_complete']}",
+        f"- 有用例且满足静态条件: {report['progress']['static_covered_count']}",
         "",
-        "## 五章校准包",
+        "## 全部因子包：四阶段进度",
         "",
-        "| Factor | SQL | Source | Generation | Static | Behavior |",
-        "|---|---:|---|---|---|---|",
+        f"包已建：{report['progress']['package_count']}；有候选：{report['progress']['with_candidates_count']}；有用例且静态覆盖满足：{report['progress']['static_covered_count']}。",
+        "实机验证：未接入执行证据，不从场景 ready 或行为规格布尔值推断。",
+        "来源账本处置不代表语义穷尽；旧规格完整计数不用于可执行覆盖率。",
+        "",
+        "| Factor | 包已建 | SQL候选数 | 原文账本 | 候选生成 | 静态覆盖 | 实机验证 |",
+        "|---|---|---:|---|---|---|---|",
     ]
     for factor_id, audit in report["factors"].items():
-        conclusions = audit["conclusions"]
+        p = audit['display_progress']
+        generation = {'generated': '有候选', 'partial': '部分生成/有异常', 'no_cases': '无候选'}[p['generation_status']]
+        static = {'covered': '声明范围满足', 'gaps': '有缺口', 'no_cases': '无用例，不计通过'}[p['static_status']]
         lines.append(
-            f"| {factor_id} | {audit['manifests']['generated_case_count']} | "
-            f"{conclusions['source_extraction_complete']} | "
-            f"{conclusions['generation_model_complete']} | "
-            f"{conclusions['static_coverage_complete']} | "
-            f"{conclusions['behavior_coverage_complete']} |"
+            f"| {factor_id} | 已建 | {audit['manifests']['generated_case_count']} | "
+            f"{'已登记' if p['source_accounted'] else '有缺口'} | {generation} | {static} | 未接入证据 |"
         )
     md_content = "\n".join(lines) + "\n"
     return Response(
@@ -463,6 +473,7 @@ async def api_factor_package_audit(factor_id: str):
         if factor_package_registry.get_factor(factor_id) is None:
             return JSONResponse({"error": "V1 factor not found"}, status_code=404)
         audit = FactorCoverageAuditor(factor_package_registry).audit(factor_id)
+        audit['display_progress'] = factor_progress(audit)
     except (FactorPackageLoadError, ValueError) as exc:
         return JSONResponse({"error": str(exc)}, status_code=422)
     return JSONResponse(audit)

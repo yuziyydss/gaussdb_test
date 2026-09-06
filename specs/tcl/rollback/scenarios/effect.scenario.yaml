@@ -1,0 +1,19 @@
+schema_version: 1
+kind: scenario
+id: scenario_rollback_effect
+name: ROLLBACK 撤销事务更新
+factor_ref: rollback
+status: planned
+description: 测试设计以最小插入和受控语句错误覆盖事务正常及失败状态；尚未执行。
+fixture_refs: [fixture_rollback_table]
+fact_refs: [rollback_fact_effect, rollback_fact_failure_restore]
+preconditions: [独占测试连接, fixture 在事务外创建, 错误后保持同一连接并继续发送 ROLLBACK]
+steps:
+  - {id: begin, action: execute_sql, sql: BEGIN}
+  - {id: insert, action: execute_sql, sql: "INSERT INTO t_rollback_test VALUES (1, 'pending')"}
+  - {id: transaction_state, action: branch, variants: ["正常事务不注入错误", "执行 SELECT 1 / 0 进入语句错误路径，错误仅为场景前置状态，不计目标通过"]}
+  - {id: rollback, action: execute_sql, variants: [ROLLBACK, ROLLBACK WORK, ROLLBACK TRANSACTION]}
+  - {id: check, action: query, sql: "SELECT count(*) FROM t_rollback_test"}
+oracles:
+  - {after_step: check, kind: scalar_equals, expected: 0}
+execution_requirements: [database, transaction_control, controlled_error_injection, same_session]

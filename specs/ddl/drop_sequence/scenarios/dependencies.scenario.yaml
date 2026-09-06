@@ -1,0 +1,45 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_drop_sequence_dependencies"
+name: "DROP SEQUENCE dependencies"
+status: "planned"
+description: "复用 CREATE SEQUENCE 示例的列默认值依赖，区分删除默认值依赖与删除表。"
+factor_ref: "drop_sequence"
+fixture_refs:
+  - "fixture_drop_sequence_sequences"
+fact_refs:
+  - "drop_sequence_fact_cascade"
+  - "drop_sequence_fact_restrict_error"
+  - "drop_sequence_fact_default_restrict"
+  - "create_sequence::cs_fact_example_owned_by"
+preconditions:
+  - "拒绝后事务恢复；仅专用数据表"
+steps:
+  -
+    id: "reject"
+    action: "execute_sql"
+    sql: "DROP SEQUENCE seq_ds_dependent RESTRICT;"
+  -
+    id: "cascade"
+    action: "execute_sql"
+    sql: "DROP SEQUENCE seq_ds_dependent CASCADE;"
+oracles:
+  -
+    after_step: "reject"
+    kind: "target_error"
+    oracle_status: "needs_verification"
+  -
+    after_step: "cascade"
+    kind: "sequence_absent"
+    expected: "seq_ds_dependent"
+  -
+    after_step: "cascade"
+    kind: "column_default_absent"
+    expected: "t_cs_owner.id"
+  -
+    after_step: "cascade"
+    kind: "relation_present"
+    expected: "t_cs_owner"
+execution_requirements:
+  - "database"
+  - "same_session"

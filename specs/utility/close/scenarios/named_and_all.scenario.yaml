@@ -1,0 +1,50 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_close_named_and_all"
+name: "CLOSE named_and_all"
+status: "planned"
+description: "系统视图精确断言指定名称关闭与 ALL 关闭的区别。"
+factor_ref: "close"
+fixture_refs:
+  - "fixture_close_open_cursors"
+fact_refs:
+  - "close_fact_release"
+  - "close_fact_open_metadata"
+  - "close_fact_all"
+  - "close_fact_all_scope"
+  - "close_fact_example_link"
+preconditions:
+  - "独占测试连接，无用户预存游标；资源释放内部指标尚未实现"
+steps:
+  -
+    id: "close_one"
+    action: "execute_sql"
+    sql: "CLOSE c_cursor_auto;"
+  -
+    id: "remaining"
+    action: "execute_sql"
+    sql: "SELECT name FROM pg_cursors WHERE name IN ('c_cursor_auto','c_cursor_second') ORDER BY name;"
+  -
+    id: "close_all"
+    action: "execute_sql"
+    sql: "CLOSE ALL;"
+  -
+    id: "empty"
+    action: "execute_sql"
+    sql: "SELECT count(*) FROM pg_cursors;"
+oracles:
+  -
+    after_step: "remaining"
+    kind: "result_rows"
+    expected:
+      -
+        - "c_cursor_second"
+  -
+    after_step: "empty"
+    kind: "result_rows"
+    expected:
+      -
+        - 0
+execution_requirements:
+  - "database"
+  - "same_session"

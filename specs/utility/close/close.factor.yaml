@@ -1,0 +1,182 @@
+schema_version: 1
+kind: "factor"
+id: "close"
+name: "CLOSE"
+category: "UTILITY"
+status: "needs_review"
+description: "第四批 PDF 抽取；有限生成域与未执行场景分开报告。"
+source:
+  product: "GaussDB"
+  document: "集中式版参考 / 1.13.9.4 CLOSE"
+  version: "V2.0-10.0.0"
+  artifact_sha256: "84b34873f6c9824a89702753704d8865f2fee5c1afe1764a2f6debeab07a5882"
+  parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+  extraction_rule_version: "gaussdb-pdf-outline-v1"
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: "gaussdb_v2_0_10_0_0_centralized_reference_01"
+    source_relpath: "general/utility/close.txt"
+    chapter_sha256: "84b34873f6c9824a89702753704d8865f2fee5c1afe1764a2f6debeab07a5882"
+source_ledger_ref: "source_ledger_close"
+syntax_ref: "syntax_close"
+dimensions:
+  target:
+    description: "已打开名称、ALL 与已关闭目标"
+    classes:
+      -
+        id: "close_target_one_class"
+        meaning: "one"
+        values:
+          -
+            id: "close_target_one"
+            render: "c_cursor_auto"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "close_fact_name"
+            properties:
+              open: true
+            fixture_refs:
+              - "fixture_close_open_cursors"
+      -
+        id: "close_target_two_class"
+        meaning: "two"
+        values:
+          -
+            id: "close_target_two"
+            render: "c_cursor_second"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "close_fact_name"
+            properties:
+              open: true
+            fixture_refs:
+              - "fixture_close_open_cursors"
+      -
+        id: "close_target_all_class"
+        meaning: "all"
+        values:
+          -
+            id: "close_target_all"
+            render: "ALL"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "close_fact_syntax"
+            properties:
+              open: true
+            fixture_refs:
+              - "fixture_close_open_cursors"
+      -
+        id: "close_target_closed_class"
+        meaning: "closed"
+        values:
+          -
+            id: "close_target_closed"
+            render: "c_close_closed"
+            representative: true
+            validity: "invalid"
+            fact_refs:
+              - "close_fact_name"
+            properties:
+              open: false
+            fixture_refs:
+              - "fixture_close_closed_cursor"
+rules:
+  -
+    id: "close_rule_opened"
+    kind: "requires"
+    expression: "target.properties.open == True"
+    fact_refs:
+      - "close_fact_closed_forbidden"
+    severity: "error"
+structural_checks: []
+facts:
+  -
+    id: "close_fact_release"
+    type: "lifecycle"
+    statement: "CLOSE 释放指定游标关联的所有资源。"
+    status: "confirmed"
+    source_anchor: "L5-L5"
+  -
+    id: "close_fact_closed_forbidden"
+    type: "constraint"
+    statement: "游标不再使用时应及时关闭；不允许继续操作已经关闭的游标。"
+    status: "confirmed"
+    source_anchor: "L8-L8"
+  -
+    id: "close_fact_nonhold_end"
+    type: "lifecycle"
+    statement: "不可保持游标在创建事务提交或回滚后隐含关闭。"
+    status: "confirmed"
+    source_anchor: "L9-L10"
+  -
+    id: "close_fact_hold_rollback"
+    type: "lifecycle"
+    statement: "可保持游标在创建事务回滚后也隐含关闭。"
+    status: "confirmed"
+    source_anchor: "L11-L12"
+  -
+    id: "close_fact_hold_commit"
+    type: "lifecycle"
+    statement: "可保持游标在创建事务提交后保持打开，直到显式 CLOSE 或客户端断开。"
+    status: "confirmed"
+    source_anchor: "L13-L14"
+  -
+    id: "close_fact_open_metadata"
+    type: "metadata_oracle"
+    statement: "无需显式 OPEN；CURSOR 定义即打开，可查询 pg_cursors 观察可用游标。"
+    status: "confirmed"
+    source_anchor: "L16-L17"
+  -
+    id: "close_fact_syntax"
+    type: "syntax"
+    statement: "CLOSE 在单个名称与 ALL 之间选择。"
+    status: "confirmed"
+    source_anchor: "L20-L20"
+  -
+    id: "close_fact_name"
+    type: "syntax"
+    statement: "cursor_name 为待关闭游标名称。"
+    status: "confirmed"
+    source_anchor: "L26-L27"
+  -
+    id: "close_fact_all"
+    type: "lifecycle"
+    statement: "ALL 关闭所有已打开的游标。"
+    status: "confirmed"
+    source_anchor: "L28-L29"
+  -
+    id: "close_fact_all_scope"
+    type: "environment"
+    statement: "ALL 的作用范围是所有已打开游标，非单个指定名称。"
+    status: "confirmed"
+    source_anchor: "L28-L29"
+  -
+    id: "close_fact_example_link"
+    type: "example"
+    statement: "具体示例转引 FETCH 章节。"
+    status: "confirmed"
+    source_anchor: "L32-L32"
+  -
+    id: "close_fact_error_identity"
+    type: "open_question"
+    statement: "已关闭游标操作必须失败，但本文未给稳定 SQLSTATE/消息；目标错误需要校准。"
+    status: "needs_verification"
+    source_anchor: "L8-L8"
+exported_fact_refs: []
+manifest_refs:
+  - "manifest_close_named"
+  - "manifest_close_all"
+  - "manifest_close_closed_negative"
+matrix_refs: []
+fixture_refs:
+  - "fixture_close_transaction"
+  - "fixture_close_open_cursors"
+  - "fixture_close_closed_cursor"
+scenario_refs:
+  - "scenario_close_named_and_all"
+  - "scenario_close_hold_rollback"
+  - "scenario_close_hold_commit"
+  - "scenario_close_resource_and_error"

@@ -10,6 +10,7 @@
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all", "object_target": "grant_target_table", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -32,6 +33,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all_privileges", "object_target": "grant_target_table_bare", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -54,6 +56,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_column_all", "object_target": "grant_target_column_table", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -76,6 +79,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_column_all_privileges", "object_target": "grant_target_column_table_bare", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -98,6 +102,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all", "object_target": "grant_target_table_pair", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -120,6 +125,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all", "object_target": "grant_target_all_tables_schema", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -142,6 +148,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all", "object_target": "grant_target_sequence", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -164,6 +171,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all", "object_target": "grant_target_sequence_bare", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -186,6 +194,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all", "object_target": "grant_target_sequence_pair", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -208,6 +217,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all", "object_target": "grant_target_large_sequence", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -230,6 +240,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all", "object_target": "grant_target_all_sequences_schema", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -252,6 +263,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all", "object_target": "grant_target_schema", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -274,6 +286,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_column_all", "object_target": "grant_target_column_table_pair", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -296,6 +309,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all", "object_target": "grant_target_table_bare", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -318,6 +332,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all_privileges", "object_target": "grant_target_table", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -340,6 +355,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all_privileges", "object_target": "grant_target_table_pair", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -362,6 +378,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all_privileges", "object_target": "grant_target_all_tables_schema", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -384,6 +401,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all_privileges", "object_target": "grant_target_sequence", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -406,6 +424,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all_privileges", "object_target": "grant_target_sequence_bare", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -428,6 +447,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all_privileges", "object_target": "grant_target_sequence_pair", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -450,6 +470,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all_privileges", "object_target": "grant_target_large_sequence", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -472,6 +493,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all_privileges", "object_target": "grant_target_all_sequences_schema", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -494,6 +516,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_all_privileges", "object_target": "grant_target_schema", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -516,6 +539,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_column_all", "object_target": "grant_target_column_table_bare", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -538,6 +562,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_column_all_privileges", "object_target": "grant_target_column_table", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema
@@ -560,6 +585,7 @@ DROP SCHEMA IF EXISTS grant_schema CASCADE
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"admin_option": "grant_admin_option_absent", "any_privilege": "grant_any_create_table", "database_link_privilege": "grant_dblink_create", "database_link_public": "grant_dblink_private", "grant_option": "grant_option_absent", "object_grantee": "grant_grantee_public", "object_privilege": "grant_priv_column_all_privileges", "object_target": "grant_target_column_table_pair", "public_synonym_privilege": "grant_public_synonym_create", "role_recipient": "grant_role_recipient_one", "role_source": "grant_role_source_one", "statement_form": "grant_form_object", "sysadmin_spelling": "grant_sysadmin_privileges"}
+-- environment_requirements: [{"allowed_values": ["system_administrator"], "fact_refs": ["grant_fact_all_privileges_environment"], "key": "executor_role"}]
 -- fixture_setup:
 DROP SCHEMA IF EXISTS grant_schema CASCADE
 CREATE SCHEMA grant_schema

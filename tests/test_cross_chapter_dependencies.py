@@ -1,11 +1,11 @@
-"""Real-package regression contracts for the 12-chapter dependency pilot."""
+"""Real-package regression contracts for the dependency-closed chapter pilot."""
 import json
 import unittest
 from pathlib import Path
 
 from core.factor_package_model import FactorPackageRegistry
 from scripts.verify_cross_chapter_dependencies import (
-    DEFAULT_CONFIG, expected_graph, fixture_sql_probes, load_fault_probes,
+    DEFAULT_CONFIG, expected_graph, fixture_sql_probes, load_fault_probes, review_fixture_closures,
 )
 
 
@@ -30,6 +30,11 @@ class CrossChapterDependencyTests(unittest.TestCase):
         result = load_fault_probes(self.registry)
         self.assertEqual(len(result), 6)
         self.assertTrue(all(p["detected"] for p in result))
+
+    def test_partition_profile_fixture_closures_match_reviewed_owners(self):
+        result = review_fixture_closures(self.config, self.registry)
+        self.assertEqual(len(result), 10)
+        self.assertTrue(all(p["passed"] for p in result))
 
     def test_generated_cross_package_view_fixtures_create_and_drop_in_order(self):
         result = fixture_sql_probes(self.registry, self.config)

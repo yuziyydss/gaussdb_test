@@ -1,0 +1,20 @@
+schema_version: 1
+kind: scenario
+id: scenario_rollback_documented_ddl
+name: ROLLBACK 文档 DDL 示例
+factor_ref: rollback
+status: planned
+description: 将文档客户端的表结构输出转换为查询结果列元数据断言；不将此单一示例提升为任意 DDL 可回滚规则。
+fixture_refs: [fixture_rollback_table]
+fact_refs: [rollback_example_ddl]
+preconditions: [独占连接, fixture 在事务外创建, 支持查询结果列元数据采集]
+steps:
+  - {id: begin, action: execute_sql, sql: START TRANSACTION}
+  - {id: alter, action: execute_sql, sql: "ALTER TABLE t_rollback_test ADD COLUMN score int"}
+  - {id: before, action: query, sql: "SELECT * FROM t_rollback_test"}
+  - {id: rollback, action: execute_sql, sql: ROLLBACK}
+  - {id: after, action: query, sql: "SELECT * FROM t_rollback_test"}
+oracles:
+  - {after_step: before, kind: result_column_names, expected: [id, name, score]}
+  - {after_step: after, kind: result_column_names, expected: [id, name]}
+execution_requirements: [database, transaction_control, result_metadata_capture]

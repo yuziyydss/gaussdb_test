@@ -1,0 +1,21 @@
+schema_version: 1
+kind: scenario
+id: scenario_delete_single_using_target_b
+name: DELETE 单目标 USING 自连接 B 模式契约
+status: planned
+description: >-
+  原值保持 conditional。V1 正向清单只接受 valid，不能因为写入环境注释就证明所有
+  条件已消费；因此保留为待调度的 B 模式场景，不更改值的合法性或放宽加载器。
+factor_ref: delete
+fixture_refs: [fixture_delete_target]
+fact_refs: [delete_fact_using_repeat_scope, delete_fact_single_using_b_environment]
+preconditions:
+  - 在专用测试数据库实测 sql_compatibility=B；不得改变共享数据库模式。
+  - 两个语法候选独立重建 seed，前一个 DELETE 不得令后一个空跑。
+steps:
+  - {id: with_from, action: execute_sql, sql: "DELETE FROM t_delete_target USING t_delete_target AS src;"}
+  - {id: without_from, action: execute_sql, sql: "DELETE t_delete_target USING t_delete_target AS src;"}
+oracles:
+  - {kind: target_rows, expected: "各次均删除本次 seed 的全部目标行；不按 USING 笛卡尔连接行数计 affected rows。"}
+  - {kind: environment_gate, expected: "非 B 单目标环境单独校准拒绝错误；不能因 B 条件值未消费就当作普通正向候选。"}
+execution_requirements: [database, dedicated_connection, verified_b_compatibility, conditional_value_gate_implementation]

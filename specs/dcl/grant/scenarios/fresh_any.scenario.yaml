@@ -1,0 +1,38 @@
+schema_version: 1
+kind: scenario
+id: scenario_grant_fresh_any
+name: GRANT 新角色 ANY 显式权限记录与清理
+status: planned
+description: >-
+  新候选仅进入计划的授权元数据核验，不执行任何ANY权限对应的建表、定义者代码、
+  触发器或业务操作。具体权限行为、跨数据库范围及RLS仍由原role_and_any场景保留。
+factor_ref: grant
+fixture_refs: [fixture_grant_fresh_recipients]
+fact_refs:
+  - grant_fact_any_syntax
+  - grant_fact_any_supported_list
+  - grant_fact_any_environment
+  - grant_fact_any_database_scope
+  - grant_fact_any_schema_usage
+  - grant_fact_admin_option
+  - grant_fact_security_guidance
+  - grant_fact_public_restrictions
+  - create_role::create_role_fact_privilege
+  - create_role::create_role_fact_disable_admin
+preconditions:
+  - 单独的数据库执行授权；专用隔离实例、独立新连接，无外层事务。
+  - grant_recipient、grant_recipient_two全局名字均不存在，不接管真实用户或既有角色。
+  - 系统管理员且三权分立关闭；本轮不自动切换配置或创建数据库。
+  - 先核对该版本显式ANY授权目录、ADMIN OPTION字段、数据库身份与角色属性；目录契约缺失即blocked，不能仅看语句无错误。
+steps:
+  - {id: before, action: inspect_owned_role_absence, detail: "确认全局名字未占用、记录实例与当前数据库身份；环境失败不得算目标通过。"}
+  - {id: setup, action: execute_fixture_setup, detail: "创建两个新禁登录角色，验证身份及初始显式权限。任一步失败停止目标、回滚。"}
+  - {id: target, action: execute_generated_case, manifest_ref: manifest_grant_any_positive, detail: "每个候选独立生命周期，只执行目标GRANT，不以受权角色连接或运行其获得的能力。"}
+  - {id: metadata, action: inspect_explicit_any_grants, detail: "按case.params的权限列表×接收列表检查真实授权记录和ADMIN OPTION标志；GROUP只是语法写法，不是额外角色。"}
+  - {id: cleanup, action: execute_fixture_teardown, detail: "成功或失败均回滚；回滚后查询两个角色及新增权限记录，失败单列，不吞异常。"}
+oracles:
+  - {kind: exact_explicit_any_grants, expected: "当前case选择的权限与接收角色均存在正确记录，没有未选择的显式ANY权限；不把隐含USAGE与显式ANY记录混为一谈。"}
+  - {kind: unchanged_system_attributes, expected: "接收角色保持NOLOGIN和NOSYSADMIN；未操作PUBLIC或其他真实主体。"}
+  - {kind: scoped_metadata_only, expected: "记录当前数据库身份；本场景未跨库操作，不能据此声称验证ANY跨库隔离或RLS行为。"}
+  - {kind: no_residue, expected: "两个新角色和本case新增授权记录实际消失；查询失败或未知不是零残留。"}
+execution_requirements: [单独执行授权, 专用隔离实例, 新受权角色, 真实ANY目录契约, 数据库身份, 逐case隔离与清理证据]

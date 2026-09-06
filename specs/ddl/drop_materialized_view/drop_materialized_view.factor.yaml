@@ -1,0 +1,245 @@
+schema_version: 1
+kind: "factor"
+id: "drop_materialized_view"
+name: "DROP MATERIALIZED VIEW"
+category: "DDL"
+status: "needs_review"
+description: "第四批 PDF 抽取；有限生成域与未执行场景分开报告。"
+source:
+  product: "GaussDB"
+  document: "集中式版参考 / 1.13.10.24 DROP MATERIALIZED VIEW"
+  version: "V2.0-10.0.0"
+  artifact_sha256: "680d097e5949943683df98926a5b5f7879eaef0076136e34287ad42937e48303"
+  parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+  extraction_rule_version: "gaussdb-pdf-outline-v1"
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: "gaussdb_v2_0_10_0_0_centralized_reference_01"
+    source_relpath: "general/ddl/drop_materialized_view.txt"
+    chapter_sha256: "680d097e5949943683df98926a5b5f7879eaef0076136e34287ad42937e48303"
+source_ledger_ref: "source_ledger_drop_materialized_view"
+syntax_ref: "syntax_drop_materialized_view"
+dimensions:
+  targets:
+    description: "重复目标及有依赖目标"
+    classes:
+      -
+        id: "drop_materialized_view_targets_full_class"
+        meaning: "full"
+        values:
+          -
+            id: "drop_materialized_view_targets_full"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_materialized_view_fact_name"
+            properties:
+              items:
+                - "mv_full"
+              has_dependency: false
+            fixture_refs:
+              - "fixture_drop_materialized_view_sources"
+      -
+        id: "drop_materialized_view_targets_both_class"
+        meaning: "both"
+        values:
+          -
+            id: "drop_materialized_view_targets_both"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_materialized_view_fact_syntax"
+            properties:
+              items:
+                - "mv_full"
+                - "mv_incremental"
+              has_dependency: false
+            fixture_refs:
+              - "fixture_drop_materialized_view_sources"
+      -
+        id: "drop_materialized_view_targets_dependent_class"
+        meaning: "dependent"
+        values:
+          -
+            id: "drop_materialized_view_targets_dependent"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_materialized_view_fact_restrict"
+            properties:
+              items:
+                - "mv_drop_dep"
+              has_dependency: true
+            fixture_refs:
+              - "fixture_drop_materialized_view_dependent"
+      -
+        id: "drop_materialized_view_targets_missing_class"
+        meaning: "missing"
+        values:
+          -
+            id: "drop_materialized_view_targets_missing"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_materialized_view_fact_notice"
+            properties:
+              items:
+                - "mv_absent"
+              has_dependency: false
+    default_value_id: "drop_materialized_view_targets_full"
+  if_exists:
+    description: "缺失处理"
+    classes:
+      -
+        id: "drop_materialized_view_if_exists_none_class"
+        meaning: "none"
+        values:
+          -
+            id: "drop_materialized_view_if_exists_none"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_materialized_view_fact_syntax"
+      -
+        id: "drop_materialized_view_if_exists_yes_class"
+        meaning: "yes"
+        values:
+          -
+            id: "drop_materialized_view_if_exists_yes"
+            render: "IF EXISTS"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_materialized_view_fact_notice"
+    default_value_id: "drop_materialized_view_if_exists_none"
+  behavior:
+    description: "删除依赖处理"
+    classes:
+      -
+        id: "drop_materialized_view_behavior_default_class"
+        meaning: "default"
+        values:
+          -
+            id: "drop_materialized_view_behavior_default"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_materialized_view_fact_default"
+            properties:
+              cascade: false
+      -
+        id: "drop_materialized_view_behavior_restrict_class"
+        meaning: "restrict"
+        values:
+          -
+            id: "drop_materialized_view_behavior_restrict"
+            render: "RESTRICT"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_materialized_view_fact_restrict"
+            properties:
+              cascade: false
+      -
+        id: "drop_materialized_view_behavior_cascade_class"
+        meaning: "cascade"
+        values:
+          -
+            id: "drop_materialized_view_behavior_cascade"
+            render: "CASCADE"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_materialized_view_fact_cascade"
+            properties:
+              cascade: true
+    default_value_id: "drop_materialized_view_behavior_default"
+rules:
+  -
+    id: "drop_materialized_view_rule_dependent"
+    kind: "requires"
+    expression: "targets.properties.has_dependency == True => behavior.properties.cascade == True"
+    fact_refs:
+      - "drop_materialized_view_fact_restrict"
+    severity: "error"
+structural_checks: []
+facts:
+  -
+    id: "drop_materialized_view_fact_drop"
+    type: "lifecycle"
+    statement: "删除现有物化视图。"
+    status: "confirmed"
+    source_anchor: "L5-L5"
+  -
+    id: "drop_materialized_view_fact_privilege"
+    type: "environment"
+    statement: "需要对象/模式所有权或 DROP 权限或 DROP ANY TABLE 权限或管理员权限。"
+    status: "confirmed"
+    source_anchor: "L8-L9"
+  -
+    id: "drop_materialized_view_fact_syntax"
+    type: "syntax"
+    statement: "支持 IF EXISTS、逗号分隔名称和 CASCADE/RESTRICT。"
+    status: "confirmed"
+    source_anchor: "L12-L12"
+  -
+    id: "drop_materialized_view_fact_notice"
+    type: "behavior_oracle"
+    statement: "IF EXISTS 下不存在对象发出 NOTICE 而非错误。"
+    status: "confirmed"
+    source_anchor: "L15-L19"
+  -
+    id: "drop_materialized_view_fact_name"
+    type: "syntax"
+    statement: "名称参数为待删除物化视图。"
+    status: "confirmed"
+    source_anchor: "L20-L21"
+  -
+    id: "drop_materialized_view_fact_cascade"
+    type: "lifecycle"
+    statement: "CASCADE 自动删除依赖对象。"
+    status: "confirmed"
+    source_anchor: "L22-L25"
+  -
+    id: "drop_materialized_view_fact_restrict"
+    type: "constraint"
+    statement: "RESTRICT 遇到依赖对象时拒绝删除。"
+    status: "confirmed"
+    source_anchor: "L22-L25"
+  -
+    id: "drop_materialized_view_fact_default"
+    type: "syntax"
+    statement: "缺省删除行为为 RESTRICT。"
+    status: "confirmed"
+    source_anchor: "L22-L25"
+  -
+    id: "drop_materialized_view_fact_example"
+    type: "example"
+    statement: "示例建立 Astore 基表及全量视图后删除物化视图。"
+    status: "confirmed"
+    source_anchor: "L29-L40"
+  -
+    id: "drop_materialized_view_fact_error_gap"
+    type: "open_question"
+    statement: "依赖拒绝的 SQLSTATE 待验证。"
+    status: "needs_verification"
+    source_anchor: "L22-L25"
+exported_fact_refs: []
+manifest_refs:
+  - "manifest_drop_materialized_view_ordinary"
+  - "manifest_drop_materialized_view_cascade"
+  - "manifest_drop_materialized_view_missing"
+  - "manifest_drop_materialized_view_restrict_negative"
+matrix_refs:
+  - "matrix_drop_materialized_view_coverage"
+fixture_refs:
+  - "fixture_drop_materialized_view_sources"
+  - "fixture_drop_materialized_view_dependent"
+scenario_refs:
+  - "scenario_drop_materialized_view_drop_contracts"

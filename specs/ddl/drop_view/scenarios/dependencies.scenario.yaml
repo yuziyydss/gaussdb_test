@@ -1,0 +1,42 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_drop_view_dependencies"
+name: "DROP VIEW dependencies"
+status: "planned"
+description: "先 RESTRICT 拒绝且对象不变，再 CASCADE 删除视图依赖链，不删除源表。"
+factor_ref: "drop_view"
+fixture_refs:
+  - "fixture_drop_view_views"
+fact_refs:
+  - "drop_view_fact_default_restrict"
+  - "drop_view_fact_restrict_error"
+  - "drop_view_fact_cascade"
+preconditions:
+  - "预期拒绝后确保会话/事务仍可继续，必要时使用独立事务"
+steps:
+  -
+    id: "reject"
+    action: "execute_sql"
+    sql: "DROP VIEW v_dv_base RESTRICT;"
+  -
+    id: "cascade"
+    action: "execute_sql"
+    sql: "DROP VIEW v_dv_base CASCADE;"
+oracles:
+  -
+    after_step: "reject"
+    kind: "target_error"
+    oracle_status: "needs_verification"
+  -
+    after_step: "cascade"
+    kind: "relations_absent"
+    expected:
+      - "v_dv_base"
+      - "v_dv_child"
+  -
+    after_step: "cascade"
+    kind: "relation_present"
+    expected: "t_view_source"
+execution_requirements:
+  - "database"
+  - "same_session"

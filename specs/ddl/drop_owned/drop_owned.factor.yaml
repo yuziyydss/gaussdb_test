@@ -1,0 +1,183 @@
+schema_version: 1
+kind: "factor"
+id: "drop_owned"
+name: "DROP OWNED"
+category: "DDL"
+status: "needs_review"
+description: "第九批 PDF 抽取；有限生成域与未执行场景分开报告。"
+source:
+  product: "GaussDB"
+  document: "集中式版参考 / 1.13.10.27 DROP OWNED"
+  version: "V2.0-10.0.0"
+  artifact_sha256: "20b603cc9ca40c41885c784a684c5fde1c6e01f791ed871b48d7de309943710f"
+  parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+  extraction_rule_version: "gaussdb-pdf-outline-v1"
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: "gaussdb_v2_0_10_0_0_centralized_reference_01"
+    source_relpath: "general/ddl/drop_owned.txt"
+    chapter_sha256: "20b603cc9ca40c41885c784a684c5fde1c6e01f791ed871b48d7de309943710f"
+source_ledger_ref: "source_ledger_drop_owned"
+syntax_ref: "syntax_drop_owned"
+dimensions:
+  owners:
+    description: "owners"
+    classes:
+      -
+        id: "drop_owned_owners_one_class"
+        meaning: "one"
+        values:
+          -
+            id: "drop_owned_owners_one"
+            render: "b9_role_a"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_owned_fact_syntax"
+            properties:
+              items:
+                - "b9_role_a"
+      -
+        id: "drop_owned_owners_two_class"
+        meaning: "two"
+        values:
+          -
+            id: "drop_owned_owners_two"
+            render: "b9_role_a, b9_role_b"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_owned_fact_syntax"
+            properties:
+              items:
+                - "b9_role_a"
+                - "b9_role_b"
+    default_value_id: "drop_owned_owners_one"
+  behavior:
+    description: "非级联模式"
+    classes:
+      -
+        id: "drop_owned_behavior_default_class"
+        meaning: "default"
+        values:
+          -
+            id: "drop_owned_behavior_default"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_owned_fact_default_restrict"
+      -
+        id: "drop_owned_behavior_restrict_class"
+        meaning: "restrict"
+        values:
+          -
+            id: "drop_owned_behavior_restrict"
+            render: "RESTRICT"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_owned_fact_restrict"
+    default_value_id: "drop_owned_behavior_default"
+rules: []
+structural_checks: []
+facts:
+  -
+    id: "drop_owned_fact_purpose"
+    type: "lifecycle"
+    statement: "删除数据库角色拥有的数据库对象。"
+    status: "confirmed"
+    source_anchor: "L5-L5"
+  -
+    id: "drop_owned_fact_acl"
+    type: "lifecycle"
+    statement: "移除该角色当前库对象权限及共享数据库/表空间上的权限。"
+    status: "confirmed"
+    source_anchor: "L9-L10"
+  -
+    id: "drop_owned_fact_current_database"
+    type: "environment"
+    statement: "只影响当前库对象，可能需要在各持有对象的数据库分别执行。"
+    status: "confirmed"
+    source_anchor: "L11-L13"
+  -
+    id: "drop_owned_fact_cascade_danger"
+    type: "lifecycle"
+    statement: "CASCADE可能递归删除其他用户对象。"
+    status: "confirmed"
+    source_anchor: "L14-L15"
+  -
+    id: "drop_owned_fact_shared_not_dropped"
+    type: "constraint"
+    statement: "不删除角色拥有的数据库和表空间。"
+    status: "confirmed"
+    source_anchor: "L16-L16"
+  -
+    id: "drop_owned_fact_private_link"
+    type: "constraint"
+    statement: "删除角色的私有DATABASE LINK需要CASCADE。"
+    status: "confirmed"
+    source_anchor: "L17-L17"
+  -
+    id: "drop_owned_fact_name"
+    type: "syntax"
+    statement: "指定角色名。"
+    status: "confirmed"
+    source_anchor: "L24-L25"
+  -
+    id: "drop_owned_fact_default_restrict"
+    type: "syntax"
+    statement: "CASCADE/RESTRICT可选，默认RESTRICT。"
+    status: "confirmed"
+    source_anchor: "L26-L27"
+  -
+    id: "drop_owned_fact_cascade"
+    type: "lifecycle"
+    statement: "CASCADE删除依赖被删角色对象的对象。"
+    status: "confirmed"
+    source_anchor: "L28-L28"
+  -
+    id: "drop_owned_fact_restrict"
+    type: "behavior_oracle"
+    statement: "有依赖对象时RESTRICT拒绝删除。"
+    status: "confirmed"
+    source_anchor: "L29-L29"
+  -
+    id: "drop_owned_fact_syntax"
+    type: "syntax"
+    statement: "DROP OWNED BY角色列表后可选CASCADE/RESTRICT。"
+    status: "confirmed"
+    source_anchor: "L21-L21"
+  -
+    id: "drop_owned_fact_create"
+    type: "example"
+    statement: "创建用户。"
+    status: "confirmed"
+    source_anchor: "L32-L33"
+  -
+    id: "drop_owned_fact_drop_owned"
+    type: "example"
+    statement: "DROP OWNED撤销当前库与共享对象权限示例。"
+    status: "confirmed"
+    source_anchor: "L35-L36"
+  -
+    id: "drop_owned_fact_drop_user"
+    type: "example"
+    statement: "删除用户。"
+    status: "confirmed"
+    source_anchor: "L38-L39"
+  -
+    id: "drop_owned_fact_shared_scope"
+    type: "open_question"
+    statement: "仅全新专用角色和两张专用表；不用于任何既有角色的兜底清理。跨库/共享对象/依赖链和权限遗留仍需完整清点与Oracle。"
+    status: "needs_verification"
+    source_anchor: "L5-L5"
+exported_fact_refs: []
+manifest_refs:
+  - "manifest_drop_owned_dedicated_tables"
+matrix_refs:
+  - "matrix_drop_owned_coverage"
+fixture_refs:
+  - "fixture_drop_owned_owned_tables"
+scenario_refs:
+  - "scenario_drop_owned_documented_contracts"

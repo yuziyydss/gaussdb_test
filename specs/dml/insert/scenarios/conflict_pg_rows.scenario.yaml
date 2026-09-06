@@ -1,0 +1,39 @@
+schema_version: 1
+kind: scenario
+id: scenario_insert_conflict_pg_rows
+name: INSERT PG 普通唯一键冲突行结果
+status: planned
+description: >-
+  将原有 PG 冲突计划收敛为三个独立目标及精确行断言。目标 SQL 是待执行场景蓝图，
+  不是普通 manifest 生成结果；conditional 值、feature/open_question 均保留。
+  依据本章物理1738页语法、1744页语义及1746页 EXCLUDED 示例。
+factor_ref: insert
+fixture_refs: [fixture_insert_unique_target]
+fact_refs: [insert_fact_main_grammar, insert_fact_conflict_semantics, insert_fact_conflict_environment, insert_example_conflict]
+preconditions:
+  - 单独获得数据库执行授权；使用已存在的 PG 兼容测试数据库，不自行创建或切换数据库。
+  - 当前主体能创建测试表并拥有 INSERT/SELECT/UPDATE 权限。
+  - 独立新连接和专用空测试 Schema，禁止在共享 Schema 执行该 fixture 的 DROP IF EXISTS CASCADE。
+  - 每个 variant 独立 setup；真实普通行存表、id 主键、既有行 (101, existing, NULL) 均验证成功后才运行目标。
+steps:
+  - {id: verify_environment, action: check_preconditions, detail: "记录产品版本、兼容模式、权限、测试命名空间与对象所有权；不满足则 blocked，不作为目标错误通过。"}
+  - {id: run_variants, action: isolated_variants, detail: "每个 variant 重建自己的 fixture；任一 setup 失败即停止本 variant，不能沿用上个 variant 的结果行。"}
+  - {id: cleanup, action: owned_fixture_teardown, detail: "仅清理本任务专用 Schema 中已登记归属的对象；记录清理结果，失败不能吞掉。"}
+variants:
+  - id: target_nothing
+    value_ref: insert_on_conflict_nothing
+    sql: "INSERT INTO t_insert_unique (id, note) VALUES (101, 'alpha') ON CONFLICT (id) DO NOTHING;"
+    expected_rows: [[101, existing, null]]
+  - id: no_target_nothing
+    value_ref: insert_on_conflict_nothing_no_target
+    sql: "INSERT INTO t_insert_unique (id, note) VALUES (101, 'alpha') ON CONFLICT DO NOTHING;"
+    expected_rows: [[101, existing, null]]
+  - id: excluded_update
+    value_ref: insert_on_conflict_update
+    sql: "INSERT INTO t_insert_unique (id, note) VALUES (101, 'alpha') ON CONFLICT (id) DO UPDATE SET note = EXCLUDED.note;"
+    expected_rows: [[101, alpha, null]]
+oracles:
+  - {kind: target_success, expected: "目标语句成功；setup/teardown 成功不替代目标结果。"}
+  - {kind: exact_rows, query: "SELECT id, note, aux FROM t_insert_unique ORDER BY id;", expected: "结果必须等于当前 variant.expected_rows，恰好一行；不能只判断无错误或有返回值。"}
+  - {kind: unchanged_key, expected: "id 仍为 101、aux 仍为 NULL，UPDATE 只改变 note；两个 NOTHING 分支保持既有行。"}
+execution_requirements: [数据库执行单独授权, PG 兼容环境, 专用空测试 Schema, 逐变体隔离, 逐阶段执行与清理证据]

@@ -1,0 +1,76 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_release_savepoint_preserve_changes"
+name: "RELEASE SAVEPOINT preserve_changes"
+status: "planned"
+description: "释放后验证事务仍活动且两个插入均保留，再提交核对。"
+factor_ref: "release_savepoint"
+fixture_refs:
+  - "fixture_release_savepoint_dependency_begin_transaction_table"
+fact_refs:
+  - "release_savepoint_fact_remove"
+  - "release_savepoint_fact_preserve_changes"
+  - "release_savepoint_fact_example_schema"
+  - "release_savepoint_fact_example_table"
+  - "release_savepoint_fact_example_start"
+  - "release_savepoint_fact_example_before"
+  - "release_savepoint_fact_example_savepoint"
+  - "release_savepoint_fact_example_after"
+  - "release_savepoint_fact_example_release"
+  - "release_savepoint_fact_example_visible"
+  - "release_savepoint_fact_example_commit"
+  - "release_savepoint_fact_example_committed"
+preconditions: []
+steps:
+  -
+    id: "begin"
+    action: "execute_sql"
+    sql: "START TRANSACTION"
+  -
+    id: "first"
+    action: "execute_sql"
+    sql: "INSERT INTO t_begin_txn VALUES (11, 3)"
+  -
+    id: "save"
+    action: "execute_sql"
+    sql: "SAVEPOINT sp_test"
+  -
+    id: "second"
+    action: "execute_sql"
+    sql: "INSERT INTO t_begin_txn VALUES (12, 4)"
+  -
+    id: "release"
+    action: "execute_sql"
+    sql: "RELEASE SAVEPOINT sp_test"
+  -
+    id: "before_commit"
+    action: "query"
+    sql: "SELECT col2 FROM t_begin_txn WHERE col1 >= 11 ORDER BY col1"
+  -
+    id: "commit"
+    action: "execute_sql"
+    sql: "COMMIT"
+  -
+    id: "after_commit"
+    action: "query"
+    sql: "SELECT col2 FROM t_begin_txn WHERE col1 >= 11 ORDER BY col1"
+oracles:
+  -
+    after_step: "before_commit"
+    kind: "result_rows"
+    expected:
+      -
+        - 3
+      -
+        - 4
+  -
+    after_step: "after_commit"
+    kind: "result_rows"
+    expected:
+      -
+        - 3
+      -
+        - 4
+execution_requirements:
+  - "database"
+  - "same_session"

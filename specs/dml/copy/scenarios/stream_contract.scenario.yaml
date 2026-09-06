@@ -1,0 +1,23 @@
+schema_version: 1
+kind: scenario
+id: scenario_copy_stream_contract
+name: COPY 文本协议往返与文件能力隔离
+status: planned
+description: >-
+  这是待实现的协议/Oracle 契约，不是已执行覆盖。PDF 物理页 1385 明确二进制
+  不支持 STDOUT/STDIN，故二进制文件路径能力不并入文本流清单。
+factor_ref: copy
+fixture_refs: [fixture_copy_source]
+fact_refs: [copy_fact_body_24, copy_fact_body_24_1, copy_fact_body_26, copy_fact_stream_contract, copy_fact_body_442, copy_fact_body_10, copy_fact_body_16]
+preconditions:
+  - 使用专用连接和 COPY 协议 API；普通 SQL execute 返回不等于完整消费数据流。
+  - 导入目标是独占且类型匹配的表，未列出的普通列具有已知缺省值；不能省略建表步骤。
+steps:
+  - {id: export_text, action: consume_copy_out_stream, detail: "分别以 TEXT/CSV、完整列/子集/逆序列消费到协议结束，保存原始字节、解码及列顺序。"}
+  - {id: import_text, action: send_copy_in_stream, detail: "向独立导入目标发送受控 TEXT/CSV 行和正常结束标志；失败时取消流并回滚，连接不得直接复用。"}
+  - {id: inspect_rows, action: compare_rows, detail: "对照 seed 验证字段选择、顺序、缺省值以及转义；无 ORDER BY 时比较多重集合，不能强行要求物理行顺序。"}
+  - {id: binary_gate, action: require_file_capability, detail: "仅在文件权限、safe_data_path、独占目录及清理授权明确后另建 BINARY 文件场景；绝不向 STDOUT/STDIN 生成 binary。"}
+oracles:
+  - {kind: stream_completion, expected: "必须同时记录协议正常结束与目标表/导出字节断言；仅提交 SQL 或收到 COPY 响应不算成功。"}
+  - {kind: lifecycle, expected: "协议异常后显式回滚或销毁专用连接；不删除非本次创建的服务器文件或放宽全局路径白名单。"}
+execution_requirements: [database, dedicated_connection, copy_protocol_adapter, target_fixture_and_oracle_implementation]

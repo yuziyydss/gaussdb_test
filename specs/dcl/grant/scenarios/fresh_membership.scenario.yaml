@@ -1,0 +1,38 @@
+schema_version: 1
+kind: scenario
+id: scenario_grant_fresh_membership
+name: GRANT 新角色成员边与清理验证
+status: planned
+description: >-
+  仅验证普通新角色成员关系分支；不会替代旧 role_and_any 的跨数据库和高权限场景。
+  目录字段与角色 DDL 回滚需在授权环境核对，未执行前不作为行为通过。
+factor_ref: grant
+fixture_refs: [fixture_grant_fresh_membership_roles]
+fact_refs:
+  - grant_fact_role_syntax
+  - grant_fact_role_membership
+  - grant_fact_admin_option
+  - grant_fact_system_privilege_noninheritance
+  - grant_fact_security_guidance
+  - grant_fact_existing_identifiers
+  - grant_example_role_membership
+  - create_role::create_role_fact_default_nologin
+  - create_role::create_role_fact_privilege
+  - create_role::create_role_fact_disable_admin
+preconditions:
+  - 独立数据库执行授权、专用隔离实例及独立新连接；无外层事务。
+  - 四个名字 grant_source_role、grant_source_role_two、grant_recipient、grant_recipient_two 均不存在；同名角色存在即阻断，不删除或接管。
+  - 系统管理员，三权分立关闭；只创建普通禁登录角色，不授予 SYSADMIN/ANY 权限。
+  - 先核对该版本成员关系目录和角色属性的真实字段及查询权限；未知则 blocked，不编造目录结果。
+steps:
+  - {id: initial_identity, action: inspect_role_catalog, detail: "保存四个角色均不存在的证据及实例/连接身份；角色跨 Schema，不能以空 Schema 代替角色隔离。"}
+  - {id: setup, action: execute_fixture_setup, detail: "任一步失败立即停止本 case 并回滚，前置错误不能满足目标 Oracle。成功后保存四个新角色的真实标识和无登录属性。"}
+  - {id: target, action: execute_generated_case, manifest_ref: manifest_grant_role_membership_positive, detail: "每个候选独立运行；不沿用前一 case 的角色或成员关系。"}
+  - {id: edges, action: inspect_membership_catalog, detail: "以当前 case.params 中源列表与接收列表的笛卡尔积为精确预期成员边集，并核对 ADMIN OPTION 标志。"}
+  - {id: rollback, action: execute_fixture_teardown, detail: "成功或失败都须回滚；清理失败单独记录。"}
+  - {id: residue, action: inspect_role_catalog, detail: "在事务结束后确认四个角色及本 case 的成员边不存在；不只检查 ROLLBACK 返回成功。"}
+oracles:
+  - {kind: exact_membership_edges, expected: "角色身份对应当前 case 的全部且仅有的源×接收成员边；ADMIN OPTION 与所选值一致。"}
+  - {kind: unchanged_role_attributes, expected: "四角色仍为普通 NOLOGIN 角色；没有意外 SYSADMIN 或其他全局属性升级。此项不证明具有系统属性的源角色无法传播系统权限。"}
+  - {kind: no_owned_role_residue, expected: "四个新角色与成员边全部消失；未知或查询失败不是零残留。"}
+execution_requirements: [数据库执行单独授权, 专用隔离实例, 新连接, 新角色身份记录, 真实目录契约, 目标及清理证据]

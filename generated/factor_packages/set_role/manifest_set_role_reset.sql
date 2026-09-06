@@ -1,0 +1,19 @@
+-- generated_from: manifest_set_role_reset
+-- static_only: true
+-- case_count: 1
+
+-- case_id: manifest_set_role_reset_bc0033d4b0bd
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_only
+-- params: {}
+-- fixture_setup:
+BEGIN;
+-- test_sql:
+RESET ROLE;
+-- fixture_teardown:
+RESET ROLE;
+ROLLBACK;

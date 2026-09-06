@@ -1,0 +1,68 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_deallocate_named_and_all"
+name: "DEALLOCATE named_and_all"
+status: "planned"
+description: "名称释放后只移除目标；ALL 后为空。仅允许独占连接；未执行。"
+factor_ref: "deallocate"
+fixture_refs:
+  - "fixture_deallocate_prepared_session"
+fact_refs:
+  - "deallocate_fact_purpose"
+  - "deallocate_fact_release"
+  - "deallocate_fact_all"
+  - "deallocate_fact_prepare_ignored"
+  - "deallocate_fact_example_empty"
+  - "deallocate_fact_example_metadata"
+  - "deallocate_fact_example_named"
+  - "deallocate_fact_example_all"
+  - "prepare::prepare_fact_release"
+preconditions:
+  - "新建独占测试连接，严禁在共享会话使用 ALL。"
+steps:
+  -
+    id: "before"
+    action: "execute_sql"
+    sql: "SELECT name FROM pg_prepared_statements ORDER BY name;"
+  -
+    id: "named"
+    action: "execute_sql"
+    sql: "DEALLOCATE PREPARE p_ps_one;"
+  -
+    id: "remaining"
+    action: "execute_sql"
+    sql: "SELECT name FROM pg_prepared_statements ORDER BY name;"
+  -
+    id: "all"
+    action: "execute_sql"
+    sql: "DEALLOCATE ALL;"
+  -
+    id: "empty"
+    action: "execute_sql"
+    sql: "SELECT name FROM pg_prepared_statements;"
+oracles:
+  -
+    after_step: "before"
+    kind: "result_rows"
+    expected:
+      -
+        - "p_ps_one"
+      -
+        - "p_ps_three"
+      -
+        - "p_ps_zero"
+  -
+    after_step: "remaining"
+    kind: "result_rows"
+    expected:
+      -
+        - "p_ps_three"
+      -
+        - "p_ps_zero"
+  -
+    after_step: "empty"
+    kind: "result_rows"
+    expected: []
+execution_requirements:
+  - "database"
+  - "same_session"

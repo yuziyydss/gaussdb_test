@@ -1,0 +1,83 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_deallocate_document_example"
+name: "DEALLOCATE document_example"
+status: "planned"
+description: "完整复现原文四条语句的数量变化；未执行。"
+factor_ref: "deallocate"
+fixture_refs:
+  - "fixture_deallocate_empty_session"
+fact_refs:
+  - "deallocate_fact_example_four"
+  - "deallocate_fact_example_metadata"
+  - "deallocate_fact_example_named"
+  - "deallocate_fact_example_all"
+preconditions:
+  - "独占测试连接。"
+steps:
+  -
+    id: "q1"
+    action: "execute_sql"
+    sql: "PREPARE q1 AS SELECT 1 AS a;"
+  -
+    id: "q2"
+    action: "execute_sql"
+    sql: "PREPARE q2 AS SELECT 1 AS a;"
+  -
+    id: "q3"
+    action: "execute_sql"
+    sql: "PREPARE q3 AS SELECT 1 AS a;"
+  -
+    id: "q4"
+    action: "execute_sql"
+    sql: "PREPARE q4 AS SELECT 1 AS a;"
+  -
+    id: "four"
+    action: "execute_sql"
+    sql: "SELECT name FROM pg_prepared_statements ORDER BY name;"
+  -
+    id: "drop"
+    action: "execute_sql"
+    sql: "DEALLOCATE q4;"
+  -
+    id: "three"
+    action: "execute_sql"
+    sql: "SELECT name FROM pg_prepared_statements ORDER BY name;"
+  -
+    id: "all"
+    action: "execute_sql"
+    sql: "DEALLOCATE ALL;"
+  -
+    id: "empty"
+    action: "execute_sql"
+    sql: "SELECT name FROM pg_prepared_statements;"
+oracles:
+  -
+    after_step: "four"
+    kind: "result_rows"
+    expected:
+      -
+        - "q1"
+      -
+        - "q2"
+      -
+        - "q3"
+      -
+        - "q4"
+  -
+    after_step: "three"
+    kind: "result_rows"
+    expected:
+      -
+        - "q1"
+      -
+        - "q2"
+      -
+        - "q3"
+  -
+    after_step: "empty"
+    kind: "result_rows"
+    expected: []
+execution_requirements:
+  - "database"
+  - "same_session"

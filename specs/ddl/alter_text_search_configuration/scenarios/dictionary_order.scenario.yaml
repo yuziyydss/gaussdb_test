@@ -1,0 +1,35 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_alter_text_search_configuration_dictionary_order"
+name: "ALTER TEXT SEARCH CONFIGURATION dictionary_order"
+status: "planned"
+description: "新增两个词典映射后按 mapseqno 校验顺序，不固定版本相关OID。"
+factor_ref: "alter_text_search_configuration"
+fixture_refs:
+  - "fixture_alter_text_search_configuration_empty"
+  - "fixture_alter_text_search_configuration_dictionary"
+fact_refs:
+  - "alter_text_search_configuration_fact_dictionary"
+preconditions:
+  - "内部功能测试与SYSADMIN已授权"
+steps:
+  -
+    id: "add"
+    action: "execute_sql"
+    sql: "ALTER TEXT SEARCH CONFIGURATION fp_tsc_empty ADD MAPPING FOR word WITH simple, fp_tsd_simple;"
+  -
+    id: "order"
+    action: "execute_sql"
+    sql: "SELECT d.dictname FROM pg_ts_config_map m JOIN pg_ts_dict d ON d.oid=m.mapdict WHERE m.mapcfg='fp_tsc_empty'::regconfig ORDER BY m.mapseqno;"
+oracles:
+  -
+    after_step: "order"
+    kind: "result_rows"
+    expected:
+      -
+        - "simple"
+      -
+        - "fp_tsd_simple"
+execution_requirements:
+  - "database"
+  - "same_session"

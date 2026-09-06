@@ -1,0 +1,45 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_set_rollback"
+name: "SET rollback"
+status: "planned"
+description: "先在宿主记录 SHOW timezone，再 BEGIN/SET/ROLLBACK 并比较原值；不能用 RESET 代替清理。"
+factor_ref: "set"
+fixture_refs: []
+fact_refs:
+  - "set_fact_purpose"
+  - "set_fact_session_rollback"
+  - "set_fact_default"
+  - "set_fact_zone_example"
+  - "set_fact_session_scope"
+preconditions:
+  - "独占连接；执行器尚需实现跨步骤结果比较。"
+steps:
+  -
+    id: "before"
+    action: "execute_sql"
+    sql: "SHOW timezone;"
+  -
+    id: "begin"
+    action: "execute_sql"
+    sql: "BEGIN;"
+  -
+    id: "set"
+    action: "execute_sql"
+    sql: "SET TIME ZONE 'PST8PDT';"
+  -
+    id: "rollback"
+    action: "execute_sql"
+    sql: "ROLLBACK;"
+  -
+    id: "after"
+    action: "execute_sql"
+    sql: "SHOW timezone;"
+oracles:
+  -
+    after_step: "after"
+    kind: "result_equals_step"
+    expected: "before"
+execution_requirements:
+  - "database"
+  - "same_session"

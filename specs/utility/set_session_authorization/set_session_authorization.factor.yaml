@@ -1,0 +1,167 @@
+schema_version: 1
+kind: "factor"
+id: "set_session_authorization"
+name: "SET SESSION AUTHORIZATION"
+category: "UTILITY"
+status: "needs_review"
+description: "第六批 PDF 抽取；有限生成域与未执行场景分开报告。"
+source:
+  product: "GaussDB"
+  document: "集中式版参考 / 1.13.19.8 SET SESSION AUTHORIZATION"
+  version: "V2.0-10.0.0"
+  artifact_sha256: "923a61766378dca2e0f586eaf5314b920b03d55294bd844dc9ca0bbd1a467beb"
+  parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+  extraction_rule_version: "gaussdb-pdf-outline-v1"
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: "gaussdb_v2_0_10_0_0_centralized_reference_01"
+    source_relpath: "general/utility/set_session_authorization.txt"
+    chapter_sha256: "923a61766378dca2e0f586eaf5314b920b03d55294bd844dc9ca0bbd1a467beb"
+source_ledger_ref: "source_ledger_set_session_authorization"
+syntax_ref: "syntax_set_session_authorization"
+dimensions:
+  reset_form:
+    description: "重置语法"
+    classes:
+      -
+        id: "set_session_authorization_reset_form_reset_class"
+        meaning: "reset"
+        values:
+          -
+            id: "set_session_authorization_reset_form_reset"
+            render: "RESET SESSION AUTHORIZATION"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "set_session_authorization_fact_reset_syntax"
+      -
+        id: "set_session_authorization_reset_form_default_class"
+        meaning: "default"
+        values:
+          -
+            id: "set_session_authorization_reset_form_default"
+            render: "SET SESSION AUTHORIZATION DEFAULT"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "set_session_authorization_fact_reset_syntax"
+      -
+        id: "set_session_authorization_reset_form_session_class"
+        meaning: "session"
+        values:
+          -
+            id: "set_session_authorization_reset_form_session"
+            render: "SET SESSION SESSION AUTHORIZATION DEFAULT"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "set_session_authorization_fact_reset_syntax"
+      -
+        id: "set_session_authorization_reset_form_local_class"
+        meaning: "local"
+        values:
+          -
+            id: "set_session_authorization_reset_form_local"
+            render: "SET LOCAL SESSION AUTHORIZATION DEFAULT"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "set_session_authorization_fact_reset_syntax"
+    default_value_id: "set_session_authorization_reset_form_reset"
+rules: []
+structural_checks: []
+facts:
+  -
+    id: "set_session_authorization_fact_purpose"
+    type: "lifecycle"
+    statement: "同时设置会话用户与当前用户标识符。"
+    status: "confirmed"
+    source_anchor: "L5-L5"
+  -
+    id: "set_session_authorization_fact_membership"
+    type: "environment"
+    statement: "仅初始会话用户为系统管理员可更改为其他用户，否则仅接受已认证用户名。"
+    status: "confirmed"
+    source_anchor: "L9-L10"
+  -
+    id: "set_session_authorization_fact_ldap"
+    type: "environment"
+    statement: "LDAP认证用户不能作为切换目标。"
+    status: "confirmed"
+    source_anchor: "L11-L12"
+  -
+    id: "set_session_authorization_fact_switch_syntax"
+    type: "syntax"
+    statement: "SET SESSION AUTHORIZATION 的目标角色后要求 PASSWORD。"
+    status: "confirmed"
+    source_anchor: "L16-L17"
+  -
+    id: "set_session_authorization_fact_reset_syntax"
+    type: "syntax"
+    statement: "支持 SET SESSION AUTHORIZATION DEFAULT 或 RESET SESSION AUTHORIZATION 两种重置语法。"
+    status: "confirmed"
+    source_anchor: "L22-L24"
+  -
+    id: "set_session_authorization_fact_session"
+    type: "lifecycle"
+    statement: "SESSION 在当前会话有效。"
+    status: "confirmed"
+    source_anchor: "L30-L31"
+  -
+    id: "set_session_authorization_fact_local"
+    type: "lifecycle"
+    statement: "LOCAL 在当前事务有效。"
+    status: "confirmed"
+    source_anchor: "L32-L33"
+  -
+    id: "set_session_authorization_fact_role"
+    type: "environment"
+    statement: "目标角色必须是已存在用户名。"
+    status: "confirmed"
+    source_anchor: "L34-L36"
+  -
+    id: "set_session_authorization_fact_password"
+    type: "constraint"
+    statement: "角色密码需要符合密码规则。"
+    status: "confirmed"
+    source_anchor: "L37-L38"
+  -
+    id: "set_session_authorization_fact_cipher_admin"
+    type: "constraint"
+    statement: "管理员不能使用密文切换为其他管理员，只能降权。"
+    status: "confirmed"
+    source_anchor: "L42-L43"
+  -
+    id: "set_session_authorization_fact_cipher_usage"
+    type: "environment"
+    statement: "密文通常仅用于导出场景，其他场景不建议使用。"
+    status: "confirmed"
+    source_anchor: "L44-L45"
+  -
+    id: "set_session_authorization_fact_reset"
+    type: "behavior_oracle"
+    statement: "DEFAULT 将两个用户标识重置为初始认证用户名。"
+    status: "confirmed"
+    source_anchor: "L46-L47"
+  -
+    id: "set_session_authorization_fact_example"
+    type: "example"
+    statement: "角色切换与两个标识恢复的示例，创建用户和密码不进入默认用例。"
+    status: "confirmed"
+    source_anchor: "L51-L60"
+  -
+    id: "set_session_authorization_fact_switch_profile"
+    type: "open_question"
+    statement: "角色切换完整语法含 PASSWORD，但未有专用角色及安全凭据注入契约；只生成不需要密码的重置语句，不伪造有效密码。"
+    status: "needs_verification"
+    source_anchor: "L16-L17"
+exported_fact_refs: []
+manifest_refs:
+  - "manifest_set_session_authorization_reset"
+matrix_refs:
+  - "matrix_set_session_authorization_coverage"
+fixture_refs:
+  - "fixture_set_session_authorization_session"
+scenario_refs:
+  - "scenario_set_session_authorization_switch_identity"
+  - "scenario_set_session_authorization_privilege_lifecycle"

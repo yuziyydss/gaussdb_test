@@ -1,0 +1,147 @@
+schema_version: 1
+kind: "syntax"
+id: "syntax_prepare"
+name: "PREPARE 语法"
+factor_ref: "prepare"
+category: "UTILITY"
+status: "ready"
+description: "语法结构来自 PDF，选值仅由 factor/manifest 提供。"
+rendering:
+  whitespace: "collapse"
+  statement_terminator: ";"
+slots:
+  name:
+    type: "token"
+    optional: true
+    dimension_ref: "prepare.name"
+  statement_form:
+    type: "token"
+    optional: true
+    dimension_ref: "prepare.statement_form"
+  signature:
+    type: "token"
+    optional: true
+    dimension_ref: "prepare.signature"
+  expression:
+    type: "token"
+    optional: true
+    dimension_ref: "prepare.expression"
+source_fact_refs:
+  - "prepare_fact_syntax"
+  - "prepare_fact_datatype"
+  - "prepare_fact_statement_family"
+  - "values::values_fact_rows_syntax"
+ast:
+  kind: "sequence"
+  items:
+    -
+      kind: "literal"
+      text: "PREPARE "
+    -
+      kind: "slot"
+      slot: "name"
+    -
+      kind: "optional"
+      selector: "signature"
+      enabled_values:
+        - "prepare_signature_one"
+        - "prepare_signature_two"
+      item:
+        kind: "sequence"
+        items:
+          -
+            kind: "literal"
+            text: "("
+          -
+            kind: "repeat"
+            slot: "signature"
+            separator: ", "
+            items_property: "items"
+          -
+            kind: "literal"
+            text: ")"
+    -
+      kind: "literal"
+      text: " AS "
+    -
+      kind: "choice"
+      selector: "statement_form"
+      branches:
+        prepare_statement_form_select:
+          kind: "sequence"
+          items:
+            -
+              kind: "literal"
+              text: "SELECT "
+            -
+              kind: "slot"
+              slot: "expression"
+            -
+              kind: "literal"
+              text: " AS a"
+        prepare_statement_form_insert:
+          kind: "sequence"
+          items:
+            -
+              kind: "literal"
+              text: "INSERT INTO t_prepare_source (id) VALUES ("
+            -
+              kind: "slot"
+              slot: "expression"
+            -
+              kind: "literal"
+              text: ")"
+        prepare_statement_form_update:
+          kind: "sequence"
+          items:
+            -
+              kind: "literal"
+              text: "UPDATE t_prepare_source SET note = 'updated' WHERE id = "
+            -
+              kind: "slot"
+              slot: "expression"
+        prepare_statement_form_delete:
+          kind: "sequence"
+          items:
+            -
+              kind: "literal"
+              text: "DELETE FROM t_prepare_source WHERE id = "
+            -
+              kind: "slot"
+              slot: "expression"
+        prepare_statement_form_merge:
+          kind: "sequence"
+          items:
+            -
+              kind: "literal"
+              text: "MERGE INTO t_prepare_source t USING (SELECT "
+            -
+              kind: "slot"
+              slot: "expression"
+            -
+              kind: "literal"
+              text: " AS id) s ON (t.id = s.id) WHEN MATCHED THEN UPDATE SET note = 'updated'"
+        prepare_statement_form_values:
+          kind: "sequence"
+          items:
+            -
+              kind: "literal"
+              text: "VALUES ("
+            -
+              kind: "slot"
+              slot: "expression"
+            -
+              kind: "literal"
+              text: ")"
+        prepare_statement_form_select_two:
+          kind: "sequence"
+          items:
+            -
+              kind: "literal"
+              text: "SELECT "
+            -
+              kind: "slot"
+              slot: "expression"
+            -
+              kind: "literal"
+              text: " AS a, CAST($2 AS INTEGER) AS b"

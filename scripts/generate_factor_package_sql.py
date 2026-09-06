@@ -60,6 +60,11 @@ def render_sql_snapshot(manifest_id: str, cases: List[Any]) -> str:
             f"-- expected_scope: {case.expected_scope}",
             f"-- params: {params}",
         ])
+        if case.environment_requirements:
+            lines.append(
+                "-- environment_requirements: "
+                + json.dumps(case.environment_requirements, ensure_ascii=False, sort_keys=True)
+            )
         if case.setup_sqls:
             lines.append("-- fixture_setup:")
             lines.extend(case.setup_sqls)
@@ -69,6 +74,31 @@ def render_sql_snapshot(manifest_id: str, cases: List[Any]) -> str:
             lines.extend(case.teardown_sqls)
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
+
+
+def record_sql_provenance(
+    origins: Dict[str, List[Dict[str, str]]],
+    factor_id: str,
+    manifest_id: str,
+    cases: List[Any],
+) -> None:
+    """Retain cross-chapter overlaps; reject duplicate generation within a factor.
+
+    START TRANSACTION and BEGIN both document BEGIN. Identical text across
+    chapters is evidence to report, not grounds to discard a source branch.
+    This does not assert equivalent fixtures, expectations, or behavior.
+    """
+    for case in cases:
+        previous = origins.setdefault(case.sql, [])
+        if any(item["factor_id"] == factor_id for item in previous):
+            raise GenerationValidationError(
+                f"同一 factor 跨 manifest SQL 重复: {factor_id}: {case.sql}"
+            )
+        previous.append({
+            "factor_id": factor_id,
+            "manifest_id": manifest_id,
+            "case_id": case.case_id,
+        })
 
 
 def main() -> int:
@@ -99,7 +129,7 @@ def main() -> int:
     reports: Dict[str, Any] = {}
     pending_snapshots: Dict[Path, str] = {}
     global_case_ids = set()
-    global_sql = set()
+    sql_origins: Dict[str, List[Dict[str, str]]] = {}
     for manifest_id in requested:
         manifest = registry.manifests[manifest_id]
         try:
@@ -112,9 +142,10 @@ def main() -> int:
             print(f"跨 manifest case_id 重复: {duplicates}", file=sys.stderr)
             return 1
         global_case_ids.update(case.case_id for case in cases)
-        duplicate_sql = sorted(case.sql for case in cases if case.sql in global_sql)
-        if duplicate_sql:
-            print(f"跨 manifest SQL 重复: {duplicate_sql}", file=sys.stderr)
+        try:
+            record_sql_provenance(sql_origins, manifest.factor_ref, manifest_id, cases)
+        except GenerationValidationError as exc:
+            print(str(exc), file=sys.stderr)
             return 1
         for case in cases:
             valid_sql, issues = validate_sql_syntax(case.sql)
@@ -134,8 +165,6 @@ def main() -> int:
                             file=sys.stderr,
                         )
                         return 1
-        global_sql.update(case.sql for case in cases)
-
         factor_dir = args.output_dir / manifest.factor_ref
         sql_path = factor_dir / f"{manifest.id}.sql"
         pending_snapshots[sql_path] = render_sql_snapshot(manifest.id, cases)
@@ -194,6 +223,12 @@ def main() -> int:
         json.dumps({
             "manifest_count": len(reports),
             "global_case_id_count": len(global_case_ids),
+            "distinct_sql_count": len(sql_origins),
+            "cross_factor_sql_overlaps": [
+                {"sql": sql, "origins": origins}
+                for sql, origins in sorted(sql_origins.items())
+                if len(origins) > 1
+            ],
             "factor_dependencies": {
                 factor_id: sorted(dependencies)
                 for factor_id, dependencies in sorted(

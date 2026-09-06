@@ -1,0 +1,35 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_rollback_to_savepoint_new_cursor_closes"
+name: "ROLLBACK TO SAVEPOINT new_cursor_closes"
+status: "planned"
+description: "保存点之后打开的游标应在回滚后不存在；错误身份待校准。"
+factor_ref: "rollback_to_savepoint"
+fixture_refs:
+  - "fixture_rollback_to_savepoint_dependency_savepoint_defined"
+fact_refs:
+  - "rollback_to_savepoint_fact_new_cursor_closes"
+  - "rollback_to_savepoint_fact_error_identity"
+preconditions: []
+steps:
+  -
+    id: "cursor"
+    action: "execute_sql"
+    sql: "DECLARE after_cursor CURSOR FOR SELECT 1"
+  -
+    id: "rollback"
+    action: "execute_sql"
+    sql: "ROLLBACK TO sp_test"
+  -
+    id: "probe"
+    action: "execute_sql"
+    sql: "FETCH 1 FROM after_cursor"
+oracles:
+  -
+    after_step: "probe"
+    kind: "target_error"
+    expected: "cursor_closed_after_savepoint_rollback"
+    oracle_status: "needs_verification"
+execution_requirements:
+  - "database"
+  - "same_session"

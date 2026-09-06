@@ -1,0 +1,254 @@
+schema_version: 1
+kind: "factor"
+id: "drop_function"
+name: "DROP FUNCTION"
+category: "DDL"
+status: "needs_review"
+description: "第五批 PDF 抽取；有限生成域与未执行场景分开报告。"
+source:
+  product: "GaussDB"
+  document: "集中式版参考 / 1.13.10.17 DROP FUNCTION"
+  version: "V2.0-10.0.0"
+  artifact_sha256: "021fb78e4be36bc6e6fe73d7954946f2a2ec70c6149934f0e0fa32a4a3c6e2c6"
+  parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+  extraction_rule_version: "gaussdb-pdf-outline-v1"
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: "gaussdb_v2_0_10_0_0_centralized_reference_01"
+    source_relpath: "general/ddl/drop_function.txt"
+    chapter_sha256: "021fb78e4be36bc6e6fe73d7954946f2a2ec70c6149934f0e0fa32a4a3c6e2c6"
+source_ledger_ref: "source_ledger_drop_function"
+syntax_ref: "syntax_drop_function"
+dimensions:
+  target:
+    description: "上游目标及明确缺失目标"
+    classes:
+      -
+        id: "drop_function_target_present_class"
+        meaning: "present"
+        values:
+          -
+            id: "drop_function_target_present"
+            render: "fp_cf_callable"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_function_fact_name"
+              - "create_function::create_function_fact_pg_signature"
+      -
+        id: "drop_function_target_missing_class"
+        meaning: "missing"
+        values:
+          -
+            id: "drop_function_target_missing"
+            render: "fp_df_missing"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_function_fact_if_exists"
+    default_value_id: "drop_function_target_present"
+  if_exists:
+    description: "缺失保护"
+    classes:
+      -
+        id: "drop_function_if_exists_none_class"
+        meaning: "none"
+        values:
+          -
+            id: "drop_function_if_exists_none"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_function_fact_syntax"
+      -
+        id: "drop_function_if_exists_yes_class"
+        meaning: "yes"
+        values:
+          -
+            id: "drop_function_if_exists_yes"
+            render: "IF EXISTS"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_function_fact_syntax"
+    default_value_id: "drop_function_if_exists_none"
+  signature:
+    description: "省略或明确参数"
+    classes:
+      -
+        id: "drop_function_signature_bare_class"
+        meaning: "bare"
+        values:
+          -
+            id: "drop_function_signature_bare"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_function_fact_syntax"
+      -
+        id: "drop_function_signature_types_class"
+        meaning: "types"
+        values:
+          -
+            id: "drop_function_signature_types"
+            render: "(INTEGER, INTEGER)"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_function_fact_arguments"
+      -
+        id: "drop_function_signature_named_class"
+        meaning: "named"
+        values:
+          -
+            id: "drop_function_signature_named"
+            render: "(num1 IN INTEGER, num2 IN INTEGER)"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_function_fact_arguments"
+    default_value_id: "drop_function_signature_bare"
+  behavior:
+    description: "签名分支删除策略"
+    classes:
+      -
+        id: "drop_function_behavior_none_class"
+        meaning: "none"
+        values:
+          -
+            id: "drop_function_behavior_none"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_function_fact_syntax"
+      -
+        id: "drop_function_behavior_cascade_class"
+        meaning: "cascade"
+        values:
+          -
+            id: "drop_function_behavior_cascade"
+            render: "CASCADE"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_function_fact_behavior"
+      -
+        id: "drop_function_behavior_restrict_class"
+        meaning: "restrict"
+        values:
+          -
+            id: "drop_function_behavior_restrict"
+            render: "RESTRICT"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_function_fact_behavior"
+    default_value_id: "drop_function_behavior_none"
+rules: []
+structural_checks: []
+facts:
+  -
+    id: "drop_function_fact_purpose"
+    type: "lifecycle"
+    statement: "删除已存在函数。"
+    status: "confirmed"
+    source_anchor: "L5-L5"
+  -
+    id: "drop_function_fact_temporary"
+    type: "constraint"
+    statement: "函数涉及临时表操作时不能通过此操作删除。"
+    status: "confirmed"
+    source_anchor: "L8-L8"
+  -
+    id: "drop_function_fact_authority"
+    type: "environment"
+    statement: "需属主或 DROP 权限，系统管理员默认有权。"
+    status: "confirmed"
+    source_anchor: "L9-L10"
+  -
+    id: "drop_function_fact_initial"
+    type: "environment"
+    statement: "初始用户函数仅初始用户可删。"
+    status: "confirmed"
+    source_anchor: "L11-L11"
+  -
+    id: "drop_function_fact_syntax"
+    type: "syntax"
+    statement: "可选 IF EXISTS；可省参数列表；CASCADE/RESTRICT 位于参数列表分支后。"
+    status: "confirmed"
+    source_anchor: "L14-L15"
+  -
+    id: "drop_function_fact_if_exists"
+    type: "behavior_oracle"
+    statement: "IF EXISTS 对缺失目标产生 NOTICE 而非执行删除。"
+    status: "confirmed"
+    source_anchor: "L21-L25"
+  -
+    id: "drop_function_fact_name"
+    type: "constraint"
+    statement: "名称为现有函数。"
+    status: "confirmed"
+    source_anchor: "L26-L28"
+  -
+    id: "drop_function_fact_arguments"
+    type: "syntax"
+    statement: "参数列表可含名称、模式和类型。"
+    status: "confirmed"
+    source_anchor: "L29-L34"
+  -
+    id: "drop_function_fact_behavior"
+    type: "constraint"
+    statement: "默认 RESTRICT；CASCADE 删除依赖，RESTRICT 在有依赖时拒绝。"
+    status: "confirmed"
+    source_anchor: "L35-L38"
+  -
+    id: "drop_function_fact_overload_signature"
+    type: "constraint"
+    statement: "同名重载存在时必须加参数列表，否则报错。"
+    status: "confirmed"
+    source_anchor: "L53-L54"
+  -
+    id: "drop_function_fact_bare_example"
+    type: "example"
+    statement: "可省参数删除示例。"
+    status: "confirmed"
+    source_anchor: "L41-L50"
+  -
+    id: "drop_function_fact_one_example"
+    type: "example"
+    statement: "单输入函数定义。"
+    status: "confirmed"
+    source_anchor: "L55-L60"
+  -
+    id: "drop_function_fact_overload_example"
+    type: "example"
+    statement: "重载函数定义与按签名删除示例。"
+    status: "confirmed"
+    source_anchor: "L62-L71"
+  -
+    id: "drop_function_fact_temporary_lifecycle"
+    type: "open_question"
+    statement: "临时表依赖函数的删除限制需专用生命周期，不用普通函数冒充。"
+    status: "needs_verification"
+    source_anchor: "L8-L8"
+  -
+    id: "drop_function_fact_dependencies"
+    type: "open_question"
+    statement: "级联/限制的依赖对象行为与精确错误 Oracle 需专用场景。"
+    status: "needs_verification"
+    source_anchor: "L35-L38"
+exported_fact_refs: []
+manifest_refs:
+  - "manifest_drop_function_bare"
+  - "manifest_drop_function_signature"
+  - "manifest_drop_function_missing"
+matrix_refs:
+  - "matrix_drop_function_coverage"
+fixture_refs:
+  - "fixture_drop_function_function"
+scenario_refs:
+  - "scenario_drop_function_missing_notice"
+  - "scenario_drop_function_overload_and_permissions"

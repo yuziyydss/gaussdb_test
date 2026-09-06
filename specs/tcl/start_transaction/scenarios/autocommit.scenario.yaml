@@ -1,0 +1,43 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_start_transaction_autocommit"
+name: "START TRANSACTION autocommit"
+status: "planned"
+description: "读取驱动事务状态，核对命令开始和结束前后的自动提交模式。"
+factor_ref: "start_transaction"
+fixture_refs:
+  - "fixture_start_transaction_idle_connection"
+fact_refs:
+  - "start_transaction_fact_lifecycle"
+  - "start_transaction_fact_autocommit"
+  - "rollback::rollback_fact_effect"
+preconditions:
+  - "独占连接"
+  - "记录进入场景前自动提交设置"
+steps:
+  -
+    id: "start"
+    action: "execute_sql"
+    sql: "START TRANSACTION"
+  -
+    id: "active"
+    action: "inspect_transaction_state"
+  -
+    id: "end"
+    action: "execute_sql"
+    sql: "ROLLBACK"
+  -
+    id: "idle"
+    action: "inspect_transaction_state"
+oracles:
+  -
+    after_step: "active"
+    kind: "transaction_state"
+    expected: "active"
+  -
+    after_step: "idle"
+    kind: "autocommit_restored"
+    expected: true
+execution_requirements:
+  - "database"
+  - "same_session"

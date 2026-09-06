@@ -161,10 +161,58 @@ def _factor_source_sha256(package_dir: Path, factor_id: str) -> str:
     )
 
 
+def supplemental_verification_snapshot(
+    package_dir: Path,
+    catalog_path: Optional[Path],
+    corpus_root: Optional[Path] = None,
+) -> Dict[str, Any]:
+    """Bind declared body-only inputs to disk, not merely ledger/catalog hashes.
+
+    This is internal queue evidence, not a new Factor Package schema. URL-only
+    sources cannot receive a local freshness proof. No network access is made.
+    """
+    try:
+        sources = []
+        for path in sorted(package_dir.glob('*.source.yaml')):
+            ledger = yaml.safe_load(path.read_text(encoding='utf-8'))
+            if not isinstance(ledger, dict):
+                raise ValueError(f'invalid ledger: {path.name}')
+            sources.extend(ledger.get('supplemental_sources', []))
+        if not sources:
+            return {}
+        if catalog_path is None:
+            raise ValueError('catalog unavailable')
+        catalog_path = Path(catalog_path).resolve()
+        catalog = json.loads(catalog_path.read_text(encoding='utf-8'))
+        chapters = {c['source_relpath']: c for c in catalog['chapters']}
+        root = (corpus_root or catalog_path.parent).resolve()
+        result = {}
+        for source in sources:
+            ref = source.get('catalog_chapter_ref')
+            if not isinstance(ref, dict):
+                raise ValueError('local catalog reference required, URL freshness unverified')
+            relpath = ref['source_relpath']
+            path = (root / relpath).resolve()
+            if Path(relpath).is_absolute() or not path.is_relative_to(root):
+                raise ValueError(f'body outside corpus: {relpath}')
+            chapter = chapters.get(relpath)
+            if (not chapter or ref['document_id'] != catalog['document_id']
+                    or source['version'] != catalog['product_version']
+                    or ref['chapter_sha256'] != chapter['chapter_sha256']):
+                raise ValueError(f'catalog/ledger mismatch: {relpath}')
+            digest = sha256_file(path)
+            if digest != ref['chapter_sha256']:
+                raise ValueError(f'body changed: {relpath}')
+            result[relpath] = {'source_path': str(path), 'source_sha256': digest}
+        return {'catalog_path': str(catalog_path), 'corpus_root': str(root), 'bodies': result}
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, yaml.YAMLError) as exc:
+        raise QueueError(f'supplemental_source_unverified:{package_dir.name}:{exc}') from exc
+
+
 def dependency_verification_snapshot(
     state: Dict[str, Any],
     task: Dict[str, Any],
-) -> Dict[str, Dict[str, str]]:
+) -> Dict[str, Dict[str, Any]]:
     """Snapshot the transitive package and chapter inputs of a task."""
     tasks_by_factor = {item["factor_id"]: item for item in state["tasks"]}
     graph: Dict[str, Set[str]] = {
@@ -189,7 +237,7 @@ def dependency_verification_snapshot(
         pending.extend(graph.get(dependency_id, set()))
 
     package_dirs = _factor_package_dirs(Path(state["specs_root"]))
-    result: Dict[str, Dict[str, str]] = {}
+    result: Dict[str, Dict[str, Any]] = {}
     for dependency_id in sorted(closure):
         dependency_task = tasks_by_factor.get(dependency_id)
         package_dir = (
@@ -227,6 +275,10 @@ def dependency_verification_snapshot(
         }
         if source_path is not None:
             result[dependency_id]["source_path"] = str(source_path)
+        catalog_value = (dependency_task or {}).get('source_catalog_path') or state.get('source_catalog_path')
+        result[dependency_id]['supplemental_sources'] = supplemental_verification_snapshot(
+            package_dir, Path(catalog_value) if catalog_value else None,
+            Path(state['corpus_root']) if not (dependency_task or {}).get('source_catalog_path') else None)
     return result
 
 
@@ -244,6 +296,24 @@ def verification_toolchain_sha256() -> str:
     )
     paths.append(ROOT_DIR / "requirements.txt")
     return sha256_files(paths, relative_to=ROOT_DIR)
+
+
+def _valid_supplemental_snapshot(evidence: Any) -> bool:
+    """Check persisted JSON before using it to construct filesystem paths."""
+    if not isinstance(evidence, dict):
+        return False
+    if not evidence:
+        return True  # Older snapshots without supplemental inputs.
+    if not all(isinstance(evidence.get(key), str) and evidence[key].strip()
+               for key in ('catalog_path', 'corpus_root')):
+        return False
+    bodies = evidence.get('bodies')
+    return isinstance(bodies, dict) and all(
+        isinstance(relpath, str) and isinstance(body, dict)
+        and isinstance(body.get('source_path'), str) and bool(body['source_path'].strip())
+        and isinstance(body.get('source_sha256'), str)
+        and bool(SHA256_PATTERN.fullmatch(body['source_sha256']))
+        for relpath, body in bodies.items())
 
 
 def static_completion_freshness(
@@ -325,6 +395,21 @@ def static_completion_freshness(
         elif snapshot_parent_pdf_sha256 != sha256_file(pdf_path):
             reasons.append("parent_pdf_changed_after_verify")
 
+    expected_supplements = snapshot.get('supplemental_sources', {})
+    try:
+        if not _valid_supplemental_snapshot(expected_supplements):
+            raise QueueError('supplemental_snapshot_invalid')
+        evidence = expected_supplements
+        supplemental_catalog = (catalog_value or (state or {}).get('source_catalog_path')
+                                or evidence.get('catalog_path'))
+        current_supplements = supplemental_verification_snapshot(
+            target_dir, Path(supplemental_catalog) if supplemental_catalog else None,
+            source_root or (Path(evidence['corpus_root']) if evidence.get('corpus_root') else None))
+        if current_supplements != expected_supplements:
+            reasons.append('supplemental_sources_changed_or_snapshot_missing')
+    except QueueError as exc:
+        reasons.append(str(exc))
+
     expected_dependencies = snapshot.get("dependencies", {})
     declared_dependencies = set(task.get("depends_on_factor_refs", []))
     if not isinstance(expected_dependencies, dict):
@@ -341,12 +426,16 @@ def static_completion_freshness(
         else:
             current_dependencies = {}
             for dependency_id, expected in expected_dependencies.items():
-                if not isinstance(expected, dict) or not expected.get("package_dir"):
+                if (not isinstance(expected, dict)
+                        or not isinstance(expected.get('package_dir'), str)
+                        or not expected['package_dir'].strip()):
                     reasons.append(f"dependency_snapshot_invalid:{dependency_id}")
                     continue
                 dependency_dir = Path(expected["package_dir"])
                 try:
                     source_path = expected.get("source_path")
+                    if source_path is not None and (not isinstance(source_path, str) or not source_path.strip()):
+                        raise QueueError(f'dependency_snapshot_invalid:{dependency_id}')
                     if source_path and not Path(source_path).is_file():
                         raise QueueError(f"dependency_source_unavailable:{dependency_id}")
                     current_dependencies[dependency_id] = {
@@ -357,6 +446,13 @@ def static_completion_freshness(
                             else _factor_source_sha256(dependency_dir, dependency_id)
                         ),
                     }
+                    evidence = expected.get('supplemental_sources', {})
+                    if not _valid_supplemental_snapshot(evidence):
+                        raise QueueError(f'dependency_supplemental_snapshot_invalid:{dependency_id}')
+                    current_dependencies[dependency_id]['supplemental_sources'] = supplemental_verification_snapshot(
+                        dependency_dir,
+                        Path(evidence['catalog_path']) if evidence.get('catalog_path') else None,
+                        Path(evidence['corpus_root']) if evidence.get('corpus_root') else None)
                 except QueueError as exc:
                     reasons.append(str(exc))
         if set(current_dependencies) != set(expected_dependencies):
@@ -366,6 +462,9 @@ def static_completion_freshness(
         ):
             current = current_dependencies[dependency_id]
             expected = expected_dependencies[dependency_id]
+            if not isinstance(expected, dict):
+                reasons.append(f'dependency_snapshot_invalid:{dependency_id}')
+                continue
             if (
                 current.get("factor_package_sha256")
                 != expected.get("factor_package_sha256")
@@ -375,6 +474,8 @@ def static_completion_freshness(
                 )
             if current.get("source_sha256") != expected.get("source_sha256"):
                 reasons.append(f"dependency_source_changed:{dependency_id}")
+            if current.get('supplemental_sources', {}) != expected.get('supplemental_sources', {}):
+                reasons.append(f'dependency_supplemental_sources_changed:{dependency_id}')
     return not reasons, list(dict.fromkeys(reasons))
 
 
@@ -1397,6 +1498,13 @@ def validate_task_artifact(
         if ledger_data.get("source_line_count") != task["source_line_count"]:
             errors.append("source ledger source_line_count 与任务原文行数不一致")
         _validate_supplemental_catalog_refs(ledger_data, catalog, errors)
+        if ledger_data.get('supplemental_sources'):
+            try:
+                supplemental_verification_snapshot(
+                    output_dir, Path(catalog['path']) if catalog else None,
+                    Path(state['corpus_root']) if state and state.get('corpus_root') else None)
+            except QueueError as exc:
+                errors.append(str(exc))
 
     return {
         "command": ["validate_task_artifact", task["task_id"]],
@@ -1446,13 +1554,26 @@ def verify_task(state: Dict[str, Any], task: Dict[str, Any], output_dir: Path) -
         for name in ("task_envelope", "lint", "generate", "audit")
     )
     if succeeded:
+        try:
+            dependencies = dependency_verification_snapshot(state, task)
+            supplements = supplemental_verification_snapshot(
+                Path(task['output_dir']),
+                Path(task.get('source_catalog_path') or state['source_catalog_path'])
+                if task.get('source_catalog_path') or state.get('source_catalog_path') else None,
+                Path(state['corpus_root']))
+        except QueueError as exc:
+            succeeded = False
+            checks['input_snapshot'] = {'returncode': 1, 'output': str(exc)}
+            task['checks']['input_snapshot'] = checks['input_snapshot']
+    if succeeded:
         task["verification_snapshot"] = {
             "factor_package_sha256": factor_package_sha256(Path(task["output_dir"])),
             "toolchain_sha256": verification_toolchain_sha256(),
             "source_sha256": task["source_sha256"],
             "catalog_sha256": task.get("source_catalog_sha256"),
             "parent_pdf_sha256": task.get("parent_pdf_sha256"),
-            "dependencies": dependency_verification_snapshot(state, task),
+            "dependencies": dependencies,
+            "supplemental_sources": supplements,
             "verified_at": utc_now(),
         }
         task["status"] = "static_complete"
@@ -1464,7 +1585,7 @@ def verify_task(state: Dict[str, Any], task: Dict[str, Any], output_dir: Path) -
         task.pop("verification_snapshot", None)
         task["status"] = "needs_review"
         failed = [
-            name for name in ("task_envelope", "lint", "generate", "audit")
+            name for name in ("task_envelope", "lint", "generate", "audit", "input_snapshot")
             if name in checks and checks[name]["returncode"] != 0
         ]
         task["message"] = f"静态门禁未通过: {', '.join(failed)}"

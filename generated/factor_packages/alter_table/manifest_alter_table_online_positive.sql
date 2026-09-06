@@ -10,6 +10,7 @@
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
 -- params: {"action_profile": "at_action_alter_type", "add_column_items": "at_add_columns_two", "column_keyword": "at_column_keyword", "ddl_mode": "at_mode_online", "if_exists": "at_if_exists_none", "modify_column_items": "at_modify_columns_two", "rename_operator": "at_rename_to", "statement_form": "at_statement_action", "table_profile": "at_table_regular", "target_form": "at_target_plain"}
+-- environment_requirements: [{"allowed_values": ["outside_transaction"], "fact_refs": ["at_fact_online_environment"], "key": "transaction_context"}, {"allowed_values": ["outside_procedure"], "fact_refs": ["at_fact_online_environment"], "key": "stored_procedure_context"}, {"allowed_values": ["supported"], "fact_refs": ["at_fact_online_environment"], "key": "online_ddl_compatibility"}, {"allowed_values": ["inactive"], "fact_refs": ["at_fact_online_environment"], "key": "upgrade_observation_period"}, {"allowed_values": ["sufficient"], "fact_refs": ["at_fact_online_environment"], "key": "disk_space"}, {"allowed_values": ["absent"], "fact_refs": ["at_fact_online_environment"], "key": "long_transaction"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS at_target_schema.t_at_regular CASCADE;
 DROP TABLE IF EXISTS t_at_renamed CASCADE;
@@ -40,6 +41,7 @@ DROP SCHEMA IF EXISTS at_target_schema CASCADE;
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
 -- params: {"action_profile": "at_action_set_not_null", "add_column_items": "at_add_columns_two", "column_keyword": "at_column_keyword", "ddl_mode": "at_mode_online_parallel4", "if_exists": "at_if_exists", "modify_column_items": "at_modify_columns_two", "rename_operator": "at_rename_to", "statement_form": "at_statement_action", "table_profile": "at_table_regular", "target_form": "at_target_plain"}
+-- environment_requirements: [{"allowed_values": ["outside_transaction"], "fact_refs": ["at_fact_online_environment"], "key": "transaction_context"}, {"allowed_values": ["outside_procedure"], "fact_refs": ["at_fact_online_environment"], "key": "stored_procedure_context"}, {"allowed_values": ["supported"], "fact_refs": ["at_fact_online_environment"], "key": "online_ddl_compatibility"}, {"allowed_values": ["inactive"], "fact_refs": ["at_fact_online_environment"], "key": "upgrade_observation_period"}, {"allowed_values": ["sufficient"], "fact_refs": ["at_fact_online_environment"], "key": "disk_space"}, {"allowed_values": ["absent"], "fact_refs": ["at_fact_online_environment"], "key": "long_transaction"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS at_target_schema.t_at_regular CASCADE;
 DROP TABLE IF EXISTS t_at_renamed CASCADE;
@@ -70,6 +72,7 @@ DROP SCHEMA IF EXISTS at_target_schema CASCADE;
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
 -- params: {"action_profile": "at_action_add_check", "add_column_items": "at_add_columns_two", "column_keyword": "at_column_keyword", "ddl_mode": "at_mode_online_catchup10", "if_exists": "at_if_exists_none", "modify_column_items": "at_modify_columns_two", "rename_operator": "at_rename_to", "statement_form": "at_statement_action", "table_profile": "at_table_regular", "target_form": "at_target_plain"}
+-- environment_requirements: [{"allowed_values": ["outside_transaction"], "fact_refs": ["at_fact_online_environment"], "key": "transaction_context"}, {"allowed_values": ["outside_procedure"], "fact_refs": ["at_fact_online_environment"], "key": "stored_procedure_context"}, {"allowed_values": ["supported"], "fact_refs": ["at_fact_online_environment"], "key": "online_ddl_compatibility"}, {"allowed_values": ["inactive"], "fact_refs": ["at_fact_online_environment"], "key": "upgrade_observation_period"}, {"allowed_values": ["sufficient"], "fact_refs": ["at_fact_online_environment"], "key": "disk_space"}, {"allowed_values": ["absent"], "fact_refs": ["at_fact_online_environment"], "key": "long_transaction"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS at_target_schema.t_at_regular CASCADE;
 DROP TABLE IF EXISTS t_at_renamed CASCADE;
@@ -100,6 +103,7 @@ DROP SCHEMA IF EXISTS at_target_schema CASCADE;
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
 -- params: {"action_profile": "at_action_add_unique", "add_column_items": "at_add_columns_two", "column_keyword": "at_column_keyword", "ddl_mode": "at_mode_online", "if_exists": "at_if_exists", "modify_column_items": "at_modify_columns_two", "rename_operator": "at_rename_to", "statement_form": "at_statement_action", "table_profile": "at_table_regular", "target_form": "at_target_plain"}
+-- environment_requirements: [{"allowed_values": ["outside_transaction"], "fact_refs": ["at_fact_online_environment"], "key": "transaction_context"}, {"allowed_values": ["outside_procedure"], "fact_refs": ["at_fact_online_environment"], "key": "stored_procedure_context"}, {"allowed_values": ["supported"], "fact_refs": ["at_fact_online_environment"], "key": "online_ddl_compatibility"}, {"allowed_values": ["inactive"], "fact_refs": ["at_fact_online_environment"], "key": "upgrade_observation_period"}, {"allowed_values": ["sufficient"], "fact_refs": ["at_fact_online_environment"], "key": "disk_space"}, {"allowed_values": ["absent"], "fact_refs": ["at_fact_online_environment"], "key": "long_transaction"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS at_target_schema.t_at_regular CASCADE;
 DROP TABLE IF EXISTS t_at_renamed CASCADE;
@@ -130,6 +134,7 @@ DROP SCHEMA IF EXISTS at_target_schema CASCADE;
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
 -- params: {"action_profile": "at_action_add_primary", "add_column_items": "at_add_columns_two", "column_keyword": "at_column_keyword", "ddl_mode": "at_mode_online_parallel4", "if_exists": "at_if_exists_none", "modify_column_items": "at_modify_columns_two", "rename_operator": "at_rename_to", "statement_form": "at_statement_action", "table_profile": "at_table_regular", "target_form": "at_target_plain"}
+-- environment_requirements: [{"allowed_values": ["outside_transaction"], "fact_refs": ["at_fact_online_environment"], "key": "transaction_context"}, {"allowed_values": ["outside_procedure"], "fact_refs": ["at_fact_online_environment"], "key": "stored_procedure_context"}, {"allowed_values": ["supported"], "fact_refs": ["at_fact_online_environment"], "key": "online_ddl_compatibility"}, {"allowed_values": ["inactive"], "fact_refs": ["at_fact_online_environment"], "key": "upgrade_observation_period"}, {"allowed_values": ["sufficient"], "fact_refs": ["at_fact_online_environment"], "key": "disk_space"}, {"allowed_values": ["absent"], "fact_refs": ["at_fact_online_environment"], "key": "long_transaction"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS at_target_schema.t_at_regular CASCADE;
 DROP TABLE IF EXISTS t_at_renamed CASCADE;
@@ -160,6 +165,7 @@ DROP SCHEMA IF EXISTS at_target_schema CASCADE;
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
 -- params: {"action_profile": "at_action_alter_type", "add_column_items": "at_add_columns_two", "column_keyword": "at_column_keyword", "ddl_mode": "at_mode_online_catchup10", "if_exists": "at_if_exists", "modify_column_items": "at_modify_columns_two", "rename_operator": "at_rename_to", "statement_form": "at_statement_action", "table_profile": "at_table_regular", "target_form": "at_target_plain"}
+-- environment_requirements: [{"allowed_values": ["outside_transaction"], "fact_refs": ["at_fact_online_environment"], "key": "transaction_context"}, {"allowed_values": ["outside_procedure"], "fact_refs": ["at_fact_online_environment"], "key": "stored_procedure_context"}, {"allowed_values": ["supported"], "fact_refs": ["at_fact_online_environment"], "key": "online_ddl_compatibility"}, {"allowed_values": ["inactive"], "fact_refs": ["at_fact_online_environment"], "key": "upgrade_observation_period"}, {"allowed_values": ["sufficient"], "fact_refs": ["at_fact_online_environment"], "key": "disk_space"}, {"allowed_values": ["absent"], "fact_refs": ["at_fact_online_environment"], "key": "long_transaction"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS at_target_schema.t_at_regular CASCADE;
 DROP TABLE IF EXISTS t_at_renamed CASCADE;
@@ -190,6 +196,7 @@ DROP SCHEMA IF EXISTS at_target_schema CASCADE;
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
 -- params: {"action_profile": "at_action_set_not_null", "add_column_items": "at_add_columns_two", "column_keyword": "at_column_keyword", "ddl_mode": "at_mode_online", "if_exists": "at_if_exists_none", "modify_column_items": "at_modify_columns_two", "rename_operator": "at_rename_to", "statement_form": "at_statement_action", "table_profile": "at_table_regular", "target_form": "at_target_plain"}
+-- environment_requirements: [{"allowed_values": ["outside_transaction"], "fact_refs": ["at_fact_online_environment"], "key": "transaction_context"}, {"allowed_values": ["outside_procedure"], "fact_refs": ["at_fact_online_environment"], "key": "stored_procedure_context"}, {"allowed_values": ["supported"], "fact_refs": ["at_fact_online_environment"], "key": "online_ddl_compatibility"}, {"allowed_values": ["inactive"], "fact_refs": ["at_fact_online_environment"], "key": "upgrade_observation_period"}, {"allowed_values": ["sufficient"], "fact_refs": ["at_fact_online_environment"], "key": "disk_space"}, {"allowed_values": ["absent"], "fact_refs": ["at_fact_online_environment"], "key": "long_transaction"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS at_target_schema.t_at_regular CASCADE;
 DROP TABLE IF EXISTS t_at_renamed CASCADE;
@@ -220,6 +227,7 @@ DROP SCHEMA IF EXISTS at_target_schema CASCADE;
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
 -- params: {"action_profile": "at_action_add_check", "add_column_items": "at_add_columns_two", "column_keyword": "at_column_keyword", "ddl_mode": "at_mode_online", "if_exists": "at_if_exists", "modify_column_items": "at_modify_columns_two", "rename_operator": "at_rename_to", "statement_form": "at_statement_action", "table_profile": "at_table_regular", "target_form": "at_target_plain"}
+-- environment_requirements: [{"allowed_values": ["outside_transaction"], "fact_refs": ["at_fact_online_environment"], "key": "transaction_context"}, {"allowed_values": ["outside_procedure"], "fact_refs": ["at_fact_online_environment"], "key": "stored_procedure_context"}, {"allowed_values": ["supported"], "fact_refs": ["at_fact_online_environment"], "key": "online_ddl_compatibility"}, {"allowed_values": ["inactive"], "fact_refs": ["at_fact_online_environment"], "key": "upgrade_observation_period"}, {"allowed_values": ["sufficient"], "fact_refs": ["at_fact_online_environment"], "key": "disk_space"}, {"allowed_values": ["absent"], "fact_refs": ["at_fact_online_environment"], "key": "long_transaction"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS at_target_schema.t_at_regular CASCADE;
 DROP TABLE IF EXISTS t_at_renamed CASCADE;
@@ -250,6 +258,7 @@ DROP SCHEMA IF EXISTS at_target_schema CASCADE;
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
 -- params: {"action_profile": "at_action_add_primary", "add_column_items": "at_add_columns_two", "column_keyword": "at_column_keyword", "ddl_mode": "at_mode_online", "if_exists": "at_if_exists", "modify_column_items": "at_modify_columns_two", "rename_operator": "at_rename_to", "statement_form": "at_statement_action", "table_profile": "at_table_regular", "target_form": "at_target_plain"}
+-- environment_requirements: [{"allowed_values": ["outside_transaction"], "fact_refs": ["at_fact_online_environment"], "key": "transaction_context"}, {"allowed_values": ["outside_procedure"], "fact_refs": ["at_fact_online_environment"], "key": "stored_procedure_context"}, {"allowed_values": ["supported"], "fact_refs": ["at_fact_online_environment"], "key": "online_ddl_compatibility"}, {"allowed_values": ["inactive"], "fact_refs": ["at_fact_online_environment"], "key": "upgrade_observation_period"}, {"allowed_values": ["sufficient"], "fact_refs": ["at_fact_online_environment"], "key": "disk_space"}, {"allowed_values": ["absent"], "fact_refs": ["at_fact_online_environment"], "key": "long_transaction"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS at_target_schema.t_at_regular CASCADE;
 DROP TABLE IF EXISTS t_at_renamed CASCADE;
@@ -280,6 +289,7 @@ DROP SCHEMA IF EXISTS at_target_schema CASCADE;
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
 -- params: {"action_profile": "at_action_add_unique", "add_column_items": "at_add_columns_two", "column_keyword": "at_column_keyword", "ddl_mode": "at_mode_online_parallel4", "if_exists": "at_if_exists_none", "modify_column_items": "at_modify_columns_two", "rename_operator": "at_rename_to", "statement_form": "at_statement_action", "table_profile": "at_table_regular", "target_form": "at_target_plain"}
+-- environment_requirements: [{"allowed_values": ["outside_transaction"], "fact_refs": ["at_fact_online_environment"], "key": "transaction_context"}, {"allowed_values": ["outside_procedure"], "fact_refs": ["at_fact_online_environment"], "key": "stored_procedure_context"}, {"allowed_values": ["supported"], "fact_refs": ["at_fact_online_environment"], "key": "online_ddl_compatibility"}, {"allowed_values": ["inactive"], "fact_refs": ["at_fact_online_environment"], "key": "upgrade_observation_period"}, {"allowed_values": ["sufficient"], "fact_refs": ["at_fact_online_environment"], "key": "disk_space"}, {"allowed_values": ["absent"], "fact_refs": ["at_fact_online_environment"], "key": "long_transaction"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS at_target_schema.t_at_regular CASCADE;
 DROP TABLE IF EXISTS t_at_renamed CASCADE;
@@ -310,6 +320,7 @@ DROP SCHEMA IF EXISTS at_target_schema CASCADE;
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
 -- params: {"action_profile": "at_action_alter_type", "add_column_items": "at_add_columns_two", "column_keyword": "at_column_keyword", "ddl_mode": "at_mode_online_parallel4", "if_exists": "at_if_exists_none", "modify_column_items": "at_modify_columns_two", "rename_operator": "at_rename_to", "statement_form": "at_statement_action", "table_profile": "at_table_regular", "target_form": "at_target_plain"}
+-- environment_requirements: [{"allowed_values": ["outside_transaction"], "fact_refs": ["at_fact_online_environment"], "key": "transaction_context"}, {"allowed_values": ["outside_procedure"], "fact_refs": ["at_fact_online_environment"], "key": "stored_procedure_context"}, {"allowed_values": ["supported"], "fact_refs": ["at_fact_online_environment"], "key": "online_ddl_compatibility"}, {"allowed_values": ["inactive"], "fact_refs": ["at_fact_online_environment"], "key": "upgrade_observation_period"}, {"allowed_values": ["sufficient"], "fact_refs": ["at_fact_online_environment"], "key": "disk_space"}, {"allowed_values": ["absent"], "fact_refs": ["at_fact_online_environment"], "key": "long_transaction"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS at_target_schema.t_at_regular CASCADE;
 DROP TABLE IF EXISTS t_at_renamed CASCADE;
@@ -340,6 +351,7 @@ DROP SCHEMA IF EXISTS at_target_schema CASCADE;
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
 -- params: {"action_profile": "at_action_add_check", "add_column_items": "at_add_columns_two", "column_keyword": "at_column_keyword", "ddl_mode": "at_mode_online_parallel4", "if_exists": "at_if_exists_none", "modify_column_items": "at_modify_columns_two", "rename_operator": "at_rename_to", "statement_form": "at_statement_action", "table_profile": "at_table_regular", "target_form": "at_target_plain"}
+-- environment_requirements: [{"allowed_values": ["outside_transaction"], "fact_refs": ["at_fact_online_environment"], "key": "transaction_context"}, {"allowed_values": ["outside_procedure"], "fact_refs": ["at_fact_online_environment"], "key": "stored_procedure_context"}, {"allowed_values": ["supported"], "fact_refs": ["at_fact_online_environment"], "key": "online_ddl_compatibility"}, {"allowed_values": ["inactive"], "fact_refs": ["at_fact_online_environment"], "key": "upgrade_observation_period"}, {"allowed_values": ["sufficient"], "fact_refs": ["at_fact_online_environment"], "key": "disk_space"}, {"allowed_values": ["absent"], "fact_refs": ["at_fact_online_environment"], "key": "long_transaction"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS at_target_schema.t_at_regular CASCADE;
 DROP TABLE IF EXISTS t_at_renamed CASCADE;
@@ -370,6 +382,7 @@ DROP SCHEMA IF EXISTS at_target_schema CASCADE;
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
 -- params: {"action_profile": "at_action_set_not_null", "add_column_items": "at_add_columns_two", "column_keyword": "at_column_keyword", "ddl_mode": "at_mode_online_catchup10", "if_exists": "at_if_exists_none", "modify_column_items": "at_modify_columns_two", "rename_operator": "at_rename_to", "statement_form": "at_statement_action", "table_profile": "at_table_regular", "target_form": "at_target_plain"}
+-- environment_requirements: [{"allowed_values": ["outside_transaction"], "fact_refs": ["at_fact_online_environment"], "key": "transaction_context"}, {"allowed_values": ["outside_procedure"], "fact_refs": ["at_fact_online_environment"], "key": "stored_procedure_context"}, {"allowed_values": ["supported"], "fact_refs": ["at_fact_online_environment"], "key": "online_ddl_compatibility"}, {"allowed_values": ["inactive"], "fact_refs": ["at_fact_online_environment"], "key": "upgrade_observation_period"}, {"allowed_values": ["sufficient"], "fact_refs": ["at_fact_online_environment"], "key": "disk_space"}, {"allowed_values": ["absent"], "fact_refs": ["at_fact_online_environment"], "key": "long_transaction"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS at_target_schema.t_at_regular CASCADE;
 DROP TABLE IF EXISTS t_at_renamed CASCADE;
@@ -400,6 +413,7 @@ DROP SCHEMA IF EXISTS at_target_schema CASCADE;
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
 -- params: {"action_profile": "at_action_add_unique", "add_column_items": "at_add_columns_two", "column_keyword": "at_column_keyword", "ddl_mode": "at_mode_online_catchup10", "if_exists": "at_if_exists_none", "modify_column_items": "at_modify_columns_two", "rename_operator": "at_rename_to", "statement_form": "at_statement_action", "table_profile": "at_table_regular", "target_form": "at_target_plain"}
+-- environment_requirements: [{"allowed_values": ["outside_transaction"], "fact_refs": ["at_fact_online_environment"], "key": "transaction_context"}, {"allowed_values": ["outside_procedure"], "fact_refs": ["at_fact_online_environment"], "key": "stored_procedure_context"}, {"allowed_values": ["supported"], "fact_refs": ["at_fact_online_environment"], "key": "online_ddl_compatibility"}, {"allowed_values": ["inactive"], "fact_refs": ["at_fact_online_environment"], "key": "upgrade_observation_period"}, {"allowed_values": ["sufficient"], "fact_refs": ["at_fact_online_environment"], "key": "disk_space"}, {"allowed_values": ["absent"], "fact_refs": ["at_fact_online_environment"], "key": "long_transaction"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS at_target_schema.t_at_regular CASCADE;
 DROP TABLE IF EXISTS t_at_renamed CASCADE;
@@ -430,6 +444,7 @@ DROP SCHEMA IF EXISTS at_target_schema CASCADE;
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
 -- params: {"action_profile": "at_action_add_primary", "add_column_items": "at_add_columns_two", "column_keyword": "at_column_keyword", "ddl_mode": "at_mode_online_catchup10", "if_exists": "at_if_exists_none", "modify_column_items": "at_modify_columns_two", "rename_operator": "at_rename_to", "statement_form": "at_statement_action", "table_profile": "at_table_regular", "target_form": "at_target_plain"}
+-- environment_requirements: [{"allowed_values": ["outside_transaction"], "fact_refs": ["at_fact_online_environment"], "key": "transaction_context"}, {"allowed_values": ["outside_procedure"], "fact_refs": ["at_fact_online_environment"], "key": "stored_procedure_context"}, {"allowed_values": ["supported"], "fact_refs": ["at_fact_online_environment"], "key": "online_ddl_compatibility"}, {"allowed_values": ["inactive"], "fact_refs": ["at_fact_online_environment"], "key": "upgrade_observation_period"}, {"allowed_values": ["sufficient"], "fact_refs": ["at_fact_online_environment"], "key": "disk_space"}, {"allowed_values": ["absent"], "fact_refs": ["at_fact_online_environment"], "key": "long_transaction"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS at_target_schema.t_at_regular CASCADE;
 DROP TABLE IF EXISTS t_at_renamed CASCADE;

@@ -1,0 +1,43 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_declare_hold_commit"
+name: "DECLARE hold_commit"
+status: "planned"
+description: "提交后的保持游标与无 HOLD 游标生命周期分别验证。"
+factor_ref: "declare"
+fixture_refs:
+  - "fixture_declare_transaction"
+fact_refs:
+  - "declare_fact_hold"
+  - "declare_fact_hold_default"
+  - "declare_fact_without_hold"
+  - "declare_fact_materialize"
+preconditions:
+  - "独占测试连接；提交后必须 CLOSE 保持游标；不对大结果开展资源消耗测试"
+steps:
+  -
+    id: "declare"
+    action: "execute_sql"
+    sql: "DECLARE c_hold WITH HOLD CURSOR FOR SELECT col_1 FROM t_cursor_source ORDER BY col_1;"
+  -
+    id: "commit"
+    action: "execute_sql"
+    sql: "COMMIT;"
+  -
+    id: "fetch"
+    action: "execute_sql"
+    sql: "FETCH NEXT FROM c_hold;"
+  -
+    id: "close"
+    action: "execute_sql"
+    sql: "CLOSE c_hold;"
+oracles:
+  -
+    after_step: "fetch"
+    kind: "result_rows"
+    expected:
+      -
+        - 1
+execution_requirements:
+  - "database"
+  - "same_session"

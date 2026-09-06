@@ -1,0 +1,384 @@
+schema_version: 1
+kind: "factor"
+id: "drop_index"
+name: "DROP INDEX"
+category: "DDL"
+status: "needs_review"
+description: "第三批 PDF 抽取；有限生成域与未执行场景分开报告。"
+source:
+  product: "GaussDB"
+  document: "集中式版参考 / 1.13.10.20 DROP INDEX"
+  version: "V2.0-10.0.0"
+  artifact_sha256: "bce8dc149e4d2de39a184486d28c6ecb065557e4bc6bbdac6d0dc4099ccb45a5"
+  parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+  extraction_rule_version: "gaussdb-pdf-outline-v1"
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: "gaussdb_v2_0_10_0_0_centralized_reference_01"
+    source_relpath: "general/ddl/drop_index.txt"
+    chapter_sha256: "bce8dc149e4d2de39a184486d28c6ecb065557e4bc6bbdac6d0dc4099ccb45a5"
+source_ledger_ref: "source_ledger_drop_index"
+syntax_ref: "syntax_drop_index"
+dimensions:
+  concurrently:
+    description: "在线/普通删除"
+    classes:
+      -
+        id: "drop_index_concurrently_absent_class"
+        meaning: "absent"
+        values:
+          -
+            id: "drop_index_concurrently_absent"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_index_fact_syntax"
+      -
+        id: "drop_index_concurrently_present_class"
+        meaning: "present"
+        values:
+          -
+            id: "drop_index_concurrently_present"
+            render: "CONCURRENTLY "
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_index_fact_online_single"
+              - "drop_index_fact_online_no_cascade"
+              - "drop_index_fact_transaction"
+  if_exists:
+    description: "缺失索引容忍"
+    classes:
+      -
+        id: "drop_index_if_exists_absent_class"
+        meaning: "absent"
+        values:
+          -
+            id: "drop_index_if_exists_absent"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_index_fact_syntax"
+      -
+        id: "drop_index_if_exists_present_class"
+        meaning: "present"
+        values:
+          -
+            id: "drop_index_if_exists_present"
+            render: "IF EXISTS"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_index_fact_if_exists"
+  behavior:
+    description: "依赖删除策略"
+    classes:
+      -
+        id: "drop_index_behavior_default_class"
+        meaning: "default"
+        values:
+          -
+            id: "drop_index_behavior_default"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_index_fact_default_restrict"
+      -
+        id: "drop_index_behavior_restrict_class"
+        meaning: "restrict"
+        values:
+          -
+            id: "drop_index_behavior_restrict"
+            render: "RESTRICT"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_index_fact_restrict"
+      -
+        id: "drop_index_behavior_cascade_class"
+        meaning: "cascade"
+        values:
+          -
+            id: "drop_index_behavior_cascade"
+            render: "CASCADE"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_index_fact_cascade"
+  targets:
+    description: "一/二索引及缺失对象"
+    classes:
+      -
+        id: "drop_index_targets_one_class"
+        meaning: "one"
+        values:
+          -
+            id: "drop_index_targets_one"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_index_fact_syntax"
+              - "drop_index_fact_name"
+            properties:
+              items:
+                - "idx_di_one"
+              count: 1
+              exists: true
+      -
+        id: "drop_index_targets_two_class"
+        meaning: "two"
+        values:
+          -
+            id: "drop_index_targets_two"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_index_fact_syntax"
+              - "drop_index_fact_name"
+            properties:
+              items:
+                - "idx_di_one"
+                - "idx_di_two"
+              count: 2
+              exists: true
+      -
+        id: "drop_index_targets_missing_class"
+        meaning: "missing"
+        values:
+          -
+            id: "drop_index_targets_missing"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_index_fact_notice"
+            properties:
+              items:
+                - "idx_di_missing"
+              count: 1
+              exists: false
+rules:
+  -
+    id: "drop_index_rule_online_single"
+    kind: "requires"
+    expression: "concurrently == 'drop_index_concurrently_absent' or targets.properties.count == 1"
+    fact_refs:
+      - "drop_index_fact_online_single"
+    severity: "error"
+  -
+    id: "drop_index_rule_online_no_cascade"
+    kind: "requires"
+    expression: "concurrently == 'drop_index_concurrently_absent' or behavior != 'drop_index_behavior_cascade'"
+    fact_refs:
+      - "drop_index_fact_online_no_cascade"
+    severity: "error"
+  -
+    id: "drop_index_rule_exists"
+    kind: "requires"
+    expression: "targets.properties.exists == True or if_exists == 'drop_index_if_exists_present'"
+    fact_refs:
+      - "drop_index_fact_name"
+    severity: "error"
+structural_checks: []
+facts:
+  - id: drop_index_fact_missing_error
+    type: behavior_oracle
+    statement: 由目标合法性条件导出的负向预期；具体错误类别及 SQLSTATE 需在目标版本校准。
+    status: needs_verification
+    source_anchor: L53-L55
+  -
+    id: "drop_index_fact_purpose"
+    type: "lifecycle"
+    statement: "删除索引。"
+    status: "confirmed"
+    source_anchor: "L5-L5"
+  -
+    id: "drop_index_fact_authorization"
+    type: "environment"
+    statement: "索引/模式所有者、拥有所在表 INDEX 权限或 DROP ANY INDEX 权限者可执行。"
+    status: "confirmed"
+    source_anchor: "L8-L10"
+  -
+    id: "drop_index_fact_sysadmin"
+    type: "environment"
+    statement: "三权分立关闭时系统管理员默认有该权限。"
+    status: "confirmed"
+    source_anchor: "L8-L10"
+  -
+    id: "drop_index_fact_global_temp"
+    type: "environment"
+    statement: "全局临时表在某会话创建或首次插入完成初始化后，其他会话不能删除其索引。"
+    status: "confirmed"
+    source_anchor: "L11-L13"
+  -
+    id: "drop_index_fact_syntax"
+    type: "syntax"
+    statement: "DROP INDEX 支持 CONCURRENTLY、IF EXISTS、重复索引名和 CASCADE/RESTRICT。"
+    status: "confirmed"
+    source_anchor: "L16-L17"
+  -
+    id: "drop_index_fact_online_dml"
+    type: "behavior_oracle"
+    statement: "在线删除使用四级锁以避免阻塞 DML；普通删除会阻塞对相关表的访问。"
+    status: "confirmed"
+    source_anchor: "L23-L25"
+  -
+    id: "drop_index_fact_online_single"
+    type: "constraint"
+    statement: "CONCURRENTLY 一次只能指定一个索引。"
+    status: "confirmed"
+    source_anchor: "L28-L29"
+  -
+    id: "drop_index_fact_online_no_cascade"
+    type: "constraint"
+    statement: "CONCURRENTLY 不支持 CASCADE。"
+    status: "confirmed"
+    source_anchor: "L28-L29"
+  -
+    id: "drop_index_fact_online_rejection"
+    type: "behavior_oracle"
+    statement: "在线多索引或在线 CASCADE 组合应拒绝。"
+    status: "confirmed"
+    source_anchor: "L28-L29"
+  -
+    id: "drop_index_fact_error_identity"
+    type: "open_question"
+    statement: "正文未给非法在线组合、依赖拒绝等错误身份；SQLSTATE 待校准。"
+    status: "needs_verification"
+    source_anchor: "L28-L29"
+  -
+    id: "drop_index_fact_transaction"
+    type: "environment"
+    statement: "普通 DROP INDEX 可在事务内执行；CONCURRENTLY 不可在事务内执行。"
+    status: "confirmed"
+    source_anchor: "L30-L31"
+  -
+    id: "drop_index_fact_temporary"
+    type: "behavior_oracle"
+    statement: "临时表索引可带 CONCURRENTLY，但实际使用阻塞式删除。"
+    status: "confirmed"
+    source_anchor: "L32-L34"
+  -
+    id: "drop_index_fact_lock_timeout"
+    type: "behavior_oracle"
+    statement: "在线删除等待相关事务结束，可能锁超时而失败。"
+    status: "confirmed"
+    source_anchor: "L35-L36"
+  -
+    id: "drop_index_fact_deadlock"
+    type: "behavior_oracle"
+    statement: "在线删除持四级锁等待并发 DDL 结束，DDL 等待该锁时可能死锁。"
+    status: "confirmed"
+    source_anchor: "L37-L39"
+  -
+    id: "drop_index_fact_invalid_residue"
+    type: "lifecycle"
+    statement: "锁超时/死锁/异常/取消可能导致在线删除失败并残留非法索引。"
+    status: "confirmed"
+    source_anchor: "L40-L43"
+  -
+    id: "drop_index_fact_retry_cleanup"
+    type: "lifecycle"
+    statement: "可用在线或普通 DROP 清理非法索引；在线持续失败可回退普通 DROP。"
+    status: "confirmed"
+    source_anchor: "L40-L43"
+  -
+    id: "drop_index_fact_timing"
+    type: "environment"
+    statement: "在线删除耗时与并发负载及存量事务时长有关；秒级描述不是固定超时验收阈值。"
+    status: "confirmed"
+    source_anchor: "L44-L46"
+  -
+    id: "drop_index_fact_if_exists"
+    type: "syntax"
+    statement: "IF EXISTS 开启缺失对象容忍。"
+    status: "confirmed"
+    source_anchor: "L47-L47"
+  -
+    id: "drop_index_fact_existing"
+    type: "behavior_oracle"
+    statement: "IF EXISTS 删除已有索引成功。"
+    status: "confirmed"
+    source_anchor: "L50-L50"
+  -
+    id: "drop_index_fact_notice"
+    type: "behavior_oracle"
+    statement: "缺失索引用 IF EXISTS 删除时只产生 NOTICE。"
+    status: "confirmed"
+    source_anchor: "L51-L52"
+  -
+    id: "drop_index_fact_name"
+    type: "constraint"
+    statement: "index_name 为已有索引名，IF EXISTS 缺失分支例外。"
+    status: "confirmed"
+    source_anchor: "L53-L55"
+  -
+    id: "drop_index_fact_default_restrict"
+    type: "behavior_oracle"
+    statement: "依赖处理默认 RESTRICT。"
+    status: "confirmed"
+    source_anchor: "L56-L57"
+  -
+    id: "drop_index_fact_cascade"
+    type: "lifecycle"
+    statement: "CASCADE 允许删除依赖索引的对象。"
+    status: "confirmed"
+    source_anchor: "L58-L58"
+  -
+    id: "drop_index_fact_restrict"
+    type: "constraint"
+    statement: "RESTRICT 在存在依赖对象时不能删除索引。"
+    status: "confirmed"
+    source_anchor: "L59-L59"
+  -
+    id: "drop_index_fact_example_table"
+    type: "example"
+    statement: "示例先建立整数/字符串两列表。"
+    status: "confirmed"
+    source_anchor: "L63-L64"
+  -
+    id: "drop_index_fact_example_create"
+    type: "example"
+    statement: "示例先建立普通索引。"
+    status: "confirmed"
+    source_anchor: "L66-L67"
+  -
+    id: "drop_index_fact_example_drop"
+    type: "example"
+    statement: "示例普通 DROP 使用 IF EXISTS CASCADE。"
+    status: "confirmed"
+    source_anchor: "L69-L70"
+  -
+    id: "drop_index_fact_example_online_create"
+    type: "example"
+    statement: "示例在线创建索引。"
+    status: "confirmed"
+    source_anchor: "L72-L73"
+  -
+    id: "drop_index_fact_example_online_drop"
+    type: "example"
+    statement: "示例在线删除索引。"
+    status: "confirmed"
+    source_anchor: "L75-L76"
+exported_fact_refs: []
+manifest_refs:
+  - "manifest_drop_index_missing_negative"
+  - "manifest_drop_index_ordinary"
+  - "manifest_drop_index_online"
+  - "manifest_drop_index_online_multiple_negative"
+  - "manifest_drop_index_online_cascade_negative"
+matrix_refs: []
+fixture_refs:
+  - "fixture_drop_index_indexes"
+scenario_refs:
+  - "scenario_drop_index_basic_lifecycle"
+  - "scenario_drop_index_online_rules"
+  - "scenario_drop_index_dependency_actions"
+  - "scenario_drop_index_concurrent_lifecycle"
+  - "scenario_drop_index_temporary_sessions"
+  - "scenario_drop_index_permissions"

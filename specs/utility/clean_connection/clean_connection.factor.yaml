@@ -1,0 +1,196 @@
+schema_version: 1
+kind: "factor"
+id: "clean_connection"
+name: "CLEAN CONNECTION"
+category: "UTILITY"
+status: "needs_review"
+description: "第六批 PDF 抽取；有限生成域与未执行场景分开报告。"
+source:
+  product: "GaussDB"
+  document: "集中式版参考 / 1.13.9.3 CLEAN CONNECTION"
+  version: "V2.0-10.0.0"
+  artifact_sha256: "2fb7de7ec124d220622e774cca5162175ea1579c38333a16d34ca1eff350c8b2"
+  parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+  extraction_rule_version: "gaussdb-pdf-outline-v1"
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: "gaussdb_v2_0_10_0_0_centralized_reference_01"
+    source_relpath: "general/utility/clean_connection.txt"
+    chapter_sha256: "2fb7de7ec124d220622e774cca5162175ea1579c38333a16d34ca1eff350c8b2"
+source_ledger_ref: "source_ledger_clean_connection"
+syntax_ref: "syntax_clean_connection"
+dimensions:
+  target:
+    description: "正文明确可用的目标"
+    classes:
+      -
+        id: "clean_connection_target_all_class"
+        meaning: "all"
+        values:
+          -
+            id: "clean_connection_target_all"
+            render: "ALL"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "clean_connection_fact_all_only"
+    default_value_id: "clean_connection_target_all"
+  check:
+    description: "清理前检查"
+    classes:
+      -
+        id: "clean_connection_check_none_class"
+        meaning: "none"
+        values:
+          -
+            id: "clean_connection_check_none"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "clean_connection_fact_syntax"
+      -
+        id: "clean_connection_check_check_class"
+        meaning: "check"
+        values:
+          -
+            id: "clean_connection_check_check"
+            render: "CHECK"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "clean_connection_fact_check_token"
+    default_value_id: "clean_connection_check_none"
+  force:
+    description: "是否强制终止连接"
+    classes:
+      -
+        id: "clean_connection_force_none_class"
+        meaning: "none"
+        values:
+          -
+            id: "clean_connection_force_none"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "clean_connection_fact_syntax"
+      -
+        id: "clean_connection_force_force_class"
+        meaning: "force"
+        values:
+          -
+            id: "clean_connection_force_force"
+            render: "FORCE"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "clean_connection_fact_force"
+    default_value_id: "clean_connection_force_none"
+rules: []
+structural_checks: []
+facts:
+  -
+    id: "clean_connection_fact_purpose"
+    type: "lifecycle"
+    statement: "清理指定数据库和指定用户的数据库连接。"
+    status: "confirmed"
+    source_anchor: "L5-L5"
+  -
+    id: "clean_connection_fact_all_only"
+    type: "constraint"
+    statement: "当前仅支持 TO ALL，不支持指定节点。"
+    status: "confirmed"
+    source_anchor: "L8-L8"
+  -
+    id: "clean_connection_fact_active"
+    type: "behavior_oracle"
+    statement: "只有 FORCE 模式可以清理正在使用的正常连接。"
+    status: "confirmed"
+    source_anchor: "L9-L9"
+  -
+    id: "clean_connection_fact_syntax"
+    type: "syntax"
+    statement: "CLEAN CONNECTION 后依次为 TO 目标和可选 FOR DATABASE、TO USER。"
+    status: "confirmed"
+    source_anchor: "L12-L15"
+  -
+    id: "clean_connection_fact_check_token"
+    type: "syntax"
+    statement: "CHECK 是 TO ALL 的可选参数。"
+    status: "confirmed"
+    source_anchor: "L21-L21"
+  -
+    id: "clean_connection_fact_check"
+    type: "behavior_oracle"
+    statement: "CHECK 在清理前检查其他会话访问，若存在则报错并停止删除数据库。"
+    status: "confirmed"
+    source_anchor: "L23-L25"
+  -
+    id: "clean_connection_fact_force"
+    type: "behavior_oracle"
+    statement: "TO ALL FORCE 向匹配数据库及用户的线程发 SIGTERM 并强制关闭。"
+    status: "confirmed"
+    source_anchor: "L26-L28"
+  -
+    id: "clean_connection_fact_node"
+    type: "constraint"
+    statement: "目标参数必选，当前只支持 TO ALL。"
+    status: "confirmed"
+    source_anchor: "L29-L30"
+  -
+    id: "clean_connection_fact_db_scope"
+    type: "behavior_oracle"
+    statement: "省略 FOR DATABASE 时清理所有数据库的连接。"
+    status: "confirmed"
+    source_anchor: "L31-L32"
+  -
+    id: "clean_connection_fact_database_exists"
+    type: "environment"
+    statement: "dbname 必须为已存在的数据库名。"
+    status: "confirmed"
+    source_anchor: "L33-L33"
+  -
+    id: "clean_connection_fact_user_scope"
+    type: "behavior_oracle"
+    statement: "省略 TO USER 时清理所有用户的连接。"
+    status: "confirmed"
+    source_anchor: "L34-L35"
+  -
+    id: "clean_connection_fact_user_exists"
+    type: "environment"
+    statement: "username 必须为已存在的用户。"
+    status: "confirmed"
+    source_anchor: "L36-L36"
+  -
+    id: "clean_connection_fact_example"
+    type: "example"
+    statement: "清理连接示例包含创建及删除用户、数据库；不是当前测试环境授权。"
+    status: "confirmed"
+    source_anchor: "L39-L48"
+  -
+    id: "clean_connection_fact_scope_profile"
+    type: "open_question"
+    statement: "未生成省略数据库、可能影响所有数据库的变体；需要独占实例与显式执行审批。"
+    status: "needs_verification"
+    source_anchor: "L31-L32"
+  -
+    id: "clean_connection_fact_user_profile"
+    type: "open_question"
+    statement: "未生成省略用户、可能影响所有用户的变体；需要独占实例与显式执行审批。"
+    status: "needs_verification"
+    source_anchor: "L34-L35"
+  -
+    id: "clean_connection_fact_nodes_profile"
+    type: "open_question"
+    statement: "不支持的 NODE/COORDINATOR 分支待目标负向 Oracle 校准，不能生成正向用例。"
+    status: "needs_verification"
+    source_anchor: "L8-L8"
+exported_fact_refs: []
+manifest_refs:
+  - "manifest_clean_connection_scoped_only"
+matrix_refs:
+  - "matrix_clean_connection_coverage"
+fixture_refs: []
+scenario_refs:
+  - "scenario_clean_connection_connection_lifecycle"

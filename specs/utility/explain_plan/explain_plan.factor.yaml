@@ -1,0 +1,188 @@
+schema_version: 1
+kind: factor
+id: explain_plan
+name: EXPLAIN PLAN
+category: UTILITY
+status: needs_review
+description: 第五批 PDF 抽取；有限生成域与未执行场景分开报告。
+source:
+  product: GaussDB
+  document: 集中式版参考 / 1.13.11.6 EXPLAIN PLAN
+  version: V2.0-10.0.0
+  artifact_sha256: a393e73795d7cdd0ba5de0f7bd9afe8312239084d5e2414fefce93768037e381
+  parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+  extraction_rule_version: gaussdb-pdf-outline-v1
+  extraction_date: '2026-09-05'
+  catalog_chapter_ref:
+    document_id: gaussdb_v2_0_10_0_0_centralized_reference_01
+    source_relpath: general/utility/explain_plan.txt
+    chapter_sha256: a393e73795d7cdd0ba5de0f7bd9afe8312239084d5e2414fefce93768037e381
+source_ledger_ref: source_ledger_explain_plan
+syntax_ref: syntax_explain_plan
+dimensions:
+  label:
+    description: ASCII标签边界按字节计；非ASCII编码依赖另留场景
+    classes:
+    - id: explain_plan_label_default_class
+      meaning: default
+      values:
+      - id: explain_plan_label_default
+        render: ''
+        representative: true
+        validity: valid
+        fact_refs:
+        - explain_plan_fact_length
+        properties:
+          valid: true
+    - id: explain_plan_label_basic_class
+      meaning: basic
+      values:
+      - id: explain_plan_label_basic
+        render: SET STATEMENT_ID = 'fp_ep_basic'
+        representative: true
+        validity: valid
+        fact_refs:
+        - explain_plan_fact_syntax
+        properties:
+          valid: true
+    - id: explain_plan_label_ascii30_class
+      meaning: ascii30
+      values:
+      - id: explain_plan_label_ascii30
+        render: SET STATEMENT_ID = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+        representative: true
+        validity: valid
+        fact_refs:
+        - explain_plan_fact_length
+        properties:
+          valid: true
+    - id: explain_plan_label_ascii31_class
+      meaning: ascii31
+      values:
+      - id: explain_plan_label_ascii31
+        render: SET STATEMENT_ID = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+        representative: true
+        validity: invalid
+        fact_refs:
+        - explain_plan_fact_length
+        properties:
+          valid: false
+    default_value_id: explain_plan_label_default
+  query:
+    description: 只读两列查询
+    classes:
+    - id: explain_plan_query_all_class
+      meaning: all
+      values:
+      - id: explain_plan_query_all
+        render: SELECT col_1, col_2 FROM t_explain_plan
+        representative: true
+        validity: valid
+        fact_refs:
+        - explain_plan_fact_statement
+    - id: explain_plan_query_where_class
+      meaning: where
+      values:
+      - id: explain_plan_query_where
+        render: SELECT col_1 FROM t_explain_plan WHERE col_1 > 0
+        representative: true
+        validity: valid
+        fact_refs:
+        - explain_plan_fact_statement
+    default_value_id: explain_plan_query_all
+rules:
+- id: explain_plan_rule_label_length
+  kind: requires
+  expression: label.properties.valid == True
+  fact_refs:
+  - explain_plan_fact_length
+  severity: error
+structural_checks: []
+facts:
+- id: explain_plan_fact_store_plan
+  type: behavior_oracle
+  statement: 计划写入 PLAN_TABLE，不打印计划到屏幕。
+  status: confirmed
+  source_anchor: L5-L6
+- id: explain_plan_fact_invalid_sql
+  type: constraint
+  statement: 错误SQL不能收集计划信息。
+  status: confirmed
+  source_anchor: L9-L9
+- id: explain_plan_fact_isolation
+  type: environment
+  statement: PLAN_TABLE具有session生命周期，按session和用户隔离。
+  status: confirmed
+  source_anchor: L10-L11
+- id: explain_plan_fact_success
+  type: behavior_oracle
+  statement: 成功存储返回EXPLAIN SUCCESS。
+  status: confirmed
+  source_anchor: L13-L14
+- id: explain_plan_fact_label
+  type: metadata_oracle
+  statement: STATEMENT_ID标签写入PLAN_TABLE。
+  status: confirmed
+  source_anchor: L15-L16
+- id: explain_plan_fact_plan_table
+  type: constraint
+  statement: 自动写计划，不支持 INSERT/UPDATE/ANALYZE PLAN_TABLE；详情引用系统表章节。
+  status: confirmed
+  source_anchor: L17-L19
+- id: explain_plan_fact_syntax
+  type: syntax
+  statement: EXPLAIN PLAN 可选SET STATEMENT_ID 后FOR SQL语句。
+  status: confirmed
+  source_anchor: L22-L22
+- id: explain_plan_fact_name
+  type: syntax
+  statement: 标签是字符串。
+  status: confirmed
+  source_anchor: L28-L30
+- id: explain_plan_fact_length
+  type: constraint
+  statement: 默认标签为空值；输入标签最大30字节，超过报错。
+  status: confirmed
+  source_anchor: L33-L34
+- id: explain_plan_fact_statement
+  type: syntax
+  statement: statement是待分析SQL。
+  status: confirmed
+  source_anchor: L36-L37
+- id: explain_plan_fact_explain_example
+  type: example
+  statement: 两表查询标签计划示例。
+  status: confirmed
+  source_anchor: L40-L46
+- id: explain_plan_fact_read_cleanup
+  type: example
+  statement: 读取PLAN_TABLE并按标签DELETE，最后清理表。
+  status: confirmed
+  source_anchor: L48-L54
+- id: explain_plan_fact_plan_metadata
+  type: open_question
+  statement: 已核对PLAN_TABLE正文的session隔离与SELECT/DELETE能力；真实计划字段与会话销毁仍未执行，不能固定计划行数/成本。
+  status: needs_verification
+  source_anchor: L17-L19
+- id: explain_plan_fact_session_profile
+  type: open_question
+  statement: 真正session/用户隔离需要多连接，静态阶段保留planned。
+  status: needs_verification
+  source_anchor: L10-L11
+- id: explain_plan_fact_encoding_profile
+  type: open_question
+  statement: 非ASCII标签字节数依赖目标编码；本批只生成ASCII边界，UTF8多字节边界待环境profile。
+  status: needs_verification
+  source_anchor: L33-L34
+exported_fact_refs: []
+manifest_refs:
+- manifest_explain_plan_labels
+- manifest_explain_plan_label_too_long
+matrix_refs:
+- matrix_explain_plan_coverage
+fixture_refs:
+- fixture_explain_plan_source
+- fixture_explain_plan_plan_cleanup
+scenario_refs:
+- scenario_explain_plan_stored_label
+- scenario_explain_plan_plan_session_contracts

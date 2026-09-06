@@ -1,0 +1,45 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_refresh_materialized_view_mv_incremental"
+name: "REFRESH MATERIALIZED VIEW mv_incremental"
+status: "planned"
+description: "先确认未刷新状态，再验证全量刷新结果"
+factor_ref: "refresh_materialized_view"
+fixture_refs:
+  - "fixture_refresh_materialized_view_changed"
+fact_refs:
+  - "refresh_materialized_view_fact_refresh"
+  - "refresh_materialized_view_fact_both"
+  - "create_materialized_view::create_materialized_view_fact_refresh_sync"
+preconditions: []
+steps:
+  -
+    id: "before"
+    action: "execute_sql"
+    sql: "SELECT col_1, col_2 FROM mv_incremental ORDER BY col_1"
+  -
+    id: "refresh"
+    action: "execute_sql"
+    sql: "REFRESH MATERIALIZED VIEW mv_incremental"
+  -
+    id: "after"
+    action: "execute_sql"
+    sql: "SELECT col_1, col_2 FROM mv_incremental ORDER BY col_1"
+oracles:
+  -
+    after_step: "before"
+    kind: "result_set_equals"
+    expected: []
+  -
+    after_step: "after"
+    kind: "result_set_equals"
+    expected:
+      -
+        - 1
+        - 2
+      -
+        - 3
+        - 4
+execution_requirements:
+  - "database"
+  - "same_session"

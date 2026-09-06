@@ -1,0 +1,57 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_drop_index_basic_lifecycle"
+name: "DROP INDEX basic_lifecycle"
+status: "planned"
+description: "删除目标索引、不删除源表；再次 IF EXISTS 应仅 NOTICE。"
+factor_ref: "drop_index"
+fixture_refs:
+  - "fixture_drop_index_indexes"
+fact_refs:
+  - "drop_index_fact_purpose"
+  - "drop_index_fact_existing"
+  - "drop_index_fact_notice"
+  - "drop_index_fact_example_table"
+  - "drop_index_fact_example_create"
+  - "drop_index_fact_example_drop"
+  - "drop_index_fact_example_online_create"
+  - "drop_index_fact_example_online_drop"
+preconditions:
+  - 独占自动提交连接；不得用事务包装在线 CREATE/DROP。
+steps:
+  -
+    id: "drop"
+    action: "execute_sql"
+    sql: "DROP INDEX idx_di_one;"
+  -
+    id: "notice"
+    action: "execute_sql"
+    sql: "DROP INDEX IF EXISTS idx_di_one;"
+  - id: online_create
+    action: execute_sql
+    sql: "CREATE INDEX CONCURRENTLY idx_di_online ON t_ci_astore(note);"
+  - id: online_drop
+    action: execute_sql
+    sql: "DROP INDEX CONCURRENTLY idx_di_online;"
+oracles:
+  - after_step: online_create
+    kind: index_present
+    expected: idx_di_online
+  - after_step: online_drop
+    kind: index_absent
+    expected: idx_di_online
+  -
+    after_step: "drop"
+    kind: "index_absent"
+    expected: "idx_di_one"
+  -
+    after_step: "drop"
+    kind: "relation_present"
+    expected: "t_ci_astore"
+  -
+    after_step: "notice"
+    kind: "notice"
+    expected: "对象不存在且语句成功"
+execution_requirements:
+  - "database"
+  - "same_session"

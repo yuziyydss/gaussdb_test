@@ -1,0 +1,56 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_create_incremental_materialized_view_stale_then_refresh"
+name: "CREATE INCREMENTAL MATERIALIZED VIEW stale_then_refresh"
+status: "planned"
+description: "新增一条基表行，刷新前后分别核对物化结果。"
+factor_ref: "create_incremental_materialized_view"
+fixture_refs:
+  - "fixture_create_incremental_materialized_view_incremental"
+fact_refs:
+  - "create_incremental_materialized_view_fact_refresh_sync"
+preconditions: []
+steps:
+  -
+    id: "insert"
+    action: "execute_sql"
+    sql: "INSERT INTO t_imv_source VALUES (5, 6);"
+  -
+    id: "before"
+    action: "execute_sql"
+    sql: "SELECT col_1, col_2 FROM mv_imv_ready ORDER BY col_1;"
+  -
+    id: "refresh"
+    action: "execute_sql"
+    sql: "REFRESH INCREMENTAL MATERIALIZED VIEW mv_imv_ready;"
+  -
+    id: "after"
+    action: "execute_sql"
+    sql: "SELECT col_1, col_2 FROM mv_imv_ready ORDER BY col_1;"
+oracles:
+  -
+    after_step: "before"
+    kind: "result_rows"
+    expected:
+      -
+        - 1
+        - 2
+      -
+        - 3
+        - 4
+  -
+    after_step: "after"
+    kind: "result_rows"
+    expected:
+      -
+        - 1
+        - 2
+      -
+        - 3
+        - 4
+      -
+        - 5
+        - 6
+execution_requirements:
+  - "database"
+  - "same_session"

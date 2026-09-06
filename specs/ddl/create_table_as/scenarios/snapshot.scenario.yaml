@@ -1,0 +1,41 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_create_table_as_snapshot"
+name: "CREATE TABLE AS snapshot"
+status: "planned"
+description: "复制后修改源表不应改变新表"
+factor_ref: "create_table_as"
+fixture_refs:
+  - "fixture_create_table_as_target"
+fact_refs:
+  - "create_table_as_fact_purpose"
+  - "create_table_as_fact_snapshot"
+  - "create_table_as_fact_data"
+preconditions: []
+steps:
+  -
+    id: "create"
+    action: "execute_sql"
+    sql: "CREATE TABLE t_ctas_candidate AS SELECT col_1, col_2 FROM t_ctas_source"
+  -
+    id: "change"
+    action: "execute_sql"
+    sql: "INSERT INTO t_ctas_source VALUES (5, 6)"
+  -
+    id: "read"
+    action: "execute_sql"
+    sql: "SELECT col_1, col_2 FROM t_ctas_candidate ORDER BY col_1"
+oracles:
+  -
+    after_step: "read"
+    kind: "result_set_equals"
+    expected:
+      -
+        - 1
+        - 2
+      -
+        - 3
+        - 4
+execution_requirements:
+  - "database"
+  - "same_session"

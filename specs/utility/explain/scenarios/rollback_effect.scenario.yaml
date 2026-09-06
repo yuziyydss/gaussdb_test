@@ -1,0 +1,55 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_explain_rollback_effect"
+name: "EXPLAIN rollback_effect"
+status: "planned"
+description: "ANALYZE 执行写入，但回滚恢复受控源表"
+factor_ref: "explain"
+fixture_refs:
+  - "fixture_explain_transaction"
+fact_refs:
+  - "explain_fact_executes"
+  - "explain_fact_rollback"
+preconditions: []
+steps:
+  -
+    id: "before"
+    action: "execute_sql"
+    sql: "SELECT col_1, col_2 FROM t_explain_source ORDER BY col_1"
+  -
+    id: "explain"
+    action: "execute_sql"
+    sql: "EXPLAIN ANALYZE INSERT INTO t_explain_source VALUES (5, 6)"
+  -
+    id: "changed"
+    action: "execute_sql"
+    sql: "SELECT col_1, col_2 FROM t_explain_source ORDER BY col_1"
+  -
+    id: "rollback"
+    action: "execute_sql"
+    sql: "ROLLBACK"
+  -
+    id: "after"
+    action: "execute_sql"
+    sql: "SELECT col_1, col_2 FROM t_explain_source ORDER BY col_1"
+oracles:
+  -
+    after_step: "changed"
+    kind: "result_set_equals"
+    expected:
+      -
+        - 1
+        - 2
+      -
+        - 3
+        - 4
+      -
+        - 5
+        - 6
+  -
+    after_step: "after"
+    kind: "result_equals_step"
+    expected: "before"
+execution_requirements:
+  - "database"
+  - "same_session"

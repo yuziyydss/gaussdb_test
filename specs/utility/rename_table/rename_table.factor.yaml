@@ -1,0 +1,174 @@
+schema_version: 1
+kind: "factor"
+id: "rename_table"
+name: "RENAME TABLE"
+category: "UTILITY"
+status: "needs_review"
+description: "第五批 PDF 抽取；有限生成域与未执行场景分开报告。"
+source:
+  product: "GaussDB"
+  document: "集中式版参考 / 1.13.18.7 RENAME TABLE"
+  version: "V2.0-10.0.0"
+  artifact_sha256: "8f61a4018c096ae801121df61a78594dd73eb0aa12bfbbb0c298ba0f73d8e017"
+  parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+  extraction_rule_version: "gaussdb-pdf-outline-v1"
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: "gaussdb_v2_0_10_0_0_centralized_reference_01"
+    source_relpath: "general/utility/rename_table.txt"
+    chapter_sha256: "8f61a4018c096ae801121df61a78594dd73eb0aa12bfbbb0c298ba0f73d8e017"
+source_ledger_ref: "source_ledger_rename_table"
+syntax_ref: "syntax_rename_table"
+dimensions:
+  keyword:
+    description: "与表数量独立的同义关键字"
+    classes:
+      -
+        id: "rename_table_keyword_table_class"
+        meaning: "table"
+        values:
+          -
+            id: "rename_table_keyword_table"
+            render: "TABLE"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "rename_table_fact_keyword"
+      -
+        id: "rename_table_keyword_tables_class"
+        meaning: "tables"
+        values:
+          -
+            id: "rename_table_keyword_tables"
+            render: "TABLES"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "rename_table_fact_keyword"
+    default_value_id: "rename_table_keyword_table"
+  targets:
+    description: "重复重命名对"
+    classes:
+      -
+        id: "rename_table_targets_one_class"
+        meaning: "one"
+        values:
+          -
+            id: "rename_table_targets_one"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "rename_table_fact_pairs"
+            properties:
+              items:
+                - "t_rename_one TO t_renamed_one"
+      -
+        id: "rename_table_targets_two_class"
+        meaning: "two"
+        values:
+          -
+            id: "rename_table_targets_two"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "rename_table_fact_pairs"
+            properties:
+              items:
+                - "t_rename_one TO t_renamed_one"
+                - "t_rename_two TO t_renamed_two"
+    default_value_id: "rename_table_targets_one"
+rules: []
+structural_checks: []
+facts:
+  -
+    id: "rename_table_fact_purpose"
+    type: "lifecycle"
+    statement: "单条可重命名单表/多表，不影响存储数据。"
+    status: "confirmed"
+    source_anchor: "L5-L5"
+  -
+    id: "rename_table_fact_single"
+    type: "behavior_oracle"
+    statement: "单表等价 ALTER TABLE RENAME。"
+    status: "confirmed"
+    source_anchor: "L8-L8"
+  -
+    id: "rename_table_fact_mixed_temp"
+    type: "constraint"
+    statement: "多表等价多次ALTER RENAME，但不能混合本地临时表和非本地临时表。"
+    status: "confirmed"
+    source_anchor: "L9-L10"
+  -
+    id: "rename_table_fact_syntax"
+    type: "syntax"
+    statement: "RENAME TABLE或TABLES 后重复旧名TO新名对。"
+    status: "confirmed"
+    source_anchor: "L13-L13"
+  -
+    id: "rename_table_fact_b_gate"
+    type: "environment"
+    statement: "B/5.7/s2有特殊命名行为。"
+    status: "confirmed"
+    source_anchor: "L18-L19"
+  -
+    id: "rename_table_fact_mysql_prefix"
+    type: "behavior_oracle"
+    statement: "该模式下新名以#MySQL50#开头且有后缀时忽略前缀。"
+    status: "confirmed"
+    source_anchor: "L20-L20"
+  -
+    id: "rename_table_fact_same_name"
+    type: "behavior_oracle"
+    statement: "该模式下新旧名相同不报错。"
+    status: "confirmed"
+    source_anchor: "L21-L21"
+  -
+    id: "rename_table_fact_keyword"
+    type: "syntax"
+    statement: "TABLE与TABLES可互换，不依赖表数量。"
+    status: "confirmed"
+    source_anchor: "L25-L26"
+  -
+    id: "rename_table_fact_pairs"
+    type: "syntax"
+    statement: "重复项各含旧表名 TO 新表名。"
+    status: "confirmed"
+    source_anchor: "L27-L31"
+  -
+    id: "rename_table_fact_single_example"
+    type: "example"
+    statement: "单表创建/重命名/清理。"
+    status: "confirmed"
+    source_anchor: "L34-L37"
+  -
+    id: "rename_table_fact_multi_example"
+    type: "example"
+    statement: "两表重命名和清理。"
+    status: "confirmed"
+    source_anchor: "L39-L43"
+  -
+    id: "rename_table_fact_temp_profile"
+    type: "open_question"
+    statement: "本地临时与非临时混合负向需同session受控fixture及错误Oracle。"
+    status: "needs_verification"
+    source_anchor: "L9-L10"
+  -
+    id: "rename_table_fact_compat_profile"
+    type: "open_question"
+    statement: "B/5.7/s2行为独立能力门禁，本批不把特殊行为推广到general。"
+    status: "needs_verification"
+    source_anchor: "L18-L19"
+exported_fact_refs: []
+manifest_refs:
+  - "manifest_rename_table_ordinary"
+matrix_refs:
+  - "matrix_rename_table_coverage"
+fixture_refs:
+  - "fixture_rename_table_one"
+  - "fixture_rename_table_two"
+  - "fixture_rename_table_cleanup"
+scenario_refs:
+  - "scenario_rename_table_preserve_data"
+  - "scenario_rename_table_rename_contracts"

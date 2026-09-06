@@ -155,7 +155,7 @@ dimensions:
             validity: conditional
             fixture_refs: [fixture_delete_target]
             properties: {repeats_target: true, compatibility_mode: B, source_tables: [t_delete_target], source_columns: [id]}
-            fact_refs: [delete_fact_using_repeat_scope]
+            fact_refs: [delete_fact_using_repeat_scope, delete_fact_single_using_b_environment]
 
   single_predicate:
     description: 省略 WHERE、布尔条件或存储过程游标当前行。
@@ -165,6 +165,7 @@ dimensions:
         meaning: PDF 的三种行选择形态。
         values:
           - {id: delete_predicate_none, render: "", representative: true, validity: valid, properties: {kind: none}}
+          - {id: delete_predicate_partition, render: " WHERE col_1 > 0", representative: true, validity: valid, properties: {kind: condition, target_columns: [col_1]}, fact_refs: [delete_fact_condition_behavior]}
           - {id: delete_predicate_where, render: " WHERE id = 2", representative: true, validity: valid, properties: {kind: condition}, fact_refs: [delete_fact_condition_behavior]}
           - id: delete_predicate_current_of
             render: " WHERE CURRENT OF cur_delete"
@@ -290,6 +291,7 @@ rules:
 structural_checks: []
 
 facts:
+  - {id: delete_fact_single_using_b_environment, type: environment, statement: "单目标 DELETE 的 USING 若重复目标表，当前分支要求 sql_compatibility='B'；多目标例外独立建模。", status: confirmed, source_anchor: "L156-L163 using_list"}
   - {id: delete_fact_purpose, type: syntax, statement: "DELETE 删除目标中满足 WHERE 条件的行，省略 WHERE 时选中全部行。", status: confirmed, source_anchor: "L4-L6 功能描述"}
   - {id: delete_fact_delete_all_preserves_structure, type: behavior_oracle, statement: "省略 WHERE 删除全部行时只保留表结构。", status: confirmed, source_anchor: "L5-L6 功能描述"}
   - {id: delete_fact_permissions, type: environment, statement: "DELETE 需要目标所有权/授予权限/DELETE ANY TABLE 之一，USING 和 condition 引用表还需 SELECT 权限；三权分立关闭时系统管理员默认有权。", status: confirmed, source_anchor: "L9-L11 权限"}
@@ -340,12 +342,14 @@ facts:
   - {id: delete_open_plan_hint_profile, type: open_question, statement: "本 catalog 只给出 plan_hint 占位、位置与首块生效规则，没有可保真生成的具体 Hint 子语法。", status: needs_verification, source_anchor: "L91-L95 plan_hint"}
   - {id: delete_open_dblink_profile, type: open_question, statement: "本章仅声明支持 DATABASE LINK，未展开远端目标拼写、连接对象和生命周期。", status: needs_verification, source_anchor: "L102-L105 DATABASE LINK 引用"}
   - {id: delete_open_preserved_key_definition, type: open_question, statement: "CREATE VIEW 保留键定义已通过限定引用接入；CHECK OPTION、重复基表与连接形态的完整组合和删除行为仍待验证。", status: needs_verification, source_anchor: "L110-L135 CREATE VIEW 引用"}
-  - {id: delete_open_partition_fixture, type: open_question, statement: "本章列出 partition_clause/partitions_clause 但未给出可独立回放的一级与二级分区建表契约，SELECT 和 CREATE TABLE SUBPARTITION 子节也未进入本 catalog。", status: needs_verification, source_anchor: "L138-L151 与 L417-L419"}
+  - {id: delete_open_partition_fixture, type: open_question, statement: "已复用同 PDF 的一级 RANGE 和二级 RANGE/RANGE fixture，生成名称及 FOR 常量选择；B 模式多分区列表、其余策略和实际删除行 Oracle 仍待实现，不能代表完整分区域。", status: needs_verification, source_anchor: "L138-L151 与 L417-L419"}
   - {id: delete_open_recursive_cte_depth, type: open_question, statement: "WITH RECURSIVE 的全部递归深度无法用 V1 静态有限 AST 穷尽；当前只保留 max_depth=2 的代表形态。", status: needs_verification, source_anchor: "L73-L79 WITH RECURSIVE"}
   - {id: delete_open_subquery_depth, type: open_question, statement: "subquery/from_item 的嵌套 SELECT 与连接递归无法由 V1 有限 profile 穷尽，当前仅表示单表与一层连接示例。", status: needs_verification, source_anchor: "L46-L65 subquery/from_item"}
   - {id: delete_open_table_type_fixtures, type: open_question, statement: "视图/子查询支持的临时、全局临时、分区、二级分区、Ustore 和 Astore 基表尚无本章内可回放 Fixture，不能由普通表代表全域。", status: needs_verification, source_anchor: "L128-L129 支持表类型"}
 
 manifest_refs:
+  - manifest_delete_partition_payload_positive
+  - manifest_delete_partition_positive
   - manifest_delete_core_positive
   - manifest_delete_view_subquery_positive
   - manifest_delete_cte_syntax_positive
@@ -360,6 +364,7 @@ fixture_refs:
   - fixture_delete_view
   - fixture_delete_subquery
 scenario_refs:
+  - scenario_delete_single_using_target_b
   - scenario_delete_permissions
   - scenario_delete_cte_and_hint
   - scenario_delete_only_partition_dblink

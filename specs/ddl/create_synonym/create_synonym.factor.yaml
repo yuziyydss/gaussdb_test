@@ -1,0 +1,412 @@
+schema_version: 1
+kind: "factor"
+id: "create_synonym"
+name: "CREATE SYNONYM"
+category: "DDL"
+status: "needs_review"
+description: "第四批 PDF 抽取；有限生成域与未执行场景分开报告。"
+source:
+  product: "GaussDB"
+  document: "集中式版参考 / 1.13.9.47 CREATE SYNONYM"
+  version: "V2.0-10.0.0"
+  artifact_sha256: "7aae21a44fcc3f640accf0e58da1274cff062f7ea3fa3b997f67b28743032ea6"
+  parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+  extraction_rule_version: "gaussdb-pdf-outline-v1"
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: "gaussdb_v2_0_10_0_0_centralized_reference_01"
+    source_relpath: "general/ddl/create_synonym.txt"
+    chapter_sha256: "7aae21a44fcc3f640accf0e58da1274cff062f7ea3fa3b997f67b28743032ea6"
+source_ledger_ref: "source_ledger_create_synonym"
+syntax_ref: "syntax_create_synonym"
+dimensions:
+  replace:
+    description: "替换关键字"
+    classes:
+      -
+        id: "create_synonym_replace_absent_class"
+        meaning: "absent"
+        values:
+          -
+            id: "create_synonym_replace_absent"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "create_synonym_fact_syntax"
+      -
+        id: "create_synonym_replace_present_class"
+        meaning: "present"
+        values:
+          -
+            id: "create_synonym_replace_present"
+            render: "OR REPLACE"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "create_synonym_fact_replace"
+    default_value_id: "create_synonym_replace_absent"
+  name:
+    description: "创建和替换目标"
+    classes:
+      -
+        id: "create_synonym_name_new_class"
+        meaning: "new"
+        values:
+          -
+            id: "create_synonym_name_new"
+            render: "s_syn_create"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "create_synonym_fact_synonym_name"
+      -
+        id: "create_synonym_name_existing_class"
+        meaning: "existing"
+        values:
+          -
+            id: "create_synonym_name_existing"
+            render: "s_syn_replace"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "create_synonym_fact_synonym_name"
+    default_value_id: "create_synonym_name_new"
+  target:
+    description: "受控目标类及文档允许缺失"
+    classes:
+      -
+        id: "create_synonym_target_table_class"
+        meaning: "table"
+        values:
+          -
+            id: "create_synonym_target_table"
+            render: "t_syn_source"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "create_synonym_fact_object_types"
+      -
+        id: "create_synonym_target_view_class"
+        meaning: "view"
+        values:
+          -
+            id: "create_synonym_target_view"
+            render: "v_syn_source"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "create_synonym_fact_object_types"
+      -
+        id: "create_synonym_target_sequence_class"
+        meaning: "sequence"
+        values:
+          -
+            id: "create_synonym_target_sequence"
+            render: "seq_syn_source"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "create_synonym_fact_object_types"
+      -
+        id: "create_synonym_target_synonym_class"
+        meaning: "synonym"
+        values:
+          -
+            id: "create_synonym_target_synonym"
+            render: "s_syn_source"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "create_synonym_fact_nested"
+      -
+        id: "create_synonym_target_absent_class"
+        meaning: "absent"
+        values:
+          -
+            id: "create_synonym_target_absent"
+            render: "fp_syn_absent_object"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "create_synonym_fact_missing_object"
+    default_value_id: "create_synonym_target_table"
+rules: []
+structural_checks: []
+facts:
+  -
+    id: "create_synonym_fact_purpose"
+    type: "behavior_oracle"
+    statement: "同义词保存对象名映射，可用于访问关联对象。"
+    status: "confirmed"
+    source_anchor: "L5-L6"
+  -
+    id: "create_synonym_fact_creator"
+    type: "metadata_oracle"
+    statement: "创建者成为所有者；下文还规定所在用户 Schema 的例外。"
+    status: "confirmed"
+    source_anchor: "L9-L9"
+  -
+    id: "create_synonym_fact_schema"
+    type: "syntax"
+    statement: "指定 Schema 则在该模式创建，否则使用当前模式。"
+    status: "confirmed"
+    source_anchor: "L10-L10"
+  -
+    id: "create_synonym_fact_object_types"
+    type: "syntax"
+    statement: "对象类型包括表/视图/类型/PACKAGE/函数/过程/序列/同义词。"
+    status: "confirmed"
+    source_anchor: "L12-L13"
+  -
+    id: "create_synonym_fact_access"
+    type: "environment"
+    statement: "使用同义词仍须具有关联对象权限。"
+    status: "confirmed"
+    source_anchor: "L14-L14"
+  -
+    id: "create_synonym_fact_dml"
+    type: "syntax"
+    statement: "支持通过同义词使用 SELECT/INSERT/UPDATE/DELETE/EXPLAIN/CALL。"
+    status: "confirmed"
+    source_anchor: "L15-L16"
+  -
+    id: "create_synonym_fact_procedure"
+    type: "constraint"
+    statement: "关联函数或过程的 CREATE SYNONYM 不支持置于存储过程内。"
+    status: "confirmed"
+    source_anchor: "L17-L18"
+  -
+    id: "create_synonym_fact_temporary"
+    type: "lifecycle"
+    statement: "临时表同义词必须指定目标临时 Schema，并在会话结束前 DROP SYNONYM。"
+    status: "confirmed"
+    source_anchor: "L19-L21"
+  -
+    id: "create_synonym_fact_dangling"
+    type: "lifecycle"
+    statement: "原对象删除不级联删除同义词，再访问报失效或对象不存在。"
+    status: "confirmed"
+    source_anchor: "L22-L23"
+  -
+    id: "create_synonym_fact_create_any"
+    type: "environment"
+    statement: "CREATE ANY SYNONYM 可在用户模式创建同义词。"
+    status: "confirmed"
+    source_anchor: "L24-L24"
+  -
+    id: "create_synonym_fact_encrypted"
+    type: "constraint"
+    statement: "不支持针对密态表及其视图/函数/过程创建同义词。"
+    status: "confirmed"
+    source_anchor: "L25-L26"
+  -
+    id: "create_synonym_fact_package"
+    type: "constraint"
+    statement: "可关联 PACKAGE，但不可直接关联 PACKAGE 下函数；通过包同义词可访问包成员。"
+    status: "confirmed"
+    source_anchor: "L27-L28"
+  -
+    id: "create_synonym_fact_schema_owner"
+    type: "metadata_oracle"
+    statement: "同义词 Schema 为用户所在 Schema 时 owner 为 Schema owner；其余默认为创建者。"
+    status: "confirmed"
+    source_anchor: "L29-L30"
+  -
+    id: "create_synonym_fact_resolution_function"
+    type: "behavior_oracle"
+    statement: "函数/过程先查 pg_proc，再查同义词和 search_path；其他对象优先 search_path，同 Schema 本名优先。"
+    status: "confirmed"
+    source_anchor: "L31-L34"
+  -
+    id: "create_synonym_fact_ddl"
+    type: "constraint"
+    statement: "不能通过 CREATE/DROP/ALTER 操作同义词的方式操作关联对象。"
+    status: "confirmed"
+    source_anchor: "L35-L36"
+  -
+    id: "create_synonym_fact_nested"
+    type: "behavior_oracle"
+    statement: "关联同义词时继续搜索直至真实对象。"
+    status: "confirmed"
+    source_anchor: "L37-L38"
+  -
+    id: "create_synonym_fact_client_meta"
+    type: "constraint"
+    statement: "不支持通过客户端元命令经同义词访问关联对象信息。"
+    status: "confirmed"
+    source_anchor: "L39-L39"
+  -
+    id: "create_synonym_fact_qualified_resolution"
+    type: "behavior_oracle"
+    statement: "指定 Schema 时先找本名再同义词；在特定用户模式关联目标缺失时会额外找 PUBLIC。"
+    status: "confirmed"
+    source_anchor: "L40-L46"
+  -
+    id: "create_synonym_fact_unqualified_resolution"
+    type: "behavior_oracle"
+    statement: "未指定 Schema 时遍历 search_path，按本名/同义词查找；用户名模式缺失时再找 PUBLIC。"
+    status: "confirmed"
+    source_anchor: "L47-L51"
+  -
+    id: "create_synonym_fact_sensitive"
+    type: "environment"
+    statement: "避免给带敏感信息的函数创建别名或经别名调用。"
+    status: "confirmed"
+    source_anchor: "L52-L54"
+  -
+    id: "create_synonym_fact_syntax"
+    type: "syntax"
+    statement: "CREATE 后可选 OR REPLACE 和 PUBLIC，SYNONYM 名称后接 FOR 目标。"
+    status: "confirmed"
+    source_anchor: "L57-L58"
+  -
+    id: "create_synonym_fact_replace"
+    type: "lifecycle"
+    statement: "OR REPLACE 重新定义既有同义词。"
+    status: "confirmed"
+    source_anchor: "L64-L65"
+  -
+    id: "create_synonym_fact_public_syntax"
+    type: "syntax"
+    statement: "PUBLIC 创建公共同义词。"
+    status: "confirmed"
+    source_anchor: "L66-L67"
+  -
+    id: "create_synonym_fact_public_unique"
+    type: "constraint"
+    statement: "同库 PUBLIC 同义词不能重名。"
+    status: "confirmed"
+    source_anchor: "L70-L70"
+  -
+    id: "create_synonym_fact_upgrade"
+    type: "environment"
+    statement: "升级到支持 PUBLIC 的版本，升级提交前不能创建或删除 PUBLIC 同义词。"
+    status: "confirmed"
+    source_anchor: "L71-L72"
+  -
+    id: "create_synonym_fact_public_privileges"
+    type: "environment"
+    statement: "用户可访问 PUBLIC 同义词，但创建/删除需对应 PUBLIC 权限，初始用户和系统管理员例外。"
+    status: "confirmed"
+    source_anchor: "L73-L75"
+  -
+    id: "create_synonym_fact_public_metadata"
+    type: "metadata_oracle"
+    statement: "PUBLIC 同义词 pg_synonym.synnamespace/synowner 为0；ADM/DB_SYNONYMS.owner 为 PUBLIC、schema_name 为 NULL。"
+    status: "confirmed"
+    source_anchor: "L76-L78"
+  -
+    id: "create_synonym_fact_public_resolution"
+    type: "behavior_oracle"
+    statement: "未指定 Schema 时本名→search_path同义词→PUBLIC；显式 Schema 时通常不搜 PUBLIC，需与前文特殊转引规则分别核验。"
+    status: "confirmed"
+    source_anchor: "L79-L81"
+  -
+    id: "create_synonym_fact_synonym_name"
+    type: "syntax"
+    statement: "同义词名符合标识符规则，可模式修饰。"
+    status: "confirmed"
+    source_anchor: "L82-L84"
+  -
+    id: "create_synonym_fact_object_name"
+    type: "syntax"
+    statement: "关联对象名符合标识符规则，可模式修饰。"
+    status: "confirmed"
+    source_anchor: "L85-L87"
+  -
+    id: "create_synonym_fact_missing_object"
+    type: "behavior_oracle"
+    statement: "关联目标可以不存在，创建同义词不要求目标当前存在。"
+    status: "confirmed"
+    source_anchor: "L90-L90"
+  -
+    id: "create_synonym_fact_remote"
+    type: "environment"
+    statement: "可经 DATABASE LINK 访问远程对象，细节转引开发指南。"
+    status: "confirmed"
+    source_anchor: "L91-L92"
+  -
+    id: "create_synonym_fact_object_profiles"
+    type: "open_question"
+    statement: "本批仅表/视图/序列/一层同义词和缺失目标；类型/PACKAGE/函数/过程需独立 Fixture 与章节。"
+    status: "needs_verification"
+    source_anchor: "L12-L13"
+  -
+    id: "create_synonym_fact_public_profile"
+    type: "open_question"
+    statement: "PUBLIC 全库名字空间与升级状态需要独立执行授权及清理契约，当前不生成公共对象 SQL。"
+    status: "needs_verification"
+    source_anchor: "L71-L72"
+  -
+    id: "create_synonym_fact_remote_gap"
+    type: "open_question"
+    statement: "缺少开发指南 DATABASE LINK，保留远程目标缺口。"
+    status: "needs_verification"
+    source_anchor: "L91-L92"
+  -
+    id: "create_synonym_fact_public_search_ambiguity"
+    type: "open_question"
+    statement: "显式 Schema 不搜 PUBLIC 与前文转引用户 Schema 后额外搜 PUBLIC 的边界需场景验证。"
+    status: "needs_verification"
+    source_anchor: "L79-L81"
+  -
+    id: "create_synonym_fact_schema_example"
+    type: "example"
+    statement: "原文创建 ot 模式。"
+    status: "confirmed"
+    source_anchor: "L96-L97"
+  -
+    id: "create_synonym_fact_base_example"
+    type: "example"
+    statement: "原文表与种子数据。"
+    status: "confirmed"
+    source_anchor: "L99-L101"
+  -
+    id: "create_synonym_fact_path_example"
+    type: "example"
+    statement: "原文 SHOW search_path，值只属于示例。"
+    status: "confirmed"
+    source_anchor: "L103-L109"
+  -
+    id: "create_synonym_fact_missing_example"
+    type: "example"
+    statement: "未限定表名且不在搜索路径时查询失败。"
+    status: "confirmed"
+    source_anchor: "L111-L114"
+  -
+    id: "create_synonym_fact_select_example"
+    type: "example"
+    statement: "创建同义词后查询到关联表。"
+    status: "confirmed"
+    source_anchor: "L116-L123"
+  -
+    id: "create_synonym_fact_insert_example"
+    type: "example"
+    statement: "经同义词插入一行。"
+    status: "confirmed"
+    source_anchor: "L124-L124"
+  -
+    id: "create_synonym_fact_cleanup_example"
+    type: "example"
+    statement: "删除示例同义词及其表和 Schema。"
+    status: "confirmed"
+    source_anchor: "L126-L129"
+exported_fact_refs:
+  - "create_synonym_fact_missing_object"
+  - "create_synonym_fact_dangling"
+manifest_refs:
+  - "manifest_create_synonym_new"
+  - "manifest_create_synonym_replace"
+matrix_refs:
+  - "matrix_create_synonym_coverage"
+fixture_refs:
+  - "fixture_create_synonym_source"
+  - "fixture_create_synonym_objects"
+  - "fixture_create_synonym_new_name"
+  - "fixture_create_synonym_existing"
+scenario_refs:
+  - "scenario_create_synonym_mapping_lifecycle"
+  - "scenario_create_synonym_resolution"
+  - "scenario_create_synonym_permissions"
+  - "scenario_create_synonym_examples"

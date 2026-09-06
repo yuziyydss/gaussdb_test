@@ -1,0 +1,27 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_model_training_input
+name: CREATE MODEL 训练输入核验
+status: planned
+description: >-
+  只核验原文示例数据，不创建模型；场景未执行，不作为行为通过或普通 SQL 清单。
+  训练预算、算法分域、模型身份与跨 CREATE/PREDICT/DROP 所有权仍保留原有缺口。
+factor_ref: create_model
+fixture_refs: [fixture_create_model_training_input]
+fact_refs:
+  - create_model_fact_example_202
+  - create_model_fact_example_212
+  - create_model_fact_example_214
+  - create_model_fact_example_224
+preconditions:
+  - 数据库执行获得独立授权，使用独立新连接及专用测试命名空间，无外层事务。
+  - fp_model_houses_input 不存在；不能删除或复用其他任务的同名对象。
+steps:
+  - {id: setup, action: execute_fixture_setup, detail: "逐条执行 fixture；任何一步失败均停止断言并回滚，记录为前置失败。"}
+  - {id: inspect_rows, action: query, sql: "SELECT id, tax, bedroom, bath, price, size, lot, mark FROM fp_model_houses_input ORDER BY id;"}
+  - {id: cleanup, action: execute_fixture_teardown, detail: "成功或失败均结束本连接的独立事务；不运行 CREATE MODEL、不关闭超时。"}
+oracles:
+  - {kind: exact_rows, expected: "按 id 排序与来源 L216-L230 的十五行逐字段一致；数值按声明数值类型比较。seed SQL 与 provides 类型必须一致。"}
+  - {kind: input_shape, expected: "八列；FEATURES 候选 size/lot 是 INTEGER，TARGET 候选 mark 是 TEXT，样例标签为 a+ 与 a-。这是示例数据断言，不是产品强制标签域。"}
+  - {kind: cleanup, expected: "回滚后专用表不存在；需要实际记录，不能从 ROLLBACK 字符串推断清理成功。"}
+execution_requirements: [独立数据库执行授权, 独立新连接, 隔离测试命名空间, 逐阶段结果与清理证据]

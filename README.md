@@ -26,6 +26,39 @@ README 中维护容易漂移的固定数字。
 `--pdf-python /path/to/python` 指定单独的 PDF 运行环境。
 批次选择、逐项证据和验收边界见 [12 章依赖验证](docs/CROSS_CHAPTER_DEPENDENCY_RESULT.md)。
 
+按 [第三批抽取计划](docs/BATCH_03_EXTRACTION_PLAN.md) 选择的 20 个新章节均已形成包和 SQL 候选，
+并纳入已有提供者及实际引用的补充正文。事务/保存点、ALTER/DROP VIEW/SEQUENCE/INDEX、
+模式管理及预备语句子批已落盘；有限域生成完成不等于文档全特性覆盖或数据库行为验收。
+见 [第三批阶段结果](docs/BATCH_03_EXTRACTION_PROGRESS.md)，实际进度看独立 `batch_03` 队列。
+
+[第四批](docs/BATCH_04_EXTRACTION_PLAN.md) 的 20 个新章节均已落盘，并纳入实际依赖正文；
+累计 70 个 manifest、470 条静态候选（437 正向 / 33 目标负向），原文映射与有限生成域检查通过。
+完整特性和行为仍待审核：保留 72 个 open question 与 63 个 planned scenario，不将它们改成已验证。
+见 [第四批阶段结果](docs/BATCH_04_EXTRACTION_PROGRESS.md)，不将选章完成或 SQL 生成冒充行为验收。
+
+[第五批](docs/BATCH_05_EXTRACTION_PLAN.md) 已新增函数/聚集、文本搜索、增量物化视图等20个章节包。
+默认仅生成有限域候选；内部功能授权、文件型词典、复杂函数与数据库行为继续单独留账。
+候选数量与最新验证证据见 [第五批结果](docs/BATCH_05_EXTRACTION_PROGRESS.md)。
+
+[第六批](docs/BATCH_06_EXTRACTION_PLAN.md) 继续新增过程、规则、触发器、两阶段事务和维护命令等20个包。
+零参数固定语句已纳入生成回归；权限、凭据和高风险状态仍有明确待审核边界。
+见 [第六批结果](docs/BATCH_06_EXTRACTION_PROGRESS.md) 和 [PDF剩余章节队列](docs/PDF_GENERAL_EXTRACTION_BACKLOG.md)。
+
+后续按对象家族完成第七至十一批：
+[类型与扩展](docs/BATCH_07_EXTRACTION_PROGRESS.md)、
+[数据库与工具命令](docs/BATCH_08_EXTRACTION_PROGRESS.md)、
+[身份与权限](docs/BATCH_09_EXTRACTION_PROGRESS.md)、
+[策略及外部资源契约](docs/BATCH_10_EXTRACTION_PROGRESS.md)、
+[分区、数据流与恢复](docs/BATCH_11_EXTRACTION_PROGRESS.md)。
+整本 general SQL 的包绑定与尚未关闭的生成/行为缺口，以
+[PDF 目录进度](docs/PDF_GENERAL_EXTRACTION_BACKLOG.md)及其可重算报告为准。
+没有普通 manifest 的工具、外部资源或内部命令仍保留证据包，但不计作 SQL 生成通过。
+本次补齐任务的固定验收快照见 [剩余129包交付结果](docs/REMAINING_129_EXTRACTION_RESULT.md)，
+其中明确区分原文抽取、有限生成、未实现运行时和数据库行为验证。
+后续质量改进见 [第三轮：全量对账与持续失效](docs/QUALITY_ROUND_03.md)、
+[第二轮：真实写入契约](docs/QUALITY_ROUND_02.md)及
+[第一轮质量复核](docs/QUALITY_ROUND_01.md)；历史批次报告保持冻结，不覆盖其旧验收数据。
+
 ## 当前验证基线
 
 当前基线不再使用历史“226 个因子”作为分母。唯一产品证据是仓库中的冻结 PDF 与其 `catalog.json`；CREATE VIEW、CREATE INDEX、ALTER TABLE、SELECT、INSERT 是首批五章校准集。实时数量和结论由下列命令重算，README 不复制容易陈旧的 case 数：
@@ -222,12 +255,12 @@ python3 scripts/manage_extraction_queue.py verify --task-id <TASK_ID>
 
 ## 下一步
 
-五个首批因子是框架验收样本，不是要在扩批前做到数据库行为 100%。后续节奏为：
+首批五章校准和后续分批抽取已经推进，不再把“开始第二批”当作当前任务。后续以实时审计缺口为入口：
 
-1. 以当前五章回归结果冻结 Factor Package V1 模型、抽取规则和生成接口；
-2. 立即抽取第二批约 10 个代表性 SQL 章节，覆盖简单 DDL、DCL、事务语句、普通 DML 和复杂语法；
-3. 第二批通过后，按每批 20～30 章扩大，不逐个手工精修；
-4. 自动抽取失败、原文异常或高风险章节进入 `needs_review`/`blocked` 人工队列，不阻塞其他章节；
-5. 数据库行为验证作为独立轨道逐步补齐，不是第二批的前置条件。
+1. 保持 Factor Package V1 公共模型和生成接口稳定；先重算目录、原文、有限生成域与行为四种口径。
+2. 按 `needs_profile` 与 `open_question` 分类补值域、列契约、外部资源和权限场景，不重抽已经有来源证据的章节。
+3. 先选择已有受控 Fixture 的候选做独立数据库验证，记录具体环境和目标 Oracle；未执行不得标为 verified。
+4. 外部文件、密钥、模型训练、后台任务和库级恢复需先实现运行时契约，不为提高通过率删除事实或改成任意错误通过。
+5. 对 PDF 或依赖包变化执行哈希失效与定向回归，继续区分包已存在、原文已处置、能生成、静态闭环和行为已验证。
 
 冻结边界见 [Factor Package V1 冻结与批次规则](docs/FACTOR_PACKAGE_V1_FREEZE_POLICY.md)，完整路线见 [ROADMAP.md](docs/ROADMAP.md)。

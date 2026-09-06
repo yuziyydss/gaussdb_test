@@ -1,0 +1,35 @@
+schema_version: 1
+kind: scenario
+id: scenario_grant_fresh_sysadmin
+name: GRANT 新非登录角色SYSADMIN属性核验
+status: planned
+description: >-
+  为两种语法拼写记录属性转换和清理的验证责任；没有执行。
+  不用权限操作或真实业务对象验证高权限，不把对象ALL或角色成员关系当SYSADMIN属性。
+factor_ref: grant
+fixture_refs: [fixture_grant_fresh_single_recipient]
+fact_refs:
+  - grant_fact_sysadmin_syntax
+  - grant_fact_system_privileges
+  - grant_fact_all_privileges_environment
+  - grant_fact_existing_identifiers
+  - grant_fact_security_guidance
+  - grant_example_sysadmin
+  - create_role::create_role_fact_sysadmin_duty_off
+  - create_role::create_role_fact_disable_admin
+preconditions:
+  - 独立SYSADMIN授予执行授权，不由生成或普通Smoke批准自动推导。
+  - 独占隔离实例、system_administrator、三权分立关闭；全新连接无外层事务。
+  - grant_recipient全局名字不存在，不预先删除或接管任何已有主体；两种拼写分别建立fixture。
+  - 先核实本版本角色属性目录字段与只读查询契约；未获得字段依据则阻断该Oracle，不猜列名。
+steps:
+  - {id: setup, action: execute_fixture_setup}
+  - {id: before, action: inspect_role_attributes, detail: "记录当前新角色非SYSADMIN、NOLOGIN及禁用密码，任何不符先停止。"}
+  - {id: target, action: execute_generated_case, manifest_ref: manifest_grant_sysadmin_spelling}
+  - {id: after, action: inspect_role_attributes, detail: "只查询本次新角色属性，不登录、不SET ROLE、不执行高权限DDL。"}
+  - {id: cleanup, action: execute_fixture_teardown, detail: "任何阶段失败均结束该独立事务；查询角色不存在并保存证据，异常清理失败不能计通过。"}
+oracles:
+  - {kind: role_attribute_transition, expected: "本次新角色SYSADMIN由false变true；NOLOGIN和禁用密码保持。必须以目标成功及实际属性结果判定。"}
+  - {kind: spelling_equivalence, expected: "两条候选在各自独立fixture中发生同样属性变化；不是在同一已提权角色上重复授权。"}
+  - {kind: cleanup, expected: "回滚后本次新角色与授权无残留。不能从SQL文本、空Schema或未执行清理得到通过结论。"}
+execution_requirements: [独立SYSADMIN授予执行授权, 独占隔离实例, 新全局角色名, 真实角色目录字段契约, 逐阶段结果, 实际清理证据]

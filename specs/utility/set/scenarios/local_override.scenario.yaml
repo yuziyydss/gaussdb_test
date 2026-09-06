@@ -1,0 +1,54 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_set_local_override"
+name: "SET local_override"
+status: "planned"
+description: "验证 SESSION 与 LOCAL 的叠加及提交后恢复 SESSION；失败后关闭专用连接。"
+factor_ref: "set"
+fixture_refs: []
+fact_refs:
+  - "set_fact_local_end"
+  - "set_fact_session_then_local"
+preconditions:
+  - "独占连接；必须在 finally 关闭连接，不能将 COMMIT 后状态留给连接池。"
+steps:
+  -
+    id: "begin"
+    action: "execute_sql"
+    sql: "BEGIN;"
+  -
+    id: "session"
+    action: "execute_sql"
+    sql: "SET TIME ZONE 'EST';"
+  -
+    id: "local"
+    action: "execute_sql"
+    sql: "SET LOCAL TIME ZONE 'America/New_York';"
+  -
+    id: "inside"
+    action: "execute_sql"
+    sql: "SHOW timezone;"
+  -
+    id: "commit"
+    action: "execute_sql"
+    sql: "COMMIT;"
+  -
+    id: "after"
+    action: "execute_sql"
+    sql: "SHOW timezone;"
+oracles:
+  -
+    after_step: "inside"
+    kind: "result_rows"
+    expected:
+      -
+        - "America/New_York"
+  -
+    after_step: "after"
+    kind: "result_rows"
+    expected:
+      -
+        - "EST"
+execution_requirements:
+  - "database"
+  - "same_session"

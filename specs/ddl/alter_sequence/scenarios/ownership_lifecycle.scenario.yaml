@@ -1,0 +1,43 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_alter_sequence_ownership_lifecycle"
+name: "ALTER SEQUENCE ownership_lifecycle"
+status: "planned"
+description: "同模式归属、解除关联和删除依赖；未执行。"
+factor_ref: "alter_sequence"
+fixture_refs:
+  - "fixture_alter_sequence_sequences"
+fact_refs:
+  - "alter_sequence_fact_owned_delete"
+  - "alter_sequence_fact_owned_replace"
+  - "alter_sequence_fact_owned_none"
+  - "alter_sequence_fact_owned_match"
+preconditions:
+  - "同一独占测试用户和模式；seed 已申请 101，未执行其他 nextval。"
+steps:
+  -
+    id: "attach"
+    action: "execute_sql"
+    sql: "ALTER SEQUENCE seq_as_regular OWNED BY t_cs_owner.id;"
+  -
+    id: "detach"
+    action: "execute_sql"
+    sql: "ALTER SEQUENCE seq_as_regular OWNED BY NONE;"
+  -
+    id: "drop_table"
+    action: "execute_sql"
+    sql: "DROP TABLE t_cs_owner;"
+  -
+    id: "next"
+    action: "execute_sql"
+    sql: "SELECT nextval('seq_as_regular');"
+oracles:
+  -
+    after_step: "next"
+    kind: "result_rows"
+    expected:
+      -
+        - 102
+execution_requirements:
+  - "database"
+  - "same_session"

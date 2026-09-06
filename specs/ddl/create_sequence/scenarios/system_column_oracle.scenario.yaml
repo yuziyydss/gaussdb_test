@@ -13,9 +13,13 @@ fact_refs: [cs_fact_system_column_restriction, cs_open_system_column_error_ident
 preconditions: [专用目标表可将 rowid 与 rowno 解析为真实系统列, 当前用户拥有该表与序列]
 steps:
   - {id: provision_target, action: provision_system_column_profile, detail: "建立能正确解析 rowid/rowno 的专用表形"}
+  - {id: prove_system_identity, action: inspect_system_catalog, detail: "保存目标表身份、列系统属性、产品版本及建表 SQL；禁止以自行 CREATE 的普通 rowid/rowno 列替代。无匹配产品目录定义或缺列时标记 blocked，不执行目标 SQL。"}
+  - {id: prove_prerequisites, action: verify_positive_control, detail: "先以同 Schema、同所有者的普通 id 列验证 OWNED BY 控制用例。控制用例失败即环境或 fixture 失败，不能算目标负向通过。"}
   - {id: reject_rowid, action: execute_target_sql, sql: "CREATE SEQUENCE seq_cs_rowid OWNED BY <system_column_table>.rowid"}
   - {id: reject_rowno, action: execute_target_sql, sql: "CREATE SEQUENCE seq_cs_rowno OWNED BY <system_column_table>.rowno"}
 oracles:
   - {kind: target_error_category, expected: "两条语句均命中系统列关联限制，而非表或列缺失"}
   - {kind: calibrated_error_identity, expected: "记录稳定 SQLSTATE 或窄错误消息后才可升级为可执行负向 manifest"}
+  - {kind: reject_unrelated_error, expected: "对象缺失、列缺失、权限不足、Schema 或所有者不匹配、事务已失败，均不是本场景的目标错误；单独记录并判非通过。"}
+  - {kind: isolated_targets, expected: "rowid 与 rowno 各使用独立事务或 savepoint；首个预期错误不得令第二个目标落入事务中止错误。"}
 execution_requirements: [真实 GaussDB, 专用系统列 target profile, 错误 Oracle 校准]

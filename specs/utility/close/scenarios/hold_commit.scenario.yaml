@@ -1,0 +1,50 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_close_hold_commit"
+name: "CLOSE hold_commit"
+status: "planned"
+description: "提交后保持游标，显式关闭后消失。"
+factor_ref: "close"
+fixture_refs:
+  - "fixture_close_transaction"
+fact_refs:
+  - "close_fact_hold_commit"
+preconditions:
+  - "专用连接；即使中途失败也关闭连接回收保持游标"
+steps:
+  -
+    id: "hold"
+    action: "execute_sql"
+    sql: "DECLARE c_close_hold WITH HOLD CURSOR FOR SELECT col_1 FROM t_cursor_source ORDER BY col_1;"
+  -
+    id: "commit"
+    action: "execute_sql"
+    sql: "COMMIT;"
+  -
+    id: "present"
+    action: "execute_sql"
+    sql: "SELECT count(*) FROM pg_cursors WHERE name = 'c_close_hold';"
+  -
+    id: "close"
+    action: "execute_sql"
+    sql: "CLOSE c_close_hold;"
+  -
+    id: "absent"
+    action: "execute_sql"
+    sql: "SELECT count(*) FROM pg_cursors WHERE name = 'c_close_hold';"
+oracles:
+  -
+    after_step: "present"
+    kind: "result_rows"
+    expected:
+      -
+        - 1
+  -
+    after_step: "absent"
+    kind: "result_rows"
+    expected:
+      -
+        - 0
+execution_requirements:
+  - "database"
+  - "same_session"

@@ -1,0 +1,28 @@
+schema_version: 1
+kind: fixture
+id: fixture_grant_fresh_membership_roles
+name: GRANT 独占新角色成员关系输入
+status: needs_review
+description: >-
+  只为成员关系分支创建四个普通禁登录角色；角色不是 Schema 内对象，
+  必须使用专用隔离实例和未占用名字。CREATE ROLE 依据由引用此 fixture 的
+  manifest/scenario 通过 create_role 包的导出事实追踪。不接管既有主体。
+factor_ref: grant
+provides: {tables: []}
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - BEGIN;
+    - CREATE ROLE grant_source_role NOSYSADMIN NOLOGIN PASSWORD DISABLE;
+    - CREATE ROLE grant_source_role_two NOSYSADMIN NOLOGIN PASSWORD DISABLE;
+    - CREATE ROLE grant_recipient NOSYSADMIN NOLOGIN PASSWORD DISABLE;
+    - CREATE ROLE grant_recipient_two NOSYSADMIN NOLOGIN PASSWORD DISABLE;
+  teardown_sqls:
+    - ROLLBACK;
+  note: >-
+    仅生成静态生命周期；ready 表示 SQL 已定义，不证明角色 DDL 回滚或无残留。
+    未来执行需单独授权、独立新连接无外层事务，并先确认四个全局名字均不存在。
+    任一 CREATE 失败即停止目标并回滚，不先 DROP、不忽略冲突、不 DROP OWNED。
+    专用角色不登录、不拥有业务对象；清理后必须查询并证明四个角色及成员边均消失。

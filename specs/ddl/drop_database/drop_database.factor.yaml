@@ -1,0 +1,239 @@
+schema_version: 1
+kind: "factor"
+id: "drop_database"
+name: "DROP DATABASE"
+category: "DDL"
+status: "needs_review"
+description: "第八批 PDF 抽取；有限生成域与未执行场景分开报告。"
+source:
+  product: "GaussDB"
+  document: "集中式版参考 / 1.13.10.10 DROP DATABASE"
+  version: "V2.0-10.0.0"
+  artifact_sha256: "9b45f28792552ea7c6f3627b68154e0627c3a9cd3177cadfc4d8ed658e078716"
+  parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+  extraction_rule_version: "gaussdb-pdf-outline-v1"
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: "gaussdb_v2_0_10_0_0_centralized_reference_01"
+    source_relpath: "general/ddl/drop_database.txt"
+    chapter_sha256: "9b45f28792552ea7c6f3627b68154e0627c3a9cd3177cadfc4d8ed658e078716"
+source_ledger_ref: "source_ledger_drop_database"
+syntax_ref: "syntax_drop_database"
+dimensions:
+  if_exists:
+    description: "存在性容错"
+    classes:
+      -
+        id: "drop_database_if_exists_none_class"
+        meaning: "none"
+        values:
+          -
+            id: "drop_database_if_exists_none"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_database_fact_syntax"
+      -
+        id: "drop_database_if_exists_yes_class"
+        meaning: "yes"
+        values:
+          -
+            id: "drop_database_if_exists_yes"
+            render: "IF EXISTS"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_database_fact_if_exists"
+    default_value_id: "drop_database_if_exists_none"
+  purge:
+    description: "删除模式"
+    classes:
+      -
+        id: "drop_database_purge_none_class"
+        meaning: "none"
+        values:
+          -
+            id: "drop_database_purge_none"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_database_fact_purge"
+      -
+        id: "drop_database_purge_purge_class"
+        meaning: "purge"
+        values:
+          -
+            id: "drop_database_purge_purge"
+            render: "PURGE"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "drop_database_fact_purge"
+    default_value_id: "drop_database_purge_none"
+rules: []
+structural_checks: []
+facts:
+  -
+    id: "drop_database_fact_purpose"
+    type: "lifecycle"
+    statement: "删除数据库。"
+    status: "confirmed"
+    source_anchor: "L5-L5"
+  -
+    id: "drop_database_fact_privilege"
+    type: "environment"
+    statement: "要求数据库属主或DROP授权，管理员默认拥有。"
+    status: "confirmed"
+    source_anchor: "L9-L10"
+  -
+    id: "drop_database_fact_protected"
+    type: "constraint"
+    statement: "禁止删除postgres、template0、template1、templatea、templatem；gsql\\l可查看数据库。"
+    status: "confirmed"
+    source_anchor: "L11-L13"
+  -
+    id: "drop_database_fact_no_connections"
+    type: "environment"
+    statement: "存在用户连接时不能删除，可通过DV_SESSIONS查看。"
+    status: "confirmed"
+    source_anchor: "L14-L15"
+  -
+    id: "drop_database_fact_no_transaction"
+    type: "environment"
+    statement: "不能在事务块中执行。"
+    status: "confirmed"
+    source_anchor: "L16-L16"
+  -
+    id: "drop_database_fact_retry"
+    type: "lifecycle"
+    statement: "失败回滚后需再执行DROP DATABASE IF EXISTS。"
+    status: "confirmed"
+    source_anchor: "L17-L18"
+  -
+    id: "drop_database_fact_irreversible"
+    type: "lifecycle"
+    statement: "库级回收站未开启时删除不可撤销。"
+    status: "confirmed"
+    source_anchor: "L19-L20"
+  -
+    id: "drop_database_fact_recyclebin"
+    type: "lifecycle"
+    statement: "库级回收站开启时数据库放入回收站；表级回收站含对象时不能删库。"
+    status: "confirmed"
+    source_anchor: "L21-L22"
+  -
+    id: "drop_database_fact_if_exists"
+    type: "behavior_oracle"
+    statement: "IF EXISTS删除已有库；不存在时不删也不报错，仅NOTICE。"
+    status: "confirmed"
+    source_anchor: "L29-L33"
+  -
+    id: "drop_database_fact_name"
+    type: "syntax"
+    statement: "目标为已存在数据库名称。"
+    status: "confirmed"
+    source_anchor: "L34-L36"
+  -
+    id: "drop_database_fact_purge"
+    type: "syntax"
+    statement: "可选PURGE；开启库回收站时不指定则放入回收站。"
+    status: "confirmed"
+    source_anchor: "L37-L38"
+  -
+    id: "drop_database_fact_syntax"
+    type: "syntax"
+    statement: "DROP DATABASE可带IF EXISTS和末尾PURGE。"
+    status: "confirmed"
+    source_anchor: "L26-L26"
+  -
+    id: "drop_database_fact_create"
+    type: "example"
+    statement: "创建testdb1。"
+    status: "confirmed"
+    source_anchor: "L41-L42"
+  -
+    id: "drop_database_fact_drop"
+    type: "example"
+    statement: "删除testdb1。"
+    status: "confirmed"
+    source_anchor: "L44-L45"
+  -
+    id: "drop_database_fact_create_recycle"
+    type: "example"
+    statement: "创建回收站示例库。"
+    status: "confirmed"
+    source_anchor: "L47-L49"
+  -
+    id: "drop_database_fact_show_recycle"
+    type: "example"
+    statement: "查询回收站开启。"
+    status: "confirmed"
+    source_anchor: "L50-L54"
+  -
+    id: "drop_database_fact_drop_recycle"
+    type: "example"
+    statement: "删除但不PURGE。"
+    status: "confirmed"
+    source_anchor: "L55-L56"
+  -
+    id: "drop_database_fact_recycle_result"
+    type: "example"
+    statement: "系统回收站有数据库记录。"
+    status: "confirmed"
+    source_anchor: "L57-L64"
+  -
+    id: "drop_database_fact_create_purge"
+    type: "example"
+    statement: "重新创建示例库。"
+    status: "confirmed"
+    source_anchor: "L66-L68"
+  -
+    id: "drop_database_fact_show_purge"
+    type: "example"
+    statement: "查询回收站开启。"
+    status: "confirmed"
+    source_anchor: "L69-L73"
+  -
+    id: "drop_database_fact_purge_result"
+    type: "example"
+    statement: "回收站无该对象示例。"
+    status: "confirmed"
+    source_anchor: "L76-L79"
+  -
+    id: "drop_database_fact_recyclebin_profile"
+    type: "open_question"
+    statement: "有限清单仅回收站关闭环境；开启后的回收站状态、表回收站阻断和彻底清理需要独立fixture/oracle。"
+    status: "needs_verification"
+    source_anchor: "L21-L22"
+  -
+    id: "drop_database_fact_missing_database_profile"
+    type: "open_question"
+    statement: "缺失库NOTICE与无IF EXISTS目标错误尚未生成；不能以已有库两种拼写代表缺失场景。"
+    status: "needs_verification"
+    source_anchor: "L29-L33"
+  -
+    id: "drop_database_fact_protected_negative"
+    type: "open_question"
+    statement: "系统保护库仅保留规则，禁止对真实系统库投放破坏性负向试验。"
+    status: "needs_verification"
+    source_anchor: "L11-L13"
+  -
+    id: "drop_database_fact_recyclebin_environment"
+    type: "environment"
+    statement: "执行删除前须区分库级回收站开启与关闭环境。"
+    status: "confirmed"
+    source_anchor: "L19-L22"
+exported_fact_refs:
+  - "drop_database_fact_no_transaction"
+  - "drop_database_fact_protected"
+  - "drop_database_fact_no_connections"
+manifest_refs:
+  - "manifest_drop_database_existing"
+matrix_refs:
+  - "matrix_drop_database_coverage"
+fixture_refs:
+  - "fixture_drop_database_existing_database"
+scenario_refs:
+  - "scenario_drop_database_documented_contracts"

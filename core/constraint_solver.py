@@ -51,20 +51,20 @@ def _tri_not(value: Any) -> Any:
 def _tri_and(values: Iterable[Any]) -> Any:
     seen_unknown = False
     for value in values:
-        if value is False:
-            return False
         if value is _UNKNOWN:
             seen_unknown = True
+        elif not bool(value):
+            return False
     return _UNKNOWN if seen_unknown else True
 
 
 def _tri_or(values: Iterable[Any]) -> Any:
     seen_unknown = False
     for value in values:
-        if value is True:
-            return True
         if value is _UNKNOWN:
             seen_unknown = True
+        elif bool(value):
+            return True
     return _UNKNOWN if seen_unknown else False
 
 
@@ -218,14 +218,17 @@ class ConstraintRule:
 
     def can_still_be_satisfied(self, partial_combo: Dict[str, Any]) -> bool:
         """三值求值：仅当当前部分赋值已确定违反规则时才剪枝。"""
-        return self._evaluate_node(self._tree.body, partial_combo, partial=True) is not False
+        result = self._evaluate_node(self._tree.body, partial_combo, partial=True)
+        return result is _UNKNOWN or bool(result)
 
     def is_triggered(self, combo: Dict[str, Any]) -> bool:
         """蕴含规则的前提是否真正成立，用于真实规则覆盖统计。"""
         if self._premise is None:
             return self.evaluate(combo)
         result = self._evaluate_node(self._premise.body, combo, partial=False)
-        return result is True
+        if result is _UNKNOWN:
+            raise ConstraintEvaluationError(f"规则 '{self.raw_rule}' 的前提未得到确定结果")
+        return bool(result)
 
 
 class ConstraintSolver:

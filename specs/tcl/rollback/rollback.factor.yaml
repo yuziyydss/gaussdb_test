@@ -1,0 +1,48 @@
+schema_version: 1
+kind: factor
+id: rollback
+name: ROLLBACK
+category: TCL
+status: needs_review
+description: PDF 第三批首个因子；三个语法形态全枚举，事务效果和 NOTICE 由待执行场景验证。
+source:
+  product: GaussDB
+  document: 集中式版参考 / 1.13.18.11 ROLLBACK
+  version: V2.0-10.0.0
+  artifact_sha256: 4d4b38cd09c4b8504c5418e66dceaca3e41440cd06bbf5a959bee774e06d7650
+  parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+  extraction_rule_version: gaussdb-pdf-outline-v1
+  extraction_date: "2026-09-05"
+  catalog_chapter_ref:
+    document_id: gaussdb_v2_0_10_0_0_centralized_reference_01
+    source_relpath: general/tcl/rollback.txt
+    chapter_sha256: 4d4b38cd09c4b8504c5418e66dceaca3e41440cd06bbf5a959bee774e06d7650
+source_ledger_ref: source_ledger_rollback
+syntax_ref: syntax_rollback
+dimensions:
+  compatibility_keyword:
+    description: 省略、WORK 或 TRANSACTION，语义相同。
+    classes:
+      - id: rollback_compat_absent_class
+        meaning: 省略可选关键字。
+        values:
+          - {id: rollback_compat_absent, render: "", representative: true, validity: valid, fact_refs: [rollback_fact_syntax]}
+      - id: rollback_compat_present_class
+        meaning: 增加可读性而不改变语义。
+        values:
+          - {id: rollback_compat_work, render: WORK, representative: true, validity: valid, fact_refs: [rollback_fact_compatibility]}
+          - {id: rollback_compat_transaction, render: TRANSACTION, representative: false, validity: valid, fact_refs: [rollback_fact_compatibility]}
+rules: []
+structural_checks: []
+facts:
+  - {id: rollback_fact_effect, type: lifecycle, statement: "ROLLBACK 回滚当前事务并取消当前事务中的更新。", status: confirmed, source_anchor: "L5"}
+  - {id: rollback_fact_failure_restore, type: lifecycle, statement: "事务因故障不能继续时，撤销事务中已完成的操作并恢复到事务开始时的数据库状态。", status: confirmed, source_anchor: "L6-L7"}
+  - {id: rollback_fact_outside_notice, type: behavior_oracle, statement: "在事务之外发出 ROLLBACK 不会报错，但会产生 NOTICE。", status: confirmed, source_anchor: "L9-L10"}
+  - {id: rollback_fact_syntax, type: syntax, statement: "ROLLBACK 后可省略关键字，或带 WORK、TRANSACTION 之一。", status: confirmed, source_anchor: "L12-L13"}
+  - {id: rollback_fact_compatibility, type: syntax, statement: "WORK 与 TRANSACTION 仅增加可读性，没有其他作用。", status: confirmed, source_anchor: "L18-L20"}
+  - {id: rollback_example_ddl, type: example, statement: "示例在事务中新增 score 列，ROLLBACK 后表结构恢复为 id、name 两列。", status: confirmed, source_anchor: "L22-L54"}
+exported_fact_refs: [rollback_fact_effect, rollback_fact_outside_notice, rollback_fact_syntax]
+manifest_refs: [manifest_rollback_positive]
+matrix_refs: []
+fixture_refs: [fixture_rollback_table]
+scenario_refs: [scenario_rollback_effect, scenario_rollback_outside_notice, scenario_rollback_documented_ddl]

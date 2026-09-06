@@ -1,0 +1,56 @@
+schema_version: 1
+kind: "scenario"
+id: "scenario_rollback_to_savepoint_repeat_restore"
+name: "ROLLBACK TO SAVEPOINT repeat_restore"
+status: "planned"
+description: "回滚后保存点依然存在，第二次插入仍可回滚。"
+factor_ref: "rollback_to_savepoint"
+fixture_refs:
+  - "fixture_rollback_to_savepoint_dependency_begin_transaction_table"
+fact_refs:
+  - "rollback_to_savepoint_fact_effect"
+  - "rollback_to_savepoint_fact_point_survives"
+  - "savepoint::savepoint_fact_restore"
+  - "rollback_to_savepoint_fact_release_contrast"
+preconditions: []
+steps:
+  -
+    id: "begin"
+    action: "execute_sql"
+    sql: "START TRANSACTION"
+  -
+    id: "point"
+    action: "execute_sql"
+    sql: "SAVEPOINT sp_test"
+  -
+    id: "insert1"
+    action: "execute_sql"
+    sql: "INSERT INTO t_begin_txn VALUES (11,1)"
+  -
+    id: "rollback1"
+    action: "execute_sql"
+    sql: "ROLLBACK TO sp_test"
+  -
+    id: "insert2"
+    action: "execute_sql"
+    sql: "INSERT INTO t_begin_txn VALUES (12,2)"
+  -
+    id: "rollback2"
+    action: "execute_sql"
+    sql: "ROLLBACK TO sp_test"
+  -
+    id: "check"
+    action: "query"
+    sql: "SELECT count(*) FROM t_begin_txn WHERE col1 >= 11"
+  -
+    id: "end"
+    action: "execute_sql"
+    sql: "ROLLBACK"
+oracles:
+  -
+    after_step: "check"
+    kind: "scalar_equals"
+    expected: 0
+execution_requirements:
+  - "database"
+  - "same_session"

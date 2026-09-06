@@ -1,0 +1,26 @@
+schema_version: 1
+kind: fixture
+id: fixture_create_table_partition_payload
+name: create_table_partition 独立业务列
+status: ready
+description: 两列键与payload业务列分离；复用上游事务命名空间，不修改旧两列提供者。
+factor_ref: create_table_partition
+requires_fixture_refs: [fixture_create_schema_q2_transaction]
+provides:
+  tables:
+    - name: fp_q2.q2_range_source
+      persistence: permanent
+      table_kind: partitioned
+      columns:
+        - {name: col_1, type: INTEGER, nullable: true}
+        - {name: col_2, type: INTEGER, nullable: true}
+        - {name: payload, type: INTEGER, nullable: true}
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - "CREATE TABLE fp_q2.q2_range_source (col_1 INT, col_2 INT, payload INT) WITH (storage_type=astore) PARTITION BY RANGE (col_1) (PARTITION p1 VALUES LESS THAN (10), PARTITION p2 VALUES LESS THAN (20));"
+    - "INSERT INTO fp_q2.q2_range_source VALUES (1,1,100),(11,1,200);"
+  teardown_sqls: ["DROP TABLE IF EXISTS fp_q2.q2_range_source;"]
+  note: 依赖事务中的对象；teardown失败也必须继续执行上游ROLLBACK。候选未实机验证。

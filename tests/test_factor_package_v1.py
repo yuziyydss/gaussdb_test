@@ -60,8 +60,8 @@ PDF_FACTOR_BASELINES = {
         "sha256": "5383f2eca79ecbe64ce3e880c8e3a2a39178a6bd93ca328401740bf36c16fae5",
         "lines": 918,
         "units": 245,
-        "manifests": 14,
-        "cases": 98,
+        "manifests": 15,
+        "cases": 107,  # Original 98 plus 9 declared-default representatives.
     },
     "select": {
         "source_relpath": "general/dml/select.txt",
@@ -378,7 +378,7 @@ class TestFactorPackageV1(unittest.TestCase):
                 for manifest in self.registry.manifests.values()
                 if manifest.factor_ref in PDF_FACTOR_BASELINES
             ),
-            75,
+            sum(baseline["manifests"] for baseline in PDF_FACTOR_BASELINES.values()),
         )
 
         for factor_id, baseline in PDF_FACTOR_BASELINES.items():
@@ -856,7 +856,16 @@ class TestFactorPackageV1(unittest.TestCase):
             self.assertEqual(report.feasible_pair_count, report.covered_pair_count)
             self.assertEqual(report.missing_pairs, [])
             for case in cases:
-                self.assertTrue(case.consumed_dimension_ids, case.case_id)
+                if case.params:
+                    self.assertTrue(case.consumed_dimension_ids, case.case_id)
+                else:
+                    # Fixed productions such as CHECKPOINT have no dimensions
+                    # to consume. They must not hide an unbound SQL slot.
+                    fixed_syntax = self.registry.syntaxes[manifest.syntax_ref]
+                    self.assertEqual(case.consumed_dimension_ids, [])
+                    self.assertFalse(fixed_syntax.slots, case.case_id)
+                    self.assertFalse(fixed_syntax.production_placeholders(), case.case_id)
+                    self.assertFalse(fixed_syntax.ast_slots(), case.case_id)
                 self.assertTrue(
                     set(case.consumed_dimension_ids).issubset(case.params),
                     case.case_id,
@@ -869,7 +878,10 @@ class TestFactorPackageV1(unittest.TestCase):
 
         self.assertGreaterEqual(len(all_cases), 942)
         self.assertEqual(len({case.case_id for case in all_cases}), len(all_cases))
-        self.assertEqual(len({case.sql for case in all_cases}), len(all_cases))
+        # Different PDF chapters can document the same alias (BEGIN / START
+        # TRANSACTION). Preserve their source provenance and unique case IDs;
+        # duplicate SQL inside one factor remains a generation defect.
+        self.assertEqual(len({(case.factor_id, case.sql) for case in all_cases}), len(all_cases))
         counts = Counter(case.factor_id for case in all_cases)
         self.assertEqual(
             {factor_id: counts[factor_id] for factor_id in PDF_FACTOR_BASELINES},
@@ -1373,7 +1385,7 @@ class TestFactorPackageV1(unittest.TestCase):
         self.assertEqual(audit["values"]["valid_unselected"], [])
         self.assertEqual(len(audit["values"]["coverage_gaps"]), 4)
         self.assertEqual(audit["rules"]["gaps"], [])
-        self.assertEqual(audit["manifests"]["generated_case_count"], 98)
+        self.assertEqual(audit["manifests"]["generated_case_count"], 107)
         self.assertEqual(
             audit["documented_features"]["needs_profile"],
             [
@@ -1402,9 +1414,9 @@ class TestFactorPackageV1(unittest.TestCase):
             self.assertTrue(report.pairwise_complete)
             self.assertEqual(report.feasible_pair_count, report.covered_pair_count)
             cases.extend(generated)
-        self.assertEqual(len(cases), 98)
-        self.assertEqual(len({case.case_id for case in cases}), 98)
-        self.assertEqual(sum(case.expected == "success" for case in cases), 87)
+        self.assertEqual(len(cases), 107)
+        self.assertEqual(len({case.case_id for case in cases}), 107)
+        self.assertEqual(sum(case.expected == "success" for case in cases), 96)
         self.assertEqual(sum(case.expected == "error" for case in cases), 11)
         self.assertTrue(all(case.sql.endswith(";") for case in cases))
         self.assertTrue(all(
@@ -1641,7 +1653,21 @@ class TestFactorPackageV1(unittest.TestCase):
         self.assertEqual(audit["source_units"]["atomicity"]["gaps"], [])
         self.assertEqual(audit["facts"]["unledgered"], [])
         self.assertEqual(audit["facts"]["unconsumed_confirmed"], [])
-        self.assertEqual(len(audit["facts"]["unresolved_open_questions"]), 19)
+        # Preserve the original 19 gaps plus the two branch-specific contracts;
+        # do not make this a lower bound that silently accepts arbitrary gaps.
+        self.assertEqual(set(audit["facts"]["unresolved_open_questions"]), {
+            "at_open_a_compat_fixture", "at_open_b_compat_fixture",
+            "at_open_colview_fixture", "at_open_constraint_reference_fixture",
+            "at_open_encrypted_column_fixture", "at_open_external_table_fixture",
+            "at_open_generated_column_fixture", "at_open_ilm_whitelist",
+            "at_open_index_method_source", "at_open_inheritance_scope_fixture",
+            "at_open_internal_distribution_environment", "at_open_m_compat_variant",
+            "at_open_online_environment_fixture", "at_open_online_using_expression",
+            "at_open_owner_fixture", "at_open_subpartition_fixture",
+            "at_open_tablespace_fixture", "at_open_tde_fixture", "at_open_trigger_fixture",
+            "at_open_modify_multi_contract", "at_open_ilm_policy_lifecycle",
+        })
+        self.assertEqual(len(audit["facts"]["unresolved_open_questions"]), 21)
         self.assertEqual(
             audit["values"]["valid_unselected"],
             ["modify_column_items.at_modify_columns_two"],

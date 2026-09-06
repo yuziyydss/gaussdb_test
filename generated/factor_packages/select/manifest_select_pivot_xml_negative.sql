@@ -10,6 +10,7 @@
 -- expected_oracle_status: needs_verification
 -- expected_scope: syntax_and_semantics
 -- params: {"group_by_list": "select_group_none", "inner_target_list": "select_inner_target_col1", "limit_clause": "select_limit_none", "lock_clause": "select_lock_none", "order_by_list": "select_order_none", "query_profile": "select_invalid_pivot_xml", "right_target_list": "select_right_target_col1", "select_modifier": "select_modifier_default", "set_operator": "select_set_none", "source_form": "select_source_table", "statement_form": "select_statement_legacy_profile", "table_target": "select_table_source", "target_list": "select_target_col1", "where_clause": "select_where_none", "with_clause": "select_with_none"}
+-- environment_requirements: [{"allowed_values": ["A"], "fact_refs": ["select_fact_pivot"], "key": "compatibility_mode"}]
 -- fixture_setup:
 DROP TABLE IF EXISTS t_select_source CASCADE;
 CREATE TABLE t_select_source (col_1 INTEGER NOT NULL, col_2 INTEGER, name VARCHAR(64));

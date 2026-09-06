@@ -1,0 +1,42 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_model_input_projection
+name: CREATE MODEL 有序训练输入投影
+status: planned
+description: >-
+  只核验本章示例 size、lot 和 mark 的有序投影；不是通用算法类型限制、
+  模型签名、训练成功或普通清单。不改变 architecture 的 conditional 状态。
+factor_ref: create_model
+fixture_refs: [fixture_create_model_training_input]
+fact_refs:
+  - create_model_fact_body_27
+  - create_model_fact_body_30
+  - create_model_fact_example_202
+  - create_model_fact_example_214
+  - create_model_fact_example_224
+  - create_model_fact_example_232
+preconditions:
+  - 数据库执行须另行授权；使用独立新连接、专用命名空间、无外层事务。
+  - fp_model_houses_input 必须不存在；setup 失败则停止，不预先 DROP 或接管既有对象。
+steps:
+  - {id: setup, action: execute_fixture_setup}
+  - {id: project, action: query, sql: "SELECT size, lot, mark FROM fp_model_houses_input;"}
+  - {id: cleanup, action: execute_fixture_teardown, detail: "成功或失败均回滚本连接事务，实际核查清理结果；不训练模型、不关闭超时。"}
+oracles:
+  - kind: ordered_input_columns
+    expected:
+      - {name: size, type: INTEGER, nullable: true}
+      - {name: lot, type: INTEGER, nullable: true}
+      - {name: mark, type: TEXT, nullable: true}
+    note: 前两列是本示例 FEATURES 顺序，末列是 TARGET；列名顺序和精确类型不能仅靠类型族相同判定。
+  - kind: ordered_seed_projection
+    query: SELECT size, lot, mark FROM fp_model_houses_input ORDER BY id;
+    order_by: id
+    expected:
+      row_count: 15
+      normalized_sha256: e9d76b1e4b606798cc6a8ced723fbc88878da9d9c85997529432de037a48df18
+    normalization: >-
+      查询按 id 排序；每行数组由两个整数和一个字符串组成，整体为二维 JSON 数组，
+      UTF-8、separators=(',', ':')、无空白和末尾换行后 SHA256。不得对浮点近似或驱动展示文本直接取哈希。
+  - {kind: cleanup, expected: 回滚后专用输入表不存在；必须记录实际结果，不能凭 ROLLBACK 文本判定。}
+execution_requirements: [独立数据库执行授权, 专用新连接, 隔离命名空间, 输入元数据与精确行结果, 实际清理证据]
