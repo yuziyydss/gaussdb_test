@@ -725,6 +725,36 @@ def check_insert_all(sql, tables):
     return ['all_branch_target_columns', 'all_branch_input_arity', 'finite_query_output_types']
 
 
+def check_conflict_defaults(sql, table, alias, tables):
+    """Inspect DEFAULT assignments, not conflict arbitration or runtime rows.
+
+    The input-row contract alone cannot establish an UPDATE-branch default.
+    Unsupported expressions and conflict forms retain a review requirement.
+    """
+    _, clause = split_clause(sql, r'ON\s+DUPLICATE\s+KEY\s+UPDATE|ON\s+CONFLICT')
+    if not clause:
+        return []
+    # Keep DEFAULT in tuples/functions visible, but not inside string values.
+    unquoted = re.sub(r"'(?:''|[^'])*'", '', clause)
+    if not re.search(r'\bDEFAULT\b', unquoted, re.I):
+        return []
+    duplicate = re.fullmatch(r'ON\s+DUPLICATE\s+KEY\s+UPDATE\s+(.+)', clause, re.I | re.S)
+    conflict = re.fullmatch(
+        rf'ON\s+CONFLICT(?:\s*\(\s*({IDENT}(?:\s*,\s*{IDENT})*)\s*\))?'
+        r'\s+DO\s+UPDATE\s+SET\s+(.+)', clause, re.I | re.S)
+    if duplicate:
+        assignments = duplicate[1]
+    elif conflict:
+        if conflict[1]:
+            for name in split_list(conflict[1]):
+                column_name(name, table['columns'])
+        assignments = conflict[2]
+    else:
+        raise ReviewNeeded('conflict_default_unknown', 'Conflict form needs a separate target/default contract')
+    check_assignments(assignments, table, alias, tables, allow_defaults=True)
+    return ['conflict_assignment_defaults']
+
+
 def inspect_write(sql, setup_sqls):
     result = {'status': 'needs_review', 'scope': 'finite_write_shape_only', 'checks': [], 'issues': []}
     try:
@@ -847,6 +877,8 @@ def inspect_write(sql, setup_sqls):
                 else:
                     raise ReviewNeeded('input_unknown', body)
                 result['checks'] = ['target_columns', 'input_arity', 'finite_expression_types']
+                if is_insert:
+                    result['checks'] += check_conflict_defaults(sql, table, alias[1] if alias else None, tables)
                 if route:
                     result['checks'].append('finite_explicit_partition_routing')
         elif re.match(r'^INSERT\s+(?:ALL|FIRST|WHEN)\b', sql, re.I):
