@@ -19,7 +19,11 @@ def audit_report(report):
     for mid, entry in report['manifests'].items():
         for case in entry['cases']:
             write = inspect_write(case['sql'], case['setup_sqls'])
-            if case['factor_id'] not in {'update', 'insert', 'insert_all', 'replace'}:
+            # M writes share the finite checker, not a guarantee that every M
+            # dialect form is supported. Preserve its needs_review/rejected
+            # evidence instead of erasing it based on the package prefix.
+            if case['factor_id'] not in {'update', 'insert', 'insert_all', 'replace',
+                                         'm_update', 'm_insert', 'm_replace'}:
                 write = {'status': 'not_applicable', 'checks': [], 'issues': []}
             rows.append({'case_id': case['case_id'], 'manifest_id': mid,
                          'factor_id': case['factor_id'], 'expected': case['expected'],

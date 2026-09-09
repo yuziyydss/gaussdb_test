@@ -1,0 +1,19 @@
+schema_version: 1
+kind: scenario
+id: scenario_alter_table_add_position_fresh
+name: 新增可空列后原有行NULL与列位置
+status: planned
+description: 每个变体使用独立新fixture，只执行一个ADD。精确行结果为文档预期，未执行数据库。
+factor_ref: alter_table
+fact_refs: [at_fact_add_column, at_fact_add_column_default, at_fact_column_position]
+fixture_refs: [fixture_alter_table_add_position_fresh]
+preconditions: [B兼容数据库, 独占用户Schema, fixture创建者, 无既有对象或并发依赖]
+steps:
+  - {id: add, manifest_ref: manifest_alter_table_add_position_fresh, action: 逐case生成执行一个变体，不将两个位置连续叠加。}
+  - {id: rows_first, when_value_ref: at_action_add_first_fresh, sql: "SELECT * FROM t_at_add_position ORDER BY id;"}
+  - {id: rows_after, when_value_ref: at_action_add_after_fresh, sql: "SELECT * FROM t_at_add_position ORDER BY id;"}
+oracles:
+  - {kind: result_set, step_id: rows_first, expected: [[null, 1, alpha, one], [null, 2, beta, two]]}
+  - {kind: result_set, step_id: rows_after, expected: [[1, alpha, null, one], [2, beta, null, two]]}
+  - {kind: manual_assertion, expected: 目录中extra为可空INTEGER无默认且在指定位置，列序及目录字段须实机校准，不只检查SQL无报错。}
+execution_requirements: [数据库执行单独授权, 逐case独立生命周期, 目录Oracle校准]

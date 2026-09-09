@@ -29,7 +29,7 @@ from scripts.manage_extraction_queue import (
 )
 
 DEFAULT_CONFIG = ROOT / "tests/data/cross_chapter_batch.json"
-DEFAULT_OUTPUT = ROOT / "work/doc2spec/batches/cross_chapter_15"
+DEFAULT_OUTPUT = ROOT / "work/doc2spec/batches/cross_chapter_16"
 
 
 def require(condition, message):
@@ -140,7 +140,13 @@ def review_links(config, registry, inputs):
         entity_path = registry.source_paths[link["entity"]]
         import yaml
         raw = yaml.safe_load(entity_path.read_text(encoding="utf-8"))
-        require(link["provider"] in raw[link["field"]], f"missing import: {link}")
+        references = raw[link["field"]]
+        if "gate_key" in link:
+            require(link["field"] == "environment_requirements", "gate selector requires environment_requirements")
+            gates = [gate for gate in references if gate["key"] == link["gate_key"]]
+            require(len(gates) == 1, f"missing/duplicate reviewed environment gate: {link}")
+            references = gates[0]["fact_refs"]
+        require(link["provider"] in references, f"missing import: {link}")
         require(raw.get("factor_ref") == link["consumer"], f"wrong consumer: {link}")
         provider, fact_id = link["provider"].split("::")
         resolved = registry.resolve_fact_ref(link["consumer"], link["provider"])

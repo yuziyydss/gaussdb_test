@@ -3,11 +3,15 @@ kind: scenario
 id: scenario_create_sequence_float_increment
 name: 浮点 increment 兼容模式校准
 status: planned
-description: V1 环境门禁不参与 factor 规则计算，故在场景中分别验证 B 模式转换与其他模式拒绝。
+description: 两份有限manifest已分别声明B接受/PG拒绝；本场景保留实际取整与错误身份校准，不猜取整规则。
 factor_ref: create_sequence
-fixture_refs: []
+fixture_refs: [fixture_create_sequence_float_owner]
 fact_refs: [cs_fact_float_increment_mode, cs_open_float_increment_generation]
-preconditions: [独立 B 与 PG 兼容模式数据库]
-steps: [在 B 模式创建 INCREMENT 1.5 序列并读取元数据及 nextval, 在 PG 模式执行同一语句]
-oracles: [B 模式步长转换为整数, PG 模式返回经校准的目标错误身份]
+preconditions: [独立B与PG数据库，本场景实际SQL步骤仅在B执行；PG目标由独立负向manifest验证, fresh user schema和同一创建用户，序列名不得存在]
+steps:
+- {id: create_float, sql: "CREATE SEQUENCE seq_cs_float_observed INCREMENT 1.5 MINVALUE 1 MAXVALUE 100 START 1 NO CYCLE OWNED BY t_cs_float_owner.id;"}
+- {id: first_value, sql: "SELECT nextval('seq_cs_float_observed');"}
+- {id: second_value, sql: "SELECT nextval('seq_cs_float_observed');"}
+oracles:
+- {kind: manual_assertion, expected: "B接受创建并产生整数步长；保存两次nextval实际返回值及差，不提前断言1.5转成1或2。PG目标拒绝与错误身份通过独立负向manifest校准。"}
 execution_requirements: [多兼容模式环境, 系统目录查询, 错误 Oracle 校准]

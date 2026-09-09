@@ -160,6 +160,9 @@ class StructuralCheckDef(StrictV1Model):
         "select_expression_contract",
         "insert_input_contract",
         "index_column_count_contract",
+        "index_fillfactor_contract",
+        "index_key_source_contract",
+        "fixture_write_contract",
     ]
     fact_refs: List[str]
 
@@ -531,8 +534,33 @@ class FixtureTableV1Def(StrictV1Model):
     columns: List[FixtureColumnV1Def]
 
 
+class FixtureInputFileDef(StrictV1Model):
+    """Small source-controlled INTEGER TSV input, not a deployed server file."""
+    id: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
+    source_path: str
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    target_path: str
+    format: Literal["integer_tsv"]
+    column_count: int = Field(ge=1, le=32)
+    row_count: int = Field(ge=1)
+    deployment: Literal["manual_copy_and_verify"]
+    cleanup: Literal["remove_only_owned_deployed_file_after_hash_check"]
+    fact_refs: List[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def bounded_paths(self) -> "FixtureInputFileDef":
+        if (not re.fullmatch(r"assets/[A-Za-z0-9_./-]+", self.source_path)
+                or any(p in ("", ".", "..") for p in self.source_path.split("/"))):
+            raise ValueError("file asset source_path must stay in fixture/assets")
+        if (not re.fullmatch(r"/tmp/(?:m_factor_assets|factor_assets)/[A-Za-z0-9_./-]+", self.target_path)
+                or any(p in ("", ".", "..") for p in self.target_path.split("/")[1:])):
+            raise ValueError("file asset target_path must be a scoped /tmp/factor_assets or /tmp/m_factor_assets file")
+        return self
+
+
 class FixtureProvidesDef(StrictV1Model):
     tables: List[FixtureTableV1Def] = Field(default_factory=list)
+    files: List[FixtureInputFileDef] = Field(default_factory=list)
 
 
 class FixtureSeedDef(StrictV1Model):
@@ -858,7 +886,8 @@ class FactorPackageRegistry:
         self,
         factor: FactorPackageDef,
         errors: List[str],
-    ) -> None:
+    ) -> Set[str]:
+        consumed_refs: Set[str] = set()
         allowed_types = {
             "syntax": {"syntax", "example"},
             "rule": {"constraint", "example"},
@@ -890,6 +919,8 @@ class FactorPackageRegistry:
                         f"{path}: 跨包 fact '{fact_ref}' type={fact.type!r} "
                         f"不能由 {consumer} 消费"
                     )
+                elif fact is not None:
+                    consumed_refs.add(fact_ref)
 
         factor_path = self.source_paths[factor.id]
         for rule in factor.rules:
@@ -929,6 +960,7 @@ class FactorPackageRegistry:
             scenario = self.scenarios.get(scenario_id)
             if scenario is not None:
                 check(scenario.fact_refs, "scenario", self.source_paths[scenario.id])
+        return consumed_refs
 
     def fixture_topological_order(self, fixture_refs: Iterable[str]) -> List[str]:
         """Expand fixture prerequisites and return setup order."""
@@ -1079,8 +1111,14 @@ class FactorPackageRegistry:
                         self.fact_registry[qualified_ref] = item
                         self.fact_owners[qualified_ref] = factor.id
 
+        # Collect actual, exported, correctly typed consumers before checking
+        # providers. This must not depend on factor loading order, and exports
+        # or source-ledger references alone are not consumption.
+        external_used_fact_refs: Set[str] = set()
         for factor in self.factors.values():
-            self._validate_factor(factor, errors)
+            external_used_fact_refs.update(self._validate_cross_fact_consumer_types(factor, errors))
+        for factor in self.factors.values():
+            self._validate_factor(factor, errors, external_used_fact_refs)
 
         membership_fields = {
             "source_ledger": "source_ledger_ref",
@@ -1141,6 +1179,12 @@ class FactorPackageRegistry:
 
         for fixture in self.fixtures.values():
             path = self.source_paths[fixture.id]
+            if fixture.provides.files:
+                from .fixture_file_contract import inspect_fixture_files
+                try:
+                    inspect_fixture_files(fixture, path, self.specs_dir)
+                except ValueError as exc:
+                    errors.append(f"{path}: {exc}")
             if len(fixture.requires_fixture_refs) != len(set(fixture.requires_fixture_refs)):
                 errors.append(f"{path}: requires_fixture_refs 不能重复")
             for dependency_id in fixture.requires_fixture_refs:
@@ -1161,6 +1205,7 @@ class FactorPackageRegistry:
         self,
         factor: FactorPackageDef,
         errors: List[str],
+        external_used_fact_refs: Set[str],
     ) -> None:
         path = self.source_paths[factor.id]
         factor_facts = {fact.id: fact for fact in factor.facts}
@@ -1597,12 +1642,12 @@ class FactorPackageRegistry:
                     local_fact_id = self._local_fact_id(factor.id, fact_ref)
                     if local_fact_id is not None:
                         used_fact_ids.add(local_fact_id)
-        self._validate_cross_fact_consumer_types(factor, errors)
         uncovered = sorted(
             fact.id for fact in factor.facts
             if fact.status == "confirmed"
             and fact.type != "example"
             and fact.id not in used_fact_ids
+            and f"{factor.id}::{fact.id}" not in external_used_fact_refs
         )
         if uncovered:
             errors.append(f"{path}: confirmed facts 没有规格消费者: {uncovered}")

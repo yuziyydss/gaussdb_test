@@ -1,0 +1,172 @@
+schema_version: 1
+kind: factor
+id: m_analyze
+name: ANALYZE [M]
+status: needs_review
+description: M 有限模型；不承诺全章覆盖或实机成功。
+category: UTILITY
+source:
+  product: GaussDB
+  document: 集中式参考 / 2.4.2.6.17 ANALYZE
+  version: V2.0-10.0.0
+  artifact_sha256: 70b67e32dcd6268b06f8447c14436975f9b1c82ba1afa6a2c449e307aa306e2f
+  parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+  extraction_rule_version: gaussdb-pdf-outline-v1
+  extraction_date: '2026-09-08'
+  catalog_chapter_ref:
+    document_id: gaussdb_v2_0_10_0_0_centralized_reference_01
+    source_relpath: m_compat/utility/analyze.txt
+    chapter_sha256: 70b67e32dcd6268b06f8447c14436975f9b1c82ba1afa6a2c449e307aa306e2f
+source_ledger_ref: source_ledger_m_analyze
+syntax_ref: syntax_m_analyze
+dimensions:
+  verbose:
+    description: verbose：有限代表域
+    classes:
+    - id: m_analyze_verbose_none_class
+      meaning: none
+      values:
+      - id: m_analyze_verbose_none
+        render: ''
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs:
+        - m_analyze_fact_syntax
+    - id: m_analyze_verbose_yes_class
+      meaning: 'yes'
+      values:
+      - id: m_analyze_verbose_yes
+        render: VERBOSE
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs:
+        - m_analyze_fact_syntax
+    default_value_id: m_analyze_verbose_none
+  columns:
+    description: columns：有限代表域
+    classes:
+    - id: m_analyze_columns_all_class
+      meaning: all
+      values:
+      - id: m_analyze_columns_all
+        render: ''
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs:
+        - m_analyze_fact_syntax
+    - id: m_analyze_columns_id_class
+      meaning: id
+      values:
+      - id: m_analyze_columns_id
+        render: (id)
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs:
+        - m_analyze_fact_syntax
+    - id: m_analyze_columns_two_class
+      meaning: two
+      values:
+      - id: m_analyze_columns_two
+        render: (id, qty)
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs:
+        - m_analyze_fact_syntax
+    - id: m_analyze_columns_multi_class
+      meaning: multi
+      values:
+      - id: m_analyze_columns_multi
+        render: ((id, qty))
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs:
+        - m_analyze_fact_multi
+    - id: m_analyze_columns_missing_class
+      meaning: missing
+      values:
+      - id: m_analyze_columns_missing
+        render: (missing_col)
+        representative: true
+        validity: invalid
+        properties: {}
+        fact_refs:
+        - m_analyze_fact_column_exists
+    default_value_id: m_analyze_columns_all
+facts:
+- id: m_analyze_fact_mode
+  type: environment
+  statement: 本包只适用于 PDF 第二章 M-Compatibility 语法。
+  status: confirmed
+  source_anchor: 2.4.2.6.17 L2-2
+- id: m_analyze_fact_syntax
+  type: syntax
+  statement: 普通表 ANALYZE 可选 VERBOSE、单层括号列列表。
+  status: confirmed
+  source_anchor: 2.4.2.6.17 L72-73
+- id: m_analyze_fact_multi
+  type: syntax
+  statement: 手动多列统计采用双层括号列列表。
+  status: confirmed
+  source_anchor: 2.4.2.6.17 L85-85
+- id: m_analyze_fact_column_exists
+  type: constraint
+  statement: ANALYZE 指定列必须是已有列。
+  status: confirmed
+  source_anchor: 2.4.2.6.17 L155-155
+- id: m_analyze_fact_owner
+  type: environment
+  statement: ANALYZE 需要表所有者或表 ANALYZE 权限，本批为 fixture 表创建者。
+  status: confirmed
+  source_anchor: 2.4.2.6.17 L63-67
+- id: m_analyze_fact_transaction
+  type: environment
+  statement: 普通 ANALYZE 可在事务/PREPARE 中执行，不包括 VERIFY。
+  status: confirmed
+  source_anchor: 2.4.2.6.17 L49-50
+- id: m_analyze_fact_row_storage
+  type: environment
+  statement: ANALYZE 收集统计信息目前仅支持行存表。
+  status: confirmed
+  source_anchor: 2.4.2.6.17 L151-151
+- id: m_analyze_fact_rollback
+  type: behavior_oracle
+  statement: PG_CLASS/PG_PARTITION 和相关统计函数字段不支持统计回滚。
+  status: confirmed
+  source_anchor: 2.4.2.6.17 L52-58
+- id: m_analyze_fact_multi_limits
+  type: constraint
+  statement: 多列统计根据 enable_functional_dependency 最多4或32列；系统表、全局临时表不支持。
+  status: confirmed
+  source_anchor: 2.4.2.6.17 L89-92
+- id: m_analyze_fact_verify
+  type: environment
+  statement: ANALYZE VERIFY 用于异常检测，需要 RELEASE 版本；不混入普通统计清单。
+  status: confirmed
+  source_anchor: 2.4.2.6.17 L58-60
+rules:
+- id: m_analyze_rule_column_exists
+  kind: requires
+  expression: columns != 'm_analyze_columns_missing'
+  fact_refs:
+  - m_analyze_fact_column_exists
+  severity: error
+structural_checks: []
+exported_fact_refs:
+- m_analyze_fact_owner
+- m_analyze_fact_transaction
+- m_analyze_fact_row_storage
+manifest_refs:
+- manifest_m_analyze_ordinary
+- manifest_m_analyze_missing_column
+matrix_refs: []
+fixture_refs:
+- fixture_m_analyze_shared_table
+scenario_refs:
+- scenario_m_analyze_statistics
+- scenario_m_analyze_verify_environment

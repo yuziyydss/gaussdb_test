@@ -4,6 +4,8 @@
 
 | 文档 | 用途 |
 |---|---|
+| [2026-09-09 双模式离线基线](STATIC_BASELINE_20260909.md) | 317包、5060候选、1166项离线回归；身份迁移和未完成缺口分开记录 |
+| [M 兼容命令首批](M_COMPAT_BATCH_01.md) | 六个独立 M 包、101 条有限候选、跨包依赖、共享检查修正及真实缺口；不冒充全文/实机完成 |
 | [按包缺口收敛首批](PACKAGE_CLOSURE_FIRST_BATCH.md) | 168 包逐条缺口、56 包资产路线、INSERT 行结果计划与模型输入；不冒充生成/实机闭环 |
 | [进度口径与共享列契约评审](PROGRESS_AND_SHARED_COLUMN_REVIEW.md) | 四阶段展示、DEFAULT/视图契约边界、迁移与验收条件 |
 | [内部共享列契约首轮实现](SHARED_COLUMN_CONTRACT.md) | INSERT/UPDATE 共享 DEFAULT 与直接投影证据、失效边界、固定分母对账 |
@@ -11,6 +13,7 @@
 | [第三轮质量复核](QUALITY_ROUND_03.md) | 全量来源/待审 case 对账、补充正文持续失效与有限写入检查扩展 |
 | [第二轮质量复核](QUALITY_ROUND_02.md) | 实际 SQL/fixture 形状检查、8 包 20 条复核及 15 章依赖验证 |
 | [第一轮质量复核](QUALITY_ROUND_01.md) | 全库可执行待办、12 包有限域复核、修复与验收边界 |
+| [PDF全书台账与基础规格双线Loop](PDF_LIBRARY_LOOP.md) | 全书书签登记、首批六个基础主题、依赖连接及持续工作边界 |
 | [Factor Package Schema V1](FACTOR_PACKAGE_SCHEMA_V1.md) | V1文件类型、字段、引用和验收契约 |
 | [Factor Package V1 冻结与批次推进规则](FACTOR_PACKAGE_V1_FREEZE_POLICY.md) | 冻结范围、版本化变更门禁和 10 章/20～30 章批次节奏 |
 | [Factor Package V1.1 变更提案登记](FACTOR_PACKAGE_V1_1_CHANGE_PROPOSALS.md) | 第二批重复暴露的公共模型缺口、兼容方向和实现门禁 |
@@ -41,6 +44,8 @@
 项目级快速开始见根目录 [README](../README.md)，内网 AI 的最短入口见 [INTRANET_AI_INSTRUCTIONS](../INTRANET_AI_INSTRUCTIONS.md)。
 
 ## Legacy 与历史资料
+
+最新 M 兼容进展：[环境准备与执行边界](M_COMPAT_ENVIRONMENT.md)、[第二批 18 章](M_COMPAT_BATCH_02.md)、[第三批进展](M_COMPAT_BATCH_03.md)、[第四批 20 章](M_COMPAT_BATCH_04.md)、[第五批及外部资产边界](M_COMPAT_BATCH_05.md)、[第六批：分区、Hint历史、回收站与OM审阅包](M_COMPAT_BATCH_06.md)、[六包生成缺口收敛](M_COMPAT_GENERATION_GAPS.md)、[共享合同及生成列消费者](SHARED_CONTRACT_INTEGRATION.md)。M目前93/93命令已建包，92包有限生成模型通过、1078条普通测试SQL；GENERATED UPDATE SYSTEM仅供审阅，不加入普通用例或生成验收分子。M与通用模式独立统计；建包、有限生成、静态覆盖、实机验证不得混用，内部接口候选及未验证的文件/扩展资产单列。
 
 以下文件保留用于理解和维护旧运行时，不再定义新的抽取格式：
 

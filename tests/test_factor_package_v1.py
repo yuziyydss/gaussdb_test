@@ -44,24 +44,24 @@ PDF_FACTOR_BASELINES = {
         "sha256": "7a8ce69c11e865868cb75fd990000d6a41ceb91ce200dd3e882dc41496863d0d",
         "lines": 899,
         "units": 209,
-        "manifests": 22,
-        "cases": 335,
+        "manifests": 27,
+        "cases": 340,  # Four storage cases and one separately B-gated short COMMENT.
     },
     "alter_table": {
         "source_relpath": "general/ddl/alter_table.txt",
         "sha256": "ff15f5547fd4f2b5aa4888b0d8c67b74f0586098cf3c87d3b2628506562e786e",
         "lines": 1636,
-        "units": 209,
-        "manifests": 16,
-        "cases": 277,
+        "units": 213,  # CHANGE syntax, name/definition and environment separated.
+        "manifests": 20,
+        "cases": 283,  # Includes two fresh nullable ADD position candidates.
     },
     "insert": {
         "source_relpath": "general/dml/insert.txt",
         "sha256": "5383f2eca79ecbe64ce3e880c8e3a2a39178a6bd93ca328401740bf36c16fae5",
         "lines": 918,
         "units": 245,
-        "manifests": 15,
-        "cases": 107,  # Original 98 plus 9 declared-default representatives.
+        "manifests": 16,
+        "cases": 111,  # Original 98 + 9 defaults + 4 fresh PG conflict representatives.
     },
     "select": {
         "source_relpath": "general/dml/select.txt",
@@ -1070,13 +1070,8 @@ class TestFactorPackageV1(unittest.TestCase):
             cases, _ = self.generator.generate_with_report(manifest)
             snapshot_dir = self.root / "generated" / "factor_packages" / manifest.factor_ref
             snapshot_path = snapshot_dir / f"{manifest_id}.sql"
-            lines = snapshot_path.read_text(encoding="utf-8").splitlines()
-            snapshot_sql = [
-                lines[index + 1]
-                for index, line in enumerate(lines[:-1])
-                if line == "-- test_sql:"
-            ]
-            self.assertEqual(snapshot_sql, [case.sql for case in cases])
+            snapshot_sql = read_test_sql_blocks(snapshot_path.read_text(encoding="utf-8"))
+            self.assertEqual(snapshot_sql, [case.sql for case in cases], manifest_id)
 
     def test_recursive_ast_renders_top_level_repeat_and_nested_subgrammar(self):
         syntax = self.registry.syntaxes["syntax_select_v1"]
@@ -1385,7 +1380,7 @@ class TestFactorPackageV1(unittest.TestCase):
         self.assertEqual(audit["values"]["valid_unselected"], [])
         self.assertEqual(len(audit["values"]["coverage_gaps"]), 4)
         self.assertEqual(audit["rules"]["gaps"], [])
-        self.assertEqual(audit["manifests"]["generated_case_count"], 107)
+        self.assertEqual(audit["manifests"]["generated_case_count"], 111)
         self.assertEqual(
             audit["documented_features"]["needs_profile"],
             [
@@ -1393,13 +1388,12 @@ class TestFactorPackageV1(unittest.TestCase):
                 "insert_feature_dblink_target",
                 "insert_feature_ignore_modifier",
                 "insert_feature_ignore_object_matrix",
-                "insert_feature_on_conflict",
                 "insert_feature_plan_hint",
                 "insert_feature_subpartition_target",
             ],
         )
         self.assertEqual(audit["documented_features"]["covered"], 17)
-        self.assertEqual(audit["documented_features"]["represented"], 20)
+        self.assertEqual(audit["documented_features"]["represented"], 21)
         self.assertEqual(len(audit["documented_features"]["coverage_gaps"]), 10)
         self.assertTrue(audit["conclusions"]["source_extraction_complete"])
         self.assertFalse(audit["conclusions"]["generation_model_complete"])
@@ -1414,9 +1408,9 @@ class TestFactorPackageV1(unittest.TestCase):
             self.assertTrue(report.pairwise_complete)
             self.assertEqual(report.feasible_pair_count, report.covered_pair_count)
             cases.extend(generated)
-        self.assertEqual(len(cases), 107)
-        self.assertEqual(len({case.case_id for case in cases}), 107)
-        self.assertEqual(sum(case.expected == "success" for case in cases), 96)
+        self.assertEqual(len(cases), 111)
+        self.assertEqual(len({case.case_id for case in cases}), 111)
+        self.assertEqual(sum(case.expected == "success" for case in cases), 100)
         self.assertEqual(sum(case.expected == "error" for case in cases), 11)
         self.assertTrue(all(case.sql.endswith(";") for case in cases))
         self.assertTrue(all(
@@ -1480,15 +1474,13 @@ class TestFactorPackageV1(unittest.TestCase):
                 "comment_clause.ci_comment_basic",
                 "storage_profile.ci_active_pages_manual",
                 "storage_profile.ci_enable_tde_on",
-                "storage_profile.ci_fastupdate_off_ugin",
-                "storage_profile.ci_gin_pending_63",
                 "table_profile.ci_table_subpartitioned",
                 "visibility_clause.ci_visibility_invisible",
                 "visibility_clause.ci_visibility_visible",
             ],
         )
         self.assertEqual(audit["rules"]["gaps"], [])
-        self.assertEqual(audit["manifests"]["generated_case_count"], 335)
+        self.assertEqual(audit["manifests"]["generated_case_count"], 340)
         self.assertEqual(audit["documented_features"]["needs_profile"], [
             "ci_feature_active_pages_execution_profile",
             "ci_feature_deduplication_full_domain",
@@ -1523,10 +1515,10 @@ class TestFactorPackageV1(unittest.TestCase):
             self.assertTrue(report.pairwise_complete)
             self.assertEqual(report.feasible_pair_count, report.covered_pair_count)
             cases.extend(generated)
-        self.assertEqual(len(cases), 335)
-        self.assertEqual(len({case.case_id for case in cases}), 335)
-        self.assertEqual(sum(case.expected == "success" for case in cases), 307)
-        self.assertEqual(sum(case.expected == "error" for case in cases), 28)
+        self.assertEqual(len(cases), 340)
+        self.assertEqual(len({case.case_id for case in cases}), 340)
+        self.assertEqual(sum(case.expected == "success" for case in cases), 310)
+        self.assertEqual(sum(case.expected == "error" for case in cases), 30)
         self.assertTrue(all(case.sql.startswith("CREATE ") for case in cases))
         self.assertTrue(all(" INDEX " in case.sql for case in cases))
         self.assertTrue(all(case.sql.endswith(";") for case in cases))
@@ -1643,14 +1635,21 @@ class TestFactorPackageV1(unittest.TestCase):
 
     def test_alter_table_source_audit_and_generation_quality(self):
         audit = FactorCoverageAuditor(self.registry).audit("alter_table")
-        self.assertEqual(audit["source_units"]["total"], 209)
+        self.assertEqual(audit["source_units"]["total"], 213)
         self.assertEqual(audit["source_units"]["line_coverage"], {
             "total": 1636,
             "covered_by_units": 1636,
             "ignored": 0,
             "missing": [],
         })
-        self.assertEqual(audit["source_units"]["atomicity"]["gaps"], [])
+        # The former aggregate CHANGE unit hid six independent conditions.
+        # Keep the newly visible mapping gap, not a fabricated atomic closure.
+        self.assertEqual(audit["source_units"]["atomicity"]["gaps"], [{
+            "id": "at_pdf_su_052_environment", "line_start": 400, "line_end": 404,
+            "line_span": 5, "atomicity": "grouped", "independent_claim_count": 6,
+            "fact_ref_count": 5, "atomicity_rationale": None,
+            "reasons": ["independent_claims_exceed_fact_mappings"],
+        }])
         self.assertEqual(audit["facts"]["unledgered"], [])
         self.assertEqual(audit["facts"]["unconsumed_confirmed"], [])
         # Preserve the original 19 gaps plus the two branch-specific contracts;
@@ -1670,11 +1669,14 @@ class TestFactorPackageV1(unittest.TestCase):
         self.assertEqual(len(audit["facts"]["unresolved_open_questions"]), 21)
         self.assertEqual(
             audit["values"]["valid_unselected"],
-            ["modify_column_items.at_modify_columns_two"],
+            [],
         )
-        self.assertEqual(len(audit["values"]["coverage_gaps"]), 14)
+        # The generic conditional parent remains a gap; only the previously
+        # unused valid two-column value now has a fixture-specific consumer.
+        self.assertIn("statement_form.at_statement_modify_multi", audit["values"]["conditional_unselected"])
+        self.assertEqual(len(audit["values"]["coverage_gaps"]), 13)
         self.assertEqual(audit["rules"]["gaps"], [])
-        self.assertEqual(audit["manifests"]["generated_case_count"], 277)
+        self.assertEqual(audit["manifests"]["generated_case_count"], 283)
         self.assertEqual(audit["documented_features"]["needs_profile"], [
             "at_feature_a_rowid",
             "at_feature_b_actions",
@@ -1701,7 +1703,7 @@ class TestFactorPackageV1(unittest.TestCase):
         self.assertEqual(audit["documented_features"]["covered"], 15)
         self.assertEqual(audit["documented_features"]["represented"], 17)
         self.assertEqual(len(audit["documented_features"]["coverage_gaps"]), 23)
-        self.assertTrue(audit["conclusions"]["source_extraction_complete"])
+        self.assertFalse(audit["conclusions"]["source_extraction_complete"])
         self.assertFalse(audit["conclusions"]["generation_model_complete"])
         self.assertFalse(audit["conclusions"]["static_coverage_complete"])
         self.assertFalse(audit["conclusions"]["behavior_coverage_complete"])
@@ -1714,22 +1716,45 @@ class TestFactorPackageV1(unittest.TestCase):
             self.assertTrue(report.pairwise_complete)
             self.assertEqual(report.feasible_pair_count, report.covered_pair_count)
             cases.extend(generated)
-        self.assertEqual(len(cases), 277)
-        self.assertEqual(len({case.case_id for case in cases}), 277)
-        self.assertEqual(sum(case.expected == "success" for case in cases), 266)
+        self.assertEqual(len(cases), 283)
+        self.assertEqual(len({case.case_id for case in cases}), 283)
+        self.assertEqual(sum(case.expected == "success" for case in cases), 272)
         self.assertEqual(sum(case.expected == "error" for case in cases), 11)
         self.assertTrue(all(case.sql.startswith("ALTER TABLE ") for case in cases))
         self.assertTrue(all(case.sql.endswith(";") for case in cases))
         self.assertTrue(all(case.setup_sqls for case in cases))
 
         positive_sql = "\n".join(case.sql for case in cases if case.expected == "success")
+        self.assertEqual({case.sql for case in cases if case.expected == "success" and " MODIFY " in case.sql},
+                         {"ALTER TABLE t_at_modify_multi MODIFY (note VARCHAR(96), amount NOT NULL);"})
+        self.assertEqual({case.sql for case in cases if case.expected == "success" and " CHANGE " in case.sql},
+                         {"ALTER TABLE t_at_rename_fresh CHANGE COLUMN code code_new VARCHAR(32);"})
         for unsupported in (
-            " MODIFY ", " CHANGE ", " AUTO_INCREMENT", "ENCRYPTION KEY ROTATION",
+            " AUTO_INCREMENT", "ENCRYPTION KEY ROTATION",
             " ILM ", " COLVIEW", "SET WITH ROWID", "GSIWAITALL",
         ):
             self.assertNotIn(unsupported, positive_sql)
         self.assertNotIn("DEFAULT nextval", positive_sql)
         self.assertNotIn("orientation =", positive_sql.lower())
+
+
+def read_test_sql_blocks(snapshot):
+    # Snapshot sections, not physical lines, delimit SQL: literals may contain LF.
+    return [block.rstrip("\n") for block in re.findall(
+        r"^-- test_sql:\n(.*?)(?=^-- fixture_teardown:\n|^-- case_id:|\Z)",
+        snapshot, re.MULTILINE | re.DOTALL,
+    )]
+
+
+class TestSnapshotSQLBlocks(unittest.TestCase):
+    def test_multiline_literal_is_not_truncated(self):
+        sql = "LOAD DATA INFILE '/tmp/input' INTO TABLE t LINES TERMINATED BY '\n';"
+        snapshot = "-- test_sql:\n" + sql + "\n-- fixture_teardown:\nDROP TABLE t;\n"
+        self.assertEqual(read_test_sql_blocks(snapshot), [sql])
+
+    def test_no_teardown_and_multiple_cases(self):
+        snapshot = "-- case_id: a\n-- test_sql:\nSELECT 1;\n\n-- case_id: b\n-- test_sql:\nSELECT 2;\n"
+        self.assertEqual(read_test_sql_blocks(snapshot), ["SELECT 1;", "SELECT 2;"])
 
 
 if __name__ == "__main__":

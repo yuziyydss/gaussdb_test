@@ -1,0 +1,31 @@
+schema_version: 1
+kind: scenario
+id: scenario_grant_special_privileges
+name: GRANT 专用权限的授权前置与回滚核验
+status: planned
+description: >-
+  两条专用产生式已有有限候选，但尚缺完整授权者身份矩阵、可靠目录权限查询和实测回滚证据。
+  这些是待完成的测试责任；不能由创建角色的管理员条件、ANY或GRANT ALL权限规则推导目标必成功。
+factor_ref: grant
+fixture_refs: [fixture_grant_fresh_single_recipient]
+fact_refs:
+  - grant_fact_database_link_syntax
+  - grant_fact_public_synonym_syntax
+  - grant_fact_database_link_public
+  - grant_fact_public_synonym_builtin_roles
+  - grant_fact_security_guidance
+  - grant_fact_existing_identifiers
+preconditions:
+  - 独立审批、隔离实例、全新非登录角色名和独占连接；无外层事务。
+  - 逐项核实当前版本、授权者身份和所选专用权限；不能借其他GRANT分支规则代替证据。
+  - 先取得只读权限目录和回滚语义的来源或实测依据；未知时阻断Oracle，不猜字段或SQLSTATE。
+steps:
+  - {id: setup, action: execute_fixture_setup}
+  - {id: before, action: inspect_special_privileges, detail: "记录本次全新角色的权限状态；未有查询契约则停止。"}
+  - {id: target, action: execute_generated_case, detail: "从两份独立manifest择一case，每case独立fixture；不组合在同一角色上重复赋权。"}
+  - {id: after, action: inspect_special_privileges, detail: "核对目标权限与ADMIN OPTION；不登录、不SET ROLE、不创建DBLINK、不连接远端、不创建同义词。"}
+  - {id: cleanup, action: execute_fixture_teardown, detail: "回滚后实查角色和权限残留；失败或清理未知不能计通过。"}
+oracles:
+  - {kind: target_privilege_delta, expected: "仅本case所选权限变化；目录查询合同与各授权者适用范围尚待确认。"}
+  - {kind: cleanup, expected: "本次角色与授权真实无残留；文本包含ROLLBACK不是证据。"}
+execution_requirements: [independent_approval, isolated_instance, verified_grantor_authority, actual_privilege_query_contract, actual_cleanup_evidence]

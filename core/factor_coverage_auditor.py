@@ -503,7 +503,9 @@ class FactorCoverageAuditor:
             manifest_id for manifest_id, detail in manifest_details.items()
             if not detail["pairwise_complete"]
         )
-        generation_model_complete = not any((
+        # Empty domains/manifests have no counterexamples, but also no generation
+        # evidence. In particular, a registered review-only package is not done.
+        generation_model_complete = bool(factor.manifest_refs) and bool(cases) and not any((
             manifest_errors,
             duplicate_case_ids,
             duplicate_sql,

@@ -227,19 +227,32 @@ def expression_type(expr, columns, alias=None):
     raise ReviewNeeded('expression_unknown', expr)
 
 
-def check_types(names, expressions, target, source=None, alias=None, default_table=None):
+def check_types(names, expressions, target, source=None, alias=None, default_table=None, value_table=None):
     if len(names) != len(expressions):
         raise Contradiction('arity', f'{len(names)} target columns vs {len(expressions)} expressions')
+    if default_table is not None or value_table is not None:
+        from .shared_column_contract import check_generated_inputs
+        check_generated_inputs(default_table if default_table is not None else value_table,
+                               names, expressions)
     for name, expr in zip(names, expressions):
-        if expr.strip().upper() == 'DEFAULT' and default_table is not None:
+        is_default = expr.strip().upper() == 'DEFAULT'
+        if is_default and default_table is not None:
             from .shared_column_contract import default_literal
             expr = default_literal(default_table, name)
             default_table['_defaults_checked'] = True
             if expr == 'NULL':
                 continue  # The shared resolver already checked nullability.
+        if not is_default and expr.strip().upper() == 'NULL':
+            from .shared_column_contract import check_explicit_null
+            check_explicit_null(value_table, name)
+            continue
         actual = expression_type(expr, target if source is None else source, alias)
         if target[name] != actual and not (target[name] == 'numeric' and actual == 'integer'):
             raise ReviewNeeded('conversion_unknown', f'{name}: {actual} -> {target[name]}')
+        if value_table is not None and not is_default:
+            from .shared_column_contract import check_assignment_integer_literal, check_assignment_decimal_literal
+            check_assignment_integer_literal(value_table, name, expr)
+            check_assignment_decimal_literal(value_table, name, expr)
 
 
 def check_partition_assignment(table, name, expr, alias):
@@ -623,10 +636,10 @@ def check_assignments(body, table, alias, tables, allow_defaults=False):
         subquery = inner.upper().startswith('SELECT ')
         if subquery:
             expressions, source = finite_projection(inner, tables)
-            check_types(names, expressions, columns, source=source)
+            check_types(names, expressions, columns, source=source, value_table=table)
         else:
             check_types(names, expressions, columns, alias=alias,
-                        default_table=table if allow_defaults else None)
+                        default_table=table if allow_defaults else None, value_table=table)
         for name, expr in zip(names, expressions):
             # A same-named query column is not proof of an identity assignment.
             check_partition_assignment(table, name, '<subquery>' if subquery else expr, alias)
@@ -705,7 +718,7 @@ def check_insert_all(sql, tables):
         if not values:
             raise ReviewNeeded('branch_unknown', 'INSERT ALL branch without finite VALUES')
         raw_values, body = take_group(body[values.end():].strip())
-        check_types(names, split_list(raw_values), table['columns'], source=projected)
+        check_types(names, split_list(raw_values), table['columns'], source=projected, value_table=table)
         count += 1
     if not count:
         raise ReviewNeeded('branch_unknown', 'No INSERT ALL branches')
@@ -740,6 +753,12 @@ def inspect_write(sql, setup_sqls):
                 result['checks'] = check_multi_update(update[1] + ' ' + target, body[4:], tables)
                 result['status'] = 'checked'
                 result['checks'] = cte_checks + result['checks']
+                if any(t and t.get('_integer_literals_checked') for t in tables.values()):
+                    result['checks'].append('shared_integer_literal_ranges')
+                if any(t and t.get('_decimal_literals_checked') for t in tables.values()):
+                    result['checks'].append('shared_exact_decimal_literals')
+                if any(t and t.get('_explicit_nulls_checked') for t in tables.values()):
+                    result['checks'].append('shared_explicit_nullability')
                 return result
             if not derived and target.startswith('*'):
                 target = target[1:].strip()
@@ -800,7 +819,8 @@ def inspect_write(sql, setup_sqls):
                             if not is_insert or not table.get('_column_contract'):
                                 raise ReviewNeeded('implicit_defaults_unknown', 'Omitted target defaults not checked')
                             row_names = names[:len(expressions)]
-                        check_types(row_names, expressions, table['columns'], default_table=table if is_insert else None)
+                        check_types(row_names, expressions, table['columns'],
+                                    default_table=table if is_insert else None, value_table=table)
                         if is_insert and check_omitted_columns(table, row_names):
                             table['_omissions_checked'] = True
                         if route:
@@ -815,7 +835,7 @@ def inspect_write(sql, setup_sqls):
                         if not table.get('_column_contract'):
                             raise ReviewNeeded('implicit_defaults_unknown', 'Omitted target defaults not checked')
                         query_names = names[:len(expressions)]
-                    check_types(query_names, expressions, table['columns'], source=source)
+                    check_types(query_names, expressions, table['columns'], source=source, value_table=table)
                     if is_insert and check_omitted_columns(table, query_names):
                         table['_omissions_checked'] = True
                 elif is_insert and re.fullmatch(r'DEFAULT\s+VALUES', split_clause(body, 'RETURNING')[0], re.I):
@@ -836,10 +856,16 @@ def inspect_write(sql, setup_sqls):
         result['status'] = 'checked'
         result['checks'] = cte_checks + result['checks']
         checked_tables = list(tables.values()) + ([derived_table] if derived_table else [])
+        if any(t and t.get('_integer_literals_checked') for t in checked_tables):
+            result['checks'].append('shared_integer_literal_ranges')
+        if any(t and t.get('_decimal_literals_checked') for t in checked_tables):
+            result['checks'].append('shared_exact_decimal_literals')
         if any(t and t.get('_defaults_checked') for t in checked_tables):
             result['checks'].append('shared_constant_or_null_defaults')
         if any(t and t.get('_omissions_checked') for t in checked_tables):
             result['checks'].append('insert_omitted_base_columns')
+        if any(t and t.get('_explicit_nulls_checked') for t in checked_tables):
+            result['checks'].append('shared_explicit_nullability')
         target_name = update[1] if update else insertion[2] if insertion else None
         if target_name and tables.get(target_name.lower(), {}).get('_view_base'):
             result['checks'].append('single_base_direct_view_columns')

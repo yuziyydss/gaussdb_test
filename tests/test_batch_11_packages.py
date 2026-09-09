@@ -59,8 +59,12 @@ class Batch11Tests(unittest.TestCase):
         expected = {'create_tablespace', 'alter_tablespace', 'drop_tablespace',
                     'create_llm', 'drop_llm', 'create_model', 'drop_model', 'predict_by',
                     'autohint', 'autohint_drop_model', 'autohint_purge', 'explain_autohint',
-                    'load_data', 'timecapsule_database'}
+                    'timecapsule_database'}
         self.assertEqual({fid for fid, f in self.factors.items() if not f.manifest_refs}, expected)
+        # LOAD DATA now has real local bytes, but is still gated on server deployment.
+        load_cases = self.cases('load_data')
+        self.assertEqual(len(load_cases), 2)
+        self.assertTrue(all(c.file_assets and not c.file_assets[0]['deployed'] for c in load_cases))
 
     def test_pairwise_projection_is_independently_checked(self):
         ids = []

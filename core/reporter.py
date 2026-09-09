@@ -66,6 +66,7 @@ def generate_report(cases: List[GeneratedCase],
             "verdict": r.verdict if r else "pending",
             "error_msg": r.error_msg if r else "",
             "cleanup_error_msg": r.cleanup_error_msg if r else "",
+            "cleanup_skipped_reason": r.cleanup_skipped_reason if r else "",
             "duration_ms": r.duration_ms if r else 0,
         }
         detail.append(entry)
@@ -110,13 +111,20 @@ def _render_html(summary: dict, detail: list) -> str:
         else:
             error_display = d['error_msg']
 
+        cleanup_notice = ""
+        if d.get("cleanup_skipped_reason"):
+            cleanup_notice = (
+                '<div class="mt-1 text-amber-700">清理未执行：'
+                + _esc(d["cleanup_skipped_reason"]) + '</div>'
+            )
+
         rows.append(f"""
         <tr class="border-b border-gray-100 hover:bg-gray-50">
           <td class="py-2 px-3 text-sm font-mono text-gray-500">{_esc(d['case_id'])}</td>
           <td class="py-2 px-3"><code class="text-xs">{_esc(d['sql'])}</code></td>
           <td class="py-2 px-3 text-xs text-gray-600">{_esc(expected_text)}</td>
           <td class="py-2 px-3 text-xs {verdict_class}">{_esc(d['verdict'])}</td>
-          <td class="py-2 px-3 text-xs text-gray-500">{_esc(error_display)[:90]}</td>
+          <td class="py-2 px-3 text-xs text-gray-500">{_esc(error_display)[:90]}{cleanup_notice}</td>
         </tr>""")
 
     return f"""<!DOCTYPE html>

@@ -18,6 +18,7 @@ from core.factor_coverage_auditor import FactorCoverageAuditor
 from core.factor_package_model import FactorPackageLoadError, FactorPackageRegistry
 from core.generator import validate_sql_syntax
 from core.spec_generator import GenerationValidationError
+from core.m_compat_environment import BOOTSTRAP_PATH, requires_m
 
 
 def display_path(path: Path) -> str:
@@ -48,6 +49,13 @@ def render_sql_snapshot(manifest_id: str, cases: List[Any]) -> str:
         f"-- case_count: {len(cases)}",
         "",
     ]
+    if any(requires_m(case) for case in cases):
+        lines.extend([
+            f"-- environment_preparation: {BOOTSTRAP_PATH}",
+            "-- M database must be created from a non-M management connection, then reconnect and verify.",
+            "-- Inspection snapshot only: do not execute as one script; negatives and transaction fixtures need staged execution.",
+            "",
+        ])
     for case in cases:
         params = json.dumps(case.params, ensure_ascii=False, sort_keys=True)
         lines.extend([
@@ -65,6 +73,9 @@ def render_sql_snapshot(manifest_id: str, cases: List[Any]) -> str:
                 "-- environment_requirements: "
                 + json.dumps(case.environment_requirements, ensure_ascii=False, sort_keys=True)
             )
+        if getattr(case, 'file_assets', []):
+            lines.append('-- file_assets: ' + json.dumps(case.file_assets, ensure_ascii=False, sort_keys=True))
+            lines.append('-- File deployment/hash/ownership checks are required BEFORE fixture setup; no deployment has occurred.')
         if case.setup_sqls:
             lines.append("-- fixture_setup:")
             lines.extend(case.setup_sqls)

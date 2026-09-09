@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 from .generator import GeneratedCase
+from .m_compat_environment import BOOTSTRAP_PATH, requires_m
 
 
 @dataclass
@@ -35,6 +36,7 @@ class ExecResult:
     unmet_environment_requirements: List[str] = field(default_factory=list)
     actual_sqlstate: str = ""      # 实际捕获的 SQLSTATE
     cleanup_error_msg: str = ""
+    cleanup_skipped_reason: str = ""
     verdict: str = ""             # pass | fail | crash | skip | pending
 
     def compute_verdict(self):
@@ -76,10 +78,12 @@ class ExecResult:
                 )))
             # 任意明确目标 Oracle 命中即可；没有 Oracle 的 error 不再允许假通过。
             self.verdict = "pass" if oracle_results and any(oracle_results) else "fail"
+            if self.verdict == "pass" and self.cleanup_skipped_reason:
+                self.verdict = "pending"  # Target Oracle alone cannot close an unverified lifecycle.
             return
 
         if self.status == "success" and self.expected == "success":
-            self.verdict = "pass"
+            self.verdict = "pending" if self.cleanup_skipped_reason else "pass"
             return
         if self.status == "success" and self.expected == "error":
             self.verdict = "fail"  # 预期报错但成功了
@@ -124,6 +128,28 @@ def _load_environment_capabilities() -> dict:
         for key, env_name in mapping.items()
         if os.getenv(env_name)
     }
+
+
+def _starts_with_create(sql):
+    """Recognize the first keyword through leading comments, not arbitrary SQL bodies.
+
+    This failure guard is not ownership proof for successful/conditional CREATE,
+    multiple statements, stored routines or a later replacement of an owned object.
+    """
+    rest=sql.lstrip('\ufeff \t\r\n')
+    while rest.startswith(('--','/*')):
+        if rest.startswith('--'):
+            rest=rest.partition('\n')[2].lstrip()
+            continue
+        depth,i=1,2
+        while i<len(rest) and depth:
+            if rest.startswith('/*',i):depth+=1;i+=2
+            elif rest.startswith('*/',i):depth-=1;i+=2
+            else:i+=1
+        if depth:
+            return True  # Incomplete comment: no basis for authorizing teardown.
+        rest=rest[i:].lstrip()
+    return bool(re.match(r'CREATE\b',rest,re.I))
 
 
 class Executor:
@@ -216,6 +242,10 @@ class Executor:
 
     def execute_one(self, case: GeneratedCase) -> ExecResult:
         """执行单条 SQL，返回结果。"""
+        if getattr(case, 'file_assets', []):
+            return self._file_execution_pending(case)
+        if requires_m(case):
+            return self._m_execution_pending(case)
         expected_sqlstates = getattr(case, "expected_sqlstates", [])
         expected_error_category = getattr(case, "expected_error_category", "")
         expected_error_regex = getattr(case, "expected_error_regex", "")
@@ -348,7 +378,25 @@ class Executor:
                     pass
 
             cleanup_errors = []
-            if self._conn and self._check_alive():
+            if stage == "setup" and getattr(case, "teardown_sqls", []):
+                # Failed setup does not establish ownership of teardown targets.
+                # In particular, an absence assertion may have found an existing
+                # database. Blind cleanup would delete an object we never created.
+                if r is not None:
+                    r.cleanup_skipped_reason = (
+                        "setup did not complete; teardown not authorized; "
+                        "inspect possible partial setup residue before manual cleanup"
+                    )
+            elif (r is not None and r.status in {'error','core'}
+                  and getattr(case, 'teardown_sqls', []) and _starts_with_create(case.sql)):
+                # A successful absence assertion is not ownership of the target:
+                # another actor may create it before our CREATE fails. Without an
+                # asset ownership ledger, do not guess which DROP is safe.
+                r.cleanup_skipped_reason = (
+                    'CREATE target failed; target ownership unproven; teardown not authorized; '
+                    'inspect possible setup/target residue before ownership-scoped cleanup'
+                )
+            elif self._conn and self._check_alive():
                 cleanup_cur = None
                 try:
                     cleanup_cur = self._conn.cursor()
@@ -373,6 +421,27 @@ class Executor:
         return r
 
     @staticmethod
+    def _file_execution_pending(case):
+        result = ExecResult(case_id=case.case_id, sql=case.sql, expected=case.expected,
+            environment_requirements=getattr(case, 'environment_requirements', []),
+            error_msg='File asset deployment, ownership and cleanup runner not calibrated; no SQL executed',
+            unmet_environment_requirements=['file_asset_execution_not_calibrated'])
+        result.compute_verdict()
+        return result
+
+    @staticmethod
+    def _m_execution_pending(case):
+        # A declared M gate is not proof of the connection mode. The legacy
+        # sandbox uses general CASCADE cleanup and cannot safely run M schema
+        # DDL or partially failed transaction fixtures. Block BEFORE any write.
+        result = ExecResult(case_id=case.case_id, sql=case.sql, expected=case.expected,
+            environment_requirements=getattr(case, 'environment_requirements', []),
+            error_msg=f'M staged executor not calibrated; prepare and verify environment via {BOOTSTRAP_PATH}',
+            unmet_environment_requirements=['m_staged_execution_not_calibrated'])
+        result.compute_verdict()
+        return result
+
+    @staticmethod
     def _extract_sqlstate(error: Exception) -> str:
         if hasattr(error, "pgcode") and error.pgcode:
             return str(error.pgcode)
@@ -384,6 +453,12 @@ class Executor:
         """批量执行用例，在独立的 Schema 沙箱环境中运行并在结束时自动级联清理。"""
         if not cases:
             return []
+        if any(getattr(case, 'file_assets', []) for case in cases):
+            return [self._file_execution_pending(case) for case in cases]
+        if any(requires_m(case) for case in cases):
+            # Reject a mixed batch as well: no general sandbox may be created
+            # before M prerequisites have been established.
+            return [self._m_execution_pending(case) for case in cases]
 
         # 确保已建立连接
         if self.config.enabled and not self._conn:

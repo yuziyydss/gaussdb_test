@@ -1,0 +1,22 @@
+schema_version: 1
+kind: scenario
+id: scenario_alter_table_rename_fresh
+name: 无依赖普通列RENAME后的列名与数据
+status: planned
+description: 生成时只核验实际DDL列身份与有限种子；列目录和查询结果必须独立执行核对，不从静态通过推导。
+factor_ref: alter_table
+fixture_refs: [fixture_alter_table_rename_fresh]
+fact_refs: [at_fact_rename, at_fact_permissions]
+preconditions:
+  - 已获独立执行授权；B或PG数据库中的独占用户Schema，表名预先不存在；无并发依赖。
+  - CREATE ANY TABLE并由本case建表者执行；只选该清单的一条候选，不连续执行两种拼写。
+steps:
+  - {id: setup, action: execute_fixture_setup}
+  - {id: target, action: execute_generated_case, manifest_ref: manifest_alter_table_rename_fresh}
+  - {id: rows, sql: "SELECT id,code_new,note FROM t_at_rename_fresh ORDER BY id;"}
+  - {id: metadata, action: inspect_column_definitions, detail: "使用有依据的只读目录接口核对code消失、code_new为VARCHAR32可空无默认，列序id/code_new/note；目录接口待校准。"}
+  - {id: cleanup, action: execute_fixture_teardown}
+oracles:
+  - {kind: result_set, step_id: rows, expected: [[1, alpha, one], [2, beta, two]]}
+  - {kind: column_definition_transition, step_id: metadata, expected: "仅列名变化，列数/顺序/定义保持，真实目录证据待采集。"}
+execution_requirements: [independent_authorization, isolated_fresh_target, actual_column_metadata_contract, actual_cleanup_evidence]

@@ -23,7 +23,8 @@ def audit_report(report):
             seen.add(case['case_id'])
             if case['factor_id'] != 'delete':
                 continue
-            contract = inspect_delete(case['sql'], case['setup_sqls'])
+            contract = inspect_delete(case['sql'], case['setup_sqls'],
+                                      environment_requirements=case.get('environment_requirements'))
             rows.append({
                 'case_id': case['case_id'], 'manifest_id': mid, 'factor_id': 'delete',
                 'expected': case['expected'], 'sql': case['sql'],

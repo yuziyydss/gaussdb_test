@@ -1,0 +1,29 @@
+schema_version: 1
+kind: scenario
+id: scenario_alter_table_modify_multi_fresh
+name: 双列MODIFY的原定义、数据与统计信息核验
+status: planned
+description: >-
+  有限语法候选不代表列合同已在数据库上验证。先记录原定义，再验证VARCHAR扩展和NOT NULL迁移。
+  依赖对象影响、其他类型转换和统计信息目录契约仍待完成，不根据DDL成功推断全部行为。
+factor_ref: alter_table
+fixture_refs: [fixture_alter_table_modify_multi_fresh]
+fact_refs: [at_fact_modify_multi_syntax, at_fact_modify_multi_statistics, at_fact_permissions, at_open_modify_multi_contract]
+preconditions:
+  - 独立执行授权和隔离实例；表名未占用，执行者为本case建表者。
+  - 先确定实际列类型、可空性和统计信息的只读目录查询契约，未取得字段依据则不猜SQL字段。
+  - note原来VARCHAR(64)，amount原来可空且两行均非空；无任何依赖对象和类型转换。
+steps:
+  - {id: setup, action: execute_fixture_setup}
+  - {id: before, action: inspect_column_definitions, detail: "核对原类型/可空性和仅本case表的已收集统计状态；尚无目录契约则保留待验证。"}
+  - {id: target, action: execute_generated_case, manifest_ref: manifest_alter_table_modify_multi_fresh}
+  - {id: rows, sql: "SELECT id,note,amount FROM t_at_modify_multi ORDER BY id;"}
+  - {id: metadata, action: inspect_column_definitions, detail: "观察note长度96和amount NOT NULL；只读查询必须有实际契约。"}
+  - {id: statistics, action: inspect_column_statistics, detail: "核对本次修改后字段统计信息状态，另行分析重新收集行为；不从DDL文本推断。"}
+  - {id: cleanup, action: execute_fixture_teardown}
+oracles:
+  - {kind: result_set, step_id: rows, expected: [[1, alpha, 10], [2, beta, 20]]}
+  - {kind: column_definition_transition, step_id: metadata, expected: "note从VARCHAR(64)到VARCHAR(96)，amount从可空到NOT NULL；id保持。"}
+  - {kind: statistics_invalidation, step_id: statistics, expected: "按L362-L363核实被修改字段统计信息清空，目录契约与实测证据待补。"}
+  - {kind: cleanup, expected: "本case表真实删除，无其他对象被触及。"}
+execution_requirements: [independent_authorization, isolated_fresh_target, actual_column_metadata_contract, actual_statistics_contract, actual_cleanup_evidence]

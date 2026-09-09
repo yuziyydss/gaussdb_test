@@ -24,7 +24,8 @@ class GeneratedCase:
                  context: str = "default",
                  preconditions: List[str] = None,
                  consumed_dimension_ids: List[str] = None,
-                 environment_requirements: List[dict] = None):
+                 environment_requirements: List[dict] = None,
+                 file_assets: List[dict] = None):
         self.factor_id = factor_id
         self.case_id = case_id
         self.strategy = strategy
@@ -58,9 +59,10 @@ class GeneratedCase:
         # 执行环境是目标错误身份的一部分；不满足时只能跳过，不能用环境错误
         # 误判目标 negative rule 已命中。
         self.environment_requirements = environment_requirements or []
+        self.file_assets = file_assets or []
 
     def to_dict(self) -> dict:
-        return {
+        result = {
             "factor_id": self.factor_id,
             "case_id": self.case_id,
             "strategy": self.strategy,
@@ -80,6 +82,9 @@ class GeneratedCase:
             "consumed_dimension_ids": self.consumed_dimension_ids,
             "environment_requirements": self.environment_requirements,
         }
+        if self.file_assets:
+            result["file_assets"] = self.file_assets
+        return result
 
 
 def _clean_sql(sql: str) -> str:

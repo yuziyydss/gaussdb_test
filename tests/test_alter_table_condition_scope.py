@@ -40,7 +40,10 @@ class AlterTableConditionScopeTests(unittest.TestCase):
         unit = find_id(self.ledger, 'at_pdf_su_048')
         self.assertIn(fact['id'], unit['fact_refs'])
         self.assertNotIn('at_open_b_compat_fixture', unit['fact_refs'])
-        self.assertEqual((unit['line_start'], unit['line_end']), (357, 363))
+        self.assertEqual((unit['line_start'], unit['line_end']), (359, 361))
+        # ADD and statistics now have their own atomic units, not a borrowed B gate.
+        self.assertEqual(find_id(self.ledger, 'at_pdf_su_048_add')['line_end'], 358)
+        self.assertEqual(find_id(self.ledger, 'at_pdf_su_048_statistics')['line_start'], 362)
 
     def test_ilm_without_expression_does_not_require_expression_whitelist(self):
         value = find_id(self.matrix, 'at_action_ilm')

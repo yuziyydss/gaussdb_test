@@ -66,6 +66,11 @@ dimensions:
         meaning: 仅 B 模式可转换的浮点步长代表值。
         values:
           - {id: cs_increment_float_b, render: " INCREMENT 1.5", representative: true, validity: conditional, fact_refs: [cs_fact_float_increment_mode]}
+      - id: cs_increment_float_finite_class
+        meaning: 同一1.5输入在明确B与PG环境中的独立有限facet，不提升泛化conditional。
+        values:
+          - {id: cs_increment_float_b_fresh, render: " INCREMENT 1.5", representative: true, validity: valid, properties: {required_compatibility_modes: [B]}, fact_refs: [cs_fact_float_increment_mode]}
+          - {id: cs_increment_float_pg_invalid, render: " INCREMENT 1.5", representative: true, validity: invalid, properties: {required_compatibility_modes: [PG]}, fact_refs: [cs_fact_float_non_b_restriction]}
   min_clause:
     description: 最小值子句与两个等价的无下界拼写。
     default_value_id: cs_min_absent
@@ -171,7 +176,22 @@ dimensions:
             validity: invalid
             properties: {system_column: true, requires_profile: true}
             fact_refs: [cs_fact_system_column_restriction]
+      - id: cs_owned_float_fixture_class
+        meaning: 专属fresh表的用户列；删除本表按文档自动删除其从属序列。
+        values:
+          - id: cs_owned_float_fixture
+            render: " OWNED BY t_cs_float_owner.id"
+            representative: true
+            validity: valid
+            fixture_refs: [fixture_create_sequence_float_owner]
+            properties: {source_tables: [t_cs_float_owner], source_columns: [id], system_column: false}
+            fact_refs: [cs_fact_owned_by_syntax, cs_fact_owned_by_lifecycle]
 rules:
+  - id: cs_rule_float_non_b
+    kind: requires
+    expression: increment_clause != 'cs_increment_float_pg_invalid'
+    severity: error
+    fact_refs: [cs_fact_float_non_b_restriction]
   - id: cs_rule_owned_by_non_system_column
     kind: requires
     expression: owned_by_clause != 'cs_owned_rowid_invalid'
@@ -200,6 +220,7 @@ facts:
   - {id: cs_fact_name_domain, type: constraint, statement: "序列名须符合标识符规范且不超过 63 字符。", status: confirmed, source_anchor: "L56-L58"}
   - {id: cs_fact_increment, type: syntax, statement: "increment 可正可负，分别递增和递减，默认 1，BY 可省略。", status: confirmed, source_anchor: "L59-L64"}
   - {id: cs_fact_float_increment_mode, type: environment, statement: "B 模式浮点步长自动转为整数，其他模式不支持浮点步长。", status: confirmed, source_anchor: "L68-L69"}
+  - {id: cs_fact_float_non_b_restriction, type: constraint, statement: "非B模式不接受浮点数increment，本批负向代表只选PG。", status: confirmed, source_anchor: "L68-L69"}
   - {id: cs_fact_min_syntax, type: syntax, statement: "MINVALUE、NO MINVALUE 与 NOMINVALUE 是可选最小值形态，后两者等价。", status: confirmed, source_anchor: "L70-L72"}
   - {id: cs_fact_min_defaults, type: behavior_oracle, statement: "省略最小值时按递增/递减和 int64/int128 决定默认最小值。", status: confirmed, source_anchor: "L72-L76"}
   - {id: cs_fact_max_syntax, type: syntax, statement: "MAXVALUE、NO MAXVALUE 与 NOMAXVALUE 是可选最大值形态，后两者等价。", status: confirmed, source_anchor: "L77-L79"}
@@ -217,15 +238,17 @@ facts:
   - {id: cs_fact_example_increment, type: example, statement: "示例创建 START 101、INCREMENT 10 的序列并得到 101、111。", status: confirmed, source_anchor: "L115-L132"}
   - {id: cs_fact_example_owned_by, type: example, statement: "示例通过 OWNED BY 和显式列默认 nextval 实现 1、2、3 自增。", status: confirmed, source_anchor: "L134-L161"}
   - {id: cs_fact_example_cycle, type: example, statement: "示例的 MAXVALUE 3 CYCLE 序列产生 1、2、3、1、2。", status: confirmed, source_anchor: "L163-L195"}
-  - {id: cs_open_float_increment_generation, type: open_question, statement: "V1 manifest 的环境门禁不参与 factor 规则求值，无法在同一 value 上同时表达 B 模式浮点成功与其他模式失败；本轮只保留计划场景。", status: needs_verification, source_anchor: "L68-L69"}
+  - {id: cs_open_float_increment_generation, type: open_question, statement: "已有B/PG的1.5独立有限facet；泛化浮点域、具体取整结果及非B目标错误身份仍需校准，不宣称全域或实机完成。", status: needs_verification, source_anchor: "L68-L69"}
   - {id: cs_open_system_column_error_identity, type: open_question, statement: "本章确认 rowid/rowno 关联不支持，但未给 SQLSTATE 或稳定错误文本。", status: needs_verification, source_anchor: "L19"}
 manifest_refs:
+  - manifest_create_sequence_float_b_fresh
+  - manifest_create_sequence_float_pg_negative
   - manifest_create_sequence_regular_positive
   - manifest_create_sequence_temporary_positive
   - manifest_create_sequence_owned_by_positive
   - manifest_create_sequence_schema_positive
 matrix_refs: [matrix_create_sequence_system_column_targets]
-fixture_refs: [fixture_create_sequence_owner_table]
+fixture_refs: [fixture_create_sequence_owner_table, fixture_create_sequence_float_owner]
 scenario_refs:
   - scenario_create_sequence_defaults_and_cycle
   - scenario_create_sequence_temporary_lifecycle

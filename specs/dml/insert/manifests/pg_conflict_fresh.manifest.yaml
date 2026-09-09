@@ -1,0 +1,35 @@
+schema_version: 1
+kind: manifest
+id: manifest_insert_pg_conflict_fresh
+name: INSERT PG 新主键表冲突与非冲突对照
+status: needs_review
+description: 两个受限普通表facet及冲突/非冲突输入，共四条候选；不泛化为部分索引、元组更新、权限或全章行为已验证。
+factor_ref: insert
+syntax_ref: syntax_insert_v1
+suite_type: positive
+strategy: full_cartesian
+fixture_refs: []
+identifier_policy: {}
+bindings:
+  target_profile: [insert_target_pg_conflict_fresh]
+  source_profile: [insert_source_values_one, insert_source_values_many]
+  conflict_clause: [insert_on_conflict_nothing_pg_fresh, insert_on_conflict_update_pg_fresh]
+  with_clause: [insert_with_none]
+  ignore_modifier: [insert_ignore_none]
+  returning_clause: [insert_returning_none]
+environment_requirements:
+  - key: compatibility_mode
+    allowed_values: [PG]
+    fact_refs: [insert_fact_conflict_environment]
+  - key: actor_authority
+    allowed_values: [fixture_creator_insert_select_update]
+    fact_refs: [insert_fact_permissions, insert_fact_conflict_environment]
+  - key: case_namespace
+    allowed_values: [isolated_user_schema]
+    fact_refs: [insert_fact_permissions]
+local_rules:
+  - expression: "target_profile == 'insert_target_pg_conflict_fresh' and source_profile in ['insert_source_values_one', 'insert_source_values_many'] and with_clause == 'insert_with_none' and ignore_modifier == 'insert_ignore_none' and returning_clause == 'insert_returning_none'"
+    rationale: 本批准入只限实际有主键和冲突种子的新表，两个互异键的VALUES输入；不是产品对其他合法形状的禁止规则。
+    fact_refs: [insert_example_conflict, insert_fact_conflict_restrictions]
+expected: {default: success, scope: syntax_only}
+coverage_requirements: {strength: 2, require_all_feasible_pairs: true}

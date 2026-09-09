@@ -37,6 +37,13 @@ dimensions:
           - {id: at_statement_set_schema, render: "", representative: true, validity: valid, fact_refs: [at_fact_set_schema]}
           - {id: at_statement_add_multi, render: "", representative: true, validity: valid, fact_refs: [at_fact_multi_action]}
           - {id: at_statement_modify_multi, render: "", representative: true, validity: conditional, fact_refs: [at_fact_multi_action, at_open_modify_multi_contract]}
+          - id: at_statement_modify_multi_fresh
+            render: ""
+            representative: true
+            validity: valid
+            fixture_refs: [fixture_alter_table_modify_multi_fresh]
+            properties: {admitted_table_profile: at_table_modify_multi_fresh}
+            fact_refs: [at_fact_modify_multi_syntax]
           - {id: at_statement_gsiwaitall, render: "", representative: true, validity: invalid, fact_refs: [at_fact_gsiwaitall]}
 
   ddl_mode:
@@ -139,7 +146,7 @@ dimensions:
             representative: true
             validity: valid
             properties: {items: ["note VARCHAR(96)", "amount NOT NULL"]}
-            fact_refs: [at_fact_multi_action, at_fact_modify_column]
+            fact_refs: [at_fact_multi_action, at_fact_modify_multi_syntax]
 
 rules:
   - id: at_rule_online_parameter_range
@@ -191,6 +198,11 @@ rules:
     fact_refs: [at_fact_gsiwaitall]
 
 facts:
+  - {id: at_fact_change_syntax, type: syntax, statement: "CHANGE可省略COLUMN，指定旧名、新名与数据类型；本批只接入同定义改名，不覆盖字符集、约束或位置变更。", status: confirmed, source_anchor: "L393-L395 column_clause/CHANGE"}
+  - {id: at_fact_change_name_unique, type: constraint, statement: "CHANGE修改已存在列的名称和定义，新列名不能是表中已有列名。", status: confirmed, source_anchor: "L396 column_clause/CHANGE"}
+  - {id: at_fact_change_b_mode, type: environment, statement: "CHANGE语法只能在sql_compatibility为B时使用。", status: confirmed, source_anchor: "L400 column_clause/CHANGE"}
+  - {id: at_fact_modify_multi_syntax, type: syntax, statement: "MODIFY括号多列形式支持各列数据类型、NOT NULL或NULL项及逗号重复。", status: confirmed, source_anchor: "L359-L361 column_clause/MODIFY 多列"}
+  - {id: at_fact_modify_multi_statistics, type: lifecycle, statement: "MODIFY多列说明指出字段统计信息清空，建议修改后重新收集。", status: confirmed, source_anchor: "L362-L363 column_clause/MODIFY 多列"}
   - {id: at_fact_purpose, type: syntax, statement: "ALTER TABLE 修改表定义、名称、模式、列、约束和安全属性。", status: confirmed, source_anchor: "功能描述"}
   - {id: at_fact_permissions, type: environment, statement: "ALTER 权限、Owner、系统管理员和三权分立共同决定执行及属主/模式变更权限。", status: confirmed, source_anchor: "注意事项/权限"}
   - {id: at_fact_partition_restrictions, type: constraint, statement: "分区表不能修改表级 TABLESPACE、分区键字段或转换分区键字符集。", status: confirmed, source_anchor: "注意事项/分区表"}
@@ -286,8 +298,8 @@ facts:
   - {id: at_fact_examples, type: example, statement: "示例覆盖重命名、模式、Owner、表空间、列、约束和在线变更。", status: confirmed, source_anchor: "示例"}
   - {id: at_open_online_environment_fixture, type: open_question, statement: "缺少能够为 ONLINE 清单提供事务上下文、存储过程上下文、非 M 兼容能力、升级状态、磁盘和长事务的可机器判定探针；清单现只声明门禁，不声称 ONLINE 已生效。", status: needs_verification, source_anchor: "L50-L59, L75-L107 在线 DDL"}
   - {id: at_open_online_using_expression, type: open_question, statement: "PDF 将 USING expression 列在通用 ALTER TYPE 语法中，但在线支持范围和在线示例没有单独确认带 USING 的类型转换是否保持在线，不能把该 profile 宣称为 online-effective。", status: needs_verification, source_anchor: "L75-L77, L422-L435, L1338-L1361"}
-  - {id: at_open_b_compat_fixture, type: open_question, statement: "缺少可切换数据库级 B 兼容版本和行为参数的 Fixture，B 模式扩展 MODIFY/CHANGE/FIRST/AFTER/AUTO_INCREMENT 暂不进入默认正向集；不据此给独立 MODIFY (...) 多列形式推定仅 B 模式。", status: needs_verification, source_anchor: "B 兼容语法"}
-  - {id: at_open_modify_multi_contract, type: open_question, statement: "MODIFY (...) 多列形式尚缺逐列原定义、目标类型/约束、依赖对象影响及统计信息变化的独立契约验证；L359-L363未声明该形式仅B模式，不能套用后续B扩展MODIFY的条件。保留conditional等待专门准入评审。", status: needs_verification, source_anchor: "L359-L363 column_clause/MODIFY 多列"}
+  - {id: at_open_b_compat_fixture, type: open_question, statement: "已有独占普通表同定义CHANGE、无DEFAULT可空ADD FIRST/AFTER的B有限候选；数据库模式与行为参数实测、类型/约束/依赖和位置行为仍未完成，父conditional保留。通用MODIFY/FIRST/AFTER/AUTO_INCREMENT域未闭合；不据此给独立 MODIFY (...) 多列形式推定仅 B 模式。", status: needs_verification, source_anchor: "B 兼容语法"}
+  - {id: at_open_modify_multi_contract, type: open_question, statement: "MODIFY (...) 已提供一个无依赖新普通表的VARCHAR扩展与NOT NULL有限代表；其他原定义、类型/约束、依赖对象影响及统计信息变化仍缺独立契约和实测。L359-L363未声明该形式仅B模式，不能套用后续B扩展MODIFY条件；父值继续conditional。", status: needs_verification, source_anchor: "L359-L363 column_clause/MODIFY 多列"}
   - {id: at_open_a_compat_fixture, type: open_question, statement: "缺少可切换数据库级 A 兼容模式并验证 ROWID 系统列的 Fixture。", status: needs_verification, source_anchor: "SET WITH ROWID"}
   - {id: at_open_tde_fixture, type: open_question, statement: "缺少 KMS、TDE GUC 和加密表 Fixture。", status: needs_verification, source_anchor: "TDE 参数与密钥轮转"}
   - {id: at_open_ilm_whitelist, type: open_question, statement: "ILM 行表达式函数白名单只由失效 CHM 链接给出。", status: needs_verification, source_anchor: "ILM"}
@@ -307,6 +319,10 @@ facts:
   - {id: at_open_generated_column_fixture, type: open_question, statement: "生成列的依赖、写入和表达式限制需要带生成列与依赖对象的专用 Fixture。", status: needs_verification, source_anchor: "column_constraint/生成列"}
 
 manifest_refs:
+  - manifest_alter_table_add_position_fresh
+  - manifest_alter_table_rename_fresh
+  - manifest_alter_table_change_b_fresh
+  - manifest_alter_table_modify_multi_fresh
   - manifest_alter_table_core_positive
   - manifest_alter_table_rename_table_positive
   - manifest_alter_table_rename_column_positive
@@ -325,11 +341,18 @@ manifest_refs:
   - manifest_alter_table_gsiwaitall_negative
 matrix_refs: [matrix_alter_table_table_profiles, matrix_alter_table_action_profiles]
 fixture_refs:
+  - fixture_alter_table_add_position_fresh
+  - fixture_alter_table_rename_fresh
+  - fixture_alter_table_modify_multi_fresh
   - fixture_alter_table_regular
   - fixture_alter_table_partitioned
   - fixture_alter_table_temporary
   - fixture_alter_table_multistat
 scenario_refs:
+  - scenario_alter_table_add_position_fresh
+  - scenario_alter_table_rename_fresh
+  - scenario_alter_table_change_b_fresh
+  - scenario_alter_table_modify_multi_fresh
   - scenario_alter_table_permissions
   - scenario_alter_table_if_exists
   - scenario_alter_table_add_column_data

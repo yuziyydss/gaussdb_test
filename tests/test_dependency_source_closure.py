@@ -15,9 +15,10 @@ class DependencySourceClosureTests(unittest.TestCase):
     def test_all_declared_pdf_bodies_are_selected(self):
         body = source_input_closure(self.config, self.registry, self.inputs)
         primary = {v['chapter']['source_relpath'] for v in self.inputs.values()}
-        self.assertEqual(len(primary), 15)
-        self.assertEqual(set(body) - primary, {'general/ddl/drop_schema.txt', 'general/utility/section_1_4_3.txt'})
-        self.assertEqual(len(body), 17)
+        self.assertEqual(len(primary), 16)
+        self.assertEqual(set(body) - primary, {'general/ddl/drop_schema.txt', 'general/utility/section_1_4_3.txt',
+                                              'general/ddl/create_tablespace.txt', 'general/ddl/drop_database.txt'})
+        self.assertEqual(len(body), 20)
 
     def test_wrong_supplemental_hash_cannot_be_ignored(self):
         registry = copy.deepcopy(self.registry)
@@ -28,10 +29,10 @@ class DependencySourceClosureTests(unittest.TestCase):
 
     def test_body_only_chapters_are_not_promoted_to_factor_tasks(self):
         state = {'tasks': [{'factor_id': f, 'source_relpath': f + '.txt'}
-                           for f in [*self.config['factors'], 'drop_schema', 'section_1_4_3']]}
+                           for f in [*self.config['factors'], 'drop_schema', 'section_1_4_3', 'create_tablespace', 'drop_database']]}
         excluded = select_batch_tasks(state, self.config['factors'])
-        self.assertEqual(len(state['tasks']), 15)
-        self.assertEqual({t['factor_id'] for t in excluded}, {'drop_schema', 'section_1_4_3'})
+        self.assertEqual(len(state['tasks']), 16)
+        self.assertEqual({t['factor_id'] for t in excluded}, {'drop_schema', 'section_1_4_3', 'create_tablespace', 'drop_database'})
 
     def test_missing_requested_task_is_not_silently_filtered(self):
         with self.assertRaisesRegex(ValueError, 'requested tasks'):

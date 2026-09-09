@@ -273,7 +273,8 @@ class TestFactorCore(unittest.TestCase):
         self.assertEqual(result.status, "fixture_error")
         self.assertEqual(result.verdict, "fail")
         self.assertNotIn(case.sql, statements)
-        self.assertIn("DROP TABLE IF EXISTS t_fixture;", statements)
+        self.assertNotIn("DROP TABLE IF EXISTS t_fixture;", statements)
+        self.assertIn("setup did not complete", result.cleanup_skipped_reason)
 
     def test_executor_skips_case_when_environment_gate_is_not_satisfied(self):
         case = GeneratedCase(

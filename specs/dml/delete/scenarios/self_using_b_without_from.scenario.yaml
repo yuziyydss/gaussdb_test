@@ -1,0 +1,34 @@
+schema_version: 1
+kind: scenario
+id: scenario_delete_self_using_b_without_from
+name: B自USING删除三行 without_from
+status: planned
+factor_ref: delete
+description: 每种拼写独立重建三行；不共享已被上一个DELETE清空的表。静态推导非实机结果。
+fixture_refs:
+- fixture_delete_self_b_fresh
+fact_refs:
+- delete_fact_single_using_b_environment
+- delete_fact_using_repeat_scope
+- delete_fact_purpose
+- delete_fact_delete_all_preserves_structure
+- delete_fact_permissions
+preconditions:
+- 实测sql_compatibility=B，独占新表且当前角色有DELETE和SELECT权限。
+steps:
+- id: delete
+  sql: DELETE t_delete_self_b USING t_delete_self_b AS src;
+- id: remaining
+  sql: SELECT id,note FROM t_delete_self_b ORDER BY id;
+oracles:
+- kind: result_set
+  step_id: remaining
+  expected: []
+- kind: manual_assertion
+  step_id: delete
+  expected: 实际删除三条目标行，不将USING中间组合行数当affected rows；驱动计数接口待校准。
+execution_requirements:
+- database_authorization
+- verified_b_compatibility
+- independent_case_lifecycle
+- per_step_oracle

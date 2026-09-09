@@ -1,0 +1,31 @@
+schema_version: 1
+kind: manifest
+id: manifest_alter_table_rename_fresh
+name: 普通列同定义RENAME有限代表
+status: needs_review
+description: 从实际新表读取code存在与code_new不存在，覆盖可选COLUMN；B/PG有限作用域，不推断全部模式或继承/ONLY/ONLINE行为。
+factor_ref: alter_table
+syntax_ref: syntax_alter_table_v1
+suite_type: positive
+strategy: full_cartesian
+fixture_refs: []
+identifier_policy: {}
+environment_requirements:
+  - {key: compatibility_mode, allowed_values: [B, PG], fact_refs: [create_database::create_database_fact_compatibility_environment]}
+  - {key: table_authority, allowed_values: [fixture_table_creator], fact_refs: [at_fact_permissions]}
+  - {key: table_creation_authority, allowed_values: [create_any_table], fact_refs: [create_table::ct_fact_create_permissions]}
+  - {key: namespace, allowed_values: [isolated_user_schema], fact_refs: [create_table::ct_fact_create_permissions]}
+bindings:
+  statement_form: [at_statement_rename_column]
+  ddl_mode: [at_mode_default]
+  if_exists: [at_if_exists_none]
+  target_form: [at_target_plain]
+  table_profile: [at_table_rename_fresh]
+  action_profile: [at_action_default]
+  column_keyword: [at_column_keyword_none, at_column_keyword]
+local_rules:
+  - expression: "statement_form == 'at_statement_rename_column' and table_profile == 'at_table_rename_fresh' and ddl_mode == 'at_mode_default' and if_exists == 'at_if_exists_none' and target_form == 'at_target_plain'"
+    rationale: 本清单只检验无依赖新普通表的直接列改名，不把局部选择当作产品全域禁止。
+    fact_refs: [at_fact_rename]
+expected: {default: success, scope: syntax_only, fact_refs: [at_fact_rename]}
+coverage_requirements: {strength: 2, require_all_feasible_pairs: true}

@@ -153,6 +153,7 @@ dimensions:
         values:
           - {id: ci_comment_none, render: "", representative: true, validity: valid}
           - {id: ci_comment_basic, render: " COMMENT 'factor index'", representative: true, validity: conditional, fact_refs: [ci_fact_comment]}
+          - {id: ci_comment_short_b, render: " COMMENT 'factor index'", representative: true, validity: valid, properties: {required_compatibility_modes: [B]}, fact_refs: [ci_fact_comment_syntax, ci_fact_comment_b_mode, ci_fact_comment_length]}
 
   visibility_clause:
     description: VISIBLE/INVISIBLE 仅 A 兼容模式有效且受升级和 GUC 门控。
@@ -269,6 +270,7 @@ structural_checks:
     fact_refs: [ci_fact_key_column_limits, ci_fact_include]
 
 facts:
+  - {id: ci_fact_ugin_non_m_environment, type: environment, statement: "UGIN 不支持在 M 兼容数据库中创建和使用。", status: confirmed, source_anchor: "L268"}
   - {id: ci_fact_purpose, type: syntax, statement: "CREATE INDEX 在指定表上创建索引。", status: confirmed, source_anchor: "L4-L5"}
   - {id: ci_fact_usage_guidance, type: environment, statement: "索引适用于常查、连接、过滤、排序、分组和去重字段，同时占用存储和写入资源。", status: confirmed, source_anchor: "L7-L25"}
   - {id: ci_fact_partition_selection, type: behavior_oracle, statement: "分区索引由显式 scope、分区名和 UNIQUE 是否含全部分区键决定；省略 scope 默认 GLOBAL。", status: confirmed, source_anchor: "L16-L21,L412-L417"}
@@ -332,6 +334,9 @@ facts:
   - {id: ci_fact_tablespace, type: syntax, statement: "TABLESPACE 必须引用已存在表空间；省略使用默认表空间。", status: confirmed, source_anchor: "L646-L648"}
   - {id: ci_fact_partial_index, type: constraint, statement: "普通索引 WHERE 创建部分索引；谓词只引用本表列且不能含子查询/聚集；GLOBAL 分区索引不支持。", status: confirmed, source_anchor: "L649-L658"}
   - {id: ci_fact_comment, type: environment, statement: "COMMENT 只在 B 模式有效，最大 1024 字符。", status: confirmed, source_anchor: "L659-L665"}
+  - {id: ci_fact_comment_syntax, type: syntax, statement: "COMMENT 'string' 在CREATE INDEX尾部设置索引注释。", status: confirmed, source_anchor: "L659-L660"}
+  - {id: ci_fact_comment_b_mode, type: environment, statement: "行内COMMENT子句仅在B模式数据库有效。", status: confirmed, source_anchor: "L664"}
+  - {id: ci_fact_comment_length, type: constraint, statement: "索引级注释最大长度为1024字符；短ASCII候选不代表边界已覆盖。", status: confirmed, source_anchor: "L665"}
   - {id: ci_fact_visibility, type: environment, statement: "VISIBLE/INVISIBLE 只在 A 模式有效，并受 disable_keyword_options 和升级状态限制。", status: confirmed, source_anchor: "L666-L683"}
   - {id: ci_fact_example_basic, type: example, statement: "示例覆盖普通表、表空间及目录查询。", status: confirmed, source_anchor: "L686-L714"}
   - {id: ci_fact_example_unique, type: example, statement: "示例覆盖唯一 B-Tree 索引。", status: confirmed, source_anchor: "L715-L731"}
@@ -366,6 +371,12 @@ manifest_refs:
   - manifest_create_index_ugin_multikey_negative
   - manifest_create_index_ilm_method_negative
 
+  - manifest_create_index_ugin_fastupdate_control
+  - manifest_create_index_ugin_fastupdate_negative
+  - manifest_create_index_gin_pending_control
+  - manifest_create_index_gin_pending_negative
+  - manifest_create_index_comment_b_fresh
+
 matrix_refs:
   - matrix_create_index_table_profiles
   - matrix_create_index_method_capabilities
@@ -383,6 +394,10 @@ fixture_refs:
   - fixture_create_index_gin_array
   - fixture_create_index_gist_point
 
+  - fixture_create_index_ugin_storage
+  - fixture_create_index_gin_storage
+  - fixture_create_index_comment_fresh
+
 scenario_refs:
   - scenario_create_index_permissions
   - scenario_create_index_if_not_exists
@@ -395,6 +410,7 @@ scenario_refs:
   - scenario_create_index_tde
   - scenario_create_index_visibility
   - scenario_create_index_comment
+  - scenario_create_index_comment_short_b
   - scenario_create_index_performance
   - scenario_create_index_limits
   - scenario_create_index_method_contracts
@@ -403,6 +419,9 @@ scenario_refs:
   - scenario_create_index_ilm_behavior
   - scenario_create_index_examples
   - scenario_create_index_source_anomalies
+
+  - scenario_create_index_ugin_fastupdate_target_error
+  - scenario_create_index_gin_pending_target_error
 
 exported_fact_refs:
   - ci_fact_partition_scope

@@ -1,0 +1,5 @@
+-- REVIEW ONLY: NOT AN EXECUTABLE TEST SUITE.
+-- No manifest, no case ID, no verified fixture or Oracle.
+-- M environment plan: generated/m_compat_environment/plan.json
+-- OM upgrade and rollback artifact lifecycle require an authoritative contract.
+-- GENERATED UPDATE SYSTEM;

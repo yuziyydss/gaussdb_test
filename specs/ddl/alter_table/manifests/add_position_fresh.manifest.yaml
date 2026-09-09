@@ -1,0 +1,30 @@
+schema_version: 1
+kind: manifest
+id: manifest_alter_table_add_position_fresh
+name: B 普通可空ADD FIRST与AFTER
+status: needs_review
+description: 两条新表代表只新增无DEFAULT可空INTEGER；旧行NULL与目录位置为待执行Oracle，不表示MODIFY或通用FIRST域完成。
+factor_ref: alter_table
+syntax_ref: syntax_alter_table_v1
+suite_type: positive
+strategy: full_cartesian
+fixture_refs: []
+identifier_policy: {}
+bindings:
+  statement_form: [at_statement_action]
+  ddl_mode: [at_mode_default]
+  if_exists: [at_if_exists_none]
+  target_form: [at_target_plain]
+  table_profile: [at_table_add_position_fresh]
+  action_profile: [at_action_add_first_fresh, at_action_add_after_fresh]
+environment_requirements:
+  - {key: compatibility_mode, allowed_values: [B], fact_refs: [at_fact_column_position]}
+  - {key: table_authority, allowed_values: [fixture_table_creator], fact_refs: [at_fact_permissions]}
+  - {key: table_creation_authority, allowed_values: [create_any_table], fact_refs: [create_table::ct_fact_create_permissions]}
+  - {key: namespace, allowed_values: [isolated_user_schema], fact_refs: [create_table::ct_fact_create_permissions]}
+local_rules:
+  - expression: "statement_form == 'at_statement_action' and table_profile == 'at_table_add_position_fresh' and action_profile in ['at_action_add_first_fresh','at_action_add_after_fresh'] and ddl_mode == 'at_mode_default' and if_exists == 'at_if_exists_none' and target_form == 'at_target_plain'"
+    rationale: 本批仅受控新表普通可空列位置；复杂类型、DEFAULT、规则、业务数据与ONLINE不在准入域，不视为产品全局非法。
+    fact_refs: [at_fact_add_column, at_fact_column_position]
+expected: {default: success, scope: syntax_only, fact_refs: [at_fact_add_column]}
+coverage_requirements: {strength: 2, require_all_feasible_pairs: true}

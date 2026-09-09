@@ -1,0 +1,35 @@
+schema_version: 1
+kind: fixture
+id: fixture_load_data_two_int
+name: LOAD DATA三行整数文件与专属新表
+status: needs_review
+description: 本地文件字节已准备但未部署；B模式非PDB独占测试空间，目标表和文件不可预先属于其他任务。
+factor_ref: load_data
+provides:
+  tables:
+    - name: g_load_data_two_int
+      persistence: permanent
+      table_kind: regular
+      columns:
+        - {name: id, type: INTEGER, nullable: true}
+        - {name: qty, type: INTEGER, nullable: true}
+  files:
+    - id: two_int
+      source_path: assets/two_int.tsv
+      sha256: 5e643e0ce7adfae177574b7202df193081bc5c8cfe50192935ff1a3beb357e01
+      target_path: /tmp/factor_assets/general/load_data/two_int.tsv
+      format: integer_tsv
+      column_count: 2
+      row_count: 3
+      deployment: manual_copy_and_verify
+      cleanup: remove_only_owned_deployed_file_after_hash_check
+      fact_refs: [load_data_fact_body_57, copy::copy_fact_body_16]
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - CREATE TABLE g_load_data_two_int (id INTEGER,qty INTEGER);
+  teardown_sqls:
+    - DROP TABLE g_load_data_two_int;
+  note: SQL结构已准备，不代表数据库或文件已就绪。独占新目标，setup成功才允许目标步骤和自身清理；文件由独立部署流程核验哈希/白名单/所有权后清理，不在SQL中删除。不得自动建库、授权、设置全局GUC或传输文件。

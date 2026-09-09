@@ -1,0 +1,33 @@
+schema_version: 1
+kind: fixture
+id: fixture_alter_table_modify_multi_fresh
+name: MODIFY 多列的无依赖新表
+status: needs_review
+description: 仅含两个待修改普通列及排序用id；amount原来可空，种子均非空；不复用带CHECK和索引的旧表。
+factor_ref: alter_table
+provides:
+  tables:
+    - name: t_at_modify_multi
+      persistence: permanent
+      table_kind: regular
+      columns:
+        - {name: id, type: INTEGER, nullable: true}
+        - {name: note, type: VARCHAR(64), nullable: true}
+        - {name: amount, type: INTEGER, nullable: true}
+seed:
+  required: true
+  rows:
+    - {id: 1, note: alpha, amount: 10}
+    - {id: 2, note: beta, amount: 20}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - CREATE TABLE t_at_modify_multi (id INTEGER,note VARCHAR(64),amount INTEGER);
+    - "INSERT INTO t_at_modify_multi VALUES (1,'alpha',10),(2,'beta',20);"
+  teardown_sqls:
+    - DROP TABLE t_at_modify_multi;
+  note: >-
+    未来执行需要独立授权、隔离实例/连接和本case独占新表名；名称被占用则停止，不预清理现有对象。
+    只由创建表的同一主体执行，不添加外部依赖、索引、触发器、生成列或加密/分区。
+    setup失败不得执行目标或删除非本case创建的表；必须实际核对清理结果，定义本身不是已执行证明。

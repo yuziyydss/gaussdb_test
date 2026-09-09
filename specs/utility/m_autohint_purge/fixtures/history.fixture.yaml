@@ -1,0 +1,53 @@
+schema_version: 1
+kind: fixture
+id: fixture_m_autohint_purge_history
+name: fixture_m_autohint_purge_history
+status: needs_review
+description: M 有限模型；不承诺全章覆盖或实机成功。
+factor_ref: m_autohint_purge
+requires_fixture_refs: []
+provides:
+  tables:
+  - name: m_autohint_left
+    persistence: permanent
+    table_kind: regular
+    columns:
+    - name: id
+      type: INTEGER
+      nullable: true
+    - name: qty
+      type: INTEGER
+      nullable: true
+  - name: m_autohint_right
+    persistence: permanent
+    table_kind: regular
+    columns:
+    - name: id
+      type: INTEGER
+      nullable: true
+    - name: qty
+      type: INTEGER
+      nullable: true
+seed:
+  required: false
+  rows: []
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+  - CREATE TABLE m_autohint_left (id INTEGER, qty INTEGER);
+  - CREATE TABLE m_autohint_right (id INTEGER, qty INTEGER);
+  - INSERT INTO m_autohint_left VALUES (1,10),(2,20),(3,30);
+  - INSERT INTO m_autohint_right VALUES (1,10),(2,20),(3,30);
+  - AUTOHINT (ANALYZE TRUE, TEST FALSE, SQLPATCH FALSE, DEBUG FALSE) SELECT MIN(l.qty) AS minimum_qty FROM m_autohint_left
+    AS l, m_autohint_right AS r WHERE l.id = r.id;
+  - AUTOHINT (ANALYZE TRUE, TEST FALSE, SQLPATCH FALSE, DEBUG FALSE) SELECT MIN(l.qty) AS minimum_qty FROM m_autohint_left
+    AS l, m_autohint_right AS r WHERE l.id = r.id AND r.qty > 10;
+  teardown_sqls:
+  - AUTOHINT DROP SELECT MIN(l.qty) AS minimum_qty FROM m_autohint_left AS l, m_autohint_right AS r WHERE l.id =
+    r.id;
+  - AUTOHINT DROP SELECT MIN(l.qty) AS minimum_qty FROM m_autohint_left AS l, m_autohint_right AS r WHERE l.id =
+    r.id AND r.qty > 10;
+  - DROP TABLE m_autohint_right;
+  - DROP TABLE m_autohint_left;
+  note: 仅静态产物；将来须独占隔离测试空间、逐 case 生命周期。对象名必须预先不存在；setup 失败不能运行目标或清理他人对象。不依赖 DDL 回滚，不关闭约束，不吞异常。 AUTOHINT历史模型创建数量不是静态已验证事实；未来检查前置实际输出。模型删除0条的提示不自动视作SQL错误或删除成功；仅本case查询签名，禁止PURGE兜底。

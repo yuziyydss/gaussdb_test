@@ -16,13 +16,14 @@ LIMITS = [
     'Checks only listed finite target/predicate/order/limit/returning shapes, not full SQL correctness.',
     'Single direct-column ordering and positive int32 LIMIT are checker bounds, not product limits or deleted-row Oracles.',
     'Single ordinary USING checks relation/target-column scope, not joins, match counts or visibility.',
+    'A declared B gate permits only a plain same-table USING with a distinct explicit alias and no other clauses; the environment is not measured.',
     'No row-count, inheritance set, permissions, triggers, visibility, or database execution proof.',
     'Existing CTE evidence retains its original scope; ordinary SELECT predicates/cardinality are not verified.',
     'DELETE without WHERE may delete every row; a shape check is not execution authorization.',
 ]
 
 
-def finite_using_source(using, tables, target, target_name, qualifier):
+def finite_using_source(using, tables, target, target_name, qualifier, allow_repeated_target=False):
     """Consume the whole single-source clause; do not borrow UPDATE self-FROM rules."""
     match = re.fullmatch(rf'USING\s+({NAME})(?:\s+(?:AS\s+)?({IDENT}))?', using, re.I)
     if not match or (match[2] or '').upper() in RESERVED:
@@ -35,14 +36,15 @@ def finite_using_source(using, tables, target, target_name, qualifier):
     target_name = target_name.lower()
     same_basename = source_name.split('.')[-1] == target_name.split('.')[-1]
     if source is target or (same_basename and ('.' not in source_name or '.' not in target_name)):
-        raise ReviewNeeded('using_unknown', 'Repeated or namespace-ambiguous target needs a separate environment contract')
+        if not (allow_repeated_target and source is target and source_name == target_name and match[2]):
+            raise ReviewNeeded('using_unknown', 'Repeated or namespace-ambiguous target needs a separate environment contract')
     binding = (match[2] or source_name.split('.')[-1]).lower()
     if binding == qualifier or binding.upper() in RESERVED:
         raise ReviewNeeded('using_unknown', 'USING alias conflicts with target or a clause keyword')
     return source
 
 
-def inspect_delete(sql, setup_sqls):
+def inspect_delete(sql, setup_sqls, *, environment_requirements=None):
     result = {'status': 'needs_review', 'scope': 'finite_delete_shape_only',
               'checks': [], 'issues': [], 'limits': LIMITS}
     try:
@@ -81,11 +83,20 @@ def inspect_delete(sql, setup_sqls):
             raise ReviewNeeded('target_unknown', 'Incomplete alias, multiple targets, or unknown target tail')
         qualifier = alias[1].lower() if alias else default_alias
         using, rest = split_clause(clauses, 'WHERE|ORDER|LIMIT|RETURNING')
-        source = finite_using_source(using, tables, table, target[1] if not derived else '', qualifier) if using else None
+        environments = environment_requirements if isinstance(environment_requirements, list) else []
+        mode_gates = [g for g in environments if isinstance(g, dict) and g.get('key') == 'compatibility_mode']
+        declared_b = (all(isinstance(g, dict) for g in environments)
+                      and len(mode_gates) == 1 and mode_gates[0].get('allowed_values') == ['B'])
+        source = finite_using_source(using, tables, table, target[1] if not derived else '', qualifier,
+                                     allow_repeated_target=declared_b) if using else None
         condition, rest = split_clause(rest, 'ORDER|LIMIT|RETURNING')
         ordering, rest = split_clause(rest, 'LIMIT|RETURNING')
         limiting, returning = split_clause(rest, 'RETURNING')
         checks = [*cte_checks, 'delete_single_target_columns']
+        if source is table:
+            if only or star or derived or alias or cte_checks or condition or ordering or limiting or returning:
+                raise ReviewNeeded('using_scope_unknown', 'Declared B self-USING proof excludes target modifiers, CTEs and all trailing clauses')
+            checks.append('delete_self_using_declared_b')
         if source is not None:
             checks.append('delete_using_single_ordinary_source')
 

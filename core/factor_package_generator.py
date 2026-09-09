@@ -209,6 +209,7 @@ class FactorPackageSQLGenerator:
             sql, consumed_dimension_ids = self._render_sql_with_consumption(
                 factor, manifest, combo, case_id, resolved
             )
+            self._validate_selected_value_modes(manifest, combo, resolved, consumed_dimension_ids)
             fixture_refs = self._fixture_refs_for_combo(
                 manifest,
                 combo,
@@ -217,6 +218,14 @@ class FactorPackageSQLGenerator:
             )
             fixture_refs = self._ordered_fixture_refs(fixture_refs)
             self._validate_structural_contract(factor, combo, resolved)
+            self._validate_rendered_index_contract(factor, manifest, combo, resolved, sql)
+            target = resolved.get('target_list', {}).get(combo.get('target_list'))
+            if target and target.attributes.get('target_list.properties.function_output_contract'):
+                requirements = {r.key: r.allowed_values for r in manifest.environment_requirements}
+                if (requirements.get('compatibility_mode') != ['M']
+                        or requirements.get('function_resolution') != ['m_builtin_sum']):
+                    raise GenerationValidationError(
+                        'M SUM contract requires compatibility_mode=M and function_resolution=m_builtin_sum gates')
             self._validate_fixture_contract(
                 combo,
                 resolved,
@@ -224,6 +233,127 @@ class FactorPackageSQLGenerator:
                 consumed_dimension_ids,
             )
             setup_sqls, teardown_sqls = self._compile_fixture_lifecycle(fixture_refs)
+            self._validate_fixture_write_contract(factor, setup_sqls)
+            self._validate_rendered_index_keys(factor, manifest, combo, resolved, sql, setup_sqls)
+            for dimension_id in consumed_dimension_ids:
+                table_target = resolved.get(dimension_id, {}).get(combo.get(dimension_id))
+                contract_keys = [dimension_id+'.properties.'+key for key in ('column_rename_contract','column_add_contract')
+                                 if table_target and dimension_id+'.properties.'+key in table_target.attributes]
+                if not contract_keys:
+                    continue
+                if len(contract_keys)!=1:
+                    raise GenerationValidationError('Column transition must select exactly one contract')
+                contract_key=contract_keys[0];column_contract=table_target.attributes[contract_key]
+                is_add=contract_key.endswith('.column_add_contract')
+                from .finite_sql_contract import ReviewNeeded
+                from .shared_column_contract import check_rendered_column_rename, check_rendered_column_add
+                fields={'kind','added_column'} if is_add else {'kind','source_column','target_column'}
+                kind='ordinary_nullable_integer' if is_add else 'ordinary_same_definition'
+                if not isinstance(column_contract,dict) or set(column_contract)!=fields or column_contract['kind']!=kind:
+                    raise GenerationValidationError('Unknown column transition contract shape')
+                gates = [r.allowed_values for r in manifest.environment_requirements if r.key == 'compatibility_mode']
+                if len(gates)>1:
+                    raise GenerationValidationError('column_rename_mode: duplicate compatibility_mode gates')
+                chapter = factor.source.catalog_chapter_ref
+                chapter_modes = {'general/ddl/alter_table.txt':'B','m_compat/ddl/alter_table.txt':'M'}
+                if chapter is None or chapter.source_relpath not in chapter_modes:
+                    raise GenerationValidationError('column_rename_source_unknown: requires reviewed ALTER TABLE chapter identity')
+                try:
+                    if is_add:
+                        check_rendered_column_add(sql,setup_sqls,profile_target=table_target.render,
+                            added_column=column_contract['added_column'],compatibility_modes=gates[0] if gates else [],
+                            position_compatibility_mode=chapter_modes[chapter.source_relpath])
+                    else:
+                        check_rendered_column_rename(sql, setup_sqls, profile_target=table_target.render,
+                            source_column=column_contract['source_column'], target_column=column_contract['target_column'],
+                            compatibility_modes=gates[0] if gates else [],
+                            change_compatibility_mode=chapter_modes[chapter.source_relpath])
+                except ReviewNeeded as exc:
+                    raise GenerationValidationError(f'{manifest.id}: {exc.code}: {exc.detail}') from exc
+            insert_target = resolved.get('target_profile', {}).get(combo.get('target_profile'))
+            replace_contract = (insert_target.attributes.get('target_profile.properties.replace_conflict_contract')
+                                if insert_target else None)
+            if replace_contract:
+                from .finite_sql_contract import Contradiction, ReviewNeeded
+                from .shared_column_contract import check_rendered_replace_unique_keys
+                modes = {r.key: r.allowed_values for r in manifest.environment_requirements}
+                if replace_contract != 'fixture_two_inline_integer_keys' or modes.get('compatibility_mode') != ['M']:
+                    raise GenerationValidationError('Finite REPLACE unique_key contract requires compatibility_mode=M')
+                source = resolved.get('source_profile', {}).get(combo.get('source_profile'))
+                try:
+                    check_rendered_replace_unique_keys(sql, setup_sqls, profile_target=insert_target.render,
+                        required_keys=insert_target.attributes.get('target_profile.properties.required_inline_keys'),
+                        expected_conflicts=(source.attributes.get('source_profile.properties.expected_conflict_rows')
+                                            if source else None))
+                except (Contradiction, ReviewNeeded) as exc:
+                    raise GenerationValidationError(f'{manifest.id}: {exc.code}: {exc.detail}') from exc
+            primary_key_contract = (insert_target.attributes.get('target_profile.properties.primary_key_contract')
+                                    if insert_target else None)
+            if primary_key_contract:
+                from .finite_sql_contract import Contradiction, ReviewNeeded
+                from .shared_column_contract import check_rendered_insert_primary_key
+                modes = {r.key: r.allowed_values for r in manifest.environment_requirements}
+                if primary_key_contract != 'fixture_inline_primary_key':
+                    raise GenerationValidationError('Unknown primary_key_contract: '+str(primary_key_contract))
+                if modes.get('compatibility_mode') != ['PG']:
+                    raise GenerationValidationError('PG primary-key conflict contract requires compatibility_mode=PG')
+                try:
+                    check_rendered_insert_primary_key(sql, setup_sqls, profile_target=insert_target.render,
+                        key_columns=insert_target.attributes.get('target_profile.properties.required_primary_key'))
+                except (Contradiction, ReviewNeeded) as exc:
+                    raise GenerationValidationError(f'{manifest.id}: {exc.code}: {exc.detail}') from exc
+            target_contract = (insert_target.attributes.get('target_profile.properties.target_column_contract')
+                               if insert_target else None)
+            if target_contract:
+                from .finite_sql_contract import Contradiction, ReviewNeeded
+                from .shared_column_contract import check_rendered_insert_target
+                attributes = insert_target.attributes
+                try:
+                    check_rendered_insert_target(sql, setup_sqls,
+                        profile_target=insert_target.render,
+                        available_types=attributes.get('target_profile.properties.available_types', []),
+                        available_count=attributes.get('target_profile.properties.available_column_count'),
+                        target_types=attributes.get('target_profile.properties.target_types', []),
+                        target_count=attributes.get('target_profile.properties.target_column_count'),
+                        explicit_columns=attributes.get('target_profile.properties.explicit_columns', False),
+                        is_view=attributes.get('target_profile.properties.is_view', False),
+                        generated=attributes.get('target_profile.properties.generated', False),
+                        generated_columns=attributes.get('target_profile.properties.generated_columns', []),
+                        contract=target_contract)
+                except (Contradiction, ReviewNeeded) as exc:
+                    raise GenerationValidationError(f'{manifest.id}: {exc.code}: {exc.detail}') from exc
+            query_source_profile = resolved.get('source_profile', {}).get(combo.get('source_profile'))
+            query_contract = (query_source_profile.attributes.get('source_profile.properties.query_output_contract')
+                              if query_source_profile else None)
+            if query_contract:
+                from .finite_sql_contract import Contradiction, ReviewNeeded
+                from .query_output_contract import check_rendered_insert_query
+                try:
+                    check_rendered_insert_query(sql, setup_sqls,
+                        profile_query=query_source_profile.render,
+                        output_types=query_source_profile.attributes.get('source_profile.properties.output_types', []),
+                        source_tables=query_source_profile.attributes.get('source_profile.properties.source_tables', []),
+                        source_columns=query_source_profile.attributes.get('source_profile.properties.source_columns', []),
+                        contract=query_contract)
+                except (Contradiction, ReviewNeeded) as exc:
+                    raise GenerationValidationError(f'{manifest.id}: {exc.code}: {exc.detail}') from exc
+            if target and target.attributes.get('target_list.properties.function_output_contract'):
+                from .finite_sql_contract import Contradiction, ReviewNeeded
+                from .query_output_contract import check_rendered_sum_source
+                source = resolved['source_form'][combo['source_form']]
+                chapter = factor.source.catalog_chapter_ref
+                try:
+                    check_rendered_sum_source(sql, setup_sqls,
+                        items=target.attributes.get('target_list.properties.items', []),
+                        output_types=target.attributes.get('target_list.properties.output_types', []),
+                        available_columns=source.attributes.get('source_form.properties.available_columns', []),
+                        available_types=source.attributes.get('source_form.properties.available_types', []),
+                        source_tables=target.attributes.get('target_list.properties.source_tables', []),
+                        mode='M' if chapter and chapter.source_relpath.startswith('m_compat/') else None,
+                        identity=target.attributes['target_list.properties.function_output_contract'])
+                except (Contradiction, ReviewNeeded) as exc:
+                    raise GenerationValidationError(f'{manifest.id}: {exc.code}: {exc.detail}') from exc
+            file_assets = self._compile_fixture_files(fixture_refs, sql, setup_sqls)
             if manifest.expected.default == "success":
                 rendered_contract = inspect_write(sql, setup_sqls)
                 if rendered_contract["status"] == "rejected":
@@ -261,6 +391,7 @@ class FactorPackageSQLGenerator:
                     requirement.model_dump()
                     for requirement in manifest.environment_requirements
                 ],
+                file_assets=file_assets,
             ))
 
         report.generated_case_count = len(cases)
@@ -516,6 +647,33 @@ class FactorPackageSQLGenerator:
         return f"{manifest_id}_{digest}"
 
     @staticmethod
+    def _validate_selected_value_modes(manifest, combo, resolved, consumed_dimensions):
+        """Opt-in applicability on actually rendered values; never a DB probe.
+
+        A manifest may narrow a value's declared modes, not broaden them.
+        Multiple active requirements all apply. No solver context injection,
+        implicit mode, inactive-branch constraint or expected-result rewriting.
+        """
+        gates = [r for r in manifest.environment_requirements if r.key == 'compatibility_mode']
+        for dimension in consumed_dimensions:
+            value = resolved[dimension][combo[dimension]]
+            key = dimension + '.properties.required_compatibility_modes'
+            if key not in value.attributes:
+                continue
+            required = value.attributes[key]
+            if (not isinstance(required, list) or not required
+                    or not all(isinstance(mode, str) and mode in {'A','B','C','PG','M'} for mode in required)
+                    or len(set(required)) != len(required)):
+                raise GenerationValidationError(f'{manifest.id}: invalid required_compatibility_modes for {dimension}')
+            if len(gates) != 1:
+                raise GenerationValidationError(f'{manifest.id}: {dimension} requires exactly one compatibility_mode gate')
+            allowed = gates[0].allowed_values
+            if (not allowed or len(set(allowed)) != len(allowed)
+                    or not set(allowed).issubset(required)):
+                raise GenerationValidationError(
+                    f'{manifest.id}: compatibility_mode {allowed} broadens {dimension} requirement {required}')
+
+    @staticmethod
     def _fixture_refs_for_combo(
         manifest: FactorManifestDef,
         combo: Dict[str, str],
@@ -533,6 +691,20 @@ class FactorPackageSQLGenerator:
                 continue
             refs.extend(resolved[dimension_id][selected_id].fixture_refs)
         return list(dict.fromkeys(refs))
+
+    def _compile_fixture_files(self, fixture_refs, sql, setup_sqls):
+        from .fixture_file_contract import inspect_fixture_files
+        files=[];targets=set()
+        referenced=set(re.findall(r"\b(?:INFILE|FROM|TO)\s+'([^']+)'", '\n'.join([sql]+setup_sqls), re.I))
+        for fixture_id in self._ordered_fixture_refs(fixture_refs):
+            fixture=self.registry.get_fixture(fixture_id)
+            if not fixture or not fixture.provides.files:
+                continue
+            for asset in inspect_fixture_files(fixture, self.registry.source_paths[fixture_id], self.registry.specs_dir):
+                if asset['target_path'] in targets:raise ValueError('duplicate file asset target across fixtures')
+                if asset['target_path'] not in referenced:raise ValueError('file asset target not referenced by SQL')
+                targets.add(asset['target_path']);files.append(asset)
+        return files
 
     def _compile_fixture_lifecycle(
         self, fixture_refs: List[str]
@@ -868,8 +1040,10 @@ class FactorPackageSQLGenerator:
                         f"query profile '{query_value.id}' 输出 {output_count} 列"
                     )
             elif check.kind == "select_expression_contract":
+                chapter = factor.source.catalog_chapter_ref
                 FactorPackageSQLGenerator._validate_select_expression_contract(
-                    combo, resolved
+                    combo, resolved,
+                    documented_mode='M' if chapter and chapter.source_relpath.startswith('m_compat/') else None,
                 )
             elif check.kind == "insert_input_contract":
                 FactorPackageSQLGenerator._validate_insert_input_contract(
@@ -879,6 +1053,98 @@ class FactorPackageSQLGenerator:
                 FactorPackageSQLGenerator._validate_index_column_count_contract(
                     combo, resolved
                 )
+
+    @staticmethod
+    def _validate_rendered_index_contract(factor, manifest, combo, resolved, sql):
+        """Hard post-render guard: never silently discard declared pairs."""
+        from .finite_sql_contract import ReviewNeeded
+        from .index_storage_contract import check_rendered_index_fillfactor
+        for check in factor.structural_checks:
+            if check.kind != 'index_fillfactor_contract':
+                continue
+            chapter = factor.source.catalog_chapter_ref
+            requirements = [r for r in manifest.environment_requirements if r.key == 'compatibility_mode']
+            if (not chapter or not chapter.source_relpath.startswith('m_compat/')
+                    or len(requirements) != 1 or requirements[0].allowed_values != ['M']):
+                raise GenerationValidationError('index_fillfactor_mode: requires M source and exact M gate')
+            # A negative label alone is insufficient; its targeted rule must
+            # consume the same confirmed constraint fact as this actual check.
+            facts = [f for f in factor.facts if f.id in check.fact_refs]
+            rules = [r for r in factor.rules if set(r.fact_refs) == set(check.fact_refs)]
+            if (len(check.fact_refs) != 1 or len(facts) != 1 or facts[0].type != 'constraint'
+                    or facts[0].status != 'confirmed' or len(rules) != 1):
+                raise GenerationValidationError('index_fillfactor_fact_rule: requires one confirmed constraint/rule')
+            storage = resolved.get('storage', {}).get(combo.get('storage'))
+            if storage is None:
+                raise GenerationValidationError('index_storage_unknown: missing selected storage')
+            try:
+                result = check_rendered_index_fillfactor(sql, storage.render)
+            except ReviewNeeded as exc:
+                raise GenerationValidationError(f'{manifest.id}: {exc.code}: {exc.detail}') from exc
+            targeted = rules[0].id in manifest.violates_rule_refs
+            if result['range_valid']:
+                if targeted:
+                    raise GenerationValidationError('index_fillfactor_target_not_violated: actual range is valid')
+            elif not (targeted and manifest.suite_type == 'negative' and manifest.expected.default == 'error'):
+                raise GenerationValidationError(
+                    f"index_fillfactor_range: actual {result['fillfactor']} outside documented 10..100")
+
+    @staticmethod
+    def _validate_rendered_index_keys(factor, manifest, combo, resolved, sql, setup):
+        from .finite_sql_contract import ReviewNeeded
+        from .index_storage_contract import check_rendered_index_keys
+        for check in factor.structural_checks:
+            if check.kind != 'index_key_source_contract':
+                continue
+            chapter = factor.source.catalog_chapter_ref
+            requirements = [r for r in manifest.environment_requirements if r.key == 'compatibility_mode']
+            if (not chapter or not chapter.source_relpath.startswith('m_compat/')
+                    or len(requirements) != 1 or requirements[0].allowed_values != ['M']):
+                raise GenerationValidationError('index_key_mode: requires M source and exact M gate')
+            facts = [f for f in factor.facts if f.id in check.fact_refs]
+            if (len(check.fact_refs) != 2 or len(facts) != 2
+                    or any(f.type != 'constraint' or f.status != 'confirmed' for f in facts)):
+                raise GenerationValidationError('index_key_facts: requires confirmed source/limit constraints')
+            key = resolved.get('key_profile', {}).get(combo.get('key_profile'))
+            if key is None:
+                raise GenerationValidationError('index_key_unknown: missing key profile')
+            try:
+                check_rendered_index_keys(sql, setup,
+                    items=key.attributes.get('key_profile.properties.items', []),
+                    key_count=key.attributes.get('key_profile.properties.key_column_count'),
+                    source_tables=key.attributes.get('key_profile.properties.source_tables', []),
+                    source_columns=key.attributes.get('key_profile.properties.source_columns', []))
+            except ReviewNeeded as exc:
+                raise GenerationValidationError(f'{manifest.id}: {exc.code}: {exc.detail}') from exc
+
+    @staticmethod
+    def _validate_fixture_write_contract(factor, setup):
+        """Opt-in finite seed writes; setup errors cannot satisfy a target Oracle.
+
+        Each write sees only preceding setup. This does not prove DDL execution,
+        final target state, seed cardinality, uniqueness, triggers or runtime.
+        Unsupported writes remain unknown instead of being silently passed.
+        """
+        for check in factor.structural_checks:
+            if check.kind != 'fixture_write_contract':
+                continue
+            facts = [f for f in factor.facts if f.id in check.fact_refs]
+            if (not check.fact_refs or len(facts) != len(check.fact_refs)
+                    or any(f.type != 'constraint' or f.status != 'confirmed' for f in facts)):
+                raise GenerationValidationError('fixture_write_facts: requires confirmed constraint evidence')
+            inspected = 0
+            for index, sql in enumerate(setup):
+                if '--' in sql or '/*' in sql:
+                    raise GenerationValidationError('fixture_write_unknown: commented setup is outside finite scope')
+                if not re.match(r'^\s*(?:INSERT|UPDATE|REPLACE|DELETE|WITH)\b', sql, re.I):
+                    continue
+                result = inspect_write(sql, setup[:index])
+                if result['status'] != 'checked':
+                    kind = 'contradiction' if result['status'] == 'rejected' else 'unknown'
+                    raise GenerationValidationError(f"fixture_write_{kind}: step {index}: {result['issues']}")
+                inspected += 1
+            if not inspected:
+                raise GenerationValidationError('fixture_write_unknown: no finite setup writes were inspected')
 
     @staticmethod
     def _effective_index_scope(
@@ -977,6 +1243,8 @@ class FactorPackageSQLGenerator:
         Profiles keep SQL rendering independent from this contract.  The same
         validator therefore works for one or many VALUES rows and for a SELECT
         source, while DEFAULT VALUES explicitly bypasses arity/type matching.
+        Untyped NULL markers are narrower: actual finite VALUES tokens must
+        establish them; they do not widen the common type-compatibility helper.
         """
         if "target_profile" not in combo or "source_profile" not in combo:
             return
@@ -1022,6 +1290,20 @@ class FactorPackageSQLGenerator:
                 "output_column_count 不一致"
             )
 
+        null_positions = {i for i, typ in enumerate(source_types) if str(typ).upper() == 'NULL'}
+        if null_positions:
+            from .finite_sql_contract import ReviewNeeded
+            from .shared_column_contract import finite_values_null_positions
+            try:
+                if source.render.strip():
+                    raise ReviewNeeded('null_input_unknown', 'Query/raw render is not a finite VALUES row list')
+                proven_nulls = finite_values_null_positions(
+                    source.attributes.get('source_profile.properties.items'), output_count)
+                if not null_positions.issubset(proven_nulls):
+                    raise ReviewNeeded('null_input_unknown', 'Declared NULL differs from actual VALUES tokens')
+            except ReviewNeeded as exc:
+                raise GenerationValidationError(f"INSERT {source.id}: {exc.code}: {exc.detail}") from exc
+
         if explicit_columns:
             expected_count = target.attributes.get(
                 "target_profile.properties.target_column_count"
@@ -1053,6 +1335,7 @@ class FactorPackageSQLGenerator:
                 zip(compared_target_types, source_types), start=1
             )
             if str(source_type).upper() != "DEFAULT"
+            and index - 1 not in null_positions
             and not FactorPackageSQLGenerator._types_compatible(
                 target_type, source_type
             )
@@ -1066,6 +1349,7 @@ class FactorPackageSQLGenerator:
     def _validate_select_expression_contract(
         combo: Dict[str, str],
         resolved: Dict[str, Dict[str, ResolvedDimensionValue]],
+        documented_mode: Optional[str] = None,
     ) -> None:
         if "statement_form" not in combo:
             return
@@ -1134,6 +1418,29 @@ class FactorPackageSQLGenerator:
                 f"SELECT 投影引用了查询源不存在的列: {missing_target_refs}"
             )
 
+        from .finite_sql_contract import Contradiction
+        from .shared_column_contract import check_direct_projection_types
+
+        def check_projection(items, types):
+            try:
+                check_direct_projection_types(items, types, available_columns, available_types)
+            except Contradiction as exc:
+                raise GenerationValidationError(f"SELECT 投影类型不兼容或列不存在 {exc.code}: {exc.detail}") from exc
+
+        check_projection(target_items, target_output_types)
+
+        function_contract = target.attributes.get('target_list.properties.function_output_contract')
+        if function_contract:
+            from .finite_sql_contract import ReviewNeeded
+            from .query_output_contract import check_documented_sum_types
+            if not target.attributes.get('target_list.properties.has_aggregate', False):
+                raise GenerationValidationError('SUM signature requires aggregate projection identity')
+            try:
+                check_documented_sum_types(target_items, target_output_types,
+                    available_columns, available_types, mode=documented_mode, identity=function_contract)
+            except (ReviewNeeded, Contradiction) as exc:
+                raise GenerationValidationError(f'SELECT {exc.code}: {exc.detail}') from exc
+
         where_value = selected("where_clause")
         where_refs = set(where_value.attributes.get(
             "where_clause.properties.referenced_columns", []
@@ -1198,7 +1505,13 @@ class FactorPackageSQLGenerator:
         set_active = bool(set_value.attributes.get(
             "set_operator.properties.active", False
         ))
-        lock_active = combo.get("lock_clause") != "select_lock_none"
+        # New variants carry semantics, not the general package's value ID.
+        # Preserve the legacy default for existing specs without this property.
+        lock_value = selected("lock_clause")
+        lock_active = bool(lock_value.attributes.get(
+            "lock_clause.properties.active",
+            combo.get("lock_clause") != "select_lock_none",
+        ))
         if lock_active and (distinct or group_active or has_aggregate or set_active):
             raise GenerationValidationError(
                 "锁定子句不能与 DISTINCT、分组/聚集或集合运算组合"
@@ -1220,6 +1533,8 @@ class FactorPackageSQLGenerator:
                 raise GenerationValidationError(
                     "集合右侧 items、output_columns 与 output_types 必须非空且数量一致"
                 )
+            # The right SELECT may read another table; do not borrow the left
+            # source's types. Its source/fixture proof remains a separate gate.
             if len(target_output_types) != len(right_types):
                 raise GenerationValidationError(
                     "集合运算两侧输出列数不一致: "

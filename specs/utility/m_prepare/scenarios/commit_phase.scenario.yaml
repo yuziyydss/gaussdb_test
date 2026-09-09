@@ -1,0 +1,51 @@
+schema_version: 1
+kind: scenario
+id: scenario_m_prepare_commit_phase
+name: scenario_m_prepare_commit_phase
+status: planned
+description: PREPARE后回滚应撤销1而保留0；同一预备语句EXECUTE提交第二次写入后，ROLLBACK不能撤销。记录无活动事务ROLLBACK消息，不把预期WARNING当目标错误。仍planned，未执行。
+factor_ref: m_prepare
+fact_refs:
+- m_prepare_fact_session
+- m_prepare_fact_prepare_phase
+- m_prepare_fact_execute_phase
+- m_commit::m_commit_fact_row_state
+- m_commit::m_commit_fact_authority
+fixture_refs:
+- fixture_m_prepare_commit
+preconditions:
+- M-Compatibility；独立隔离测试空间
+steps:
+- id: prepare
+  sql: PREPARE m_prepare_stmt FROM 'COMMIT';
+- id: rollback_prepared
+  sql: ROLLBACK;
+- id: after_prepare_rollback
+  sql: SELECT id FROM m_commit_data ORDER BY id;
+- id: new_transaction
+  sql: BEGIN;
+- id: new_write
+  sql: INSERT INTO m_commit_data VALUES (1);
+- id: execute
+  sql: EXECUTE m_prepare_stmt;
+- id: rollback_after_execute
+  sql: ROLLBACK;
+- id: after_execute_rollback
+  sql: SELECT id FROM m_commit_data ORDER BY id;
+oracles:
+- kind: result_set
+  step_id: after_prepare_rollback
+  expected:
+  - - 0
+- kind: result_set
+  step_id: after_execute_rollback
+  expected:
+  - - 0
+  - - 1
+execution_requirements:
+- database_authorization
+- target_oracle_calibration
+- isolated_connection
+- transaction_creator
+- per_step_oracle
+- close_case_connection

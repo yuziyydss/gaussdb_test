@@ -1,0 +1,50 @@
+schema_version: 1
+kind: scenario
+id: scenario_m_prepare_create_table_phase
+name: scenario_m_prepare_create_table_phase
+status: planned
+description: PREPARE不等于建表；EXECUTE后才INSERT/SELECT，最后先清理实际创建的目标表再释放prepared和空模式。任何中途失败都必须按实际资产归属收尾。仍planned，未执行。
+factor_ref: m_prepare
+fact_refs:
+- m_prepare_fact_session
+- m_prepare_fact_prepare_phase
+- m_prepare_fact_execute_phase
+- m_prepare_fact_body_create_table
+- m_create_schema::m_create_schema_fact_namespace
+- m_create_schema::m_create_schema_fact_authority
+- m_create_schema::m_create_schema_fact_same_name_owner
+- m_create_table::m_create_table_fact_authority
+fixture_refs:
+- fixture_m_prepare_create_table_namespace
+preconditions:
+- M-Compatibility；独立隔离测试空间
+steps:
+- id: prepare
+  sql: PREPARE m_prepare_stmt FROM 'CREATE TABLE m_prepare_ct_namespace.created_table (id INTEGER, qty INTEGER)';
+- id: before_execute
+  action: 读取目标模式的真实表目录：created_table应不存在；目录查询接口须先校准，不用SELECT不存在表触发错误代替。
+- id: execute
+  sql: EXECUTE m_prepare_stmt;
+- id: seed
+  sql: INSERT INTO m_prepare_ct_namespace.created_table VALUES (1,10),(2,20);
+- id: read_rows
+  sql: SELECT id,qty FROM m_prepare_ct_namespace.created_table ORDER BY id;
+- id: drop_target
+  sql: DROP TABLE m_prepare_ct_namespace.created_table;
+oracles:
+- kind: manual_assertion
+  step_id: before_execute
+  expected: 预备后目标表不存在；实际目录方法待校准。
+- kind: result_set
+  step_id: read_rows
+  expected:
+  - - 1
+    - 10
+  - - 2
+    - 20
+execution_requirements:
+- database_authorization
+- target_oracle_calibration
+- isolated_connection
+- per_step_oracle
+- ownership_scoped_cleanup

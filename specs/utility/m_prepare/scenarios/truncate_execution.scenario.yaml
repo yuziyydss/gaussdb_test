@@ -1,0 +1,42 @@
+schema_version: 1
+kind: scenario
+id: scenario_m_prepare_truncate_execution
+name: scenario_m_prepare_truncate_execution
+status: planned
+description: PREPARE之后两行仍在，EXECUTE后才清空；只使用本case新表与PURGE，不碰既有表或回收站。仍planned、未执行。
+factor_ref: m_prepare
+fact_refs:
+- m_prepare_fact_session
+- m_prepare_fact_prepare_phase
+- m_prepare_fact_execute_phase
+- m_truncate::m_truncate_fact_owner
+- m_truncate::m_truncate_fact_rows_removed
+- m_truncate::m_truncate_fact_purge
+fixture_refs:
+- fixture_m_prepare_target
+preconditions:
+- M-Compatibility；独立隔离测试空间
+steps:
+- id: prepare
+  sql: PREPARE m_prepare_stmt FROM 'TRUNCATE TABLE m_prepare_data PURGE';
+- id: before_execute
+  sql: SELECT COUNT(*) FROM m_prepare_data;
+- id: execute
+  sql: EXECUTE m_prepare_stmt;
+- id: after_execute
+  sql: SELECT COUNT(*) FROM m_prepare_data;
+oracles:
+- kind: result_set
+  step_id: before_execute
+  expected:
+  - - 2
+- kind: result_set
+  step_id: after_execute
+  expected:
+  - - 0
+execution_requirements:
+- database_authorization
+- target_oracle_calibration
+- isolated_connection
+- fixture_table_creator
+- actual_cleanup_evidence

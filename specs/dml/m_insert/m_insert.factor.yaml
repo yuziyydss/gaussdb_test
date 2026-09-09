@@ -1,0 +1,199 @@
+schema_version: 1
+kind: factor
+id: m_insert
+name: INSERT [M]
+status: needs_review
+description: M 有限模型；不承诺全章覆盖或实机成功。
+category: DML
+source:
+  product: GaussDB
+  document: 集中式参考 / 2.4.2.12.1 INSERT
+  version: V2.0-10.0.0
+  artifact_sha256: 8bb5cd8bc169b34969fb1c4940bf113f87ac75e797896a6d7ca157cb8361f0b0
+  parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+  extraction_rule_version: gaussdb-pdf-outline-v1
+  extraction_date: '2026-09-08'
+  catalog_chapter_ref:
+    document_id: gaussdb_v2_0_10_0_0_centralized_reference_01
+    source_relpath: m_compat/dml/insert.txt
+    chapter_sha256: 8bb5cd8bc169b34969fb1c4940bf113f87ac75e797896a6d7ca157cb8361f0b0
+source_ledger_ref: source_ledger_m_insert
+syntax_ref: syntax_m_insert
+dimensions:
+  into:
+    description: into：有限代表域
+    classes:
+    - id: m_insert_into_yes_class
+      meaning: 'yes'
+      values:
+      - id: m_insert_into_yes
+        render: INTO
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs:
+        - m_insert_fact_syntax
+    - id: m_insert_into_none_class
+      meaning: none
+      values:
+      - id: m_insert_into_none
+        render: ''
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs:
+        - m_insert_fact_syntax
+    default_value_id: m_insert_into_yes
+  target_profile:
+    description: target_profile：有列契约的有限 profile
+    profile_source:
+      matrix_ref: matrix_m_insert_target_profile
+    default_value_id: m_insert_target_profile_table
+  source_profile:
+    description: source_profile：有列契约的有限 profile
+    profile_source:
+      matrix_ref: matrix_m_insert_source_profile
+    default_value_id: m_insert_source_profile_values
+  values_keyword:
+    description: values_keyword：有限代表域
+    classes:
+    - id: m_insert_values_keyword_values_class
+      meaning: values
+      values:
+      - id: m_insert_values_keyword_values
+        render: VALUES
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs:
+        - m_insert_fact_syntax
+    - id: m_insert_values_keyword_value_class
+      meaning: value
+      values:
+      - id: m_insert_values_keyword_value
+        render: VALUE
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs:
+        - m_insert_fact_syntax
+    default_value_id: m_insert_values_keyword_values
+  duplicate:
+    description: duplicate：有限代表域
+    classes:
+    - id: m_insert_duplicate_none_class
+      meaning: none
+      values:
+      - id: m_insert_duplicate_none
+        render: ''
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs:
+        - m_insert_fact_syntax
+    - id: m_insert_duplicate_yes_class
+      meaning: 'yes'
+      values:
+      - id: m_insert_duplicate_yes
+        render: ON DUPLICATE KEY UPDATE qty = VALUES(qty)
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs:
+        - m_insert_fact_syntax
+    default_value_id: m_insert_duplicate_none
+facts:
+- id: m_insert_fact_mode
+  type: environment
+  statement: 本包只适用于 PDF 第二章 M-Compatibility 语法。
+  status: confirmed
+  source_anchor: 2.4.2.12.1 L2-2
+- id: m_insert_fact_syntax
+  type: syntax
+  statement: M INSERT 分 VALUES/VALUE、SET、query，INTO 可省略；表和视图分别列出。
+  status: confirmed
+  source_anchor: 2.4.2.12.1 L19-49
+- id: m_insert_fact_default
+  type: syntax
+  statement: DEFAULT 表示目标列默认值，没有默认值为 NULL。
+  status: confirmed
+  source_anchor: 2.4.2.12.1 L98-99
+- id: m_insert_fact_generated_write
+  type: constraint
+  statement: 生成列不能赋具体值，但可指定 DEFAULT。
+  status: confirmed
+  source_anchor: 2.4.2.12.1 L15-16
+- id: m_insert_fact_view_duplicate
+  type: constraint
+  statement: 视图不支持 ON DUPLICATE KEY UPDATE。
+  status: confirmed
+  source_anchor: 2.4.2.12.1 L147-147
+- id: m_insert_fact_duplicate_effect
+  type: behavior_oracle
+  statement: 带唯一键的表遇冲突更新已有行；VALUES(qty)引用输入行，不是旧值。
+  status: confirmed
+  source_anchor: 2.4.2.12.1 L105-107
+- id: m_insert_fact_duplicate_authority
+  type: environment
+  statement: ON DUPLICATE KEY UPDATE需要INSERT、UPDATE及被更新列SELECT权限。
+  status: confirmed
+  source_anchor: 2.4.2.12.1 L11-12
+- id: m_insert_fact_column_input
+  type: syntax
+  statement: 省略列列表的输入按前 N 列关联。
+  status: confirmed
+  source_anchor: 2.4.2.12.1 L80-81
+- id: m_insert_fact_view_column
+  type: constraint
+  statement: 插入视图的列须为直接基表用户列。
+  status: confirmed
+  source_anchor: 2.4.2.12.1 L141-141
+rules:
+- id: m_insert_rule_generated_write
+  kind: requires
+  expression: target_profile.properties.generated == True => source_profile.properties.generated_explicit == False
+  fact_refs:
+  - m_insert_fact_generated_write
+  severity: error
+- id: m_insert_rule_view_duplicate
+  kind: requires
+  expression: target_profile.properties.is_view == True => duplicate == 'm_insert_duplicate_none'
+  fact_refs:
+  - m_insert_fact_view_duplicate
+  severity: error
+structural_checks:
+- id: m_insert_struct_input
+  kind: insert_input_contract
+  fact_refs:
+  - m_insert_fact_column_input
+exported_fact_refs: []
+manifest_refs:
+- manifest_m_insert_table
+- manifest_m_insert_view
+- manifest_m_insert_table_set
+- manifest_m_insert_table_query
+- manifest_m_insert_view_set
+- manifest_m_insert_view_query
+- manifest_m_insert_generated
+- manifest_m_insert_generated_negative
+- manifest_m_insert_generated_null_negative
+- manifest_m_insert_generated_omitted_values
+- manifest_m_insert_generated_omitted_query
+- manifest_m_insert_view_duplicate_negative
+- manifest_m_insert_upsert_conflict
+matrix_refs:
+- matrix_m_insert_target_profile
+- matrix_m_insert_source_profile
+fixture_refs:
+- fixture_m_insert_generated
+- fixture_m_insert_upsert
+- fixture_m_insert_shared_table
+- fixture_m_insert_shared_view
+scenario_refs:
+- scenario_m_insert_generated_default_result
+- scenario_m_insert_generated_omitted_values_result
+- scenario_m_insert_generated_omitted_query_result
+- scenario_m_insert_generated_null_write
+- scenario_m_insert_upsert_result
+- scenario_m_insert_default_result
+- scenario_m_insert_view_column_lineage

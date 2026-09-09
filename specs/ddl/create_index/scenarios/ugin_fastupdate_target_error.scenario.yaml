@@ -1,0 +1,43 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_index_ugin_fastupdate_target_error
+name: scenario_create_index_ugin_fastupdate_target_error
+status: planned
+description: 有限倒排索引参数代表；真实前置与目标错误分开，数据库未执行。
+factor_ref: create_index
+fixture_refs:
+- fixture_create_index_ugin_storage
+fact_refs:
+- ci_fact_fastupdate
+- ci_fact_permissions
+- ci_fact_ugin_non_m_environment
+preconditions:
+- 独占新A兼容连接和新用户schema，拥有本case表及CREATE ANY INDEX权限
+- 控制目标必须先成功；前置失败标记blocked，不算预期目标错误
+steps:
+- id: control
+  sql: CREATE INDEX idx_ugin_fastupdate_control ON g_ci_ugin_storage USING ugin (tags _bool_ops) WITH (fastupdate
+    = on);
+- id: negative
+  sql: CREATE INDEX idx_ugin_fastupdate_negative ON g_ci_ugin_storage USING ugin (tags _bool_ops) WITH (fastupdate
+    = off);
+oracles:
+- kind: statement_success
+  step_id: control
+  stage: target
+  expected: success
+- kind: target_error
+  step_id: negative
+  stage: target
+  error_category: ugin_fastupdate_disabled
+  sqlstates: []
+  oracle_status: needs_verification
+  expected: 需实机校准该参数限制的错误身份；任意setup/权限/语法/事务中止错误不算通过
+execution_requirements:
+- database_authorization
+- isolated_connection
+- fresh_user_schema
+- per_step_oracle
+- target_oracle_calibration
+- recover_case_transaction_before_teardown
+- cleanup_only_case_owned_objects
