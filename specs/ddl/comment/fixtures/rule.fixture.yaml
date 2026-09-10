@@ -1,0 +1,29 @@
+schema_version: 1
+kind: fixture
+id: fixture_comment_rule
+name: COMMENT独占普通表上的INSERT规则
+factor_ref: comment
+status: needs_review
+description: 规则必须连同所属表定位；只创建DO INSTEAD NOTHING规则，不执行INSERT、不创建ON SELECT视图规则。
+requires_fixture_refs: []
+provides:
+  tables:
+    - name: g_comment_rule_ns.base_table
+      persistence: permanent
+      table_kind: regular
+      columns:
+        - {name: id, type: INTEGER, nullable: true}
+        - {name: qty, type: INTEGER, nullable: true}
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - CREATE SCHEMA g_comment_rule_ns;
+    - CREATE TABLE g_comment_rule_ns.base_table (id INTEGER, qty INTEGER);
+    - CREATE RULE ignore_insert AS ON INSERT TO g_comment_rule_ns.base_table DO INSTEAD NOTHING;
+  teardown_sqls:
+    - DROP RULE ignore_insert ON g_comment_rule_ns.base_table RESTRICT;
+    - DROP TABLE g_comment_rule_ns.base_table PURGE;
+    - DROP SCHEMA g_comment_rule_ns RESTRICT;
+  note: 仅已授权独占测试数据库与隔离连接；初始模式不存在、非系统非用户同名、不在search_path且始终非当前模式。创建规则要求实际表拥有者，规则删除权限须单独核验，不能从创建权限或DROP语法推导。只清理本case实际创建并确认归属的规则、表和空模式；setup失败阻止目标和盲目teardown，按成功资产记录逆序处理。禁止CASCADE、DROP OWNED、REPLACE和吞异常；PURGE仅本case表。不插入seed、不触发重写，不测试ON SELECT转视图、规则事件行为或多规则顺序；目录身份Oracle尚待校准。

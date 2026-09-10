@@ -11,8 +11,9 @@ class MultiDerivedContractTests(unittest.TestCase):
              'CREATE TABLE aux (id INT, note TEXT)',
              'CREATE TABLE src (sid INT, label TEXT)']
 
-    def check(self, sql, status='checked', code=None, setup=None):
-        result = inspect_write(sql, self.setup if setup is None else setup)
+    def check(self, sql, status='checked', code=None, setup=None, scope='general'):
+        result = inspect_write(sql, self.setup if setup is None else setup,
+                               conflict_source_scope=scope)
         self.assertEqual(result['status'], status, result)
         if code:
             self.assertIn(code, [i['code'] for i in result['issues']], result)
@@ -43,9 +44,17 @@ class MultiDerivedContractTests(unittest.TestCase):
         for target in ('t AS a', '(SELECT id,note FROM t) AS a'):
             self.check("UPDATE t AS u, "+target+" SET u.note='ok'", 'needs_review')
 
-    def test_named_view_and_schema_ambiguity_do_not_hide_same_base(self):
+    def test_named_view_ban_is_source_scoped_without_hiding_same_base(self):
         setup = self.setup + ['CREATE VIEW v AS SELECT id,note FROM t']
-        self.check("UPDATE t AS u, v AS a SET u.note='ok'", 'needs_review', setup=setup)
+        sql = "UPDATE t AS u, v AS a SET u.note='ok'"
+        # General UPDATE L16 forbids a known named-view target independently
+        # of aliasing. M's own L16 supplies the same restriction independently.
+        for scope in ('general','m_compat'):
+            with self.subTest(scope=scope):
+                self.check(sql, 'rejected', 'multi_update_view_not_supported', setup=setup, scope=scope)
+        self.check(sql, 'needs_review', 'target_unknown', setup=setup, scope='unreviewed')
+
+    def test_schema_ambiguity_does_not_hide_same_base(self):
         setup = self.setup + ['CREATE TABLE public.t (id INT, note TEXT)']
         self.check("UPDATE t AS u, public.t AS a SET u.note='ok'", 'needs_review', setup=setup)
         setup = ['CREATE TABLE s1.t (id INT, note TEXT)', 'CREATE TABLE s2.t (id INT, note TEXT)']

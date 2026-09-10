@@ -83,7 +83,7 @@ class MGeneratedTargetContractTests(unittest.TestCase):
             with self.assertRaisesRegex(GenerationValidationError,'target_generated_columns_mismatch'):
                 self.generate(g)
 
-    def test_five_existing_candidates_keep_generated_error_and_review_boundaries(self):
+    def test_five_existing_candidates_keep_error_and_finite_not_runtime_boundaries(self):
         g = self.generator()
         p = self.profile(g)
         self.assertEqual(p.properties.get('target_column_contract'),'fixture_generated_columns')
@@ -96,7 +96,10 @@ class MGeneratedTargetContractTests(unittest.TestCase):
                 self.assertEqual(case.expected_error_category,'generated_write')
                 self.assertFalse(case.expected_sqlstates)
             else:
-                self.assertEqual(inspect_write(case.sql,case.setup_sqls)['status'],'needs_review')
+                result=inspect_write(case.sql,case.setup_sqls,conflict_source_scope='m_compat')
+                self.assertEqual(result['status'],'checked',result)
+                self.assertIn('stored_generated_integer_sum',result['checks'])
+                self.assertEqual(case.expected_scope,'syntax_only')
 
 class GeneratedTargetEvidenceBoundaryTests(unittest.TestCase):
     def check(self, ddl):

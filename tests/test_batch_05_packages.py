@@ -23,7 +23,7 @@ EXPECTED = {
     "drop_text_search_dictionary": (2, 9),
     "create_incremental_materialized_view": (3, 10),
     "refresh_incremental_materialized_view": (2, 2),
-    "alter_materialized_view": (1, 6), "comment": (1, 12),
+    "alter_materialized_view": (1, 6), "comment": (7, 52),
     "explain_plan": (2, 7), "rename_table": (1, 4),
 }
 
@@ -72,10 +72,18 @@ class Batch05Tests(unittest.TestCase):
                 f = self.registry.factors[fid]
                 report = auditor.audit(fid)
                 self.assertEqual(f.status, "needs_review")
-                self.assertEqual(report["source_units"]["atomicity"]["gaps"], [])
+                gaps = report["source_units"]["atomicity"]["gaps"]
+                if fid == "comment":
+                    self.assertEqual({g["id"] for g in gaps}, {
+                        "comment_su_syntax_a_25", "comment_su_syntax_c_40",
+                        "comment_su_syntax_d_47",
+                    })
+                    self.assertFalse(report["conclusions"]["source_extraction_complete"])
+                else:
+                    self.assertEqual(gaps, [])
+                    self.assertTrue(report["conclusions"]["source_extraction_complete"])
                 self.assertEqual(report["facts"]["unconsumed_confirmed"], [])
                 self.assertEqual(report["facts"]["wrong_consumer_type"], [])
-                self.assertTrue(report["conclusions"]["source_extraction_complete"])
                 self.assertTrue(report["conclusions"]["generation_model_complete"])
                 self.assertFalse(report["conclusions"]["static_coverage_complete"])
                 self.assertFalse(report["conclusions"]["behavior_coverage_complete"])
@@ -85,9 +93,13 @@ class Batch05Tests(unittest.TestCase):
                     self.assertEqual(len(path.read_text().splitlines()), report["source_units"]["line_coverage"]["total"])
 
     def test_case_inventory_and_no_duplicate_sql_or_ids(self):
-        self.assertEqual(len(self.all_cases), 192)
-        self.assertEqual(len({c.case_id for c in self.all_cases}), 192)
-        self.assertEqual(len({(c.factor_id, c.sql) for c in self.all_cases}), 192)
+        expected_count = sum(count for _, count in EXPECTED.values())
+        self.assertEqual(len(self.all_cases), expected_count)
+        self.assertEqual(len({c.case_id for c in self.all_cases}), expected_count)
+        self.assertEqual(len({(c.factor_id, c.sql) for c in self.all_cases}), expected_count)
+        self.assertEqual(len([c for c in self.all_cases if c.params.get('target')=='comment_target_function_fresh']),4)
+        for target in ('comment_target_enum_fresh', 'comment_target_composite_fresh', 'comment_target_aggregate_fresh', 'comment_target_rule_fresh'):
+            self.assertEqual(len([c for c in self.all_cases if c.params.get('target') == target]), 4)
         for fid, (manifests, count) in EXPECTED.items():
             self.assertEqual(len(self.registry.factors[fid].manifest_refs), manifests)
             self.assertEqual(len(self.cases(fid)), count)

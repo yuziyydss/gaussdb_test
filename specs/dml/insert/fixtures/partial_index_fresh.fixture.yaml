@@ -1,0 +1,29 @@
+schema_version: 1
+kind: fixture
+id: fixture_insert_partial_index_fresh
+name: INSERT PG 整数表达式与部分唯一索引新表
+status: needs_review
+description: 真实ASTORE双整数表、单个唯一B-tree表达式索引及范围内外种子；不是普通主键替代品。
+factor_ref: insert
+requires_fixture_refs: []
+provides:
+  tables:
+    - name: g_insert_partial
+      persistence: permanent
+      table_kind: regular
+      columns:
+        - {name: id, type: INTEGER, nullable: false}
+        - {name: flag, type: INTEGER, nullable: false}
+seed:
+  required: true
+  rows: [{id: 1, flag: 1}, {id: 1, flag: 0}]
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - CREATE TABLE g_insert_partial (id INTEGER NOT NULL, flag INTEGER NOT NULL) WITH (storage_type=ASTORE);
+    - CREATE UNIQUE INDEX g_insert_partial_idx ON g_insert_partial USING btree ((id + 1)) WHERE flag > 0;
+    - INSERT INTO g_insert_partial (id, flag) VALUES (1, 1), (1, 0);
+  teardown_sqls:
+    - DROP TABLE g_insert_partial RESTRICT;
+  note: 仅PG独占新用户schema和内建整数操作符解析环境；每case独立恢复种子。不预删除对象、不吞setup错误。表及其索引必须由本case实际创建后才可清理；setup/目标/Oracle/teardown分开判定，实际归属及操作符身份尚未验证。

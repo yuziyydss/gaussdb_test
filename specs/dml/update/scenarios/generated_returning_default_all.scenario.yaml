@@ -1,0 +1,19 @@
+schema_version: 1
+kind: scenario
+id: scenario_update_generated_returning_default_all
+name: 一般update生成列default的all目标返回集
+status: planned
+description: 读取目标SQL这一次执行实际返回的结果集，不再执行写语句，也不以随后查询全表替代RETURNING。UPDATE只应返回命中id=2的一行；结果捕获能力须另行验证，当前未执行。
+factor_ref: update
+fixture_refs: [fixture_update_finite_generated_seeded]
+fact_refs: [update_fact_generated_column, update_fact_returning, 'create_table::ct_fact_generated_semantics']
+preconditions: [独立一般模式测试连接、固定search_path、资产初始不存在、逐条记录ownership、不得重放目标SQL获取结果]
+steps:
+  - id: target_write
+    sql: "UPDATE g_generated_dst SET total = DEFAULT WHERE id = 2 RETURNING *;"
+oracles:
+  - kind: result_set
+    step_id: target_write
+    expected: [[2, 9, 11]]
+    note: 无独立oracle SQL；绑定target_write原始返回集。执行器若不能捕获结果，必须记为blocked而不是通过。生成器只静态核列及类型族，未验证实际返回值。
+execution_requirements: [database_authorization, general_mode, isolated_connection, fresh_fixture_per_scenario, ownership_scoped_cleanup, target_statement_result_capture, per_step_oracle, target_oracle_calibration]

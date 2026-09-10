@@ -1,0 +1,51 @@
+schema_version: 1
+kind: scenario
+id: scenario_m_prepare_drop_namespace_phase
+name: scenario_m_prepare_drop_namespace_phase
+status: planned
+description: planned：只处理本case新建空SCHEMA，PREPARE后仍在、EXECUTE后才消失。目录Oracle未校准、未执行；不授权物理数据库或共享模式删除。
+factor_ref: m_prepare
+fact_refs:
+- m_prepare_fact_session
+- m_prepare_fact_prepare_phase
+- m_prepare_fact_execute_phase
+- m_prepare_fact_body_drop_relation
+- m_create_schema::m_create_schema_fact_namespace
+- m_create_schema::m_create_schema_fact_authority
+- m_create_schema::m_create_schema_fact_same_name_owner
+- m_drop_schema::m_drop_schema_fact_authority
+fixture_refs:
+- fixture_m_prepare_drop_namespace
+preconditions:
+- M-Compatibility；独立隔离测试空间
+- 独占测试库和连接；新模式无同名用户、非系统名、不在search_path中；不允许并发重建。
+- CREATE/DROP权限与真实归属先确认；目录接口先校准，任意阶段失败均阻止后续目标及盲目清理。
+steps:
+- id: before_prepare
+  action: 校准目录确认setup确实新建本case所有的空模式，非当前模式、无同名用户、不在search_path中；保存物理数据库及非目标模式身份。
+- id: prepare
+  sql: PREPARE m_prepare_stmt FROM 'DROP SCHEMA m_prepare_drop_namespace';
+- id: after_prepare
+  action: 同一校准目录确认目标空模式仍存在且归属不变；再次排除并发、当前模式和外部依赖，满足后才可EXECUTE。
+- id: execute
+  sql: EXECUTE m_prepare_stmt;
+- id: after_execute
+  action: 校准目录确认仅目标模式消失，物理数据库和其他模式不变；若目标已消失跳过模式清理，只释放本case prepared并关闭连接。
+oracles:
+- kind: manual_assertion
+  step_id: before_prepare
+  expected: setup新建空模式且资产身份/权限满足；目录方法尚待校准。
+- kind: manual_assertion
+  step_id: after_prepare
+  expected: PREPARE后目标仍存在且为空；不得把预备成功当已删除。
+- kind: manual_assertion
+  step_id: after_execute
+  expected: EXECUTE后仅目标模式消失，物理数据库及非目标模式保持；不得以任意报错替代目录结果。
+execution_requirements:
+- database_authorization
+- target_oracle_calibration
+- isolated_connection
+- per_step_oracle
+- ownership_scoped_cleanup
+- actual_catalog_calibration
+- close_case_connection

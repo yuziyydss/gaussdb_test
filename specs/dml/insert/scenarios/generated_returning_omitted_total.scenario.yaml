@@ -1,0 +1,19 @@
+schema_version: 1
+kind: scenario
+id: scenario_insert_generated_returning_omitted_total
+name: 一般insert生成列omitted的total目标返回集
+status: planned
+description: 读取目标SQL这一次执行实际返回的结果集，不再执行写语句，也不以随后查询全表替代RETURNING。UPDATE只应返回命中id=2的一行；结果捕获能力须另行验证，当前未执行。
+factor_ref: insert
+fixture_refs: [fixture_insert_finite_generated_values]
+fact_refs: [insert_fact_generated_column, insert_fact_returning, 'create_table::ct_fact_generated_semantics']
+preconditions: [独立一般模式测试连接、固定search_path、资产初始不存在、逐条记录ownership、不得重放目标SQL获取结果]
+steps:
+  - id: target_write
+    sql: "INSERT INTO g_generated_dst VALUES (2, 9) RETURNING total AS computed;"
+oracles:
+  - kind: result_set
+    step_id: target_write
+    expected: [[11]]
+    note: 无独立oracle SQL；绑定target_write原始返回集。执行器若不能捕获结果，必须记为blocked而不是通过。生成器只静态核列及类型族，未验证实际返回值。
+execution_requirements: [database_authorization, general_mode, isolated_connection, fresh_fixture_per_scenario, ownership_scoped_cleanup, target_statement_result_capture, per_step_oracle, target_oracle_calibration]

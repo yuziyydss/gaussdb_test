@@ -55,18 +55,24 @@ class ConflictDefaultContractTests(unittest.TestCase):
             self.assertEqual(result['status'], 'rejected', result)
             self.assertIn('null_not_allowed', [i['code'] for i in result['issues']])
 
-    def test_complex_conflict_and_view_defaults_remain_review(self):
+    def test_complex_conflict_defaults_remain_review(self):
         for clause in (
             'ON CONFLICT((id+1)) DO UPDATE SET qty=DEFAULT',
             'ON CONFLICT ON CONSTRAINT keyname DO UPDATE SET qty=DEFAULT',
             'ON DUPLICATE KEY UPDATE qty=DEFAULT(qty)',
         ):
             self.assertEqual(self.inspect(clause)['status'], 'needs_review')
-        result = inspect_write('INSERT INTO v VALUES(1,2) '+self.clauses[0],
+    def test_plain_view_defaults_remain_review_but_duplicate_target_is_forbidden(self):
+        result = inspect_write('INSERT INTO v VALUES(1,DEFAULT)',
                                ['CREATE TABLE t(id INT,qty INT DEFAULT 7)',
                                 'CREATE VIEW v AS SELECT id,qty FROM t'])
         self.assertEqual(result['status'], 'needs_review', result)
         self.assertIn('default_unknown', [i['code'] for i in result['issues']])
+        result = inspect_write('INSERT INTO v VALUES(1,2) '+self.clauses[0],
+                               ['CREATE TABLE t(id INT,qty INT DEFAULT 7)',
+                                'CREATE VIEW v AS SELECT id,qty FROM t'])
+        self.assertEqual(result['status'], 'rejected', result)
+        self.assertEqual(result['issues'][0]['code'], 'view_duplicate_not_supported')
 
     def test_keyword_in_string_does_not_activate_the_contract(self):
         result = inspect_write("INSERT INTO t VALUES(1,'x') ON DUPLICATE KEY UPDATE qty='DEFAULT'",

@@ -1,0 +1,23 @@
+schema_version: 1
+kind: fixture
+id: fixture_drop_foreign_table_log_catalog
+name: 删除前确实存在的log_fdw目录外表
+status: needs_review
+description: 先创建服务器、schema和实际外表；不是普通表，不是缺失对象。
+factor_ref: drop_foreign_table
+requires_fixture_refs: [fixture_shared_log_fdw_catalog_server]
+provides:
+  tables:
+  - name: g_a3_log_ns.foreign_table
+    persistence: permanent
+    table_kind: foreign
+    columns: [{name: col1, type: TEXT, nullable: true}]
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+  - "CREATE SCHEMA g_a3_log_ns;"
+  - "CREATE FOREIGN TABLE g_a3_log_ns.foreign_table (col1 TEXT) SERVER g_a3_log_server OPTIONS (logtype 'gs_log');"
+  teardown_sqls: ["DROP SCHEMA g_a3_log_ns RESTRICT;"]
+  note: 仅离线且不读日志。目标DROP成功后才清理确认拥有的schema/server；若目标未删除外表，RESTRICT必须失败，记录残留和原始目标错误，不用IF EXISTS/CASCADE兜底掩盖。需要单独运行时授权与归属回执。

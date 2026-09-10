@@ -230,6 +230,22 @@ dimensions:
             validity: valid
             properties: {family: conflict, action: update, compatibility_mode: PG, updates_unique_key: false, values_predicate_supported: true}
             fact_refs: [insert_fact_conflict_environment, insert_example_conflict]
+          - id: insert_on_conflict_tuple_pg_fresh
+            render: " ON CONFLICT (id) DO UPDATE SET (note, aux) = (EXCLUDED.note, EXCLUDED.aux)"
+            representative: false
+            validity: valid
+            properties: {family: conflict, action: update, compatibility_mode: PG, updates_unique_key: false, values_predicate_supported: true}
+            fact_refs: [insert_fact_conflict_action_grammar, insert_fact_conflict_environment]
+
+      - id: insert_partial_index_finite
+        meaning: 仅真实双整数ASTORE表、同形部分唯一索引、PG与内建操作符门禁内的有限代表。
+        values:
+          - id: insert_on_conflict_partial_fresh
+            render: " ON CONFLICT ((id + 1)) WHERE flag > 0 DO NOTHING"
+            representative: false
+            validity: valid
+            properties: {family: conflict, action: nothing, compatibility_mode: PG, updates_unique_key: false, values_predicate_supported: true, partial_index_contract_required: true}
+            fact_refs: [insert_fact_conflict_target_grammar, insert_fact_conflict_semantics, insert_fact_conflict_environment]
 
   returning_clause:
     description: 无 RETURNING、返回全部列或返回带别名的输出表达式。
@@ -244,6 +260,7 @@ dimensions:
             representative: true
             validity: valid
             fact_refs: [insert_fact_returning]
+          - {id: insert_returning_generated_total, render: " RETURNING total AS computed", representative: false, validity: valid, fact_refs: [insert_fact_returning_output]}
           - id: insert_returning_expression
             render: " RETURNING id, note AS inserted_note"
             representative: true
@@ -251,6 +268,11 @@ dimensions:
             fact_refs: [insert_fact_returning, insert_fact_returning_output]
 
 rules:
+  - id: insert_rule_finite_generated_write
+    kind: requires
+    expression: "target_profile in ['insert_target_finite_generated_values', 'insert_target_finite_generated_query'] => source_profile.properties.generated_write_allowed == True"
+    severity: error
+    fact_refs: [insert_fact_generated_column]
   - id: insert_rule_duplicate_rejects_with
     kind: requires
     expression: "conflict_clause.properties.family == 'duplicate' => with_clause == 'insert_with_none'"
@@ -271,11 +293,6 @@ rules:
     expression: "conflict_clause.properties.family == 'conflict' => target_profile.properties.conflict_supported == True"
     severity: error
     fact_refs: [insert_fact_view_subquery_grammar]
-  - id: insert_rule_conflict_rejects_query_source
-    kind: requires
-    expression: "conflict_clause.properties.family == 'conflict' => source_profile.properties.source_kind != 'query'"
-    severity: error
-    fact_refs: [insert_fact_conflict_restrictions]
   - id: insert_rule_ignore_target_supported
     kind: requires
     expression: "ignore_modifier.properties.enabled == True => target_profile.properties.ignore_supported == True"
@@ -348,7 +365,8 @@ facts:
   - {id: insert_fact_duplicate_restrictions, type: constraint, statement: "ON DUPLICATE 不支持延迟唯一/主键、外表和 UPDATE 子链接，且主键或唯一索引列不可更新。", status: confirmed, source_anchor: "L325-L334 ON DUPLICATE 限制"}
   - {id: insert_fact_conflict_semantics, type: behavior_oracle, statement: "ON CONFLICT 在无冲突时普通插入，冲突时执行 DO NOTHING 或 DO UPDATE SET。", status: confirmed, source_anchor: "L335-L354 ON CONFLICT"}
   - {id: insert_fact_conflict_environment, type: environment, statement: "ON CONFLICT 仅支持 PG 兼容，DO UPDATE 需要 UPDATE 权限。", status: confirmed, source_anchor: "L355-L361 ON CONFLICT 说明"}
-  - {id: insert_fact_conflict_restrictions, type: constraint, statement: "ON CONFLICT 禁止 COLLATE/opclass、ON CONSTRAINT、子链接/子查询、列存/外表/STREAM/CONTVIEW、同语句重复源键、DBLINK 和 query 输入。", status: confirmed, source_anchor: "L357-L367 ON CONFLICT 限制"}
+  - {id: insert_fact_conflict_restrictions, type: constraint, statement: "ON CONFLICT 禁止 COLLATE/opclass、ON CONSTRAINT、冲突目标及UPDATE SET中的子链接、UPDATE SET中的子查询、列存/外表/STREAM/CONTVIEW、同语句重复源键和DBLINK。末条‘插入子查询’的指代另行待审。", status: confirmed, source_anchor: "L357-L366 ON CONFLICT 明确限制"}
+  - {id: insert_open_conflict_query_interpretation, type: open_question, statement: "L367‘不支持插入子查询’未明确指作为目标的subquery还是提供数据的query；L229-L234与L300-L301分别定义这两个概念，L30-L48也分别给出表目标和视图/子查询目标产生式。不能据此确定禁止SELECT输入，也不能推导该组合成功；原负例及错误类别仅作为待审假设保全。", status: needs_verification, source_anchor: "L367；对照L30-L48、L229-L234、L300-L301"}
   - {id: insert_open_conflict_pg_fixture, type: open_question, statement: "ON CONFLICT 的静态分支和文档 Oracle 已记录，但表达式/部分索引、元组更新及全部限制仍需 PG 兼容数据库 Fixture 逐项回放。", status: needs_verification, source_anchor: "L335-L367 与 L453-L486 ON CONFLICT"}
   - {id: insert_fact_performance_values, type: environment, statement: "批量 VALUES 建议把多条记录合并进一条 INSERT 以提高加载性能。", status: confirmed, source_anchor: "L881-L887 优化建议/VALUES"}
   - {id: insert_fact_performance_index, type: environment, statement: "batch_insert_index_types=rcr_ubtree 的批量索引优化适用于 JDBC executeBatch、INSERT SELECT 或 COPY，并要求 UBTree RCR、非递增数据和非 SMP。", status: confirmed, source_anchor: "L889-L905 批量索引"}
@@ -364,6 +382,13 @@ facts:
   - {id: insert_inferred_target_input_contract, type: constraint, statement: "生成器在组合前校验目标列数/类型与 VALUES/query 输出；DEFAULT VALUES 不做列数匹配。", status: inferred, source_anchor: "由 L270-L301 的列映射、类型和输入分支推导"}
 
 manifest_refs:
+  - manifest_insert_partial_index_fresh
+  - manifest_insert_pg_tuple_fresh
+  - manifest_insert_generated_storage_default
+  - manifest_insert_generated_returning
+  - manifest_insert_generated_values
+  - manifest_insert_generated_query
+  - manifest_insert_generated_negative
   - manifest_insert_pg_conflict_fresh
   - manifest_insert_declared_default_positive
   - manifest_insert_core_positive
@@ -376,12 +401,16 @@ manifest_refs:
   - manifest_insert_duplicate_key_update_negative
   - manifest_insert_duplicate_view_negative
   - manifest_insert_conflict_view_negative
-  - manifest_insert_conflict_query_negative
   - manifest_insert_ignore_view_negative
   - manifest_insert_partition_alias_negative
   - manifest_insert_duplicate_values_predicate_negative
 matrix_refs: [matrix_insert_target_profiles, matrix_insert_source_profiles]
 fixture_refs:
+  - fixture_insert_partial_index_fresh
+  - fixture_insert_pg_tuple_fresh
+  - fixture_insert_generated_storage_default
+  - fixture_insert_finite_generated_values
+  - fixture_insert_finite_generated_query
   - fixture_insert_pg_conflict_fresh
   - fixture_insert_declared_defaults
   - fixture_insert_target
@@ -390,6 +419,22 @@ fixture_refs:
   - fixture_insert_partition_target
   - fixture_insert_view_target
 scenario_refs:
+  - scenario_insert_partial_index_conflict
+  - scenario_insert_partial_index_new_key
+  - scenario_insert_partial_index_outside
+  - scenario_insert_pg_tuple_fresh
+  - scenario_insert_generated_storage_default_default
+  - scenario_insert_generated_storage_default_omitted
+  - scenario_insert_generated_returning_default_total
+  - scenario_insert_generated_returning_default_all
+  - scenario_insert_generated_returning_omitted_total
+  - scenario_insert_generated_returning_omitted_all
+  - scenario_insert_finite_generated_default
+  - scenario_insert_finite_generated_omitted
+  - scenario_insert_finite_generated_query
+  - scenario_insert_finite_generated_literal
+  - scenario_insert_finite_generated_null
+  - scenario_insert_conflict_query_review
   - scenario_insert_pg_conflict_nothing
   - scenario_insert_pg_conflict_update
   - scenario_insert_conflict_pg_rows

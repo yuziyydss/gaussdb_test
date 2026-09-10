@@ -1,0 +1,28 @@
+schema_version: 1
+kind: scenario
+id: scenario_comment_namespace_constraint
+name: 新建模式及命名主键注释替换清除校准
+status: planned
+description: 以对象身份读取注释；约束不能误读为同名索引或所属表。目录接口校准前不宣称行为验证通过。
+factor_ref: comment
+fixture_refs: [fixture_comment_namespace_constraint]
+fact_refs: [comment_fact_lifecycle, comment_fact_constraint, comment_fact_syntax_c, comment_fact_authority, drop_table::dt_fact_purge, drop_schema::drop_schema_fact_current]
+preconditions:
+  - 独占测试数据库和隔离连接，初始模式不存在且不与现存用户同名
+  - 确认创建后及清理前current_schema不是目标模式，防止已有search_path自动选中
+  - 记录实际创建成功的资产和属主，仅清理本case资产
+steps:
+  - {id: schema_set, sql: "COMMENT ON SCHEMA g_comment_contract_ns IS 'first';"}
+  - {id: schema_replace, sql: "COMMENT ON SCHEMA g_comment_contract_ns IS 'second';"}
+  - {id: schema_clear, sql: "COMMENT ON SCHEMA g_comment_contract_ns IS NULL;"}
+  - {id: constraint_set, sql: "COMMENT ON CONSTRAINT g_comment_pk ON g_comment_contract_ns.base_table IS 'first';"}
+  - {id: constraint_replace, sql: "COMMENT ON CONSTRAINT g_comment_pk ON g_comment_contract_ns.base_table IS 'second';"}
+  - {id: constraint_clear, sql: "COMMENT ON CONSTRAINT g_comment_pk ON g_comment_contract_ns.base_table IS NULL;"}
+oracles:
+  - {after_step: schema_set, kind: manual_assertion, expected: 校准实际模式身份的目录读取接口，注释为first。}
+  - {after_step: schema_replace, kind: manual_assertion, expected: 同一模式仅保留second注释。}
+  - {after_step: schema_clear, kind: manual_assertion, expected: 模式仍存在而注释不存在，不是字符串NULL。}
+  - {after_step: constraint_set, kind: manual_assertion, expected: 以所属模式和表定位g_comment_pk约束，注释为first，不误读同名索引。}
+  - {after_step: constraint_replace, kind: manual_assertion, expected: 同一约束仅保留second注释。}
+  - {after_step: constraint_clear, kind: manual_assertion, expected: 主键约束仍存在而注释不存在，不是字符串NULL。}
+execution_requirements: [database_authorization, isolated_connection, fixture_object_owner, per_step_oracle, target_oracle_calibration, ownership_scoped_cleanup]

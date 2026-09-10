@@ -292,17 +292,26 @@ async def coverage_export_md():
         f"包已建：{report['progress']['package_count']}；有候选：{report['progress']['with_candidates_count']}；有用例且静态覆盖满足：{report['progress']['static_covered_count']}。",
         "实机验证：未接入执行证据，不从场景 ready 或行为规格布尔值推断。",
         "来源账本处置不代表语义穷尽；旧规格完整计数不用于可执行覆盖率。",
+        f"生成模型满足声明条件：{report['progress']['generation_model_satisfied_count']}包；"
+        f"有候选但模型仍有缺口：{report['progress']['generation_model_gap_count']}包；"
+        f"诊断无法核对：{report['progress']['generation_diagnostics_unavailable_count']}包。",
+        f"另列错误Oracle待校准：{report['progress']['unresolved_oracle_package_count']}包 / "
+        f"{report['progress']['unresolved_oracle_manifest_count']}份清单，不是生成异常。",
+        "条件值未纳入不等于产品不支持；应先核实来源与支持条件，不直接补为正向。",
         "",
-        "| Factor | 包已建 | SQL候选数 | 原文账本 | 候选生成 | 静态覆盖 | 实机验证 |",
-        "|---|---|---:|---|---|---|---|",
+        "| Factor | 包已建 | SQL候选数 | 原文账本 | 候选生成 | 生成模型诊断 | 静态覆盖 | 实机验证 |",
+        "|---|---|---:|---|---|---|---|---|",
     ]
     for factor_id, audit in report["factors"].items():
         p = audit['display_progress']
         generation = {'generated': '有候选', 'partial': '部分生成/有异常', 'no_cases': '无候选'}[p['generation_status']]
         static = {'covered': '声明范围满足', 'gaps': '有缺口', 'no_cases': '无用例，不计通过'}[p['static_status']]
+        diagnostics = p['generation_diagnostics']
+        reason = diagnostics['label'] + ''.join(
+            f"；{item['label']} {item['count']}" for item in diagnostics['blockers'])
         lines.append(
             f"| {factor_id} | 已建 | {audit['manifests']['generated_case_count']} | "
-            f"{'已登记' if p['source_accounted'] else '有缺口'} | {generation} | {static} | 未接入证据 |"
+            f"{'已登记' if p['source_accounted'] else '有缺口'} | {generation} | {reason} | {static} | 未接入证据 |"
         )
     md_content = "\n".join(lines) + "\n"
     return Response(

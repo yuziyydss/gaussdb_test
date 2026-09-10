@@ -23,6 +23,9 @@ source:
 
 source_ledger_ref: source_ledger_create_index
 syntax_ref: syntax_create_index_v1
+source_only_fact_refs:
+  - create_table_subpartition::create_table_subpartition_fact_body_12
+  - create_table_subpartition::create_table_subpartition_fact_body_12_1
 
 dimensions:
   statement_form:
@@ -100,6 +103,12 @@ dimensions:
           - {id: ci_scope_none, render: "", representative: true, validity: valid, properties: {local_scope: false, global_scope: false}}
           - {id: ci_scope_local, render: " LOCAL", representative: true, validity: valid, properties: {local_scope: true, global_scope: false}, fact_refs: [ci_fact_partition_scope]}
           - {id: ci_scope_global, render: " GLOBAL", representative: true, validity: valid, properties: {local_scope: false, global_scope: true}, fact_refs: [ci_fact_partition_scope]}
+          - id: ci_scope_local_subpartition_named_fresh
+            render: " LOCAL (PARTITION idx_p1 (SUBPARTITION idx_p1s1, SUBPARTITION idx_p1s2), PARTITION idx_p2 (SUBPARTITION idx_p2s1, SUBPARTITION idx_p2s2))"
+            representative: true
+            validity: valid
+            properties: {local_scope: true, global_scope: false, explicit_partitions: true, mapping_contract: range_range_positional}
+            fact_refs: [ci_fact_index_partition_clause, ci_fact_partition_grammar]
           - id: ci_scope_local_named
             render: " LOCAL (PARTITION idx_p_low, PARTITION idx_p_max)"
             representative: true
@@ -165,6 +174,8 @@ dimensions:
           - {id: ci_visibility_none, render: "", representative: true, validity: valid}
           - {id: ci_visibility_visible, render: " VISIBLE", representative: true, validity: conditional, fact_refs: [ci_fact_visibility]}
           - {id: ci_visibility_invisible, render: " INVISIBLE", representative: true, validity: conditional, fact_refs: [ci_fact_visibility]}
+          - {id: ci_visibility_visible_a_fresh, render: " VISIBLE", representative: true, validity: valid, properties: {required_compatibility_modes: [A], required_environment_capabilities: {disable_keyword_options_state: [empty], upgrade_phase: [not_upgrading]}}, fact_refs: [ci_fact_visibility, ci_fact_visible_definition, ci_fact_visible_mode, ci_fact_visible_keyword, ci_fact_visible_upgrade]}
+          - {id: ci_visibility_invisible_a_fresh, render: " INVISIBLE", representative: true, validity: valid, properties: {required_compatibility_modes: [A], required_environment_capabilities: {disable_keyword_options_state: [empty], upgrade_phase: [not_upgrading]}}, fact_refs: [ci_fact_visibility, ci_fact_invisible_definition, ci_fact_invisible_mode, ci_fact_invisible_keyword, ci_fact_invisible_upgrade]}
 
   predicate_clause:
     description: 普通表产生式的末尾 WHERE 部分索引谓词。
@@ -276,6 +287,7 @@ facts:
   - {id: ci_fact_partition_selection, type: behavior_oracle, statement: "分区索引由显式 scope、分区名和 UNIQUE 是否含全部分区键决定；省略 scope 默认 GLOBAL。", status: confirmed, source_anchor: "L16-L21,L412-L417"}
   - {id: ci_open_unique_local_missing_partition_key, type: open_question, statement: "原文同时说明显式 LOCAL 决定 LOCAL、UNIQUE 未含全部分区键时创建 GLOBAL；二者同时出现时的优先级及结果未说明，不能直接断言报错。", status: needs_verification, source_anchor: "L16-L21,L412-L417"}
   - {id: ci_fact_immutable, type: constraint, statement: "索引定义和 WHERE 中的函数与操作符必须 immutable。", status: confirmed, source_anchor: "L26-L29"}
+  - {id: ci_fact_immutable_environment, type: environment, statement: "创建索引所用函数及操作符的immutable属性是前置条件；这里不提供具体操作符的OID或实际目录验证结果。", status: confirmed, source_anchor: "L26-L29，与ci_fact_immutable为同一原文要求的前置阶段视图，不新增独立文档覆盖"}
   - {id: ci_fact_partition_scope, type: metadata_oracle, statement: "LOCAL 绑定分区，GLOBAL 覆盖整个分区表；省略 LOCAL/GLOBAL 默认 GLOBAL。", status: confirmed, source_anchor: "L30-L31,L412-L417"}
   - {id: ci_fact_permissions, type: environment, statement: "CREATE ANY INDEX 与表达式索引权限受模式、表 Owner、角色及三权分立影响。", status: confirmed, source_anchor: "L32-L40"}
   - {id: ci_fact_expression_permissions, type: environment, statement: "表达式索引中的用户函数按表 Owner 权限执行。", status: confirmed, source_anchor: "L34-L40"}
@@ -338,6 +350,14 @@ facts:
   - {id: ci_fact_comment_b_mode, type: environment, statement: "行内COMMENT子句仅在B模式数据库有效。", status: confirmed, source_anchor: "L664"}
   - {id: ci_fact_comment_length, type: constraint, statement: "索引级注释最大长度为1024字符；短ASCII候选不代表边界已覆盖。", status: confirmed, source_anchor: "L665"}
   - {id: ci_fact_visibility, type: environment, statement: "VISIBLE/INVISIBLE 只在 A 模式有效，并受 disable_keyword_options 和升级状态限制。", status: confirmed, source_anchor: "L666-L683"}
+  - {id: ci_fact_visible_definition, type: syntax, statement: "VISIBLE设置索引可见，也是默认选项。", status: confirmed, source_anchor: "L666-L670"}
+  - {id: ci_fact_visible_mode, type: environment, statement: "VISIBLE仅在A兼容数据库可设置。", status: confirmed, source_anchor: "L671-L672"}
+  - {id: ci_fact_visible_keyword, type: environment, statement: "disable_keyword_options为visible时不能使用VISIBLE关键字。", status: confirmed, source_anchor: "L673"}
+  - {id: ci_fact_visible_upgrade, type: environment, statement: "升级未提交阶段不能使用VISIBLE。", status: confirmed, source_anchor: "L674"}
+  - {id: ci_fact_invisible_definition, type: syntax, statement: "INVISIBLE设置索引不可见。", status: confirmed, source_anchor: "L675-L679"}
+  - {id: ci_fact_invisible_mode, type: environment, statement: "INVISIBLE仅在A兼容数据库可设置。", status: confirmed, source_anchor: "L680-L681"}
+  - {id: ci_fact_invisible_keyword, type: environment, statement: "disable_keyword_options为invisible时不能使用INVISIBLE关键字。", status: confirmed, source_anchor: "L682"}
+  - {id: ci_fact_invisible_upgrade, type: environment, statement: "升级未提交阶段不能使用INVISIBLE。", status: confirmed, source_anchor: "L683"}
   - {id: ci_fact_example_basic, type: example, statement: "示例覆盖普通表、表空间及目录查询。", status: confirmed, source_anchor: "L686-L714"}
   - {id: ci_fact_example_unique, type: example, statement: "示例覆盖唯一 B-Tree 索引。", status: confirmed, source_anchor: "L715-L731"}
   - {id: ci_fact_example_expression, type: example, statement: "示例覆盖 substr 表达式索引。", status: confirmed, source_anchor: "L733-L750"}
@@ -348,6 +368,7 @@ facts:
   - {id: ci_fact_example_gist, type: example, statement: "示例覆盖 ASTORE point GiST 及 ~= 查询。", status: confirmed, source_anchor: "L879-L895"}
 
 manifest_refs:
+  - manifest_create_index_subpartition_local_fresh
   - manifest_create_index_regular_positive
   - manifest_create_index_ustore_positive
   - manifest_create_index_ugin_text_positive
@@ -376,6 +397,7 @@ manifest_refs:
   - manifest_create_index_gin_pending_control
   - manifest_create_index_gin_pending_negative
   - manifest_create_index_comment_b_fresh
+  - manifest_create_index_visibility_a_fresh
 
 matrix_refs:
   - matrix_create_index_table_profiles
@@ -384,6 +406,7 @@ matrix_refs:
   - matrix_create_index_storage_profiles
 
 fixture_refs:
+  - fixture_create_index_subpartition_fresh
   - fixture_create_index_astore_regular
   - fixture_create_index_schema_qualified
   - fixture_create_index_ustore_regular
@@ -397,8 +420,10 @@ fixture_refs:
   - fixture_create_index_ugin_storage
   - fixture_create_index_gin_storage
   - fixture_create_index_comment_fresh
+  - fixture_create_index_visibility_fresh
 
 scenario_refs:
+  - scenario_create_index_subpartition_local_fresh
   - scenario_create_index_permissions
   - scenario_create_index_if_not_exists
   - scenario_create_index_unique_behavior
@@ -409,6 +434,7 @@ scenario_refs:
   - scenario_create_index_expression
   - scenario_create_index_tde
   - scenario_create_index_visibility
+  - scenario_create_index_visibility_fresh
   - scenario_create_index_comment
   - scenario_create_index_comment_short_b
   - scenario_create_index_performance
@@ -424,4 +450,12 @@ scenario_refs:
   - scenario_create_index_gin_pending_target_error
 
 exported_fact_refs:
+  - ci_fact_immutable_environment
+  - ci_fact_expression
+  - ci_fact_unique
+  - ci_fact_partial_index
+  - ci_fact_immutable
+  - ci_fact_main_grammar
+  - ci_fact_method_storage_contract
+  - ci_fact_permissions
   - ci_fact_partition_scope

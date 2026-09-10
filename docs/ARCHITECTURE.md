@@ -93,6 +93,10 @@ V1 Pairwise 流程：
 
 所谓“理论 Pair”只包括至少出现在一个合法完整组合中的参数对，非法组合不会被算作覆盖目标。
 
+候选身份不能只用目标SQL文本：例如同一COUNT(qty)，六行混合NULL与两行全NULL的fixture对应不同测试。发布器与覆盖审计共用具体setup文本身份；同factor、目标SQL和setup仍重复时必须报错，修改case名字、expected或teardown不能绕过。只规范化语句边缘空白和分号，不声称证明任意SQL的语义等价或实际前置状态。
+
+`distinct_sql_count`仍只计目标文本；`same_factor_sql_setup_variants`列出同因子的不同实际setup及SHA，`cross_factor_sql_overlaps`仅列跨因子来源重叠。因子审计保留原始`duplicate_sql`文本事实；出现文本重叠时另列`duplicate_inputs`（空列表说明这些文本对应不同setup），只有重复输入阻断生成结论。以上均不构成数据库验证证据。
+
 ### 覆盖审计
 
 - `core/factor_coverage_auditor.py`：汇总原文、事实、值、规则、manifest、feature 和 scenario。
@@ -102,7 +106,7 @@ V1 Pairwise 流程：
 - `source_extraction_complete`：原文行、unit、fact账本和原子性是否闭合；
 - `generation_model_complete`：值域、规则证据、生成异常、重复项和Pairwise是否闭合；
 - `static_coverage_complete`：在前两项基础上，feature、confirmed fact消费、open question 和负向目标错误 Oracle 是否闭合；
-- `behavior_coverage_complete`：在静态闭合基础上，没有planned scenario、缺失行为fact和未决问题。
+- `behavior_coverage_complete`：在静态闭合基础上，没有非ready scenario、缺失行为fact和未决问题。这是当前审计器对场景规格齐备程度的结论，不读取真实数据库执行收据；即使字段为true，也不能据此宣称实机行为验证通过。
 
 不能把其中任意一项简写成“文档已全覆盖”。
 
@@ -119,6 +123,7 @@ V1 Pairwise 流程：
 
 - `main.py` 和 `web/`：同时展示 Legacy V0 与 Factor Package V1。
 - V1页面使用注册表、生成器和覆盖审计器，不依赖数据库即可浏览和生成SQL。
+- `core/progress_reporting.py`给同一审计结果附加生成模型诊断，详情、总览、JSON和Markdown共用；不更改审计结论，不重复触发生成。取值/规则/重复输入/pair等阻断与Oracle未校准分层展示；解释无法与原结论核对时显示unknown/inconsistent性质的提示，不假定完成。详见[诊断说明](GENERATION_DIAGNOSTICS.md)。
 
 ### Legacy V0
 

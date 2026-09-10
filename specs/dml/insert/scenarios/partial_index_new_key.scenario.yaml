@@ -1,0 +1,17 @@
+schema_version: 1
+kind: scenario
+id: scenario_insert_partial_index_new_key
+name: INSERT PG 索引范围内新表达式键
+status: planned
+description: 每个场景单独恢复两条种子；结果为有限模型推导，实际索引推断、操作符身份与运行Oracle尚未验证。
+factor_ref: insert
+fixture_refs: [fixture_insert_partial_index_fresh]
+fact_refs: [insert_fact_conflict_semantics, insert_fact_conflict_environment, 'create_index::ci_fact_unique', 'create_index::ci_fact_partial_index']
+preconditions: [PG兼容, 独占新用户schema, 内建整数加法和比较操作符绑定已核对, Fixture创建者具有建表建索引和INSERT及SELECT权限, setup目标Oracle及cleanup分开判定]
+steps:
+  - id: insert_row
+    sql: INSERT INTO g_insert_partial (id, flag) VALUES (2, 1) ON CONFLICT ((id + 1)) WHERE flag > 0 DO NOTHING;
+oracles:
+  - {kind: affected_rows, step_id: insert_row, expected: 1}
+  - {kind: result_set, step_id: insert_row, sql: 'SELECT id, flag FROM g_insert_partial ORDER BY id, flag;', expected: [[1, 0], [1, 1], [2, 1]]}
+execution_requirements: [database_authorization, per_step_oracle, isolated_user_schema, actual_cleanup_evidence, builtin_operator_identity]

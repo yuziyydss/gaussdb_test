@@ -1,0 +1,31 @@
+schema_version: 1
+kind: scenario
+id: scenario_comment_owned_relations
+name: 普通索引与视图注释替换和清除的目录校准
+status: planned
+description: 按实际对象身份读取注释；SQL NULL必须清除注释，不是写入字符串NULL。目录读取接口尚待校准，不能只凭COMMENT成功判定行为通过。
+factor_ref: comment
+fixture_refs: [fixture_comment_owned_relations]
+fact_refs: [comment_fact_lifecycle, comment_fact_column, comment_fact_syntax_b, comment_fact_syntax_e, comment_fact_authority]
+preconditions: [独占fresh用户schema和隔离连接, 同名对象初始不存在, 记录实际创建者与资产ownership]
+steps:
+  - {id: index_set, sql: "COMMENT ON INDEX g_comment_rel_idx IS 'first';"}
+  - {id: index_replace, sql: "COMMENT ON INDEX g_comment_rel_idx IS 'second';"}
+  - {id: index_clear, sql: "COMMENT ON INDEX g_comment_rel_idx IS NULL;"}
+  - {id: view_set, sql: "COMMENT ON VIEW g_comment_rel_view IS 'first';"}
+  - {id: view_replace, sql: "COMMENT ON VIEW g_comment_rel_view IS 'second';"}
+  - {id: view_clear, sql: "COMMENT ON VIEW g_comment_rel_view IS NULL;"}
+  - {id: column_set, sql: "COMMENT ON COLUMN g_comment_rel_view.col_1 IS 'first';"}
+  - {id: column_replace, sql: "COMMENT ON COLUMN g_comment_rel_view.col_1 IS 'second';"}
+  - {id: column_clear, sql: "COMMENT ON COLUMN g_comment_rel_view.col_1 IS NULL;"}
+oracles:
+  - {after_step: index_set, kind: manual_assertion, expected: 以实际索引对象身份读取注释应为first，先校准目录接口。}
+  - {after_step: index_replace, kind: manual_assertion, expected: 同一索引仅保留second注释。}
+  - {after_step: index_clear, kind: manual_assertion, expected: 索引仍存在而注释不存在，不是字符串NULL。}
+  - {after_step: view_set, kind: manual_assertion, expected: 以实际视图对象身份读取注释应为first，不读取基表注释。}
+  - {after_step: view_replace, kind: manual_assertion, expected: 同一视图仅保留second注释。}
+  - {after_step: view_clear, kind: manual_assertion, expected: 视图仍存在而注释不存在，不是字符串NULL。}
+  - {after_step: column_set, kind: manual_assertion, expected: 读取视图col_1的列注释应为first，不读取基表列。}
+  - {after_step: column_replace, kind: manual_assertion, expected: 同一视图列仅保留second注释。}
+  - {after_step: column_clear, kind: manual_assertion, expected: 视图列仍存在而注释不存在，不是字符串NULL。}
+execution_requirements: [database_authorization, isolated_connection, fixture_object_owner, per_step_oracle, target_oracle_calibration, ownership_scoped_cleanup]

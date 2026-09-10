@@ -187,9 +187,11 @@ def prepare():
                   'create_index':'本包仅覆盖普通表单个整数直接键BTREE代表，不包括分区、表达式或算法锁语义。',
                   'create_view':'本包仅覆盖普通表两列直接投影的新视图代表，不包括替换、FORCE或检查选项。',
                   'create_table':'本包仅覆盖专属新模式下两INTEGER列普通新表的预备代表；不含IF NOT EXISTS、临时、分区或约束分支。',
+                  'create_database':'本包仅覆盖CREATE SCHEMA创建新命名空间的预备代表；不含DATABASE拼写、IF NOT EXISTS、字符集或字符序选项，不是物理建库。',
                   'alter_relation':'本包仅覆盖ALTER TABLE新增一个可空INTEGER列代表，ALTER VIEW和INDEX仍待补。',
                   'set':'本包仅覆盖SET SESSION TIME ZONE PRC代表，不推断用户变量或其他参数可预备。',
-                  'commit':'本包仅预备同会话COMMIT；解析不提交，实际执行与回滚阶段由独立场景验证。'
+                  'commit':'本包仅预备同会话COMMIT；解析不提交，实际执行与回滚阶段由独立场景验证。',
+                  'drop_relation':'本包仅覆盖独占新模式内普通TABLE PURGE、VIEW、INDEX及独占空SCHEMA的预备代表；不含DATABASE拼写、在线、级联或其他删除形态。'
                  }.get(suffix,'尚无本包有限代表测试。'),
                '–    '+body)
     p.fact('database_owner_limit','constraint',
@@ -407,7 +409,198 @@ def prepare():
         scenario['description']='只接受目标步骤对应错误，setup失败不能代替；SQLSTATE/类别匹配尚未校准，仍未执行。'
     p.files['scenarios/duplicate_and_variable.scenario.yaml']['name']='同名 PREPARE 负例（保留历史场景ID）'
     p.files['scenarios/variable_from.scenario.yaml']['fact_refs'].append('m_set::m_set_fact_user_variable_types')
+    add_prepared_drop_profiles(p)
+    add_prepared_create_namespace_profile(p)
+    add_prepared_drop_namespace_profile(p)
     return p
+
+
+def add_prepared_drop_namespace_profile(p):
+    """A finite empty namespace, distinct from relation or physical DB assets."""
+    name='m_prepare_stmt'; ns='m_prepare_drop_namespace'
+    body='DROP SCHEMA '+ns
+    matrix=p.files['matrices/body.matrix.yaml']
+    matrix['profiles'].append(dict(id=p.vid('body','drop_namespace'),render="'"+body+"'",validity='valid',
+        properties=dict(source_tables=[],source_columns=[]),
+        fact_refs=[p.fid('body_drop_relation'),'m_drop_schema::m_drop_schema_fact_syntax']))
+    feature=next(f for f in matrix['documented_features'] if f['id']==p.id+'_feature_body_drop_relation')
+    feature['profile_refs'].append(p.vid('body','drop_namespace'))
+    fx=p.fixture('drop_namespace',[],['SHOW search_path;',f'CREATE SCHEMA {ns};'],
+        [f'DEALLOCATE PREPARE {name};',f'DROP SCHEMA IF EXISTS {ns};'])
+    p.files['fixtures/drop_namespace.fixture.yaml']['execution']['note']=(
+        '仅在已授权M物理测试数据库独占连接内新建目标空模式，名称初始不存在、非系统名、非任何用户同名且不在search_path中。'
+        '真实setup不创建表，不提前PREPARE或EXECUTE；全程不USE此模式。目标只PREPARE，所以模式应仍存在且为空。'
+        '清理必须先确认本case资产归属与实际阶段；prepared仅成功创建后释放。仅本case新建且仍为空、非当前、无外部依赖的模式可清理。'
+        'IF EXISTS不是归属证明，不得清理同名外部或并发重建的模式；setup失败不能盲目执行teardown。'
+        '场景EXECUTE成功后模式已消失则跳过该清理，不把任意异常当已删除；关闭专属连接，ROLLBACK不能释放prepared。')
+    p.manifest('drop_namespace',dict(body=['drop_namespace']),[fx])
+    manifest=p.files['manifests/drop_namespace.manifest.yaml']
+    manifest['description']='只PREPARE本case独占空模式的DROP SCHEMA，不EXECUTE；不是物理数据库删除，不覆盖DATABASE同义拼写或非空模式。'
+    manifest['environment_requirements'] += [
+        dict(key='session_lifecycle',allowed_values=['isolated_connection'],fact_refs=[p.fid('session')]),
+        dict(key='namespace_authority',allowed_values=['database_create_non_user_named_fresh_schema'],
+             fact_refs=['m_create_schema::m_create_schema_fact_authority',
+                        'm_create_schema::m_create_schema_fact_namespace',
+                        'm_create_schema::m_create_schema_fact_same_name_owner']),
+        dict(key='drop_authority',allowed_values=['fixture_namespace_creator'],
+             fact_refs=['m_drop_schema::m_drop_schema_fact_authority']),
+        dict(key='asset_scope',allowed_values=['fresh_non_system_non_user_namespace_outside_search_path'],
+             fact_refs=['m_create_schema::m_create_schema_fact_namespace',
+                        'm_create_schema::m_create_schema_fact_same_name_owner'])]
+    p.scenario('drop_namespace_phase',['session','prepare_phase','execute_phase','body_drop_relation'],[fx],
+        [dict(id='before_prepare',action='校准目录确认setup确实新建本case所有的空模式，非当前模式、无同名用户、不在search_path中；保存物理数据库及非目标模式身份。'),
+         dict(id='prepare',sql=f"PREPARE {name} FROM '{body}';"),
+         dict(id='after_prepare',action='同一校准目录确认目标空模式仍存在且归属不变；再次排除并发、当前模式和外部依赖，满足后才可EXECUTE。'),
+         dict(id='execute',sql=f'EXECUTE {name};'),
+         dict(id='after_execute',action='校准目录确认仅目标模式消失，物理数据库和其他模式不变；若目标已消失跳过模式清理，只释放本case prepared并关闭连接。')],
+        [dict(kind='manual_assertion',step_id='before_prepare',expected='setup新建空模式且资产身份/权限满足；目录方法尚待校准。'),
+         dict(kind='manual_assertion',step_id='after_prepare',expected='PREPARE后目标仍存在且为空；不得把预备成功当已删除。'),
+         dict(kind='manual_assertion',step_id='after_execute',expected='EXECUTE后仅目标模式消失，物理数据库及非目标模式保持；不得以任意报错替代目录结果。')])
+    scenario=p.files['scenarios/drop_namespace_phase.scenario.yaml']
+    scenario['fact_refs'] += ['m_create_schema::m_create_schema_fact_namespace',
+        'm_create_schema::m_create_schema_fact_authority','m_create_schema::m_create_schema_fact_same_name_owner',
+        'm_drop_schema::m_drop_schema_fact_authority']
+    scenario['execution_requirements'] += ['isolated_connection','per_step_oracle','ownership_scoped_cleanup',
+        'actual_catalog_calibration','close_case_connection']
+    scenario['preconditions'] += ['独占测试库和连接；新模式无同名用户、非系统名、不在search_path中；不允许并发重建。',
+        'CREATE/DROP权限与真实归属先确认；目录接口先校准，任意阶段失败均阻止后续目标及盲目清理。']
+    scenario['description']='planned：只处理本case新建空SCHEMA，PREPARE后仍在、EXECUTE后才消失。目录Oracle未校准、未执行；不授权物理数据库或共享模式删除。'
+
+
+def add_prepared_create_namespace_profile(p):
+    """One new namespace body, with preparation separate from namespace DDL."""
+    name='m_prepare_stmt'; ns='m_prepare_created_namespace'
+    body='CREATE SCHEMA '+ns
+    matrix=p.files['matrices/body.matrix.yaml']
+    p.syntax_fact_refs.append(p.fid('body_create_database'))
+    matrix['profiles'].append(dict(id=p.vid('body','create_namespace'),render="'"+body+"'",validity='valid',
+        properties=dict(source_tables=[],source_columns=[]),
+        fact_refs=[p.fid('body_create_database'),'m_create_schema::m_create_schema_fact_syntax']))
+    feature=next(f for f in matrix['documented_features'] if f['id']==p.id+'_feature_body_create_database')
+    feature.update(status='covered',coverage_mode='representative',
+        profile_refs=[p.vid('body','create_namespace')],fact_refs=[p.fid('body_create_database')])
+    fx=p.fixture('create_namespace',[],['SHOW search_path;'],[f'DEALLOCATE PREPARE {name};'])
+    p.files['fixtures/create_namespace.fixture.yaml']['execution']['note']=(
+        '在已授权的M物理数据库独占连接内记录search_path；不提前创建目标模式，不用SELECT 1充当前置。'
+        '目标模式须不存在、非系统名、不与任何用户同名且不在search_path中，以免创建后隐式成为当前模式。'
+        '本候选只PREPARE，不DROP尚未创建的模式；prepared仅成功创建后按本case归属释放。'
+        'setup或目标失败须记录实际阶段，不盲目清理；关闭本case连接，不靠ROLLBACK恢复预备语句。')
+    p.manifest('create_namespace',dict(body=['create_namespace']),[fx])
+    manifest=p.files['manifests/create_namespace.manifest.yaml']
+    manifest['description']='只PREPARE新命名空间的CREATE SCHEMA；不是物理数据库创建，也不提前EXECUTE。CREATE DATABASE同义拼写及其他子分支仍未选择。'
+    manifest['environment_requirements'] += [
+        dict(key='session_lifecycle',allowed_values=['isolated_connection'],fact_refs=[p.fid('session')]),
+        dict(key='namespace_authority',allowed_values=['database_create_non_user_named_fresh_schema'],
+             fact_refs=['m_create_schema::m_create_schema_fact_authority',
+                        'm_create_schema::m_create_schema_fact_namespace',
+                        'm_create_schema::m_create_schema_fact_same_name_owner']),
+        dict(key='asset_scope',allowed_values=['fresh_non_system_non_user_namespace_outside_search_path'],
+             fact_refs=['m_create_schema::m_create_schema_fact_namespace',
+                        'm_create_schema::m_create_schema_fact_same_name_owner'])]
+    p.scenario('create_namespace_phase',['session','prepare_phase','execute_phase','body_create_database'],[fx],
+        [dict(id='before_prepare',action='通过校准的模式目录确认目标不存在且非当前模式；保存连接、数据库身份及search_path，确认无同名用户。'),
+         dict(id='prepare',sql=f"PREPARE {name} FROM '{body}';"),
+         dict(id='after_prepare',action='通过同一校准目录确认目标模式仍不存在；不能用查询不存在对象的任意错误代替。'),
+         dict(id='execute',sql=f'EXECUTE {name};'),
+         dict(id='after_execute',action='通过校准目录确认目标模式已创建、归本case执行主体、为空且不是current_schema；物理数据库身份保持。'),
+         dict(id='before_cleanup',action='再次确认仅本case创建的目标模式仍为空、不是current_schema、无并发或外部依赖；否则阻止DROP并记录。'),
+         dict(id='drop_target',sql=f'DROP SCHEMA {ns};'),
+         dict(id='after_cleanup',action='通过校准目录确认目标模式消失，原物理数据库和其他模式保持；随后fixture释放本case预备语句并关闭连接。')],
+        [dict(kind='manual_assertion',step_id='before_prepare',expected='目标模式不存在；专属M连接、名称唯一性及归属前置满足。'),
+         dict(kind='manual_assertion',step_id='after_prepare',expected='PREPARE后仍不存在；不是建库或模式执行成功证据。'),
+         dict(kind='manual_assertion',step_id='after_execute',expected='EXECUTE后才创建空模式；归属正确且物理数据库未变。'),
+         dict(kind='manual_assertion',step_id='before_cleanup',expected='目标确由本case创建、为空、非当前模式；否则不运行清理。'),
+         dict(kind='manual_assertion',step_id='after_cleanup',expected='只删除目标模式；其他模式和物理数据库保持。目录接口与结果均待实机校准。')])
+    scenario=p.files['scenarios/create_namespace_phase.scenario.yaml']
+    scenario['fact_refs'] += ['m_create_schema::m_create_schema_fact_namespace',
+        'm_create_schema::m_create_schema_fact_authority','m_create_schema::m_create_schema_fact_same_name_owner',
+        'm_drop_schema::m_drop_schema_fact_authority']
+    scenario['execution_requirements'] += ['isolated_connection','per_step_oracle','ownership_scoped_cleanup',
+        'actual_catalog_calibration','close_case_connection']
+    scenario['preconditions'] += ['目标不存在且非系统名、非任何用户名、不在search_path中；全程不切换到目标模式。',
+        '具备当前数据库CREATE权限及新模式DROP权限；目录接口先校准，任何前置或阶段失败须阻止后续目标和盲目清理。']
+    scenario['description']='独立planned阶段验证：PREPARE前后不存在，EXECUTE才创建，再按归属清理。所有目录检查尚待校准，不能自动执行人工步骤或用任意错误当通过；不授权物理建库或共享模式清理。'
+
+
+def add_prepared_drop_profiles(p):
+    """Three ordinary owned-object bodies, never execute nested DDL in setup."""
+    name='m_prepare_stmt'
+    matrix=p.files['matrices/body.matrix.yaml']
+    p.syntax_fact_refs.append(p.fid('body_drop_relation'))
+    for kind in ('table','view','index'):
+        suffix='drop_'+kind
+        ns='m_prepare_'+suffix+'_ns'
+        table=ns+'.base_table'
+        target=table if kind=='table' else ns+'.target_'+kind
+        provider='m_drop_'+kind
+        refs=[p.fid('body_drop_relation'),provider+'::'+provider+'_fact_syntax',
+              provider+'::'+provider+'_fact_authority']
+        body='DROP '+kind.upper()+' '+target+(' PURGE' if kind=='table' else '')
+        matrix['profiles'].append(dict(id=p.vid('body',suffix),render="'"+body+"'",validity='valid',
+            properties=dict(source_tables=[table],source_columns=['id','qty']),fact_refs=refs))
+        setup=[f'CREATE SCHEMA {ns};',f'CREATE TABLE {table} (id INTEGER, qty INTEGER);',
+               f'INSERT INTO {table} VALUES (1,10),(2,20);']
+        teardown=[f'DEALLOCATE PREPARE {name};']
+        if kind=='view':
+            setup.append(f'CREATE VIEW {target} AS SELECT id,qty FROM {table};')
+            teardown.append(f'DROP VIEW IF EXISTS {target};')
+        elif kind=='index':
+            setup.append(f'CREATE INDEX {target} USING BTREE ON {table} (id);')
+            teardown.append(f'DROP INDEX IF EXISTS {target};')
+        teardown += [f'DROP TABLE IF EXISTS {table} PURGE;',f'DROP SCHEMA {ns};']
+        fx=p.fixture(suffix,[(table,['id','qty'])],setup,teardown)
+        p.files['fixtures/'+suffix+'.fixture.yaml']['execution']['note']=(
+            '仅使用此case新建专属模式及对象，模式不得与用户同名。提供表声明，视图/索引身份由真实setup和阶段审阅确认，'
+            '不伪装为表。目标只PREPARE，不能提前执行内层DROP。无并发、无外部依赖、无CASCADE/DROP OWNED兜底。'
+            '只有确认本case创建成功且归属明确的资产才允许清理，失败须记录实际阶段；prepared仅成功创建后释放。'
+            '表清理使用PURGE避免回收站残留；最后清理空模式，关闭专属连接。未执行，不构成共享数据库安全授权。')
+        p.manifest(suffix,dict(body=[suffix]),[fx])
+        manifest=p.files['manifests/'+suffix+'.manifest.yaml']
+        manifest['description']='仅PREPARE本case新建对象的DROP，不EXECUTE；删除结果与实际资产清理由独立planned阶段场景验证。'
+        manifest['environment_requirements'] += [
+            dict(key='session_lifecycle',allowed_values=['isolated_connection'],fact_refs=[p.fid('session')]),
+            dict(key='namespace_authority',allowed_values=['database_create_non_user_named_fresh_schema'],
+                 fact_refs=['m_create_schema::m_create_schema_fact_authority',
+                            'm_create_schema::m_create_schema_fact_namespace',
+                            'm_create_schema::m_create_schema_fact_same_name_owner']),
+            dict(key='ddl_authority',allowed_values=['create_any_table'],
+                 fact_refs=['m_create_table::m_create_table_fact_authority']),
+            dict(key='drop_authority',allowed_values=['fixture_object_creator'],
+                 fact_refs=[provider+'::'+provider+'_fact_authority']),
+            dict(key='cleanup_authority',allowed_values=['fixture_table_and_namespace_creator'],
+                 fact_refs=['m_drop_table::m_drop_table_fact_authority',
+                            'm_drop_schema::m_drop_schema_fact_authority']),
+            dict(key='asset_scope',allowed_values=['fresh_owned_objects_no_external_dependencies'],
+                 fact_refs=['m_create_schema::m_create_schema_fact_namespace',
+                            'm_create_schema::m_create_schema_fact_same_name_owner'])]
+        if kind in ('view','index'):
+            manifest['environment_requirements'].append(dict(key='nested_object_create_authority',
+                allowed_values=['create_any_table' if kind=='view' else 'create_any_index'],
+                fact_refs=[f'm_create_{kind}::m_create_{kind}_fact_authority']))
+        steps=[dict(id='prepare',sql=f"PREPARE {name} FROM '{body}';")]
+        if kind=='index':
+            steps.append(dict(id='before_execute',action='使用已校准目录接口，确认专属模式中target_index仍存在；PREPARE尚未执行DROP。'))
+            before=dict(kind='manual_assertion',step_id='before_execute',expected='索引存在；目录查询接口与归属需校准。')
+        else:
+            steps.append(dict(id='before_execute',sql=f'SELECT id,qty FROM {target} ORDER BY id;'))
+            before=dict(kind='result_set',step_id='before_execute',expected=[[1,10],[2,20]])
+        steps += [dict(id='execute',sql=f'EXECUTE {name};'),
+                  dict(id='after_execute',action='使用已校准目录接口，断言仅目标对象消失；同case其他资产仍存在。不得用任意查询报错替代目录Oracle。')]
+        p.scenario(suffix+'_phase',['session','prepare_phase','execute_phase','body_drop_relation'],[fx],steps,
+            [before,dict(kind='manual_assertion',step_id='after_execute',
+                expected='目标对象消失且非目标资产保持；目录接口和每步结果待校准，不是已执行Oracle。')])
+        scenario=p.files['scenarios/'+suffix+'_phase.scenario.yaml']
+        # Cross-package scenario consumers take lifecycle/environment evidence;
+        # nested syntax stays on the corresponding body profile.
+        scenario['fact_refs'] += [provider+'::'+provider+'_fact_authority',
+                                 'm_drop_table::m_drop_table_fact_purge']
+        scenario['execution_requirements'] += ['isolated_connection','per_step_oracle','ownership_scoped_cleanup',
+                                               'actual_catalog_calibration','close_case_connection']
+        scenario['description']='验证PREPARE与EXECUTE的对象生命周期差异；只操作新建专属对象，仍planned且未执行。'
+    feature=next(f for f in matrix['documented_features'] if f['id']==p.id+'_feature_body_drop_relation')
+    feature.update(status='covered',coverage_mode='representative',
+        profile_refs=[p.vid('body','drop_'+k) for k in ('table','view','index')],
+        fact_refs=[p.fid('body_drop_relation')])
 
 
 def execute():
@@ -572,6 +765,9 @@ def alter_index():
 def drop_index():
     p=Package('DROP INDEX','DDL',CORPUS)
     p.fact('syntax','syntax','DROP INDEX 有普通/在线形式，以及带 ON table 的独立 M 形式。','DROP INDEX [ CONCURRENTLY ]',4)
+    p.fact('authority','environment','索引所有者、所在模式所有者、持有所在表INDEX权限或DROP ANY INDEX权限的用户可删除；三权分立关闭时系统管理员默认有权。',
+           '索引的所有者、索引所在模式的所有者',3)
+    p.exports=[p.fid('syntax'),p.fid('authority')]
     p.fact('online_single','constraint','CONCURRENTLY 只能删除一个索引，且不能 CASCADE。','只能指定一个索引的名称',2)
     p.fact('online_transaction','environment','在线删除不能处于事务内。','普通DROP INDEX命令可以在事务内执行',2)
     p.fact('notice','behavior_oracle','IF EXISTS 对缺失索引返回 notice 而非 ERROR。','则发出一个notice')
@@ -874,8 +1070,14 @@ def set_command():
            '●   设置自定义用户变量。',3)
     p.fact('user_variable_types','constraint','用户变量允许存储字符类型及NULL；此fixture不推断其他类型转换行为。',
            '● 自定义变量只会存储数值类型',1)
+    p.fact('user_variable_integer','syntax',
+           '用户变量表达式支持可直接或间接转为整型的表达式；本代表只选择7/-7整数文字，不推断全部类型转换、整数边界或驱动返回类型。',
+           '表达式，支持可直接或间接转为整型',1)
+    p.fact('user_variable_chain','constraint',
+           '连续赋值首位允许:=或=，后续赋值位只能用:=；中间的=表示比较，不是赋值。本代表只取两个变量及字符串/NULL。',
+           '● 对于连续赋值的场景',4)
     p.fact('user_variable_profile_gap','open_question',
-           '已有单变量字符串/NULL和两种赋值符号的有限代表；数值/二进制/其他类型转换、多变量列表、连续赋值及子查询表达式仍缺合同，实际读回未验证。',
+           '已有单变量、两个独立变量列表及两个变量连续赋值的字符串/NULL有限代表，单变量另有7/-7整数文字；子查询仅单列无FROM的字符串/NULL/7/-7常量代表。更长列表/赋值链、内部等号拒绝Oracle、FROM/关联/多行子查询、任意表达式组合、其他数值/二进制/类型转换仍缺合同，实际读回未验证。',
            '●   设置自定义用户变量。',3,'needs_verification')
     variable_matrix='matrix_m_set_user_variable_coverage'
     p.files['matrices/user_variable_coverage.matrix.yaml']=p.entity('matrix',variable_matrix,
@@ -884,8 +1086,15 @@ def set_command():
             value_refs=[p.vid('assignment_operator','colon'),p.vid('assignment_operator','equals'),
                         p.vid('variable_value','string'),p.vid('variable_value','null')],
             fact_refs=[p.fid('user_variable'),p.fid('user_variable_types')]),
+            dict(id='m_set_feature_user_variable_list',status='covered',coverage_mode='representative',
+                 value_refs=[p.vid('form','user_variable_list')],fact_refs=[p.fid('user_variable')]),
             dict(id='m_set_feature_user_variable_extended_domain',status='needs_profile',
-                 fact_refs=[p.fid('user_variable'),p.fid('user_variable_profile_gap')])])
+                 fact_refs=[p.fid('user_variable'),p.fid('user_variable_profile_gap')]),
+            dict(id='m_set_feature_user_variable_chain',status='covered',coverage_mode='representative',
+                 value_refs=[p.vid('form','user_variable_chain')],fact_refs=[p.fid('user_variable_chain')]),
+            dict(id='m_set_feature_user_variable_integer',status='covered',coverage_mode='representative',
+                 value_refs=[p.vid('variable_value','integer_positive'),p.vid('variable_value','integer_negative')],
+                 fact_refs=[p.fid('user_variable_integer')])])
     p.matrices.append(variable_matrix)
     p.exports=[p.fid('session'),p.fid('user_variable_types'),p.fid('timezone')]
     p.syntax_fact_refs=[p.fid('syntax'),p.fid('timezone'),p.fid('user_variable')]
@@ -908,13 +1117,22 @@ def set_command():
     # Keep the old explicit timezone domain; new defaults change its identity,
     # not its SQL/fixture. The reviewed nine-case migration is recorded separately.
     timezone_ast=p.ast
-    p.dim('form',[('timezone',''),('user_variable','')])
+    p.dim('form',[('timezone',''),('user_variable',''),('user_variable_list',''),('user_variable_chain','')])
     p.dims['form']['classes'][1]['values'][0]['fact_refs']=[p.fid('user_variable')]
+    p.dims['form']['classes'][2]['values'][0]['fact_refs']=[p.fid('user_variable')]
+    p.dims['form']['classes'][3]['values'][0]['fact_refs']=[p.fid('user_variable_chain')]
     p.dim('assignment_operator',[('colon',':='),('equals','=')],'user_variable')
-    p.dim('variable_value',[('string',"'factor value'"),('null','NULL')],'user_variable_types')
+    p.dim('variable_value',[('string',"'factor value'"),('null','NULL'),
+                            ('integer_positive','7'),('integer_negative','-7')],'user_variable_types')
+    for cls in p.dims['variable_value']['classes'][2:]:
+        cls['values'][0]['fact_refs']=[p.fid('user_variable_integer')]
     p.ast=dict(kind='choice',selector='form',branches={
         p.vid('form','timezone'):timezone_ast,
-        p.vid('form','user_variable'):seq('SET @m_set_value ',slot('assignment_operator'),' ',slot('variable_value'))})
+        p.vid('form','user_variable'):seq('SET @m_set_value ',slot('assignment_operator'),' ',slot('variable_value')),
+        p.vid('form','user_variable_list'):seq('SET @m_set_first ',slot('assignment_operator'),
+            " 'first value', @m_set_second ",slot('assignment_operator'),' ',slot('variable_value')),
+        p.vid('form','user_variable_chain'):seq('SET @m_set_chain_left ',slot('assignment_operator'),
+            ' @m_set_chain_right := ',slot('variable_value'))})
     variable_fx=p.fixture('user_variable',[],["SET @m_set_value := 'initial value';"],
                           ['SET @m_set_value := NULL;'])
     p.files['fixtures/user_variable.fixture.yaml']['execution']['note']=(
@@ -922,14 +1140,64 @@ def set_command():
         '目标后清为NULL并关闭case连接；变量赋值不清理表、不改变全局参数。')
     p.manifest('user_variable',dict(form=['user_variable'],assignment_operator=['colon','equals'],
                                    variable_value=['string','null']),[variable_fx])
+    p.manifest('user_variable_integer',dict(form=['user_variable'],assignment_operator=['colon','equals'],
+                                           variable_value=['integer_positive','integer_negative']),[variable_fx])
+    list_fx=p.fixture('user_variable_list',[],
+        ["SET @m_set_first := 'initial first';","SET @m_set_second := 'initial second';"],
+        ['SET @m_set_first := NULL;','SET @m_set_second := NULL;'])
+    p.files['fixtures/user_variable_list.fixture.yaml']['execution']['note']=(
+        '仅用于独占新M连接中的两个case专属变量，逐个初始化并清为NULL后关闭连接。'
+        '不能复用用户原有变量，不假定ROLLBACK能恢复变量，不改变全局参数。'
+        '两个表达式独立且无互相读取，不推断连续赋值、列表求值顺序或类型转换。')
+    p.manifest('user_variable_list',dict(form=['user_variable_list'],assignment_operator=['colon','equals'],
+                                       variable_value=['string','null']),[list_fx])
+    chain_fx=p.fixture('user_variable_chain',[],
+        ["SET @m_set_chain_left := 'initial left';","SET @m_set_chain_right := 'initial right';"],
+        ['SET @m_set_chain_left := NULL;','SET @m_set_chain_right := NULL;'])
+    p.files['fixtures/user_variable_chain.fixture.yaml']['execution']['note']=(
+        '只用于独占新M连接中的本case两个变量，初始化为不同值，目标后逐个清NULL并关闭连接。'
+        '不使用ROLLBACK假定恢复变量，不改全局参数，不复用用户原有变量。'
+        '连续赋值与逗号列表分开，只有首位运算符可选=，第二位固定:=；更长链和类型转换未覆盖。')
+    p.manifest('user_variable_chain',dict(form=['user_variable_chain'],assignment_operator=['colon','equals'],
+                                        variable_value=['string','null']),[chain_fx])
+    add_user_variable_subquery(p)
+    add_schema_selection(p)
     session_gate(p,'session')
-    p.files['manifests/user_variable.manifest.yaml']['environment_requirements'].append(
-        dict(key='variable_lifecycle',allowed_values=['close_case_connection'],fact_refs=[p.fid('session')]))
+    for name in ('user_variable','user_variable_list','user_variable_chain','user_variable_integer','user_variable_subquery'):
+        p.files['manifests/'+name+'.manifest.yaml']['environment_requirements'].append(
+            dict(key='variable_lifecycle',allowed_values=['close_case_connection'],fact_refs=[p.fid('session')]))
     p.scenario('user_variable_values',['user_variable_types','user_variable_profile_gap'],[variable_fx],
         [dict(id='string',sql="SET @m_set_value = 'factor value';"),dict(id='null',sql='SET @m_set_value := NULL;')],
         [dict(kind='result_set',step_id='string',sql='SELECT @m_set_value;',expected=[['factor value']]),
          dict(kind='result_set',step_id='null',sql='SELECT @m_set_value;',expected=[[None]])])
     p.files['scenarios/user_variable_values.scenario.yaml']['execution_requirements'] += [
+        'isolated_connection','close_case_connection','per_step_oracle']
+    p.scenario('user_variable_integer_values',['user_variable_integer','user_variable_profile_gap'],[variable_fx],
+        [dict(id='positive',sql='SET @m_set_value = 7;'),dict(id='negative',sql='SET @m_set_value := -7;')],
+        [dict(kind='result_set',step_id='positive',sql='SELECT @m_set_value;',expected=[[7]]),
+         dict(kind='result_set',step_id='negative',sql='SELECT @m_set_value;',expected=[[-7]])])
+    p.files['scenarios/user_variable_integer_values.scenario.yaml']['execution_requirements'] += [
+        'isolated_connection','close_case_connection','per_step_oracle']
+    p.files['scenarios/user_variable_integer_values.scenario.yaml']['description']=(
+        '字符串初始值到正整数、再到负整数的有限逐步读回；每步Oracle必须在下一步赋值前读取。'
+        '只比较数值，不由JSON数值推断服务端int8身份或驱动类型，实际返回表示待校准；不宣称全数值转换域。')
+    p.scenario('user_variable_list_values',['user_variable','user_variable_types','user_variable_profile_gap'],[list_fx],
+        [dict(id='strings',sql="SET @m_set_first = 'first value', @m_set_second = 'factor value';"),
+         dict(id='null_second',sql="SET @m_set_first := 'first value', @m_set_second := NULL;")],
+        [dict(kind='result_set',step_id='strings',sql='SELECT @m_set_first,@m_set_second;',
+              expected=[['first value','factor value']]),
+         dict(kind='result_set',step_id='null_second',sql='SELECT @m_set_first,@m_set_second;',
+              expected=[['first value',None]])])
+    p.files['scenarios/user_variable_list_values.scenario.yaml']['execution_requirements'] += [
+        'isolated_connection','close_case_connection','per_step_oracle']
+    p.scenario('user_variable_chain_values',['user_variable_chain','user_variable_types','user_variable_profile_gap'],[chain_fx],
+        [dict(id='strings',sql="SET @m_set_chain_left = @m_set_chain_right := 'factor value';"),
+         dict(id='nulls',sql='SET @m_set_chain_left := @m_set_chain_right := NULL;')],
+        [dict(kind='result_set',step_id='strings',sql='SELECT @m_set_chain_left,@m_set_chain_right;',
+              expected=[['factor value','factor value']]),
+         dict(kind='result_set',step_id='nulls',sql='SELECT @m_set_chain_left,@m_set_chain_right;',
+              expected=[[None,None]])])
+    p.files['scenarios/user_variable_chain_values.scenario.yaml']['execution_requirements'] += [
         'isolated_connection','close_case_connection','per_step_oracle']
     p.scenario('local_rollback',['local','session'],[fx],
         [dict(action='先记录会话 TimeZone，再 SET LOCAL TIME ZONE PRC，ROLLBACK 后与原值比较；不将原值猜成固定 PRC。')],
@@ -938,6 +1206,119 @@ def set_command():
         [dict(action='独立建模 @@global 拒绝、SET NAMES 字符集匹配、缺失 CURRENT_SCHEMA 的空值；不把任意错误算通过。')],
         [dict(kind='manual_assertion',expected='各分支需要自己的环境与预期，不由时区有限模型推导覆盖')])
     return p
+
+
+def add_user_variable_subquery(p):
+    """M SET L114-116; only one literal SELECT, not a scalar-query evaluator."""
+    p.fact('user_variable_subquery','syntax',
+           '用户变量expr可为子查询；此代表只取M SELECT单个常量投影且无FROM，不混入多行/关联查询。',
+           '● 当expr为子查询表达式',3)
+    p.fact('user_variable_subquery_result','behavior_oracle',
+           'expr为子查询时，变量结果与直接查询结果一致；本场景逐步对照单列常量结果，运行期尚待校准。',
+           '● 当expr为子查询表达式',3)
+    sources=[p.fid('user_variable_subquery'),'m_select::m_select_fact_from_optional',
+             'm_select::m_select_fact_projection_expression']
+    identity=p.vid('form','user_variable_subquery')
+    p.dims['form']['classes'].append(dict(id=identity+'_class',meaning='user_variable_subquery',values=[
+        dict(id=identity,render='',representative=True,validity='valid',properties={},fact_refs=sources)]))
+    p.ast['branches'][identity]=seq('SET @m_set_subquery_value ',slot('assignment_operator'),
+                                    ' (',seq('SELECT ',slot('variable_value')),')')
+    p.syntax_fact_refs += sources
+    fx=p.fixture('user_variable_subquery',[],["SET @m_set_subquery_value := 'initial subquery value';"],
+                 ['SET @m_set_subquery_value := NULL;'])
+    p.files['fixtures/user_variable_subquery.fixture.yaml']['execution']['note']=(
+        '仅在已授权M物理数据库的独占新连接内初始化本case变量，不创建或伪报表。'
+        '目标只取单列无FROM的常量SELECT；实际运行前需确认M模式与专属连接。'
+        '清理本变量为NULL后关闭连接，不用ROLLBACK假装恢复用户变量，不更改全局参数。')
+    p.manifest('user_variable_subquery',dict(form=['user_variable_subquery'],
+        assignment_operator=['colon','equals'],variable_value=['string','null','integer_positive','integer_negative']),[fx])
+    p.files['manifests/user_variable_subquery.manifest.yaml']['description']=(
+        'M SET单列单行无FROM常量子查询有限代表；不是任意子查询/类型转换的成功保证。')
+    p.files['matrices/user_variable_coverage.matrix.yaml']['documented_features'].append(
+        dict(id='m_set_feature_user_variable_subquery',status='covered',coverage_mode='representative',
+             value_refs=[identity],fact_refs=sources))
+    steps,oracles=[],[]
+    for label,literal,value in (('string',"'factor value'",'factor value'),('null','NULL',None),
+                                ('positive','7',7),('negative','-7',-7)):
+        direct,assign=label+'_direct',label+'_assign'
+        steps += [dict(id=direct,sql=f'SELECT {literal};'),
+                  dict(id=assign,sql=f'SET @m_set_subquery_value := (SELECT {literal});')]
+        oracles += [dict(kind='result_set',step_id=direct,sql=f'SELECT {literal};',expected=[[value]]),
+                    dict(kind='result_set',step_id=assign,sql='SELECT @m_set_subquery_value;',expected=[[value]])]
+    p.scenario('user_variable_subquery_values',
+        ['user_variable_subquery','user_variable_subquery_result','user_variable_profile_gap'],[fx],steps,oracles)
+    scenario=p.files['scenarios/user_variable_subquery_values.scenario.yaml']
+    scenario['execution_requirements'] += ['isolated_connection','close_case_connection','per_step_oracle']
+    scenario['description']=(
+        'planned：每种literal先直接SELECT再赋给变量，每一步Oracle在下一赋值之前运行。'
+        'NULL是一行单列NULL，不是零行；只比较标量内容，不推断驱动类型或全部转换语义。'
+        'FROM/关联/多行子查询、函数或任意表达式均未纳入此代表，未执行数据库。')
+
+
+def add_schema_selection(p):
+    """Existing schema only; commit fixture DDL before the SET transaction."""
+    p.fact('schema_syntax','syntax',
+           '设置模式支持CURRENT_SCHEMA TO/=标识符及SCHEMA字符串，并可选择SESSION/LOCAL；本代表只用已存在专属模式。',16,3)
+    p.fact('schema_selected','behavior_oracle',
+           'CURRENT_SCHEMA指定当前模式，SCHEMA字符串同义；已存在模式的选择与回滚恢复需逐步验证，不硬编码初始模式。',56,7)
+    p.fact('schema_profile_gap','open_question',
+           '仅同一专属模式的三种拼写与三scope有限代表；DEFAULT、缺失模式空值、提交与SESSION/LOCAL交错、名称引用域和实际元数据接口仍待验证。',16,3,'needs_verification')
+    ns='m_set_owned_namespace'
+    source_refs=[p.fid('schema_syntax'),'m_create_schema::m_create_schema_fact_syntax',
+                 'm_commit::m_commit_fact_syntax','m_start_transaction::m_start_transaction_fact_syntax',
+                 'm_rollback::m_rollback_fact_syntax','m_drop_schema::m_drop_schema_fact_syntax']
+    forms=[('schema_to',f'CURRENT_SCHEMA TO {ns}'),('schema_equals',f'CURRENT_SCHEMA = {ns}'),
+           ('schema_string',f"SCHEMA '{ns}'")]
+    for label,clause in forms:
+        identity=p.vid('form',label)
+        p.dims['form']['classes'].append(dict(id=identity+'_class',meaning=label,values=[
+            dict(id=identity,render='',representative=True,validity='valid',properties={},fact_refs=source_refs)]))
+        p.ast['branches'][identity]=seq('SET ',slot('scope'),' '+clause)
+    p.syntax_fact_refs.append(p.fid('schema_syntax'))
+    fx=p.fixture('schema',[],[f'CREATE SCHEMA {ns};','COMMIT;','START TRANSACTION;'],
+                 ['ROLLBACK;',f'DROP SCHEMA {ns};','COMMIT;'])
+    p.files['fixtures/schema.fixture.yaml']['execution']['note']=(
+        '只用于已授权M物理数据库中的独占新连接，确认事前无事务且没有其他用户工作。'
+        '专属模式须事前不存在、不在当前搜索路径、非系统模式、非同名用户模式；记录实际创建成功和对象归属。'
+        'CREATE SCHEMA后显式COMMIT完成DDL阶段，再START TRANSACTION包围目标SET；不依赖DDL回滚。'
+        '目标后ROLLBACK恢复事前会话模式，核验模式不再是当前模式且为空、归属仍为本case才DROP，再COMMIT完成清理。'
+        '任一setup失败不得运行目标或按名称清理他人资产；恢复/身份不能确认时停止清理并报告，关闭case连接。'
+        '目录身份/事务阶段执行适配仍待校准，此静态列表不是无条件安全执行许可。')
+    p.manifest('schema',dict(form=[x[0] for x in forms],scope=['default','session','local']),[fx])
+    m=p.files['manifests/schema.manifest.yaml']
+    m['description']='M当前模式三种完整拼写与三scope，仅已存在专属模式；不包含DEFAULT或缺失模式预期。'
+    m['environment_requirements'] += [
+        dict(key='namespace_create_authority',allowed_values=['database_create'],
+             fact_refs=['m_create_schema::m_create_schema_fact_authority']),
+        dict(key='namespace_identity',allowed_values=['fresh_non_system_non_user_named_schema'],
+             fact_refs=['m_create_schema::m_create_schema_fact_namespace','m_create_schema::m_create_schema_fact_same_name_owner']),
+        dict(key='namespace_drop_authority',allowed_values=['actual_case_schema_owner'],
+             fact_refs=['m_drop_schema::m_drop_schema_fact_authority']),
+        dict(key='transaction_owner',allowed_values=['same_connection_transaction_creator'],
+             fact_refs=['m_commit::m_commit_fact_authority']),
+        dict(key='schema_lifecycle',allowed_values=['fresh_owned_non_current_namespace_restore_before_drop'],
+             fact_refs=[p.fid('session')])]
+    matrix='matrix_m_set_schema_coverage'
+    p.matrices.append(matrix)
+    p.files['matrices/schema_coverage.matrix.yaml']=p.entity('matrix',matrix,profiles=[],documented_features=[
+        dict(id='m_set_feature_schema_existing',status='covered',coverage_mode='representative',
+             value_refs=[p.vid('form',x[0]) for x in forms],fact_refs=[p.fid('schema_syntax')]),
+        dict(id='m_set_feature_schema_extended',status='needs_profile',
+             fact_refs=[p.fid('schema_profile_gap')])])
+    steps=[dict(id='baseline',action='在首次SET前采集当前模式及搜索路径，保存为本case事前基线；不假定public。')]
+    oracles=[]
+    for label,clause in forms:
+        steps.append(dict(id=label,sql=f'SET LOCAL {clause};'))
+        oracles.append(dict(kind='manual_assertion',step_id=label,
+                            expected=f'当前模式为本case实际创建的{ns}；读取接口及结果表示待校准。'))
+    steps.append(dict(id='restore',sql='ROLLBACK;'))
+    oracles.append(dict(kind='manual_assertion',step_id='restore',
+        expected='与保存的事前当前模式及搜索路径相等；验证专属模式已不再是当前模式，且仍存在、为空并由本case拥有，再清理。'))
+    p.scenario('schema_restore',['schema_selected','local','session','schema_profile_gap'],[fx],steps,oracles)
+    s=p.files['scenarios/schema_restore.scenario.yaml']
+    s['execution_requirements'] += ['isolated_connection','close_case_connection','per_step_oracle',
+        'capture_pre_target_schema_and_search_path','verify_owned_empty_namespace_before_drop','separate_ddl_and_target_transactions']
+    s['description']='planned：先记录模式基线，再逐步验证三个LOCAL同义拼写及ROLLBACK恢复；SESSION提交持久性、交错设置和缺失模式不由本场景替代。'
 
 
 def reset():

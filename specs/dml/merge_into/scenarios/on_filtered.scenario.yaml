@@ -1,0 +1,19 @@
+schema_version: 1
+kind: scenario
+id: scenario_merge_on_filtered
+name: MERGE附加ON条件不丢弃负键source行
+status: planned
+description: source.id=-1无法满足ON，仍进入NOT MATCHED插入；无唯一约束的目标应保留旧负键行并新增负键行。不能把ON当作USING源过滤或动作WHERE，不推断NULL种子或实际影响行数。
+factor_ref: merge_into
+fixture_refs: [fixture_merge_on_filter]
+fact_refs: [merge_fact_on_condition, merge_fact_matched_behavior, merge_fact_not_matched_behavior, 'drop_table::dt_fact_dependency_modes', 'drop_table::dt_fact_purge']
+preconditions: [一般模式独占新连接及非系统模式，两表初始不存在，固定search_path，独立seed且不沿用control结果，逐步记录本case资产归属]
+steps:
+  - id: merge
+    sql: "MERGE INTO g_merge_on_target AS dst USING g_merge_on_source AS src ON (dst.id = src.id AND src.id > 0) WHEN MATCHED THEN UPDATE SET name = src.name, category = src.category WHEN NOT MATCHED THEN INSERT (id, name, category) VALUES (src.id, src.name, src.category);"
+oracles:
+  - kind: result_set
+    step_id: merge
+    sql: SELECT id, name, category FROM g_merge_on_target ORDER BY id, name;
+    expected: [[-1, new-negative, incoming], [-1, old-negative, old], [1, new-one, incoming], [2, new-two, incoming], [3, keep-three, keep]]
+execution_requirements: [database_authorization, general_mode, isolated_connection, fresh_fixture_per_scenario, ownership_scoped_cleanup, per_step_oracle, target_oracle_calibration]

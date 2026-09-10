@@ -1,0 +1,28 @@
+schema_version: 1
+kind: scenario
+id: scenario_comment_types
+name: 枚举与复合类型注释的独立元数据身份
+factor_ref: comment
+status: planned
+description: 只比较本case两种类型的注释和定义，目录接口仍需实机校准；不把同名表注释或类型文本输出当成类型注释。
+fixture_refs: [fixture_comment_types]
+fact_refs: [comment_fact_lifecycle, comment_fact_authority, create_type::create_type_fact_owner, create_type::create_type_fact_composite_usage, drop_type::drop_type_fact_privilege, drop_type::drop_type_fact_restrict, drop_schema::drop_schema_fact_current]
+preconditions:
+  - 一般章节条件、已授权独占数据库和隔离连接；目标模式非当前、非系统、无同名用户或并发对象
+  - 确认本case实际创建模式及两种类型；创建和清理权限均满足，INTEGER属性USAGE已确认
+  - 校准以模式、类型名、类型类别定位真实类型的目录接口，不能读取同名表的注释
+steps:
+  - {id: enum_set, sql: "COMMENT ON TYPE g_comment_type_ns.status_enum IS 'first';"}
+  - {id: enum_replace, sql: "COMMENT ON TYPE g_comment_type_ns.status_enum IS 'second';"}
+  - {id: enum_clear, sql: 'COMMENT ON TYPE g_comment_type_ns.status_enum IS NULL;'}
+  - {id: composite_set, sql: "COMMENT ON TYPE g_comment_type_ns.point_pair IS 'first';"}
+  - {id: composite_replace, sql: "COMMENT ON TYPE g_comment_type_ns.point_pair IS 'second';"}
+  - {id: composite_clear, sql: 'COMMENT ON TYPE g_comment_type_ns.point_pair IS NULL;'}
+oracles:
+  - {kind: manual_assertion, step_id: enum_set, expected: '同一模式中的status_enum是ENUM类型，注释为first，open/closed标签及顺序不变。'}
+  - {kind: manual_assertion, step_id: enum_replace, expected: '同一ENUM类型只保留second注释，不追加；两个标签及顺序不变。'}
+  - {kind: manual_assertion, step_id: enum_clear, expected: '同一ENUM类型仍在而注释被删除，不是文本NULL；标签不变。'}
+  - {kind: manual_assertion, step_id: composite_set, expected: '同一模式中的point_pair是COMPOSITE类型而非表，注释为first；x/y两个INTEGER属性顺序与类型不变。'}
+  - {kind: manual_assertion, step_id: composite_replace, expected: '同一COMPOSITE类型只保留second注释；x/y两个INTEGER属性不变。'}
+  - {kind: manual_assertion, step_id: composite_clear, expected: '同一COMPOSITE类型仍在而注释被删除，不是文本NULL；属性不变。'}
+execution_requirements: [database_authorization, isolated_connection, fixture_object_owner, per_step_oracle, target_oracle_calibration, ownership_scoped_cleanup]

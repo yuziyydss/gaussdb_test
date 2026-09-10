@@ -3,7 +3,7 @@
 支持两种模式:
   enabled=False (默认): 桩模式，返回 skipped，不连数据库
   enabled=True: 真实执行，捕获 SQLSTATE，检测 core dump，与 expected 集合比对
-  use_sandbox=True (默认): Schema 级沙箱隔离，执行完毕后自动 CASCADE 清理，杜绝 DDL 污染
+  use_sandbox=True (默认): Schema 初始化失败即阻止执行；隔离形状不等于所有权或清理安全证明
 """
 import json
 import os
@@ -130,10 +130,10 @@ def _load_environment_capabilities() -> dict:
     }
 
 
-def _starts_with_create(sql):
+def _target_creator_keyword(sql):
     """Recognize the first keyword through leading comments, not arbitrary SQL bodies.
 
-    This failure guard is not ownership proof for successful/conditional CREATE,
+    This failure guard is not ownership proof for successful CREATE/PREPARE,
     multiple statements, stored routines or a later replacement of an owned object.
     """
     rest=sql.lstrip('\ufeff \t\r\n')
@@ -147,9 +147,10 @@ def _starts_with_create(sql):
             elif rest.startswith('*/',i):depth-=1;i+=2
             else:i+=1
         if depth:
-            return True  # Incomplete comment: no basis for authorizing teardown.
+            return 'unparsed creator'  # No basis for authorizing teardown.
         rest=rest[i:].lstrip()
-    return bool(re.match(r'CREATE\b',rest,re.I))
+    match = re.match(r'(CREATE|PREPARE)\b',rest,re.I)
+    return match[1].upper() if match else ''
 
 
 class Executor:
@@ -212,16 +213,23 @@ class Executor:
             return "public"
         
         sandbox_name = f"{self.config.sandbox_prefix}_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+        cur = None
         try:
             cur = self._conn.cursor()
             cur.execute(f'CREATE SCHEMA "{sandbox_name}";')
             cur.execute(f'SET search_path TO "{sandbox_name}", public;')
-            cur.close()
             self._current_sandbox = sandbox_name
             return sandbox_name
         except Exception as e:
-            print(f"[Executor] 创建沙箱失败，回退到 public: {e}")
-            return "public"
+            # Partial CREATE/SET success is not permission to use public or
+            # blindly delete a schema. The batch must stop before any case.
+            raise RuntimeError(f"sandbox initialization failed for {sandbox_name}: {e}") from e
+        finally:
+            if cur is not None:
+                try:
+                    cur.close()
+                except Exception:
+                    pass
 
     def drop_sandbox(self, sandbox_name: str):
         """清理临时 Schema 沙箱及其所有对象。"""
@@ -388,12 +396,14 @@ class Executor:
                         "inspect possible partial setup residue before manual cleanup"
                     )
             elif (r is not None and r.status in {'error','core'}
-                  and getattr(case, 'teardown_sqls', []) and _starts_with_create(case.sql)):
+                  and getattr(case, 'teardown_sqls', []) and _target_creator_keyword(case.sql)):
                 # A successful absence assertion is not ownership of the target:
                 # another actor may create it before our CREATE fails. Without an
                 # asset ownership ledger, do not guess which DROP is safe.
+                # Failed PREPARE also does not own a same-named session object:
+                # neither DEALLOCATE nor ROLLBACK is an ownership substitute.
                 r.cleanup_skipped_reason = (
-                    'CREATE target failed; target ownership unproven; teardown not authorized; '
+                    f'{_target_creator_keyword(case.sql)} target failed; target ownership unproven; teardown not authorized; '
                     'inspect possible setup/target residue before ownership-scoped cleanup'
                 )
             elif self._conn and self._check_alive():
@@ -464,7 +474,28 @@ class Executor:
         if self.config.enabled and not self._conn:
             self.connect()
 
-        sandbox = self.create_sandbox()
+        try:
+            sandbox = self.create_sandbox()
+        except Exception as error:
+            # Sandbox failure is a batch precondition failure, not any case's
+            # expected target error. Never fall back to public or run teardown.
+            results = []
+            for case in cases:
+                result = ExecResult(
+                    case_id=case.case_id, sql=case.sql, status='fixture_error', expected=case.expected,
+                    error_msg=f'sandbox initialization failed before case setup: {error}',
+                    expected_sqlstate=getattr(case, 'expected_sqlstate', ''),
+                    expected_sqlstates=getattr(case, 'expected_sqlstates', []),
+                    expected_error_category=getattr(case, 'expected_error_category', ''),
+                    expected_error_regex=getattr(case, 'expected_error_regex', ''),
+                    expected_oracle_status=getattr(case, 'expected_oracle_status', 'confirmed'),
+                    expected_scope=getattr(case, 'expected_scope', 'syntax_and_semantics'),
+                    environment_requirements=getattr(case, 'environment_requirements', []),
+                    cleanup_skipped_reason='sandbox initialization did not complete; teardown not authorized; '
+                                           'inspect possible partial sandbox residue before ownership-scoped cleanup')
+                result.compute_verdict()
+                results.append(result)
+            return results
         results = []
         try:
             for c in cases:

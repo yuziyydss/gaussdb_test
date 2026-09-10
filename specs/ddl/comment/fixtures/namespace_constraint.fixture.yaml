@@ -1,0 +1,26 @@
+schema_version: 1
+kind: fixture
+id: fixture_comment_namespace_constraint
+name: COMMENT独占非当前模式及显式命名主键
+status: needs_review
+factor_ref: comment
+description: 使用全限定名访问真实表，不把模式或约束假报为表。
+requires_fixture_refs: []
+provides:
+  tables:
+    - name: g_comment_contract_ns.base_table
+      persistence: permanent
+      table_kind: regular
+      columns:
+        - {name: id, type: INTEGER, nullable: false}
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - CREATE SCHEMA g_comment_contract_ns;
+    - CREATE TABLE g_comment_contract_ns.base_table (id INTEGER NOT NULL, CONSTRAINT g_comment_pk PRIMARY KEY (id));
+  teardown_sqls:
+    - DROP TABLE g_comment_contract_ns.base_table PURGE;
+    - DROP SCHEMA g_comment_contract_ns RESTRICT;
+  note: 仅限获授权的独占测试数据库和隔离连接；初始模式不存在，模式名不可与现存用户同名，确认对象属主为本case执行者。创建后及清理前确认模式不是current_schema，既有search_path也不可使其自动成为当前模式。仅清理ownership记录中本case实际创建成功的资产，setup失败不盲目执行整套teardown。PURGE仅用于本case测试表以避免回收站阻塞空模式清理；禁止CASCADE、DROP OWNED和吞异常。此处未执行或验证零残留，fixture存在不构成数据库执行授权。

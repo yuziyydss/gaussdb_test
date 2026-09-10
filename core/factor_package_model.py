@@ -338,6 +338,7 @@ class FactorPackageDef(StrictV1Model):
     structural_checks: List[StructuralCheckDef] = Field(default_factory=list)
     facts: List[FactDef] = Field(default_factory=list)
     exported_fact_refs: List[str] = Field(default_factory=list)
+    source_only_fact_refs: List[str] = Field(default_factory=list)
     manifest_refs: List[str] = Field(default_factory=list)
     matrix_refs: List[str] = Field(default_factory=list)
     fixture_refs: List[str] = Field(default_factory=list)
@@ -727,6 +728,18 @@ class FactorManifestDef(StrictV1Model):
         return self
 
 
+class ScenarioCandidateDef(StrictV1Model):
+    manifest_ref: str = Field(min_length=1)
+    params: Dict[str, str]
+
+
+class CandidateScenarioStepDef(StrictV1Model):
+    """A selected generated candidate is the only SQL source for this step."""
+    id: str = Field(min_length=1)
+    candidate: ScenarioCandidateDef
+    expected: Literal['success', 'error'] = 'success'
+
+
 class FactorScenarioDef(StrictV1Model):
     schema_version: Literal[1]
     kind: Literal["scenario"]
@@ -742,6 +755,15 @@ class FactorScenarioDef(StrictV1Model):
     variants: List[Any] = Field(default_factory=list)
     oracles: List[Any] = Field(default_factory=list)
     execution_requirements: List[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_candidate_steps(self) -> "FactorScenarioDef":
+        # Legacy descriptive planned steps stay descriptive. New bindings are
+        # strict even for planned scenarios; sql + candidate is forbidden.
+        for step in self.steps:
+            if isinstance(step, dict) and 'candidate' in step:
+                CandidateScenarioStepDef(**step)
+        return self
 
     @model_validator(mode="after")
     def ensure_ready_scenario_has_executable_shape(self) -> "FactorScenarioDef":
@@ -960,6 +982,21 @@ class FactorPackageRegistry:
             scenario = self.scenarios.get(scenario_id)
             if scenario is not None:
                 check(scenario.fact_refs, "scenario", self.source_paths[scenario.id])
+        declared = factor.source_only_fact_refs
+        if len(declared) != len(set(declared)):
+            errors.append(f"{factor_path}: source_only_fact_refs 不能重复")
+        for reference in declared:
+            provider_id, fact_id = self._split_fact_ref(factor.id, reference)
+            provider = self.factors.get(provider_id)
+            fact = self.resolve_fact_ref(factor.id, reference)
+            ledger = self.source_ledgers.get(provider.source_ledger_ref) if provider else None
+            units = [unit for unit in ledger.units if fact_id in unit.fact_refs] if ledger else []
+            if (provider_id in (None, factor.id) or reference not in consumed_refs
+                    or fact is None or fact.status != 'confirmed' or not units
+                    or any(unit.status != 'mapped' for unit in units)
+                    or ledger.artifact_sha256 != provider.source.artifact_sha256):
+                errors.append(f"{factor_path}: source_only_fact_refs '{reference}' 必须由实际消费者引用，"
+                              "指向已导出confirmed事实及一致的mapped来源单元")
         return consumed_refs
 
     def fixture_topological_order(self, fixture_refs: Iterable[str]) -> List[str]:
@@ -992,21 +1029,37 @@ class FactorPackageRegistry:
         return ordered
 
     def factor_dependency_graph(self) -> Dict[str, Set[str]]:
-        """Build direct package dependencies from qualified facts and fixtures."""
+        """All provenance edges, including source-only imports; may have mixed-phase cycles."""
+        return self._factor_dependency_graph(scheduling=False)
+
+    def factor_scheduling_graph(self) -> Dict[str, Set[str]]:
+        """Package waits only; explicit source imports never erase fixture prerequisites."""
+        return self._factor_dependency_graph(scheduling=True)
+
+    def _factor_dependency_graph(self, *, scheduling: bool) -> Dict[str, Set[str]]:
         graph: Dict[str, Set[str]] = {factor_id: set() for factor_id in self.factors}
 
-        def add_fact_dependencies(owner_factor_id: str, node: Any) -> None:
+        def add_fact_dependencies(owner_factor_id: str, node: Any, source_only: Set[str]) -> None:
             for key in ("fact_refs", "source_fact_refs"):
                 for refs in _iter_key_values(node, key):
                     if not isinstance(refs, list):
                         continue
                     for fact_ref in refs:
+                        if fact_ref in source_only:
+                            continue
                         target_factor_id, _ = self._split_fact_ref(owner_factor_id, fact_ref)
                         if target_factor_id and target_factor_id != owner_factor_id:
                             graph[owner_factor_id].add(target_factor_id)
 
         for factor in self.factors.values():
-            add_fact_dependencies(factor.id, factor.model_dump())
+            source_only: Set[str] = set()
+            if scheduling and factor.source_only_fact_refs:
+                errors: List[str] = []
+                self._validate_cross_fact_consumer_types(factor, errors)
+                if errors:
+                    raise ValueError('; '.join(errors))
+                source_only = set(factor.source_only_fact_refs)
+            add_fact_dependencies(factor.id, factor.model_dump(), source_only)
             related_entities = [
                 entity
                 for collection in (
@@ -1022,7 +1075,7 @@ class FactorPackageRegistry:
             root_fixture_ids: Set[str] = set(factor.fixture_refs)
             for entity in related_entities:
                 raw = entity.model_dump()
-                add_fact_dependencies(factor.id, raw)
+                add_fact_dependencies(factor.id, raw, source_only)
                 for refs in _iter_key_values(raw, "fixture_refs"):
                     if isinstance(refs, list):
                         root_fixture_ids.update(refs)
@@ -1041,7 +1094,7 @@ class FactorPackageRegistry:
         factor_ids: Optional[Iterable[str]] = None,
     ) -> List[str]:
         """Return dependencies before consumers and reject dependency cycles."""
-        graph = self.factor_dependency_graph()
+        graph = self.factor_scheduling_graph()
         requested = set(factor_ids) if factor_ids is not None else set(graph)
         unknown = sorted(requested - set(graph))
         if unknown:
@@ -1578,6 +1631,21 @@ class FactorPackageRegistry:
             if scenario is None:
                 continue
             scenario_path = self.source_paths[scenario.id]
+            for step in scenario.steps:
+                if not isinstance(step, dict) or 'candidate' not in step:
+                    continue
+                try:
+                    binding = CandidateScenarioStepDef(**step).candidate
+                except (ValidationError, ValueError) as exc:
+                    errors.append(f"{scenario_path}: candidate step 无效: {exc}")
+                    continue
+                manifest = self.manifests.get(binding.manifest_ref)
+                if manifest is None or manifest.factor_ref != factor.id:
+                    errors.append(f"{scenario_path}: candidate manifest 必须存在且属于本包: {binding.manifest_ref}")
+                    continue
+                for key, value in binding.params.items():
+                    if value not in manifest.bindings.get(key, []):
+                        errors.append(f"{scenario_path}: candidate selector 不在 manifest bindings: {key}={value}")
             for fixture_id in scenario.fixture_refs:
                 fixture = self.fixtures.get(fixture_id)
                 if fixture is None:

@@ -18,8 +18,8 @@ class PreparedAnalyzeDefinitionTests(unittest.TestCase):
         self.assertEqual(feature['status'], 'covered')
         self.assertEqual(feature['coverage_mode'], 'representative')
         self.assertEqual(feature['profile_refs'], ['m_prepare_body_analyze'])
-        self.assertEqual(sum(f['status'] == 'needs_profile' for f in features.values()), 7)
-        self.assertEqual(len(matrix['profiles']), 12)
+        self.assertEqual(sum(f['status'] == 'needs_profile' for f in features.values()), 5)
+        self.assertEqual(len(matrix['profiles']), 17)
         self.assertEqual(p.files['manifests/finite.manifest.yaml']['bindings']['body'],
                          ['m_prepare_body_'+s for s in ('select', 'insert', 'update', 'delete')])
 

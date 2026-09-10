@@ -199,6 +199,7 @@ dimensions:
         values:
           - {id: update_returning_none, render: "", representative: true, validity: valid}
           - {id: update_returning_all, render: " RETURNING *", representative: true, validity: valid, fact_refs: [update_fact_returning]}
+          - {id: update_returning_generated_total, render: " RETURNING total AS computed", representative: false, validity: valid, fact_refs: [update_fact_returning]}
           - {id: update_returning_expression, render: " RETURNING id, note AS updated_note", representative: true, validity: valid, fact_refs: [update_fact_returning]}
           - {id: update_returning_from_field, render: " RETURNING id, s.label AS source_label", representative: true, validity: valid, properties: {requires_source_alias: s}, fact_refs: [update_fact_returning]}
 
@@ -208,6 +209,11 @@ dimensions:
     profile_source: {matrix_ref: matrix_update_multi_targets, profile_id_path: profiles.id}
 
 rules:
+  - id: update_rule_finite_generated_write
+    kind: requires
+    expression: "single_target_profile == 'update_target_finite_generated' => set_profile.properties.generated_write_allowed == True"
+    severity: error
+    fact_refs: [update_fact_generated_column]
   - id: update_rule_multi_target_supported
     kind: requires
     expression: multi_target_profile.properties.multi_supported == True
@@ -284,7 +290,7 @@ facts:
   - {id: update_example_subquery, type: example, statement: "文档展示单表、READ ONLY、连接及 CHECK OPTION 子查询更新。", status: confirmed, source_anchor: "L328-L376 子查询示例"}
   - {id: update_example_view, type: example, statement: "文档展示单表、READ ONLY、连接及 CHECK OPTION 视图更新。", status: confirmed, source_anchor: "L378-L432 视图示例"}
   - {id: update_open_assignment_arity_type_model, type: open_question, statement: "Factor Package V1 没有声明 SET 列元组与表达式/子查询投影任意列数和类型相容性的结构契约；当前仅生成有限匹配样例，不能声称覆盖全域。", status: needs_verification, source_anchor: "L27-L28 与 L38-L39 SET 元组产生式"}
-  - {id: update_open_generated_fixture, type: open_question, statement: "本章未给生成列表达式的可独立建表示例，当前不伪造生成列 Fixture，直接赋值与 DEFAULT 行为留作场景。", status: needs_verification, source_anchor: "L14-L15 生成列"}
+  - {id: update_open_generated_fixture, type: open_question, statement: "已依CREATE TABLE L746-L762建立两个INT相加的显式/省略STORED列及真实种子，DEFAULT、直接写值及直接列RETURNING有有限代表；其他生成表达式、修改输入列和复杂输出仍未覆盖，行值、返回集捕获与目标错误身份尚未实机验证。", status: needs_verification, source_anchor: "L14-L15 生成列"}
   - {id: update_open_plan_hint_profile, type: open_question, statement: "本 catalog 只给 plan_hint 占位、位置与首块规则，没有可保真生成的具体 Hint 子语法。", status: needs_verification, source_anchor: "L103-L107 plan_hint"}
   - {id: update_open_dblink_profile, type: open_question, statement: "本章仅声明支持 DATABASE LINK，未展开远端目标拼写、连接对象和生命周期。", status: needs_verification, source_anchor: "L113-L116 DATABASE LINK 引用"}
   - {id: update_open_preserved_key_definition, type: open_question, statement: "CREATE VIEW 保留键定义已通过限定引用接入；可更新列、CHECK OPTION 与连接形态的完整组合和行为仍待验证。", status: needs_verification, source_anchor: "L117-L143 CREATE VIEW 引用"}
@@ -298,6 +304,10 @@ facts:
   - {id: update_open_ora_join_environment, type: open_question, statement: "Oracle 外连接 + 操作符的可执行 profile 依赖 behavior_compat_options 和对应兼容语法环境，不能进入默认正向清单。", status: needs_verification, source_anchor: "L187-L188 兼容项"}
 
 manifest_refs:
+  - manifest_update_generated_storage_default
+  - manifest_update_generated_returning
+  - manifest_update_generated_default
+  - manifest_update_generated_negative
   - manifest_update_declared_default_positive
   - manifest_update_partition_payload_positive
   - manifest_update_partition_positive
@@ -314,8 +324,14 @@ manifest_refs:
   - manifest_update_from_self_unaliased_negative
   - manifest_update_multi_subquery_order_limit_negative
 matrix_refs: [matrix_update_single_targets, matrix_update_set_profiles, matrix_update_multi_targets]
-fixture_refs: [fixture_update_declared_defaults, fixture_update_target, fixture_update_aux, fixture_update_source, fixture_update_view, fixture_update_subquery]
+fixture_refs: [fixture_update_generated_storage_default, fixture_update_finite_generated_seeded, fixture_update_declared_defaults, fixture_update_target, fixture_update_aux, fixture_update_source, fixture_update_view, fixture_update_subquery]
 scenario_refs:
+  - scenario_update_generated_storage_default_default
+  - scenario_update_generated_returning_default_total
+  - scenario_update_generated_returning_default_all
+  - scenario_update_finite_generated_default
+  - scenario_update_finite_generated_literal
+  - scenario_update_finite_generated_null
   - scenario_update_permissions
   - scenario_update_generated_and_system_encoding
   - scenario_update_cte_and_hint

@@ -1,0 +1,59 @@
+schema_version: 1
+kind: scenario
+id: scenario_insert_conflict_query_review
+name: ON CONFLICT 插入子查询指代待审
+status: planned
+description: 原文未明确禁止目标subquery还是输入query。原负例退回审阅，不改成正例，不认定目标错误已经证实。下列original_case是历史输入，不是可执行Oracle。
+factor_ref: insert
+fixture_refs: [fixture_insert_unique_target, fixture_insert_source]
+fact_refs: [insert_open_conflict_query_interpretation, insert_fact_main_grammar, insert_fact_view_subquery_grammar, insert_fact_conflict_environment]
+preconditions:
+  - 原PDF物理1741与1743页分别定义subquery目标和query输入，1744页限制未明确其指代。
+  - 先取得权威澄清；如需实机校准，另行授权PG兼容环境与隔离Fixture。
+steps:
+  - kind: source_review
+    question: 明确“不支持插入子查询”限制目标对象还是SELECT输入；普通表文法的可组合性不单独证明成功。
+variants:
+  - id: historical_conflict_query_negative
+    status: needs_verification
+    execution_allowed: false
+    original_manifest_path: archive/spec_reviews/20260909/insert/conflict_query_negative.manifest.yaml
+    historical_snapshot_path: generated/factor_packages/insert/manifest_insert_conflict_query_negative.sql
+    retired_rule:
+      id: insert_rule_conflict_rejects_query_source
+      expression: "conflict_clause.properties.family == 'conflict' => source_profile.properties.source_kind != 'query'"
+      disposition: 未被当前PDF无歧义地证明，不再作为组合硬过滤规则。
+    original_case:
+      factor_id: insert
+      case_id: manifest_insert_conflict_query_negative_d77629272b13
+      strategy: pairwise
+      params: {with_clause: insert_with_none, plan_hint: insert_hint_none, ignore_modifier: insert_ignore_none, target_profile: insert_target_unique_columns, source_profile: insert_source_query, conflict_clause: insert_on_conflict_nothing, returning_clause: insert_returning_none}
+      sql: "INSERT INTO t_insert_unique (id, note) SELECT col_1, name FROM t_insert_source ON CONFLICT (id) DO NOTHING;"
+      expected: error
+      expected_sqlstate: ''
+      expected_sqlstates: []
+      expected_error_category: conflict_query_not_supported
+      expected_error_regex: ''
+      expected_oracle_status: needs_verification
+      expected_scope: syntax_and_semantics
+      setup_sqls:
+        - "DROP TABLE IF EXISTS t_insert_unique CASCADE;"
+        - "CREATE TABLE t_insert_unique (id INTEGER PRIMARY KEY, note VARCHAR(64), aux VARCHAR(64));"
+        - "INSERT INTO t_insert_unique (id, note) VALUES (101, 'existing');"
+        - "DROP TABLE IF EXISTS t_insert_source CASCADE;"
+        - "CREATE TABLE t_insert_source (col_1 INTEGER NOT NULL, name VARCHAR(64));"
+        - "INSERT INTO t_insert_source (col_1, name) VALUES (201, 'from_query_a'), (202, 'from_query_b');"
+      teardown_sqls:
+        - "DROP TABLE IF EXISTS t_insert_source CASCADE;"
+        - "DROP TABLE IF EXISTS t_insert_unique CASCADE;"
+      context: factor_package_v1:syntax_and_semantics
+      preconditions: [fixture_insert_unique_target, fixture_insert_source]
+      consumed_dimension_ids: [conflict_clause, ignore_modifier, plan_hint, returning_clause, source_profile, target_profile, with_clause]
+      environment_requirements:
+        - {key: compatibility_mode, allowed_values: [PG], fact_refs: [insert_fact_conflict_environment]}
+oracles:
+  - kind: pending_interpretation
+    status: needs_verification
+    expected: unresolved
+    note: 历史error类别只是待核实假设；既不接受任意错误，也不将未报错视作该规则正确。先确定规则方向，再定义独立有效对照、目标SQLSTATE或错误类别。
+execution_requirements: [未获数据库执行授权, PG兼容环境, 已校准前置与目标Oracle, 所有历史清理SQL必须单独安全复核]

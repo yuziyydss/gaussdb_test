@@ -33,16 +33,19 @@ class GeneratedAssignmentContractTests(unittest.TestCase):
             with self.subTest(sql=sql):
                 self.check(sql, 'rejected', 'generated_column_write')
 
-    def test_default_stays_review_not_an_invented_null_or_value(self):
-        for sql in ('INSERT INTO t VALUES(1,2,DEFAULT)',
-                    'UPDATE t SET g=DEFAULT', 'INSERT INTO t DEFAULT VALUES'):
+    def test_default_without_proved_inputs_stays_review_not_an_invented_null(self):
+        finite = self.check('INSERT INTO t VALUES(1,2,DEFAULT)', 'checked')
+        self.assertIn('stored_generated_integer_sum', finite['checks'])
+        self.assertNotIn('shared_constant_or_null_defaults', finite['checks'])
+        for sql in ('UPDATE t SET g=DEFAULT', 'INSERT INTO t DEFAULT VALUES'):
             with self.subTest(sql=sql):
                 result = self.check(sql, 'needs_review', 'generated_default_unknown')
                 self.assertNotIn('shared_constant_or_null_defaults', result['checks'])
 
-    def test_omission_is_not_silently_checked_as_an_ordinary_nullable_column(self):
-        for sql in ('INSERT INTO t(id,qty) VALUES(1,2)',
-                    'INSERT INTO t(id,qty) SELECT 1,2'):
+    def test_omission_requires_proved_inputs_not_an_ordinary_nullable_column(self):
+        finite = self.check('INSERT INTO t(id,qty) VALUES(1,2)', 'checked')
+        self.assertIn('stored_generated_integer_sum', finite['checks'])
+        for sql in ('INSERT INTO t(id,qty) SELECT 1,2',):
             with self.subTest(sql=sql):
                 self.check(sql, 'needs_review', 'generated_default_unknown')
 

@@ -1,0 +1,20 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_foreign_table_log_catalog
+name: log_fdw目录创建元数据待校准
+status: planned
+description: 只观察实际创建/删除后的目录对象身份，不SELECT外表或宣称FDW数据可用。
+factor_ref: create_foreign_table
+fixture_refs: [fixture_create_foreign_table_log_catalog]
+fact_refs: [create_foreign_table_fact_purpose, 'create_server::create_server_fact_compatibility_only', create_foreign_table_fact_log_fdw_example]
+preconditions: [单独执行授权, 非PDB, log_fdw目录DDL能力确认, 新服务器名及schema名不存在, 单独连接与逐对象归属回执]
+steps:
+- id: target
+  candidate:
+    manifest_ref: manifest_create_foreign_table_log_catalog
+    params: {table_name: create_foreign_table_log_catalog_target}
+oracles:
+- kind: manual_assertion
+  step_id: target
+  expected: 校准当前版本目录接口，验证目标为log_fdw服务器关联的单TEXT列外表；不读取日志数据。
+execution_requirements: [database_authorization, target_oracle_calibration, isolated_connection, ownership_scoped_cleanup, preserve_stage_failures]

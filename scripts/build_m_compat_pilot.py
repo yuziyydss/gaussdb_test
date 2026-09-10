@@ -5,6 +5,7 @@ This is curated extraction, not a generic BNF converter. Unselected source
 blocks stay unmapped/unreviewed. Apply the emitted patch with apply_patch.
 """
 import argparse
+import copy
 import difflib
 import hashlib
 import json
@@ -242,6 +243,35 @@ class Package:
                 if self.fid('sum_signature') in unit.get('fact_refs', []):
                     unit['supplemental_source_refs'] = [sid]
                     unit['rationale'] = 'SELECT表达式为消费者位置；SUM类型/结果来自M2.5.11补充来源，不由本行语法推断。'
+            for function,span in (('max','L574-591'),('min','L635-652'),('avg','L72-87'),('count','L338-388')):
+                if not any(f['id']==self.fid(function+'_signature') for f in self.facts):
+                    continue
+                source_id=f'm_select_{function}_signature_source'
+                ledger['supplemental_sources'].append(dict(id=source_id,
+                    document=f'2.5.11 M 聚合函数 {function.upper()}',version=catalog['product_version'],
+                    retrieval_date='2026-09-10',source_anchor=span,catalog_chapter_ref=dict(
+                        document_id=catalog['document_id'],source_relpath=chapter['source_relpath'],
+                        chapter_sha256=chapter['chapter_sha256'])))
+                for unit in units:
+                    if self.fid(function+'_signature') in unit.get('fact_refs',[]):
+                        unit.setdefault('supplemental_source_refs',[]).append(source_id)
+                        unit['rationale']='SELECT expression仅为消费者；SUM/MIN/MAX/AVG/COUNT各自类型、身份与结果依据对应M2.5.11精确正文区间，不由SELECT语法或其他模式推导。'
+            if any(f['id']==self.fid('approximate_source_types') for f in self.facts):
+                types_corpus=ROOT/'work/pdf_tiered_2026_09_07/batch_19/corpus'
+                types_catalog=json.loads((types_corpus/'catalog.json').read_text())
+                types_chapter=next(c for c in types_catalog['chapters'] if c['section_number']=='2.6')
+                assert types_catalog['parent_pdf_sha256']==self.catalog['parent_pdf_sha256']
+                assert hashlib.sha256((types_corpus/types_chapter['source_relpath']).read_bytes()).hexdigest()==types_chapter['chapter_sha256']
+                source_id='m_select_approximate_types_source'
+                ledger['supplemental_sources'].append(dict(id=source_id,
+                    document='2.6.7.4 M 浮点数数值类型',version=types_catalog['product_version'],
+                    retrieval_date='2026-09-10',source_anchor='L1160-1229',catalog_chapter_ref=dict(
+                        document_id=types_catalog['document_id'],source_relpath=types_chapter['source_relpath'],
+                        chapter_sha256=types_chapter['chapter_sha256'])))
+                for unit in units:
+                    if self.fid('approximate_source_types') in unit.get('fact_refs',[]):
+                        unit.setdefault('supplemental_source_refs',[]).append(source_id)
+                        unit['rationale']='SELECT expression为消费者；聚合签名来自M2.5.11，实际FLOAT/DOUBLE源列声明来自M2.6.7.4，两个来源不能互相替代。'
         return self.files
 
 
@@ -477,6 +507,8 @@ def update():
     p.fact('syntax','syntax','单表 UPDATE 支持 WITH、目标、SET、WHERE、ORDER、LIMIT。','●      单表更新：',16)
     p.fact('default','syntax','UPDATE DEFAULT 填对应列默认值；没有默认值则 NULL。','●   DEFAULT',3)
     p.fact('generated_write','constraint','生成列不能赋具体值，但可指定 DEFAULT。','生成列不能被直接写入',2)
+    p.fact('multi_view','constraint','M多表UPDATE不支持以视图作为目标；不能由单表可更新性推导多表可更新。',
+           '对于多表更新语法，暂时不支持对视图进行多表更新。')
     p.fact('only','syntax','ONLY 与星号保留语法，功能不支持。','ONLY和增加*选项保留语法',1)
     p.fact('s2_order','environment','s2 单表多赋值按从左到右使用更新后值。','设置GUC兼容性参数m_format_dev_version',6)
     p.fact('view_column','constraint','视图/子查询只更新直接基表用户列。','● 只有直接引用基表用户列的列可进行UPDATE操作。')
@@ -511,6 +543,23 @@ def update():
         [dict(sql=f'UPDATE {V} SET qty=99 WHERE id=2;')],
         [dict(kind='result_set',sql=f'SELECT qty FROM {SRC} WHERE id=2;',expected=[[99]])])
     p.files['scenarios/view_column_lineage.scenario.yaml']['fact_refs'].append('m_create_view::m_create_view_fact_updatable_column')
+    multi_base='m_b01_update_multi_base';multi_aux='m_b01_update_multi_aux';multi_view='m_b01_update_multi_view'
+    multi=p.fixture('multi_view',[(multi_base,['id','qty']),(multi_aux,['id','qty'])],
+        [f'CREATE TABLE {multi_base} (id INT, qty INT);',f'INSERT INTO {multi_base} VALUES (1,10);',
+         f'CREATE TABLE {multi_aux} (id INT, qty INT);',f'INSERT INTO {multi_aux} VALUES (1,20);',
+         f'CREATE VIEW {multi_view} AS SELECT id,qty FROM {multi_base};'],
+        [f'DROP VIEW {multi_view};',f'DROP TABLE {multi_aux} PURGE;',f'DROP TABLE {multi_base} PURGE;'])
+    p.scenario('multi_view_rejected',['multi_view'],[multi],
+        [dict(id='control',sql=f'UPDATE {multi_base} AS b,{multi_aux} AS a SET b.qty=11 WHERE b.id=a.id;',expected='success'),
+         dict(id='control_rows',sql=f'SELECT id,qty FROM {multi_base} ORDER BY id;'),
+         dict(id='target',sql=f'UPDATE {multi_view} AS v,{multi_aux} AS a SET v.qty=99 WHERE v.id=a.id;',expected='error')],
+        [dict(kind='result_set',step_id='control_rows',expected=[[1,11]]),
+         dict(kind='target_error',step_id='target',stage='target',expected='error',
+              error_category='multi_table_view',oracle_status='needs_verification',sqlstates=[])])
+    multi_scenario=p.files['scenarios/multi_view_rejected.scenario.yaml']
+    multi_scenario['description']='完整M多表UPDATE形状，无单表ORDER/LIMIT尾部；真实普通表控制与视图负例分开。不能以setup/权限/任意错误满足目标Oracle，SQLSTATE仍待校准。'
+    multi_scenario['execution_requirements'] += ['isolated_connection','fixture_object_creator',
+                                                'per_step_oracle','ownership_scoped_cleanup']
     p.scenario('generated_default_result',['generated_write'],[generated],
         [dict(id='target_default',sql=f'UPDATE {generated_table} SET g=DEFAULT WHERE id=2;',expected='success')],
         [dict(kind='result_set',sql=f'SELECT id,qty,g FROM {generated_table} ORDER BY id;',expected=[[2,9,11]])])
@@ -569,6 +618,8 @@ def delete():
 def select():
     p=Package('SELECT','DML')
     p.fact('syntax','syntax','M SELECT 的重复投影、FROM、WHERE、ORDER、LIMIT 主产生式。','[ WITH [ RECURSIVE ] with_query',22)
+    p.fact('from_optional','syntax','M SELECT的FROM子句可省略；本消费者只取单个常量投影，不推导任意子查询基数。',
+           '[FROM from_item [,...]]',1)
     p.fact('distinct','syntax','DISTINCT 与 DISTINCTROW 去除重复结果行。','●   DISTINCT | DISTINCTROW',2)
     p.fact('cache','syntax','SQL_CACHE/SQL_NO_CACHE 仅语法兼容，无缓存功能。','●   SQL_CACHE | SQL_NO_CACHE',2)
     p.fact('limit','syntax','LIMIT 支持 count、offset,count 与 count OFFSET offset。','[[LIMIT {[offset,] row_count',1)
@@ -580,6 +631,7 @@ def select():
            'M-Compatibility模式数据库不支持子查询结果包含多列',5,'needs_verification')
     p.fact('projection_expression','syntax','SELECT投影可使用expression并指定AS输出别名。',
            'expression [ [AS] output_name ]',1)
+    p.exports=[p.fid('from_optional'),p.fid('projection_expression')]
     for suffix,kind,statement,status in [
         ('sum_signature','constraint','条件M内建SUM：INT/DECIMAL输入返回DECIMAL，FLOAT/DOUBLE返回DOUBLE；不套用一般或用户函数。','confirmed'),
         ('sum_identity','environment','2.5.11所述返回类型合同的作用域是该M章节定义的SUM函数；此文档范围事实不证明运行期解析身份。','confirmed'),
@@ -641,7 +693,255 @@ def select():
     p.scenario('group_mode',['group_mode'],[BASE],
         [dict(action='显式区分 ONLY_FULL_GROUP_BY 开关；补函数依赖和分组列合同')],
         [dict(kind='result_set',expected='非分组投影的合法性按 M 模式条件判断，不沿用通用模式一律拒绝')])
+    add_extrema_consumers(p)
+    add_approximate_aggregate_sources(p)
+    add_avg_consumers(p)
+    add_count_consumers(p)
     return p
+
+
+def add_extrema_consumers(p):
+    """Two existing integer columns consume precise M MIN/MAX signatures."""
+    for function,span,result in (('max','L574-591',30),('min','L635-652',10)):
+        name=function.upper()
+        definitions=[
+            ('signature','constraint',f'条件M内建{name}表字段：FLOAT返回DOUBLE，其他字段返回输入类型；当前合同只支持裸INT及FLOAT/DOUBLE字段，不能套到非字段表达式。','confirmed'),
+            ('identity','environment',f'返回类型合同仅来自M2.5.11内建{name}；实际函数解析身份须在执行环境独立核实。','confirmed'),
+            ('result','behavior_oracle',f'M内建{name}取非NULL输入的'+('最大值' if function=='max' else '最小值')+'，全NULL返回NULL；本代表仅使用已有三个明确整数seed行。','confirmed'),
+            ('gap','open_question',f'{name}仅两个已有整数表字段；其他类型/集合/字符串排序、非字段表达式、窗口、全NULL及空表行为待独立fixture和Oracle，不因四条候选推断完整。','needs_verification')]
+        for suffix,kind,statement,status in definitions:
+            p.fact(function+'_'+suffix,kind,statement,'expression [ [AS] output_name ]',1,status)
+            p.facts[-1]['source_anchor']=f'2.5.11 {span}；SELECT expression消费者见{p.chapter["section_number"]} L43'
+        for column in ('id','qty'):
+            identity=p.vid('target_list',f'{function}_{column}')
+            properties=dict(items=[f'{name}({column}) AS result'],output_columns=['result'],
+                output_types=['INTEGER'],referenced_columns=[column],nonaggregate_columns=[],has_aggregate=True,
+                function_output_contract='m_builtin_'+function,source_tables=[SRC],source_columns=[column],
+                source_columns_by_table={SRC:[column]})
+            p.dims['target_list']['classes'].append(dict(id=identity+'_class',meaning=f'{function}_{column}',
+                values=[dict(id=identity,render='',representative=True,validity='valid',properties=properties,
+                             fact_refs=[p.fid(function+'_signature')])]))
+        p.checks[0]['fact_refs'].append(p.fid(function+'_signature'))
+        p.manifest(function+'_builtin',dict(target_list=[function+'_id',function+'_qty']),[BASE])
+        p.files[f'manifests/{function}_builtin.manifest.yaml']['environment_requirements'].append(dict(
+            key='function_resolution',allowed_values=['m_builtin_'+function],fact_refs=[p.fid(function+'_identity')]))
+        p.scenario(function+'_result',[function+'_result',function+'_gap'],[BASE],
+            [dict(sql=f'SELECT {name}(qty) AS result FROM {SRC};')],
+            [dict(kind='result_set',expected=[[result]])])
+        p.files[f'scenarios/{function}_result.scenario.yaml']['preconditions'].append(
+            f'function_resolution=m_builtin_{function}；实际函数身份与驱动返回类型待环境验证')
+
+
+def add_approximate_aggregate_sources(p):
+    """Actual M FLOAT/DOUBLE DDL consumers; no write/default type expansion."""
+    p.fact('approximate_source_types','syntax',
+           'M2.6.7.4支持FLOAT/DOUBLE列声明；本fixture只用无typmod的两个拼写，不从REAL或精度形式推导默认行为。',
+           'expression [ [AS] output_name ]',1)
+    p.facts[-1]['source_anchor']='2.6.7.4 L1160-1229；SELECT expression消费者见2.4.2.16.2 L43'
+    p.fact('approximate_source_gap','open_question',
+           '近似数值这里只作M聚合读源声明：DEFAULT、NOT NULL、精度/舍入/范围、REAL_AS_FLOAT、FLOAT4/8别名和一般模式读写语义尚未接入；驱动结果类型待校准。',
+           'expression [ [AS] output_name ]',1,'needs_verification')
+    p.facts[-1]['source_anchor']='2.6.7.4 L1188-1229；SELECT expression消费者见2.4.2.16.2 L43'
+    source_branch=next(item for item in p.subgrammars['query']['items'] if item.get('selector')=='source_form')
+    ns='m_select_approximate_ns'
+    for typ in ('float','double'):
+        table=f'{ns}.{typ}_source'
+        fx=p.fixture(typ+'_source',[(table,['qty'])],
+            [f'CREATE SCHEMA {ns};',f'CREATE TABLE {table} (qty {typ.upper()});',
+             f'INSERT INTO {table} (qty) VALUES (1.5),(2.5);'],
+            [f'DROP TABLE {table} RESTRICT;',f'DROP SCHEMA {ns};'])
+        obj=p.files[f'fixtures/{typ}_source.fixture.yaml']
+        obj['provides']['tables'][0]['columns'][0]['type']=typ.upper()
+        obj['execution']['note']=(
+            '仅已授权M物理数据库中的独占新模式/连接；模式事前不存在、非系统且非同名用户模式。'
+            '实际声明裸'+typ.upper()+'，不靠provides假报INTEGER；两个seed为有限1.5/2.5，不测舍入或越界。'
+            '只按创建成功及实际归属记录逆序清理本case空模式/表，无CASCADE或DROP OWNED，不依赖DDL回滚。'
+            '失败时不能继续目标或按名称删除他人对象；模式不再拥有本case之外对象才允许DROP。'
+            '真实函数解析、数据插入/元数据与驱动结果仍待授权执行校准。')
+        source_id=p.vid('source_form',typ)
+        source_refs=[p.fid('approximate_source_types'),'m_create_table::m_create_table_fact_syntax']
+        p.dims['source_form']['classes'].append(dict(id=source_id+'_class',meaning=typ,values=[
+            dict(id=source_id,render='',representative=True,validity='valid',
+                 properties=dict(available_columns=['qty'],available_types=[typ.upper()]),fact_refs=source_refs)]))
+        source_branch['branches'][source_id]=lit(table)
+        steps,oracles=[],[]
+        for fn,result in (('sum',4.0),('min',1.5),('max',2.5)):
+            identity=p.vid('target_list',fn+'_'+typ)
+            props=dict(items=[f'{fn.upper()}(qty) AS result'],output_columns=['result'],output_types=['DOUBLE'],
+                referenced_columns=['qty'],nonaggregate_columns=[],has_aggregate=True,
+                function_output_contract='m_builtin_'+fn,source_tables=[table],source_columns=['qty'],
+                source_columns_by_table={table:['qty']})
+            p.dims['target_list']['classes'].append(dict(id=identity+'_class',meaning=fn+'_'+typ,values=[
+                dict(id=identity,render='',representative=True,validity='valid',properties=props,
+                     fact_refs=[p.fid(fn+'_signature'),p.fid('approximate_source_types')])]))
+            p.manifest(fn+'_'+typ,dict(target_list=[fn+'_'+typ],source_form=[typ]),[fx])
+            m=p.files[f'manifests/{fn}_{typ}.manifest.yaml']
+            m['environment_requirements'] += [
+                dict(key='function_resolution',allowed_values=['m_builtin_'+fn],fact_refs=[p.fid(fn+'_identity')]),
+                dict(key='namespace_create_authority',allowed_values=['database_create'],
+                     fact_refs=['m_create_schema::m_create_schema_fact_authority']),
+                dict(key='table_create_authority',allowed_values=['create_any_table_in_owned_schema'],
+                     fact_refs=['m_create_table::m_create_table_fact_authority']),
+                dict(key='namespace_identity',allowed_values=['fresh_non_system_non_user_named_owned_schema'],
+                     fact_refs=['m_create_schema::m_create_schema_fact_namespace','m_create_schema::m_create_schema_fact_same_name_owner']),
+                dict(key='namespace_drop_authority',allowed_values=['actual_case_schema_owner'],
+                     fact_refs=['m_drop_schema::m_drop_schema_fact_authority'])]
+            steps.append(dict(id=fn,sql=f'SELECT {fn.upper()}(qty) AS result FROM {table};'))
+            oracles += [dict(kind='result_set',step_id=fn,expected=[[result]]),
+                        dict(kind='manual_assertion',step_id=fn,
+                             expected=f'在已核实M内建{fn.upper()}身份下，返回列声明类型为DOUBLE；目录/驱动类型接口待校准，不以Python数值类型替代。')]
+        p.scenario(typ+'_aggregates',['sum_result','min_result','max_result','approximate_source_gap'],[fx],steps,oracles)
+        s=p.files[f'scenarios/{typ}_aggregates.scenario.yaml']
+        s['execution_requirements'] += ['isolated_connection','close_case_connection','per_step_oracle']
+        s['preconditions'] += ['每一步实际函数身份分别核为M内建SUM/MIN/MAX；实际FLOAT/DOUBLE源列元数据已核验。']
+
+
+def add_avg_consumers(p):
+    """AVG reuses existing integer and approximate source fixtures unchanged."""
+    for suffix,kind,statement,status in (
+        ('signature','constraint','M内建AVG：INT/DECIMAL输入返回DECIMAL，FLOAT/DOUBLE返回DOUBLE；这里只绑定已审裸字段与基础声明类型。','confirmed'),
+        ('identity','environment','AVG返回类型规则只用于M2.5.11对应内建函数身份；执行前需核对实际解析身份，不能借用一般模式或同名用户函数。','confirmed'),
+        ('result','behavior_oracle','M内建AVG取非NULL输入平均值；ALL或省略修饰词保留重复非NULL值，DISTINCT取不同值，全NULL返回NULL。','confirmed'),
+        ('gap','open_question','当前仅两个INTEGER字段及FLOAT/DOUBLE各一字段；全NULL、空表、重复值DISTINCT、窗口、其他整数类型、精度/舍入/溢出及驱动结果元数据未完成验证。','needs_verification')):
+        p.fact('avg_'+suffix,kind,statement,'expression [ [AS] output_name ]',1,status)
+        p.facts[-1]['source_anchor']='2.5.11 L72-87；SELECT expression消费者见2.4.2.16.2 L43'
+    p.checks[0]['fact_refs'].append(p.fid('avg_signature'))
+    for suffix,source_form,table,columns,output,fixture in (
+        ('builtin','table',SRC,('id','qty'),'DECIMAL',BASE),
+        ('float','float','m_select_approximate_ns.float_source',('qty',),'DOUBLE','fixture_m_select_float_source'),
+        ('double','double','m_select_approximate_ns.double_source',('qty',),'DOUBLE','fixture_m_select_double_source')):
+        targets,steps,oracles=[],[],[]
+        for column in columns:
+            target='avg_'+column if suffix=='builtin' else 'avg_'+suffix
+            targets.append(target)
+            identity=p.vid('target_list',target)
+            props=dict(items=[f'AVG({column}) AS result'],output_columns=['result'],output_types=[output],
+                referenced_columns=[column],nonaggregate_columns=[],has_aggregate=True,
+                function_output_contract='m_builtin_avg',source_tables=[table],source_columns=[column],
+                source_columns_by_table={table:[column]})
+            p.dims['target_list']['classes'].append(dict(id=identity+'_class',meaning=target,values=[
+                dict(id=identity,render='',representative=True,validity='valid',properties=props,
+                     fact_refs=[p.fid('avg_signature')])]))
+            steps.append(dict(id=column,sql=f'SELECT AVG({column}) AS result FROM {table};'))
+            result=(2 if column=='id' else 20) if suffix=='builtin' else 2.0
+            oracles += [dict(kind='result_set',step_id=column,expected=[[result]]),
+                        dict(kind='manual_assertion',step_id=column,
+                             expected=f'实际解析M内建AVG，输出列类型应为{output}；须校准目录/驱动元数据，不以Python值类型代替。')]
+        p.manifest('avg_'+suffix,dict(target_list=targets,source_form=[source_form]),[fixture])
+        m=p.files[f'manifests/avg_{suffix}.manifest.yaml']
+        # Reuse only matching fixture authority gates, not SUM's identity fact.
+        original=p.files[f'manifests/sum_{suffix}.manifest.yaml']['environment_requirements']
+        m['environment_requirements']=[copy.deepcopy(g) for g in original if g['key']!='function_resolution']
+        m['environment_requirements'].append(dict(key='function_resolution',allowed_values=['m_builtin_avg'],
+                                                fact_refs=[p.fid('avg_identity')]))
+        p.scenario('avg_'+suffix,['avg_result','avg_gap'],[fixture],steps,oracles)
+        s=p.files[f'scenarios/avg_{suffix}.scenario.yaml']
+        s['execution_requirements'] += ['isolated_connection','close_case_connection','per_step_oracle']
+        s['preconditions'] += ['function_resolution=m_builtin_avg；实际源列和种子须与fixture一致，真实类型元数据待校准。']
+
+
+def add_count_consumers(p):
+    """Bare-field COUNT and a distinct row-count form on real nullable seeds."""
+    for suffix,kind,statement,status in (
+        ('signature','constraint','M内建普通COUNT/ALL和DISTINCT返回BIGINT；本有限合同只接普通表的单个INTEGER字段及独立COUNT(*)计行分支，不把任意表达式纳入已检查。','confirmed'),
+        ('identity','environment','COUNT类型与计数规则仅绑定M2.5.11内建函数；实际解析身份执行前另核，不继承其他模式或用户函数。','confirmed'),
+        ('result','behavior_oracle','普通COUNT和COUNT(ALL expr)计非NULL值，DISTINCT计不同非NULL值；全NULL字段返回0；COUNT(*)另计所有行。','confirmed'),
+        ('gap','open_question','目前六个单字段、一个COUNT(*)及四个全NULL字段对照代表；多参DISTINCT、窗口、空表、非INTEGER字段输入、溢出及所有运行期值/元数据仍未验证。','needs_verification')):
+        p.fact('count_'+suffix,kind,statement,'expression [ [AS] output_name ]',1,status)
+        p.facts[-1]['source_anchor']='2.5.11 L338-388；SELECT expression消费者见2.4.2.16.2 L43'
+    p.checks[0]['fact_refs'].append(p.fid('count_signature'))
+    ns='m_select_count_ns';table=ns+'.source_table'
+    rows=[dict(id=i,qty=q) for i,q in ((1,None),(1,1),(1,2),(1,2),(2,None),(2,None))]
+    fx=p.fixture('count_source',[(table,['id','qty'])],
+        [f'CREATE SCHEMA {ns};',f'CREATE TABLE {table} (id INTEGER, qty INTEGER);',
+         f'INSERT INTO {table} (id,qty) VALUES (1,NULL),(1,1),(1,2),(1,2),(2,NULL),(2,NULL);'],
+        [f'DROP TABLE {table} RESTRICT;',f'DROP SCHEMA {ns};'])
+    obj=p.files['fixtures/count_source.fixture.yaml']
+    obj['seed']=dict(required=True,rows=rows)
+    obj['execution']['note']=(
+        '仅已授权M物理数据库中的独占新模式/隔离连接；模式初始不存在、非系统非用户同名。'
+        '两个真实INTEGER可空列与六行seed逐项一致；不把缺失字段、NULL常量或空结果集当成列计数。'
+        '只按实际创建成功与归属记录逆序清理本case表和空模式；setup失败阻止目标和盲目teardown。'
+        '不用CASCADE、DROP OWNED、吞异常或DDL回滚兜底；不能清理他人对象。'
+        '实际seed内容、函数解析及BIGINT驱动元数据仍须授权验证，本fixture不是执行许可。')
+    source_id=p.vid('source_form','count_nullable')
+    p.dims['source_form']['classes'].append(dict(id=source_id+'_class',meaning='count_nullable',values=[
+        dict(id=source_id,render='',representative=True,validity='valid',
+             properties=dict(available_columns=['id','qty'],available_types=['INTEGER','INTEGER']),
+             fact_refs=['m_create_table::m_create_table_fact_syntax',p.fid('count_signature')])]))
+    source_branch=next(item for item in p.subgrammars['query']['items'] if item.get('selector')=='source_form')
+    source_branch['branches'][source_id]=lit(table)
+    targets,steps,oracles=[],[],[]
+    for column in ('id','qty'):
+        for modifier,prefix in (('plain',''),('all','ALL '),('distinct','DISTINCT ')):
+            target='count_'+column+'_'+modifier;targets.append(target)
+            identity=p.vid('target_list',target);item=f'COUNT({prefix}{column}) AS result'
+            props=dict(items=[item],output_columns=['result'],output_types=['BIGINT'],
+                referenced_columns=[column],nonaggregate_columns=[],has_aggregate=True,
+                function_output_contract='m_builtin_count',source_tables=[table],source_columns=[column],
+                source_columns_by_table={table:[column]})
+            p.dims['target_list']['classes'].append(dict(id=identity+'_class',meaning=target,values=[
+                dict(id=identity,render='',representative=True,validity='valid',properties=props,
+                     fact_refs=[p.fid('count_signature')])]))
+            steps.append(dict(id=target,sql=f'SELECT {item} FROM {table};'))
+            result=2 if modifier=='distinct' else 6 if column=='id' else 3
+            oracles += [dict(kind='result_set',step_id=target,expected=[[result]]),
+                        dict(kind='manual_assertion',step_id=target,
+                             expected='实际解析M内建COUNT，输出列类型应为BIGINT；须校准目录/驱动类型接口，不能以Python整数类型代替。')]
+    p.manifest('count_nullable',dict(target_list=targets,source_form=['count_nullable']),[fx])
+    m=p.files['manifests/count_nullable.manifest.yaml']
+    m['environment_requirements']=[copy.deepcopy(g) for g in
+        p.files['manifests/sum_float.manifest.yaml']['environment_requirements'] if g['key']!='function_resolution']
+    m['environment_requirements'].append(dict(key='function_resolution',allowed_values=['m_builtin_count'],
+                                            fact_refs=[p.fid('count_identity')]))
+    p.scenario('count_nullable',['count_result','count_gap'],[fx],steps,oracles)
+    s=p.files['scenarios/count_nullable.scenario.yaml']
+    s['execution_requirements'] += ['isolated_connection','close_case_connection','per_step_oracle','ownership_scoped_cleanup']
+    s['preconditions'] += ['function_resolution=m_builtin_count；六行实际seed及两列INTEGER元数据先核验，再逐步对照NULL与重复值计数。']
+    target='count_star';identity=p.vid('target_list',target)
+    p.dims['target_list']['classes'].append(dict(id=identity+'_class',meaning=target,values=[
+        dict(id=identity,render='',representative=True,validity='valid',
+             properties=dict(items=['COUNT(*) AS result'],output_columns=['result'],output_types=['BIGINT'],
+                referenced_columns=[],nonaggregate_columns=[],has_aggregate=True,
+                function_output_contract='m_builtin_count',source_tables=[table],source_columns=[],
+                source_columns_by_table={table:[]}),fact_refs=[p.fid('count_signature'),p.fid('count_result')])]))
+    p.manifest('count_star',dict(target_list=[target],source_form=['count_nullable']),[fx])
+    p.files['manifests/count_star.manifest.yaml']['environment_requirements']=copy.deepcopy(m['environment_requirements'])
+    p.scenario('count_star',['count_result','count_gap'],[fx],
+        [dict(id=target,sql=f'SELECT COUNT(*) AS result FROM {table};')],
+        [dict(kind='result_set',step_id=target,expected=[[6]]),
+         dict(kind='manual_assertion',step_id=target,
+              expected='实际M内建COUNT(*)输出BIGINT；须校准驱动/目录类型及六行seed，含NULL行不能按COUNT(qty)=3计算。')])
+    star=p.files['scenarios/count_star.scenario.yaml']
+    star['execution_requirements'] += ['isolated_connection','close_case_connection','per_step_oracle','ownership_scoped_cleanup']
+    star['preconditions'] += ['function_resolution=m_builtin_count；复用六行含NULL/重复值源表，只验证独立COUNT(*)，不推导ALL *、DISTINCT *或窗口形式。']
+    # Alternative fresh seed, not a wrapper with an unproved DELETE transition.
+    null_fx='fixture_'+p.id+'_count_all_null_source'
+    null_source=copy.deepcopy(obj)
+    null_source['id']=null_fx
+    null_source['name']=null_fx
+    null_source['seed']=dict(required=True,rows=[dict(id=2,qty=None),dict(id=2,qty=None)])
+    null_source['execution']['setup_sqls'][-1]=f'INSERT INTO {table} (id,qty) VALUES (2,NULL),(2,NULL);'
+    null_source['execution']['note']=(
+        '与六行count_source互斥的独占新模式/隔离连接fixture，不同时组合。两列真实INTEGER可空，'
+        '只有两行(id=2,qty=NULL)的完整literal seed；不是空表，不解释DELETE/WHERE后的状态。'
+        '仅M物理数据库授权后执行，模式初始不存在且非系统非用户同名；实际创建者记录归属。'
+        'setup失败阻止目标和盲目teardown，只逆序清理本case实际创建成功的表及空模式。'
+        '无CASCADE/DROP OWNED/吞异常/DDL回滚兜底，实际计数和BIGINT元数据仍须校准。')
+    p.files['fixtures/count_all_null_source.fixture.yaml']=null_source;p.fixtures.append(null_fx)
+    null_targets=['count_qty_plain','count_qty_all','count_qty_distinct','count_star']
+    p.manifest('count_all_null',dict(target_list=null_targets,source_form=['count_nullable']),[null_fx])
+    p.files['manifests/count_all_null.manifest.yaml']['environment_requirements']=copy.deepcopy(m['environment_requirements'])
+    null_steps=[];null_oracles=[]
+    for target,argument,result in zip(null_targets,('qty','ALL qty','DISTINCT qty','*'),(0,0,0,2)):
+        null_steps.append(dict(id=target,sql=f'SELECT COUNT({argument}) AS result FROM {table};'))
+        null_oracles += [dict(kind='result_set',step_id=target,expected=[[result]]),
+            dict(kind='manual_assertion',step_id=target,
+                 expected='实际M内建COUNT输出BIGINT；两行qty均NULL不是空表，星号计2、字段计0，驱动/目录类型仍须校准。')]
+    p.scenario('count_all_null',['count_result','count_gap'],[null_fx],null_steps,null_oracles)
+    null_s=p.files['scenarios/count_all_null.scenario.yaml']
+    null_s['execution_requirements'] += ['isolated_connection','close_case_connection','per_step_oracle','ownership_scoped_cleanup']
+    null_s['preconditions'] += ['function_resolution=m_builtin_count；先核两行完整seed为(2,NULL),(2,NULL)，不得借六行或空表结果。']
 
 
 BUILDERS = {f.__name__: f for f in (create_table,create_view,insert,update,delete,select)}

@@ -1,0 +1,29 @@
+schema_version: 1
+kind: scenario
+id: scenario_comment_function
+name: 普通SQL函数注释设置替换清除
+factor_ref: comment
+status: planned
+description: 以模式、函数名及INTEGER输入签名定位同一个函数；目录读接口仍待校准，不能把函数执行结果当成注释元数据。
+fixture_refs: [fixture_comment_function]
+fact_refs: [comment_fact_lifecycle, comment_fact_function, comment_fact_authority, create_function::create_function_fact_styles, create_function::create_function_fact_public_execute, drop_function::drop_function_fact_authority, drop_function::drop_function_fact_behavior, drop_schema::drop_schema_fact_current]
+preconditions:
+  - 已授权的独占PG兼容测试数据库及隔离连接，普通SQL函数风格，不借用M或Oracle函数语义
+  - 初始模式不存在且非系统或用户同名；search_path不含新模式，全程不切换到目标模式
+  - 确认函数及模式为本case实际创建，PUBLIC执行默认不允许将此用例放入共享数据库
+  - 目录接口需按模式、函数名、输入参数类型定位；精确OID和权限结果未经实机校准
+steps:
+  - {id: set, sql: "COMMENT ON FUNCTION g_comment_function_ns.identity_value(INTEGER) IS 'first';"}
+  - {id: set_read, sql: 'SELECT g_comment_function_ns.identity_value(CAST(7 AS INTEGER));'}
+  - {id: replace, sql: "COMMENT ON FUNCTION g_comment_function_ns.identity_value(INTEGER) IS 'second';"}
+  - {id: replace_read, sql: 'SELECT g_comment_function_ns.identity_value(CAST(7 AS INTEGER));'}
+  - {id: clear, sql: 'COMMENT ON FUNCTION g_comment_function_ns.identity_value(INTEGER) IS NULL;'}
+  - {id: clear_read, sql: 'SELECT g_comment_function_ns.identity_value(CAST(7 AS INTEGER));'}
+oracles:
+  - {kind: manual_assertion, step_id: set, expected: '校准模式/函数名/INTEGER输入签名对应的目录身份，注释为first；不要读取同名表或其他签名。'}
+  - {kind: result_set, step_id: set_read, expected: [[7]]}
+  - {kind: manual_assertion, step_id: replace, expected: '同一INTEGER输入签名函数只保留second注释，不是追加另一条。'}
+  - {kind: result_set, step_id: replace_read, expected: [[7]]}
+  - {kind: manual_assertion, step_id: clear, expected: '同一INTEGER输入签名函数仍存在而注释被删除，不是文本NULL；函数返回值不能替代本断言。'}
+  - {kind: result_set, step_id: clear_read, expected: [[7]]}
+execution_requirements: [database_authorization, isolated_connection, fixture_object_owner, per_step_oracle, target_oracle_calibration, ownership_scoped_cleanup]

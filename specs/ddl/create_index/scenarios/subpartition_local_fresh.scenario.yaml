@@ -1,0 +1,23 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_index_subpartition_local_fresh
+name: 二级RANGE LOCAL实际分区目录校准
+status: planned
+description: 从实际候选绑定索引身份；两个步骤共享同一新表，目录接口尚未校准，不以CREATE成功代表映射验证。
+factor_ref: create_index
+fixture_refs: [fixture_create_index_subpartition_fresh]
+fact_refs: [ci_fact_index_partition_clause, ci_fact_partition_grammar]
+preconditions: [独占fresh用户schema, 已确认创建本表的权限与归属, 仅一般章ASTORE两级RANGE有限域]
+steps:
+  - id: automatic
+    candidate:
+      manifest_ref: manifest_create_index_subpartition_local_fresh
+      params: {scope_clause: ci_scope_local}
+  - id: named
+    candidate:
+      manifest_ref: manifest_create_index_subpartition_local_fresh
+      params: {scope_clause: ci_scope_local_subpartition_named_fresh}
+oracles:
+  - {kind: manual_assertion, step_id: automatic, expected: 校准实际版本目录后检查该候选为普通非分类LOCAL索引，覆盖两个一级分区下各两个二级分区；自动名称不能提前猜测。}
+  - {kind: manual_assertion, step_id: named, expected: 校准目录后检查idx_p1/idx_p2以及四个显式子分区名与表的两级分区逐位置对应，非分类索引；静态个数一致不能证明实际绑定或数据行为。}
+execution_requirements: [database_authorization, target_oracle_calibration, case_owned_cleanup]

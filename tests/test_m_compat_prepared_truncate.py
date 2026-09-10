@@ -25,9 +25,9 @@ class PreparedTruncateDefinitionTests(unittest.TestCase):
     def test_remaining_families_not_erased_and_original_bindings_unchanged(self):
         package = prepare()
         matrix = package.files['matrices/body.matrix.yaml']
-        self.assertEqual(len(matrix['profiles']), 12)
+        self.assertEqual(len(matrix['profiles']), 17)
         features = {f['id']: f for f in matrix['documented_features']}
-        self.assertEqual(sum(f['status'] == 'needs_profile' for f in features.values()), 7)
+        self.assertEqual(sum(f['status'] == 'needs_profile' for f in features.values()), 5)
         feature = features['m_prepare_feature_body_truncate']
         self.assertEqual(feature['coverage_mode'], 'representative')
         self.assertEqual(feature['profile_refs'], ['m_prepare_body_truncate'])

@@ -84,8 +84,12 @@ class Batch08Tests(unittest.TestCase):
 
     def test_encoding_table_is_not_all_server_capability(self):
         d = self.factors["create_database"].dimensions["encoding"]
-        values = [v for c in d.classes for v in c.values]
+        values = [v for c in d.classes if c.id != 'create_database_encoding_c_template0_profiles' for v in c.values]
         self.assertEqual(len(values), 44)
+        contextual = [v for c in d.classes if c.id == 'create_database_encoding_c_template0_profiles' for v in c.values]
+        self.assertEqual(len(contextual), 37)
+        self.assertEqual({v.properties['original_value_ref'] for v in contextual},
+                         {v.id for v in values if v.validity == 'conditional'})
         invalid = {v.id.removeprefix("create_database_encoding_")
                    for v in values if v.validity == "invalid"}
         self.assertEqual(invalid, {"big5", "johab", "sjis", "shift_jis_2004", "uhc"})
@@ -153,7 +157,13 @@ class Batch08Tests(unittest.TestCase):
         for f in self.factors.values():
             for mid in f.manifest_refs:
                 for c in self.cases(mid):
-                    self.assertEqual(c.expected_scope, "syntax_only")
+                    if mid == "manifest_create_database_client_encoding_negative":
+                        self.assertEqual(c.expected_scope, "syntax_and_semantics")
+                        self.assertEqual(c.expected, "error")
+                        self.assertEqual(c.expected_oracle_status, "needs_verification")
+                        self.assertEqual(c.expected_sqlstates, [])
+                    else:
+                        self.assertEqual(c.expected_scope, "syntax_only")
                     for sql in c.setup_sqls + [c.sql] + c.teardown_sqls:
                         self.assertTrue(sql.endswith(";"))
                         self.assertNotRegex(sql, r"\{[a-z_]+\}|\.\.\.|gaussdb=#|\*{4}")

@@ -1,0 +1,19 @@
+schema_version: 1
+kind: scenario
+id: scenario_update_finite_generated_default
+name: 一般模式update有限生成列default待验证
+status: planned
+description: 每个场景从自己的原始fixture开始。11来自2加9，未命中行保持原值；静态推算不是数据库执行结果。
+factor_ref: update
+fixture_refs: [fixture_update_finite_generated_seeded]
+fact_refs: [update_fact_generated_column, 'create_table::ct_fact_generated_semantics', 'create_table::ct_fact_generated_expression_limits', 'create_table::ct_fact_generated_write_restriction', 'drop_table::dt_fact_dependency_modes', 'drop_table::dt_fact_purge']
+preconditions: [一般模式章节环境、独占非系统模式与隔离连接、初始名称不存在、固定search_path、仅清理本case实际创建对象]
+steps:
+  - id: target_write
+    sql: "UPDATE g_generated_dst SET total = DEFAULT WHERE id = 2;"
+oracles:
+  - kind: result_set
+    step_id: target_write
+    sql: SELECT id, qty, total FROM g_generated_dst ORDER BY id;
+    expected: [[2, 9, 11], [3, 8, 11]]
+execution_requirements: [database_authorization, general_mode, isolated_connection, fresh_fixture_per_scenario, ownership_scoped_cleanup, per_step_oracle, target_oracle_calibration]

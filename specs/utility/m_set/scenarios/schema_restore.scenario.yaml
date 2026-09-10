@@ -1,0 +1,49 @@
+schema_version: 1
+kind: scenario
+id: scenario_m_set_schema_restore
+name: scenario_m_set_schema_restore
+status: planned
+description: planned：先记录模式基线，再逐步验证三个LOCAL同义拼写及ROLLBACK恢复；SESSION提交持久性、交错设置和缺失模式不由本场景替代。
+factor_ref: m_set
+fact_refs:
+- m_set_fact_schema_selected
+- m_set_fact_local
+- m_set_fact_session
+- m_set_fact_schema_profile_gap
+fixture_refs:
+- fixture_m_set_schema
+preconditions:
+- M-Compatibility；独立隔离测试空间
+steps:
+- id: baseline
+  action: 在首次SET前采集当前模式及搜索路径，保存为本case事前基线；不假定public。
+- id: schema_to
+  sql: SET LOCAL CURRENT_SCHEMA TO m_set_owned_namespace;
+- id: schema_equals
+  sql: SET LOCAL CURRENT_SCHEMA = m_set_owned_namespace;
+- id: schema_string
+  sql: SET LOCAL SCHEMA 'm_set_owned_namespace';
+- id: restore
+  sql: ROLLBACK;
+oracles:
+- kind: manual_assertion
+  step_id: schema_to
+  expected: 当前模式为本case实际创建的m_set_owned_namespace；读取接口及结果表示待校准。
+- kind: manual_assertion
+  step_id: schema_equals
+  expected: 当前模式为本case实际创建的m_set_owned_namespace；读取接口及结果表示待校准。
+- kind: manual_assertion
+  step_id: schema_string
+  expected: 当前模式为本case实际创建的m_set_owned_namespace；读取接口及结果表示待校准。
+- kind: manual_assertion
+  step_id: restore
+  expected: 与保存的事前当前模式及搜索路径相等；验证专属模式已不再是当前模式，且仍存在、为空并由本case拥有，再清理。
+execution_requirements:
+- database_authorization
+- target_oracle_calibration
+- isolated_connection
+- close_case_connection
+- per_step_oracle
+- capture_pre_target_schema_and_search_path
+- verify_owned_empty_namespace_before_drop
+- separate_ddl_and_target_transactions

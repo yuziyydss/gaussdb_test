@@ -1,0 +1,37 @@
+{% set diagnostics = progress.generation_diagnostics %}
+<details class="disclosure" id="generation-diagnostics" style="margin-top:14px;">
+  <summary>为什么未完整？{{ diagnostics.label }}</summary>
+  <div class="disclosure__body">
+    <p class="fine-print">{{ diagnostics.limits }}</p>
+    {% if diagnostics.status in ['unavailable', 'inconsistent'] %}
+    <p class="callout callout--warning">诊断无法与审计结论核对，请刷新或检查报告版本；不要据此标记完成。</p>
+    {% endif %}
+    <h3 class="panel__heading">生成模型阻断</h3>
+    {% for blocker in diagnostics.blockers %}
+    <details class="disclosure" data-blocker-code="{{ blocker.code }}">
+      <summary>{{ blocker.label }} · {{ blocker.count }}</summary>
+      <ul class="fine-print">
+        {% for item in blocker['items'] %}<li style="overflow-wrap:anywhere;">{{ item }}</li>{% endfor %}
+      </ul>
+    </details>
+    {% else %}
+    <p class="fine-print">{% if diagnostics.status == 'satisfied' %}当前声明的生成模型无阻断；不代表全域覆盖或实机通过。{% else %}当前报告未提供可列出的阻断，不作为通过证明。{% endif %}</p>
+    {% endfor %}
+    <h3 class="panel__heading" style="margin-top:16px;">另列：错误Oracle待校准（{{ diagnostics.unresolved_error_oracles | length }}份清单）</h3>
+    <p class="fine-print">仍有待校准项时，会阻止静态覆盖闭合；不表示SQL生成失败。</p>
+    {% if diagnostics.unresolved_error_oracles %}
+    <ul class="fine-print">
+      {% for manifest_id in diagnostics.unresolved_error_oracles %}
+      <li><a href="/specs/manifest/{{ manifest_id }}">{{ manifest_id }}</a></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if diagnostics.review_context_fact_refs %}
+    <h3 class="panel__heading" style="margin-top:16px;">包级待审事实参考</h3>
+    <p class="fine-print">这些是本包的待审事实，不代表每条事实都是上方每个缺口的原因；请结合下方事实定义与来源核对。</p>
+    <ul class="fine-print">
+      {% for fact_ref in diagnostics.review_context_fact_refs %}<li style="overflow-wrap:anywhere;">{{ fact_ref }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+</details>

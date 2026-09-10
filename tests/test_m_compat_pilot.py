@@ -60,9 +60,12 @@ class MCompatPilotTests(unittest.TestCase):
                     for case in cases:
                         self.assertTrue(varied.issubset(case.consumed_dimension_ids), (mid,case.sql,varied,case.consumed_dimension_ids))
                         self.assertNotIn(case.case_id, global_ids)
-                        self.assertNotIn(case.sql, sqls)
+                        # Same target on different literal seeds is not a
+                        # duplicate experiment; IDs and all other checks stay.
+                        input_key=(case.sql,tuple(s.strip().removesuffix(';').strip() for s in case.setup_sqls))
+                        self.assertNotIn(input_key, sqls)
                         global_ids.add(case.case_id)
-                        sqls.add(case.sql)
+                        sqls.add(input_key)
                         self.assertNotIn('{', case.sql)
                         self.assertNotIn('...', case.sql)
                         self.assertTrue(case.setup_sqls)

@@ -18,7 +18,7 @@ class MPreparedTests(unittest.TestCase):
 
     def test_prepare_uses_literal_from_and_real_source_contract(self):
         cases=self.cases('m_prepare')
-        self.assertEqual(len(cases),12)
+        self.assertEqual(len(cases),17)
         for c in cases:
             self.assertTrue(c.sql.startswith("PREPARE m_prepare_stmt FROM '"))
             self.assertTrue(c.sql.endswith("';"))
@@ -33,6 +33,20 @@ class MPreparedTests(unittest.TestCase):
             elif c.params['body']=='m_prepare_body_create_table':
                 self.assertEqual(c.setup_sqls,['CREATE SCHEMA m_prepare_ct_namespace;'])
                 self.assertEqual(c.teardown_sqls,['DEALLOCATE PREPARE m_prepare_stmt;','DROP SCHEMA m_prepare_ct_namespace;'])
+            elif c.params['body']=='m_prepare_body_create_namespace':
+                self.assertEqual(c.setup_sqls,['SHOW search_path;'])
+                self.assertEqual(c.teardown_sqls,['DEALLOCATE PREPARE m_prepare_stmt;'])
+            elif c.params['body']=='m_prepare_body_drop_namespace':
+                self.assertEqual(c.setup_sqls,['SHOW search_path;','CREATE SCHEMA m_prepare_drop_namespace;'])
+                self.assertEqual(c.teardown_sqls,['DEALLOCATE PREPARE m_prepare_stmt;',
+                    'DROP SCHEMA IF EXISTS m_prepare_drop_namespace;'])
+            elif c.params['body'].startswith('m_prepare_body_drop_'):
+                kind=c.params['body'].removeprefix('m_prepare_body_drop_')
+                self.assertIn(kind,('table','view','index'))
+                ns='m_prepare_drop_'+kind+'_ns'
+                self.assertEqual(c.setup_sqls[0],'CREATE SCHEMA '+ns+';')
+                self.assertEqual(c.setup_sqls[1],'CREATE TABLE '+ns+'.base_table (id INTEGER, qty INTEGER);')
+                self.assertEqual(c.teardown_sqls[-1],'DROP SCHEMA '+ns+';')
             else:
                 self.assertTrue(any(s.startswith('CREATE TABLE m_prepare_data ') for s in c.setup_sqls))
             self.assertNotIn('PREPARE m_prepare_stmt', '\n'.join(c.setup_sqls))

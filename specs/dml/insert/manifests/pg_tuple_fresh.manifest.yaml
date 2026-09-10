@@ -1,0 +1,29 @@
+schema_version: 1
+kind: manifest
+id: manifest_insert_pg_tuple_fresh
+name: INSERT PG 两非键列元组冲突与非冲突对照
+status: needs_review
+description: 两条有限候选；不更新主键、不带WHERE、不含子查询/部分索引，不覆盖原泛化元组取值。
+factor_ref: insert
+syntax_ref: syntax_insert_v1
+suite_type: positive
+strategy: full_cartesian
+fixture_refs: []
+identifier_policy: {}
+bindings:
+  target_profile: [insert_target_pg_tuple_fresh]
+  source_profile: [insert_source_pg_tuple_conflict, insert_source_pg_tuple_no_conflict]
+  conflict_clause: [insert_on_conflict_tuple_pg_fresh]
+  with_clause: [insert_with_none]
+  ignore_modifier: [insert_ignore_none]
+  returning_clause: [insert_returning_none]
+environment_requirements:
+  - {key: compatibility_mode, allowed_values: [PG], fact_refs: [insert_fact_conflict_environment]}
+  - {key: actor_authority, allowed_values: [fixture_creator_insert_select_update], fact_refs: [insert_fact_permissions, insert_fact_conflict_environment]}
+  - {key: case_namespace, allowed_values: [isolated_user_schema], fact_refs: [insert_fact_permissions]}
+local_rules:
+  - expression: "target_profile == 'insert_target_pg_tuple_fresh' and source_profile in ['insert_source_pg_tuple_conflict', 'insert_source_pg_tuple_no_conflict'] and conflict_clause == 'insert_on_conflict_tuple_pg_fresh' and with_clause == 'insert_with_none' and ignore_modifier == 'insert_ignore_none' and returning_clause == 'insert_returning_none'"
+    rationale: 仅本批真实三列主键表与两非键同列EXCLUDED输入；不是对其他文档合法形状的否定。
+    fact_refs: [insert_fact_conflict_action_grammar, insert_fact_conflict_restrictions]
+expected: {default: success, scope: syntax_only}
+coverage_requirements: {strength: 2, require_all_feasible_pairs: true}

@@ -1,0 +1,19 @@
+schema_version: 1
+kind: scenario
+id: scenario_insert_pg_tuple_fresh
+name: INSERT PG 元组更新两非键列及非冲突插入
+status: planned
+description: 独立101种子，先更新note/aux再插入102；预期由文档冲突动作推导，尚未实机验证。
+factor_ref: insert
+fixture_refs: [fixture_insert_pg_tuple_fresh]
+fact_refs: [insert_fact_conflict_action_grammar, insert_fact_conflict_semantics, insert_fact_conflict_environment]
+preconditions: [PG兼容, 独占新用户schema, Fixture创建者拥有INSERT/SELECT/UPDATE权限, setup和目标阶段分开判定]
+steps:
+  - id: conflict
+    sql: "INSERT INTO g_insert_pg_tuple (id, note, aux) VALUES (101, 'alpha', 9) ON CONFLICT (id) DO UPDATE SET (note, aux) = (EXCLUDED.note, EXCLUDED.aux);"
+  - id: no_conflict
+    sql: "INSERT INTO g_insert_pg_tuple (id, note, aux) VALUES (102, 'beta', 8) ON CONFLICT (id) DO UPDATE SET (note, aux) = (EXCLUDED.note, EXCLUDED.aux);"
+oracles:
+  - {kind: result_set, step_id: conflict, sql: "SELECT id, note, aux FROM g_insert_pg_tuple ORDER BY id;", expected: [[101, alpha, 9]]}
+  - {kind: result_set, step_id: no_conflict, sql: "SELECT id, note, aux FROM g_insert_pg_tuple ORDER BY id;", expected: [[101, alpha, 9], [102, beta, 8]]}
+execution_requirements: [database_authorization, per_step_oracle, isolated_user_schema, actual_cleanup_evidence]

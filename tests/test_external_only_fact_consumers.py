@@ -33,12 +33,33 @@ class ExternalOnlyFactConsumerTests(unittest.TestCase):
         return '\n'.join(errors)
 
     def test_export_without_actual_consumer_still_fails(self):
+        errors = self.probe(self.remove_authority_consumers)
+        self.assertIn("confirmed facts 没有规格消费者: ['m_create_index_fact_authority']", errors)
+
+    def remove_authority_consumers(self, registry):
+        # DROP INDEX's fixture also creates an index. Remove this fact from
+        # every actual gate so the probe really tests an export-only fact.
+        ref = 'm_create_index::m_create_index_fact_authority'
+        removed = 0
+        for manifest in registry.manifests.values():
+            gates = []
+            for gate in manifest.environment_requirements:
+                removed += ref in gate.fact_refs
+                gate.fact_refs = [f for f in gate.fact_refs if f != ref]
+                if gate.fact_refs:
+                    gates.append(gate)
+            manifest.environment_requirements = gates
+        self.assertGreater(removed, 0)
+
+    def test_removing_one_consumer_does_not_hide_another_real_consumer(self):
         def mutate(registry):
             manifest = registry.manifests['manifest_m_prepare_create_index']
             manifest.environment_requirements = [g for g in manifest.environment_requirements
                                                 if g.key not in ('ddl_authority','namespace_scope')]
-        errors = self.probe(mutate)
-        self.assertIn("confirmed facts 没有规格消费者: ['m_create_index_fact_authority']", errors)
+            remaining = registry.manifests['manifest_m_prepare_drop_index']
+            self.assertTrue(any('m_create_index::m_create_index_fact_authority' in g.fact_refs
+                                for g in remaining.environment_requirements))
+        self.assertEqual(self.probe(mutate), '')
 
     def test_unexported_fact_cannot_be_consumed(self):
         errors = self.probe(lambda r: r.factors['m_create_index'].exported_fact_refs.remove(
@@ -48,9 +69,7 @@ class ExternalOnlyFactConsumerTests(unittest.TestCase):
 
     def test_wrong_cross_consumer_type_still_fails(self):
         def mutate(registry):
-            manifest = registry.manifests['manifest_m_prepare_create_index']
-            manifest.environment_requirements = [g for g in manifest.environment_requirements
-                                                if g.key not in ('ddl_authority','namespace_scope')]
+            self.remove_authority_consumers(registry)
             registry.syntaxes['syntax_m_prepare'].source_fact_refs.append(
                 'm_create_index::m_create_index_fact_authority')
         errors = self.probe(mutate)

@@ -1,0 +1,19 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_schema_inline_index
+name: 内嵌表索引归属及清理阶段校准
+status: planned
+factor_ref: create_schema
+description: 检查一条CREATE SCHEMA中的实际表和索引归属；目录接口未校准，清理正文依赖尚未转为分阶段事实DAG。
+fixture_refs: [fixture_create_schema_inline_index]
+fact_refs: [create_schema_fact_elements_order, create_schema_fact_element_owner, create_schema_fact_element_gap, create_schema_fact_search_path, create_index::ci_fact_method_storage_contract]
+preconditions: [获授权的独占测试库和新连接, fp_cs_new初始不存在且不与用户同名, 目标模式不能被search_path选为current_schema, 记录实际创建资产ownership]
+steps:
+  - id: create
+    sql: CREATE SCHEMA fp_cs_new CREATE TABLE fp_cs_new.t_cs_index (id INTEGER) WITH (storage_type=astore) CREATE INDEX fp_cs_new.i_cs_index ON fp_cs_new.t_cs_index USING btree (id);
+  - id: empty_table
+    sql: SELECT id FROM fp_cs_new.t_cs_index;
+oracles:
+  - {after_step: create, kind: manual_assertion, expected: 按实际对象身份检查新模式、ASTORE表及其btree索引，均属本case执行者；不能把索引误定位到search_path同名表。}
+  - {after_step: empty_table, kind: result_set, expected: []}
+execution_requirements: [database_authorization, isolated_connection, per_step_oracle, target_oracle_calibration, ownership_scoped_cleanup, phase_dependency_review]

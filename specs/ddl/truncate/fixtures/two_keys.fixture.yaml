@@ -1,0 +1,30 @@
+schema_version: 1
+kind: fixture
+id: fixture_truncate_two_keys
+name: TRUNCATE独占双INTEGER范围键
+factor_ref: truncate
+status: needs_review
+description: 两个真实INTEGER键、两个VALUES LESS THAN分区；没有索引、外键或继承关系，不复用旧CASCADE前置。
+requires_fixture_refs: []
+provides:
+  tables:
+    - name: g_tr_two_ns.target_table
+      persistence: permanent
+      table_kind: partitioned
+      columns:
+        - {name: id, type: INTEGER, nullable: true}
+        - {name: qty, type: INTEGER, nullable: true}
+seed:
+  required: true
+  rows: [{id: 1, qty: 10}, {id: 11, qty: 30}]
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - CREATE SCHEMA g_tr_two_ns;
+    - CREATE TABLE g_tr_two_ns.target_table (id INTEGER, qty INTEGER) PARTITION BY RANGE (id, qty) (PARTITION p_low VALUES LESS THAN (10, 20), PARTITION p_max VALUES LESS THAN (MAXVALUE, MAXVALUE));
+    - INSERT INTO g_tr_two_ns.target_table (id,qty) VALUES (1,10),(11,30);
+  teardown_sqls:
+    - DROP TABLE g_tr_two_ns.target_table PURGE;
+    - DROP SCHEMA g_tr_two_ns RESTRICT;
+  note: 仅已授权独占测试数据库和隔离连接；新模式初始不存在、非系统非用户同名、不在search_path且始终非当前模式。只清理本case实际创建并确认归属的表及空模式，setup失败阻止目标和盲目teardown。PURGE只用于本case资产，不用CASCADE、DROP OWNED或DDL回滚兜底。本合同检查实际键名/顺序/INTEGER声明、FOR及边界元组宽度，不证明多列边界排序与路由、seed实际落点、权限或全局索引行为；执行前需逐一核验。

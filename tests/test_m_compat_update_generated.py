@@ -36,7 +36,10 @@ class MUpdateGeneratedTests(unittest.TestCase):
         self.assertEqual(case.expected, 'success')
         self.assertTrue(any(r['key'] == 'compatibility_mode' and r['allowed_values'] == ['M']
                             for r in case.environment_requirements))
-        self.assertEqual(inspect_write(case.sql, case.setup_sqls)['status'], 'needs_review')
+        checked = inspect_write(case.sql, case.setup_sqls, conflict_source_scope='m_compat')
+        self.assertEqual(checked['status'], 'checked', checked)
+        self.assertIn('fixture_seeded_generated_update', checked['checks'])
+        self.assertEqual(case.expected_scope, 'syntax_only')
 
     def test_literal_and_null_target_only_the_generated_write_rule(self):
         cases = self.cases('generated_negative')

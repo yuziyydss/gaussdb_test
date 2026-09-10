@@ -42,7 +42,7 @@ def namespace_create(command):
                '只要用户对当前数据库有CREATE权限')
         p.fact('same_name_owner','environment','管理员在普通用户同名模式创建的对象归该同名用户，而非管理员。',
                '系统管理员在普通用户同名模式Schema',2)
-        p.exports=[p.fid('namespace'),p.fid('authority'),p.fid('same_name_owner')]
+        p.exports=[p.fid('namespace'),p.fid('authority'),p.fid('same_name_owner'),p.fid('syntax')]
     target = p.id+'_new'
     anchor = p.id+'_anchor'
     p.dim('keyword',[('database','DATABASE'),('schema','SCHEMA')])
@@ -62,6 +62,10 @@ def namespace_create(command):
 def namespace_drop(command):
     is_schema = command == 'DROP SCHEMA'
     p = package(command,'DDL', 'DROP SCHEMA [' if is_schema else 'DROP DATABASE [')
+    if is_schema:
+        p.fact('authority','environment','仅模式所有者、持有模式DROP权限用户可删除；三权分立关闭时系统管理员默认有权。',
+               '只有模式的所有者或者被授予了模式DROP权限',2)
+        p.exports=[p.fid('syntax'),p.fid('authority')]
     a,b = p.id+'_a',p.id+'_b'
     p.dim('if_exists',[('none',''),('yes','IF EXISTS')])
     p.dim('targets',[('one','',dict(items=[a]))]+([('two','',dict(items=[a,b]))] if is_schema else []))
@@ -95,6 +99,14 @@ def use():
 def drop_object(command):
     table = command == 'DROP TABLE'
     p = package(command,'DDL','DROP [TEMPORARY]' if table else 'DROP VIEW [',2)
+    p.fact('authority','environment',
+        '对象所有者、所在模式所有者、持有对象DROP权限或DROP ANY TABLE权限的用户可删除；三权分立关闭时系统管理员默认有权。',
+        '表的所有者、表所在模式' if table else '视图的所有者、视图所在模式',3)
+    p.exports=[p.fid('syntax'),p.fid('authority')]
+    if table:
+        p.fact('purge','lifecycle','PURGE直接物理删除表，不把表放入回收站；不是删除其他对象的授权。',
+               '该参数表示即使开启回收站功能',2)
+        p.exports.append(p.fid('purge'))
     a,b = p.id+'_a',p.id+'_b'
     p.dim('if_exists',[('none',''),('yes','IF EXISTS')])
     p.dim('targets',[('one','',dict(items=[a])),('two','',dict(items=[a,b]))])
@@ -239,6 +251,8 @@ def transaction(command):
             steps=[dict(sql=target),dict(sql=f'SELECT id FROM {t} ORDER BY id;')]
             expected=[[0],[1],[2],[3]] if command=='RELEASE SAVEPOINT' else [[0],[1]]
         planned(p,'savepoint_state','保存点操作必须在同一连接的事务中验证行集合。',5,fx,steps,expected,3)
+    if command in ('START TRANSACTION','ROLLBACK'):
+        p.exports=[p.fid('syntax')]
     return p
 
 

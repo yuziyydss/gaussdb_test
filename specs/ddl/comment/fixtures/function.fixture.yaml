@@ -1,0 +1,20 @@
+schema_version: 1
+kind: fixture
+id: fixture_comment_function
+name: COMMENT专属模式中有限SQL函数
+factor_ref: comment
+status: needs_review
+description: 实际创建函数而非伪报为表；仅明确的PG风格INTEGER输入/返回，无重载、外部数据或权限提升。
+requires_fixture_refs: []
+provides: {tables: []}
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - CREATE SCHEMA g_comment_function_ns;
+    - "CREATE FUNCTION g_comment_function_ns.identity_value(input_value INTEGER) RETURNS INTEGER LANGUAGE SQL AS 'SELECT $1;';"
+  teardown_sqls:
+    - DROP FUNCTION g_comment_function_ns.identity_value(INTEGER) RESTRICT;
+    - DROP SCHEMA g_comment_function_ns RESTRICT;
+  note: 仅限授权的独占PG兼容测试数据库及隔离连接，模式初始不存在、不与用户同名、不在search_path中，创建后和清理前确认非当前模式。函数默认PUBLIC执行权不等于隔离安全，禁止共享数据库；本函数只返回输入、不访问对象或秘密。只清理本case实际创建且属主确认的签名与空模式；setup失败须记录实际资产并阻止盲目teardown。无CASCADE、DROP OWNED、REPLACE或吞异常，不依赖DDL回滚；此处仅静态生成，不是数据库执行或零残留证明。

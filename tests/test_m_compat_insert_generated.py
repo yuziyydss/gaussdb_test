@@ -49,7 +49,10 @@ class MInsertGeneratedTests(unittest.TestCase):
                 source = resolved['source_profile'][case.params['source_profile']]
                 self.assertEqual(target.attributes['target_profile.properties.available_column_count'], 3)
                 self.assertEqual(source.attributes['source_profile.properties.output_column_count'], 2)
-                self.assertEqual(inspect_write(case.sql, case.setup_sqls)['status'], 'needs_review')
+                checked = inspect_write(case.sql, case.setup_sqls, conflict_source_scope='m_compat')
+                self.assertEqual(checked['status'], 'checked', checked)
+                self.assertIn('stored_generated_integer_sum', checked['checks'])
+                self.assertEqual(case.expected_scope, 'syntax_only')
 
     def test_null_input_proof_does_not_relax_global_type_compatibility(self):
         self.assertFalse(FactorPackageSQLGenerator._types_compatible('INTEGER','NULL'))

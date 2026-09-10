@@ -15,6 +15,7 @@
 - Source Unit 覆盖账本：逐行记录原文处置，并审计 source unit 原子性、fact 消费和值域覆盖。
 - 离线内网任务队列：支持 SHA-256 对账、任务认领、断点续跑、失败恢复和与 AI 厂商无关的任务文件。
 - Web/API：浏览 V1 factor、manifest、覆盖报告和生成 SQL。
+- 生成缺口诊断：在因子详情展开“为什么未完整”，区分条件取值、规则覆盖、生成异常和待校准Oracle；总览、API和Markdown同口径，见[诊断说明](docs/GENERATION_DIAGNOSTICS.md)。
 
 首批五个 PDF 校准因子是 CREATE VIEW、CREATE INDEX、ALTER TABLE、SELECT 和
 INSERT。仓库随后按独立批次加入代表性 DDL、DML、DCL 与 TCL 因子；当前数量、
@@ -60,6 +61,10 @@ README 中维护容易漂移的固定数字。
 [第一轮质量复核](docs/QUALITY_ROUND_01.md)；历史批次报告保持冻结，不覆盖其旧验收数据。
 
 ## 当前验证基线
+
+9月10日后续演进增加了[生成模型可解释诊断](docs/GENERATION_DIAGNOSTICS.md)，只修改展示与进度解释，不改变生成器、规格、SQL及原审计结论；对应相关回归与此前夜间全项目回归分开记账。
+
+本轮最新状态见 [9月9日至10日夜间演进](docs/NIGHT_EVOLUTION_20260910.md)，包含生成列、MERGE默认值与RETURNING输出列共享合同，以及M PREPARE/SET等有限代表。前一完整全量回归保留在 [历史静态验收节点](docs/MILESTONE_STATIC_ACCEPTANCE_20260909.md)，不将旧测试数冒充本轮新代码全量验证；此前来源和修复证据见 [9月9日演进记录](docs/PROJECT_EVOLUTION_20260909.md)。活跃SQL与历史待审SQL独立计数；上面的历次抽取数字仅描述当时批次，不作为当前总量。
 
 当前基线不再使用历史“226 个因子”作为分母。唯一产品证据是仓库中的冻结 PDF 与其 `catalog.json`；CREATE VIEW、CREATE INDEX、ALTER TABLE、SELECT、INSERT 是首批五章校准集。实时数量和结论由下列命令重算，README 不复制容易陈旧的 case 数：
 

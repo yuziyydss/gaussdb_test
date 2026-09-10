@@ -224,7 +224,9 @@ def dependency_verification_snapshot(
         registry.load_all()
         for factor_id, dependencies in registry.factor_dependency_graph().items():
             graph[factor_id] = set(dependencies)
-    except (FactorPackageLoadError, OSError, ValueError):
+    except (FactorPackageLoadError, OSError, ValueError) as exc:
+        if task.get('source_only_fact_refs'):
+            raise QueueError('source_only_fact_refs require a valid current registry') from exc
         pass
 
     closure: Set[str] = set()
@@ -235,6 +237,8 @@ def dependency_verification_snapshot(
             continue
         closure.add(dependency_id)
         pending.extend(graph.get(dependency_id, set()))
+    # A provenance cycle is not an instruction to snapshot the consumer twice.
+    closure.discard(task['factor_id'])
 
     package_dirs = _factor_package_dirs(Path(state["specs_root"]))
     result: Dict[str, Dict[str, Any]] = {}
@@ -1035,13 +1039,19 @@ def refresh_task_dependencies(
     try:
         registry = FactorPackageRegistry(Path(state["specs_root"]))
         registry.load_all()
-        graph = registry.factor_dependency_graph()
+        graph = registry.factor_scheduling_graph()
         registry.factor_topological_order()
     except (FactorPackageLoadError, OSError, ValueError) as exc:
         if strict:
             raise QueueError(f"无法同步 Factor Package 依赖图: {exc}") from exc
         return False
     apply_factor_dependency_graph(state, graph, replace_missing=False)
+    for task in state['tasks']:
+        factor = registry.factors.get(task['factor_id'])
+        if factor and factor.source_only_fact_refs:
+            task['source_only_fact_refs'] = list(factor.source_only_fact_refs)
+        elif factor:
+            task.pop('source_only_fact_refs', None)
     return True
 
 

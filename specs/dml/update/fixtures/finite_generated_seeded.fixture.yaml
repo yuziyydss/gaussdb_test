@@ -1,0 +1,26 @@
+schema_version: 1
+kind: fixture
+id: fixture_update_finite_generated_seeded
+name: 一般模式update显式STORED整数加法seeded
+status: needs_review
+description: 两个普通INT列相加的有限实例；不是IDENTITY或任意生成表达式，DEFAULT不是NULL。
+factor_ref: update
+provides:
+  tables:
+    - name: g_generated_dst
+      persistence: permanent
+      table_kind: regular
+      columns:
+        - {name: id, type: INTEGER, nullable: true}
+        - {name: qty, type: INTEGER, nullable: true}
+        - {name: total, type: INTEGER, nullable: true}
+seed: {required: true, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - "CREATE TABLE g_generated_dst (id INT, qty INT, total INT GENERATED ALWAYS AS (id + qty) STORED);"
+    - "INSERT INTO g_generated_dst (id, qty) VALUES (2, 9), (3, 8);"
+  teardown_sqls:
+    - DROP TABLE g_generated_dst RESTRICT PURGE;
+  note: 必须单独获得数据库授权，在独占非系统测试模式、隔离连接中逐case运行。名称初始不存在，固定current_schema/search_path；记录ownership及每条CREATE实际成功情况，仅清理本case拥有资产，部分setup失败不能盲目运行整个teardown。不得预先DROP抢占同名对象；RESTRICT拒绝意外依赖，PURGE仅处理本case表。seed由setup中INSERT给出；未执行数据库、不承诺事务恢复或零残留。

@@ -1,0 +1,30 @@
+schema_version: 1
+kind: fixture
+id: fixture_comment_owned_relations
+name: COMMENT普通索引与视图专属资产
+status: needs_review
+description: 仅创建本case实际普通表、索引及直接投影视图；不将视图或索引伪报为表。
+factor_ref: comment
+requires_fixture_refs: []
+provides:
+  tables:
+    - name: g_comment_rel_base
+      persistence: permanent
+      table_kind: regular
+      columns:
+        - {name: col_1, type: INTEGER, nullable: true}
+        - {name: col_2, type: INTEGER, nullable: true}
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - CREATE TABLE g_comment_rel_base (col_1 INTEGER, col_2 INTEGER) WITH (storage_type=astore);
+    - INSERT INTO g_comment_rel_base VALUES (1,2),(3,4);
+    - CREATE INDEX g_comment_rel_idx ON g_comment_rel_base USING btree (col_1);
+    - CREATE VIEW g_comment_rel_view AS SELECT col_1,col_2 FROM g_comment_rel_base;
+  teardown_sqls:
+    - DROP VIEW g_comment_rel_view;
+    - DROP INDEX g_comment_rel_idx;
+    - DROP TABLE g_comment_rel_base;
+  note: 仅在预先授权的独占用户schema、隔离连接中逐case运行；初始同名对象必须不存在。记录ownership，只有确认由本case创建成功的对象可按视图、索引、表顺序清理；setup失败不能盲目执行整套teardown。无CASCADE、DROP OWNED或吞异常。未执行，不承诺回收站或全环境零残留，不构成共享库执行授权。

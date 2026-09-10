@@ -56,9 +56,16 @@ class Batch10Tests(unittest.TestCase):
                   'create_column_encryption_key', 'alter_column_encryption_key',
                   'drop_column_encryption_key', 'alter_async_encryption_key_rotation',
                   'create_database_link', 'alter_database_link', 'drop_database_link',
-                  'create_foreign_table', 'alter_foreign_table', 'drop_foreign_table',
+                  'alter_foreign_table',
                   'create_global_index'}
         self.assertEqual({fid for fid, f in self.factors.items() if not f.manifest_refs}, no_sql)
+        for fid in ('create_foreign_table', 'drop_foreign_table'):
+            self.assertEqual(self.factors[fid].manifest_refs, ['manifest_'+fid+'_log_catalog'])
+            case = self.factor_cases(fid)[0]
+            self.assertEqual(case.expected_scope, 'syntax_only')
+            self.assertTrue(any('FOREIGN DATA WRAPPER log_fdw' in s for s in case.setup_sqls))
+            self.assertNotIn('filename', ' '.join(case.setup_sqls+[case.sql]))
+            self.assertFalse(FactorCoverageAuditor(self.registry).audit(fid)['conclusions']['behavior_coverage_complete'])
 
     def test_gsi_is_not_partition_global_index_syntax(self):
         f = self.factors['create_global_index']

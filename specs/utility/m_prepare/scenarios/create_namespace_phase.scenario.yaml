@@ -1,0 +1,63 @@
+schema_version: 1
+kind: scenario
+id: scenario_m_prepare_create_namespace_phase
+name: scenario_m_prepare_create_namespace_phase
+status: planned
+description: 独立planned阶段验证：PREPARE前后不存在，EXECUTE才创建，再按归属清理。所有目录检查尚待校准，不能自动执行人工步骤或用任意错误当通过；不授权物理建库或共享模式清理。
+factor_ref: m_prepare
+fact_refs:
+- m_prepare_fact_session
+- m_prepare_fact_prepare_phase
+- m_prepare_fact_execute_phase
+- m_prepare_fact_body_create_database
+- m_create_schema::m_create_schema_fact_namespace
+- m_create_schema::m_create_schema_fact_authority
+- m_create_schema::m_create_schema_fact_same_name_owner
+- m_drop_schema::m_drop_schema_fact_authority
+fixture_refs:
+- fixture_m_prepare_create_namespace
+preconditions:
+- M-Compatibility；独立隔离测试空间
+- 目标不存在且非系统名、非任何用户名、不在search_path中；全程不切换到目标模式。
+- 具备当前数据库CREATE权限及新模式DROP权限；目录接口先校准，任何前置或阶段失败须阻止后续目标和盲目清理。
+steps:
+- id: before_prepare
+  action: 通过校准的模式目录确认目标不存在且非当前模式；保存连接、数据库身份及search_path，确认无同名用户。
+- id: prepare
+  sql: PREPARE m_prepare_stmt FROM 'CREATE SCHEMA m_prepare_created_namespace';
+- id: after_prepare
+  action: 通过同一校准目录确认目标模式仍不存在；不能用查询不存在对象的任意错误代替。
+- id: execute
+  sql: EXECUTE m_prepare_stmt;
+- id: after_execute
+  action: 通过校准目录确认目标模式已创建、归本case执行主体、为空且不是current_schema；物理数据库身份保持。
+- id: before_cleanup
+  action: 再次确认仅本case创建的目标模式仍为空、不是current_schema、无并发或外部依赖；否则阻止DROP并记录。
+- id: drop_target
+  sql: DROP SCHEMA m_prepare_created_namespace;
+- id: after_cleanup
+  action: 通过校准目录确认目标模式消失，原物理数据库和其他模式保持；随后fixture释放本case预备语句并关闭连接。
+oracles:
+- kind: manual_assertion
+  step_id: before_prepare
+  expected: 目标模式不存在；专属M连接、名称唯一性及归属前置满足。
+- kind: manual_assertion
+  step_id: after_prepare
+  expected: PREPARE后仍不存在；不是建库或模式执行成功证据。
+- kind: manual_assertion
+  step_id: after_execute
+  expected: EXECUTE后才创建空模式；归属正确且物理数据库未变。
+- kind: manual_assertion
+  step_id: before_cleanup
+  expected: 目标确由本case创建、为空、非当前模式；否则不运行清理。
+- kind: manual_assertion
+  step_id: after_cleanup
+  expected: 只删除目标模式；其他模式和物理数据库保持。目录接口与结果均待实机校准。
+execution_requirements:
+- database_authorization
+- target_oracle_calibration
+- isolated_connection
+- per_step_oracle
+- ownership_scoped_cleanup
+- actual_catalog_calibration
+- close_case_connection

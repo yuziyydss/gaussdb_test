@@ -1,0 +1,37 @@
+schema_version: 1
+kind: fixture
+id: fixture_merge_on_filter
+name: MERGE关联条件的负键对照双表
+status: needs_review
+description: 负id同时出现在源和目标中，用于区分ON不匹配与过滤丢弃source行；不声明主键或唯一性。
+factor_ref: merge_into
+requires_fixture_refs: []
+provides:
+  tables:
+    - name: g_merge_on_target
+      persistence: permanent
+      table_kind: regular
+      columns:
+        - {name: id, type: INTEGER, nullable: true}
+        - {name: name, type: 'VARCHAR(64)', nullable: true}
+        - {name: category, type: 'VARCHAR(64)', nullable: true}
+    - name: g_merge_on_source
+      persistence: permanent
+      table_kind: regular
+      columns:
+        - {name: id, type: INTEGER, nullable: true}
+        - {name: name, type: 'VARCHAR(64)', nullable: true}
+        - {name: category, type: 'VARCHAR(64)', nullable: true}
+seed: {required: true, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - CREATE TABLE g_merge_on_target (id INTEGER, name VARCHAR(64), category VARCHAR(64));
+    - "INSERT INTO g_merge_on_target (id, name, category) VALUES (-1, 'old-negative', 'old'), (1, 'old-one', 'old'), (3, 'keep-three', 'keep');"
+    - CREATE TABLE g_merge_on_source (id INTEGER, name VARCHAR(64), category VARCHAR(64));
+    - "INSERT INTO g_merge_on_source (id, name, category) VALUES (-1, 'new-negative', 'incoming'), (1, 'new-one', 'incoming'), (2, 'new-two', 'incoming');"
+  teardown_sqls:
+    - DROP TABLE g_merge_on_source RESTRICT PURGE;
+    - DROP TABLE g_merge_on_target RESTRICT PURGE;
+  note: 必须获得独立数据库执行授权，在一般模式独占新连接及非系统测试模式中使用；两名称初始不存在，固定current_schema/search_path，不以初始DROP抢占对象。两个case和scenario各自从本seed重新开始，不连续重用前一case结果。逐条记录ownership，仅清理实际由本case创建的资产；部分setup失败不盲清，RESTRICT拒绝意外依赖，PURGE不代表获准清理其他对象。不创建唯一约束、触发器或外键；负id产生两行是本场景的有意设计。不假定DDL回滚、零残留或实机结果已证实。

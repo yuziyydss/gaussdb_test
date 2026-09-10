@@ -61,4 +61,4 @@ class PreparedCreateTableTests(unittest.TestCase):
         self.assertEqual(f['status'],'covered')
         self.assertEqual(f['coverage_mode'],'representative')
         self.assertEqual(f['profile_refs'],['m_prepare_body_create_table'])
-        self.assertEqual(sum(x['status']=='needs_profile' for x in features),7)
+        self.assertEqual(sum(x['status']=='needs_profile' for x in features),5)

@@ -18,14 +18,14 @@ class PreparedSourceTests(unittest.TestCase):
                 self.assertEqual(len(facts), 1)
                 self.assertIn(body, facts[0]['statement'])
                 self.assertEqual(facts[0]['type'], 'syntax')
-        # Four DML bodies, ANALYZE, TRUNCATE, four DDL, SET and COMMIT representatives.
-        self.assertEqual(len(package.files['matrices/body.matrix.yaml']['profiles']), 12)
+        # Fifteen earlier bodies plus namespace creation and empty-namespace DROP.
+        self.assertEqual(len(package.files['matrices/body.matrix.yaml']['profiles']), 17)
         features = package.files['matrices/body.matrix.yaml']['documented_features']
         self.assertEqual(len(features), 15)
         represented = {'m_prepare_feature_body_'+name for name in
-                       ('analyze', 'truncate', 'create_index', 'create_view', 'alter_relation', 'set', 'commit', 'create_table')}
+                       ('analyze', 'truncate', 'create_index', 'create_view', 'alter_relation', 'set', 'commit', 'create_table', 'drop_relation', 'create_database')}
         pending = [f for f in features if f['id'] not in represented]
-        self.assertEqual(len(pending), 7)
+        self.assertEqual(len(pending), 5)
         self.assertTrue(all(f['status'] == 'needs_profile'
                             and not f.get('profile_refs') for f in pending))
         files = package.finish()
@@ -33,7 +33,8 @@ class PreparedSourceTests(unittest.TestCase):
                          ['m_prepare_fact_syntax', 'm_prepare_fact_bodies', 'm_prepare_fact_body_analyze',
                           'm_prepare_fact_body_truncate', 'm_prepare_fact_body_create_index',
                           'm_prepare_fact_body_create_view', 'm_prepare_fact_body_alter_relation', 'm_prepare_fact_body_set',
-                          'm_prepare_fact_body_commit', 'm_prepare_fact_body_create_table'])
+                          'm_prepare_fact_body_commit', 'm_prepare_fact_body_create_table', 'm_prepare_fact_body_drop_relation',
+                          'm_prepare_fact_body_create_database'])
         self.assertTrue(all(u['atomicity'] == 'unreviewed'
                             for u in files['m_prepare.source.yaml']['units']))
 

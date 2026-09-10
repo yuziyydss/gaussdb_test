@@ -6,9 +6,19 @@ status: needs_review
 description: 每个 profile 完整渲染 DEFAULT VALUES、VALUES/VALUE 或 SELECT 输入，并声明目标列数校验所需的输出契约。
 factor_ref: insert
 
-profile_property_defaults: {requires_cte: false, items: []}
+profile_property_defaults: {requires_cte: false, items: [], generated_write_allowed: true}
 
 profiles:
+  - {id: insert_source_partial_conflict, render: 'VALUES (1, 2)', validity: valid, properties: {source_kind: values, output_column_count: 2, output_types: [INTEGER, INTEGER]}, fact_refs: [insert_fact_expression, insert_fact_conflict_semantics]}
+  - {id: insert_source_partial_new_key, render: 'VALUES (2, 1)', validity: valid, properties: {source_kind: values, output_column_count: 2, output_types: [INTEGER, INTEGER]}, fact_refs: [insert_fact_expression, insert_fact_conflict_semantics]}
+  - {id: insert_source_partial_outside, render: 'VALUES (1, 0)', validity: valid, properties: {source_kind: values, output_column_count: 2, output_types: [INTEGER, INTEGER]}, fact_refs: [insert_fact_expression, insert_fact_conflict_semantics]}
+  - {id: insert_source_pg_tuple_conflict, render: "VALUES (101, 'alpha', 9)", validity: valid, properties: {source_kind: values, output_column_count: 3, output_types: [INTEGER, VARCHAR, INTEGER]}, fact_refs: [insert_fact_expression, insert_fact_column_mapping]}
+  - {id: insert_source_pg_tuple_no_conflict, render: "VALUES (102, 'beta', 8)", validity: valid, properties: {source_kind: values, output_column_count: 3, output_types: [INTEGER, VARCHAR, INTEGER]}, fact_refs: [insert_fact_expression, insert_fact_column_mapping]}
+  - {id: insert_source_finite_generated_default, render: 'VALUES (2, 9, DEFAULT)', validity: valid, properties: {source_kind: values, output_column_count: 3, output_types: [INTEGER, INTEGER, DEFAULT]}, fact_refs: [insert_fact_generated_column]}
+  - {id: insert_source_finite_generated_omitted, render: 'VALUES (2, 9)', validity: valid, properties: {source_kind: values, output_column_count: 2, output_types: [INTEGER, INTEGER]}, fact_refs: [insert_fact_generated_column, insert_fact_column_mapping]}
+  - {id: insert_source_finite_generated_query, render: 'SELECT x, y FROM g_generated_src WHERE x = 2', validity: valid, properties: {source_kind: query, output_column_count: 2, output_types: [INTEGER, INTEGER], source_tables: [g_generated_src], source_columns: [x, y]}, fact_refs: [insert_fact_generated_column, insert_fact_query_source]}
+  - {id: insert_source_finite_generated_literal, render: 'VALUES (2, 9, 99)', validity: invalid, properties: {source_kind: values, output_column_count: 3, output_types: [INTEGER, INTEGER, INTEGER], generated_write_allowed: false}, fact_refs: [insert_fact_generated_column]}
+  - {id: insert_source_finite_generated_null, render: 'VALUES (2, 9, NULL)', validity: invalid, properties: {source_kind: values, output_column_count: 3, output_types: [INTEGER, INTEGER, 'NULL'], generated_write_allowed: false}, fact_refs: [insert_fact_generated_column]}
   - id: insert_source_default_values
     render: DEFAULT VALUES
     validity: valid

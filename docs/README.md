@@ -4,7 +4,18 @@
 
 | 文档 | 用途 |
 |---|---|
-| [2026-09-09 双模式离线基线](STATIC_BASELINE_20260909.md) | 317包、5060候选、1166项离线回归；身份迁移和未完成缺口分开记录 |
+| [9月9日至10日夜间演进](NIGHT_EVOLUTION_20260910.md) | 当前窗口：生成列、MERGE默认值、RETURNING输出列合同与M PREPARE/SET代表；数量及逐批真实收据见正文，历史全量单列 |
+| [M STORED生成列共享合同](GENERATED_COLUMN_CONTRACT_20260909.md) | 夜间第一批：24项新增、108项相关回归；四类实际输入共用有限合同，全5061候选不变，写入待审21→17；不是实机验证 |
+| [历史全项目静态验收节点](MILESTONE_STATIC_ACCEPTANCE_20260909.md) | 前一冻结版本171模块1339项通过；当时5061活跃候选＋1历史候选、21写入待审，不替代夜间新版本验证 |
+| [9月9日全项目演进记录](PROJECT_EVOLUTION_20260909.md) | 十一批改进、来源和历史失败证据；较早1295项与后续专项不混算，当前终验见上行 |
+| [候选回到待审与历史保全](CANDIDATE_REVIEW_RETIREMENT.md) | INSERT query/subquery歧义实例；撤销未证实硬规则、保留原SQL与错误假设，活跃与历史库存分开对账 |
+| [实际选中值的环境前提](SELECTED_ENVIRONMENT_CAPABILITIES.md) | 索引可见性的A模式、关键字禁用状态、升级阶段约束；声明门不等于实机探测 |
+| [双列MODIFY前置合同](MODIFY_COLUMN_PREREQUISITES.md) | 实际旧DDL、种子、VARCHAR扩长和NOT NULL前置检查；不推导统计信息或数据库结果 |
+| [2026-09-09 双模式离线基线](STATIC_BASELINE_20260909.md) | 当日较早历史基线：317包、5060候选、1166项离线回归；不替代上方最新节点结果 |
+| [写入合同循环本批验收](WRITE_CONTRACT_LOOP_RESULT_20260909.md) | 前一窗口201项相关回归；54份SQL字节不变；原40条补齐14条，同时暴露2条，当时剩余28条如实保留 |
+| [冲突更新源列合同](CONFLICT_SOURCE_CONTRACT_ROUND_20260909.md) | VALUES/EXCLUDED 的有限列身份检查、一般/M 来源边界、149项相关回归与240条不变候选对账 |
+| [M INSERT入口与新行合同](M_INSERT_ENTRY_CONTRACT_20260909.md) | 本批入口阶段：可选INTO与SET有限适配、172项相关回归及40条原始待审根因清单；最终统计见本批验收 |
+| [冲突更新 DEFAULT 修复](DEFAULT_CONTRACT_ROUND_20260909.md) | 上一轮 DEFAULT 消费者漏检修复，含74项专项与有限检查边界 |
 | [M 兼容命令首批](M_COMPAT_BATCH_01.md) | 六个独立 M 包、101 条有限候选、跨包依赖、共享检查修正及真实缺口；不冒充全文/实机完成 |
 | [按包缺口收敛首批](PACKAGE_CLOSURE_FIRST_BATCH.md) | 168 包逐条缺口、56 包资产路线、INSERT 行结果计划与模型输入；不冒充生成/实机闭环 |
 | [进度口径与共享列契约评审](PROGRESS_AND_SHARED_COLUMN_REVIEW.md) | 四阶段展示、DEFAULT/视图契约边界、迁移与验收条件 |
@@ -45,7 +56,7 @@
 
 ## Legacy 与历史资料
 
-最新 M 兼容进展：[环境准备与执行边界](M_COMPAT_ENVIRONMENT.md)、[第二批 18 章](M_COMPAT_BATCH_02.md)、[第三批进展](M_COMPAT_BATCH_03.md)、[第四批 20 章](M_COMPAT_BATCH_04.md)、[第五批及外部资产边界](M_COMPAT_BATCH_05.md)、[第六批：分区、Hint历史、回收站与OM审阅包](M_COMPAT_BATCH_06.md)、[六包生成缺口收敛](M_COMPAT_GENERATION_GAPS.md)、[共享合同及生成列消费者](SHARED_CONTRACT_INTEGRATION.md)。M目前93/93命令已建包，92包有限生成模型通过、1078条普通测试SQL；GENERATED UPDATE SYSTEM仅供审阅，不加入普通用例或生成验收分子。M与通用模式独立统计；建包、有限生成、静态覆盖、实机验证不得混用，内部接口候选及未验证的文件/扩展资产单列。
+M 兼容历史批次：[环境准备与执行边界](M_COMPAT_ENVIRONMENT.md)、[第二批 18 章](M_COMPAT_BATCH_02.md)、[第三批进展](M_COMPAT_BATCH_03.md)、[第四批 20 章](M_COMPAT_BATCH_04.md)、[第五批及外部资产边界](M_COMPAT_BATCH_05.md)、[第六批：分区、Hint历史、回收站与OM审阅包](M_COMPAT_BATCH_06.md)、[六包生成缺口收敛](M_COMPAT_GENERATION_GAPS.md)、[共享合同及生成列消费者](SHARED_CONTRACT_INTEGRATION.md)。最新数量与验证范围见[当前演进记录](PROJECT_EVOLUTION_20260909.md)，不沿用早期批次1078条的旧数。GENERATED UPDATE SYSTEM仅供审阅，不加入普通用例或生成验收分子。M与通用模式独立统计；建包、有限生成、静态覆盖、实机验证不得混用，内部接口候选及未验证的文件/扩展资产单列。
 
 以下文件保留用于理解和维护旧运行时，不再定义新的抽取格式：
 

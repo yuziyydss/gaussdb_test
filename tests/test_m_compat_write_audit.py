@@ -24,8 +24,8 @@ class MCompatWriteAuditTests(unittest.TestCase):
                 self.assertEqual(check['scope'], 'finite_write_shape_only')
                 self.assertFalse(result['database_executed'])
 
-    def test_m_only_syntax_stays_review_needed_not_silent_exclusion(self):
-        result = self.audit_case('m_insert', 'INSERT INTO t SET id=1, qty=2')
+    def test_m_ignore_semantics_stay_review_needed_not_silent_exclusion(self):
+        result = self.audit_case('m_insert', 'INSERT IGNORE INTO t VALUES(1,2)')
         check = result['cases'][0]['write_contract']
         self.assertEqual(check['status'], 'needs_review', check)
         self.assertIn('syntax_unknown', [item['code'] for item in check['issues']])

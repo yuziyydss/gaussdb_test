@@ -18,11 +18,12 @@ def audit_report(report):
     rows = []
     for mid, entry in report['manifests'].items():
         for case in entry['cases']:
-            write = inspect_write(case['sql'], case['setup_sqls'])
+            write = inspect_write(case['sql'], case['setup_sqls'],
+                                  conflict_source_scope='m_compat' if case['factor_id'].startswith('m_') else 'general')
             # M writes share the finite checker, not a guarantee that every M
             # dialect form is supported. Preserve its needs_review/rejected
             # evidence instead of erasing it based on the package prefix.
-            if case['factor_id'] not in {'update', 'insert', 'insert_all', 'replace',
+            if case['factor_id'] not in {'update', 'insert', 'insert_all', 'replace', 'merge_into',
                                          'm_update', 'm_insert', 'm_replace'}:
                 write = {'status': 'not_applicable', 'checks': [], 'issues': []}
             rows.append({'case_id': case['case_id'], 'manifest_id': mid,
@@ -51,7 +52,11 @@ def main():
     result['generation_report_sha256'] = hashlib.sha256(raw).hexdigest()
     result['checker_files_sha256'] = {
         name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
-        for name in ('core/finite_sql_contract.py', 'core/shared_column_contract.py')
+        # Mode/source routing here affects the audit just as the checker does.
+        for name in ('core/finite_sql_contract.py', 'core/shared_column_contract.py',
+                     'core/generated_column_contract.py',
+                     'core/merge_column_contract.py',
+                     'scripts/audit_rendered_sql_contracts.py')
     }
     result['checker_sha256'] = hashlib.sha256(
         json.dumps(result['checker_files_sha256'], sort_keys=True).encode()).hexdigest()

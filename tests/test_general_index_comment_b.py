@@ -44,7 +44,7 @@ class IndexCommentBTests(unittest.TestCase):
                                 ('ci_fact_comment_length','constraint','L665')]:
             self.assertEqual((facts[fid].type,facts[fid].source_anchor),(kind,anchor))
         ledger=self.r.source_ledgers[f.source_ledger_ref]
-        self.assertEqual(len(ledger.units),209)
+        self.assertEqual(len(ledger.units),213)  # Visibility conditions split into six atomic units.
         self.assertTrue(all(any(fid in u.fact_refs for u in ledger.units)
                             for fid in ['ci_fact_comment_syntax','ci_fact_comment_b_mode','ci_fact_comment_length']))
 

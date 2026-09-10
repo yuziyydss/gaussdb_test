@@ -58,7 +58,7 @@ class DMLCTEContractTests(unittest.TestCase):
         inner = "INSERT INTO a VALUES (1,'x') RETURNING id AS k,note AS v"
         with patch('core.finite_sql_contract.inspect_write', wraps=inspect_write) as nested:
             self.check(inner)
-        nested.assert_called_once_with(inner, self.setup)
+        nested.assert_called_once_with(inner, self.setup, conflict_source_scope='general')
         self.assertIs(nested.call_args.args[1], self.setup)
 
     def test_cte_output_is_read_only_and_unused_inner_is_still_checked(self):

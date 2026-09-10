@@ -1,0 +1,42 @@
+schema_version: 1
+kind: scenario
+id: scenario_m_prepare_drop_index_phase
+name: scenario_m_prepare_drop_index_phase
+status: planned
+description: 验证PREPARE与EXECUTE的对象生命周期差异；只操作新建专属对象，仍planned且未执行。
+factor_ref: m_prepare
+fact_refs:
+- m_prepare_fact_session
+- m_prepare_fact_prepare_phase
+- m_prepare_fact_execute_phase
+- m_prepare_fact_body_drop_relation
+- m_drop_index::m_drop_index_fact_authority
+- m_drop_table::m_drop_table_fact_purge
+fixture_refs:
+- fixture_m_prepare_drop_index
+preconditions:
+- M-Compatibility；独立隔离测试空间
+steps:
+- id: prepare
+  sql: PREPARE m_prepare_stmt FROM 'DROP INDEX m_prepare_drop_index_ns.target_index';
+- id: before_execute
+  action: 使用已校准目录接口，确认专属模式中target_index仍存在；PREPARE尚未执行DROP。
+- id: execute
+  sql: EXECUTE m_prepare_stmt;
+- id: after_execute
+  action: 使用已校准目录接口，断言仅目标对象消失；同case其他资产仍存在。不得用任意查询报错替代目录Oracle。
+oracles:
+- kind: manual_assertion
+  step_id: before_execute
+  expected: 索引存在；目录查询接口与归属需校准。
+- kind: manual_assertion
+  step_id: after_execute
+  expected: 目标对象消失且非目标资产保持；目录接口和每步结果待校准，不是已执行Oracle。
+execution_requirements:
+- database_authorization
+- target_oracle_calibration
+- isolated_connection
+- per_step_oracle
+- ownership_scoped_cleanup
+- actual_catalog_calibration
+- close_case_connection

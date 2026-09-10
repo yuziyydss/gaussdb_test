@@ -11,6 +11,21 @@ profile_property_defaults:
   multiple_values: false
   updates_join_key: false
 profiles:
+  - id: merge_action_name_only_both
+    render: "WHEN MATCHED THEN UPDATE SET name = src.name WHEN NOT MATCHED THEN INSERT (id, name, category) VALUES (src.id, src.name, src.category)"
+    validity: valid
+    properties: {has_action: true, duplicate_clause: false, multiple_values: false, updates_join_key: false, matched: true, not_matched: true, order: matched_first}
+    fact_refs: [merge_fact_matched_grammar, merge_fact_not_matched_grammar, merge_fact_clause_order]
+  - id: merge_action_scalar_defaults
+    render: "WHEN MATCHED THEN UPDATE SET name = DEFAULT, category = 'matched' WHEN NOT MATCHED THEN INSERT (id, name, category) VALUES (src.id, DEFAULT, DEFAULT)"
+    validity: valid
+    properties: {has_action: true, duplicate_clause: false, multiple_values: false, updates_join_key: false, matched: true, not_matched: true, order: matched_first}
+    fact_refs: [merge_fact_matched_grammar, merge_fact_not_matched_grammar, merge_fact_assignment_values, merge_fact_default_behavior]
+  - id: merge_action_tuple_omitted_defaults
+    render: "WHEN MATCHED THEN UPDATE SET (name, category) = (DEFAULT, DEFAULT) WHEN NOT MATCHED THEN INSERT (id) VALUES (src.id)"
+    validity: valid
+    properties: {has_action: true, duplicate_clause: false, multiple_values: false, updates_join_key: false, matched: true, not_matched: true, order: matched_first}
+    fact_refs: [merge_fact_matched_grammar, merge_fact_not_matched_grammar, merge_fact_assignment_values, merge_fact_default_behavior]
   - id: merge_action_both_update_then_insert
     render: "WHEN MATCHED THEN UPDATE SET name = src.name, category = src.category WHEN NOT MATCHED THEN INSERT (id, name, category) VALUES (src.id, src.name, src.category)"
     validity: valid
@@ -67,6 +82,8 @@ profiles:
     properties: {has_action: true, duplicate_clause: false, multiple_values: false, updates_join_key: true}
     fact_refs: [merge_fact_join_key_immutable]
 documented_features:
+  - {id: merge_feature_scalar_explicit_default, profile_refs: [merge_action_scalar_defaults], status: covered, coverage_mode: representative, fact_refs: [merge_fact_assignment_values, merge_fact_default_behavior]}
+  - {id: merge_feature_tuple_and_omitted_default, profile_refs: [merge_action_tuple_omitted_defaults], status: covered, coverage_mode: representative, fact_refs: [merge_fact_matched_grammar, merge_fact_default_behavior]}
   - {id: merge_feature_matched_single_assignment, profile_refs: [merge_action_matched_only], status: covered, fact_refs: [merge_fact_matched_grammar]}
   - {id: merge_feature_matched_tuple_assignment, profile_refs: [merge_action_tuple_update], status: covered, coverage_mode: representative, fact_refs: [merge_fact_matched_grammar, merge_fact_assignment_values]}
   - {id: merge_feature_not_matched_columns_values, profile_refs: [merge_action_not_matched_only], status: covered, coverage_mode: representative, fact_refs: [merge_fact_not_matched_grammar]}

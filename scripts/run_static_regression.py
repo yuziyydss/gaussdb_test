@@ -19,7 +19,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 INPUT_DIRS = ('core', 'api', 'scripts', 'tests', 'web', 'specs', 'factors',
               'grammars', 'manifests', 'matrices', 'fixtures',
-              'work/doc2spec', 'intranet_corpus', 'generated/factor_packages')
+              'work/doc2spec', 'intranet_corpus', 'generated/factor_packages', 'archive/spec_reviews')
 INPUT_FILES = ('main.py', 'requirements.txt', 'pyproject.toml', 'pytest.ini',
                'setup.cfg', 'gaussdb-rf-cent.pdf', 'generated/audit/pdf_catalog_coverage.json')
 INPUT_SUFFIXES = {'.py', '.yaml', '.yml', '.json', '.txt', '.html', '.css', '.js', '.sql'}
@@ -81,7 +81,9 @@ def save(path, data):
         target.write('\n')
 
 
-def run(root, output, modules=()):
+def run(root, output, modules=(), *, timeout_seconds=1800):
+    if type(timeout_seconds) is not int or not 1 <= timeout_seconds <= 86400:
+        raise ValueError('timeout_seconds must be an integer from 1 to 86400')
     root, output = root.resolve(), output.resolve()
     if not output.is_relative_to(root/'work') or output == root/'work' or output.exists():
         raise ValueError('Use a new, non-existing run directory under project work/')
@@ -97,6 +99,7 @@ def run(root, output, modules=()):
         before = snapshot(root)
         save(output/'start.json', {
             'started_at': started, 'command': command, 'before_inputs': before,
+            'timeout_seconds': timeout_seconds,
             'python_version': sys.version, 'environment_overrides': {'GAUSSDB_ENABLED': 'false'},
             'input_dirs': list(INPUT_DIRS), 'input_files': list(INPUT_FILES),
             'input_suffixes': sorted(INPUT_SUFFIXES), 'limits': LIMITS,
@@ -104,7 +107,7 @@ def run(root, output, modules=()):
         with log_path.open('xb') as log:
             process = subprocess.run(command, cwd=root,
                 env={**os.environ, 'GAUSSDB_ENABLED': 'false', 'PYTHONUNBUFFERED': '1'},
-                stdout=log, stderr=subprocess.STDOUT, timeout=1800, check=False)
+                stdout=log, stderr=subprocess.STDOUT, timeout=timeout_seconds, check=False)
             exit_code = process.returncode
     except (OSError, ValueError, subprocess.SubprocessError, KeyboardInterrupt) as exc:
         error = type(exc).__name__
@@ -130,6 +133,7 @@ def run(root, output, modules=()):
         'status': status, 'scope': 'static_unit_tests', 'database_verified': False,
         'database_execution_requested': False, 'started_at': started, 'ended_at': now(),
         'wall_seconds': round(time.monotonic()-tick, 3), 'command': command,
+        'timeout_seconds': timeout_seconds,
         'exit_code': exit_code, 'error_type': error, 'tests_run': count,
         'unittest_summary': summary[3] if summary else None,
         'before_inputs': before, 'after_inputs': after, 'changed_inputs': changed,
@@ -145,9 +149,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output-dir', type=Path, required=True)
     parser.add_argument('--module', action='append', default=[])
+    parser.add_argument('--timeout-seconds', type=int, default=1800,
+                        help='Bounded child-process budget, 1–86400 seconds (default: 1800)')
     args = parser.parse_args()
     try:
-        result = run(ROOT, args.output_dir, args.module)
+        result = run(ROOT, args.output_dir, args.module, timeout_seconds=args.timeout_seconds)
     except ValueError as exc:
         parser.error(str(exc))
     print(json.dumps({k: result[k] for k in ('status', 'exit_code', 'tests_run', 'wall_seconds')}))

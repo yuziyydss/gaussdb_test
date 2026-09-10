@@ -21,9 +21,12 @@ class CrossChapterDependencyTests(unittest.TestCase):
         expected = expected_graph(self.config)
         actual = self.registry.factor_dependency_graph()
         self.assertEqual({f: actual[f] for f in expected}, expected)
+        scheduling = expected_graph(self.config, scheduling=True)
+        actual_scheduling = self.registry.factor_scheduling_graph()
+        self.assertEqual({f: actual_scheduling[f] for f in scheduling}, scheduling)
         order = self.registry.factor_topological_order(self.config["factors"])
         self.assertEqual(set(order), set(self.config["factors"]))
-        for consumer, dependencies in expected.items():
+        for consumer, dependencies in scheduling.items():
             for dependency in dependencies:
                 self.assertLess(order.index(dependency), order.index(consumer))
 
@@ -33,7 +36,9 @@ class CrossChapterDependencyTests(unittest.TestCase):
         self.assertTrue(all(p["detected"] for p in result))
 
     def test_reviewed_environment_import_is_read_from_its_actual_gate(self):
-        config = dict(self.config, fact_links=[self.config['fact_links'][0]],
+        link = next(l for l in self.config['fact_links'] if l['entity'] == 'manifest_create_index_gin_pending_control'
+                    and l.get('gate_key') == 'compatibility_mode')
+        config = dict(self.config, fact_links=[link],
                       fixture_links=[], fixture_closures=[])
         # Source provenance has independent real-PDF tests; isolate this selector.
         with patch('scripts.verify_cross_chapter_dependencies.fact_evidence', return_value={}):
@@ -43,7 +48,8 @@ class CrossChapterDependencyTests(unittest.TestCase):
 
     def test_environment_import_on_another_gate_does_not_satisfy_review(self):
         import yaml
-        link = self.config['fact_links'][0]
+        link = next(l for l in self.config['fact_links'] if l['entity'] == 'manifest_create_index_gin_pending_control'
+                    and l.get('gate_key') == 'compatibility_mode')
         config = dict(self.config, fact_links=[link], fixture_links=[], fixture_closures=[])
         raw = yaml.safe_load(self.registry.source_paths[link['entity']].read_text())
         gate = next(g for g in raw['environment_requirements'] if g['key']=='compatibility_mode')
@@ -57,6 +63,26 @@ class CrossChapterDependencyTests(unittest.TestCase):
         result = review_fixture_closures(self.config, self.registry)
         self.assertEqual(len(result), 10)
         self.assertTrue(all(p["passed"] for p in result))
+
+    def test_profile_import_is_read_from_the_exact_selected_profile(self):
+        link=next(l for l in self.config['fact_links'] if l.get('profile_id') == 'tr_partition_table_two_owned')
+        config=dict(self.config,fact_links=[link],fixture_links=[],fixture_closures=[])
+        with patch('scripts.verify_cross_chapter_dependencies.fact_evidence',return_value={}):
+            result=review_links(config,self.registry,{})
+        self.assertEqual(result['facts'][0]['provider'],'create_table_partition::create_table_partition_fact_body_496')
+
+    def test_parent_or_other_profile_import_cannot_satisfy_selected_profile(self):
+        import yaml
+        link=next(l for l in self.config['fact_links'] if l.get('profile_id') == 'tr_partition_table_two_owned')
+        config=dict(self.config,fact_links=[link],fixture_links=[],fixture_closures=[])
+        raw=yaml.safe_load(self.registry.source_paths[link['entity']].read_text())
+        selected=next(p for p in raw['profiles'] if p['id']==link['profile_id'])
+        selected['fact_refs'].remove(link['provider'])
+        raw['fact_refs'].append(link['provider'])
+        next(p for p in raw['profiles'] if p['id']!=link['profile_id'])['fact_refs'].append(link['provider'])
+        with patch('yaml.safe_load',return_value=raw):
+            with self.assertRaisesRegex(ValueError,'missing import'):
+                review_links(config,self.registry,{})
 
     def test_generated_cross_package_view_fixtures_create_and_drop_in_order(self):
         result = fixture_sql_probes(self.registry, self.config)

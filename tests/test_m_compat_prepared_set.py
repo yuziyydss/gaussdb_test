@@ -65,7 +65,7 @@ class PreparedSetTests(unittest.TestCase):
         self.assertTrue(any(o.get('kind') == 'manual_assertion' for o in scenario.oracles))
         features = {f['id']: f for f in p.files['matrices/body.matrix.yaml']['documented_features']}
         self.assertEqual(features['m_prepare_feature_body_set']['coverage_mode'], 'representative')
-        self.assertEqual(sum(f['status'] == 'needs_profile' for f in features.values()), 7)
+        self.assertEqual(sum(f['status'] == 'needs_profile' for f in features.values()), 5)
         self.assertIn('用户变量', p.files['manifests/set_timezone.manifest.yaml']['description'])
 
 

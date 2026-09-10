@@ -1,0 +1,42 @@
+schema_version: 1
+kind: scenario
+id: scenario_m_update_multi_view_rejected
+name: scenario_m_update_multi_view_rejected
+status: planned
+description: 完整M多表UPDATE形状，无单表ORDER/LIMIT尾部；真实普通表控制与视图负例分开。不能以setup/权限/任意错误满足目标Oracle，SQLSTATE仍待校准。
+factor_ref: m_update
+fact_refs:
+- m_update_fact_multi_view
+fixture_refs:
+- fixture_m_update_multi_view
+preconditions:
+- M-Compatibility；独立隔离测试空间
+steps:
+- id: control
+  sql: UPDATE m_b01_update_multi_base AS b,m_b01_update_multi_aux AS a SET b.qty=11 WHERE b.id=a.id;
+  expected: success
+- id: control_rows
+  sql: SELECT id,qty FROM m_b01_update_multi_base ORDER BY id;
+- id: target
+  sql: UPDATE m_b01_update_multi_view AS v,m_b01_update_multi_aux AS a SET v.qty=99 WHERE v.id=a.id;
+  expected: error
+oracles:
+- kind: result_set
+  step_id: control_rows
+  expected:
+  - - 1
+    - 11
+- kind: target_error
+  step_id: target
+  stage: target
+  expected: error
+  error_category: multi_table_view
+  oracle_status: needs_verification
+  sqlstates: []
+execution_requirements:
+- database_authorization
+- target_oracle_calibration
+- isolated_connection
+- fixture_object_creator
+- per_step_oracle
+- ownership_scoped_cleanup

@@ -1,0 +1,25 @@
+schema_version: 1
+kind: fixture
+id: fixture_alter_table_log_foreign_rls
+name: 外表RLS限制的真实目录对象
+status: needs_review
+description: 复用log_fdw服务器，独占schema和外表；不读取外部数据，不以普通表代替外表。
+factor_ref: alter_table
+requires_fixture_refs: [fixture_shared_log_fdw_catalog_server]
+provides:
+  tables:
+  - name: g_a3_at_log_ns.foreign_table
+    persistence: permanent
+    table_kind: foreign
+    columns: [{name: col1, type: TEXT, nullable: true}]
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+  - "CREATE SCHEMA g_a3_at_log_ns;"
+  - "CREATE FOREIGN TABLE g_a3_at_log_ns.foreign_table (col1 TEXT) SERVER g_a3_log_server OPTIONS (logtype 'gs_log');"
+  teardown_sqls:
+  - "DROP FOREIGN TABLE g_a3_at_log_ns.foreign_table RESTRICT;"
+  - "DROP SCHEMA g_a3_at_log_ns RESTRICT;"
+  note: 仅离线目录候选，无数据seed；setup失败不得计入目标负例。执行需单独授权、核实权限和对象不存在，仅依据本case成功创建回执进行清理。目标或清理错误分别保留，禁止CASCADE兜底。

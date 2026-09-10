@@ -1,0 +1,37 @@
+schema_version: 1
+kind: fixture
+id: fixture_merge_constant_defaults
+name: MERGE常量默认与无默认列的真实双表
+status: needs_review
+description: DEFAULT来自实际CREATE TABLE文本，不从provides猜测；每个case或scenario独立重建同一份确定seed。
+factor_ref: merge_into
+requires_fixture_refs: []
+provides:
+  tables:
+    - name: g_merge_default_target
+      persistence: permanent
+      table_kind: regular
+      columns:
+        - {name: id, type: INTEGER, nullable: true}
+        - {name: name, type: 'VARCHAR(64)', nullable: true}
+        - {name: category, type: 'VARCHAR(64)', nullable: true}
+    - name: g_merge_default_source
+      persistence: permanent
+      table_kind: regular
+      columns:
+        - {name: id, type: INTEGER, nullable: false}
+        - {name: name, type: 'VARCHAR(64)', nullable: true}
+        - {name: category, type: 'VARCHAR(64)', nullable: true}
+seed: {required: true, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - "CREATE TABLE g_merge_default_target (id INTEGER, name VARCHAR(64) DEFAULT 'fallback-name', category VARCHAR(64));"
+    - "INSERT INTO g_merge_default_target (id, name, category) VALUES (1, 'old-one', 'old'), (3, 'keep-three', 'keep');"
+    - "CREATE TABLE g_merge_default_source (id INTEGER NOT NULL, name VARCHAR(64), category VARCHAR(64));"
+    - "INSERT INTO g_merge_default_source (id, name, category) VALUES (1, 'new-one', 'updated'), (2, 'new-two', 'inserted');"
+  teardown_sqls:
+    - DROP TABLE g_merge_default_source RESTRICT PURGE;
+    - DROP TABLE g_merge_default_target RESTRICT PURGE;
+  note: 必须获数据库执行授权，使用独占非系统测试模式和隔离连接；确认两名称初始均不存在，执行中固定current_schema/search_path，不连接M环境。不得以DROP预先抢占同名对象。逐条记录ownership及实际创建成功的表，仅清理本case资产；部分setup失败不盲目运行整个teardown。无外键、触发器、视图或其他依赖；RESTRICT拒绝意外依赖，PURGE仅避免本case测试表进入回收站。seed完全来自上述两条INSERT，不是rows空列表表示没有数据。不声称已执行、零残留或事务可回滚。

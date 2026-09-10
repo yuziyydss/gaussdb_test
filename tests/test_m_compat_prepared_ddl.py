@@ -34,8 +34,8 @@ class PreparedDDLDefinitionTests(unittest.TestCase):
     def test_three_actual_profiles_do_not_close_other_body_families(self):
         package = prepare()
         matrix = package.files['matrices/body.matrix.yaml']
-        self.assertEqual(len(matrix['profiles']), 12)
-        self.assertEqual(sum(f['status'] == 'needs_profile' for f in matrix['documented_features']),7)
+        self.assertEqual(len(matrix['profiles']), 17)
+        self.assertEqual(sum(f['status'] == 'needs_profile' for f in matrix['documented_features']),5)
         for suffix, (sql, _, _, columns) in EXPECTED.items():
             profile = next(p for p in matrix['profiles'] if p['id'] == 'm_prepare_body_'+suffix)
             self.assertEqual(profile['render'], "'"+sql+"'")

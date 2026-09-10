@@ -1,0 +1,30 @@
+schema_version: 1
+kind: manifest
+id: manifest_insert_partial_index_fresh
+name: INSERT PG 表达式部分唯一索引三种冲突范围
+status: needs_review
+description: 仅(id+1)且flag>0的同形推断；三个单行候选分别重建种子，不宣称一般谓词蕴含或实机正确性。
+factor_ref: insert
+syntax_ref: syntax_insert_v1
+suite_type: positive
+strategy: full_cartesian
+fixture_refs: []
+identifier_policy: {}
+bindings:
+  target_profile: [insert_target_partial_index_fresh]
+  source_profile: [insert_source_partial_conflict, insert_source_partial_new_key, insert_source_partial_outside]
+  conflict_clause: [insert_on_conflict_partial_fresh]
+  with_clause: [insert_with_none]
+  ignore_modifier: [insert_ignore_none]
+  returning_clause: [insert_returning_none]
+environment_requirements:
+  - {key: compatibility_mode, allowed_values: [PG], fact_refs: [insert_fact_conflict_environment]}
+  - {key: operator_binding, allowed_values: [builtin_integer_plus_and_gt], fact_refs: ['create_index::ci_fact_immutable_environment']}
+  - {key: actor_authority, allowed_values: [fixture_creator_insert_select_index], fact_refs: [insert_fact_permissions, 'create_index::ci_fact_permissions']}
+  - {key: case_namespace, allowed_values: [isolated_user_schema], fact_refs: [insert_fact_permissions]}
+local_rules:
+  - expression: "target_profile == 'insert_target_partial_index_fresh' and source_profile in ['insert_source_partial_conflict', 'insert_source_partial_new_key', 'insert_source_partial_outside'] and conflict_clause == 'insert_on_conflict_partial_fresh' and with_clause == 'insert_with_none' and ignore_modifier == 'insert_ignore_none' and returning_clause == 'insert_returning_none'"
+    rationale: 真实普通新表和唯一索引、单行VALUES、DO NOTHING；不是对其他合法文法的否定。
+    fact_refs: [insert_fact_conflict_target_grammar, insert_fact_conflict_restrictions, 'create_index::ci_fact_partial_index']
+expected: {default: success, scope: syntax_only}
+coverage_requirements: {strength: 2, require_all_feasible_pairs: true}

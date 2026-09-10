@@ -1,0 +1,19 @@
+schema_version: 1
+kind: scenario
+id: scenario_merge_action_control
+name: MERGE无动作WHERE的同语句对照
+status: planned
+description: 与filtered场景保持ON、赋值和分支顺序相同。负键-1匹配后仅更新name，-2不匹配插入；category不随name更新。
+factor_ref: merge_into
+fixture_refs: [fixture_merge_action_filter]
+fact_refs: [merge_fact_on_condition, merge_fact_matched_behavior, merge_fact_not_matched_behavior, merge_fact_where_grammar, 'drop_table::dt_fact_dependency_modes', 'drop_table::dt_fact_purge']
+preconditions: [一般模式独占新连接及隔离模式，两表初始不存在，依赖fixture原始seed后追加未匹配负键，不复用其他场景结果，记录本case资产归属]
+steps:
+  - id: merge
+    sql: "MERGE INTO g_merge_on_target AS dst USING g_merge_on_source AS src ON (dst.id = src.id) WHEN MATCHED THEN UPDATE SET name = src.name WHEN NOT MATCHED THEN INSERT (id, name, category) VALUES (src.id, src.name, src.category);"
+oracles:
+  - kind: result_set
+    step_id: merge
+    sql: SELECT id, name, category FROM g_merge_on_target ORDER BY id, name;
+    expected: [[-2, new-unmatched, incoming], [-1, new-negative, old], [1, new-one, old], [2, new-two, incoming], [3, keep-three, keep]]
+execution_requirements: [database_authorization, general_mode, isolated_connection, fresh_fixture_per_scenario, ownership_scoped_cleanup, per_step_oracle, target_oracle_calibration]

@@ -8,6 +8,7 @@ from .constraint_solver import ConstraintSolver
 from .factor_package_generator import FactorPackageSQLGenerator
 from .factor_package_model import FactorPackageRegistry
 from .spec_generator import GenerationValidationError
+from .candidate_identity import setup_signature
 
 
 # A rationale is an explicit, reviewable exception to the compound-statement
@@ -53,6 +54,8 @@ class FactorCoverageAuditor:
         seen_sql: Set[str] = set()
         duplicate_case_ids: Set[str] = set()
         duplicate_sql: Set[str] = set()
+        seen_inputs = set()
+        duplicate_inputs: Set[str] = set()
 
         for manifest_id in factor.manifest_refs:
             manifest = self.registry.get_manifest(manifest_id)
@@ -91,6 +94,10 @@ class FactorCoverageAuditor:
                     duplicate_case_ids.add(case.case_id)
                 if case.sql in seen_sql:
                     duplicate_sql.add(case.sql)
+                input_key=(case.sql,setup_signature(case.setup_sqls))
+                if input_key in seen_inputs:
+                    duplicate_inputs.add(case.sql)
+                seen_inputs.add(input_key)
                 seen_case_ids.add(case.case_id)
                 seen_sql.add(case.sql)
             cases.extend(generated)
@@ -508,7 +515,7 @@ class FactorCoverageAuditor:
         generation_model_complete = bool(factor.manifest_refs) and bool(cases) and not any((
             manifest_errors,
             duplicate_case_ids,
-            duplicate_sql,
+            duplicate_inputs,
             pairwise_incomplete,
             value_coverage_gaps,
             rule_gaps,
@@ -620,6 +627,7 @@ class FactorCoverageAuditor:
                 "pairwise_incomplete": pairwise_incomplete,
                 "duplicate_case_ids": sorted(duplicate_case_ids),
                 "duplicate_sql": sorted(duplicate_sql),
+                **({"duplicate_inputs": sorted(duplicate_inputs)} if duplicate_sql else {}),
                 "pairwise_applicable": pairwise_applicable_manifests,
                 "profile_enumeration_only": not pairwise_applicable_manifests,
                 "unresolved_error_oracles": unresolved_error_oracles,

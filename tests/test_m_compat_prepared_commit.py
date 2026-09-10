@@ -61,7 +61,7 @@ class PreparedCommitTests(unittest.TestCase):
         features=prepare().files['matrices/body.matrix.yaml']['documented_features']
         commit=next(f for f in features if f['id']=='m_prepare_feature_body_commit')
         self.assertEqual(commit['coverage_mode'],'representative')
-        self.assertEqual(sum(f['status']=='needs_profile' for f in features),7)
+        self.assertEqual(sum(f['status']=='needs_profile' for f in features),5)
 
 
 if __name__=='__main__': unittest.main()

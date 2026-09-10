@@ -18,11 +18,13 @@ class StaticRegressionReceiptTests(unittest.TestCase):
         (self.root/'tests/test_example.py').write_text('# fixture input\n')
         self.output = self.root/'work/run1'
 
-    def invoke(self, *, code=0, log='Ran 2 tests in 0.001s\n\nOK\n', change=None, failure=None):
+    def invoke(self, *, code=0, log='Ran 2 tests in 0.001s\n\nOK\n', change=None, failure=None,
+               timeout_seconds=1800):
         def process(command, **kwargs):
             self.assertEqual(kwargs['env']['GAUSSDB_ENABLED'], 'false')
             self.assertEqual(kwargs['cwd'], self.root)
             self.assertNotIn('shell', kwargs)
+            self.assertEqual(kwargs['timeout'], timeout_seconds)
             self.assertEqual(command[1:], ['-m', 'unittest', 'discover', '-s', 'tests', '-v'])
             self.assertTrue((self.output/'start.json').exists())
             kwargs['stdout'].write(log.encode())
@@ -32,8 +34,30 @@ class StaticRegressionReceiptTests(unittest.TestCase):
                 raise failure
             return subprocess.CompletedProcess(command, code)
         with patch.object(runner.subprocess, 'run', side_effect=process) as child:
-            result = runner.run(self.root, self.output)
+            result = runner.run(self.root, self.output, timeout_seconds=timeout_seconds)
         return result, child
+
+    def test_explicit_bounded_budget_is_recorded_and_reaches_process(self):
+        result, child = self.invoke(timeout_seconds=7200)
+        child.assert_called_once()
+        self.assertEqual(result['status'], 'passed')
+        self.assertEqual(result['timeout_seconds'], 7200)
+        self.assertEqual(json.loads((self.output/'start.json').read_text())['timeout_seconds'], 7200)
+
+    def test_invalid_budget_never_creates_output_or_launches(self):
+        for value in (0, -1, None, True, 1.5, '7200', 86401):
+            with self.subTest(value=value), patch.object(runner.subprocess, 'run') as child:
+                with self.assertRaises(ValueError):
+                    runner.run(self.root, self.output, timeout_seconds=value)
+                child.assert_not_called()
+                self.assertFalse(self.output.exists())
+
+    def test_extended_timeout_still_fails_even_with_ok_log(self):
+        result, _ = self.invoke(timeout_seconds=7200,
+                                failure=subprocess.TimeoutExpired(['python'], 7200))
+        self.assertEqual(result['status'], 'error')
+        self.assertEqual(result['error_type'], 'TimeoutExpired')
+        self.assertEqual(result['timeout_seconds'], 7200)
 
     def test_pass_records_exit_log_and_both_endpoints(self):
         result, child = self.invoke()
@@ -97,6 +121,14 @@ class StaticRegressionReceiptTests(unittest.TestCase):
             (self.root/'tests/__pycache__').mkdir()
             (self.root/'tests/__pycache__/x.pyc').write_bytes(b'cache')
         self.assertEqual(self.invoke(change=change)[0]['status'], 'passed')
+
+    def test_retired_spec_history_is_a_real_input_not_an_ignored_report(self):
+        path = self.root/'archive/spec_reviews/retired.yaml'
+        path.parent.mkdir(parents=True)
+        path.write_text('original: true\n')
+        result, _ = self.invoke(change=lambda: path.write_text('original: false\n'))
+        self.assertEqual(result['status'], 'inputs_changed')
+        self.assertIn('archive/spec_reviews/retired.yaml', result['changed_inputs'])
 
     def test_selected_modules_are_explicit_and_not_shell_commands(self):
         self.assertEqual(runner.test_command(self.root, ['tests.test_example'])[1:],

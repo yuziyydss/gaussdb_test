@@ -12,9 +12,10 @@ class MSetVariableDefinitionTests(unittest.TestCase):
         p=set_command();files=p.finish()
         self.assertEqual(p.ast['kind'],'choice')
         self.assertEqual(p.ast['selector'],'form')
-        self.assertEqual(set(p.ast['branches']),{'m_set_form_timezone','m_set_form_user_variable'})
+        self.assertEqual(set(p.ast['branches']),{'m_set_form_timezone','m_set_form_user_variable','m_set_form_user_variable_list','m_set_form_user_variable_chain','m_set_form_user_variable_subquery',
+                                               'm_set_form_schema_to','m_set_form_schema_equals','m_set_form_schema_string'})
         self.assertEqual({v['render'] for c in p.dims['assignment_operator']['classes'] for v in c['values']},{':=','='})
-        self.assertEqual({v['render'] for c in p.dims['variable_value']['classes'] for v in c['values']},{"'factor value'",'NULL'})
+        self.assertEqual({v['render'] for c in p.dims['variable_value']['classes'] for v in c['values']},{"'factor value'",'NULL','7','-7'})
         self.assertIn(p.fid('user_variable'),files['m_set.syntax.yaml']['source_fact_refs'])
         matrix=files['matrices/user_variable_coverage.matrix.yaml']
         self.assertEqual(matrix['documented_features'][0]['coverage_mode'],'representative')

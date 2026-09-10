@@ -1,0 +1,36 @@
+schema_version: 1
+kind: fixture
+id: fixture_m_prepare_drop_table
+name: fixture_m_prepare_drop_table
+status: needs_review
+description: M 有限模型；不承诺全章覆盖或实机成功。
+factor_ref: m_prepare
+requires_fixture_refs: []
+provides:
+  tables:
+  - name: m_prepare_drop_table_ns.base_table
+    persistence: permanent
+    table_kind: regular
+    columns:
+    - name: id
+      type: INTEGER
+      nullable: true
+    - name: qty
+      type: INTEGER
+      nullable: true
+seed:
+  required: false
+  rows: []
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+  - CREATE SCHEMA m_prepare_drop_table_ns;
+  - CREATE TABLE m_prepare_drop_table_ns.base_table (id INTEGER, qty INTEGER);
+  - INSERT INTO m_prepare_drop_table_ns.base_table VALUES (1,10),(2,20);
+  teardown_sqls:
+  - DEALLOCATE PREPARE m_prepare_stmt;
+  - DROP TABLE IF EXISTS m_prepare_drop_table_ns.base_table PURGE;
+  - DROP SCHEMA m_prepare_drop_table_ns;
+  note: 仅使用此case新建专属模式及对象，模式不得与用户同名。提供表声明，视图/索引身份由真实setup和阶段审阅确认，不伪装为表。目标只PREPARE，不能提前执行内层DROP。无并发、无外部依赖、无CASCADE/DROP
+    OWNED兜底。只有确认本case创建成功且归属明确的资产才允许清理，失败须记录实际阶段；prepared仅成功创建后释放。表清理使用PURGE避免回收站残留；最后清理空模式，关闭专属连接。未执行，不构成共享数据库安全授权。

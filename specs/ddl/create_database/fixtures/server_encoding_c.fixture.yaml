@@ -1,0 +1,17 @@
+schema_version: 1
+kind: fixture
+id: fixture_create_database_server_encoding_c
+name: 服务端编码候选的独占库名前置与有限清理
+status: needs_review
+description: 仅离线生成建库候选；目标库不是setup提供的既存资产，不使用预DROP或PURGE。
+factor_ref: create_database
+requires_fixture_refs: []
+provides: {}
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - "SELECT 1 / (1 - COUNT(*)) AS assert_test_database_absent FROM pg_database WHERE datname = 'b8_database';"
+  teardown_sqls: ["DROP DATABASE b8_database;"]
+  note: 高风险管理DDL，不纳入普通schema执行批次。必须独占预留b8_database，使用非目标库的管理连接，禁止并发，禁用库级回收站，确认无目标库连接。只有目标CREATE成功且取得归属回执才允许DROP；setup/目标失败时不能执行本清理。检查名称不存在不能消除竞态，静态合同不证明归属或残留已清零。执行和失败后处理需另行授权；不得自动PURGE、重试DROP、断开他人会话。

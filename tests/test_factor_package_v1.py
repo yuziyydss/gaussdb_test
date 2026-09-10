@@ -43,25 +43,25 @@ PDF_FACTOR_BASELINES = {
         "source_relpath": "general/ddl/create_index.txt",
         "sha256": "7a8ce69c11e865868cb75fd990000d6a41ceb91ce200dd3e882dc41496863d0d",
         "lines": 899,
-        "units": 209,
-        "manifests": 27,
-        "cases": 340,  # Four storage cases and one separately B-gated short COMMENT.
+        "units": 213,
+        "manifests": 29,
+        "cases": 344,  # Original 342 retained; two finite RANGE/RANGE LOCAL candidates.
     },
     "alter_table": {
         "source_relpath": "general/ddl/alter_table.txt",
         "sha256": "ff15f5547fd4f2b5aa4888b0d8c67b74f0586098cf3c87d3b2628506562e786e",
         "lines": 1636,
         "units": 213,  # CHANGE syntax, name/definition and environment separated.
-        "manifests": 20,
-        "cases": 283,  # Includes two fresh nullable ADD position candidates.
+        "manifests": 22,
+        "cases": 285,  # Original 284 retained; one actual log_fdw ENABLE RLS negative.
     },
     "insert": {
         "source_relpath": "general/dml/insert.txt",
         "sha256": "5383f2eca79ecbe64ce3e880c8e3a2a39178a6bd93ca328401740bf36c16fae5",
         "lines": 918,
         "units": 245,
-        "manifests": 16,
-        "cases": 111,  # Original 98 + 9 defaults + 4 fresh PG conflict representatives.
+        "manifests": 22,
+        "cases": 126,  # Original 123 retained; three finite partial-index candidates.
     },
     "select": {
         "source_relpath": "general/dml/select.txt",
@@ -880,8 +880,11 @@ class TestFactorPackageV1(unittest.TestCase):
         self.assertEqual(len({case.case_id for case in all_cases}), len(all_cases))
         # Different PDF chapters can document the same alias (BEGIN / START
         # TRANSACTION). Preserve their source provenance and unique case IDs;
-        # duplicate SQL inside one factor remains a generation defect.
-        self.assertEqual(len({(case.factor_id, case.sql) for case in all_cases}), len(all_cases))
+        # The same target with the same concrete setup remains a defect; a
+        # nullable/all-NULL seed contrast must retain both test candidates.
+        self.assertEqual(len({(case.factor_id, case.sql,
+            tuple(s.strip().removesuffix(';').strip() for s in case.setup_sqls))
+            for case in all_cases}), len(all_cases))
         counts = Counter(case.factor_id for case in all_cases)
         self.assertEqual(
             {factor_id: counts[factor_id] for factor_id in PDF_FACTOR_BASELINES},
@@ -1376,11 +1379,11 @@ class TestFactorPackageV1(unittest.TestCase):
         self.assertEqual(audit["source_units"]["atomicity"]["gaps"], [])
         self.assertEqual(audit["facts"]["unledgered"], [])
         self.assertEqual(audit["facts"]["unconsumed_confirmed"], [])
-        self.assertEqual(len(audit["facts"]["unresolved_open_questions"]), 7)
+        self.assertEqual(len(audit["facts"]["unresolved_open_questions"]), 8)
         self.assertEqual(audit["values"]["valid_unselected"], [])
         self.assertEqual(len(audit["values"]["coverage_gaps"]), 4)
         self.assertEqual(audit["rules"]["gaps"], [])
-        self.assertEqual(audit["manifests"]["generated_case_count"], 111)
+        self.assertEqual(audit["manifests"]["generated_case_count"], 126)
         self.assertEqual(
             audit["documented_features"]["needs_profile"],
             [
@@ -1393,14 +1396,21 @@ class TestFactorPackageV1(unittest.TestCase):
             ],
         )
         self.assertEqual(audit["documented_features"]["covered"], 17)
-        self.assertEqual(audit["documented_features"]["represented"], 21)
-        self.assertEqual(len(audit["documented_features"]["coverage_gaps"]), 10)
+        self.assertEqual(audit["documented_features"]["represented"], 23)
+        self.assertEqual(len(audit["documented_features"]["coverage_gaps"]), 12)
+        for feature_id in ("insert_feature_finite_generated_sum", "insert_feature_generated_storage_default"):
+            feature = audit["documented_features"]["details"][feature_id]
+            self.assertEqual(feature["coverage_mode"], "representative")
+            self.assertTrue(feature["represented"])
+            self.assertFalse(feature["domain_complete"])
+            self.assertIn(feature_id, audit["documented_features"]["coverage_gaps"])
         self.assertTrue(audit["conclusions"]["source_extraction_complete"])
         self.assertFalse(audit["conclusions"]["generation_model_complete"])
         self.assertFalse(audit["conclusions"]["static_coverage_complete"])
         self.assertFalse(audit["conclusions"]["behavior_coverage_complete"])
 
         cases = []
+        by_manifest = {}
         for manifest_id in self.registry.factors["insert"].manifest_refs:
             generated, report = self.generator.generate_with_report(
                 self.registry.manifests[manifest_id]
@@ -1408,10 +1418,26 @@ class TestFactorPackageV1(unittest.TestCase):
             self.assertTrue(report.pairwise_complete)
             self.assertEqual(report.feasible_pair_count, report.covered_pair_count)
             cases.extend(generated)
-        self.assertEqual(len(cases), 111)
-        self.assertEqual(len({case.case_id for case in cases}), 111)
-        self.assertEqual(sum(case.expected == "success" for case in cases), 100)
-        self.assertEqual(sum(case.expected == "error" for case in cases), 11)
+            by_manifest[manifest_id] = generated
+        additions = {
+            "manifest_insert_generated_values": 2,
+            "manifest_insert_generated_query": 1,
+            "manifest_insert_generated_negative": 2,
+            "manifest_insert_generated_returning": 4,
+            "manifest_insert_generated_storage_default": 2,
+            "manifest_insert_pg_tuple_fresh": 2,
+            "manifest_insert_partial_index_fresh": 3,
+        }
+        for mid, count in additions.items():
+            self.assertEqual(len(by_manifest[mid]), count, mid)
+        original = [c for mid, group in by_manifest.items() if mid not in additions for c in group]
+        self.assertEqual(len(by_manifest) - len(additions), 15)
+        self.assertEqual(len(original), 110)
+        self.assertEqual(Counter(c.expected for c in original), {"success": 100, "error": 10})
+        self.assertEqual(len(cases), 126)
+        self.assertEqual(len({case.case_id for case in cases}), 126)
+        self.assertEqual(sum(case.expected == "success" for case in cases), 114)
+        self.assertEqual(sum(case.expected == "error" for case in cases), 12)
         self.assertTrue(all(case.sql.endswith(";") for case in cases))
         self.assertTrue(all(
             case.sql.startswith(("INSERT ", "WITH ")) for case in cases
@@ -1420,7 +1446,6 @@ class TestFactorPackageV1(unittest.TestCase):
 
         for manifest_id in (
             "manifest_insert_conflict_view_negative",
-            "manifest_insert_conflict_query_negative",
             "manifest_insert_ignore_view_negative",
         ):
             self.assertTrue(
@@ -1456,7 +1481,7 @@ class TestFactorPackageV1(unittest.TestCase):
 
     def test_create_index_source_audit_and_generation_quality(self):
         audit = FactorCoverageAuditor(self.registry).audit("create_index")
-        self.assertEqual(audit["source_units"]["total"], 209)
+        self.assertEqual(audit["source_units"]["total"], 213)
         self.assertEqual(audit["source_units"]["line_coverage"], {
             "total": 899,
             "covered_by_units": 899,
@@ -1480,7 +1505,7 @@ class TestFactorPackageV1(unittest.TestCase):
             ],
         )
         self.assertEqual(audit["rules"]["gaps"], [])
-        self.assertEqual(audit["manifests"]["generated_case_count"], 340)
+        self.assertEqual(audit["manifests"]["generated_case_count"], 344)
         self.assertEqual(audit["documented_features"]["needs_profile"], [
             "ci_feature_active_pages_execution_profile",
             "ci_feature_deduplication_full_domain",
@@ -1515,9 +1540,9 @@ class TestFactorPackageV1(unittest.TestCase):
             self.assertTrue(report.pairwise_complete)
             self.assertEqual(report.feasible_pair_count, report.covered_pair_count)
             cases.extend(generated)
-        self.assertEqual(len(cases), 340)
-        self.assertEqual(len({case.case_id for case in cases}), 340)
-        self.assertEqual(sum(case.expected == "success" for case in cases), 310)
+        self.assertEqual(len(cases), PDF_FACTOR_BASELINES['create_index']['cases'])
+        self.assertEqual(len({case.case_id for case in cases}), PDF_FACTOR_BASELINES['create_index']['cases'])
+        self.assertEqual(sum(case.expected == "success" for case in cases), 314)
         self.assertEqual(sum(case.expected == "error" for case in cases), 30)
         self.assertTrue(all(case.sql.startswith("CREATE ") for case in cases))
         self.assertTrue(all(" INDEX " in case.sql for case in cases))
@@ -1674,9 +1699,13 @@ class TestFactorPackageV1(unittest.TestCase):
         # The generic conditional parent remains a gap; only the previously
         # unused valid two-column value now has a fixture-specific consumer.
         self.assertIn("statement_form.at_statement_modify_multi", audit["values"]["conditional_unselected"])
-        self.assertEqual(len(audit["values"]["coverage_gaps"]), 13)
+        self.assertEqual(len(audit["values"]["coverage_gaps"]), 14)
+        # A valid fresh foreign target is exercised only by a negative RLS
+        # consumer; this is not positive coverage or generic ALTER support.
+        self.assertIn('table_profile.at_table_log_foreign_fresh', audit['values']['coverage_gaps'])
+        self.assertIn('table_profile.at_table_external', audit['values']['coverage_gaps'])
         self.assertEqual(audit["rules"]["gaps"], [])
-        self.assertEqual(audit["manifests"]["generated_case_count"], 283)
+        self.assertEqual(audit["manifests"]["generated_case_count"], 285)
         self.assertEqual(audit["documented_features"]["needs_profile"], [
             "at_feature_a_rowid",
             "at_feature_b_actions",
@@ -1716,17 +1745,18 @@ class TestFactorPackageV1(unittest.TestCase):
             self.assertTrue(report.pairwise_complete)
             self.assertEqual(report.feasible_pair_count, report.covered_pair_count)
             cases.extend(generated)
-        self.assertEqual(len(cases), 283)
-        self.assertEqual(len({case.case_id for case in cases}), 283)
-        self.assertEqual(sum(case.expected == "success" for case in cases), 272)
-        self.assertEqual(sum(case.expected == "error" for case in cases), 11)
+        self.assertEqual(len(cases), 285)
+        self.assertEqual(len({case.case_id for case in cases}), 285)
+        self.assertEqual(sum(case.expected == "success" for case in cases), 273)
+        self.assertEqual(sum(case.expected == "error" for case in cases), 12)
         self.assertTrue(all(case.sql.startswith("ALTER TABLE ") for case in cases))
         self.assertTrue(all(case.sql.endswith(";") for case in cases))
         self.assertTrue(all(case.setup_sqls for case in cases))
 
         positive_sql = "\n".join(case.sql for case in cases if case.expected == "success")
         self.assertEqual({case.sql for case in cases if case.expected == "success" and " MODIFY " in case.sql},
-                         {"ALTER TABLE t_at_modify_multi MODIFY (note VARCHAR(96), amount NOT NULL);"})
+                         {"ALTER TABLE t_at_modify_multi MODIFY (note VARCHAR(96), amount NOT NULL);",
+                          "ALTER TABLE g_at_modify_single MODIFY COLUMN note VARCHAR(96);"})
         self.assertEqual({case.sql for case in cases if case.expected == "success" and " CHANGE " in case.sql},
                          {"ALTER TABLE t_at_rename_fresh CHANGE COLUMN code code_new VARCHAR(32);"})
         for unsupported in (

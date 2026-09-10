@@ -1,0 +1,23 @@
+schema_version: 1
+kind: scenario
+id: scenario_comment_rule
+name: 所属表限定规则注释设置替换清除
+factor_ref: comment
+status: planned
+description: 规则名加所属表精确定位元数据，不混同触发器，不执行规则事件。
+fixture_refs: [fixture_comment_rule]
+fact_refs: [comment_fact_lifecycle, comment_fact_authority, comment_fact_object_profiles, create_rule::create_rule_fact_owner, drop_schema::drop_schema_fact_current]
+preconditions:
+  - 已授权独占测试数据库、隔离连接，模式初始不存在且始终非当前模式；不得复用他人资产
+  - 规则创建者是实际表拥有者；规则删除权限单独核验，不由CREATE权限推导
+  - 元数据接口须校准规则类别、ignore_insert名称、g_comment_rule_ns.base_table所属表和OID
+  - 只清理本case成功创建资产，规则先于表，最后空模式；setup失败不盲目清理
+steps:
+  - {id: set, sql: "COMMENT ON RULE ignore_insert ON g_comment_rule_ns.base_table IS 'first';"}
+  - {id: replace, sql: "COMMENT ON RULE ignore_insert ON g_comment_rule_ns.base_table IS 'second';"}
+  - {id: clear, sql: 'COMMENT ON RULE ignore_insert ON g_comment_rule_ns.base_table IS NULL;'}
+oracles:
+  - {kind: manual_assertion, step_id: set, expected: '精确定位g_comment_rule_ns.base_table所属的ignore_insert规则，注释为first；不是同名触发器或其他表规则。'}
+  - {kind: manual_assertion, step_id: replace, expected: 'g_comment_rule_ns.base_table所属的ignore_insert规则只保留second注释，不是追加。'}
+  - {kind: manual_assertion, step_id: clear, expected: 'g_comment_rule_ns.base_table所属的ignore_insert规则仍存在但注释被删除，不是文本NULL。'}
+execution_requirements: [database_authorization, isolated_connection, fixture_object_owner, rule_drop_authorization, per_step_oracle, target_oracle_calibration, ownership_scoped_cleanup]

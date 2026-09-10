@@ -1,0 +1,18 @@
+schema_version: 1
+kind: fixture
+id: fixture_merge_action_filter
+name: MERGE动作WHERE的未匹配负键补充seed
+status: needs_review
+description: 依赖实际双表和原始seed，再添加不在目标表的负键；同时观察MATCHED和NOT MATCHED动作的WHERE。
+factor_ref: merge_into
+requires_fixture_refs: [fixture_merge_on_filter]
+provides: {tables: []}
+seed: {required: true, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - "INSERT INTO g_merge_on_source (id, name, category) VALUES (-2, 'new-unmatched', 'incoming');"
+  teardown_sqls:
+    - "DELETE FROM g_merge_on_source WHERE id = -2 AND name = 'new-unmatched' AND category = 'incoming';"
+  note: 每个case和scenario独立展开依赖fixture的CREATE与seed后，再执行本条INSERT；不复用之前ON场景的结果。两张表由依赖fixture实际创建并记录ownership，本wrapper不重复声明拥有、不重复DROP。仅对本case已成功初始化的表追加数据；记录本wrapper INSERT实际成功后才删除这条特定种子行，再按依赖逆序DROP。初始seed不含-2、目标MERGE不写source，因此不把其他行当成此wrapper资产。失败即停止目标并按实际归属清理。沿用一般模式、独占新连接、非系统隔离模式及授权要求，未执行数据库、不假定回滚和零残留。

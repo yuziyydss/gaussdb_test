@@ -222,10 +222,12 @@ class FactorPackageSQLGenerator:
             target = resolved.get('target_list', {}).get(combo.get('target_list'))
             if target and target.attributes.get('target_list.properties.function_output_contract'):
                 requirements = {r.key: r.allowed_values for r in manifest.environment_requirements}
+                function_contract = target.attributes['target_list.properties.function_output_contract']
                 if (requirements.get('compatibility_mode') != ['M']
-                        or requirements.get('function_resolution') != ['m_builtin_sum']):
+                        or requirements.get('function_resolution') != [function_contract]):
                     raise GenerationValidationError(
-                        'M SUM contract requires compatibility_mode=M and function_resolution=m_builtin_sum gates')
+                        'M aggregate contract requires compatibility_mode=M and '
+                        f'function_resolution={function_contract} gates')
             self._validate_fixture_contract(
                 combo,
                 resolved,
@@ -233,22 +235,138 @@ class FactorPackageSQLGenerator:
                 consumed_dimension_ids,
             )
             setup_sqls, teardown_sqls = self._compile_fixture_lifecycle(fixture_refs)
+            index_target = resolved.get('table_profile', {}).get(combo.get('table_profile'))
+            if factor.id == 'create_index' and (
+                    (index_target and (index_target.attributes.get('table_profile.properties.subpartitioned')
+                                       or index_target.attributes.get('table_profile.properties.index_partition_contract')))
+                    or any(re.search(r'\bSUBPARTITION\s+BY\b', statement, re.I) for statement in setup_sqls)):
+                from .index_partition_contract import check_index_partition
+                from .finite_sql_contract import ReviewNeeded
+                chapter = factor.source.catalog_chapter_ref
+                if (index_target is None or chapter is None or chapter.source_relpath != 'general/ddl/create_index.txt'
+                        or manifest.expected.default != 'success' or manifest.expected.scope != 'syntax_only'):
+                    raise GenerationValidationError('index_partition_contract: reviewed general positive source required')
+                gates = {gate.key: gate.allowed_values for gate in manifest.environment_requirements}
+                if len(gates) != len(manifest.environment_requirements):
+                    raise GenerationValidationError('index_partition_contract: duplicate environment gates')
+                if 'M' in gates.get('compatibility_mode', []):
+                    raise GenerationValidationError('index_partition_contract: M chapter requires separate review')
+                properties = {key.removeprefix('table_profile.properties.'): value
+                              for key, value in index_target.attributes.items() if key.startswith('table_profile.properties.')}
+                try:
+                    check_index_partition(sql, setup_sqls, teardown_sqls, target=index_target.render,
+                                          properties=properties, gates=gates)
+                except (ValueError, ReviewNeeded) as exc:
+                    raise GenerationValidationError('index_partition_contract: '+getattr(exc, 'detail', str(exc))) from exc
+            if factor.id == 'create_database' and any(
+                    group.id == 'create_database_encoding_c_template0_profiles'
+                    and any(value.id == combo.get('encoding') for value in group.values)
+                    for group in factor.dimensions['encoding'].classes):
+                from .database_encoding_contract import check_server_encoding_context
+                try:
+                    check_server_encoding_context(factor, manifest, resolved['encoding'][combo['encoding']],
+                                                  resolved['encoding'], sql, setup_sqls, teardown_sqls)
+                except ValueError as exc:
+                    raise GenerationValidationError(str(exc)) from exc
+            if factor.id in ('create_foreign_table', 'drop_foreign_table'):
+                from .log_fdw_catalog_contract import check_log_fdw_catalog
+                name_dimension = 'table_name' if factor.id == 'create_foreign_table' else 'table_names'
+                target = resolved.get(name_dimension, {}).get(combo.get(name_dimension))
+                chapter = factor.source.catalog_chapter_ref
+                if (target is None or target.attributes.get(name_dimension+'.properties.foreign_table_contract')
+                        != 'log_fdw_catalog_one_text_column' or chapter is None
+                        or chapter.source_relpath != 'general/ddl/'+factor.id+'.txt'
+                        or manifest.expected.default != 'success' or manifest.expected.scope != 'syntax_only'):
+                    raise GenerationValidationError('log_fdw_catalog: explicit finite source/target contract required')
+                if factor.id == 'create_foreign_table' and combo.get('format') != 'create_foreign_table_format_not_applicable':
+                    raise GenerationValidationError('log_fdw_catalog: file format must be not_applicable')
+                try:
+                    check_log_fdw_catalog(factor.id.split('_')[0], sql, setup_sqls, teardown_sqls,
+                        {gate.key: gate.allowed_values for gate in manifest.environment_requirements})
+                except ValueError as exc:
+                    raise GenerationValidationError(str(exc)) from exc
+            foreign_target = resolved.get('table_profile', {}).get(combo.get('table_profile'))
+            if factor.id == 'alter_table' and (
+                    (foreign_target and (foreign_target.attributes.get('table_profile.properties.foreign_table_contract')
+                                         or foreign_target.attributes.get('table_profile.properties.external')))
+                    or any(re.search(r'\bCREATE\s+FOREIGN\s+TABLE\b', statement, re.I) for statement in setup_sqls)):
+                from .log_fdw_catalog_contract import check_log_fdw_enable_rls_negative
+                chapter = factor.source.catalog_chapter_ref
+                gates = {gate.key: gate.allowed_values for gate in manifest.environment_requirements}
+                if (foreign_target is None
+                        or foreign_target.attributes.get('table_profile.properties.foreign_table_contract') != 'log_fdw_enable_rls_negative'
+                        or chapter is None or chapter.source_relpath != 'general/ddl/alter_table.txt'
+                        or manifest.expected.default != 'error'
+                        or manifest.expected.error_category != 'unsupported_rls_target'
+                        or manifest.expected.scope != 'syntax_and_semantics'
+                        or manifest.expected.oracle_status != 'needs_verification'
+                        or manifest.violates_rule_refs != ['at_rule_rls_target_supported']
+                        or len(gates) != len(manifest.environment_requirements)
+                        or 'M' in gates.get('compatibility_mode', [])):
+                    raise GenerationValidationError('log_fdw_catalog: reviewed general ALTER negative contract required')
+                try:
+                    check_log_fdw_enable_rls_negative(sql, setup_sqls, teardown_sqls, gates, foreign_target.render)
+                except ValueError as exc:
+                    raise GenerationValidationError(str(exc)) from exc
             self._validate_fixture_write_contract(factor, setup_sqls)
             self._validate_rendered_index_keys(factor, manifest, combo, resolved, sql, setup_sqls)
+            partition_target=resolved.get('partition_table_profile',{}).get(combo.get('partition_table_profile'))
+            partition_contract=(partition_target.attributes.get('partition_table_profile.properties.partition_selector_contract')
+                                if partition_target else None)
+            if partition_contract:
+                from .partition_selector_contract import check_rendered_partition_selector
+                from .finite_sql_contract import ReviewNeeded
+                chapter=factor.source.catalog_chapter_ref
+                if (partition_contract!='integer_range_key_shape' or chapter is None or
+                        chapter.source_relpath!='general/ddl/truncate.txt' or
+                        any(r.key=='compatibility_mode' and r.allowed_values!=['general'] for r in manifest.environment_requirements)):
+                    raise GenerationValidationError('partition_contract_unknown: requires reviewed general TRUNCATE source')
+                partition_value=resolved.get('partition_value_profile',{}).get(combo.get('partition_value_profile'))
+                try:
+                    check_rendered_partition_selector(sql,setup_sqls,profile_target=partition_target.render,
+                        keys=partition_target.attributes.get('partition_table_profile.properties.partition_keys'),
+                        values=(partition_value.attributes.get('partition_value_profile.properties.items') if partition_value else None))
+                except ReviewNeeded as exc:
+                    raise GenerationValidationError(f'{manifest.id}: {exc.code}: {exc.detail}') from exc
+            single_modify_action = resolved.get('action_profile', {}).get(combo.get('action_profile'))
+            if (factor.id == 'alter_table' and single_modify_action
+                    and single_modify_action.attributes.get('action_profile.properties.column_modify_single_contract_required')):
+                single_target = resolved.get('table_profile', {}).get(combo.get('table_profile'))
+                if not single_target or not single_target.attributes.get('table_profile.properties.column_modify_single_contract'):
+                    raise GenerationValidationError('column_modify_single_contract: selected action requires actual target contract')
             for dimension_id in consumed_dimension_ids:
                 table_target = resolved.get(dimension_id, {}).get(combo.get(dimension_id))
-                contract_keys = [dimension_id+'.properties.'+key for key in ('column_rename_contract','column_add_contract')
+                contract_keys = [dimension_id+'.properties.'+key for key in ('column_rename_contract','column_add_contract','column_modify_contract','column_modify_single_contract')
                                  if table_target and dimension_id+'.properties.'+key in table_target.attributes]
                 if not contract_keys:
                     continue
                 if len(contract_keys)!=1:
                     raise GenerationValidationError('Column transition must select exactly one contract')
                 contract_key=contract_keys[0];column_contract=table_target.attributes[contract_key]
+                if contract_key.endswith('.column_modify_single_contract'):
+                    from .shared_column_contract import check_rendered_column_modify_single_b
+                    from .finite_sql_contract import ReviewNeeded
+                    chapter = factor.source.catalog_chapter_ref
+                    if (not isinstance(column_contract, dict) or set(column_contract) != {'kind', 'widen_column'}
+                            or column_contract['kind'] != 'ordinary_b_single_widen'
+                            or chapter is None or chapter.source_relpath != 'general/ddl/alter_table.txt'
+                            or manifest.expected.scope != 'syntax_only' or manifest.expected.default != 'success'):
+                        raise GenerationValidationError('column_modify_single_contract: finite general positive source required')
+                    try:
+                        check_rendered_column_modify_single_b(sql, setup_sqls, teardown_sqls,
+                            profile_target=table_target.render, widen_column=column_contract['widen_column'],
+                            requirements=manifest.environment_requirements)
+                    except ReviewNeeded as exc:
+                        raise GenerationValidationError(f'{manifest.id}: {exc.code}: {exc.detail}') from exc
+                    continue
                 is_add=contract_key.endswith('.column_add_contract')
+                is_modify=contract_key.endswith('.column_modify_contract')
                 from .finite_sql_contract import ReviewNeeded
-                from .shared_column_contract import check_rendered_column_rename, check_rendered_column_add
-                fields={'kind','added_column'} if is_add else {'kind','source_column','target_column'}
-                kind='ordinary_nullable_integer' if is_add else 'ordinary_same_definition'
+                from .shared_column_contract import check_rendered_column_rename, check_rendered_column_add, check_rendered_column_modify
+                fields=({'kind','added_column'} if is_add else {'kind','widen_column','not_null_column'}
+                        if is_modify else {'kind','source_column','target_column'})
+                kind=('ordinary_nullable_integer' if is_add else 'ordinary_widen_and_not_null'
+                      if is_modify else 'ordinary_same_definition')
                 if not isinstance(column_contract,dict) or set(column_contract)!=fields or column_contract['kind']!=kind:
                     raise GenerationValidationError('Unknown column transition contract shape')
                 gates = [r.allowed_values for r in manifest.environment_requirements if r.key == 'compatibility_mode']
@@ -258,8 +376,13 @@ class FactorPackageSQLGenerator:
                 chapter_modes = {'general/ddl/alter_table.txt':'B','m_compat/ddl/alter_table.txt':'M'}
                 if chapter is None or chapter.source_relpath not in chapter_modes:
                     raise GenerationValidationError('column_rename_source_unknown: requires reviewed ALTER TABLE chapter identity')
+                if is_modify and chapter.source_relpath!='general/ddl/alter_table.txt':
+                    raise GenerationValidationError('column_modify_source_unknown: requires reviewed general MODIFY chapter')
                 try:
-                    if is_add:
+                    if is_modify:
+                        check_rendered_column_modify(sql,setup_sqls,profile_target=table_target.render,
+                            widen_column=column_contract['widen_column'],not_null_column=column_contract['not_null_column'])
+                    elif is_add:
                         check_rendered_column_add(sql,setup_sqls,profile_target=table_target.render,
                             added_column=column_contract['added_column'],compatibility_modes=gates[0] if gates else [],
                             position_compatibility_mode=chapter_modes[chapter.source_relpath])
@@ -271,6 +394,38 @@ class FactorPackageSQLGenerator:
                 except ReviewNeeded as exc:
                     raise GenerationValidationError(f'{manifest.id}: {exc.code}: {exc.detail}') from exc
             insert_target = resolved.get('target_profile', {}).get(combo.get('target_profile'))
+            partial_contract = (insert_target.attributes.get('target_profile.properties.partial_index_contract')
+                                if insert_target else None)
+            conflict_value = resolved.get('conflict_clause', {}).get(combo.get('conflict_clause'))
+            partial_required = (conflict_value and conflict_value.attributes.get(
+                'conflict_clause.properties.partial_index_contract_required'))
+            # A removed tag must not silently turn actual expression/partial
+            # arbitration into ordinary input-column validation.
+            actual_partial = (factor.id == 'insert' and re.search(
+                r'\bON\s+CONFLICT\s*\(\s*\(.*\bWHERE\b',
+                re.sub(r"'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"", "''", sql), re.I | re.S))
+            if partial_contract or partial_required or actual_partial:
+                from .insert_partial_index_contract import check_partial_index_insert
+                from .finite_sql_contract import ReviewNeeded
+                chapter = factor.source.catalog_chapter_ref
+                gates = {gate.key: gate.allowed_values for gate in manifest.environment_requirements}
+                required = {'compatibility_mode': ['PG'],
+                            'operator_binding': ['builtin_integer_plus_and_gt'],
+                            'actor_authority': ['fixture_creator_insert_select_index'],
+                            'case_namespace': ['isolated_user_schema']}
+                if (partial_contract != 'integer_plus_one_exact_predicate' or factor.id != 'insert'
+                        or chapter is None or chapter.source_relpath != 'general/dml/insert.txt'
+                        or manifest.expected.default != 'success' or manifest.expected.scope != 'syntax_only'
+                        or len(gates) != len(manifest.environment_requirements)
+                        or any(gates.get(key) != value for key, value in required.items())):
+                    raise GenerationValidationError('partial_index_contract: explicit general PG source, target and gates required')
+                try:
+                    evidence = check_partial_index_insert(sql, setup_sqls, teardown_sqls)
+                    partial_expected_target = evidence['table']+'('+evidence['key_column']+','+evidence['predicate_column']+')'
+                    if re.sub(r'\s+', '', insert_target.render).lower() != partial_expected_target:
+                        raise ReviewNeeded('partial_index_target_unknown', 'Profile target disagrees with actual index target')
+                except ReviewNeeded as exc:
+                    raise GenerationValidationError(f'{manifest.id}: {exc.code}: {exc.detail}') from exc
             replace_contract = (insert_target.attributes.get('target_profile.properties.replace_conflict_contract')
                                 if insert_target else None)
             if replace_contract:
@@ -339,11 +494,11 @@ class FactorPackageSQLGenerator:
                     raise GenerationValidationError(f'{manifest.id}: {exc.code}: {exc.detail}') from exc
             if target and target.attributes.get('target_list.properties.function_output_contract'):
                 from .finite_sql_contract import Contradiction, ReviewNeeded
-                from .query_output_contract import check_rendered_sum_source
+                from .query_output_contract import check_rendered_aggregate_source
                 source = resolved['source_form'][combo['source_form']]
                 chapter = factor.source.catalog_chapter_ref
                 try:
-                    check_rendered_sum_source(sql, setup_sqls,
+                    check_rendered_aggregate_source(sql, setup_sqls,
                         items=target.attributes.get('target_list.properties.items', []),
                         output_types=target.attributes.get('target_list.properties.output_types', []),
                         available_columns=source.attributes.get('source_form.properties.available_columns', []),
@@ -355,7 +510,9 @@ class FactorPackageSQLGenerator:
                     raise GenerationValidationError(f'{manifest.id}: {exc.code}: {exc.detail}') from exc
             file_assets = self._compile_fixture_files(fixture_refs, sql, setup_sqls)
             if manifest.expected.default == "success":
-                rendered_contract = inspect_write(sql, setup_sqls)
+                chapter = factor.source.catalog_chapter_ref
+                rendered_contract = inspect_write(sql, setup_sqls, conflict_source_scope=(
+                    'm_compat' if chapter and chapter.source_relpath.startswith('m_compat/') else 'general'))
                 if rendered_contract["status"] == "rejected":
                     raise GenerationValidationError(
                         f"{manifest.id}: rendered SQL/fixture contradiction: "
@@ -657,6 +814,24 @@ class FactorPackageSQLGenerator:
         gates = [r for r in manifest.environment_requirements if r.key == 'compatibility_mode']
         for dimension in consumed_dimensions:
             value = resolved[dimension][combo[dimension]]
+            environment_key = dimension + '.properties.required_environment_capabilities'
+            if environment_key in value.attributes:
+                requirements = value.attributes[environment_key]
+                if not isinstance(requirements, dict) or not requirements:
+                    raise GenerationValidationError(f'{manifest.id}: invalid required_environment_capabilities for {dimension}')
+                for name, required_values in requirements.items():
+                    if (not isinstance(name, str) or not name or not isinstance(required_values, list)
+                            or not required_values or not all(isinstance(v, str) and v for v in required_values)
+                            or len(set(required_values)) != len(required_values)):
+                        raise GenerationValidationError(f'{manifest.id}: invalid environment requirement for {dimension}')
+                    matching = [r for r in manifest.environment_requirements if r.key == name]
+                    if len(matching) != 1:
+                        raise GenerationValidationError(f'{manifest.id}: {dimension} requires exactly one {name} gate')
+                    allowed_values = matching[0].allowed_values
+                    if (not allowed_values or not all(isinstance(v, str) for v in allowed_values)
+                            or len(set(allowed_values)) != len(allowed_values)
+                            or not set(allowed_values).issubset(required_values)):
+                        raise GenerationValidationError(f'{manifest.id}: {name} broadens {dimension} requirement')
             key = dimension + '.properties.required_compatibility_modes'
             if key not in value.attributes:
                 continue
@@ -1138,7 +1313,9 @@ class FactorPackageSQLGenerator:
                     raise GenerationValidationError('fixture_write_unknown: commented setup is outside finite scope')
                 if not re.match(r'^\s*(?:INSERT|UPDATE|REPLACE|DELETE|WITH)\b', sql, re.I):
                     continue
-                result = inspect_write(sql, setup[:index])
+                chapter = factor.source.catalog_chapter_ref
+                result = inspect_write(sql, setup[:index], conflict_source_scope=(
+                    'm_compat' if chapter and chapter.source_relpath.startswith('m_compat/') else 'general'))
                 if result['status'] != 'checked':
                     kind = 'contradiction' if result['status'] == 'rejected' else 'unknown'
                     raise GenerationValidationError(f"fixture_write_{kind}: step {index}: {result['issues']}")
@@ -1293,12 +1470,13 @@ class FactorPackageSQLGenerator:
         null_positions = {i for i, typ in enumerate(source_types) if str(typ).upper() == 'NULL'}
         if null_positions:
             from .finite_sql_contract import ReviewNeeded
-            from .shared_column_contract import finite_values_null_positions
+            from .shared_column_contract import finite_values_null_positions, finite_rendered_values_null_positions
             try:
                 if source.render.strip():
-                    raise ReviewNeeded('null_input_unknown', 'Query/raw render is not a finite VALUES row list')
-                proven_nulls = finite_values_null_positions(
-                    source.attributes.get('source_profile.properties.items'), output_count)
+                    proven_nulls = finite_rendered_values_null_positions(source.render, output_count)
+                else:
+                    proven_nulls = finite_values_null_positions(
+                        source.attributes.get('source_profile.properties.items'), output_count)
                 if not null_positions.issubset(proven_nulls):
                     raise ReviewNeeded('null_input_unknown', 'Declared NULL differs from actual VALUES tokens')
             except ReviewNeeded as exc:
@@ -1432,11 +1610,11 @@ class FactorPackageSQLGenerator:
         function_contract = target.attributes.get('target_list.properties.function_output_contract')
         if function_contract:
             from .finite_sql_contract import ReviewNeeded
-            from .query_output_contract import check_documented_sum_types
+            from .query_output_contract import check_documented_aggregate_types
             if not target.attributes.get('target_list.properties.has_aggregate', False):
-                raise GenerationValidationError('SUM signature requires aggregate projection identity')
+                raise GenerationValidationError('Function signature requires aggregate projection identity')
             try:
-                check_documented_sum_types(target_items, target_output_types,
+                check_documented_aggregate_types(target_items, target_output_types,
                     available_columns, available_types, mode=documented_mode, identity=function_contract)
             except (ReviewNeeded, Contradiction) as exc:
                 raise GenerationValidationError(f'SELECT {exc.code}: {exc.detail}') from exc

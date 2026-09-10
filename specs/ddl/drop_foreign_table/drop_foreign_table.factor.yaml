@@ -20,9 +20,17 @@ source:
 source_ledger_ref: "source_ledger_drop_foreign_table"
 syntax_ref: "syntax_drop_foreign_table"
 dimensions:
+  table_names:
+    description: 由真实log_fdw前置创建的单一外表，不以缺失对象冒充生命周期
+    profile_source: {matrix_ref: matrix_drop_foreign_table_log_catalog, profile_id_path: profiles.id}
+    default_value_id: drop_foreign_table_log_catalog_target
   if_exists:
     description: "存在选项"
     classes:
+      - id: drop_foreign_table_if_exists_log_fresh_class
+        meaning: 删除刚创建的单个log_fdw目录外表，不是缺失对象
+        values:
+        - {id: drop_foreign_table_if_exists_log_fresh, render: "", representative: true, validity: valid, fact_refs: [drop_foreign_table_fact_table, 'create_foreign_table::create_foreign_table_fact_log_fdw_example']}
       -
         id: "drop_foreign_table_if_exists_none_class"
         meaning: "none"
@@ -49,6 +57,10 @@ dimensions:
   behavior:
     description: "依赖选项"
     classes:
+      - id: drop_foreign_table_restrict_log_fresh_class
+        meaning: 无下游依赖的有限外表使用RESTRICT，不推广到所有依赖形态
+        values:
+        - {id: drop_foreign_table_restrict_log_fresh, render: RESTRICT, representative: true, validity: valid, fact_refs: [drop_foreign_table_fact_default_restrict, drop_foreign_table_fact_restrict]}
       -
         id: "drop_foreign_table_behavior_v0_class"
         meaning: "v0"
@@ -161,13 +173,18 @@ facts:
   -
     id: "drop_foreign_table_fact_runtime_fixture"
     type: "open_question"
-    statement: "没有已验证的独占FDW外表fixture，不生成DROP IF EXISTS缺失对象来冒充生命周期。"
+    statement: "log_fdw目录示例已具备有限静态前置，FDW数据访问、实机归属/清理和其他封装器仍未验证；不以DROP IF EXISTS缺失对象冒充生命周期。"
     status: "needs_verification"
     source_anchor: "L24-L25"
 exported_fact_refs: []
-manifest_refs: []
+manifest_refs:
+  - manifest_drop_foreign_table_log_catalog
 matrix_refs:
+  - matrix_drop_foreign_table_log_catalog
   - "matrix_drop_foreign_table_coverage"
-fixture_refs: []
+fixture_refs:
+  - fixture_shared_log_fdw_catalog_server
+  - fixture_drop_foreign_table_log_catalog
 scenario_refs:
+  - scenario_drop_foreign_table_log_catalog
   - "scenario_drop_foreign_table_documented_contracts"

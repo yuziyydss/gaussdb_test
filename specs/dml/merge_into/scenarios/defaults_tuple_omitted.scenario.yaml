@@ -1,0 +1,19 @@
+schema_version: 1
+kind: scenario
+id: scenario_merge_defaults_tuple_omitted
+name: MERGE元组DEFAULT与插入省略列
+status: planned
+description: 本场景必须独立重建原始seed，不能接在scalar场景后运行，否则id=2已存在、不会测试省略列插入。name使用常量默认，category无默认使用NULL。
+factor_ref: merge_into
+fixture_refs: [fixture_merge_constant_defaults]
+fact_refs: [merge_fact_matched_behavior, merge_fact_not_matched_behavior, merge_fact_default_behavior, 'create_table::ct_fact_default_semantics', 'drop_table::dt_fact_dependency_modes', 'drop_table::dt_fact_purge']
+preconditions: [独占非系统测试模式及隔离连接，两表初始不存在，固定current_schema/search_path，逐步记录本case资产归属]
+steps:
+  - id: merge
+    sql: "MERGE INTO g_merge_default_target AS dst USING g_merge_default_source AS src ON (dst.id = src.id) WHEN MATCHED THEN UPDATE SET (name, category) = (DEFAULT, DEFAULT) WHEN NOT MATCHED THEN INSERT (id) VALUES (src.id);"
+oracles:
+  - kind: result_set
+    step_id: merge
+    sql: SELECT id, name, category FROM g_merge_default_target ORDER BY id NULLS LAST;
+    expected: [[1, fallback-name, null], [2, fallback-name, null], [3, keep-three, keep]]
+execution_requirements: [database_authorization, general_mode, isolated_connection, fresh_fixture_per_scenario, ownership_scoped_cleanup, per_step_oracle, target_oracle_calibration]

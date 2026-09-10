@@ -1,0 +1,22 @@
+schema_version: 1
+kind: fixture
+id: fixture_comment_aggregate
+name: COMMENT独占模式内单INTEGER输入聚集
+factor_ref: comment
+status: needs_review
+description: 实际两INTEGER参数转换函数返回INTEGER，单输入聚集状态为INTEGER；不是把聚集伪报成表或普通函数。
+requires_fixture_refs: []
+provides: {tables: []}
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - CREATE SCHEMA g_comment_aggregate_ns;
+    - "CREATE FUNCTION g_comment_aggregate_ns.transition_value(INTEGER, INTEGER) RETURNS INTEGER LANGUAGE SQL AS 'SELECT $1 + $2;';"
+    - "CREATE AGGREGATE g_comment_aggregate_ns.sum_value(INTEGER) (SFUNC=g_comment_aggregate_ns.transition_value, STYPE=INTEGER, INITCOND='0');"
+  teardown_sqls:
+    - DROP AGGREGATE g_comment_aggregate_ns.sum_value(INTEGER) RESTRICT;
+    - DROP FUNCTION g_comment_aggregate_ns.transition_value(INTEGER, INTEGER) RESTRICT;
+    - DROP SCHEMA g_comment_aggregate_ns RESTRICT;
+  note: 仅已授权独占PG兼容测试数据库与隔离连接；聚集创建权限须执行前单独核验，正文未给出该权限的独立充分规则。模式初始不存在、非系统非用户同名、不在search_path中且始终非当前模式。转换函数默认PUBLIC执行权不构成隔离保证，禁止共享数据库；本函数只计算两个输入整数，不访问对象或秘密。只清理本case实际创建并确认属主的聚集、两个输入参数签名函数和空模式；setup失败阻止目标和盲目teardown，按成功资产记录逆序处理。不用CASCADE、DROP OWNED、REPLACE或DDL回滚清理，不测NULL输入、溢出、重载、零参数或运行期聚集行为；目录身份和输出Oracle尚未校准。

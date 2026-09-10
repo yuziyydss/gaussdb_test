@@ -1,0 +1,19 @@
+schema_version: 1
+kind: scenario
+id: scenario_update_generated_storage_default_default
+name: 一般update省略存储关键字的default待验证
+status: planned
+description: 独立fixture建立确定输入，验证11来自2加9而不是把DEFAULT当NULL；省略STORED只按一般章节解释。返回行数/命中计数未由此最终表查询证明。
+factor_ref: update
+fixture_refs: [fixture_update_generated_storage_default]
+fact_refs: [update_fact_generated_column, 'create_table::ct_fact_generated_storage_default', 'create_table::ct_fact_generated_semantics', 'drop_table::dt_fact_dependency_modes', 'drop_table::dt_fact_purge']
+preconditions: [一般章节环境、独占非系统测试空间、初始名称不存在、固定search_path、只清理本case拥有对象]
+steps:
+  - id: target_write
+    sql: "UPDATE g_generated_implicit_dst SET total = DEFAULT WHERE id = 2;"
+oracles:
+  - kind: result_set
+    step_id: target_write
+    sql: SELECT id, qty, total FROM g_generated_implicit_dst ORDER BY id;
+    expected: [[2, 9, 11], [3, 8, 11]]
+execution_requirements: [database_authorization, general_mode, isolated_connection, fresh_fixture_per_scenario, ownership_scoped_cleanup, per_step_oracle, target_oracle_calibration]

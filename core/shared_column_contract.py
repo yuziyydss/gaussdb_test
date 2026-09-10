@@ -8,7 +8,8 @@ import re
 
 from .finite_sql_contract import (
     IDENT, NAME, ReviewNeeded, Contradiction, ddl_tables, expression_type,
-    split_list, take_group, top_mask, type_family, unwrap,
+    split_list, take_group, top_mask, type_family, unwrap, split_clause,
+    finite_range_partition_definition, range_partition_for, partition_integer,
 )
 
 
@@ -17,6 +18,11 @@ EXACT_DECIMAL_LITERAL = r'[+-]?[0-9]+(?:\.[0-9]+)?'
 QUERY_KEYWORDS = {'WHERE', 'JOIN', 'LIMIT', 'OFFSET', 'GROUP', 'ORDER', 'HAVING',
                   'UNION', 'INTERSECT', 'EXCEPT', 'MINUS', 'WITH', 'FOR', 'FETCH',
                   'AS', 'CONNECT', 'START'}
+NON_COLUMN_EXPRESSIONS = frozenset({
+    'NULL', 'TRUE', 'FALSE', 'DEFAULT', 'CURRENT_DATE', 'CURRENT_TIME',
+    'CURRENT_TIMESTAMP', 'LOCALTIME', 'LOCALTIMESTAMP', 'CURRENT_USER',
+    'SESSION_USER', 'USER', 'CURRENT_ROLE', 'CURRENT_CATALOG', 'CURRENT_SCHEMA',
+})
 
 
 def check_direct_projection_types(items, declared_types, columns, source_types):
@@ -27,6 +33,10 @@ def check_direct_projection_types(items, declared_types, columns, source_types):
     contracts. In particular no SUM return type or implicit cast is inferred.
     Input source types are the caller's contract, not database catalog evidence.
     """
+    if len(items) != len(declared_types):
+        raise Contradiction('projection_contract_arity', 'Projection and output types must have equal widths')
+    if len(columns) != len(source_types):
+        raise Contradiction('projection_source_arity', 'Source columns and types must have equal widths')
     aliases = {'INT': 'INTEGER', 'INT4': 'INTEGER', 'INT2': 'SMALLINT',
                'INT8': 'BIGINT', 'DECIMAL': 'NUMERIC', 'BOOL': 'BOOLEAN'}
 
@@ -38,11 +48,7 @@ def check_direct_projection_types(items, declared_types, columns, source_types):
     checked = []
     for index, (item, declared) in enumerate(zip(items, declared_types)):
         match = re.fullmatch(rf'({IDENT})(?:\s+AS\s+{IDENT})?', str(item).strip(), re.I)
-        if not match or match[1].upper() in (
-            'NULL', 'TRUE', 'FALSE', 'DEFAULT', 'CURRENT_DATE', 'CURRENT_TIME',
-            'CURRENT_TIMESTAMP', 'LOCALTIME', 'LOCALTIMESTAMP', 'CURRENT_USER',
-            'SESSION_USER', 'USER', 'CURRENT_ROLE', 'CURRENT_CATALOG', 'CURRENT_SCHEMA',
-        ):
+        if not match or match[1].upper() in NON_COLUMN_EXPRESSIONS:
             continue
         name = match[1].lower()
         if name not in source:
@@ -69,6 +75,24 @@ def finite_values_null_positions(items, width):
             raise ReviewNeeded('null_input_unknown', 'VALUES row width differs from output contract')
         positions.intersection_update(i for i, expr in enumerate(row) if expr.upper() == 'NULL')
     return positions
+
+
+def finite_rendered_values_null_positions(render, width):
+    """The raw-profile equivalent of finite VALUES AST token evidence.
+
+    Consume the entire fragment; declared items cannot override rendered SQL.
+    This does not prove target compatibility or a generated-column Oracle.
+    """
+    if '--' in render or '/*' in render or ';' in top_mask(render):
+        raise ReviewNeeded('null_input_unknown', 'Expected one uncommented VALUES fragment')
+    match = re.fullmatch(r'VALUES?\s*(\(.+\))', render.strip(), re.I | re.S)
+    if not match:
+        raise ReviewNeeded('null_input_unknown', 'Expected full VALUES rows, not a query or suffix')
+    rows = split_list(match[1])
+    for row in rows:
+        if not row.startswith('(') or take_group(row)[1]:
+            raise ReviewNeeded('null_input_unknown', 'Expected complete parenthesized VALUES rows')
+    return finite_values_null_positions(rows, width)
 
 
 def check_rendered_insert_target(sql, setup, *, profile_target, available_types,
@@ -335,7 +359,85 @@ def check_generated_inputs(table, names, expressions):
                            'generation expression/result contract is not evaluated')
 
 
-def ordinary_columns(ddl):
+def check_conflict_input_reference(table, name, expr, clause_kind, source_scope, alias):
+    """Prove only a direct incoming same-column type, never old-row identity.
+
+    General INSERT documents VALUES/EXCLUDED; the reviewed M INSERT source
+    documents only VALUES. Source scope is declared evidence, not DB mode.
+    Cross-column conversions, expressions, views and partition routing remain
+    review work. Do not rewrite these references into ordinary column names.
+    """
+    unquoted = re.sub(r"'(?:''|[^'])*'", '', expr)
+    if not re.search(r'\bVALUES\s*\(|\bEXCLUDED\s*\.', unquoted, re.I):
+        return False
+    values = re.fullmatch(rf'VALUES\s*\(\s*({IDENT})\s*\)', expr.strip(), re.I)
+    excluded = re.fullmatch(rf'EXCLUDED\s*\.\s*({IDENT})', expr.strip(), re.I)
+    if not (values or excluded):
+        # General INSERT L294 is a syntactic restriction, not CASE evaluation.
+        # Prove only a bare incoming column on the left of IN/NOT IN. Keep
+        # dollar/backslash quoting, qualified functions and other shapes open.
+        if (source_scope == 'general' and clause_kind == 'duplicate'
+                and table.get('_column_contract') and '_view_base' not in table
+                and not any(token in expr for token in ('$', '\\', '"', '`', '--', '/*'))):
+            masked = re.sub(r"'(?:''|[^'])*'", lambda m: ' ' * len(m[0]), expr)
+            predicate = rf'\bVALUES\s*\(\s*({IDENT})\s*\)\s+(?:NOT\s+)?IN\s*\('
+            for match in re.finditer(predicate, masked, re.I):
+                if (not masked[:match.start()].rstrip().endswith('.')
+                        and match[1].lower() in table['_column_contract']):
+                    raise Contradiction('duplicate_values_predicate_not_supported',
+                                        'General INSERT L294 forbids incoming VALUES(column) in IN/NOT IN; '
+                                        'expression evaluation and runtime SQLSTATE remain unproved')
+        raise ReviewNeeded('conflict_source_expression_unknown', 'Only direct incoming column references checked')
+    if source_scope not in ('general', 'm_compat') or (excluded and source_scope != 'general'):
+        raise ReviewNeeded('conflict_source_scope_unknown', 'Reviewed source does not establish this reference form')
+    if values and clause_kind != 'duplicate':
+        raise Contradiction('conflict_values_scope', 'VALUES(column) is documented only in ON DUPLICATE KEY UPDATE')
+    target = re.match(rf'^CREATE\s+(?:TEMP(?:ORARY)?\s+)?TABLE\s+({NAME})\s*\(', table['ddl'], re.I)
+    binding = alias or (target[1].split('.')[-1] if target else '')
+    if excluded and binding.lower() == 'excluded':
+        raise ReviewNeeded('conflict_source_identity_unknown', 'EXCLUDED is shadowed by a target binding')
+    contract = table.get('_column_contract')
+    if not contract or '_view_base' in table:
+        raise ReviewNeeded('conflict_source_target_unknown', 'Fully parsed ordinary target DDL is required')
+    source_name = (values or excluded)[1].lower()
+    if source_name not in contract:
+        raise Contradiction('missing_column', source_name)
+    if source_name != name:
+        raise ReviewNeeded('conflict_source_conversion_unknown', 'Cross-column range/nullability/conversion not proved')
+    table['_conflict_input_checked'] = True
+    return True
+
+
+def check_replace_default_scope(table, names, expressions):
+    """Keep M REPLACE implicit-zero/default ambiguity out of ordinary NULL proof.
+
+    The M chapter has separate zero/default and left-to-right SET rules. This
+    guard neither evaluates those rules nor proves deletion/insertion effects.
+    """
+    if len(names) != len(expressions):
+        raise Contradiction('arity', f'{len(names)} target columns vs {len(expressions)} expressions')
+    check_generated_inputs(table, names, expressions)
+    requested = set(table['columns']) - set(names)
+    requested.update(name for name, expr in zip(names, expressions) if expr.strip().upper() == 'DEFAULT')
+    if not requested:
+        return
+    contract = table.get('_column_contract')
+    if not contract or '_view_base' in table:
+        raise ReviewNeeded('replace_defaults_unknown', 'REPLACE defaults require full ordinary target DDL')
+    for name in requested:
+        column = contract[name]
+        if not column['nullable'] and column['default_state'] in ('absent', 'null'):
+            raise ReviewNeeded('replace_zero_default_unknown',
+                               f'{name}: REPLACE zero/default behavior needs a separate environment contract')
+
+
+def ordinary_columns(ddl, *, allow_approximate_declarations=False):
+    """Complete ordinary declarations; approximate opt-in is read evidence only.
+
+    Existing write/default consumers never opt in. The M aggregate source
+    reader may request bare FLOAT/DOUBLE, without typmods, defaults or other
+    column clauses. This does not establish assignment or rounding semantics.
+    """
     statement = ddl.strip().removesuffix(';').strip()
     match = re.match(rf'^CREATE\s+(?:TEMP(?:ORARY)?\s+)?TABLE\s+({NAME})\s*(\()', statement, re.I)
     if not match:
@@ -345,15 +447,20 @@ def ordinary_columns(ddl):
         return None
     columns = {}
     for declaration in split_list(body):
+        approximate_types = '|FLOAT|DOUBLE' if allow_approximate_declarations else ''
         column = re.fullmatch(
-            rf'({IDENT})\s+(INTEGER|INT[248]?|SMALLINT|BIGINT|TEXT|VARCHAR|CHARACTER\s+VARYING|BOOLEAN|BOOL|NUMERIC|DECIMAL)'
+            rf'({IDENT})\s+(INTEGER|INT[248]?|SMALLINT|BIGINT|TEXT|VARCHAR|CHARACTER\s+VARYING|BOOLEAN|BOOL|NUMERIC|DECIMAL{approximate_types})'
             r'(\s*\(\s*[0-9]+\s*(?:,\s*[0-9]+\s*)?\))?(?=\s|$)(.*)', declaration, re.I | re.S)
         if not column or column[1].lower() in columns:
             return None
         name, typ, length, rest = column.groups()
         family = type_family(typ)
         decimal_params = {}
-        if family == 'numeric':
+        if allow_approximate_declarations and typ.upper() in ('FLOAT','DOUBLE'):
+            if length or rest.strip() or not declaration.isascii():
+                return None
+            family = 'approximate'
+        elif family == 'numeric':
             # Bare/one-parameter NUMERIC and DECIMAL have context-dependent
             # defaults (PDF 1.3.1); only explicit valid (p,s) is evidence here.
             params = re.findall(r'[0-9]+', length or '')
@@ -401,9 +508,122 @@ def ordinary_columns(ddl):
     return columns or None
 
 
+def _full_literal_seed_rows(raw, name, columns):
+    """Full-width typed literal INSERT only; usable on either side of CREATE."""
+    sql = raw.strip().removesuffix(';').strip()
+    if any(t in sql for t in ('--','/*','"','`','\\','$')) or ';' in top_mask(sql):
+        raise ReviewNeeded('source_rows_unknown', 'Seed statement quoting or boundary is not finite')
+    seed = re.fullmatch(rf'INSERT\s+INTO\s+({NAME})\s*(\([^()]*\))?\s+VALUES\s*(.+)', sql, re.I|re.S)
+    if not seed or seed[1].lower() != name:
+        raise ReviewNeeded('source_rows_unknown', 'Only literal INSERTs into the actual table are consumed')
+    names = [n.lower() for n in split_list(unwrap(seed[2]))] if seed[2] else list(columns)
+    if (not all(re.fullmatch(IDENT,n) for n in names) or len(names) != len(set(names))
+            or set(names) != set(columns)):
+        raise ReviewNeeded('source_rows_unknown', 'Seed must supply every declared source column exactly once')
+    rows = []
+    for raw_row in split_list(seed[3]):
+        values = split_list(unwrap(raw_row))
+        if len(values) != len(names) or not all(re.fullmatch(LITERAL+r'|NULL',v,re.I) for v in values):
+            raise ReviewNeeded('source_rows_unknown', 'Every seed field must be a complete supported literal')
+        row = dict(zip(names,values))
+        for key,value in row.items():
+            validate_literal(columns[key],value)
+        rows.append(row)
+    return rows
+
+
+def _closed_seed_prefix(statements):
+    """Exclude hidden programs before source CREATE, not authorize cleanup.
+
+    Only new finite tables, typed literal seeds into those tables and bare table
+    drops are parsed. This is a deliberately small history domain, not a generic
+    fixture executor. DROP ownership/isolation remains a separate requirement.
+    """
+    known = {}
+    for raw in statements:
+        sql = raw.strip().removesuffix(';').strip()
+        if any(t in sql for t in ('--','/*','"','`','\\','$')) or ';' in top_mask(sql):
+            raise ReviewNeeded('source_rows_unknown','Opaque prefix boundary/quoting')
+        drop = re.fullmatch(rf'DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?({NAME})(?:\s+(?:CASCADE|RESTRICT))?',sql,re.I)
+        if drop:
+            known.pop(drop[1].lower(),None)
+            continue
+        create = re.match(rf'^CREATE\s+TABLE\s+({NAME})\s*\(',sql,re.I)
+        if create:
+            name = create[1].lower()
+            plain,suffix = split_clause(sql,'PARTITION')
+            columns = ordinary_columns(plain)
+            if (name in known or not columns or any(c['default_state'] not in ('absent','null','constant') for c in columns.values())
+                    or re.search(r'\bPRIMARY\s+KEY\b|\bUNIQUE\b|\bCONSTRAINT\b',plain,re.I)):
+                raise ReviewNeeded('source_rows_unknown','Prefix requires a complete new table without hidden expressions')
+            for column in columns.values():
+                if column['default_state'] in ('null','constant'):
+                    validate_literal(column,column['default_sql'])
+            partition = None
+            if suffix:
+                partition = finite_range_partition_definition(dict(ddl=sql,columns={n:c['family'] for n,c in columns.items()}))
+                key,bounds = partition
+                if any(upper is not None and not integer_literal_in_range(columns[key],str(upper)) for _,upper in bounds):
+                    raise ReviewNeeded('source_rows_unknown','Prefix partition bound exceeds actual key type')
+            known[name] = (columns,partition)
+            continue
+        seed = re.match(rf'^INSERT\s+INTO\s+({NAME})\b',sql,re.I)
+        if not seed or seed[1].lower() not in known:
+            raise ReviewNeeded('source_rows_unknown','Unparsed prefix or INSERT into an unproved prior object')
+        name = seed[1].lower()
+        columns,partition = known[name]
+        rows = _full_literal_seed_rows(sql,name,columns)
+        if partition:
+            key,bounds = partition
+            for row in rows:
+                range_partition_for(bounds,partition_integer(row[key]))
+
+
+def closed_literal_source_rows(table, setup, *, source_scope):
+    """General INSERT L31-36: a closed, fresh literal seed image, not DB rows.
+
+    Only ASCII SQL, complete ordinary declarations without defaults/uniqueness
+    and full literal INSERTs after the unique actual CREATE are consumed. Prefix opaque
+    programs/settings and every unparsed suffix remain unknown. The caller must
+    retain isolated successful-fixture and no-concurrency assumptions; this is
+    neither lifecycle approval nor a general fixture executor.
+    """
+    try:
+        if source_scope != 'general' or not table or '_view_base' in table:
+            raise ReviewNeeded('source_rows_unknown', 'A general ordinary source table is required')
+        ddl = table['ddl'].strip()
+        head = re.match(rf'^CREATE\s+TABLE\s+({NAME})\s*\(', ddl, re.I)
+        columns = ordinary_columns(ddl)
+        if (not head or not columns or columns != table.get('_column_contract')
+                or any(c['default_state'] != 'absent' for c in columns.values())
+                or re.search(r'\bPRIMARY\s+KEY\b|\bUNIQUE\b|\bCONSTRAINT\b', ddl, re.I)):
+            raise ReviewNeeded('source_rows_unknown', 'Source declaration/constraint identity is not fully finite')
+        statements = [s.strip() for s in setup]
+        if not all(s.isascii() for s in setup):
+            raise ReviewNeeded('source_rows_unknown', 'Non-ASCII SQL needs a separate lexical/encoding contract')
+        starts = [i for i,s in enumerate(statements) if s == ddl]
+        if len(starts) != 1:
+            raise ReviewNeeded('source_rows_unknown', 'Need exactly one current CREATE in actual setup')
+        _closed_seed_prefix(statements[:starts[0]])
+        name = head[1].lower()
+        rows = []
+        for raw in statements[starts[0]+1:]:
+            rows.extend(_full_literal_seed_rows(raw,name,columns))
+        if not rows:
+            raise ReviewNeeded('source_rows_unknown', 'Do not credit an unseeded/vacuous source')
+        return dict(table=name, rows=rows, database_executed=False,
+                    setup_sha256=hashlib.sha256('\n'.join(statements).encode()).hexdigest())
+    except ReviewNeeded as error:
+        # A malformed fixture cannot stand in for the target's negative Oracle.
+        raise ReviewNeeded('source_rows_unknown', error.detail) from error
+
+
 def _fresh_plain_column_fixture(setup, target, label):
-    """Shared closed fixture evidence, not a catalog or general DDL evaluator."""
-    from .finite_sql_contract import inspect_write
+    """Return actual columns and full literal seed rows, not shape-only INSERT.
+
+    A column reference in VALUES is not a literal from an existing row. Shared
+    literal checks apply to the original DDL before any proposed transition.
+    """
     if not setup:
         raise ReviewNeeded(label+'_fixture_unknown','Fresh CREATE TABLE is required')
     ddl=setup[0].strip().removesuffix(';').strip()
@@ -413,11 +633,104 @@ def _fresh_plain_column_fixture(setup, target, label):
     columns=ordinary_columns(ddl)
     if not columns or any(not c['nullable'] or c['default_state']!='absent' for c in columns.values()):
         raise ReviewNeeded(label+'_definition_unknown','Defaults, constraints or unparsed definitions need another contract')
-    for index,seed in enumerate(setup[1:],1):
-        insert=re.match(rf'^\s*INSERT\s+(?:INTO\s+)?({NAME})\b',seed,re.I)
-        if not insert or insert[1].lower()!=target or inspect_write(seed,setup[:index])['status']!='checked':
-            raise ReviewNeeded(label+'_setup_unknown','Only finite seed INSERTs into this table are supported')
-    return columns
+    rows=[]
+    for seed in setup[1:]:
+        statement=seed.strip().removesuffix(';').strip()
+        if '--' in statement or '/*' in statement or ';' in top_mask(statement):
+            raise ReviewNeeded(label+'_setup_unknown','Expected one uncommented seed INSERT')
+        insert=re.fullmatch(rf'INSERT\s+INTO\s+({NAME})\s+VALUES\s+(.+)',statement,re.I|re.S)
+        if not insert or insert[1].lower()!=target:
+            raise ReviewNeeded(label+'_seed_unknown','Only full ordered VALUES seeds into this table are handled')
+        for row in split_list(insert[2]):
+            values=split_list(unwrap(row))
+            if len(values)!=len(columns) or not all(re.fullmatch(LITERAL+r'|NULL|DEFAULT',v,re.I) for v in values):
+                raise ReviewNeeded(label+'_seed_unknown','Seed requires full-width literal inputs')
+            values=['NULL' if v.upper()=='DEFAULT' else v for v in values]
+            for column,value in zip(columns.values(),values):
+                validate_literal(column,value)
+            rows.append(values)
+    return columns,rows
+
+
+def check_rendered_column_modify_single_b(sql, setup, teardown, *, profile_target,
+                                         widen_column, requirements):
+    """B extended single-column MODIFY, L364-390; not parenthesized MODIFY.
+
+    Explicit enable_modify_column membership resolves the documented semantic
+    switch. Only a nullable/default-free dependency-free VARCHAR widening is
+    admitted; no conversion, dependent-object rebuilding or DB result is proven.
+    """
+    gates = {gate.key: gate.allowed_values for gate in requirements}
+    expected = {'compatibility_mode': ['B'], 'b_format_enable_modify_column': ['enabled'],
+                'namespace': ['isolated_user_schema'], 'table_authority': ['fixture_table_creator'],
+                'table_creation_authority': ['create_any_table']}
+    if len(gates) != len(requirements) or any(gates.get(key) != value for key, value in expected.items()):
+        raise ReviewNeeded('column_modify_single_environment', 'Exact B, option membership, isolation and authority gates required')
+    if (not isinstance(profile_target, str) or not re.fullmatch(r'g_[a-z0-9_]+', profile_target)
+            or not isinstance(widen_column, str) or not re.fullmatch(IDENT, widen_column)):
+        raise ReviewNeeded('column_modify_single_identity', 'Fresh unqualified test table and column required')
+    statement = sql.strip().removesuffix(';').strip()
+    if '--' in statement or '/*' in statement or ';' in top_mask(statement):
+        raise ReviewNeeded('column_modify_single_syntax', 'One uncommented statement required')
+    match = re.fullmatch(rf'ALTER\s+TABLE\s+({NAME})\s+MODIFY\s+COLUMN\s+({IDENT})\s+'
+                         r'VARCHAR\s*\(\s*([0-9]{1,4})\s*\)', statement, re.I)
+    if not match:
+        raise ReviewNeeded('column_modify_single_syntax', 'Only bare MODIFY COLUMN VARCHAR is admitted')
+    if (match[1].lower(), match[2].lower()) != (profile_target, widen_column.lower()):
+        raise Contradiction('column_modify_single_identity', 'Actual target/column differs from profile')
+    columns, rows = _fresh_plain_column_fixture(setup, profile_target, 'column_modify_single')
+    old = columns.get(widen_column.lower())
+    if (not old or old['type'] not in ('VARCHAR', 'CHARACTER VARYING') or not old['length']
+            or int(match[3]) <= old['length']):
+        raise ReviewNeeded('column_modify_single_widening', 'Original VARCHAR definition must prove strict widening')
+    if (len(teardown) != 1 or re.fullmatch(rf'\s*DROP\s+TABLE\s+{re.escape(profile_target)}\s*;?\s*',
+                                         teardown[0], re.I) is None):
+        raise ReviewNeeded('column_modify_single_cleanup', 'Exact owned table cleanup required, not rollback/CASCADE')
+    return {'widening': {'column': widen_column.lower(), 'from_length': old['length'], 'to_length': int(match[3])},
+            'checked_seed_rows': len(rows), 'definition_scope': 'nullable_no_default_no_dependency',
+            'database_executed': False, 'dependent_rebuild_proven': False, 'cleanup_ownership_proven': False}
+
+
+def check_rendered_column_modify(sql, setup, *, profile_target, widen_column,
+                                 not_null_column, source_scope='general'):
+    """General MODIFY (...), L359-363: finite widening/NOT NULL prerequisites.
+
+    One VARCHAR widening and a different column becoming NOT NULL on a fresh,
+    dependency-free ordinary table. Literal full-row seeds only; no conversion,
+    constraint rebuilding, statistics or database outcome is inferred.
+    """
+    if source_scope != 'general':
+        raise ReviewNeeded('column_modify_source_unknown', 'Only the reviewed general parenthesized form is handled')
+    if (not isinstance(profile_target,str) or not re.fullmatch(NAME,profile_target)
+            or not all(isinstance(n,str) and re.fullmatch(IDENT,n) for n in (widen_column,not_null_column))
+            or widen_column.lower()==not_null_column.lower()):
+        raise ReviewNeeded('column_modify_contract_unknown', 'Explicit distinct affected column identities required')
+    target,wide,nonnull=profile_target.lower(),widen_column.lower(),not_null_column.lower()
+    statement=sql.strip().removesuffix(';').strip()
+    if '--' in statement or '/*' in statement or ';' in top_mask(statement):
+        raise ReviewNeeded('column_modify_syntax_unknown', 'Expected exactly one uncommented MODIFY statement')
+    match=re.fullmatch(rf'ALTER\s+TABLE\s+({NAME})\s+MODIFY\s*\((.*)\)',statement,re.I|re.S)
+    if not match:
+        raise ReviewNeeded('column_modify_syntax_unknown', 'Only parenthesized MODIFY is handled')
+    items=split_list(match[2])
+    widths=[re.fullmatch(rf'({IDENT})\s+VARCHAR\s*\(\s*([0-9]{{1,4}})\s*\)',x,re.I) for x in items]
+    nulls=[re.fullmatch(rf'({IDENT})\s+NOT\s+NULL',x,re.I) for x in items]
+    widths=[x for x in widths if x];nulls=[x for x in nulls if x]
+    if len(items)!=2 or len(widths)!=1 or len(nulls)!=1:
+        raise ReviewNeeded('column_modify_syntax_unknown', 'Expected one bounded VARCHAR length and one NOT NULL item')
+    if (match[1].lower(),widths[0][1].lower(),nulls[0][1].lower()) != (target,wide,nonnull):
+        raise Contradiction('column_modify_identity_mismatch', 'Rendered target/columns differ from the selected contract')
+    columns,rows=_fresh_plain_column_fixture(setup,target,'column_modify')
+    if wide not in columns or nonnull not in columns:
+        raise Contradiction('column_modify_column_missing', 'Affected column absent from actual CREATE TABLE')
+    old=columns[wide];new_length=int(widths[0][2])
+    if old['type'] not in ('VARCHAR','CHARACTER VARYING') or old['length'] is None or new_length<=old['length']:
+        raise ReviewNeeded('column_modify_widening_unknown', 'Actual old definition must prove strict VARCHAR widening')
+    for values in rows:
+        if values[list(columns).index(nonnull)].upper()=='NULL':
+            raise Contradiction('column_modify_seed_null', 'Existing seed contains NULL for the requested NOT NULL column')
+    return dict(before_columns=list(columns),widening=dict(column=wide,from_length=old['length'],to_length=new_length),
+                not_null_column=nonnull,checked_seed_rows=len(rows),database_executed=False)
 
 
 def check_rendered_column_add(sql, setup, *, profile_target, added_column,
@@ -438,7 +751,7 @@ def check_rendered_column_add(sql, setup, *, profile_target, added_column,
     target,new=profile_target.lower(),added_column.lower()
     if (match[1].lower(),match[2].lower()) != (target,new):
         raise Contradiction('column_add_identity_mismatch','Rendered target or added name differs from profile')
-    columns=_fresh_plain_column_fixture(setup,target,'column_add')
+    columns,_=_fresh_plain_column_fixture(setup,target,'column_add')
     if new in columns:
         raise Contradiction('column_add_destination_exists',new)
     before=list(columns);after=before.copy()
@@ -482,7 +795,7 @@ def check_rendered_column_rename(sql, setup, *, profile_target, source_column,
         raise Contradiction('column_rename_identity_mismatch','Rendered target or rename mapping differs from profile')
     if change and compatibility_modes != [change_compatibility_mode]:
         raise ReviewNeeded('column_rename_mode',f'Actual CHANGE requires exactly {change_compatibility_mode} for its source chapter')
-    columns=_fresh_plain_column_fixture(setup,target,'column_rename')
+    columns,_=_fresh_plain_column_fixture(setup,target,'column_rename')
     if old not in columns:
         raise Contradiction('column_rename_source_missing',old)
     if new in columns:
@@ -549,23 +862,38 @@ def direct_projection_columns(projection, base, alias, labels=None):
     return projected
 
 
-def finite_derived_target(query, tables):
-    """Inspect actual target SELECT, without creating or rewriting any SQL."""
+def _finite_direct_projection(query, tables, role):
+    """Only column lineage is shared; callers retain read/write identities."""
     match = re.fullmatch(rf'SELECT\s+(.+?)\s+FROM\s+({NAME})(?:\s+(?:AS\s+)?({IDENT}))?',
                          query.strip(), re.I | re.S)
     if not match:
-        raise ReviewNeeded('target_unknown', 'Derived target is not a finite direct projection')
+        raise ReviewNeeded(role+'_unknown', 'Derived '+role+' is not a finite direct projection')
     base = tables.get(match[2].lower())
     if not base or not base.get('_column_contract') or '_view_base' in base:
-        raise ReviewNeeded('fixture_unknown', 'Derived target needs a complete ordinary base table')
+        raise ReviewNeeded('fixture_unknown', 'Derived '+role+' needs a complete ordinary base table')
     alias = (match[3] or match[2].split('.')[-1]).lower()
     projected = direct_projection_columns(match[1], base, alias)
     if not projected:
-        raise ReviewNeeded('target_unknown', 'Derived output is not unambiguous direct user columns')
+        raise ReviewNeeded(role+'_unknown', 'Derived output is not unambiguous direct user columns')
+    return base, projected
+
+
+def finite_derived_target(query, tables):
+    """Inspect actual target SELECT, without creating or rewriting any SQL."""
+    base, projected = _finite_direct_projection(query, tables, 'target')
     return {'columns': {n: c['family'] for n, c in projected.items()},
             'ddl': query, '_column_contract': projected, '_view_base': base,
             '_derived_target': True,
             '_target_query_sha256': hashlib.sha256(query.encode()).hexdigest()}
+
+
+def finite_query_source(query, tables):
+    """A direct read projection is not a writable derived-table proof."""
+    base, projected = _finite_direct_projection(query, tables, 'source')
+    return {'columns': {n: c['family'] for n, c in projected.items()},
+            'ddl': query, '_column_contract': projected, '_query_base': base,
+            '_query_source': True,
+            '_source_query_sha256': hashlib.sha256(query.encode()).hexdigest()}
 
 
 def attach_shared_contracts(tables, setup):

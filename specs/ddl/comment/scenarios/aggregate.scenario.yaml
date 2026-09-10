@@ -1,0 +1,23 @@
+schema_version: 1
+kind: scenario
+id: scenario_comment_aggregate
+name: 聚集签名注释设置替换清除
+factor_ref: comment
+status: planned
+description: 聚集对象类别加模式、名称、INTEGER输入签名定位元数据；不把同名普通函数、转换函数或运行结果当成聚集注释。
+fixture_refs: [fixture_comment_aggregate]
+fact_refs: [comment_fact_lifecycle, comment_fact_aggregate, comment_fact_authority, comment_fact_object_profiles, create_function::create_function_fact_styles, create_function::create_function_fact_public_execute, drop_aggregate::drop_aggregate_fact_owner, drop_function::drop_function_fact_authority, drop_schema::drop_schema_fact_current]
+preconditions:
+  - 独占已授权PG兼容测试数据库及隔离连接，非M函数语义；聚集创建权限单独核验，不由转换函数权限推导
+  - 模式初始不存在、非系统非用户同名、不在search_path中，全程非当前模式
+  - 按实际创建成功的资产与属主记录清理，聚集先于转换函数，最后仅空模式；PUBLIC默认执行权不允许共享数据库
+  - 元数据读取接口须校准聚集类别、模式、名称、INTEGER输入签名与OID；不可只按名称定位
+steps:
+  - {id: set, sql: "COMMENT ON AGGREGATE g_comment_aggregate_ns.sum_value(INTEGER) IS 'first';"}
+  - {id: replace, sql: "COMMENT ON AGGREGATE g_comment_aggregate_ns.sum_value(INTEGER) IS 'second';"}
+  - {id: clear, sql: 'COMMENT ON AGGREGATE g_comment_aggregate_ns.sum_value(INTEGER) IS NULL;'}
+oracles:
+  - {kind: manual_assertion, step_id: set, expected: '精确定位g_comment_aggregate_ns.sum_value(INTEGER)聚集对象，注释为first；不是同名普通函数或transition_value转换函数。'}
+  - {kind: manual_assertion, step_id: replace, expected: '同一INTEGER输入签名聚集只保留second注释，而非追加；目录接口待校准。'}
+  - {kind: manual_assertion, step_id: clear, expected: '同一INTEGER输入签名聚集仍存在而注释被删除，不是文本NULL或对象被删除。'}
+execution_requirements: [database_authorization, aggregate_create_authorization, isolated_connection, fixture_object_owner, per_step_oracle, target_oracle_calibration, ownership_scoped_cleanup]

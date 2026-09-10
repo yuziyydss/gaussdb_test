@@ -1,0 +1,22 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_schema_inline_sequence
+name: 内嵌序列首值及步长控制
+status: planned
+factor_ref: create_schema
+description: 复用CREATE SEQUENCE原文101和111示例的有限参数，分两次调用并定位实际新模式；不推断缓存、回滚恢复或任意序列属性。
+fixture_refs: [fixture_create_schema_inline_sequence]
+fact_refs: [create_schema_fact_elements_order, create_schema_fact_element_owner, create_schema_fact_element_gap, create_schema_fact_search_path, create_sequence::cs_fact_example_increment]
+preconditions: [获授权的独占测试库和新连接, fp_cs_new初始不存在且不与用户同名, 目标模式不能被search_path选为current_schema, 记录实际创建资产ownership, 首次调用前不能有其他nextval调用者]
+steps:
+  - id: create
+    sql: CREATE SCHEMA fp_cs_new CREATE SEQUENCE fp_cs_new.s_cs_inline START WITH 101 INCREMENT BY 10;
+  - id: first_value
+    sql: SELECT nextval('fp_cs_new.s_cs_inline');
+  - id: second_value
+    sql: SELECT nextval('fp_cs_new.s_cs_inline');
+oracles:
+  - {after_step: create, kind: manual_assertion, expected: 按实际模式定位永久普通序列及其属主；不是同名表或其他模式序列。}
+  - {after_step: first_value, kind: result_set, expected: [[101]]}
+  - {after_step: second_value, kind: result_set, expected: [[111]]}
+execution_requirements: [database_authorization, isolated_connection, per_step_oracle, target_oracle_calibration, ownership_scoped_cleanup, phase_dependency_review]

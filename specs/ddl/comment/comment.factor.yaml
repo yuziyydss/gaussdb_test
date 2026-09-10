@@ -56,6 +56,96 @@ dimensions:
             validity: "valid"
             fact_refs:
               - "comment_fact_column"
+      - id: comment_target_index_fresh_class
+        meaning: 本case实际新建的ASTORE普通索引
+        values:
+          - id: comment_target_index_fresh
+            render: INDEX g_comment_rel_idx
+            representative: true
+            validity: valid
+            fixture_refs: [fixture_comment_owned_relations]
+            fact_refs: [comment_fact_syntax_b, create_index::ci_fact_main_grammar, create_index::ci_fact_method_storage_contract]
+      - id: comment_target_view_fresh_class
+        meaning: 本case实际新建的两列普通视图
+        values:
+          - id: comment_target_view_fresh
+            render: VIEW g_comment_rel_view
+            representative: true
+            validity: valid
+            fixture_refs: [fixture_comment_owned_relations]
+            fact_refs: [comment_fact_syntax_e, create_view::cv_fact_main_grammar]
+      - id: comment_target_view_column_fresh_class
+        meaning: 本case实际视图投影中的第一列
+        values:
+          - id: comment_target_view_column_fresh
+            render: COLUMN g_comment_rel_view.col_1
+            representative: true
+            validity: valid
+            fixture_refs: [fixture_comment_owned_relations]
+            fact_refs: [comment_fact_column, create_view::cv_fact_main_grammar]
+      - id: comment_target_schema_fresh_class
+        meaning: 本case新建且非当前的独占模式
+        values:
+          - id: comment_target_schema_fresh
+            render: SCHEMA g_comment_contract_ns
+            representative: true
+            validity: valid
+            fixture_refs: [fixture_comment_namespace_constraint]
+            fact_refs: [comment_fact_syntax_c, create_schema::create_schema_fact_named_syntax]
+      - id: comment_target_constraint_fresh_class
+        meaning: 本case实际表中显式命名的整数主键约束
+        values:
+          - id: comment_target_constraint_fresh
+            render: CONSTRAINT g_comment_pk ON g_comment_contract_ns.base_table
+            representative: true
+            validity: valid
+            fixture_refs: [fixture_comment_namespace_constraint]
+            fact_refs: [comment_fact_constraint, create_table::ct_fact_primary_key]
+      - id: comment_target_function_fresh_class
+        meaning: 本case新建用户模式中显式INTEGER入参的普通SQL函数
+        values:
+          - id: comment_target_function_fresh
+            render: FUNCTION g_comment_function_ns.identity_value(INTEGER)
+            representative: true
+            validity: valid
+            fixture_refs: [fixture_comment_function]
+            fact_refs: [comment_fact_syntax_b, comment_fact_function, create_function::create_function_fact_pg_signature]
+      - id: comment_target_aggregate_fresh_class
+        meaning: 独占用户模式中N加1转换参数与INTEGER状态匹配的单输入聚集
+        values:
+          - id: comment_target_aggregate_fresh
+            render: AGGREGATE g_comment_aggregate_ns.sum_value(INTEGER)
+            representative: true
+            validity: valid
+            fixture_refs: [fixture_comment_aggregate]
+            fact_refs: [comment_fact_syntax_a, comment_fact_aggregate, create_aggregate::create_aggregate_fact_name, create_aggregate::create_aggregate_fact_inputs, create_aggregate::create_aggregate_fact_sfunc, create_aggregate::create_aggregate_fact_state, create_aggregate::create_aggregate_fact_init, create_function::create_function_fact_pg_signature]
+      - id: comment_target_rule_fresh_class
+        meaning: 本case实际普通表上的INSERT DO INSTEAD NOTHING规则
+        values:
+          - id: comment_target_rule_fresh
+            render: RULE ignore_insert ON g_comment_rule_ns.base_table
+            representative: true
+            validity: valid
+            fixture_refs: [fixture_comment_rule]
+            fact_refs: [comment_fact_syntax_c, create_rule::create_rule_fact_syntax, create_rule::create_rule_fact_target, drop_rule::drop_rule_fact_syntax, drop_rule::drop_rule_fact_table]
+      - id: comment_target_enum_fresh_class
+        meaning: 本case独占模式中具有两个短ASCII标签的枚举类型
+        values:
+          - id: comment_target_enum_fresh
+            render: TYPE g_comment_type_ns.status_enum
+            representative: true
+            validity: valid
+            fixture_refs: [fixture_comment_types]
+            fact_refs: [comment_fact_object_type_syntax, create_type::create_type_fact_syntax_enum, create_type::create_type_fact_enum_limit, create_type::create_type_fact_schema]
+      - id: comment_target_composite_fresh_class
+        meaning: 本case独占模式中具有两个INTEGER属性的复合类型
+        values:
+          - id: comment_target_composite_fresh
+            render: TYPE g_comment_type_ns.point_pair
+            representative: true
+            validity: valid
+            fixture_refs: [fixture_comment_types]
+            fact_refs: [comment_fact_object_type_syntax, create_type::create_type_fact_syntax_composite, create_type::create_type_fact_schema]
     default_value_id: "comment_target_table"
   text:
     description: "文本/转义/删除语义"
@@ -108,6 +198,13 @@ dimensions:
 rules: []
 structural_checks: []
 facts:
+  - {id: comment_fact_object_database_syntax, type: syntax, statement: 'COMMENT对象分支允许DATABASE object_name；不表示数据库资产或执行环境已准备。', status: confirmed, source_anchor: L33-L33}
+  - {id: comment_fact_object_domain_syntax, type: syntax, statement: 'COMMENT对象分支列出DOMAIN object_name；具体类型能力与前置仍需独立验证。', status: confirmed, source_anchor: L34-L34}
+  - {id: comment_fact_object_extension_syntax, type: syntax, statement: 'COMMENT对象分支允许EXTENSION object_name；不假定扩展已安装。', status: confirmed, source_anchor: L35-L35}
+  - {id: comment_fact_object_foreign_data_wrapper_syntax, type: syntax, statement: 'COMMENT对象分支允许FOREIGN DATA WRAPPER object_name；不假定外部封装资产存在。', status: confirmed, source_anchor: L36-L36}
+  - {id: comment_fact_object_foreign_table_syntax, type: syntax, statement: 'COMMENT对象分支允许FOREIGN TABLE object_name；不等于已提供外部表或数据源。', status: confirmed, source_anchor: L37-L37}
+  - {id: comment_fact_object_function_syntax, type: syntax, statement: 'COMMENT对象分支允许FUNCTION名称和可选参数列表，参数包含可选名称/模式及类型。', status: confirmed, source_anchor: L38-L38}
+  - {id: comment_fact_object_index_syntax, type: syntax, statement: 'COMMENT对象分支允许INDEX object_name；索引创建能力与权限由对应章节提供。', status: confirmed, source_anchor: L39-L39}
   -
     id: "comment_fact_purpose"
     type: "metadata_oracle"
@@ -180,6 +277,26 @@ facts:
     statement: "聚集名称需输入类型签名。"
     status: "confirmed"
     source_anchor: "L62-L65"
+  - id: comment_fact_object_type_syntax
+    type: syntax
+    statement: COMMENT ON TYPE通过类型名称定位被注释的类型对象。
+    status: confirmed
+    source_anchor: L54-L54
+  - id: comment_fact_object_view_syntax
+    type: syntax
+    statement: COMMENT ON VIEW通过视图名称定位被注释的视图。
+    status: confirmed
+    source_anchor: L55-L55
+  - id: comment_fact_object_trigger_syntax
+    type: syntax
+    statement: COMMENT ON TRIGGER使用触发器名称与所属表共同定位。
+    status: confirmed
+    source_anchor: L56-L56
+  - id: comment_fact_object_is_syntax
+    type: syntax
+    statement: 对象定位之后用IS引入注释文本；删除语义另由COMMENT生命周期事实规定。
+    status: confirmed
+    source_anchor: L58-L58
   -
     id: "comment_fact_cast"
     type: "syntax"
@@ -261,7 +378,7 @@ facts:
   -
     id: "comment_fact_object_profiles"
     type: "open_question"
-    statement: "本批只生成表与列，其他对象类型分支逐项需专属 fixture/权限，不据一个表冒充全对象覆盖。"
+    statement: "已有表/表列、普通索引/视图/视图列、新建模式/显式命名主键约束、PG风格单一INTEGER入参SQL函数、单INTEGER输入且转换函数状态匹配的聚集，以及两个短ASCII枚举标签和两个INTEGER属性复合类型的有限代表；聚集创建权限、目录身份、零参数/重载/NULL/溢出及其他对象逐项需专属fixture和权限，不据几个代表冒充全对象覆盖。"
     status: "needs_verification"
     source_anchor: "L25-L32"
   -
@@ -272,11 +389,29 @@ facts:
     source_anchor: "L12-L15"
 exported_fact_refs: []
 manifest_refs:
+  - manifest_comment_rule
+  - manifest_comment_aggregate
+  - manifest_comment_types
+  - manifest_comment_function
+  - manifest_comment_namespace_constraint
+  - manifest_comment_owned_relations
   - "manifest_comment_table_and_columns"
 matrix_refs:
   - "matrix_comment_coverage"
 fixture_refs:
+  - fixture_comment_rule
+  - fixture_comment_aggregate
+  - fixture_comment_types
+  - fixture_comment_function
+  - fixture_comment_namespace_constraint
+  - fixture_comment_owned_relations
   - "fixture_comment_table"
 scenario_refs:
+  - scenario_comment_rule
+  - scenario_comment_aggregate
+  - scenario_comment_types
+  - scenario_comment_function
+  - scenario_comment_namespace_constraint
+  - scenario_comment_owned_relations
   - "scenario_comment_replace_and_remove"
   - "scenario_comment_object_permissions"

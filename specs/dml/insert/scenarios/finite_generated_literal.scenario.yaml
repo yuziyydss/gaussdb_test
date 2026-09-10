@@ -1,0 +1,22 @@
+schema_version: 1
+kind: scenario
+id: scenario_insert_finite_generated_literal
+name: 一般模式insert有限生成列literal待验证
+status: planned
+description: 每个场景从自己的原始fixture开始。11来自2加9，未命中行保持原值；静态推算不是数据库执行结果。
+factor_ref: insert
+fixture_refs: [fixture_insert_finite_generated_values]
+fact_refs: [insert_fact_generated_column, 'create_table::ct_fact_generated_semantics', 'create_table::ct_fact_generated_expression_limits', 'create_table::ct_fact_generated_write_restriction', 'drop_table::dt_fact_dependency_modes', 'drop_table::dt_fact_purge']
+preconditions: [一般模式章节环境、独占非系统模式与隔离连接、初始名称不存在、固定search_path、仅清理本case实际创建对象]
+steps:
+  - id: target_write
+    sql: "INSERT INTO g_generated_dst VALUES (2, 9, 99);"
+    expected: error
+oracles:
+  - kind: target_error
+    step_ref: target_write
+    expected: {error_category: generated_write}
+    calibration_status: needs_verification
+    sqlstates: []
+    note: 只接受目标SQL的生成列直接赋值错误；setup、权限、对象缺失及任意错误均不能冒充通过。SQLSTATE待获授权实机标定。
+execution_requirements: [database_authorization, general_mode, isolated_connection, fresh_fixture_per_scenario, ownership_scoped_cleanup, per_step_oracle, target_oracle_calibration]

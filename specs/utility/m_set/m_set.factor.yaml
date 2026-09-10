@@ -111,6 +111,71 @@ dimensions:
         properties: {}
         fact_refs:
         - m_set_fact_user_variable
+    - id: m_set_form_user_variable_list_class
+      meaning: user_variable_list
+      values:
+      - id: m_set_form_user_variable_list
+        render: ''
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs:
+        - m_set_fact_user_variable
+    - id: m_set_form_user_variable_chain_class
+      meaning: user_variable_chain
+      values:
+      - id: m_set_form_user_variable_chain
+        render: ''
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs:
+        - m_set_fact_user_variable_chain
+    - id: m_set_form_user_variable_subquery_class
+      meaning: user_variable_subquery
+      values:
+      - id: m_set_form_user_variable_subquery
+        render: ''
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs:
+        - m_set_fact_user_variable_subquery
+        - m_select::m_select_fact_from_optional
+        - m_select::m_select_fact_projection_expression
+    - id: m_set_form_schema_to_class
+      meaning: schema_to
+      values:
+      - id: m_set_form_schema_to
+        render: ''
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs: &id001
+        - m_set_fact_schema_syntax
+        - m_create_schema::m_create_schema_fact_syntax
+        - m_commit::m_commit_fact_syntax
+        - m_start_transaction::m_start_transaction_fact_syntax
+        - m_rollback::m_rollback_fact_syntax
+        - m_drop_schema::m_drop_schema_fact_syntax
+    - id: m_set_form_schema_equals_class
+      meaning: schema_equals
+      values:
+      - id: m_set_form_schema_equals
+        render: ''
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs: *id001
+    - id: m_set_form_schema_string_class
+      meaning: schema_string
+      values:
+      - id: m_set_form_schema_string
+        render: ''
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs: *id001
     default_value_id: m_set_form_timezone
   assignment_operator:
     description: assignment_operator：有限代表域
@@ -159,6 +224,26 @@ dimensions:
         properties: {}
         fact_refs:
         - m_set_fact_user_variable_types
+    - id: m_set_variable_value_integer_positive_class
+      meaning: integer_positive
+      values:
+      - id: m_set_variable_value_integer_positive
+        render: '7'
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs:
+        - m_set_fact_user_variable_integer
+    - id: m_set_variable_value_integer_negative_class
+      meaning: integer_negative
+      values:
+      - id: m_set_variable_value_integer_negative
+        render: '-7'
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs:
+        - m_set_fact_user_variable_integer
     default_value_id: m_set_variable_value_string
 facts:
 - id: m_set_fact_mode
@@ -216,11 +301,46 @@ facts:
   statement: 用户变量允许存储字符类型及NULL；此fixture不推断其他类型转换行为。
   status: confirmed
   source_anchor: 2.4.2.16.4 L97-97
+- id: m_set_fact_user_variable_integer
+  type: syntax
+  statement: 用户变量表达式支持可直接或间接转为整型的表达式；本代表只选择7/-7整数文字，不推断全部类型转换、整数边界或驱动返回类型。
+  status: confirmed
+  source_anchor: 2.4.2.16.4 L109-109
+- id: m_set_fact_user_variable_chain
+  type: constraint
+  statement: 连续赋值首位允许:=或=，后续赋值位只能用:=；中间的=表示比较，不是赋值。本代表只取两个变量及字符串/NULL。
+  status: confirmed
+  source_anchor: 2.4.2.16.4 L102-105
 - id: m_set_fact_user_variable_profile_gap
   type: open_question
-  statement: 已有单变量字符串/NULL和两种赋值符号的有限代表；数值/二进制/其他类型转换、多变量列表、连续赋值及子查询表达式仍缺合同，实际读回未验证。
+  statement: 已有单变量、两个独立变量列表及两个变量连续赋值的字符串/NULL有限代表，单变量另有7/-7整数文字；子查询仅单列无FROM的字符串/NULL/7/-7常量代表。更长列表/赋值链、内部等号拒绝Oracle、FROM/关联/多行子查询、任意表达式组合、其他数值/二进制/类型转换仍缺合同，实际读回未验证。
   status: needs_verification
   source_anchor: 2.4.2.16.4 L23-25
+- id: m_set_fact_user_variable_subquery
+  type: syntax
+  statement: 用户变量expr可为子查询；此代表只取M SELECT单个常量投影且无FROM，不混入多行/关联查询。
+  status: confirmed
+  source_anchor: 2.4.2.16.4 L114-116
+- id: m_set_fact_user_variable_subquery_result
+  type: behavior_oracle
+  statement: expr为子查询时，变量结果与直接查询结果一致；本场景逐步对照单列常量结果，运行期尚待校准。
+  status: confirmed
+  source_anchor: 2.4.2.16.4 L114-116
+- id: m_set_fact_schema_syntax
+  type: syntax
+  statement: 设置模式支持CURRENT_SCHEMA TO/=标识符及SCHEMA字符串，并可选择SESSION/LOCAL；本代表只用已存在专属模式。
+  status: confirmed
+  source_anchor: 2.4.2.16.4 L16-18
+- id: m_set_fact_schema_selected
+  type: behavior_oracle
+  statement: CURRENT_SCHEMA指定当前模式，SCHEMA字符串同义；已存在模式的选择与回滚恢复需逐步验证，不硬编码初始模式。
+  status: confirmed
+  source_anchor: 2.4.2.16.4 L56-62
+- id: m_set_fact_schema_profile_gap
+  type: open_question
+  statement: 仅同一专属模式的三种拼写与三scope有限代表；DEFAULT、缺失模式空值、提交与SESSION/LOCAL交错、名称引用域和实际元数据接口仍待验证。
+  status: needs_verification
+  source_anchor: 2.4.2.16.4 L16-18
 rules: []
 structural_checks: []
 exported_fact_refs:
@@ -230,14 +350,29 @@ exported_fact_refs:
 manifest_refs:
 - manifest_m_set_timezone
 - manifest_m_set_user_variable
+- manifest_m_set_user_variable_integer
+- manifest_m_set_user_variable_list
+- manifest_m_set_user_variable_chain
+- manifest_m_set_user_variable_subquery
+- manifest_m_set_schema
 matrix_refs:
 - matrix_m_set_user_variable_coverage
+- matrix_m_set_schema_coverage
 fixture_refs:
 - fixture_m_set_prepare_string
 - fixture_m_set_transaction
 - fixture_m_set_user_variable
+- fixture_m_set_user_variable_list
+- fixture_m_set_user_variable_chain
+- fixture_m_set_user_variable_subquery
+- fixture_m_set_schema
 scenario_refs:
 - scenario_m_set_prepare_string_value
+- scenario_m_set_user_variable_subquery_values
+- scenario_m_set_schema_restore
 - scenario_m_set_user_variable_values
+- scenario_m_set_user_variable_integer_values
+- scenario_m_set_user_variable_list_values
+- scenario_m_set_user_variable_chain_values
 - scenario_m_set_local_rollback
 - scenario_m_set_separate_capabilities

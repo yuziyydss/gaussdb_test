@@ -1,0 +1,23 @@
+schema_version: 1
+kind: fixture
+id: fixture_create_index_subpartition_fresh
+name: 二级RANGE索引的显式fresh ASTORE资产
+status: needs_review
+description: 两级各两个分区和明确INTEGER键，不复用旧BEGIN/ROLLBACK fixture推断清理。
+factor_ref: create_index
+provides:
+  tables:
+    - name: g_ci_sub_source
+      persistence: permanent
+      table_kind: partitioned
+      columns:
+        - {name: id, type: INTEGER, nullable: true}
+        - {name: region, type: INTEGER, nullable: true}
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - "CREATE TABLE g_ci_sub_source (id INTEGER, region INTEGER) WITH (storage_type=astore) PARTITION BY RANGE (id) SUBPARTITION BY RANGE (region) (PARTITION p1 VALUES LESS THAN (10) (SUBPARTITION p1s1 VALUES LESS THAN (10), SUBPARTITION p1s2 VALUES LESS THAN (20)), PARTITION p2 VALUES LESS THAN (20) (SUBPARTITION p2s1 VALUES LESS THAN (10), SUBPARTITION p2s2 VALUES LESS THAN (20)));"
+  teardown_sqls: ["DROP TABLE g_ci_sub_source;"]
+  note: 仅离线语法/目录候选，空表足以定义分区关系，不证明数据路由或查询计划。要求独占fresh用户schema和名字；确认本case成功建表且只拥有本case索引后才允许DROP TABLE。setup失败不能盲清理，不使用CASCADE或DDL回滚假设；执行和归属校准须另行授权。

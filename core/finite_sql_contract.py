@@ -289,12 +289,8 @@ def range_partition_for(bounds, value):
     raise Contradiction('partition_out_of_range', f'{value} has no declared RANGE partition')
 
 
-def finite_insert_partition(columns, table):
-    """Consume one explicit selector and prove only a complete integer RANGE DDL."""
-    prefix = re.match(r'^PARTITION\s*(FOR\b)?\s*', columns, re.I)
-    if not prefix:
-        return columns, None
-    selector, columns = take_group(columns[prefix.end():].strip())
+def finite_range_partition_definition(table):
+    """Fully consume one single-integer RANGE suffix, without resolving a name."""
     ddl = table['ddl'].strip().removesuffix(';').strip()
     if ';' in top_mask(ddl) or '--' in ddl or '/*' in ddl or '"' in ddl:
         raise ReviewNeeded('partition_contract_unknown', 'Non-finite partition DDL')
@@ -318,18 +314,36 @@ def finite_insert_partition(columns, table):
             raise ReviewNeeded('partition_contract_unknown', 'Duplicate names or non-increasing RANGE bounds')
         seen.add(name)
         bounds.append((name, upper))
+    return grammar[1].lower(), bounds
+
+
+def finite_range_partition_selector(columns, table):
+    """Resolve a selector only against a completely parsed RANGE definition."""
+    prefix = re.match(r'^PARTITION\s*(FOR\b)?\s*', columns, re.I)
+    if not prefix:
+        return columns, None
+    selector, columns = take_group(columns[prefix.end():].strip())
+    key, bounds = finite_range_partition_definition(table)
     if prefix[1]:
         selected = range_partition_for(bounds, partition_integer(selector))
     else:
         if not re.fullmatch(IDENT, selector.strip()):
             raise ReviewNeeded('partition_routing_unknown', 'Partition unions/expressions are not checked')
         selected = selector.strip().lower()
-        if selected not in seen:
+        if selected not in {name for name, _ in bounds}:
             raise Contradiction('missing_partition', selected)
+    return columns, (key, bounds, selected)
+
+
+def finite_insert_partition(columns, table):
+    """Keep INSERT-specific alias restrictions outside the shared selector."""
+    columns, contract = finite_range_partition_selector(columns, table)
+    if contract is None:
+        return columns, None
     # INSERT's bare alias with a partition is not made legal by this checker.
     if columns and not columns.startswith('(') and not re.match(r'^AS\s+', columns, re.I):
         raise ReviewNeeded('syntax_unknown', 'Explicit partition requires AS for target alias')
-    return columns, (grammar[1].lower(), bounds, selected)
+    return columns, contract
 
 
 def check_insert_partition_row(contract, names, expressions):
@@ -470,7 +484,7 @@ def finite_delete_cte_checks(query, table):
     return ['delete_base_target', 'delete_finite_equality_predicate']
 
 
-def finite_dml_cte_output(query, tables, setup_sqls):
+def finite_dml_cte_output(query, tables, setup_sqls, *, source_scope='general'):
     """Check real non-WITH DML against original setup, then its RETURNING.
 
     Re-entry into inspect_write is bounded: this entry requires a direct
@@ -487,7 +501,7 @@ def finite_dml_cte_output(query, tables, setup_sqls):
         # a separate narrow predicate check, not general DELETE support.
         inner_checks = finite_delete_cte_checks(query, table)
     else:
-        inner = inspect_write(query, setup_sqls)
+        inner = inspect_write(query, setup_sqls, conflict_source_scope=source_scope)
         if inner['status'] != 'checked':
             issue = inner['issues'][0]
             error = Contradiction if inner['status'] == 'rejected' else ReviewNeeded
@@ -513,7 +527,7 @@ def finite_dml_cte_output(query, tables, setup_sqls):
                           *('dml_cte:'+check for check in inner_checks)]
 
 
-def finite_ctes(sql, tables, setup_sqls=None):
+def finite_ctes(sql, tables, setup_sqls=None, *, source_scope='general'):
     """Finite output bindings; their output never becomes a writable fixture."""
     if not re.match(r'^WITH\s', sql, re.I):
         return sql, tables, []
@@ -552,7 +566,7 @@ def finite_ctes(sql, tables, setup_sqls=None):
         elif re.match(r'^(?:INSERT|UPDATE|DELETE)\b', query, re.I):
             if len(seen) != 1 or body.startswith(','):
                 raise ReviewNeeded('cte_unknown', 'DML CTE dependencies need a separate contract')
-            names, types, extra_checks = finite_dml_cte_output(query, tables, setup_sqls)
+            names, types, extra_checks = finite_dml_cte_output(query, tables, setup_sqls, source_scope=source_scope)
         elif re.match(r'^VALUES\b', query, re.I):
             types = finite_values_cte_types(query, explicit)
             names = [None] * len(types)  # Replaced by checked explicit names below.
@@ -583,8 +597,8 @@ def finite_ctes(sql, tables, setup_sqls=None):
         body = body[1:].strip()
 
 
-def finite_from_source(tail, tables, target_bindings):
-    """Resolve one known FROM relation without merging ambiguous column scopes."""
+def finite_from_binding(tail, tables, target_bindings):
+    """Resolve one known FROM identity without merging ambiguous column scopes."""
     from_text, _ = split_clause(tail[4:].lstrip(), 'WHERE|RETURNING|ORDER|LIMIT')
     match = re.fullmatch(rf'({NAME})(?:\s+(?:AS\s+)?({IDENT}))?', from_text, re.I)
     if not match or (match[2] or '').upper() == 'AS':
@@ -595,7 +609,67 @@ def finite_from_source(tail, tables, target_bindings):
         raise Contradiction('self_from_requires_alias', 'Documented self-FROM requires an explicit FROM alias')
     if binding in target_bindings:
         raise ReviewNeeded('query_unknown', 'FROM alias conflicts with target')
-    return source
+    return binding, source
+
+
+def finite_from_source(tail, tables, target_bindings):
+    return finite_from_binding(tail, tables, target_bindings)[1]
+
+
+def finite_returning_output(output, target, binding, tables, from_tail=''):
+    """General INSERT L302-310 / UPDATE L228-232: direct output columns only.
+
+    Repeated output names are allowed here (unlike writable view/CTE schemas).
+    Type families and labels are static identities, not returned rows or values.
+    """
+    from .shared_column_contract import NON_COLUMN_EXPRESSIONS
+    implicit_names = {'SYSDATE', 'SYSTIMESTAMP', 'ROWNUM', 'ROWID', 'ROWNO',
+                      'CTID', 'OID', 'TABLEOID', 'XMIN', 'XMAX', 'CMIN', 'CMAX',
+                      'XC_NODE_ID', 'TABLEBUCKETID'}
+    if any(token in output for token in ('$', '`', '\\')):
+        raise ReviewNeeded('returning_unknown', 'Unsupported output quoting/escape syntax')
+    bindings = {binding: target}
+    has_from = bool(re.match(r'^FROM\b', from_tail, re.I))
+    if has_from:
+        source_binding, source = finite_from_binding(from_tail, tables, bindings)
+        bindings[source_binding] = source
+    columns = []
+    for item in split_list(output):
+        match = re.fullmatch(rf'(\*|{IDENT}\.\*|{NAME})(?:\s+AS\s+({IDENT}))?', item, re.I)
+        if not match:
+            raise ReviewNeeded('returning_unknown', 'Only direct RETURNING columns and stars are checked')
+        expression, label = match[1].lower(), match[2]
+        if expression.upper() in NON_COLUMN_EXPRESSIONS or expression.split('.')[-1].upper() in implicit_names:
+            raise ReviewNeeded('returning_identity_unknown', 'Special expression/system-column identity needs separate evidence')
+        if expression == '*':
+            if has_from or label:
+                raise ReviewNeeded('returning_unknown', 'Unqualified FROM star/output renaming needs separate proof')
+            selected = target
+        elif expression.endswith('.*'):
+            selected = bindings.get(expression[:-2])
+            if selected is None or label:
+                raise ReviewNeeded('returning_unknown', 'Unknown star qualifier or renamed star')
+        else:
+            parts = expression.split('.')
+            name = parts[-1]
+            if len(parts) == 2:
+                selected = bindings.get(parts[0])
+                if selected is None:
+                    raise ReviewNeeded('qualifier_unknown', 'RETURNING '+expression)
+                column_name(name, selected['columns'])
+            else:
+                candidates = [t for t in bindings.values() if name in t['columns']]
+                if not candidates:
+                    raise Contradiction('missing_column', 'RETURNING '+name)
+                if len(candidates) != 1:
+                    raise ReviewNeeded('returning_ambiguous', 'Multiple target/FROM sources expose '+name)
+                selected = candidates[0]
+            columns.append({'name': label.lower() if label else name,
+                            'type_family': selected['columns'][name]})
+            continue
+        columns.extend({'name': name, 'type_family': family}
+                       for name, family in selected['columns'].items())
+    return {'scope': 'finite_returning_columns_only', 'columns': columns}
 
 
 def check_target_rhs_from(rhs, columns, alias, source):
@@ -611,7 +685,8 @@ def check_target_rhs_from(rhs, columns, alias, source):
     column_name(target_ref[1], columns, alias)
 
 
-def check_assignments(body, table, alias, tables, allow_defaults=False):
+def check_assignments(body, table, alias, tables, allow_defaults=False, conflict_source=None,
+                      *, update_source_scope=None):
     body, tail = split_clause(body, 'FROM|WHERE|RETURNING|ORDER|LIMIT')
     from_source = bool(re.match(r'^FROM\b', tail, re.I))
     if from_source:
@@ -634,9 +709,25 @@ def check_assignments(body, table, alias, tables, allow_defaults=False):
             names, expressions = [column_name(lhs, columns, alias)], [rhs]
             inner = unwrap(rhs) if rhs.startswith('(') and rhs.endswith(')') else rhs
         subquery = inner.upper().startswith('SELECT ')
+        if (update_source_scope == 'general' and subquery and len(names) > 1
+                and split_clause(inner, r'ORDER\s+BY|LIMIT')[1]):
+            raise Contradiction('multi_column_subquery_order_limit_not_supported',
+                                'General UPDATE L177-178 forbids ORDER BY/LIMIT in multi-column SET subqueries; '
+                                'single-column and outer UPDATE clauses are separate')
+        if conflict_source is not None and subquery:
+            raise ReviewNeeded('conflict_source_query_unknown', 'Conflict subquery identity needs a separate contract')
         if subquery:
             expressions, source = finite_projection(inner, tables)
             check_types(names, expressions, columns, source=source, value_table=table)
+        elif conflict_source is not None:
+            from .shared_column_contract import check_conflict_input_reference, check_generated_inputs
+            if len(names) != len(expressions):
+                raise Contradiction('arity', f'{len(names)} target columns vs {len(expressions)} expressions')
+            check_generated_inputs(table, names, expressions)
+            for name, expr in zip(names, expressions):
+                if not check_conflict_input_reference(table, name, expr, *conflict_source, alias):
+                    check_types([name], [expr], columns, alias=alias,
+                                default_table=table if allow_defaults else None, value_table=table)
         else:
             check_types(names, expressions, columns, alias=alias,
                         default_table=table if allow_defaults else None, value_table=table)
@@ -646,7 +737,7 @@ def check_assignments(body, table, alias, tables, allow_defaults=False):
     return ['assignment_columns', 'assignment_arity', 'finite_expression_types', 'partition_key_assignment']
 
 
-def check_multi_update(targets, body, tables):
+def check_multi_update(targets, body, tables, *, source_scope=None):
     from .shared_column_contract import QUERY_KEYWORDS, finite_derived_target
     aliases = {}
     base_names = []
@@ -662,6 +753,11 @@ def check_multi_update(targets, body, tables):
             table = get_write_table(tables, match[1]) if match else None
         if not alias or alias.upper() in QUERY_KEYWORDS or alias in aliases:
             raise ReviewNeeded('target_unknown', 'Multi-target UPDATE needs distinct explicit aliases')
+        if source_scope in ('general', 'm_compat') and '_view_base' in table and not table.get('_derived_target'):
+            source = 'M UPDATE L16' if source_scope == 'm_compat' else 'General UPDATE L16'
+            raise Contradiction('multi_update_view_not_supported',
+                                f'{source} forbids known view targets in multi-table UPDATE; '
+                                'RULE-table capabilities and runtime SQLSTATE remain unproved')
         base = table.get('_view_base', table)
         identity = re.match(rf'^CREATE\s+(?:TEMP(?:ORARY)?\s+)?TABLE\s+({NAME})\s*\(', base['ddl'].strip(), re.I)
         if not identity:
@@ -681,7 +777,8 @@ def check_multi_update(targets, body, tables):
             raise ReviewNeeded('target_unknown', 'Unresolved multi-target assignment')
         if not re.fullmatch(r"(?:[+-]?\d+(?:\.\d+)?|'(?:[^']|'')*'|TRUE|FALSE)", match[3], re.I):
             raise ReviewNeeded('query_unknown', 'Cross-target RHS/order semantics not checked')
-        check_assignments(assignment, aliases[match[1].lower()], match[1].lower(), tables)
+        check_assignments(assignment, aliases[match[1].lower()], match[1].lower(), tables,
+                          update_source_scope=source_scope)
     return ['qualified_multi_target_columns', 'literal_assignment_types', 'partition_key_assignment',
             'finite_multi_target_relations']
 
@@ -725,8 +822,200 @@ def check_insert_all(sql, tables):
     return ['all_branch_target_columns', 'all_branch_input_arity', 'finite_query_output_types']
 
 
-def check_conflict_defaults(sql, table, alias, tables):
-    """Inspect DEFAULT assignments, not conflict arbitration or runtime rows.
+SET_INPUT_LITERAL = r"DEFAULT|NULL|TRUE|FALSE|[+-]?\d+(?:\.\d+)?|'(?:[^']|'')*'"
+
+
+def finite_replace_set_values(table, names, expressions):
+    """M REPLACE L21-27, L65-67: default input, then left-to-right SET.
+
+    Only ordinary integer column references and column + 1 are evaluated.
+    These are validation literals, never a SQL rewrite or a runtime row oracle.
+    Previously stored/seed rows are deliberately not inputs to this function.
+    """
+    from .shared_column_contract import default_literal
+    if len(names) != len(expressions):
+        raise Contradiction('arity', f'{len(names)} target columns vs {len(expressions)} expressions')
+    contract = table.get('_column_contract')
+    if not contract or '_view_base' in table:
+        raise ReviewNeeded('replace_sequence_unknown', 'Sequential input requires complete ordinary target DDL')
+    assigned, resolved = {}, []
+
+    def initial_value(name):
+        column = contract[name]
+        if not column['nullable'] and column['default_state'] in ('absent', 'null'):
+            raise ReviewNeeded('replace_zero_default_unknown',
+                               f'{name}: implicit zero needs a separate environment contract')
+        value = default_literal(table, name)
+        table['_defaults_checked'] = True
+        return value
+
+    for name, expr in zip(names, expressions):
+        if expr.upper() == 'DEFAULT':
+            value = initial_value(name)
+        elif re.fullmatch(SET_INPUT_LITERAL, expr, re.I):
+            value = expr
+        else:
+            reference = re.fullmatch(rf'({IDENT})\s*(\+\s*1)?', expr)
+            if not reference:
+                raise ReviewNeeded('insert_set_expression_unknown', 'Only integer input column or column + 1 reviewed')
+            source = column_name(reference[1], table['columns'])
+            if contract[source]['family'] != 'integer':
+                raise ReviewNeeded('replace_sequence_unknown', 'Only integer reference semantics reviewed')
+            value = assigned[source] if source in assigned else initial_value(source)
+            if value.upper() == 'NULL':
+                value = 'NULL'
+            elif re.fullmatch(r'[+-]?\d+', value):
+                # Validate before bounded conversion; leading zeros may be long.
+                check_types([source], [value], table['columns'], source={}, value_table=table)
+                if reference[2]:
+                    digits = value.lstrip('+-').lstrip('0') or '0'
+                    value = str(int(('-' if value.startswith('-') else '') + digits) + 1)
+                    # A wider destination does not establish source arithmetic
+                    # promotion/overflow behavior; retain that environment gap.
+                    check_types([source], [value], table['columns'], source={}, value_table=table)
+            else:
+                raise ReviewNeeded('replace_sequence_unknown', 'Reference has no finite integer input value')
+        check_types([name], [value], table['columns'], source={}, value_table=table)
+        assigned[name] = value
+        resolved.append(value)
+    return resolved
+
+
+def check_insert_set_inputs(body, table, *, replacement=False):
+    """M INSERT/REPLACE SET supplies a new row, not an old-row UPDATE.
+
+    Unqualified distinct destinations accept literals/DEFAULT. M REPLACE alone
+    additionally has a narrow, document-backed sequential integer input path.
+    """
+    from .shared_column_contract import check_generated_inputs, check_omitted_columns
+    assignments, tail = split_clause(body, 'ON|AS|RETURNING')
+    if replacement and tail:
+        raise ReviewNeeded('replace_set_tail_unknown', 'REPLACE SET tail is outside the reviewed input grammar')
+    if tail and not re.match(r'^ON\s+DUPLICATE\s+KEY\s+UPDATE\b', tail, re.I):
+        raise ReviewNeeded('insert_set_tail_unknown', 'Only a simple duplicate-update tail is recognized')
+    names, expressions = [], []
+    for assignment in split_list(assignments):
+        match = re.fullmatch(rf'({IDENT})\s*=\s*(.+)', assignment, re.S)
+        if not match:
+            raise ReviewNeeded('insert_set_assignment_unknown', 'Expected a simple column = input assignment')
+        names.append(column_name(match[1], table['columns']))
+        expressions.append(match[2].strip())
+    if len(names) != len(set(names)):
+        raise ReviewNeeded('insert_set_assignment_order_unknown', 'Repeated assignments need an order contract')
+    check_generated_inputs(table, names, expressions)
+    sequential = any(not re.fullmatch(SET_INPUT_LITERAL, expr, re.I) for expr in expressions)
+    if replacement:
+        from .shared_column_contract import check_replace_default_scope
+        check_replace_default_scope(table, names, expressions)
+    if sequential:
+        if not replacement:
+            raise ReviewNeeded('insert_set_expression_unknown', 'Only literals/DEFAULT, not old-row values, checked')
+        expressions = finite_replace_set_values(table, names, expressions)
+    check_types(names, expressions, table['columns'], source={}, default_table=table, value_table=table)
+    if set(names) != set(table['columns']) and not table.get('_column_contract'):
+        # Preserve the generated-column omission diagnostic before an ordinary
+        # DDL fallback; absence of a full declaration cannot prove defaults.
+        check_omitted_columns(table, names)
+        raise ReviewNeeded('implicit_defaults_unknown', 'Omitted INSERT SET defaults need full target DDL')
+    if check_omitted_columns(table, names):
+        table['_omissions_checked'] = True
+    return ['replace_set_input_columns' if replacement else 'insert_set_input_columns',
+            'input_arity', 'finite_expression_types'] + (
+                ['replace_sequential_input_literals'] if sequential else [])
+
+
+def check_insert_ignore_target(sql, tables, source_scope):
+    """General INSERT L42-48: IGNORE is absent from view/derived production.
+
+    This guard consumes target identity only; it neither removes IGNORE nor
+    enables ordinary IGNORE value/error/warning semantics. M is independent.
+    """
+    if source_scope != 'general':
+        return
+    prefix = re.match(r'^INSERT\s+IGNORE\s+INTO\s+', sql, re.I)
+    if not prefix:
+        return
+    target = sql[prefix.end():]
+    if target.startswith('('):
+        from .shared_column_contract import finite_derived_target
+        query, _ = take_group(target)
+        table = finite_derived_target(query, tables)
+    else:
+        name = re.match(rf'({NAME})\b', target)
+        if not name:
+            return
+        table = get_write_table(tables, name[1])
+    if '_view_base' in table:
+        raise Contradiction('ignore_target_not_supported',
+                            'General view/derived INSERT production excludes IGNORE; '
+                            'this does not establish a runtime SQLSTATE')
+
+
+def check_insert_target_conflict(sql, table, source_scope):
+    """Reject a documented target/feature pair, not prove a runtime error.
+
+    General INSERT view/subquery restriction 7 and M INSERT view restriction 6
+    forbid ON DUPLICATE KEY UPDATE regardless of its RHS. Target identity must
+    come from the existing finite fixture/derived contract, never a name hint.
+    """
+    if '_view_base' not in table:
+        return
+    if source_scope == 'general' and split_clause(sql, r'ON\s+CONFLICT')[1]:
+        # General INSERT L42-48 gives view/derived targets a distinct
+        # production with no conflict branch. This is not the ambiguous
+        # L367 restriction about "inserting a subquery" (target vs input).
+        raise Contradiction('conflict_target_not_supported',
+                            'General view/derived INSERT production excludes ON CONFLICT; '
+                            'this does not identify a runtime SQLSTATE')
+    _, clause = split_clause(sql, r'ON\s+DUPLICATE\s+KEY\s+UPDATE')
+    if not clause:
+        return
+    if source_scope not in ('general', 'm_compat') or (
+            source_scope == 'm_compat' and table.get('_derived_target')):
+        raise ReviewNeeded('view_duplicate_scope_unknown',
+                           'This source scope has no reviewed target restriction')
+    raise Contradiction('view_duplicate_not_supported',
+                        'Documented INSERT view/derived target forbids ON DUPLICATE KEY UPDATE; '
+                        'this does not identify the runtime SQLSTATE')
+
+
+def check_duplicate_inline_primary_key(clause, table, alias, source_scope, setup_sqls):
+    """Positive inline-PK evidence only; absence proves nothing about indexes."""
+    if source_scope != 'general' or '_view_base' in table:
+        return
+    duplicate = re.match(r'^ON\s+DUPLICATE\s+KEY\s+UPDATE\s+', clause, re.I)
+    if not duplicate or not table.get('_column_contract'):
+        return
+    from .shared_column_contract import ordinary_columns
+    if not ordinary_columns(table['ddl']):
+        return
+    start = table['ddl'].index('(')
+    declarations, _ = take_group(table['ddl'][start:])
+    keys = {re.match(IDENT, part)[0].lower() for part in split_list(declarations)
+            if re.search(r'\bPRIMARY\s+KEY\b', top_mask(part), re.I)}
+    assignments, _ = split_clause(clause[duplicate.end():], 'RETURNING|WHERE')
+    for assignment in split_list(assignments):
+        equal = top_mask(assignment).find('=')
+        if equal < 0 or not assignment[equal+1:].strip():
+            continue
+        lhs = assignment[:equal].strip()
+        if not re.fullmatch(NAME, lhs):
+            continue  # Tuple/complex assignments require a separate grammar contract.
+        parts = lhs.lower().split('.')
+        if parts[-1] not in keys or (len(parts) > 1 and parts[0] != (alias or '').lower()):
+            continue
+        if setup_sqls is None or any(not re.match(
+                r'^\s*(?:CREATE\s+(?:TEMP(?:ORARY)?\s+)?TABLE\b|DROP\s+TABLE\b|INSERT\s+INTO\b)',
+                statement, re.I) for statement in setup_sqls):
+            raise ReviewNeeded('duplicate_key_identity_unknown',
+                               'Index/namespace/opaque setup changes need a separate key lifecycle contract')
+        raise Contradiction('duplicate_key_update_not_supported',
+                            'General INSERT L332 forbids updating this actual inline primary-key column; '
+                            'unique-index completeness and runtime SQLSTATE are not proved')
+
+
+def check_conflict_assignments(sql, table, alias, tables, source_scope, setup_sqls=None):
+    """Inspect defaults/incoming references, not arbitration or runtime rows.
 
     The input-row contract alone cannot establish an UPDATE-branch default.
     Unsupported expressions and conflict forms retain a review requirement.
@@ -734,9 +1023,11 @@ def check_conflict_defaults(sql, table, alias, tables):
     _, clause = split_clause(sql, r'ON\s+DUPLICATE\s+KEY\s+UPDATE|ON\s+CONFLICT')
     if not clause:
         return []
+    check_duplicate_inline_primary_key(clause, table, alias, source_scope, setup_sqls)
     # Keep DEFAULT in tuples/functions visible, but not inside string values.
     unquoted = re.sub(r"'(?:''|[^'])*'", '', clause)
-    if not re.search(r'\bDEFAULT\b', unquoted, re.I):
+    has_default = bool(re.search(r'\bDEFAULT\b', unquoted, re.I))
+    if not has_default and not re.search(r'\bVALUES\s*\(|\bEXCLUDED\s*\.', unquoted, re.I):
         return []
     duplicate = re.fullmatch(r'ON\s+DUPLICATE\s+KEY\s+UPDATE\s+(.+)', clause, re.I | re.S)
     conflict = re.fullmatch(
@@ -751,11 +1042,15 @@ def check_conflict_defaults(sql, table, alias, tables):
         assignments = conflict[2]
     else:
         raise ReviewNeeded('conflict_default_unknown', 'Conflict form needs a separate target/default contract')
-    check_assignments(assignments, table, alias, tables, allow_defaults=True)
-    return ['conflict_assignment_defaults']
+    check_assignments(assignments, table, alias, tables, allow_defaults=True,
+                      conflict_source=('duplicate' if duplicate else 'conflict', source_scope))
+    checks = ['conflict_assignment_defaults'] if has_default else []
+    if table.get('_conflict_input_checked'):
+        checks.append('conflict_input_same_column_types')
+    return checks
 
 
-def inspect_write(sql, setup_sqls):
+def inspect_write(sql, setup_sqls, *, conflict_source_scope='general'):
     result = {'status': 'needs_review', 'scope': 'finite_write_shape_only', 'checks': [], 'issues': []}
     try:
         sql = sql.strip().removesuffix(';').strip()
@@ -765,22 +1060,72 @@ def inspect_write(sql, setup_sqls):
             QUERY_KEYWORDS, attach_shared_contracts, check_omitted_columns, finite_derived_target,
         )
         tables = attach_shared_contracts(ddl_tables(setup_sqls), setup_sqls)
-        sql, tables, cte_checks = finite_ctes(sql, tables, setup_sqls)
+        sql, tables, cte_checks = finite_ctes(sql, tables, setup_sqls, source_scope=conflict_source_scope)
+        if re.match(r'^MERGE\b', sql, re.I):
+            if cte_checks:
+                raise ReviewNeeded('merge_shape_unknown', 'MERGE CTE sources need separate identity review')
+            from .merge_column_contract import check_merge
+            result['checks'] = check_merge(sql, tables, source_scope=conflict_source_scope,setup_sqls=setup_sqls)
+            result['status'] = 'checked'
+            return result
+        generated_body, returning_clause = split_clause(sql, 'RETURNING')
+        if returning_clause and conflict_source_scope != 'general':
+            raise ReviewNeeded('returning_source_unknown', 'General RETURNING evidence cannot be borrowed by this mode')
+        if not cte_checks:
+            from .generated_column_contract import inspect_stored_integer_insert, inspect_stored_seeded_write
+            generated_input = inspect_stored_integer_insert(generated_body, setup_sqls, tables, conflict_source_scope)
+            if generated_input is None:
+                generated_input = inspect_stored_seeded_write(generated_body, setup_sqls, tables, conflict_source_scope)
+            if generated_input is not None:
+                # The helpers fully consume the input body. RETURNING is a
+                # separate general-source output contract, never skipped by
+                # this fast path or inferred from generated arithmetic.
+                if returning_clause:
+                    head = re.match(rf'^(?:INSERT\s+INTO|UPDATE)\s+({NAME})\b', generated_body, re.I)
+                    if not head:
+                        raise ReviewNeeded('returning_target_unknown', 'Generated output target is not proved')
+                    result['returning_output'] = finite_returning_output(
+                        returning_clause[len('RETURNING'):].strip(),
+                        get_write_table(tables, head[1]), head[1].lower().split('.')[-1], tables)
+                    generated_input['checks'].append('finite_returning_output_columns')
+                result['status'] = 'checked'
+                result['checks'] = generated_input['checks']
+                return result
+        if (conflict_source_scope == 'general' and cte_checks
+                and re.match(r'^INSERT\s+INTO\b', sql, re.I)
+                and split_clause(sql, r'ON\s+DUPLICATE\s+KEY\s+UPDATE')[1]):
+            # cte_checks comes only from the successfully parsed outer WITH;
+            # strings and nested WITH clauses cannot supply this evidence.
+            raise Contradiction('duplicate_with_not_supported',
+                                'General INSERT L117 forbids WITH/WITH RECURSIVE with ON DUPLICATE; '
+                                'runtime error calibration remains separate')
+        check_insert_ignore_target(sql, tables, conflict_source_scope)
         derived = re.match(r'^(UPDATE|INSERT\s+INTO)\s*(?=\()', sql, re.I)
         derived_table = None
         if derived:
             target_query, target_tail = take_group(sql[derived.end():])
             derived_table = finite_derived_target(target_query, tables)
         update = re.match(rf'^UPDATE\s+(?:ONLY\s+)?({NAME})\b', sql, re.I)
-        insertion = re.match(rf'^(INSERT\s+INTO|REPLACE(?:\s+INTO)?)\s+({NAME})\b', sql, re.I)
+        # M INSERT documents optional INTO. Select its entry grammar from the
+        # same source scope used by conflict references; never rewrite SQL.
+        insert_prefix = r'INSERT(?:\s+INTO)?' if conflict_source_scope == 'm_compat' else r'INSERT\s+INTO'
+        insertion = re.match(rf'^({insert_prefix}|REPLACE(?:\s+INTO)?)\s+({NAME})\b', sql, re.I)
+        returning_target, returning_binding, returning_from_tail = None, None, ''
+        if (conflict_source_scope == 'm_compat' and insertion and insertion[1].upper().startswith('INSERT')
+                and insertion[2].upper() in {'IGNORE', 'ALL', 'FIRST', 'WHEN', 'INTO',
+                                             'SELECT', 'SET', 'VALUES', 'VALUE'}):
+            raise ReviewNeeded('syntax_unknown', 'INSERT modifier/branch is not an ordinary target name')
         if update or (derived and derived[1].upper() == 'UPDATE'):
             target, body = split_clause(target_tail if derived else sql[update.end():].strip(), 'SET')
             if not body.upper().startswith('SET '):
                 raise ReviewNeeded('syntax_unknown', 'No top-level SET')
             if len(split_list(target)) > 1:
+                if returning_clause:
+                    raise ReviewNeeded('returning_unknown', 'Multi-target UPDATE RETURNING needs its own grammar evidence')
                 if derived:
                     raise ReviewNeeded('target_unknown', 'Multi-target derived UPDATE needs a separate contract')
-                result['checks'] = check_multi_update(update[1] + ' ' + target, body[4:], tables)
+                result['checks'] = check_multi_update(update[1] + ' ' + target, body[4:], tables,
+                                                       source_scope=conflict_source_scope)
                 result['status'] = 'checked'
                 result['checks'] = cte_checks + result['checks']
                 if any(t and t.get('_integer_literals_checked') for t in tables.values()):
@@ -802,17 +1147,32 @@ def inspect_write(sql, setup_sqls):
             if derived and split_clause(body[4:], 'FROM|WHERE|RETURNING|ORDER|LIMIT')[1].upper().startswith('FROM'):
                 raise ReviewNeeded('query_unknown', 'Derived UPDATE FROM needs a separate source/target contract')
             update_table = derived_table if derived else get_write_table(tables, update[1])
-            result['checks'] = check_assignments(body[4:], update_table, alias[1].lower() if alias else None, tables, allow_defaults=True)
+            result['checks'] = check_assignments(body[4:], update_table, alias[1].lower() if alias else None,
+                                                  tables, allow_defaults=True, update_source_scope=conflict_source_scope)
+            returning_target = update_table
+            returning_binding = alias[1].lower() if alias else (update[1].lower().split('.')[-1] if update else None)
+            _, returning_from_tail = split_clause(body[4:], 'FROM|WHERE|RETURNING|ORDER|LIMIT')
         elif insertion or derived:
             table = derived_table if derived else get_write_table(tables, insertion[2])
             is_insert = bool(derived) or insertion[1].upper().startswith('INSERT')
+            m_replace = not is_insert and conflict_source_scope == 'm_compat'
+            new_row_defaults = is_insert or m_replace
             if not is_insert and '_view_base' in table:
                 raise ReviewNeeded('target_unknown', 'REPLACE view semantics are not proved')
+            if is_insert:
+                check_insert_target_conflict(sql, table, conflict_source_scope)
             body = target_tail if derived else sql[insertion.end():].strip()
-            if body.upper().startswith('SET '):
+            set_input = re.match(r'^SET\b\s*', body, re.I)
+            if set_input:
                 if is_insert:
-                    raise ReviewNeeded('syntax_unknown', 'INSERT SET not handled')
-                result['checks'] = check_assignments(body[4:], table, None, tables)
+                    if conflict_source_scope != 'm_compat' or derived:
+                        raise ReviewNeeded('syntax_unknown', 'INSERT SET requires the finite M source grammar')
+                    result['checks'] = check_insert_set_inputs(body[set_input.end():], table)
+                    result['checks'] += check_conflict_assignments(sql, table, None, tables, conflict_source_scope, setup_sqls)
+                elif m_replace:
+                    result['checks'] = check_insert_set_inputs(body[set_input.end():], table, replacement=True)
+                else:
+                    result['checks'] = check_assignments(body[set_input.end():], table, None, tables)
             else:
                 columns, body = split_clause(body, 'VALUES|VALUE|SELECT|DEFAULT')
                 route = None
@@ -846,12 +1206,15 @@ def inspect_write(sql, setup_sqls):
                         row_width = len(expressions)
                         row_names = names
                         if not columns and len(expressions) < len(names):
-                            if not is_insert or not table.get('_column_contract'):
+                            if not new_row_defaults or not table.get('_column_contract'):
                                 raise ReviewNeeded('implicit_defaults_unknown', 'Omitted target defaults not checked')
                             row_names = names[:len(expressions)]
+                        if m_replace:
+                            from .shared_column_contract import check_replace_default_scope
+                            check_replace_default_scope(table, row_names, expressions)
                         check_types(row_names, expressions, table['columns'],
-                                    default_table=table if is_insert else None, value_table=table)
-                        if is_insert and check_omitted_columns(table, row_names):
+                                    default_table=table if new_row_defaults else None, value_table=table)
+                        if new_row_defaults and check_omitted_columns(table, row_names):
                             table['_omissions_checked'] = True
                         if route:
                             check_insert_partition_row(route, row_names, expressions)
@@ -861,12 +1224,15 @@ def inspect_write(sql, setup_sqls):
                     query, _ = split_clause(body, 'ON|RETURNING')
                     expressions, source = finite_projection(query, tables)
                     query_names = names
-                    if is_insert and not columns and len(expressions) < len(names):
+                    if new_row_defaults and not columns and len(expressions) < len(names):
                         if not table.get('_column_contract'):
                             raise ReviewNeeded('implicit_defaults_unknown', 'Omitted target defaults not checked')
                         query_names = names[:len(expressions)]
+                    if m_replace:
+                        from .shared_column_contract import check_replace_default_scope
+                        check_replace_default_scope(table, query_names, expressions)
                     check_types(query_names, expressions, table['columns'], source=source, value_table=table)
-                    if is_insert and check_omitted_columns(table, query_names):
+                    if new_row_defaults and check_omitted_columns(table, query_names):
                         table['_omissions_checked'] = True
                 elif is_insert and re.fullmatch(r'DEFAULT\s+VALUES', split_clause(body, 'RETURNING')[0], re.I):
                     # PDF INSERT permits the optional target list with DEFAULT
@@ -878,13 +1244,24 @@ def inspect_write(sql, setup_sqls):
                     raise ReviewNeeded('input_unknown', body)
                 result['checks'] = ['target_columns', 'input_arity', 'finite_expression_types']
                 if is_insert:
-                    result['checks'] += check_conflict_defaults(sql, table, alias[1] if alias else None, tables)
+                    result['checks'] += check_conflict_assignments(
+                        sql, table, alias[1] if alias else None, tables, conflict_source_scope, setup_sqls)
                 if route:
                     result['checks'].append('finite_explicit_partition_routing')
+            if is_insert and not set_input:
+                returning_target = table
+                returning_binding = alias[1].lower() if alias else (insertion[2].lower().split('.')[-1] if insertion else None)
         elif re.match(r'^INSERT\s+(?:ALL|FIRST|WHEN)\b', sql, re.I):
             result['checks'] = check_insert_all(sql, tables)
         else:
             raise ReviewNeeded('statement_not_supported', 'Only finite UPDATE/INSERT/REPLACE handled')
+        if returning_clause:
+            if returning_target is None:
+                raise ReviewNeeded('returning_unknown', 'RETURNING is outside the finite ordinary INSERT/UPDATE scope')
+            result['returning_output'] = finite_returning_output(
+                returning_clause[len('RETURNING'):].strip(), returning_target,
+                returning_binding, tables, returning_from_tail)
+            result['checks'].append('finite_returning_output_columns')
         result['status'] = 'checked'
         result['checks'] = cte_checks + result['checks']
         checked_tables = list(tables.values()) + ([derived_table] if derived_table else [])

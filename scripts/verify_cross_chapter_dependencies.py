@@ -29,7 +29,7 @@ from scripts.manage_extraction_queue import (
 )
 
 DEFAULT_CONFIG = ROOT / "tests/data/cross_chapter_batch.json"
-DEFAULT_OUTPUT = ROOT / "work/doc2spec/batches/cross_chapter_16"
+DEFAULT_OUTPUT = ROOT / "work/doc2spec/batches/cross_chapter_18"
 
 
 def require(condition, message):
@@ -141,6 +141,12 @@ def review_links(config, registry, inputs):
         import yaml
         raw = yaml.safe_load(entity_path.read_text(encoding="utf-8"))
         references = raw[link["field"]]
+        if "profile_id" in link:
+            require(link["field"] == "profiles" and "gate_key" not in link,
+                    "profile selector requires profiles without a gate selector")
+            profiles = [p for p in references if p["id"] == link["profile_id"]]
+            require(len(profiles) == 1, f"missing/duplicate reviewed profile: {link}")
+            references = profiles[0].get("fact_refs", [])
         if "gate_key" in link:
             require(link["field"] == "environment_requirements", "gate selector requires environment_requirements")
             gates = [gate for gate in references if gate["key"] == link["gate_key"]]
@@ -148,6 +154,10 @@ def review_links(config, registry, inputs):
             references = gates[0]["fact_refs"]
         require(link["provider"] in references, f"missing import: {link}")
         require(raw.get("factor_ref") == link["consumer"], f"wrong consumer: {link}")
+        phase = link.get('dependency_phase', 'package')
+        require(phase in ('package', 'source'), f"unknown dependency phase: {link}")
+        source_only = link['provider'] in registry.factors[link['consumer']].source_only_fact_refs
+        require(source_only == (phase == 'source'), f"dependency phase drift: {link}")
         provider, fact_id = link["provider"].split("::")
         resolved = registry.resolve_fact_ref(link["consumer"], link["provider"])
         require(resolved is not None and resolved.status == "confirmed",
@@ -193,9 +203,11 @@ def review_fixture_closures(config, registry):
     return results
 
 
-def expected_graph(config):
+def expected_graph(config, *, scheduling=False):
     graph = {factor: set() for factor in config["factors"]}
     for link in config["fact_links"]:
+        if scheduling and link.get('dependency_phase') == 'source':
+            continue
         graph[link["consumer"]].add(link["provider"].split("::")[0])
     # Fixture owners are asserted separately from the derived registry graph.
     graph["insert"].add("create_table")
@@ -415,6 +427,9 @@ def main():
         graph = {f: deps for f,deps in registry.factor_dependency_graph().items() if f in config["factors"]}
         require(graph == expected_graph(config), "actual dependencies differ from reviewed batch links")
         report["graph"] = {f: sorted(v) for f,v in sorted(graph.items())}
+        scheduling_graph = {f: deps for f,deps in registry.factor_scheduling_graph().items() if f in config['factors']}
+        require(scheduling_graph == expected_graph(config, scheduling=True), 'scheduling dependencies differ from reviewed phases')
+        report['scheduling_graph'] = {f: sorted(v) for f,v in sorted(scheduling_graph.items())}
         require(set(registry.factor_topological_order(config["factors"])) == set(config["factors"]), "batch is not dependency closed")
         print(f"Reviewed {len(inputs)} chapters and all cross-package source anchors", flush=True)
         command = [args.pdf_python, str(ROOT / "scripts/extract_pdf_sections.py"),
@@ -434,7 +449,7 @@ def main():
         excluded = select_batch_tasks(state, config['factors'])
         report['source_body_closure']['evidence_only_tasks_not_executed'] = [t['factor_id'] for t in excluded]
         refresh_task_dependencies(state, strict=True)
-        report["queue_simulation"] = verify_claim_order(state, graph)
+        report["queue_simulation"] = verify_claim_order(state, scheduling_graph)
         report["load_faults"] = load_fault_probes(registry)
         report["fixture_sql"] = fixture_sql_probes(registry, config)
         print("Queue order, 6 invalid-reference probes and fixture SQL order passed", flush=True)

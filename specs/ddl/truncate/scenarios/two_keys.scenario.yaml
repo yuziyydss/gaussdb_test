@@ -1,0 +1,19 @@
+schema_version: 1
+kind: scenario
+id: scenario_truncate_two_keys
+name: 双键FOR清除与保留分区数据
+factor_ref: truncate
+status: planned
+description: 目标值所在整个分区应清空，其他分区记录保留；不是只删除等于FOR值的一行。
+fixture_refs: [fixture_truncate_two_keys]
+fact_refs: [tr_fact_partition_for_behavior, tr_fact_permissions, drop_schema::drop_schema_fact_current]
+preconditions:
+  - 已授权独占数据库/隔离连接，模式和表初始不存在，所有资产由本case实际创建
+  - 执行前核验id/qty真实INTEGER键顺序、边界元组顺序以及两条seed的实际路由；不得仅相信provides
+  - 不存在全局索引、继承、外键或其他依赖，不验证UPDATE GLOBAL INDEX效果
+steps:
+  - {id: truncate, sql: 'ALTER TABLE g_tr_two_ns.target_table TRUNCATE PARTITION FOR (1, 10);'}
+oracles:
+  - {kind: result_set, step_id: truncate, sql: 'SELECT id,qty FROM g_tr_two_ns.target_table ORDER BY id,qty;', expected: [[11,30]]}
+  - {kind: manual_assertion, step_id: truncate, expected: '先校准目录接口，核验双列键、边界和seed路由后，p_low为空而p_max仍有(11,30)，表和两个分区仍存在；非全表清空或删除定义。'}
+execution_requirements: [database_authorization, isolated_connection, per_step_oracle, target_oracle_calibration, partition_routing_calibration, ownership_scoped_cleanup]

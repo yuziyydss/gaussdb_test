@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -19,6 +20,7 @@ from core.factor_package_model import FactorPackageLoadError, FactorPackageRegis
 from core.generator import validate_sql_syntax
 from core.spec_generator import GenerationValidationError
 from core.m_compat_environment import BOOTSTRAP_PATH, requires_m
+from core.candidate_identity import setup_signature
 
 
 def display_path(path: Path) -> str:
@@ -92,24 +94,55 @@ def record_sql_provenance(
     factor_id: str,
     manifest_id: str,
     cases: List[Any],
+    setup_contexts=None,
 ) -> None:
-    """Retain cross-chapter overlaps; reject duplicate generation within a factor.
+    """Retain chapter and concrete setup variants; reject duplicate experiments.
 
     START TRANSACTION and BEGIN both document BEGIN. Identical text across
     chapters is evidence to report, not grounds to discard a source branch.
-    This does not assert equivalent fixtures, expectations, or behavior.
+    With setup evidence, identical target text on different literal seed setups
+    is a different candidate. Only boundary whitespace/terminators are normalized;
+    no semantic equivalence or runtime state is inferred. IDs, expectations and
+    cleanup differences alone never permit duplicates. Callers without a shared
+    setup map retain the older conservative same-factor rejection.
     """
     for case in cases:
         previous = origins.setdefault(case.sql, [])
-        if any(item["factor_id"] == factor_id for item in previous):
+        try:
+            setup=setup_signature(getattr(case,'setup_sqls',[]))
+        except ValueError as exc:
+            raise GenerationValidationError(str(exc)) from exc
+        same_factor=[item for item in previous if item['factor_id']==factor_id]
+        if any(setup_contexts is None or item['case_id'] not in setup_contexts
+               or setup_contexts[item['case_id']]==setup for item in same_factor):
             raise GenerationValidationError(
-                f"同一 factor 跨 manifest SQL 重复: {factor_id}: {case.sql}"
+                f"同一 factor 跨 manifest SQL/setup 重复或前置证据缺失: {factor_id}: {case.sql}"
             )
+        if setup_contexts is not None:
+            setup_contexts[case.case_id]=setup
         previous.append({
             "factor_id": factor_id,
             "manifest_id": manifest_id,
             "case_id": case.case_id,
         })
+
+
+def publish_snapshots(output_dir, requested_by_factor, registry, pending_snapshots, retained_paths):
+    """Preflight all selected factors; never delete unclassified SQL files.
+
+    retained_paths must come from the explicit history-identity validator.
+    Partial generation does not reclassify other active manifests.
+    """
+    for factor_id, selected_ids in requested_by_factor.items():
+        factor_dir = output_dir / factor_id
+        if selected_ids == set(registry.factors[factor_id].manifest_refs):
+            expected_names = {f'{mid}.sql' for mid in selected_ids}
+            for existing in factor_dir.glob('*.sql'):
+                if existing.name not in expected_names and existing.resolve() not in retained_paths:
+                    raise ValueError(f'unclassified historical SQL; preserve and review first: {existing}')
+    for path, content in pending_snapshots.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding='utf-8')
 
 
 def main() -> int:
@@ -141,6 +174,7 @@ def main() -> int:
     pending_snapshots: Dict[Path, str] = {}
     global_case_ids = set()
     sql_origins: Dict[str, List[Dict[str, str]]] = {}
+    sql_setup_contexts = {}
     for manifest_id in requested:
         manifest = registry.manifests[manifest_id]
         try:
@@ -154,7 +188,7 @@ def main() -> int:
             return 1
         global_case_ids.update(case.case_id for case in cases)
         try:
-            record_sql_provenance(sql_origins, manifest.factor_ref, manifest_id, cases)
+            record_sql_provenance(sql_origins, manifest.factor_ref, manifest_id, cases, sql_setup_contexts)
         except GenerationValidationError as exc:
             print(str(exc), file=sys.stderr)
             return 1
@@ -204,18 +238,20 @@ def main() -> int:
     for manifest_id in requested:
         factor_id = registry.manifests[manifest_id].factor_ref
         requested_by_factor.setdefault(factor_id, set()).add(manifest_id)
-    for factor_id, selected_ids in requested_by_factor.items():
-        factor_dir = args.output_dir / factor_id
-        factor_dir.mkdir(parents=True, exist_ok=True)
-        all_factor_ids = set(registry.factors[factor_id].manifest_refs)
-        if selected_ids == all_factor_ids:
-            expected_names = {f"{manifest_id}.sql" for manifest_id in selected_ids}
-            for existing in factor_dir.glob("*.sql"):
-                if existing.name not in expected_names:
-                    existing.unlink()
-        for path, content in pending_snapshots.items():
-            if path.parent == factor_dir:
-                path.write_text(content, encoding="utf-8")
+    retained_paths = set()
+    try:
+        ledger_path = args.output_dir / 'candidate_retirements.json'
+        if ledger_path.exists():
+            if args.output_dir.resolve() != (ROOT_DIR/'generated/factor_packages').resolve():
+                raise ValueError('Retirement history must use the canonical project snapshot root')
+            from scripts.audit_candidate_inventory import audit_retained_snapshots
+            retained, _ = audit_retained_snapshots(registry, reports, global_case_ids,
+                                                   json.loads(ledger_path.read_text()), root=ROOT_DIR)
+            retained_paths = {(ROOT_DIR/path).resolve() for path in retained}
+        publish_snapshots(args.output_dir, requested_by_factor, registry, pending_snapshots, retained_paths)
+    except (ValueError, OSError, KeyError) as exc:
+        print(f'SQL publication preflight failed: {exc}', file=sys.stderr)
+        return 1
 
     report_path = args.output_dir / "generation_report.json"
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -238,7 +274,16 @@ def main() -> int:
             "cross_factor_sql_overlaps": [
                 {"sql": sql, "origins": origins}
                 for sql, origins in sorted(sql_origins.items())
-                if len(origins) > 1
+                if len({origin['factor_id'] for origin in origins}) > 1
+            ],
+            "same_factor_sql_setup_variants": [
+                {"sql": sql, "factor_id": factor_id, "origins": [
+                    {**origin, "setup_sha256": hashlib.sha256(json.dumps(
+                        sql_setup_contexts[origin['case_id']],ensure_ascii=False).encode()).hexdigest()}
+                    for origin in origins if origin['factor_id']==factor_id]}
+                for sql, origins in sorted(sql_origins.items())
+                for factor_id in sorted({origin['factor_id'] for origin in origins})
+                if sum(origin['factor_id']==factor_id for origin in origins)>1
             ],
             "factor_dependencies": {
                 factor_id: sorted(dependencies)
@@ -247,6 +292,13 @@ def main() -> int:
                 )
             },
             "factor_topological_order": registry.factor_topological_order(),
+            "factor_scheduling_dependencies": {
+                fid: sorted(refs) for fid, refs in sorted(registry.factor_scheduling_graph().items())
+            },
+            "source_only_fact_refs": {
+                fid: factor.source_only_fact_refs for fid, factor in sorted(registry.factors.items())
+                if factor.source_only_fact_refs
+            },
             "factor_coverage": factor_summaries,
             "manifests": reports,
         }, ensure_ascii=False, indent=2),

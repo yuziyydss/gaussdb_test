@@ -21,7 +21,7 @@ Legacy V0兼容
 后续：V1真实执行与非SQL参考Schema
 ```
 
-当前质量推进记录见 [第三轮质量复核](QUALITY_ROUND_03.md)，上一轮验收见 [第二轮质量复核](QUALITY_ROUND_02.md)。有限写入形状检查不等于
+当前质量状态见 [夜间演进](NIGHT_EVOLUTION_20260910.md)；前一完整全量回归见 [历史静态验收节点](MILESTONE_STATIC_ACCEPTANCE_20260909.md)，不得沿用旧测试数认证新版本。此前来源与修复过程见 [9月9日演进记录](PROJECT_EVOLUTION_20260909.md)；较早历史记录保留在 [第三轮质量复核](QUALITY_ROUND_03.md)和[第二轮质量复核](QUALITY_ROUND_02.md)。有限写入形状检查不等于
 完整 SQL 解析；原文全域缺口、conditional 环境消费和未校准 Oracle 继续单独留账。
 
 ## 已完成并有自动化证据
