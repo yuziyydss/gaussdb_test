@@ -1381,7 +1381,9 @@ class TestFactorPackageV1(unittest.TestCase):
         self.assertEqual(audit["facts"]["unconsumed_confirmed"], [])
         self.assertEqual(len(audit["facts"]["unresolved_open_questions"]), 8)
         self.assertEqual(audit["values"]["valid_unselected"], [])
-        self.assertEqual(len(audit["values"]["coverage_gaps"]), 4)
+        # 3个泛化ON CONFLICT值由已选中PG facet代表；仅tuple_update保留。
+        self.assertEqual(len(audit["values"]["coverage_gaps"]), 1)
+        self.assertIn("conflict_clause.insert_on_conflict_tuple_update", audit["values"]["coverage_gaps"])
         self.assertEqual(audit["rules"]["gaps"], [])
         self.assertEqual(audit["manifests"]["generated_case_count"], 134)
         self.assertEqual(
@@ -1497,17 +1499,22 @@ class TestFactorPackageV1(unittest.TestCase):
         self.assertEqual(audit["facts"]["unconsumed_confirmed"], [])
         self.assertEqual(len(audit["facts"]["unresolved_open_questions"]), 9)
         self.assertEqual(audit["values"]["valid_unselected"], [])
+        # 4个泛化conditional值由已选中A/B有限facet代表；仅TDE和
+        # active_pages执行画像缺口保留。
         self.assertEqual(
             audit["values"]["coverage_gaps"],
             [
-                "comment_clause.ci_comment_basic",
                 "storage_profile.ci_active_pages_manual",
                 "storage_profile.ci_enable_tde_on",
-                "table_profile.ci_table_subpartitioned",
-                "visibility_clause.ci_visibility_invisible",
-                "visibility_clause.ci_visibility_visible",
             ],
         )
+        for represented in (
+            "comment_clause.ci_comment_basic",
+            "table_profile.ci_table_subpartitioned",
+            "visibility_clause.ci_visibility_invisible",
+            "visibility_clause.ci_visibility_visible",
+        ):
+            self.assertIn(represented, audit["values"]["represented_by_finite_facet"])
         self.assertEqual(audit["rules"]["gaps"], [])
         self.assertEqual(audit["manifests"]["generated_case_count"], 345)
         self.assertEqual(audit["documented_features"]["needs_profile"], [
@@ -1700,10 +1707,10 @@ class TestFactorPackageV1(unittest.TestCase):
             audit["values"]["valid_unselected"],
             [],
         )
-        # The generic conditional parent remains a gap; only the previously
-        # unused valid two-column value now has a fixture-specific consumer.
-        self.assertIn("statement_form.at_statement_modify_multi", audit["values"]["conditional_unselected"])
-        self.assertEqual(len(audit["values"]["coverage_gaps"]), 14)
+        # 6个泛化conditional值由已选中fresh facet代表；modify_multi不再
+        # 出现在conditional_unselected中。剩余8条为环境/资产缺口。
+        self.assertEqual(len(audit["values"]["coverage_gaps"]), 8)
+        self.assertNotIn("statement_form.at_statement_modify_multi", audit["values"]["conditional_unselected"])
         # A valid fresh foreign target is exercised only by a negative RLS
         # consumer; this is not positive coverage or generic ALTER support.
         self.assertIn('table_profile.at_table_log_foreign_fresh', audit['values']['coverage_gaps'])

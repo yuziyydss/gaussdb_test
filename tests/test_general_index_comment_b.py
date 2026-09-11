@@ -51,7 +51,8 @@ class IndexCommentBTests(unittest.TestCase):
     def test_short_candidate_does_not_close_length_or_metadata_domain(self):
         self.manifest()
         audit=FactorCoverageAuditor(self.r).audit('create_index')
-        self.assertIn('comment_clause.ci_comment_basic',audit['values']['conditional_unselected'])
+        self.assertIn('comment_clause.ci_comment_basic',audit['values']['represented_by_finite_facet'])
+        self.assertNotIn('comment_clause.ci_comment_basic',audit['values']['coverage_gaps'])
         self.assertFalse(audit['conclusions']['static_coverage_complete'])
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
         self.assertEqual(self.r.scenarios['scenario_create_index_comment'].status,'planned')
