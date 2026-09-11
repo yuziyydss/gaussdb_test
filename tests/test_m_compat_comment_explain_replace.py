@@ -85,7 +85,11 @@ class MCommentExplainReplaceTests(unittest.TestCase):
 
     def test_builder_artifacts_match_exactly_not_similar_yaml_hunk(self):
         from scripts.build_m_compat_batch_03 import BUILDERS
-        for builder in BUILDERS.values():
+        # m_replace已进入人工演进阶段（新增source completion facts与
+        # scenario），不再回退到batch_03一次性builder的输出。
+        for key,builder in BUILDERS.items():
+            if key == 'replace':
+                continue
             package=builder()
             for name,obj in package.finish().items():
                 path=ROOT/'specs'/package.category.lower()/package.id/name
