@@ -362,17 +362,43 @@ class FactorCoverageAuditor:
                 valid_values | invalid_values | conditional_values
             ) - actually_selected
         )
+        # 有限 facet 代表关系：同维度中被选中的 facet 通过 original_value_ref
+        # 显式指向原值时，原值获得代表性生成证据。原值保留自身 validity，
+        # 不因代表关系变成 valid，也不证明任意上下文可生成。
+        represented_by_suite: Dict[str, Set[tuple[str, str]]] = defaultdict(set)
+        for (dimension_id, value_id), value in all_values.items():
+            original_ref = value.attributes.get(
+                f"{dimension_id}.properties.original_value_ref"
+            )
+            if not isinstance(original_ref, str) or not original_ref:
+                continue
+            for suite_type, selected in selected_values_by_suite.items():
+                if (dimension_id, value_id) in selected:
+                    represented_by_suite[suite_type].add(
+                        (dimension_id, original_ref)
+                    )
+        represented_positive = represented_by_suite.get("positive", set())
+        represented_negative = represented_by_suite.get("negative", set())
+        represented_any: Set[tuple[str, str]] = set()
+        for represented in represented_by_suite.values():
+            represented_any |= represented
         valid_without_positive = sorted(
             f"{dimension_id}.{value_id}"
-            for dimension_id, value_id in valid_values - positive_selected
+            for dimension_id, value_id in (
+                valid_values - positive_selected - represented_positive
+            )
         )
         invalid_without_negative = sorted(
             f"{dimension_id}.{value_id}"
-            for dimension_id, value_id in invalid_values - negative_selected
+            for dimension_id, value_id in (
+                invalid_values - negative_selected - represented_negative
+            )
         )
         conditional_unselected = sorted(
             f"{dimension_id}.{value_id}"
-            for dimension_id, value_id in conditional_values - actually_selected
+            for dimension_id, value_id in (
+                conditional_values - actually_selected - represented_any
+            )
         )
         unknown_selected = sorted(
             f"{dimension_id}.{value_id}"
@@ -611,6 +637,10 @@ class FactorCoverageAuditor:
                 "invalid_without_negative": invalid_without_negative,
                 "conditional_unselected": conditional_unselected,
                 "unknown_selected": unknown_selected,
+                "represented_by_finite_facet": sorted(
+                    f"{dimension_id}.{value_id}"
+                    for dimension_id, value_id in represented_any
+                ),
                 "coverage_gaps": value_coverage_gaps,
                 "unselected_by_validity": dict(sorted(unselected_by_validity.items())),
             },

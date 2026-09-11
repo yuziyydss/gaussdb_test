@@ -76,9 +76,12 @@ class CreateDatabaseEncodingNegativeTests(unittest.TestCase):
     def test_value_coverage_does_not_hide_oracle_calibration_gap(self):
         self.generate()
         audit = FactorCoverageAuditor(self.r).audit('create_database')
-        self.assertEqual(len(audit['values']['coverage_gaps']), 37)
+        # 37个原条件编码由已选中的template0/C/PG有限facet代表；
+        # 代表关系不改变原值validity，也不掩盖错误Oracle校准缺口。
+        self.assertEqual(audit['values']['coverage_gaps'], [])
+        self.assertEqual(len(audit['values']['represented_by_finite_facet']), 37)
         self.assertIn(MID, audit['manifests']['unresolved_error_oracles'])
-        self.assertFalse(audit['conclusions']['generation_model_complete'])
+        self.assertTrue(audit['conclusions']['generation_model_complete'])
         self.assertFalse(audit['conclusions']['static_coverage_complete'])
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
 
