@@ -22,14 +22,23 @@ class LogFDWCatalogTests(unittest.TestCase):
 
     def test_real_server_schema_table_names_and_reverse_cleanup(self):
         create, cr = self.cases('create'); drop, dr = self.cases('drop')
-        self.assertEqual((len(create), len(drop)), (1, 1))
+        # 1个CREATE代表 + 4个DROP形态（RESTRICT/省略 × 无/有IF EXISTS）
+        self.assertEqual((len(create), len(drop)), (1, 4))
         sql = "CREATE FOREIGN TABLE g_a3_log_ns.foreign_table (col1 TEXT) SERVER g_a3_log_server OPTIONS (logtype 'gs_log');"
         self.assertEqual(create[0].sql, sql)
-        self.assertEqual(drop[0].setup_sqls, create[0].setup_sqls + [sql])
-        self.assertEqual(drop[0].sql, 'DROP FOREIGN TABLE g_a3_log_ns.foreign_table RESTRICT;')
-        self.assertEqual(create[0].teardown_sqls, [drop[0].sql] + drop[0].teardown_sqls)
-        self.assertEqual(drop[0].teardown_sqls,
+        by_sql = {c.sql: c for c in drop}
+        original = by_sql['DROP FOREIGN TABLE g_a3_log_ns.foreign_table RESTRICT;']
+        self.assertEqual(original.setup_sqls, create[0].setup_sqls + [sql])
+        self.assertEqual(create[0].teardown_sqls, [original.sql] + original.teardown_sqls)
+        self.assertEqual(original.teardown_sqls,
                          ['DROP SCHEMA g_a3_log_ns RESTRICT;', 'DROP SERVER g_a3_log_server RESTRICT;'])
+        # 新增的有限形态也使用同一fresh生命周期与清理顺序
+        self.assertIn('DROP FOREIGN TABLE g_a3_log_ns.foreign_table;', by_sql)
+        self.assertIn('DROP FOREIGN TABLE IF EXISTS g_a3_log_ns.foreign_table;', by_sql)
+        self.assertIn('DROP FOREIGN TABLE IF EXISTS g_a3_log_ns.foreign_table RESTRICT;', by_sql)
+        for c in drop:
+            self.assertEqual(c.setup_sqls, original.setup_sqls)
+            self.assertEqual(c.teardown_sqls, original.teardown_sqls)
         self.assertTrue(cr.pairwise_complete and dr.pairwise_complete)
         self.assertTrue(all(c.expected_scope == 'syntax_only' for c in create+drop))
 

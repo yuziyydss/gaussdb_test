@@ -29,7 +29,7 @@ def check_log_fdw_catalog(action, sql, setup, teardown, gates):
         r'\s*\(\s*col1\s+TEXT\s*\)\s+SERVER\s+'+re.escape(server)+
         r"\s+OPTIONS\s*\(\s*logtype\s+'(?-i:gs_log)'\s*\)")
     table = _match(create_pattern, sql if action == 'create' else setup[2])[1].lower()
-    drop_pattern = r'DROP\s+FOREIGN\s+TABLE\s+'+re.escape(table)+r'\s+RESTRICT'
+    drop_pattern = r'DROP\s+FOREIGN\s+TABLE\s+(?:IF\s+EXISTS\s+)?'+re.escape(table)+r'(?:\s+RESTRICT)?'
     if action == 'drop':
         _match(drop_pattern, sql)
     cleanup_patterns = ([] if action == 'drop' else [drop_pattern]) + [
