@@ -22,6 +22,12 @@ INSERT。仓库随后按独立批次加入代表性 DDL、DML、DCL 与 TCL 因�
 生成用例和覆盖结论始终以严格 lint、生成报告和批次队列的实时输出为准，不在
 README 中维护容易漂移的固定数字。
 
+生成报告的 `package_inventory` 单独给出全库注册包数、一般/M命名空间拆分、
+有manifest的包数、本次选择的包数，以及无manifest包的场景/fixture/待审事实引用。
+`factor_coverage` 只包含本次选择的manifest所涉及的包，不能把它的长度当全项目包数。
+即使使用 `--factor` 只生成一个包，全库分母也不会缩为1。无manifest不等于产品不支持，
+有manifest也不等于有用例、完整覆盖或实机通过；物理模式仍须独立核实。
+
 跨章依赖批次可通过 `python3 scripts/verify_cross_chapter_dependencies.py` 重跑，
 需要当前 Python 安装 `pypdf` 且 PATH 中有 `pdftotext`；也可以使用
 `--pdf-python /path/to/python` 指定单独的 PDF 运行环境。

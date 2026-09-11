@@ -1050,7 +1050,7 @@ def check_conflict_assignments(sql, table, alias, tables, source_scope, setup_sq
     return checks
 
 
-def inspect_write(sql, setup_sqls, *, conflict_source_scope='general'):
+def inspect_write(sql, setup_sqls, *, conflict_source_scope='general', auto_increment_context=None):
     result = {'status': 'needs_review', 'scope': 'finite_write_shape_only', 'checks': [], 'issues': []}
     try:
         sql = sql.strip().removesuffix(';').strip()
@@ -1061,6 +1061,24 @@ def inspect_write(sql, setup_sqls, *, conflict_source_scope='general'):
         )
         tables = attach_shared_contracts(ddl_tables(setup_sqls), setup_sqls)
         sql, tables, cte_checks = finite_ctes(sql, tables, setup_sqls, source_scope=conflict_source_scope)
+        direct_insert = re.match(rf'^INSERT(?:\s+INTO)?\s+({NAME})\b', sql, re.I)
+        direct_table = tables.get(direct_insert[1].lower()) if direct_insert else None
+        # Detect the actual target declaration, masking literals rather than
+        # parentheses (the identity keyword is inside the column list).
+        auto_ddl = direct_table and re.search(r'\bAUTO_INCREMENT\b',
+            re.sub(r"'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"", '', direct_table['ddl']), re.I)
+        if auto_increment_context is not None or auto_ddl:
+            from .auto_increment_contract import check_insert_audit_context
+            if cte_checks or not direct_insert:
+                raise ReviewNeeded('auto_increment_context_unknown', 'No fresh identity propagation into CTE/other writes')
+            try:
+                evidence = check_insert_audit_context(sql, setup_sqls, auto_increment_context,
+                                                       conflict_source_scope, direct_insert[1])
+            except ValueError as exc:
+                raise ReviewNeeded('auto_increment_context_unknown', str(exc)) from exc
+            result.update(status='checked', auto_increment=evidence,
+                          checks=['target_columns','input_arity','finite_b_auto_increment_allocation_input'])
+            return result
         if re.match(r'^MERGE\b', sql, re.I):
             if cte_checks:
                 raise ReviewNeeded('merge_shape_unknown', 'MERGE CTE sources need separate identity review')

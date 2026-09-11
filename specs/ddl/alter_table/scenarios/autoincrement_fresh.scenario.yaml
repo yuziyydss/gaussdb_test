@@ -1,0 +1,18 @@
+schema_version: 1
+kind: scenario
+id: scenario_alter_table_autoincrement_fresh
+name: B自增设置10的实际计数器校准
+status: planned
+description: 仅绑定独立fresh初值1设置10；零值对照需另一fresh表执行，不把两个case串行共用一个计数器。
+factor_ref: alter_table
+fixture_refs: [fixture_alter_table_autoincrement_fresh]
+fact_refs: [at_fact_auto_increment, 'create_table::ct_fact_auto_increment_semantics', 'create_table::ct_fact_auto_increment_nontransactional']
+preconditions: [独占fresh B用户Schema, 实际自增列及初值身份校准, 无历史写入及并发消费, 隐式对象归属与权限已核]
+steps:
+- id: set_ten
+  candidate:
+    manifest_ref: manifest_alter_table_autoincrement_fresh
+    params: {action_profile: at_action_autoincrement_ten_fresh}
+oracles:
+- {kind: manual_assertion, step_id: set_ten, expected: 校准实际自增序列/计数器身份及当前值；后续NULL/0/DEFAULT与省略输入各需独立INSERT合同与数据断言，不能把ALTER成功当后续分配10已验证。失败分配不回滚，重复执行须重建独立资产。}
+execution_requirements: [database_authorization, target_oracle_calibration, case_owned_cleanup]

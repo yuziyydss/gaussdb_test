@@ -12,6 +12,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core.finite_sql_contract import inspect_write, inspect_lifecycle
+from core.auto_increment_contract import insert_audit_context
 
 
 def audit_report(report):
@@ -19,7 +20,9 @@ def audit_report(report):
     for mid, entry in report['manifests'].items():
         for case in entry['cases']:
             write = inspect_write(case['sql'], case['setup_sqls'],
-                                  conflict_source_scope='m_compat' if case['factor_id'].startswith('m_') else 'general')
+                                  conflict_source_scope='m_compat' if case['factor_id'].startswith('m_') else 'general',
+                                  auto_increment_context=insert_audit_context(
+                                      case.get('params',{}),case.get('environment_requirements',[]),case['teardown_sqls']))
             # M writes share the finite checker, not a guarantee that every M
             # dialect form is supported. Preserve its needs_review/rejected
             # evidence instead of erasing it based on the package prefix.
@@ -54,6 +57,7 @@ def main():
         name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
         # Mode/source routing here affects the audit just as the checker does.
         for name in ('core/finite_sql_contract.py', 'core/shared_column_contract.py',
+                     'core/auto_increment_contract.py',
                      'core/generated_column_contract.py',
                      'core/merge_column_contract.py',
                      'scripts/audit_rendered_sql_contracts.py')

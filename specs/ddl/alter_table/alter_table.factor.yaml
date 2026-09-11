@@ -239,7 +239,7 @@ facts:
   - {id: at_fact_rls, type: behavior_oracle, statement: "行访问控制支持 ENABLE/DISABLE/FORCE/NO FORCE，但不能对外表或临时表开启。", status: confirmed, source_anchor: "action/RLS"}
   - {id: at_fact_tde_rotation, type: lifecycle, statement: "ENCRYPTION KEY ROTATION 仅用于已开启 TDE 的加密表。", status: confirmed, source_anchor: "action/ENCRYPTION KEY ROTATION"}
   - {id: at_fact_replica_identity, type: behavior_oracle, statement: "REPLICA IDENTITY 支持 DEFAULT、USING INDEX、FULL、NOTHING、UNIQUE，并受主键和 ustore 语义影响。", status: confirmed, source_anchor: "action/REPLICA IDENTITY"}
-  - {id: at_fact_auto_increment, type: constraint, statement: "AUTO_INCREMENT 仅 B 模式，值必须非负且不超过 2^127-1，且仅大于当前计数器时生效。", status: confirmed, source_anchor: "action/AUTO_INCREMENT"}
+  - {id: at_fact_auto_increment, type: constraint, statement: "AUTO_INCREMENT 仅 B 模式，值必须非负且不超过 2^127-1，且仅大于当前计数器时生效。", status: confirmed, source_anchor: "L290-L293 action/AUTO_INCREMENT"}
   - {id: at_fact_charset, type: environment, statement: "表和列字符集/字符序变更仅 B 模式并受编码、类型映射和继承规则限制。", status: confirmed, source_anchor: "action 与参数/CHARSET"}
   - {id: at_fact_ilm, type: environment, statement: "ILM 支持增加、启停、删除表/分区/子分区策略，行表达式依赖函数白名单。", status: confirmed, source_anchor: "action/ILM"}
   - {id: at_fact_colview, type: environment, statement: "COLVIEW/NOCOLVIEW 与优先级属于 HTAP/IMCV 环境能力。", status: confirmed, source_anchor: "action/COLVIEW"}
@@ -304,7 +304,7 @@ facts:
   - {id: at_open_online_using_expression, type: open_question, statement: "PDF 将 USING expression 列在通用 ALTER TYPE 语法中，但在线支持范围和在线示例没有单独确认带 USING 的类型转换是否保持在线，不能把该 profile 宣称为 online-effective。", status: needs_verification, source_anchor: "L75-L77, L422-L435, L1338-L1361"}
   - {id: at_open_b_compat_fixture, type: open_question, statement: "已有独占普通表同定义CHANGE、无DEFAULT可空ADD FIRST/AFTER的B有限候选；数据库模式与行为参数实测、类型/约束/依赖和位置行为仍未完成，父conditional保留。通用MODIFY/FIRST/AFTER/AUTO_INCREMENT域未闭合；不据此给独立 MODIFY (...) 多列形式推定仅 B 模式。", status: needs_verification, source_anchor: "B 兼容语法"}
   - {id: at_open_modify_multi_contract, type: open_question, statement: "MODIFY (...) 已提供一个无依赖新普通表的VARCHAR扩展与NOT NULL有限代表；其他原定义、类型/约束、依赖对象影响及统计信息变化仍缺独立契约和实测。L359-L363未声明该形式仅B模式，不能套用后续B扩展MODIFY条件；父值继续conditional。", status: needs_verification, source_anchor: "L359-L363 column_clause/MODIFY 多列"}
-  - {id: at_open_a_compat_fixture, type: open_question, statement: "缺少可切换数据库级 A 兼容模式并验证 ROWID 系统列的 Fixture。", status: needs_verification, source_anchor: "SET WITH ROWID"}
+  - {id: at_open_a_compat_fixture, type: open_question, statement: "已有A模式普通空表hasrowid off到on有限候选；实际连接模式、ROWID系统列/隐式依赖身份、受限对象及压缩数据解压仍待验证，未完成通用能力矩阵。", status: needs_verification, source_anchor: "L208-L216; L787-L801 SET WITH ROWID"}
   - {id: at_open_tde_fixture, type: open_question, statement: "缺少 KMS、TDE GUC 和加密表 Fixture。", status: needs_verification, source_anchor: "TDE 参数与密钥轮转"}
   - {id: at_open_ilm_whitelist, type: open_question, statement: "ILM 行表达式函数白名单只由失效 CHM 链接给出。", status: needs_verification, source_anchor: "ILM"}
   - {id: at_open_ilm_policy_lifecycle, type: open_question, statement: "不带ON(EXPR)的ILM策略不需要表达式函数白名单，但仍缺受控目标表能力、实际策略身份、策略元数据和删除/恢复的生命周期契约；添加策略不证明压缩动作已触发。", status: needs_verification, source_anchor: "L300-L315 action/ILM"}
@@ -323,6 +323,8 @@ facts:
   - {id: at_open_generated_column_fixture, type: open_question, statement: "生成列的依赖、写入和表达式限制需要带生成列与依赖对象的专用 Fixture。", status: needs_verification, source_anchor: "column_constraint/生成列"}
 
 manifest_refs:
+  - manifest_alter_table_autoincrement_fresh
+  - manifest_alter_table_rowid_off_fresh
   - manifest_alter_table_log_foreign_rls_negative
   - manifest_alter_table_modify_single_b_fresh
   - manifest_alter_table_add_position_fresh
@@ -347,6 +349,8 @@ manifest_refs:
   - manifest_alter_table_gsiwaitall_negative
 matrix_refs: [matrix_alter_table_table_profiles, matrix_alter_table_action_profiles]
 fixture_refs:
+  - fixture_alter_table_autoincrement_fresh
+  - fixture_alter_table_rowid_off_fresh
   - fixture_alter_table_log_foreign_rls
   - fixture_alter_table_modify_single_b_fresh
   - fixture_alter_table_add_position_fresh
@@ -357,6 +361,8 @@ fixture_refs:
   - fixture_alter_table_temporary
   - fixture_alter_table_multistat
 scenario_refs:
+  - scenario_alter_table_autoincrement_fresh
+  - scenario_alter_table_rowid_off_fresh
   - scenario_alter_table_log_foreign_rls
   - scenario_alter_table_modify_single_b_fresh
   - scenario_alter_table_add_position_fresh

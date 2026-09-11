@@ -1,0 +1,21 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_sequence_system_rowid_a
+name: A模式系统rowid目标错误校准
+status: planned
+description: 独立绑定一个真实候选；不把前置失败、权限或事务中止错误当目标限制命中。
+factor_ref: create_sequence
+fixture_refs: [fixture_create_sequence_system_owner]
+fact_refs: [cs_fact_system_column_restriction, cs_open_system_column_error_identity, 'create_table::ct_fact_hasrowid', 'create_table::ct_fact_hasrowid_mode']
+preconditions:
+- 独立授权的A模式连接、独占fresh_user_schema、同一所有者；表与目标序列不存在
+- 目标表CREATE成功并取得归属回执，核实rowid/rowno为系统列而非普通用户列，目录身份Oracle待校准
+- 同模式同所有者普通id列OWNED BY控制用例须先独立成功；该控制前置仍需运行证据
+- rowid与rowno场景使用独立生命周期，预期错误后不能复用已中止事务
+steps:
+- id: reject_rowid
+  expected: error
+  candidate: {manifest_ref: manifest_create_sequence_system_rowid_a_negative, params: {owned_by_clause: cs_owned_rowid_a_invalid}}
+oracles:
+- {kind: manual_assertion, step_id: reject_rowid, expected: 校准system_column_ownership_forbidden的稳定SQLSTATE或窄错误身份；只有前置身份和普通列控制成功后的目标关联限制才算命中。对象缺失、权限、事务中止及任意异常均不能代替。}
+execution_requirements: [database_authorization, system_catalog_identity_calibration, positive_control_receipt, target_oracle_calibration, owned_implicit_sequence_index_inventory, unexpected_target_success_cleanup]

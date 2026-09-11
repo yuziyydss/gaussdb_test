@@ -186,6 +186,23 @@ dimensions:
             fixture_refs: [fixture_create_sequence_float_owner]
             properties: {source_tables: [t_cs_float_owner], source_columns: [id], system_column: false}
             fact_refs: [cs_fact_owned_by_syntax, cs_fact_owned_by_lifecycle]
+      - id: cs_owned_system_finite_class
+        meaning: A模式真实hasrowid前置下的两个有限目标；不猜系统列类型与错误码
+        values:
+          - id: cs_owned_rowid_a_invalid
+            render: " OWNED BY g_a3_cs_system_owner.rowid"
+            representative: true
+            validity: invalid
+            fixture_refs: [fixture_create_sequence_system_owner]
+            properties: {source_tables: [g_a3_cs_system_owner], system_column: true, system_column_identity: hasrowid_a_v1, required_compatibility_modes: [A]}
+            fact_refs: [cs_fact_system_column_restriction, 'create_table::ct_fact_hasrowid_shape_restrictions', 'create_table::ct_fact_hasrowid_mode']
+          - id: cs_owned_rowno_a_invalid
+            render: " OWNED BY g_a3_cs_system_owner.rowno"
+            representative: true
+            validity: invalid
+            fixture_refs: [fixture_create_sequence_system_owner]
+            properties: {source_tables: [g_a3_cs_system_owner], system_column: true, system_column_identity: hasrowid_a_v1, required_compatibility_modes: [A]}
+            fact_refs: [cs_fact_system_column_restriction, 'create_table::ct_fact_hasrowid_shape_restrictions', 'create_table::ct_fact_hasrowid_mode']
 rules:
   - id: cs_rule_float_non_b
     kind: requires
@@ -194,7 +211,7 @@ rules:
     fact_refs: [cs_fact_float_non_b_restriction]
   - id: cs_rule_owned_by_non_system_column
     kind: requires
-    expression: owned_by_clause != 'cs_owned_rowid_invalid'
+    expression: owned_by_clause not in ['cs_owned_rowid_invalid', 'cs_owned_rowid_a_invalid', 'cs_owned_rowno_a_invalid']
     severity: error
     fact_refs: [cs_fact_system_column_restriction]
 structural_checks: []
@@ -241,6 +258,8 @@ facts:
   - {id: cs_open_float_increment_generation, type: open_question, statement: "已有B/PG的1.5独立有限facet；泛化浮点域、具体取整结果及非B目标错误身份仍需校准，不宣称全域或实机完成。", status: needs_verification, source_anchor: "L68-L69"}
   - {id: cs_open_system_column_error_identity, type: open_question, statement: "本章确认 rowid/rowno 关联不支持，但未给 SQLSTATE 或稳定错误文本。", status: needs_verification, source_anchor: "L19"}
 manifest_refs:
+  - manifest_create_sequence_system_rowid_a_negative
+  - manifest_create_sequence_system_rowno_a_negative
   - manifest_create_sequence_float_b_fresh
   - manifest_create_sequence_float_pg_negative
   - manifest_create_sequence_regular_positive
@@ -248,8 +267,10 @@ manifest_refs:
   - manifest_create_sequence_owned_by_positive
   - manifest_create_sequence_schema_positive
 matrix_refs: [matrix_create_sequence_system_column_targets]
-fixture_refs: [fixture_create_sequence_owner_table, fixture_create_sequence_float_owner]
+fixture_refs: [fixture_create_sequence_owner_table, fixture_create_sequence_float_owner, fixture_create_sequence_system_owner]
 scenario_refs:
+  - scenario_create_sequence_system_rowid_a
+  - scenario_create_sequence_system_rowno_a
   - scenario_create_sequence_defaults_and_cycle
   - scenario_create_sequence_temporary_lifecycle
   - scenario_create_sequence_if_not_exists

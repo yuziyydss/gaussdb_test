@@ -130,6 +130,13 @@ class StaticRegressionReceiptTests(unittest.TestCase):
         self.assertEqual(result['status'], 'inputs_changed')
         self.assertIn('archive/spec_reviews/retired.yaml', result['changed_inputs'])
 
+    def test_fixture_bytes_without_code_suffix_revoke_old_receipt(self):
+        path=self.root/'specs/utility/example/fixtures/assets/seed.tsv'
+        path.parent.mkdir(parents=True);path.write_text('1\t2\n')
+        result,_=self.invoke(change=lambda:path.write_text('3\t4\n'))
+        self.assertEqual(result['status'],'inputs_changed')
+        self.assertIn(str(path.relative_to(self.root)),result['changed_inputs'])
+
     def test_selected_modules_are_explicit_and_not_shell_commands(self):
         self.assertEqual(runner.test_command(self.root, ['tests.test_example'])[1:],
                          ['-m', 'unittest', 'tests.test_example', '-v'])

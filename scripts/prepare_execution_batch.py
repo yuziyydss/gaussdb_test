@@ -30,17 +30,48 @@ SELECTION = (
     ('scenario_m_update_generated_null_write', ('manifest_m_update_generated_negative',)),
 )
 
+SEMANTIC_SELECTION = (
+    ('scenario_insert_partial_index_conflict', ('manifest_insert_partial_index_fresh',)),
+    ('scenario_insert_partial_index_new_key', ('manifest_insert_partial_index_fresh',)),
+    ('scenario_insert_partial_index_outside', ('manifest_insert_partial_index_fresh',)),
+    ('scenario_alter_table_log_foreign_rls', ('manifest_alter_table_log_foreign_rls_negative',)),
+    ('scenario_insert_pg_tuple_fresh', ('manifest_insert_pg_tuple_fresh',)),
+    ('scenario_m_insert_generated_default_result', ('manifest_m_insert_generated',)),
+)
+FOREIGN_OPTION_SELECTION = (
+    ('scenario_alter_foreign_table_log_implicit', ('manifest_alter_foreign_table_log_implicit',)),
+    ('scenario_alter_foreign_table_log_options', ('manifest_alter_foreign_table_log_add',)),
+    ('scenario_alter_foreign_table_log_set', ('manifest_alter_foreign_table_log_set',)),
+    ('scenario_alter_foreign_table_log_drop', ('manifest_alter_foreign_table_log_drop',)),
+)
+PROFILES = {'baseline': SELECTION, 'semantic_contracts': SEMANTIC_SELECTION,
+            'foreign_options': FOREIGN_OPTION_SELECTION}
+
 
 def inputs_snapshot():
-    # Includes cross-package dependencies, not only the five selected directories.
-    paths = list((ROOT / 'specs').rglob('*.yaml')) + list((ROOT / 'core').glob('*.py')) + [Path(__file__)]
+    # Includes cross-package dependencies and actual fixture bytes, not just
+    # YAML source_path strings. Review notes are not execution inputs.
+    paths = list((ROOT / 'core').glob('*.py')) + [Path(__file__)]
+    for directory in (ROOT / 'specs', ROOT / 'core'):
+        if directory.is_symlink():
+            raise ValueError('Execution input directory symlinks need identity review')
+    for path in (ROOT / 'specs').rglob('*'):
+        if path.is_symlink():
+            raise ValueError('Execution input symlinks need identity review')
+        if path.is_file() and (path.suffix == '.yaml' or 'assets' in path.relative_to(ROOT / 'specs').parts):
+            paths.append(path)
+    if any(p.is_symlink() for p in paths):
+        raise ValueError('Execution input symlinks need identity review')
     return {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in sorted(set(paths))}
 
 
-def build_batch(registry, generator):
+def build_batch(registry, generator, *, profile='baseline'):
+    if profile not in PROFILES:
+        raise ValueError('Unknown preparation profile: ' + str(profile))
+    selection = PROFILES[profile]
     cases_by_manifest, reports = {}, {}
-    for _, mids in SELECTION:
+    for _, mids in selection:
         for mid in mids:
             if mid not in cases_by_manifest:
                 cases, report = generator.generate_with_report(registry.manifests[mid])
@@ -52,7 +83,7 @@ def build_batch(registry, generator):
         raise ValueError('Duplicate candidate IDs in selected manifests')
     units = [prepare_unit(registry.scenarios[sid],
                           [c for mid in mids for c in cases_by_manifest[mid]], generator)
-             for sid, mids in SELECTION]
+             for sid, mids in selection]
     bound = {s['case_id'] for u in units for s in u['steps'] if s['case_id']}
     unbound = sorted(set(ids) - bound)
     for unit in units:
@@ -62,6 +93,7 @@ def build_batch(registry, generator):
             'offline_bound_awaiting_authorization_and_runtime_checks')
     return {
         'kind': 'offline_execution_preparation_batch', 'schema_version': 1,
+        'profile': profile,
         'database_executed': False, 'execution_authorized': False,
         'summary': {
             'packages': len({c.factor_id for c in cases}), 'manifests': len(cases_by_manifest),
@@ -90,6 +122,7 @@ def build_batch(registry, generator):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--profile', choices=sorted(PROFILES), default='baseline')
     parser.add_argument('--output', type=Path, required=True, help='New JSON artifact; existing paths are never overwritten')
     args = parser.parse_args()
     if args.output.exists():
@@ -97,7 +130,7 @@ def main():
     before = inputs_snapshot()
     registry = FactorPackageRegistry(ROOT / 'specs')
     registry.load_all()
-    batch = build_batch(registry, FactorPackageSQLGenerator(registry))
+    batch = build_batch(registry, FactorPackageSQLGenerator(registry), profile=args.profile)
     if inputs_snapshot() != before:
         raise RuntimeError('Inputs changed while preparing; discard in-memory result and retry after work settles')
     batch['input_sha256'] = before

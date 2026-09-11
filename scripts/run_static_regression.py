@@ -24,7 +24,7 @@ INPUT_FILES = ('main.py', 'requirements.txt', 'pyproject.toml', 'pytest.ini',
                'setup.cfg', 'gaussdb-rf-cent.pdf', 'generated/audit/pdf_catalog_coverage.json')
 INPUT_SUFFIXES = {'.py', '.yaml', '.yml', '.json', '.txt', '.html', '.css', '.js', '.sql'}
 LIMITS = [
-    'Only the listed input paths/extensions and Python version are fingerprinted; installed libraries and secrets are not.',
+    'Only the listed input paths/extensions, spec fixture assets and Python version are fingerprinted; installed libraries and secrets are not.',
     'Equal endpoints do not prove that files never changed and were restored during the run.',
     'GAUSSDB_ENABLED=false is a requested configuration, not network isolation; review test code for fake connections.',
     'A passing unittest receipt does not prove database execution, full SQL coverage, or package readiness.',
@@ -51,7 +51,8 @@ def snapshot(root):
                 continue
             if path.is_symlink():
                 raise ValueError('Input symlinks need separate identity review')
-            if path.is_file() and path.suffix in INPUT_SUFFIXES:
+            fixture_asset = name == 'specs' and 'assets' in path.relative_to(directory).parts
+            if path.is_file() and (path.suffix in INPUT_SUFFIXES or fixture_asset):
                 paths.add(path)
     for name in INPUT_FILES:
         path = root/name

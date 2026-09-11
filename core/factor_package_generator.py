@@ -20,6 +20,11 @@ from .factor_package_model import (
     SyntaxASTNodeDef,
 )
 
+_AUTO_INCREMENT_INSERT_TRIGGERS = {'insert_source_autoincrement_null':'NULL',
+                                 'insert_source_autoincrement_zero':'0',
+                                 'insert_source_autoincrement_default':'DEFAULT',
+                                 'insert_source_autoincrement_omitted':'omitted'}
+
 
 class _FactorRuleSolver:
     """Resolve dimension properties before evaluating positive or negative rules."""
@@ -130,6 +135,16 @@ class FactorPackageSQLGenerator:
 
         resolved = self.registry.resolve_dimension_values(factor.id)
         param_space = self.build_param_space(factor, manifest)
+        # An inconsistent finite trigger profile is a specification error,
+        # not an infeasible pair to silently remove in structural filtering.
+        for source_id in param_space.get('source_profile', []):
+            if source_id in _AUTO_INCREMENT_INSERT_TRIGGERS:
+                value = resolved['source_profile'][source_id]
+                trigger = _AUTO_INCREMENT_INSERT_TRIGGERS[source_id]
+                expected_render = 'VALUES(1)' if trigger == 'omitted' else f'VALUES({trigger},1)'
+                if (re.sub(r'\s+', '', value.render).upper() != expected_render
+                        or value.attributes.get('source_profile.properties.auto_increment_trigger') != trigger):
+                    raise GenerationValidationError('auto_increment_contract: inconsistent declared trigger profile')
         candidate_estimate = math.prod(len(values) for values in param_space.values())
         solver = self._build_solver(factor, manifest, resolved)
 
@@ -235,12 +250,38 @@ class FactorPackageSQLGenerator:
                 consumed_dimension_ids,
             )
             setup_sqls, teardown_sqls = self._compile_fixture_lifecycle(fixture_refs)
+            owned_target = resolved.get('owned_by_clause', {}).get(combo.get('owned_by_clause'))
+            system_targets = {'cs_owned_rowid_a_invalid': 'rowid', 'cs_owned_rowno_a_invalid': 'rowno'}
+            if factor.id == 'create_sequence' and (
+                    combo.get('owned_by_clause') in system_targets
+                    or (owned_target and owned_target.attributes.get('owned_by_clause.properties.system_column'))):
+                from .system_column_contract import check_sequence_system_target
+                gates = {gate.key: gate.allowed_values for gate in manifest.environment_requirements}
+                column = system_targets.get(combo.get('owned_by_clause'))
+                if (column is None or owned_target is None
+                        or owned_target.attributes.get('owned_by_clause.properties.system_column') is not True
+                        or owned_target.attributes.get('owned_by_clause.properties.system_column_identity') != 'hasrowid_a_v1'
+                        or manifest.expected.default != 'error' or manifest.expected.scope != 'syntax_and_semantics'
+                        or manifest.expected.oracle_status != 'needs_verification'
+                        or manifest.expected.error_category != 'system_column_ownership_forbidden'
+                        or manifest.expected.sqlstates or manifest.expected.error_message_regex
+                        or manifest.violates_rule_refs != ['cs_rule_owned_by_non_system_column']
+                        or len(gates) != len(manifest.environment_requirements)
+                        or factor.source.catalog_chapter_ref is None
+                        or factor.source.catalog_chapter_ref.source_relpath != 'general/ddl/create_sequence.txt'):
+                    raise GenerationValidationError('system_column_contract: finite target and uncalibrated negative required')
+                try:
+                    check_sequence_system_target(sql, setup_sqls, teardown_sqls, gates, 'g_a3_cs_system_owner', column)
+                except ValueError as exc:
+                    raise GenerationValidationError(str(exc)) from exc
             index_target = resolved.get('table_profile', {}).get(combo.get('table_profile'))
             if factor.id == 'create_index' and (
+                    combo.get('table_profile') == 'ci_table_ustore_local_fresh'
+                    or
                     (index_target and (index_target.attributes.get('table_profile.properties.subpartitioned')
                                        or index_target.attributes.get('table_profile.properties.index_partition_contract')))
                     or any(re.search(r'\bSUBPARTITION\s+BY\b', statement, re.I) for statement in setup_sqls)):
-                from .index_partition_contract import check_index_partition
+                from .index_partition_contract import check_index_partition, check_ustore_local_index
                 from .finite_sql_contract import ReviewNeeded
                 chapter = factor.source.catalog_chapter_ref
                 if (index_target is None or chapter is None or chapter.source_relpath != 'general/ddl/create_index.txt'
@@ -254,8 +295,12 @@ class FactorPackageSQLGenerator:
                 properties = {key.removeprefix('table_profile.properties.'): value
                               for key, value in index_target.attributes.items() if key.startswith('table_profile.properties.')}
                 try:
-                    check_index_partition(sql, setup_sqls, teardown_sqls, target=index_target.render,
-                                          properties=properties, gates=gates)
+                    checker = (check_ustore_local_index
+                               if combo.get('table_profile') == 'ci_table_ustore_local_fresh'
+                               or properties.get('index_partition_contract') == 'ustore_range_local'
+                               else check_index_partition)
+                    checker(sql, setup_sqls, teardown_sqls, target=index_target.render,
+                            properties=properties, gates=gates)
                 except (ValueError, ReviewNeeded) as exc:
                     raise GenerationValidationError('index_partition_contract: '+getattr(exc, 'detail', str(exc))) from exc
             if factor.id == 'create_database' and any(
@@ -285,7 +330,61 @@ class FactorPackageSQLGenerator:
                         {gate.key: gate.allowed_values for gate in manifest.environment_requirements})
                 except ValueError as exc:
                     raise GenerationValidationError(str(exc)) from exc
+            if factor.id == 'alter_foreign_table':
+                from .log_fdw_catalog_contract import check_log_fdw_option_change
+                chapter = factor.source.catalog_chapter_ref
+                gates = {gate.key: gate.allowed_values for gate in manifest.environment_requirements}
+                operation = {'aft_log_'+op: op for op in ('implicit', 'add', 'set', 'drop')}.get(combo.get('operation'))
+                if (chapter is None or chapter.source_relpath != 'general/ddl/alter_foreign_table.txt'
+                        or manifest.expected.default != 'success' or manifest.expected.scope != 'syntax_only'
+                        or operation is None or len(gates) != len(manifest.environment_requirements)
+                        or 'M' in gates.get('compatibility_mode', [])):
+                    raise GenerationValidationError('log_fdw_catalog: reviewed general ALTER options contract required')
+                try:
+                    check_log_fdw_option_change(sql, setup_sqls, teardown_sqls, gates, operation)
+                except ValueError as exc:
+                    raise GenerationValidationError(str(exc)) from exc
             foreign_target = resolved.get('table_profile', {}).get(combo.get('table_profile'))
+            auto_actions = {'at_action_autoincrement_ten_fresh': 10, 'at_action_autoincrement_zero_fresh': 0}
+            if factor.id == 'alter_table' and (
+                    combo.get('action_profile') in auto_actions
+                    or combo.get('table_profile') == 'at_table_autoincrement_fresh'):
+                from .auto_increment_contract import check_autoincrement_transition
+                gates = {gate.key: gate.allowed_values for gate in manifest.environment_requirements}
+                chapter = factor.source.catalog_chapter_ref
+                if (combo.get('action_profile') not in auto_actions
+                        or combo.get('table_profile') != 'at_table_autoincrement_fresh'
+                        or foreign_target is None
+                        or foreign_target.attributes.get('table_profile.properties.auto_increment_contract') != 'fresh_initial_one'
+                        or chapter is None or chapter.source_relpath != 'general/ddl/alter_table.txt'
+                        or manifest.expected.default != 'success' or manifest.expected.scope != 'syntax_only'
+                        or manifest.violates_rule_refs or len(gates) != len(manifest.environment_requirements)):
+                    raise GenerationValidationError('auto_increment_contract: explicit finite fresh B target required')
+                try:
+                    evidence = check_autoincrement_transition(sql, setup_sqls, teardown_sqls, gates, foreign_target.render)
+                    if evidence['requested_value'] != auto_actions[combo['action_profile']]:
+                        raise ValueError('auto_increment_contract: selected action differs from rendered value')
+                except ValueError as exc:
+                    raise GenerationValidationError(str(exc)) from exc
+            if factor.id == 'alter_table' and (
+                    combo.get('action_profile') == 'at_action_set_rowid_fresh'
+                    or combo.get('table_profile') == 'at_table_rowid_off_fresh'
+                    or re.search(r'\bSET\s+WITH\s+ROWID\b', sql, re.I)):
+                from .system_column_contract import check_alter_rowid_target
+                gates = {gate.key: gate.allowed_values for gate in manifest.environment_requirements}
+                chapter = factor.source.catalog_chapter_ref
+                if (combo.get('action_profile') != 'at_action_set_rowid_fresh'
+                        or combo.get('table_profile') != 'at_table_rowid_off_fresh'
+                        or foreign_target is None
+                        or foreign_target.attributes.get('table_profile.properties.rowid_transition_contract') != 'ordinary_empty_off_to_on'
+                        or chapter is None or chapter.source_relpath != 'general/ddl/alter_table.txt'
+                        or manifest.expected.default != 'success' or manifest.expected.scope != 'syntax_only'
+                        or manifest.violates_rule_refs or len(gates) != len(manifest.environment_requirements)):
+                    raise GenerationValidationError('system_column_contract: reviewed ordinary ROWID transition required')
+                try:
+                    check_alter_rowid_target(sql, setup_sqls, teardown_sqls, gates, foreign_target.render)
+                except ValueError as exc:
+                    raise GenerationValidationError(str(exc)) from exc
             if factor.id == 'alter_table' and (
                     (foreign_target and (foreign_target.attributes.get('table_profile.properties.foreign_table_contract')
                                          or foreign_target.attributes.get('table_profile.properties.external')))
@@ -394,6 +493,32 @@ class FactorPackageSQLGenerator:
                 except ReviewNeeded as exc:
                     raise GenerationValidationError(f'{manifest.id}: {exc.code}: {exc.detail}') from exc
             insert_target = resolved.get('target_profile', {}).get(combo.get('target_profile'))
+            auto_insert_sources = _AUTO_INCREMENT_INSERT_TRIGGERS
+            auto_insert_targets = {'insert_target_autoincrement_fresh':'g_b_insert_autoinc(id,note)',
+                                   'insert_target_autoincrement_omitted':'g_b_insert_autoinc(note)'}
+            auto_insert_marker = (insert_target.attributes.get('target_profile.properties.auto_increment_contract')
+                                  if insert_target else None)
+            if (combo.get('target_profile') in auto_insert_targets
+                    or combo.get('source_profile') in auto_insert_sources or auto_insert_marker):
+                from .auto_increment_contract import check_autoincrement_insert
+                gates = {gate.key:gate.allowed_values for gate in manifest.environment_requirements}
+                chapter = factor.source.catalog_chapter_ref
+                if (factor.id != 'insert' or chapter is None or chapter.source_relpath != 'general/dml/insert.txt'
+                        or combo.get('target_profile') not in auto_insert_targets
+                        or combo.get('source_profile') not in auto_insert_sources
+                        or auto_insert_marker != 'fresh_initial_one'
+                        or manifest.expected.default != 'success' or manifest.expected.scope != 'syntax_only'
+                        or manifest.violates_rule_refs or len(gates) != len(manifest.environment_requirements)
+                        or re.sub(r'\s+', '', insert_target.render).lower() != auto_insert_targets[combo['target_profile']]
+                        or (combo['target_profile'] == 'insert_target_autoincrement_omitted')
+                            != (auto_insert_sources[combo['source_profile']] == 'omitted')):
+                    raise GenerationValidationError('auto_increment_contract: reviewed B INSERT identity required')
+                try:
+                    evidence = check_autoincrement_insert(sql, setup_sqls, teardown_sqls, gates, 'g_b_insert_autoinc')
+                    if evidence['allocation_trigger'] != auto_insert_sources[combo['source_profile']]:
+                        raise ValueError('auto_increment_contract: selected trigger differs from rendered input')
+                except ValueError as exc:
+                    raise GenerationValidationError(str(exc)) from exc
             partial_contract = (insert_target.attributes.get('target_profile.properties.partial_index_contract')
                                 if insert_target else None)
             conflict_value = resolved.get('conflict_clause', {}).get(combo.get('conflict_clause'))
@@ -509,10 +634,32 @@ class FactorPackageSQLGenerator:
                 except (Contradiction, ReviewNeeded) as exc:
                     raise GenerationValidationError(f'{manifest.id}: {exc.code}: {exc.detail}') from exc
             file_assets = self._compile_fixture_files(fixture_refs, sql, setup_sqls)
+            for dimension in ('query_profile', 'source_profile'):
+                selected_profile = resolved.get(dimension, {}).get(combo.get(dimension))
+                if not selected_profile or dimension not in consumed_dimension_ids:
+                    continue
+                common_contract = selected_profile.attributes.get(dimension+'.properties.common_type_contract')
+                if common_contract:
+                    from .common_type_contract import CONTRACT_MODES, check_common_type_query
+                    from .finite_sql_contract import Contradiction, ReviewNeeded
+                    modes = [r.allowed_values for r in manifest.environment_requirements if r.key == 'compatibility_mode']
+                    chapter = factor.source.catalog_chapter_ref
+                    required_mode = CONTRACT_MODES.get(common_contract)
+                    if (required_mode is None or modes != [[required_mode]]
+                            or not chapter or not chapter.source_relpath.startswith('general/')):
+                        raise GenerationValidationError(f'Common type contract requires general source and one physical {required_mode or "known"} gate')
+                    try:
+                        check_common_type_query(sql, setup_sqls, mode=required_mode, contract=common_contract,
+                            output_types=selected_profile.attributes.get(dimension+'.properties.output_types'))
+                    except (Contradiction, ReviewNeeded) as exc:
+                        raise GenerationValidationError(f'{manifest.id}: {exc.code}: {exc.detail}') from exc
             if manifest.expected.default == "success":
                 chapter = factor.source.catalog_chapter_ref
+                from .auto_increment_contract import insert_audit_context
                 rendered_contract = inspect_write(sql, setup_sqls, conflict_source_scope=(
-                    'm_compat' if chapter and chapter.source_relpath.startswith('m_compat/') else 'general'))
+                    'm_compat' if chapter and chapter.source_relpath.startswith('m_compat/') else 'general'),
+                    auto_increment_context=insert_audit_context(combo,
+                        [gate.model_dump() for gate in manifest.environment_requirements],teardown_sqls))
                 if rendered_contract["status"] == "rejected":
                     raise GenerationValidationError(
                         f"{manifest.id}: rendered SQL/fixture contradiction: "

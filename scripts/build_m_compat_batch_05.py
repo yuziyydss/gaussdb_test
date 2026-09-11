@@ -497,10 +497,23 @@ LOAD_PAYLOAD='1\t10\n2\t20\n3\t30\n'
 LOAD_PATH='/tmp/m_factor_assets/load_data/two_int.tsv'
 
 
+class LoadDataPackage(Package):
+    def finish(self):
+        files = super().finish()
+        # This reviewed unit includes the following layout heading, not its
+        # independent restrictions (which remain in the next unmapped unit).
+        unit = next(u for u in files[self.id+'.source.yaml']['units']
+                    if u['id'] == 'm_load_data_su_125')
+        unit.update(statement='输入列列表可选；如果没有声明字段列表，将使用所有字段。', atomicity='atomic')
+        return files
+
+
 def load_data():
-    p=Package('LOAD DATA','UTILITY',CORPUS)
+    p=LoadDataPackage('LOAD DATA','UTILITY',CORPUS)
     p.fact('syntax','syntax','LOAD DATA INFILE指定文件，INTO TABLE指定真实目标表；支持冲突模式和字段子句。',next(i+1 for i,line in enumerate(p.lines) if line.strip()=='LOAD DATA'),12)
     p.fact('columns','syntax','可指定输入列列表，SET指定表达式或DEFAULT。','[(col_name_or_user_var',2)
+    p.fact('all_columns','syntax','输入列列表可省略；未声明字段列表时使用所有字段。有限空表两列输入由真实TSV与列序对齐，不套用SET或跳行行为。',125,4)
+    p.facts[-1]['source_anchor'] = '2.4.2.13.1 L125-127'
     p.fact('authority','environment','LOAD DATA需要INSERT/DELETE；enable_copy_server_files打开时SYSADMIN可用文件导入。','LOAD DATA语法需要具有表的INSERT和DELETE权限',6)
     p.fact('path','environment','文件路径必须位于safe_data_path白名单内；本批只声明专用部署路径，不修改白名单。','数据库管理员可以通过GUC参数safe_data_path',4)
     p.fact('server','environment','未指定LOCAL从服务端导入；相对路径使用数据目录，本批只用绝对路径。','不指定LOCAL时，则从服务端所在环境中导入数据',2)
@@ -545,6 +558,20 @@ def load_data():
         [dict(kind='manual_assertion',expected='实际行值、冲突、SQLSTATE与文件部署尚未实机验证')])
     p.scenario('local_protocol',['local'],[],[dict(action='另审LOCAL远程传输开关、客户端路径及单语句协议，当前只生成服务端INFILE分支。')],
         [dict(kind='manual_assertion',expected='LOCAL、分区、用户变量、特殊字符与类型转换边界尚未建模')])
+    p.syntax_fact_refs = [p.fid(x) for x in ('syntax','columns','tab','line','skip')]
+    p.scenario('plain_rows',['mode','authority','path','server','tab','line','all_columns'],[fixtures[0]],
+        [dict(id='load_plain',candidate=dict(manifest_ref='manifest_m_load_data_empty',params={
+            key:p.vid(key,value) for key,value in [('table','empty'),('conflict_mode','none'),
+            ('fields','default'),('column_list','default'),('skip','none'),('assignment','none')]}))],
+        [dict(kind='result_set',step_id='load_plain',sql='SELECT id,qty FROM m_load_data_empty ORDER BY id;',
+              expected=[[1,10],[2,20],[3,30]])])
+    p.files['scenarios/plain_rows.scenario.yaml'].update(
+        name='M非LOCAL空表两列三行输入',
+        description='唯一选择已生成的无冲突修饰/无SET/不跳行候选。使用缺省TAB与真实LF，省略列列表对应全部两列；不承诺LOCAL或冲突处理行为。',
+        preconditions=['已授权并核实的物理M数据库连接，SYSADMIN、enable_copy_server_files=on，具有目标表INSERT/DELETE权限。',
+            '独占新表与服务器专属部署路径；文件未部署，先取得路径不存在、服务器身份、SHA256、读取权限、safe_data_path白名单与部署归属回执。'],
+        execution_requirements=['database_authorization','isolated_connection','explicit_file_deployment',
+                                'target_only_oracle','owned_asset_cleanup'])
     return p
 
 

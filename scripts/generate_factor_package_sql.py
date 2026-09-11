@@ -21,6 +21,7 @@ from core.generator import validate_sql_syntax
 from core.spec_generator import GenerationValidationError
 from core.m_compat_environment import BOOTSTRAP_PATH, requires_m
 from core.candidate_identity import setup_signature
+from core.package_inventory import package_inventory
 
 
 def display_path(path: Path) -> str:
@@ -268,6 +269,7 @@ def main() -> int:
             )
     report_path.write_text(
         json.dumps({
+            "package_inventory": package_inventory(registry, requested),
             "manifest_count": len(reports),
             "global_case_id_count": len(global_case_ids),
             "distinct_sql_count": len(sql_origins),

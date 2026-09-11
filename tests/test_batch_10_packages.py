@@ -56,9 +56,17 @@ class Batch10Tests(unittest.TestCase):
                   'create_column_encryption_key', 'alter_column_encryption_key',
                   'drop_column_encryption_key', 'alter_async_encryption_key_rotation',
                   'create_database_link', 'alter_database_link', 'drop_database_link',
-                  'alter_foreign_table',
                   'create_global_index'}
         self.assertEqual({fid for fid, f in self.factors.items() if not f.manifest_refs}, no_sql)
+        self.assertEqual(self.factors['alter_foreign_table'].manifest_refs, [
+            'manifest_alter_foreign_table_log_implicit', 'manifest_alter_foreign_table_log_add',
+            'manifest_alter_foreign_table_log_set', 'manifest_alter_foreign_table_log_drop'])
+        for case in self.factor_cases('alter_foreign_table'):
+            self.assertEqual(case.expected_scope, 'syntax_only')
+            self.assertTrue(any('FOREIGN DATA WRAPPER log_fdw' in s for s in case.setup_sqls))
+            self.assertNotIn('filename', ' '.join(case.setup_sqls+[case.sql]))
+        self.assertFalse(FactorCoverageAuditor(self.registry).audit('alter_foreign_table')
+                         ['conclusions']['behavior_coverage_complete'])
         for fid in ('create_foreign_table', 'drop_foreign_table'):
             self.assertEqual(self.factors[fid].manifest_refs, ['manifest_'+fid+'_log_catalog'])
             case = self.factor_cases(fid)[0]

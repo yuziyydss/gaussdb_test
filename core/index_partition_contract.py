@@ -1,4 +1,4 @@
-"""Finite ASTORE RANGE/RANGE and LOCAL position checks; never a runtime oracle."""
+"""Finite ASTORE two-level / USTORE one-level LOCAL checks; not runtime proof."""
 import re
 
 from .finite_sql_contract import IDENT, split_list, take_group, top_mask
@@ -22,10 +22,10 @@ def _match(pattern, text):
     return match
 
 
-def _bound_list(body, *, children, names):
+def _bound_list(body, *, children, names, word=None):
     """Parse explicit single-INTEGER upper bounds, retaining declared order."""
     result = []
-    word = 'PARTITION' if children else 'SUBPARTITION'
+    word = word or ('PARTITION' if children else 'SUBPARTITION')
     for item in split_list(body):
         head = re.match(rf'{word}\s+({IDENT})\s+VALUES\s+LESS\s+THAN\s*\(\s*([+-]?[0-9]+)\s*\)\s*',
                         item, re.I | re.ASCII)
@@ -44,6 +44,47 @@ def _bound_list(body, *, children, names):
         result.append(node)
     _require(bool(result), 'empty partition layout')
     return result
+
+
+def check_ustore_local_index(sql, setup, teardown, *, target, properties, gates):
+    """One INTEGER RANGE key, explicit USTORE, plain UBTree LOCAL, fresh table.
+
+    General CREATE TABLE PARTITION L94, L102-106, L366-377 and CREATE INDEX
+    L224-227, L417-437. No ACTIVE_PAGES value/range or statistics effect inferred.
+    Tracking gates are requirements only, not evidence of actual server values.
+    """
+    _require(properties.get('index_partition_contract') == 'ustore_range_local'
+             and properties.get('storage_engine') == 'USTORE'
+             and properties.get('partitioned') is True
+             and properties.get('subpartitioned') is False,
+             'explicit one-level USTORE profile required')
+    for key, expected in [('actor_authority', ['create_any_index']),
+                          ('case_namespace', ['isolated_user_schema']),
+                          ('table_creation_authority', ['create_any_table']),
+                          ('track_counts', ['on']), ('track_activities', ['on'])]:
+        _require(gates.get(key) == expected, 'missing fixture/tracking gate: '+key)
+    _require(re.fullmatch(r'g_[a-z0-9_]{1,50}', target) is not None,
+             'fresh unqualified test table required')
+    _require(len(setup) == len(teardown) == 1, 'one fresh table and exact cleanup required')
+    table = re.escape(target)
+    head = re.match(rf'CREATE\s+TABLE\s+{table}\s*\(\s*id\s+(?:INTEGER|INT)\s*\)\s*'
+                    r'WITH\s*\(\s*storage_type\s*=\s*ustore\s*\)\s*'
+                    r'PARTITION\s+BY\s+RANGE\s*\(\s*id\s*\)\s*',
+                    _statement(setup[0]), re.I | re.ASCII)
+    _require(head is not None, 'actual USTORE one-INTEGER RANGE table required')
+    definitions, tail = take_group(_statement(setup[0])[head.end():])
+    _require(not tail, 'unconsumed USTORE fixture suffix')
+    layout = _bound_list(definitions, children=False, names=set(), word='PARTITION')
+    _require(properties.get('partition_keys') == ['id'] and layout == properties.get('partition_layout'),
+             'declared key/layout differs from actual DDL')
+    _match(rf'DROP\s+TABLE\s+{table}\s+RESTRICT', _statement(teardown[0]))
+    index = _match(rf'CREATE\s+INDEX\s+({IDENT})\s+ON\s+{table}\s+USING\s+ubtree'
+                   r'\s*\(\s*id\s*\)\s+LOCAL', _statement(sql))[1].lower()
+    _require(index != target, 'index and table share relation namespace')
+    return {'scope': 'finite_ustore_range_local', 'source_table': target,
+            'storage_engine': 'USTORE', 'method': 'ubtree', 'partition_keys': ['id'],
+            'table_layout': layout, 'automatic_partitions': True, 'runtime_proven': False,
+            'cleanup_ownership_proven': False, 'statistics_proven': False}
 
 
 def check_index_partition(sql, setup, teardown, *, target, properties, gates):

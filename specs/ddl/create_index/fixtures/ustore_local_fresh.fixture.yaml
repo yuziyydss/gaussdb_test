@@ -1,0 +1,21 @@
+schema_version: 1
+kind: fixture
+id: fixture_create_index_ustore_local_fresh
+name: USTORE单键两分区fresh索引资产
+status: needs_review
+description: 显式USTORE/INTEGER/RANGE两分区；不插入数据、不改统计参数、不复用ASTORE分区表。
+factor_ref: create_index
+provides:
+  tables:
+    - name: g_ci_ustore_local
+      persistence: permanent
+      table_kind: partitioned
+      columns: [{name: id, type: INTEGER, nullable: true}]
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - CREATE TABLE g_ci_ustore_local (id INTEGER) WITH (storage_type=ustore) PARTITION BY RANGE (id) (PARTITION p1 VALUES LESS THAN (10), PARTITION p2 VALUES LESS THAN (20));
+  teardown_sqls: [DROP TABLE g_ci_ustore_local RESTRICT;]
+  note: 必须独占fresh用户Schema及本case名字，要求建表建索引权限及track_counts/track_activities开启；这里不设置GUC。仅获得成功创建回执并核自身索引/分区依赖后才清理，setup失败不可盲DROP。数据库与目录校准未执行。

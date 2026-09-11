@@ -19,8 +19,10 @@ class DependencySourceClosureTests(unittest.TestCase):
         self.assertEqual(set(body) - primary, {'general/utility/section_1_4_3.txt',
                                               'general/ddl/create_tablespace.txt',
                                               'general/ddl/drop_sequence.txt',
-                                              'general/dml/copy.txt'})
-        self.assertEqual(len(body), 24)
+                                              'general/dml/copy.txt',
+                                              'general/utility/section_1_9_4.txt',
+                                              'general/utility/union_case.txt'})
+        self.assertEqual(len(body), 26)
 
     def test_wrong_supplemental_hash_cannot_be_ignored(self):
         registry = copy.deepcopy(self.registry)
@@ -31,10 +33,12 @@ class DependencySourceClosureTests(unittest.TestCase):
 
     def test_body_only_chapters_are_not_promoted_to_factor_tasks(self):
         state = {'tasks': [{'factor_id': f, 'source_relpath': f + '.txt'}
-                           for f in [*self.config['factors'], 'section_1_4_3', 'create_tablespace', 'drop_sequence', 'copy']]}
+                           for f in [*self.config['factors'], 'section_1_4_3', 'create_tablespace', 'drop_sequence', 'copy',
+                                     'section_1_9_4', 'union_case']]}
         excluded = select_batch_tasks(state, self.config['factors'])
         self.assertEqual(len(state['tasks']), 20)
-        self.assertEqual({t['factor_id'] for t in excluded}, {'section_1_4_3', 'create_tablespace', 'drop_sequence', 'copy'})
+        self.assertEqual({t['factor_id'] for t in excluded}, {'section_1_4_3', 'create_tablespace', 'drop_sequence', 'copy',
+                                                            'section_1_9_4', 'union_case'})
 
     def test_missing_requested_task_is_not_silently_filtered(self):
         with self.assertRaisesRegex(ValueError, 'requested tasks'):

@@ -59,3 +59,31 @@ def check_log_fdw_enable_rls_negative(sql, setup, teardown, gates, target):
     _match(r'ALTER\s+TABLE\s+'+re.escape(evidence['table'])+r'\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY', sql)
     return {**evidence, 'scope': 'finite_foreign_enable_rls_negative_shape',
             'target_error_proven': False}
+
+
+def check_log_fdw_option_seed(sql, table):
+    """Only the documented ADD latest_files '2' setup statement, no state proof."""
+    _match(r'ALTER\s+FOREIGN\s+TABLE\s+'+re.escape(table)+
+           r"\s+OPTIONS\s*\(\s*ADD\s+latest_files\s+'2'\s*\)", sql)
+
+
+def check_log_fdw_option_change(sql, setup, teardown, gates, operation):
+    """Documented latest_files representatives with actual absent/present state."""
+    clauses = {'implicit': "latest_files '2'", 'add': "ADD latest_files '2'",
+               'set': "SET latest_files '5'", 'drop': 'DROP latest_files'}
+    if operation not in clauses:
+        raise ValueError('log_fdw_catalog: finite option operation required')
+    present = operation in ('set', 'drop')
+    if len(setup) != (4 if present else 3):
+        raise ValueError('log_fdw_catalog: exact initial option state required')
+    evidence = check_log_fdw_catalog('create', setup[2], setup[:2], teardown, gates)
+    prefix = r'ALTER\s+FOREIGN\s+TABLE\s+'+re.escape(evidence['table'])+r'\s+OPTIONS\s*\(\s*'
+    def clause_pattern(clause):
+        # SQL words insensitive, documented option values remain literal.
+        return r'\s+'.join(re.escape(part) for part in clause.split())
+    _match(prefix+clause_pattern(clauses[operation])+r'\s*\)', sql)
+    if present:
+        check_log_fdw_option_seed(setup[3], evidence['table'])
+    return {**evidence, 'scope': 'finite_latest_files_option_state',
+            'initial_option_present': present, 'operation': operation,
+            'validator_behavior_proven': False, 'physical_mode_proven': False}
