@@ -22,14 +22,17 @@ class LogFDWCatalogTests(unittest.TestCase):
 
     def test_real_server_schema_table_names_and_reverse_cleanup(self):
         create, cr = self.cases('create'); drop, dr = self.cases('drop')
-        # 1个CREATE代表 + 4个DROP形态（RESTRICT/省略 × 无/有IF EXISTS）
-        self.assertEqual((len(create), len(drop)), (1, 4))
+        # 2个CREATE形态（无/有IF NOT EXISTS） + 4个DROP形态（RESTRICT/省略 × 无/有IF EXISTS）
+        self.assertEqual((len(create), len(drop)), (2, 4))
         sql = "CREATE FOREIGN TABLE g_a3_log_ns.foreign_table (col1 TEXT) SERVER g_a3_log_server OPTIONS (logtype 'gs_log');"
-        self.assertEqual(create[0].sql, sql)
+        sql_ifne = "CREATE FOREIGN TABLE IF NOT EXISTS g_a3_log_ns.foreign_table (col1 TEXT) SERVER g_a3_log_server OPTIONS (logtype 'gs_log');"
+        create_by_sql = {c.sql: c for c in create}
+        self.assertIn(sql, create_by_sql)
+        self.assertIn(sql_ifne, create_by_sql)
         by_sql = {c.sql: c for c in drop}
         original = by_sql['DROP FOREIGN TABLE g_a3_log_ns.foreign_table RESTRICT;']
-        self.assertEqual(original.setup_sqls, create[0].setup_sqls + [sql])
-        self.assertEqual(create[0].teardown_sqls, [original.sql] + original.teardown_sqls)
+        self.assertEqual(original.setup_sqls, create_by_sql[sql].setup_sqls + [sql])
+        self.assertEqual(create_by_sql[sql].teardown_sqls, [original.sql] + original.teardown_sqls)
         self.assertEqual(original.teardown_sqls,
                          ['DROP SCHEMA g_a3_log_ns RESTRICT;', 'DROP SERVER g_a3_log_server RESTRICT;'])
         # 新增的有限形态也使用同一fresh生命周期与清理顺序

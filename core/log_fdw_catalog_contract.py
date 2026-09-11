@@ -25,7 +25,7 @@ def check_log_fdw_catalog(action, sql, setup, teardown, gates):
     name = r'g_a3_[a-z0-9_]+'
     server = _match(r'CREATE\s+SERVER\s+('+name+r')\s+FOREIGN\s+DATA\s+WRAPPER\s+log_fdw', setup[0])[1].lower()
     schema = _match(r'CREATE\s+SCHEMA\s+('+name+r')', setup[1])[1].lower()
-    create_pattern = (r'CREATE\s+FOREIGN\s+TABLE\s+('+re.escape(schema)+r'\.[a-z_][a-z0-9_]*)'
+    create_pattern = (r'CREATE\s+FOREIGN\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?('+re.escape(schema)+r'\.[a-z_][a-z0-9_]*)'
         r'\s*\(\s*col1\s+TEXT\s*\)\s+SERVER\s+'+re.escape(server)+
         r"\s+OPTIONS\s*\(\s*logtype\s+'(?-i:gs_log)'\s*\)")
     table = _match(create_pattern, sql if action == 'create' else setup[2])[1].lower()

@@ -1,0 +1,71 @@
+# 剩余取值缺口处置记录（2026-09-11 晚间演进）
+
+本轮以"有限 facet 代表关系"审计机制关闭 62/88 条缺口后，剩余 26 条逐项记录如下。
+每条给出阻断类别、原文/既有证据和下一步条件；不改 valid 属性、不伪造覆盖。
+
+## 本轮成果基线
+
+- 提交：`642e309`（审计机制）、`0130a32`（DML/外表 facet）、`1e6b71a`（alter_table/create_index facet）、`a85b157`（drop_foreign_table 新 facet）。
+- `generation_model_complete=True` 新增 3 包：create_database、create_sequence、alter_foreign_table。
+- 全局候选 5,269 → 5,272（仅 drop_foreign_table 新增 3 条代表；其余无变化）。
+- 原 5,263 条候选及 839 份 SQL 快照在 `642e309` 前验收中逐字节确认未变。
+
+## A. 文档冲突，必须继续阻断（4 条）
+
+| 包 / 值 | 证据 | 下一步条件 |
+| --- | --- | --- |
+| create_resource_pool.options_dop_one | DDL L16/46-48 列出 MAX_DOP；PG_RESOURCE_POOL L64 称仅扩容不适用集中式。`create_resource_pool_fact_dop_centralized_conflict` | 需同版本官方消歧证据；不能靠 sysadmin 或多租关闭消除（CONDITIONAL_ADMISSION_REVIEW） |
+| alter_resource_pool.options_dop_one | 同上冲突；另需真实已有资源池 | 同上 |
+| alter_package.operation_compile × 4 | 注意事项 L26-27 仅支持 OWNER，与语法/示例 COMPILE 矛盾。`alter_package_fact_support_conflict` | 需消歧证据；不把四种编译值简单补成正向 |
+
+## B. 需要存储过程上下文（2 条）
+
+| 包 / 值 | 证据 | 下一步条件 |
+| --- | --- | --- |
+| update.predicate_current_of | WHERE CURRENT OF 必须在存储过程 + FOR UPDATE 单表游标中（`scenario_update_current_of` planned） | 需存储过程执行器与多模式数据库授权 |
+| delete.predicate_current_of | 同上（`scenario_delete_current_of` planned） | 同上 |
+
+## C. 语法结构未接线（6 条）
+
+| 包 / 值 | 证据 | 下一步条件 |
+| --- | --- | --- |
+| create_foreign_table.format_text/csv/binary/fixed × 4 | file_fdw 格式；当前语法 slots 无 format 维度，选项经 table_options 渲染 | 需先设计 format→OPTIONS 接线或合并到 table_options，并准备 file_fdw 运行时 |
+| create_foreign_table.format_not_applicable | 被 log_catalog 正向清单绑定但语法不消费该维度，审计不计为已选 | 需语法接线决策；不能靠改 valid 消除 |
+| create_foreign_table.if_not_exists_yes | IF NOT EXISTS 语法本身无环境冲突，但缺与 log_fdw 目录示例兼容的已评审 fresh 值 | 可仿照 drop_foreign_table 的 if_exists_yes_log_fresh 模式补正向代表 |
+
+## D. 需要执行画像或环境资产（8 条）
+
+| 包 / 值 | 证据 | 下一步条件 |
+| --- | --- | --- |
+| alter_table.at_action_tde_rotation | ENCRYPTION KEY ROTATION；需 TDE 加密环境 | 需 TDE 数据库授权与密钥管理证据 |
+| alter_table.at_action_ilm | ILM ADD POLICY；需 ILM 特性 | 需 ILM 支持证据与策略生命周期 |
+| alter_table.at_action_colview | COLVIEW PRIORITY；列存视图 | 需列存视图支持证据 |
+| alter_table.at_action_partition_set_tablespace | 分区表不能修改表级 TABLESPACE（`at_fact_partition_restrictions`）；需第二个表空间才能产生目标负例 | 需可回收的第二表空间资产；现有 manifest 描述已记录此 deferral |
+| alter_table.at_table_tde / at_table_external / at_table_b_compat | 分别需 TDE 表、外表 DDL 能力、B 模式普通表专属 fixture；无已选中 fresh facet | 需各自专属 fixture 与正向 action 配对 |
+| alter_table.at_table_log_foreign_fresh | valid 但仅被 RLS 负例选中；文档仅证明 ENABLE 被拒绝，不推断其他 ALTER 能力 | 需文档支持的正向外表 ALTER TABLE action，或OWNER 角色 fixture |
+| create_index.ci_enable_tde_on | `ci_open_tde_fixture` open question；feature needs_profile | 需 TDE 环境 |
+| create_index.ci_active_pages_manual | 需 USTORE 分区执行画像；ustore_local manifest 明确不手设 ACTIVE_PAGES | 需统计影响执行画像与独立 manifest |
+
+## E. 需要语义专属 facet 或负例（4 条）
+
+| 包 / 值 | 证据 | 下一步条件 |
+| --- | --- | --- |
+| drop_foreign_table.behavior_v2 (CASCADE) | RESTRICT 默认已覆盖；CASCADE 依赖语义需复核（旧 fixture CASCADE 文本待审） | 需无依赖/有依赖两种形态的目标设计 |
+| insert.insert_on_conflict_tuple_update | 原值更新冲突键（updates_unique_key=true）；现有 tuple_pg_fresh 不更新键，语义不同不能代表 | 需更新键的专属 facet 或负例证据 |
+| alter_table.at_table_log_foreign_fresh（同 D） | 见 D | 见 D |
+| create_foreign_table.format_not_applicable（同 C） | 见 C | 见 C |
+
+## 交叉统计
+
+- A+B+C+D+E 去重后共 26 条；A(4)+B(2) 为硬阻断，C(6) 为结构设计待定，D(8) 为资产/画像缺口，E(4) 为语义待证。
+- 下一批建议优先级：C 中 if_not_exists_yes（模式已验证）→ E 中 CASCADE 与 tuple_update（需语义设计）→ D 中按资产可得性逐个推进。
+
+## 验证与复现
+
+```bash
+python3 -m unittest tests.test_finite_facet_representation tests.test_log_fdw_catalog
+python3 scripts/generate_factor_package_sql.py
+python3 -c "import json; d=json.load(open('generated/factor_packages/generation_report.json')); print(sum(len(c['values']['coverage_gaps']) for c in d['factor_coverage'].values()))"
+```
+
+数据库执行仍为 0；本文全部为静态处置记录。
