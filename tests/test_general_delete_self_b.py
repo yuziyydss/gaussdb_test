@@ -40,7 +40,10 @@ class DeleteSelfUsingBTests(unittest.TestCase):
 
     def test_retains_general_conditional_and_cursor_gaps(self):
         self.manifest();audit=FactorCoverageAuditor(self.r).audit('delete')
-        self.assertIn('single_using_clause.delete_using_target_b',audit['values']['conditional_unselected'])
+        # B模式USING自连接泛化值由已选中的专属fresh facet代表；
+        # WHERE CURRENT OF需要存储过程上下文，仍保留缺口。
+        self.assertIn('single_using_clause.delete_using_target_b',audit['values']['represented_by_finite_facet'])
+        self.assertNotIn('single_using_clause.delete_using_target_b',audit['values']['coverage_gaps'])
         self.assertIn('single_predicate.delete_predicate_current_of',audit['values']['conditional_unselected'])
         self.assertFalse(audit['conclusions']['static_coverage_complete'])
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
