@@ -1,0 +1,420 @@
+GaussDB
+集中式版参考                                                            4 兼容性说明
+
+
+                    说明
+
+                  1. 构造Struct时，若传入元素的Java类型不符合目标类型，会进行相应的隐式转换操作，对于
+                     不同的数据库元素类型，支持传入的元素的Java类型差异见上表。
+                  2. 对于上述表格中未列举出的类型，GaussDB暂不支持。
+                  3. 构造方法需要提供属性数组，上述表格描述的是数组中每一个attribute对应的差异。
+
+
+4.3.8 常见的 SQL DDL 子句
+              本章节描述常见的SQL DDL子句兼容项，包含分配扩展子句、约束、取消分配未使用
+              子句、文件规范、日志记录子句、并行子句、物理属性子句、大小子句、存储子句、
+              聚集函数嵌套。详情请参见表4-44。
+
+              表 4-44 常用 SQL DDL 子句
+               Oracle数据库                            GaussD   差异
+                                                    B数据库
+
+               分配扩展子句                               不支持。     -
+               语法：
+               ALLOCATE EXTENT [ ( { SIZE
+               size_clause       | DATAFILE
+               'filename'      | INSTANCE
+               integer     } ...    ) ]
+               例如：创建employees表后，改
+               变表的分配扩展size为10M。
+               SQL> CREATE TABLE
+               employees(EMPLOYEE_ID
+               NUMBER(38), JOB_ID NUMBER(38),
+               SALARY NUMBER(38), LAST_NAME
+               VARCHAR2(16));
+
+               Table created.
+
+               SQL> ALTER TABLE employees
+               ALLOCATE EXTENT (SIZE 10M);
+
+               Table altered.
+
+               约束                                   支持。      -
+               语法：
+               { inline_constraint |
+               out_of_line_constraint |
+               inline_ref_constraint |
+               out_of_line_ref_constraint }
+               例如：创建表staff，约束子句中
+               指定ID列、NAME列不为空。
+               SQL> CREATE TABLE staff(ID INT NOT
+               NULL, NAME char(8) NOT NULL, AGE
+               INT, ADDRESS CHAR(50), SALARY
+               REAL);
+
+               Table created.
+
+
+
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司           3129
+GaussDB
+集中式版参考                                                                  4 兼容性说明
+
+
+               Oracle数据库                                  GaussD   差异
+                                                          B数据库
+
+               取消分配未使用子句                                  不支持。     -
+               语法：
+               DEALLOCATE UNUSED [ KEEP
+               size_clause ]
+               例如：创建employees表，进行
+               了一些插入、删除操作后，希望
+               使用取消分配未使用子句释放
+               employees表未使用的空间。
+               SQL> CREATE TABLE
+               employees(EMPLOYEE_ID
+               NUMBER(38), JOB_ID NUMBER(38),
+               SALARY NUMBER(38), LAST_NAME
+               VARCHAR2(16));
+
+               Table created.
+
+               - 进行一些插入、删除操作
+
+               SQL> ALTER TABLE employees
+               DEALLOCATE UNUSED;
+
+               Table altered.
+
+               文件规范                                       不支持。     -
+               语法：
+               {[ 'filename' | 'ASM_filename' ] [ SIZE
+               size_clause ] [ REUSE ]
+               [ autoextend_clause ]}
+               |
+               {[ 'filename | ASM_filename' |
+               ('filename | ASM_filename' [,
+               'filename | ASM_filename' ]...) ] [ SIZE
+               size_clause ] [ BLOCKSIZE size_clause
+               [ REUSE ]}
+               例如：创建一个临时表空间
+               tbs_temp_01，SQL语句的文件
+               规范子句中指定在表空间中创建
+               一个临时数据库文件
+               temp01.dbf，可以自动扩展，
+               并将表空间分配给表空间组
+               tbs_grp_01。
+               SQL> CREATE TEMPORARY
+               TABLESPACE tbs_temp_01 TEMPFILE
+               'temp01.dbf' AUTOEXTEND ON
+               TABLESPACE GROUP tbs_grp_01;
+
+               Tablespace created.
+
+
+
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                 3130
+GaussDB
+集中式版参考                                                                          4 兼容性说明
+
+
+               Oracle数据库                   GaussD   差异
+                                           B数据库
+
+               日志记录子句                      部分支      ● GaussDB不支持LOGGING约束子
+               语法：                         持，有差       句和FILESYSTEM_LIKE_LOGGING
+               { LOGGING | NOLOGGING |     异。         约束子句。
+               FILESYSTEM_LIKE_LOGGING }              例如：
+                                                      GaussDB创建表，带LOGGING约
+                                                      束子句，语法报错。
+                                                      gaussdb=# CREATE LOGGING TABLE
+                                                      my_tab(id int, name char(16));
+                                                      ERROR: syntax error at or near "LOGGING"
+                                                      LINE 1: CREATE LOGGING TABLE
+                                                      my_tab(id int, name char(16));
+                                                                ^
+                                                      GaussDB创建表，带
+                                                      FILESYSTEM_LIKE_LOGGING约束
+                                                      子句，语法报错。
+                                                      gaussdb=# CREATE
+                                                      FILESYSTEM_LIKE_LOGGING TABLE
+                                                      my_tab(id int, name char(16));
+                                                      ERROR: syntax error at or near
+                                                      "FILESYSTEM_LIKE_LOGGING"
+                                                      LINE 1: CREATE
+                                                      FILESYSTEM_LIKE_LOGGING TABLE
+                                                      my_tab(id int, name cha...
+                                                                ^
+
+                                                    ● GaussDB仅支持表级的
+                                                      UNLOGGED约束，不支持列级的
+                                                      UNLOGGED约束。
+                                                      例如：GaussDB创建表，带列级的
+                                                      UNLOGGED约束子句，语法报
+                                                      错。
+                                                      gaussdb=# CREATE UNLOGGED TABLE
+                                                      my_tab(id int UNLOGGED, name char(16));
+                                                      ERROR: syntax error at or near
+                                                      "UNLOGGED"
+                                                      LINE 1: CREATE UNLOGGED TABLE
+                                                      my_tab(id int UNLOGGED, name
+                                                      char(16))...
+                                                                                   ^
+
+                                                    ● GaussDB仅支持在CREATE
+                                                      TABLE、CREATE TABLE AS、
+                                                      SELECT INTO语句中使用日志记录
+                                                      子句。
+                                                      例如：GaussDB创建
+                                                      TABLESPACE，带UNLOGGED约束
+                                                      子句，语法报错。
+                                                      gaussdb=# CREATE UNLOGGED
+                                                      TABLESPACE tbs1 RELATIVE LOCATION
+                                                      'tablespace1/tablespace_1';
+                                                      ERROR: syntax error at or near
+                                                      "TABLESPACE"
+                                                      LINE 1: CREATE UNLOGGED TABLESPACE
+                                                      tbs1 RELATIVE LOCATION 'tablespac...
+                                                                      ^
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                   3131
+GaussDB
+集中式版参考                                                                                          4 兼容性说明
+
+
+               Oracle数据库                               GaussD   差异
+                                                       B数据库
+
+               并行子句                                    不支持。     -
+               语法：
+               { NOPARALLEL | PARALLEL [ integer ] }
+               例如：创建表t1，并在并行子句
+               中指定PARALLEL 4，意为查询
+               和更新表t1时最多使用4个并行
+               进程操作。
+               SQL> CREATE TABLE t1 (id NUMBER,
+               name VARCHAR2(50)) PARALLEL 4;
+
+               Table created.
+
+               物理属性子句                                  部分支      ● GaussDB不支持PCTUSED。
+               语法：                                     持，有差       例如：执行在表tbl1中创建一个
+               [ { PCTFREE integer | PCTUSED           异。         tbl1_ind的索引的SQL语句，并在
+               integer | INITRANS integer |                       该语句的物理属性子句中指定索引
+               storage_clause }... ]
+                                                                  的空间利用率PCTUSED为20%，
+                                                                  GaussDB执行该SQL语句语法报
+                                                                  错。
+                                                                    gaussdb=# CREATE INDEX tbl1_ind ON
+                                                                    tbl1 (name) PCTUSED 20;
+                                                                    ERROR: syntax error at or near "PCTUSED"
+                                                                    LINE 1: CREATE INDEX tbl1_ind ON tbl1
+                                                                    (name) PCTUSED 20;
+                                                                                                 ^
+
+                                                                ● GaussDB 仅支持在CREATE
+                                                                  TABLE、CREATE INDEX语句中使
+                                                                  用物理属性子句。
+                                                                  例如：尝试从表tbl1中获取数据，
+                                                                  创建物化视图tbl1_mv，并在物理
+                                                                  属性子句中指定该视图的初始化事
+                                                                  务数为30，GaussDB执行该SQL语
+                                                                  句语法报错。
+                                                                    gaussdb=# CREATE MATERIALIZED VIEW
+                                                                    tbl1_mv INITRANS 30 as select * from tbl1;
+                                                                    ERROR: syntax error at or near "INITRANS"
+                                                                    LINE 1: CREATE MATERIALIZED VIEW
+                                                                    tbl1_mv INITRANS 30 as select * fro...
+                                                                                               ^
+
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                3132
+GaussDB
+集中式版参考                                                                                            4 兼容性说明
+
+
+               Oracle数据库                                GaussD   差异
+                                                        B数据库
+
+               大小子句                                     不支持。     -
+               语法：
+               integer [ K | M | G | T | P | E ]
+               例如：创建一个临时表空间
+               tbs_temp_01，并在表空间中创
+               建一个临时数据库文件
+               temp01.dbf，SQL语句的大小子
+               句中指定初始大小是5M，可以
+               自动扩展，并将表空间分配给表
+               空间组tbs_grp_01。
+               SQL> CREATE TEMPORARY
+               TABLESPACE tbs_temp_01 TEMPFILE
+               'temp01.dbf' SIZE 5M AUTOEXTEND
+               ON TABLESPACE GROUP tbs_grp_01;
+
+               Tablespace created.
+
+               存储子句                                     部分支      ● Oracle中由STORAGE子句指定存
+               语法：                                      持，有差       储参数，而GaussDB中由WITH子
+               STORAGE ({ INITIAL size_clause | NEXT    异。         句指定存储参数。
+               size_clause | MINEXTENTS integer |                  例如：
+               MAXEXTENTS { integer | UNLIMITED }
+               | maxsize_clause | PCTINCREASE                        Oracle中创建表my_tab1，在存储
+               integer | FREELISTS integer | FREELIST                子句中指定表初始大小为10M，需
+               GROUPS integer | OPTIMAL
+               [ size_clause | NULL ] | BUFFER_POOL
+                                                                     要更多空间时每次增加5M的SQL
+               { KEEP | RECYCLE | DEFAULT } |                        语句如下：
+               FLASH_CACHE { KEEP | NONE |                           SQL> CREATE TABLE my_tab1 (id
+               DEFAULT } | ( CELL_FLASH_CACHE                        NUMBER(10) PRIMARY KEY, name
+               ( KEEP | NONE | DEFAULT ) ) |                         VARCHAR2(50)) STORAGE (INITIAL 10M
+               ENCRYPT } ... )                                       NEXT 5M);
+
+                                                                     Table created.
+                                                                     GaussDB中创建表my_tab2，在存
+                                                                     储子句中指定存储引擎类型为
+                                                                     USTORE的SQL语句如下：
+                                                                     gaussdb=# CREATE TABLE my_tab2 (id
+                                                                     NUMBER(10) PRIMARY KEY, name
+                                                                     VARCHAR2(50)) with
+                                                                     (storage_type=ustore);
+                                                                     NOTICE: CREATE TABLE / PRIMARY KEY
+                                                                     will create implicit index "my_tab2_pkey"
+                                                                     for table "my_tab2"
+                                                                     CREATE TABLE
+
+                                                                 ● GaussDB中可选的存储参数和
+                                                                   Oracle存在很大差异。GaussDB具
+                                                                   体可参见参数说明部分，“WITH
+                                                                   ({storage_parameter = value}
+                                                                   [, ...])”中描述了CREATE TABLE语
+                                                                   句支持的存储参数。
+
+
+
+
+文档版本 01 (2026-04-30)                       版权所有 © 华为云计算技术有限公司                                               3133
+GaussDB
+集中式版参考                                                                 4 兼容性说明
+
+
+               Oracle数据库                                 GaussD   差异
+                                                         B数据库
+
+               聚集函数嵌套                                    支持。      -
+               例如：创建由sales表的
+               sales_amount列嵌套聚集函数
+               MIN()、SUM()生成的表
+               revenue。
+               SQL> CREATE TABLE sales(ID INT,
+               SALES_AMOUNT INT);
+
+               Table created.
+
+               SQL> INSERT INTO sales VALUES(1,
+               100);
+
+               1 row created.
+
+               SQL> INSERT INTO sales VALUES (3,
+               200);
+
+               1 row created.
+
+               SQL> CREATE TABLE revenue as
+               SELECT SUM(MIN(sales_amount)) as
+               total from sales group by sales_amount;
+
+               Table created.
+
+               删除系统schema                                支持。      -
+               语法：
+               DROP USER schema_name CASCADE;
+               例如：在SYS用户下删除SYS
+               schema。
+               SQL> DROP USER SYS;
+               DROP USER SYS
+               *
+               ERROR at line 1:
+               ORA-28050: specified user or role
+               cannot be dropped
+
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                 3134
+GaussDB
+集中式版参考                                                                                      4 兼容性说明
+
+
+               Oracle数据库                             GaussD   差异
+                                                     B数据库
+
+               删除表的主键约束                              部分支      ● GaussDB仅支持DROP PRIMARY
+               语法：                                   持，有差       KEY语法，不支持其他选项。
+               DROP PRIMARY KEY [ CASCADE ]          异。
+                                                              ● 当进行该操作时，Oracle会同时将
+               [( KEEP | DROP ) INDEX ] [ ONLINE ]
+                                                                创建主键时自动为创建的主键列添
+                                                                加的NOT NULL约束进行删除；
+                                                                GaussDB不会删除，仍然保留NOT
+                                                                NULL约束。
+                                                                -- GaussDB:
+                                                                gaussdb=# CREATE TABLE t1 (id int
+                                                                PRIMARY KEY);
+                                                                NOTICE: CREATE TABLE / PRIMARY KEY
+                                                                will create implicit index "t1_pkey" for
+                                                                table "t1"
+                                                                CREATE TABLE
+                                                                gaussdb=# ALTER TABLE t1 DROP
+                                                                PRIMARY KEY;
+                                                                ALTER TABLE
+                                                                gaussdb=# INSERT INTO t1 VALUES(null);
+                                                                ERROR: The null value in column "id"
+                                                                violates the not-null constraint.
+                                                                DETAIL: Failing row contains (null).
+                                                                gaussdb=# DROP TABLE t1;
+
+                                                                -- Oracle:
+                                                                SQL> CREATE TABLE t1 (id int PRIMARY
+                                                                KEY);
+                                                                SQL> ALTER TABLE t1 DROP PRIMARY KEY;
+                                                                SQL> INSERT INTO t1 VALUES(null);
+                                                                -- 该操作可以插入成功，即主键列的NOT
+                                                                NULL约束也同时被删除。
+                                                                SQL> DROP TABLE t1;
+
+
+
+
+4.3.9 SQL 查询和子查询
+              GaussDB数据库兼容除分层查询以外的SQL查询和子查询。
+
+              表 4-45 SQL 查询和子查询
+               Oracle数据库            GaussDB数据        差异
+                                    库
+
+               创建简单查询               支持               -
+
+               分层查询                 支持，有差异           GaussDB仅支持Oracle中的
+                                                     CONNECT_BY_FILTERING 模式，不支持
+                                                     CONNECT_BY_NOFILTERING。
+
+               UNION                支持               -
+               [ALL]，
+               INTERSECT，
+               减运算符
+
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                             3135
+

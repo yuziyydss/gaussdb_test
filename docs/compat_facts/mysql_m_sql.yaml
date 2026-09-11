@@ -1,0 +1,113 @@
+# MySQL M-Compatibility SQL DDL/DML — 结构化参考事实
+# 来源: gaussdb-rf-cent.pdf 4.4.2.7 (物理页3403-3498)
+# SHA: 2fd48aa06eb7acd91dae6dfe97991e4b16dafdf53e674ea78a319fb84f6a0e09
+# 用途: 供现有M模式包引用，不生成SQL
+
+document: "集中式版参考 / 4.4.2.7 MySQL兼容性M-Compatibility模式SQL"
+version: "V2.0-10.0.0"
+parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+extraction_date: "2026-09-12"
+
+facts:
+  # SQL 兼容性概述
+  - id: m_compat_sql_overview
+    type: environment
+    statement: "GaussDB M-Compatibility兼容绝大多数MySQL语法，但存在部分差异。"
+    source_anchor: "4.4.2.7.1 L47-50"
+
+  - id: m_compat_restricted_identifiers
+    type: constraint
+    statement: "部分MySQL关键字在GaussDB不可做标识符或受限：COLLATION/COMPACT不可作非函数变量标识符；BIT/BOOLEAN/DATE/TEXT/TIME等不可作函数或变量标识符；ANY/ARRAY/DO/END/LESS/MODIFY/OFFSET/ONLY/RETURNING等不可作任意标识符。"
+    source_anchor: "4.4.2.7.2 表4-162"
+
+  - id: m_compat_optimizer_warning_diff
+    type: behavior_oracle
+    statement: "GaussDB优化器与MySQL在cast调用时机上存在差异，可能产生不同数量的WARNING记录，但不影响业务数据结果。"
+    source_anchor: "4.4.2.7.1"
+
+  # DDL 差异
+  - id: m_ddl_ustore_btree_ubtree
+    type: behavior_oracle
+    statement: "约束关联表为ustore且指定using btree时，底层建立为ubtree。"
+    source_anchor: "4.4.2.7.4 表4-163"
+
+  - id: m_ddl_index_name_schema_scope
+    type: constraint
+    statement: "索引名/约束名/key名GaussDB在同一SCHEMA下不可重复；MySQL在同一表下不可重复。"
+    source_anchor: "4.4.2.7.4 表4-163"
+
+  - id: m_ddl_unique_index_naming
+    type: behavior_oracle
+    statement: "列级UNIQUE约束自动创建的索引GaussDB以'表名_列名_key'命名，MySQL直接用列名。"
+    source_anchor: "4.4.2.7.4 表4-163"
+
+  - id: m_ddl_primary_key_column_limit
+    type: constraint
+    statement: "GaussDB与MySQL主键支持列数上限不同。"
+    source_anchor: "4.4.2.7.4 表4-163"
+
+  - id: m_ddl_primary_key_index_name
+    type: behavior_oracle
+    statement: "GaussDB主键指定索引名后用用户指定名，MySQL索引名固定为PRIMARY。"
+    source_anchor: "4.4.2.7.4 表4-163"
+
+  - id: m_ddl_index_prefix_limit
+    type: constraint
+    statement: "前缀长度不得超过2676；含多字节字符或多键索引可能超限报错。"
+    source_anchor: "4.4.2.7.4 表4-163"
+
+  - id: m_ddl_primary_key_no_prefix
+    type: constraint
+    statement: "主键索引不支持前缀键，创建或添加主键时不支持指定前缀长度。"
+    source_anchor: "4.4.2.7.4 表4-163"
+
+  - id: m_ddl_algorithm_lock_option_noop
+    type: behavior_oracle
+    statement: "CREATE/DROP INDEX的algorithm_option和lock_option仅语法支持，实际不起作用。"
+    source_anchor: "4.4.2.7.4 表4-163"
+
+  - id: m_ddl_auto_increment_index_first
+    type: constraint
+    statement: "自增列建议为索引第一个字段否则警告；MySQL必须第一否则报错。含自增列的表ALTER TABLE EXCHANGE PARTITION等操作会报错。"
+    source_anchor: "4.4.2.7.4 表4-163"
+
+  - id: m_ddl_auto_increment_value_range
+    type: constraint
+    statement: "AUTO_INCREMENT=value须为小于2^127正数；MySQL可为0，GaussDB不可以。"
+    source_anchor: "4.4.2.7.4 表4-163"
+
+  - id: m_ddl_auto_increment_max_error
+    type: behavior_oracle
+    statement: "自增值达字段类型最大值时继续自增产生错误；MySQL部分场景仍自增为最大值。"
+    source_anchor: "4.4.2.7.4 表4-163"
+
+  - id: m_ddl_auto_increment_lock_mode
+    type: environment
+    statement: "不支持innodb_autoinc_lock_mode；GUC auto_increment_cache=0时批量插入行为与MySQL lock_mode=1相似。"
+    source_anchor: "4.4.2.7.4 表4-163"
+
+  # DML 差异
+  - id: m_dml_multi_delete_concurrent
+    type: behavior_oracle
+    statement: "多表删除中元组被并发修改时，GaussDB仅对涉及并发更新的目标表元组重新匹配，可能与MySQL产生数据不一致。"
+    source_anchor: "4.4.2.7.5 表4-164"
+
+  - id: m_dml_multi_delete_s2
+    type: environment
+    statement: "m_format_dev_version=s2后多表删除目标表和范围表校验规则与MySQL保持一致。"
+    source_anchor: "4.4.2.7.5 表4-164"
+
+  - id: m_dml_multi_update_concurrent
+    type: behavior_oracle
+    statement: "多表更新中元组被并发修改时，GaussDB仅对涉及并发更新的目标表元组重新匹配，可能与MySQL产生数据不一致。"
+    source_anchor: "4.4.2.7.5 表4-164"
+
+  - id: m_dml_select_into_supported
+    type: syntax
+    statement: "GaussDB支持SELECT INTO创建新表；MySQL不支持。不支持集合运算结果和用户自定义变量赋值。"
+    source_anchor: "4.4.2.7.5 表4-164"
+
+  - id: m_dml_replace_time_zero_lenient
+    type: behavior_oracle
+    statement: "REPLACE插入时间0值：MySQL不受严格/宽松模式影响可插入；GaussDB宽松模式下成功，严格模式下报错。"
+    source_anchor: "4.4.2.7.5 表4-164"
