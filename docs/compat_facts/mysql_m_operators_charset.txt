@@ -1,0 +1,1529 @@
+GaussDB
+集中式版参考                                                      4 兼容性说明
+
+
+
+
+4.4.2.3 操作符
+              GaussDB数据库兼容绝大多数MySQL的操作符，但存在部分差异。如未列出，操作符
+              行为默认为GaussDB原生行为，目前存在MySQL不支持但是GaussDB支持的语句，在
+              GaussDB数据库下，这类语句通常为系统内部使用，因此不建议使用。
+
+操作符差异
+              ●   ORDER BY排序对NULL值处理的差异。MySQL在排序时会将NULL值排序在前
+                  面；GaussDB默认将NULL值默认排在最后面。GaussDB可以通过NULLS FIRST和
+                  NULLS LAST设置NULL值排序顺序。
+              ●   有ORDER BY时，除上述特殊场景外，GaussDB输出顺序与MySQL一致。没有
+                  ORDER BY时，GaussDB不保证结果顺序与MySQL一致。
+              ●   使用MySQL操作符时需要用括号表达式严格确保表达式的结合性，否则执行报
+                  错。例如：SELECT 1 regexp ('12345' regexp '123');。
+                  GaussDB数据库中操作符不用括号严格表达的结合性也能成功执行。
+              ●   NULL值显示不同。MySQL会将NULL显示为“NULL”；GaussDB将NULL值显示
+                  为空值。
+                  MySQL输出结果：
+                  mysql> SELECT NULL;
+                  +------+
+                  | NULL |
+                  +------+
+                  | NULL |
+                  +------+
+                  1 row in set (0.00 sec)
+                  GaussDB输出结果：
+                  m_db=# SELECT NULL;
+                   ?column?
+                  ----------
+
+                  (1 row)
+
+              ●   操作符执行后，列名显示不一致。MySQL会将NULL显示为“NULL”；GaussDB
+                  将NULL值显示为空值。
+              ●   字符串转double遇到非法字符串时，告警信息不一致。MySQL在常量非法字符串
+                  报错，字段非法字符串不报错；GaussDB在常量非法字符串和字段非法字符串都
+                  报错。
+              ●   比较操作符返回结果显示不同。MySQL返回1/0；GaussDB返回t/f。
+              ●   当使用比较操作符，对包含NULL值的整型列、时间日期列，与不可转换类型的常
+                  量或绑定参数进行比较时，返回结果不同（如date类型与非法日期字符串
+                  “1970”、“2023”比较）。MySQL返回NULL；GaussDB返回f。
+                  MySQL输出结果：
+                  MySQL > CREATE TABLE test1(t_int int);
+                  Query OK, 0 rows affected (0.01 sec)
+                  MySQL > INSERT INTO test1 VALUES(NULL);
+                  Query OK, 1 row affected (0.00 sec)
+                  MySQL > SELECT t_int = 1.1 FROM test1;
+                  +-------------+
+                  | t_int = 1.1 |
+                  +-------------+
+                  |       NULL |
+                  +-------------+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司       3330
+GaussDB
+集中式版参考                                                                         4 兼容性说明
+
+                    1 row in set (0.01 sec)
+                    MySQL > CREATE TABLE test2(t_date date);
+                    Query OK, 0 rows affected (0.01 sec)
+                    MySQL > INSERT INTO test2 VALUES(NULL);
+                    Query OK, 1 row affected (0.00 sec)
+                    MySQL > SELECT t_date not in ('1970','2023') FROM test2;
+                    +-------------------------------+
+                    | t_date not in ('1970','2023') |
+                    +-------------------------------+
+                    |                    NULL |
+                    +-------------------------------+
+                    1 row in set, 2 warnings (0.00 sec)
+                    mysql> DROP TABLE test1;
+                    Query OK, 0 rows affected (0.01 sec)
+                    mysql> DROP TABLE test2;
+                    Query OK, 0 rows affected (0.01 sec)
+                    GaussDB输出结果：
+                    m_db=# CREATE TABLE test1(t_int int);
+                    CREATE TABLE
+                    m_db=# INSERT INTO test1 VALUES(NULL);
+                    INSERT 0 1
+                    m_db=# SELECT t_int = 1.1 FROM test1;
+                     ?column?
+                    ----------
+                     f
+                    (1 row)
+                    m_db=# CREATE TABLE test2(t_date date);
+                    CREATE TABLE
+                    m_db=# INSERT INTO test2 VALUES(NULL);
+                    INSERT 0 1
+                    m_db=# SELECT t_date not in ('1970','2023') FROM test2;
+                    WARNING: Incorrect datetime value: '1970'
+                    WARNING: Incorrect datetime value: '2023'
+                     ?column?
+                    ----------
+                     f
+                    (1 row)
+                    m_db=# DROP TABLE test1;
+                    DROP TABLE
+                    m_db=# DROP TABLE test2;
+                    DROP TABLE
+
+
+              表 4-155 操作符
+               操作符                       与MySQl的差异
+
+               <>                        MySQL支持索引，GaussDB不支持索引。
+
+               <=>                       MySQL支持索引，GaussDB不支持索引、hash连接和合并连
+                                         接。
+
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                         3331
+GaussDB
+集中式版参考                                                                              4 兼容性说明
+
+
+               操作符     与MySQl的差异
+
+               行表达式    ● MySQL支持<=>操作符行比较、GaussDB不支持<=>操作符
+                         行比较。
+                       ● MySQL不支持行表达式与NULL比较。GaussDB支持<、
+                         <=、=、>=、>、<>操作符对行表达式与NULL值比较。
+                       ● MySQL不支持IS NULL、ISNULL对行表达式的操作。
+                         GaussDB支持IS NULL，但不支持ISNULL对行表达式的操
+                         作。
+                       ● 操作符对于行表达式的不支持的操作，GaussDB错误信息与
+                         MySQL不一致。
+                       ● MySQL不支持ROW(values)其中values只有一列数据，
+                         GaussDB支持。
+                       GaussDB：
+                       m_db=# SELECT (1,2) <=> row(2,3);
+                       ERROR: could not determine interpretation of row comparison operator <=>
+                       LINE 1: SELECT (1,2) <=> row(2,3);
+                                     ^
+                       HINT: unsupported operator.
+                       m_db=# SELECT (1,2) < NULL;
+                        ?column?
+                       ----------
+
+                       (1 row)
+                       m_db=# SELECT (1,2) <> NULL;
+                        ?column?
+                       ----------
+                       (1 row)
+                       m_db=# SELECT (1, 2) IS NULL;
+                        ?column?
+                       ----------
+                        f
+                       (1 row)
+                       m_db=# SELECT ROW(0,0) BETWEEN ROW(1,1) AND ROW(2,2);
+                       ERROR: Unsupport type.
+                       m_db=# SELECT ROW(NULL) AS x;
+                        x
+                       ----
+                        ()
+                       (1 row)
+                       MySQL:
+                       mysql> SELECT (1,2) <=> row(2,3);
+                       +--------------------+
+                       | (1,2) <=> row(2,3) |
+                       +--------------------+
+                       |             0|
+                       +--------------------+
+                       1 row in set (0.00 sec)
+
+                       mysql> SELECT (1,2) < NULL;
+                       ERROR 1241 (21000): Operand should contain 2 column(s)
+                       mysql> SELECT (1,2) <> NULL;
+                       ERROR 1241 (21000): Operand should contain 2 column(s)
+                       mysql> SELECT (1, 2) IS NULL;
+                       ERROR 1241 (21000): Operand should contain 1 column(s)
+                       mysql> SELECT ISNULL((1, 2));
+                       ERROR 1241 (21000): Operand should contain 1 column(s)
+                       mysql> SELECT NULL BETWEEN NULL AND ROW(2,2);
+                       ERROR 1241 (21000): Operand should contain 1 column(s)
+                       mysql> SELECT ROW(NULL) AS x;
+                       ERROR 1064 (42000): You have an error in your SQL syntax; check the
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                                    3332
+GaussDB
+集中式版参考                                                                                       4 兼容性说明
+
+
+               操作符            与MySQl的差异
+                              manual that corresponds to your MySQL server version for the right syntax to
+                              use near ') as x' at line 1
+
+               --             m_format_behavior_compat_options不包含
+                              forbid_none_space_comment选项时，MySQL表示对一个操作
+                              数进行两次取反，结果等于原操作数；GaussDB表示注释。
+                              设置参数m_format_behavior_compat_options包含
+                              forbid_none_space_comment选项时，GaussDB与MySQL一
+                              致，表示对一个操作数进行两次取反，结果等于原操作数。
+
+               !!             MySQL：!!含义同!，表示取非。
+                              GaussDB：!表示取非操作，当!与!中间存在空格时，表示连续
+                              两次取非（! !）；当!与!中间没有空格时，表示阶乘（!!）。
+                              说明
+                                ● GaussDB中，当同时使用阶乘（!!）和取非（!）时，阶乘（!!）和取
+                                  非（!）中间需要添加空格，否则会报错。
+                                ● GaussDB中，当需要多次取非操作时，!与!之间需使用空格隔开。
+
+               [NOT] REGEXP   ● GaussDB和MySQL在正则表达式中支持的元字符有所不
+                                同。例如，GaussDB支持“\d”表示数字，“\w”表示字
+                                母、数字和下划线，“\s”表示空格，而MySQL不支持这些
+                                元字符，MySQL会把这些字符当成正常字符串。
+                              ● GaussDB中“\b”可以与“\\b”匹配，MySQL会匹配失
+                                败。
+                              ● GaussDB中使用“\”表示转义字符，而MySQL中使用“\
+                                \”。
+                              ● MySQL不支持2个操作符连在一起使用。
+                              ● 模式字符串pattern非法入参，只存在右单括号“)”时，
+                                GaussDB会报错，MySQL 5.7会报错，MySQL 8.0不会报
+                                错。
+                              ● 在de|abc匹配序列de或abc的匹配规则，当|左右存在空值
+                                时，GaussDB不会报错，MySQL 5.7会报错，MySQL 8.0不
+                                会报错。
+                              ● 制表符“\t”正则匹配字符类[:blank:]，GaussDB可匹配，
+                                MySQL 5.7不能匹配，MySQL 8.0可匹配。
+                              ● GaussDB支持非贪婪模式匹配，即尽可能少的匹配字符，在
+                                部分特殊字符后加“?”问号字符，例如：“??, *?, +?, {n}?,
+                                {n,}?, {n,m}?”。MySQL 5.7版本不支持非贪婪模式匹配，
+                                并报错：Got error 'repetition-operator operand invalid'
+                                from regexp。MySQL 8.0版本已经支持。
+                              ● 在BINARY字符集下，TEXT类型、BLOB类型均会转换成
+                                BYTEA类型，由于REGEXP操作符不支持BYTEA类型，因此
+                                无法匹配。
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                                                      3333
+GaussDB
+集中式版参考                                                 4 兼容性说明
+
+
+               操作符     与MySQl的差异
+
+               LIKE    ● MySQL：LIKE的左操作数只能是位运算或者算术运算或者
+                         由括号组成的表达式，LIKE的右操作数只能是单目运算符
+                         （不含NOT）或者括号组成的表达式。
+                         GaussDB：LIKE的左右操作数可以是任意表达式。
+                       ● LIKE的右操作数使用JDBC的setFloat接口绑参，且GaussDB
+                         和MySQL的JDBC都使用PBE的方式执行时，GaussDB的查
+                         询结果与MySQL存在差异，但对比等价场景——将该
+                         setFloat绑参替换成表中float类型数据，GaussDB的行为保
+                         持一致，而MySQL自身的行为不一致。
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                   3334
+GaussDB
+集中式版参考                                                                                         4 兼容性说明
+
+
+               操作符             与MySQl的差异
+
+               [NOT] BETWEEN   MySQL：[NOT] BETWEEN AND嵌套使用时从右到左结合。
+               AND             [NOT] BETWEEN AND的第1个操作数和第2个操作数只能是位
+                               运算或者算术运算或者由括号组成的表达式。
+                               GaussDB：[NOT] BETWEEN AND嵌套使用时从左到右结合。
+                               [NOT] BETWEEN AND的第1个操作数和第2个操作数可以是任
+                               意表达式。在GUC参数m_format_behavior_compat_options
+                               中配置了between_and_independent_compare时，不同的比
+                               较对象分别进行独立比较，并选择合适的比较类型。
+                               在一些特殊场景下（例如表达式中包含repeat()函数），
+                               MySQL的[NOT] BETWEEN AND可能与[NOT] ( >= AND <= )
+                               的等价操作结果不一致，而GaussDB将会优先保证与[NOT]
+                               ( >= AND <= )的等价操作结果保持一致，因此会存在差异。
+                               --GaussDB BETWEEN AND 与 (>= AND <=) 行为一致
+                               m_db=# CREATE TABLE test_between(c0 YEAR);
+                               CREATE TABLE
+                               m_db=# INSERT INTO test_between(c0) VALUES('1963');
+                               INSERT 0 1
+                               m_db=# SELECT (''<>'Lt') BETWEEN '' AND c0 AS ref0 FROM test_between;
+                                ref0
+                               ------
+                                f
+                               (1 row)
+
+                               m_db=# SELECT (''<>'Lt') >= '' AND (''<>'Lt') <= c0 AS ref0 FROM
+                               test_between;
+                                ref0
+                               ------
+                                f
+                               (1 row)
+
+                               m_db=# DROP TABLE test_between;
+                               DROP TABLE
+
+                               --MYSQL: BETWEEN AND行为与 (>= AND <=) 行为不一致
+                               mysql> CREATE TABLE test_between(c0 YEAR);
+                               Query OK, 0 rows affected (0.03 sec)
+
+                               mysql> INSERT INTO test_between(c0) VALUES('1963');
+                               Query OK, 1 row affected (0.00 sec)
+
+                               mysql> SELECT (''<>'Lt') BETWEEN '' AND c0 AS ref0 FROM test_between;
+                               +------+
+                               | ref0 |
+                               +------+
+                               | 1|
+                               +------+
+                               1 row in set (0.00 sec)
+
+                               mysql> SELECT (''<>'Lt') >= '' AND (''<>'Lt') <= c0 AS ref0 FROM test_between;
+                               +------+
+                               | ref0 |
+                               +------+
+                               | 0|
+                               +------+
+                               1 row in set (0.00 sec)
+
+                               mysql> DROP TABLE test_between;
+                               Query OK, 0 rows affected (0.01 sec)
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                                                        3335
+GaussDB
+集中式版参考                                                                             4 兼容性说明
+
+
+               操作符     与MySQl的差异
+
+               IN      MySQL：IN的左操作数只能是位运算或者算术运算或者由括号
+                       组成的表达式。
+                       GaussDB：IN的左操作数可以是任意表达式。对于ROW IN
+                       (ROW,ROW....)形式的查询，未兼容MySQL，与其行为存在较
+                       大差异，不建议使用。
+                       在开启精度传递的场景下，对表中的数据使用in操作符时，若
+                       表中数据为FLOAT类型、DOUBLE类型且包括相应精度和标度
+                       （如float(4,2)，double(4,2)）,GaussDB会根据精度和标度对
+                       值进行比较，MySQL会读取内存值（失真数值，导致比较不相
+                       等）。
+                       --GaussDB：
+                       m_db=# CREATE TABLE test1(t_float float(4,2));
+                       CREATE TABLE
+                       m_db=# INSERT INTO test1 VALUES(1.42),(2.42);
+                       INSERT 0 2
+                       m_db=# SELECT t_float, t_float in (1.42,2.42) FROM test1;
+                        t_float | ?column?
+                       ---------+----------
+                           1.42 | t
+                           2.42 | t
+                       (2 rows)
+                       --MySQL：
+                       mysql> CREATE TABLE test1(t_float float(4,2));
+                       Query OK, 0 rows affected (0.01 sec)
+                       mysql> INSERT INTO test1 VALUES(1.42),(2.42);
+                       Query OK, 2 rows affected (0.00 sec)
+                       Records: 2 Duplicates: 0 Warnings: 0
+                       mysql> SELECT t_float, t_float in (1.42,2.42) FROM test1;
+                       +---------+------------------------+
+                       | t_float | t_float in (1.42,2.42) |
+                       +---------+------------------------+
+                       | 1.42 |                    0|
+                       | 2.42 |                    0|
+                       +---------+------------------------+
+                       2 rows in set (0.00 sec)
+                       在in多列col in (col1, col2, ...)场景中，MySQL的结果存在不自
+                       洽情况，与单列col in (col1) or col in (col2) or ... 结果存在差
+                       异，以单列结果为准。
+                       -- GaussDB
+                       m_db=# CREATE TABLE T_IN(C1 time(6));
+                       CREATE TABLE
+                       m_db=# INSERT INTO T_IN VALUES(0);
+                       INSERT 0 1
+                       m_db=# SELECT C1 FROM T_IN WHERE C1 IN ('0000-00-00');
+                       WARNING: Incorrect time value: '0000-00-00'
+                        C1
+                       ----
+                       (0 rows)
+
+                       m_db=# SELECT C1 FROM T_IN WHERE C1 IN (20230101101112.100000);
+                       WARNING: Incorrect time value: '20230101101112.100000'
+                        C1
+                       ----
+                       (0 rows)
+
+                       m_db=# SELECT C1 FROM T_IN WHERE C1 IN ('0000-00-00') OR C1 IN
+                       (20230101101112.100000);
+                       WARNING: Incorrect time value: '0000-00-00'
+                       WARNING: Incorrect time value: '20230101101112.100000'
+                        C1
+                       ----
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                                3336
+GaussDB
+集中式版参考                                                                           4 兼容性说明
+
+
+               操作符      与MySQl的差异
+                        (0 rows)
+
+                        m_db=# SELECT C1 FROM T_IN where C1 IN ('0000-00-00',
+                        20230101101112.100000);
+                        WARNING: Incorrect time value: '0000-00-00'
+                        WARNING: Incorrect time value: '20230101101112.100000'
+                        WARNING: Incorrect time value: '0000-00-00'
+                         C1
+                        ----
+                        (0 rows)
+
+                        m_db=# DROP TABLE T_IN;
+                        DROP TABLE
+
+                        -- MySQL
+                        mysql> CREATE TABLE T_IN(C1 time(6));
+                        Query OK, 0 rows affected (0.02 sec)
+
+                        mysql> INSERT INTO T_IN VALUES(0);
+                        Query OK, 1 row affected (0.00 sec)
+
+                        mysql> SELECT C1 FROM T_IN WHERE C1 IN ('0000-00-00');
+                        Empty set, 1 warning (0.00 sec)
+
+                        mysql> SELECT C1 FROM T_IN WHERE C1 IN (20230101101112.100000);
+                        Empty set, 1 warning (0.00 sec)
+
+                        mysql> SELECT C1 FROM T_IN WHERE C1 IN ('0000-00-00') OR C1 IN
+                        (20230101101112.100000);
+                        Empty set, 2 warnings (0.01 sec)
+
+                        mysql> SELECT C1 FROM T_IN where C1 IN ('0000-00-00',
+                        20230101101112.100000);
+                        +-----------------+
+                        | C1           |
+                        +-----------------+
+                        | 00:00:00.000000 |
+                        +-----------------+
+                        1 row in set, 1 warning (0.00 sec)
+
+                        mysql> DROP TABLE T_IN;
+                        Query OK, 0 rows affected (0.01 sec)
+
+               ！        MySQL：!的操作数只能是单目运算符（不含not）或者括号组
+                        成的表达式。
+                        GaussDB：!的操作数可以是任意表达式。
+
+               #        MySQL支持#注释，GaussDB不支持#注释。
+
+               BINARY   GaussDB中支持的表达式和MySQL并不完全一致（包括一些函
+                        数、操作符等）。GaussDB独有的表达式“~”、“IS
+                        DISTINCT FROM”等，由于BINARY关键字优先级更高，使用
+                        BINARY expr会优先将BINARY与“~”、“IS DISTINCT
+                        FROM”的左参数合并，导致报错。
+
+
+
+
+文档版本 01 (2026-04-30)    版权所有 © 华为云计算技术有限公司                                                3337
+GaussDB
+集中式版参考                                                                             4 兼容性说明
+
+
+               操作符     与MySQl的差异
+
+               取负（-）   取反结果类型和精度与MySQL不一致：
+                       CREATE TABLE t AS SELECT - -1;
+
+                       ● MySQL表字段返回类型为：decimal(2,0)。
+                       ● GaussDB表字段返回类型为：integer(1)。
+                       在开启精度传递（m_format_behavior_compat_options =
+                       'enable_precision_decimal'）的情况下，负号加常量数据类型
+                       的精度可能与MySQL存在差异，MySQL 5.7中，当表达式中包
+                       含取反操作符时，结果精度中的最大长度（max_length）会根
+                       据表达式中取反操作符的数量增加，而GaussDB不会。例如：
+                       ● GaussDB：
+                          m_db=# DROP TABLE IF EXISTS test;
+                          NOTICE: table "test" does not exist, skipping
+                          DROP TABLE
+                          m_db=# CREATE TABLE test as
+                          m_db-# SELECT format(-4.4600e3,1) f9;
+                          INSERT 0 1
+                          m_db=# DESC test;
+                           Field | Type       | Null | Key | Default | Extra
+                          -------+-------------+------+-----+---------+-------
+                           f9 | varchar(45) | YES |        |      |
+                          (1 row)
+
+                          m_db=# DROP TABLE IF EXISTS t1;
+                          NOTICE: table "t1" does not exist, skipping
+                          DROP TABLE
+                          m_db=# CREATE TABLE t1 AS SELECT cast(- -4.46 AS BINARY) c4,convert(-
+                          - -002.2600,BINARY) c14;
+                          INSERT 0 1
+                          m_db=# DESC t1;
+                           Field |   Type      | Null | Key | Default | Extra
+                          -------+---------------+------+-----+---------+-------
+                           c4 | varbinary(5) | YES |         |      |
+                           c14 | varbinary(10) | YES |         |      |
+                          (2 rows)
+
+                          m_db=# DROP VIEW IF EXISTS v2;
+                          NOTICE: view "v2" does not exist, skipping
+                          DROP VIEW
+                          m_db=# CREATE VIEW v2 AS SELECT cast(- -4.46 AS BINARY) c4,convert(-
+                          - -002.2600,BINARY) c14;
+                          CREATE VIEW
+                          m_db=# DESC v2;
+                           Field |   Type      | Null | Key | Default | Extra
+                          -------+--------------+------+-----+---------+-------
+                           c4 | varbinary(5) | YES |         |     |
+                           c14 | varbinary(8) | YES |          |     |
+                          (2 rows)
+
+                       ● MySQL：
+                          mysql> DROP TABLE IF EXISTS test;
+                          Query OK, 0 rows affected (0.01 sec)
+
+                          mysql> CREATE TABLE test AS
+                            -> SELECT format(-4.4600e3,1) f9;
+                          Query OK, 1 row affected (0.01 sec)
+                          Records: 1 Duplicates: 0 Warnings: 0
+
+                          mysql> DESC test;
+                          +-------+-------------+------+-----+---------+-------+
+                          | Field | Type      | Null | Key | Default | Extra |
+                          +-------+-------------+------+-----+---------+-------+
+                          | f9 | varchar(63) | YES |       | NULL |         |
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                                  3338
+GaussDB
+集中式版参考                                                                              4 兼容性说明
+
+
+               操作符     与MySQl的差异
+                         +-------+-------------+------+-----+---------+-------+
+                         1 row in set (0.00 sec)
+
+                         mysql> DROP TABLE IF EXISTS t1;
+                         Query OK, 0 rows affected, 1 warning (0.00 sec)
+
+                         mysql> CREATE TABLE t1 AS SELECT cast(- -4.46 AS BINARY) c4,convert(-
+                         - -002.2600,BINARY) c14;
+                         Query OK, 1 row affected (0.02 sec)
+                         Records: 1 Duplicates: 0 Warnings: 0
+
+                         mysql> DESC t1;
+                         +-------+---------------+------+-----+---------+-------+
+                         | Field | Type       | Null | Key | Default | Extra |
+                         +-------+---------------+------+-----+---------+-------+
+                         | c4 | varbinary(7) | YES |        | NULL |        |
+                         | c14 | varbinary(12) | YES |        | NULL |        |
+                         +-------+---------------+------+-----+---------+-------+
+                         2 rows in set (0.00 sec)
+
+                         mysql> DROP VIEW IF EXISTS v2;
+                         Query OK, 0 rows affected, 1 warning (0.00 sec)
+
+                         mysql> CREATE VIEW v2 AS SELECT cast(- -4.46 AS BINARY) c4,convert(- -
+                         -002.2600,BINARY) c14;
+                         Query OK, 0 rows affected (0.03 sec)
+
+                         mysql> DESC v2;
+                         +-------+---------------+------+-----+---------+-------+
+                         | Field | Type       | Null | Key | Default | Extra |
+                         +-------+---------------+------+-----+---------+-------+
+                         | c4 | varbinary(7) | YES |        | NULL |        |
+                         | c14 | varbinary(10) | YES |        | NULL |        |
+                         +-------+---------------+------+-----+---------+-------+
+                         2 rows in set (0.00 sec)
+
+               /**/    GaussDB中语句中不支持/**/注释。
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                                  3339
+GaussDB
+集中式版参考                                                                                        4 兼容性说明
+
+
+               操作符              与MySQl的差异
+
+               xor              GaussDB的xor和MySQL的行为不同。GaussDB优化器会有常
+                                数优化，会出现先计算表示结果是常数的情况。
+                                GaussDB:
+                                m_db=# SELECT 1 xor null xor pow(200, 2000000) FROM dual;
+                                ERROR: The value is out of range, and an overflow occurred.
+                                m_db=# CREATE TABLE t1(a int, b int);
+                                CREATE TABLE
+                                m_db=# INSERT INTO t1 VALUES(2,2), (200, 2000000000);
+                                INSERT 0 2
+                                m_db=#
+                                m_db=#
+                                m_db=# SELECT 1 xor null xor pow(a, b) FROM t1;
+                                 ?column?
+                                ----------
+
+
+                                (2 rows)
+                                MySQL:
+                                mysql> SELECT 1 xor null xor pow(200, 2000000) FROM dual;
+                                +----------------------------------+
+                                | 1 xor null xor pow(200, 2000000) |
+                                +----------------------------------+
+                                |                      NULL |
+                                +----------------------------------+
+                                1 row in set (0.00 sec)
+                                ysql> CREATE TABLE t1(a int, b int);
+                                Query OK, 0 rows affected (0.04 sec)
+
+                                mysql> INSERT INTO t1 VALUES(2,2), (200, 2000000000);
+                                Query OK, 2 rows affected (0.01 sec)
+                                Records: 2 Duplicates: 0 Warnings: 0
+
+                                mysql> SELECT 1 xor null xor pow(a, b) FROM t1;
+                                +--------------------------+
+                                | 1 xor null xor pow(a, b) |
+                                +--------------------------+
+                                |                NULL |
+                                |                NULL |
+                                +--------------------------+
+                                2 rows in set (0.00 sec)
+
+               IS NULL和IS NOT   MySQL的优先级小于逻辑运算符，GaussDB的优先级大于逻辑
+               NULL             运算符。
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                                                3340
+GaussDB
+集中式版参考                                                                                  4 兼容性说明
+
+
+               操作符           与MySQl的差异
+
+               AND（&&）、OR    MySQL执行机制为执行左操作数后，对结果进行判断是否为
+               （||）、XOR、|、   空，进而决定是否需要执行右操作数。
+               &、<、>、<=、     GaussDB执行机制是执行左右操作数后，对结果再进行判断是
+               >=、=、!=       否为空。
+                             当左操作数结果为空，右操作数执行报错时，MySQL不会报错
+                             直接返回，GaussDB会执行报错。
+                             MySQL行为：
+                             mysql> SELECT version();
+                             +------------------+
+                             | version()       |
+                             +------------------+
+                             | 5.7.44-debug-log |
+                             +------------------+
+                             1 row in set (0.00 sec)
+
+                             mysql> DROP TABLE IF EXISTS data_type_table;
+                             Query OK, 0 rows affected (0.02 sec)
+
+                             mysql> CREATE TABLE data_type_table (
+                               -> MyBool BOOL,
+                               -> MyBinary BINARY(10),
+                               -> MyYear YEAR
+                               -> );
+                             Query OK, 0 rows affected (0.02 sec)
+
+                             mysql> INSERT INTO data_type_table VALUES (TRUE, 0x1234567890, '2021');
+                             Query OK, 1 row affected (0.00 sec)
+
+                             mysql> SELECT (MyBool % MyBinary) | (MyBool - MyYear) FROM
+                             data_type_table;
+                             +-----------------------------------------+
+                             | (MyBool % MyBinary) | (MyBool - MyYear) |
+                             +-----------------------------------------+
+                             |                            NULL |
+                             +-----------------------------------------+
+                             1 row in set, 2 warnings (0.00 sec)
+                             GaussDB行为：
+                             m_db=# DROP TABLE IF EXISTS data_type_table;
+                             DROP TABLE
+                             m_db=# CREATE TABLE data_type_table (
+                             m_db(# MyBool BOOL,
+                             m_db(# MyBinary BINARY(10),
+                             m_db(# MyYear YEAR
+                             m_db(# );
+                             CREATE TABLE
+                             m_db=# INSERT INTO data_type_table VALUES (TRUE, 0x1234567890, '2021');
+                             INSERT 0 1
+                             m_db=# SELECT (MyBool % MyBinary) | (MyBool - MyYear) FROM
+                             data_type_table;
+                             WARNING: The double value '4Vx   ' is incorrect.
+                             CONTEXT: referenced column: (MyBool % MyBinary) | (MyBool - MyYear)
+                             WARNING: Division by zero.
+                             CONTEXT: referenced column: (MyBool % MyBinary) | (MyBool - MyYear)
+                             ERROR: Bigint is out of range.
+                             CONTEXT: referenced column: (MyBool % MyBinary) | (MyBool - MyYear)
+
+
+
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                                                  3341
+GaussDB
+集中式版参考                                                                                                  4 兼容性说明
+
+
+               操作符                   与MySQl的差异
+
+               +、-、*、 /、%、           CREATE VIEW AS SELECT算数操作符（'+', '-', '*', '/', '%',
+               mod、div               'mod', 'div'）内嵌b''常量时，MySQL 5.7返回类型可能存在
+                                     unsigned标识，GaussDB不会。
+                                     MySQL输出结果：
+                                     mysql> CREATE VIEW v22 as SELECT b'101' / b'101' c22;
+                                     Query OK, 0 rows affected (0.00 sec)
+
+                                     mysql> DESC v22;
+                                     +-------+-----------------------+------+-----+---------+-------+
+                                     | Field | Type              | Null | Key | Default | Extra |
+                                     +-------+-----------------------+------+-----+---------+-------+
+                                     | c22 | decimal(5,4) unsigned | YES |         | NULL |        |
+                                     +-------+-----------------------+------+-----+---------+-------+
+                                     1 row in set (0.01 sec)
+                                     GaussDB输出结果：
+                                     m_db=# CREATE VIEW v22 AS SELECT b'101' / b'101' c22;
+                                     CREATE VIEW
+                                     m_db=# DESC v22;
+                                      Field |   Type      | Null | Key | Default | Extra
+                                     -------+--------------+------+-----+---------+-------
+                                      c22 | decimal(5,4) | YES |         |     |
+                                     (1 row)
+
+
+
+
+              表 4-156 操作符组合差异
+               操作符组合示例                       MySQL          GaussD          说明
+                                             数据库            B数据库
+
+               SELECT 1 LIKE 3 & 1;          不支持            支持              LIKE的右操作数不能是位运算符组
+                                                                            成的表达式。
+
+               SELECT 1 LIKE 1 +1;           不支持            支持              LIKE的右操作数不能是算术运算符
+                                                                            组成的表达式。
+
+               SELECT 1 LIKE NOT 0;          不支持            支持              LIKE的右操作数只能是+、-、!等
+                                                                            单目操作符或者括号组成的表达
+                                                                            式，NOT除外。
+
+               SELECT 1 BETWEEN 1            从右到            从左到             建议加上括号明确运算的优先
+               AND 2 BETWEEN 2               左结合            右结合             级，防止由于运算顺序的差异导
+               AND 3;                                                       致运算结果产生偏差。
+
+               SELECT 2 BETWEEN              不支持            支持              BETWEEN的第2个操作数不能是
+               1=1 AND 3;                                                   比较操作符组成的表达式。
+
+               SELECT 0 LIKE 0               不支持            支持              BETWEEN的第1个操作数不能是
+               BETWEEN 1 AND 2;                                             模式匹配操作符组成的表达式。
+
+               SELECT 1 IN (1)               不支持            支持              BETWEEN的第1个操作数不能是
+               BETWEEN 0 AND 3;                                             IN操作符组成的表达式。
+
+               SELECT 1 IN (1) IN (1);       不支持            支持              第2个IN表达式左操作数不能是IN
+                                                                            组成的表达式。
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                                                        3342
+GaussDB
+集中式版参考                                                                             4 兼容性说明
+
+
+               操作符组合示例                       MySQL        GaussD        说明
+                                             数据库          B数据库
+
+               SELECT ! NOT 1;               不支持          支持            !的操作数只能是+、-、!等单目操
+                                                                        作符或者括号组成的表达式，
+                                                                        NOT除外。
+
+
+
+
+索引差异
+              ●   GaussDB当前仅支持UBTree和B-tree索引。
+              ●   在执行LIKE模糊匹配，并通过EXPLAIN打印执行计划时，执行计划中会显示当前
+                  索引列对应字符序的最小/最大字符权重编码。该编码在不同的客户端字符集设置
+                  下的显示可能存在差异，但不影响LIKE模糊匹配查询结果的正确性。
+              ●   B-tree/UBTree索引场景保持原生GaussDB原有逻辑，即同一操作符族内的类型比
+                  较，支持索引扫描，其余索引类型暂未支持。
+              ●   在使用GaussDB JDBC连接数据库时，GaussDB的YEAR类型在含有绑定参数的PBE
+                  场景下无法利用索引。
+              ●   WHERE子句中，索引字段类型和常量类型操作场景下，GaussDB中索引与MySQL
+                  索引支持存在差异，如表4-157所示。例如以下语句GaussDB不支持索引：
+                  CREATE TABLE t(_int int);
+                  CREATE INDEX idx ON t(_int) USING BTREE;
+                  SELECT * FROM t WHERE _int > 2.0;
+
+                        说明
+
+                       ● WHERE子句里索引字段类型和常量类型操作场景中，可以使用cast函数将常数类型显
+                         式转换为字段类型，以便实现索引。
+                          SELECT * FROM t WHERE _int > cast(2.0 AS signed);
+
+                       ● 在执行LIKE模糊匹配时，单字节字符集场景下，GaussDB创建前缀索引长度最长为
+                         2676字节，MySQL创建前缀索引长度最长为3072字节。当超过最大长度时，建议创建
+                         非前缀索引。
+
+
+                  表 4-157 索引支持差异
+
+                   索引字段类型            常量类型                 GaussDB是否支持走索        MySQL是否支持
+                                                          引                    走索引
+
+                   BIT类型             BIT类型                否                    是
+
+                                     整型                   否                    是
+
+                                     浮点型                  否                    是
+
+                                     定点型                  否                    是
+
+                                     字符串类型                否                    是
+
+                                     二进制类型                否                    是
+
+                                     带日期的时间               否                    否
+                                     类型
+
+                                     TIME类型               否                    是
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                3343
+GaussDB
+集中式版参考                                                       4 兼容性说明
+
+
+                  索引字段类型      常量类型       GaussDB是否支持走索   MySQL是否支持
+                                         引               走索引
+
+                              YEAR类型     否               是
+
+                  SET/ENUM类   字符串类型      否               否
+                  型
+                              二进制类型      否               否
+
+                              整型         否               否
+
+                              浮点型        否               否
+
+                              定点型        否               否
+
+                              带日期的时间     否               否
+                              类型
+
+                              TIME类型     否               否
+
+                              YEAR类型     否               否
+
+                  TIME类型      TIME类型     是               是
+
+                              带日期的时间     是               是
+                              类型
+
+                              YEAR类型     是               是
+
+                              整型（可转为     是               是
+                              TIME类型）
+
+                              整型（不可转     否               否
+                              为TIME类型）
+
+                              字符串类型      是               是
+                              （可转为TIME
+                              类型）
+
+                              字符串类型      否               否
+                              （不可转为
+                              TIME类型）
+
+                              二进制类型      是               是
+                              （可转为TIME
+                              类型）
+
+                              二进制类型      否               否
+                              （不可转为
+                              TIME类型）
+
+                              浮点型（可转     是               是
+                              为TIME类型）
+
+                              浮点型（不可     否               否
+                              转为TIME类
+                              型）
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                 3344
+GaussDB
+集中式版参考                                                    4 兼容性说明
+
+
+                  索引字段类型   常量类型       GaussDB是否支持走索   MySQL是否支持
+                                      引               走索引
+
+                           定点型（可转     是               是
+                           为TIME类型）
+
+                           定点型（不可     否               否
+                           转为TIME类
+                           型）
+
+                  YEAR类型   YEAR类型     是               是
+
+                           整型（可转为     是               是
+                           YEAR类型）
+
+                           整型（不可转     否               是
+                           为YEAR类型，
+                           负数）
+
+                           浮点型（可转     是               是
+                           为YEAR类型）
+
+                           浮点型（不可     否               否
+                           转为YEAR类
+                           型）
+
+                           定点型（可转     是               是
+                           为YEAR类型）
+
+                           定点型（不可     否               否
+                           转为YEAR类
+                           型）
+
+                           字符串类型      是               是
+                           （可转为YEAR
+                           类型）
+
+                           字符串类型      否               否
+                           （不可转为
+                           YEAR类型）
+
+                           二进制类型      是               是
+                           （可转为YEAR
+                           类型）
+
+                           二进制类型      否               否
+                           （不可转为
+                           YEAR类型）
+
+                           带日期的时间     否               是
+                           类型
+
+                           TIME类型     否               是
+
+                  带日期的时间   带日期的时间     是               是
+                  类型       类型
+
+
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                 3345
+GaussDB
+集中式版参考                                                  4 兼容性说明
+
+
+                  索引字段类型   常量类型     GaussDB是否支持走索   MySQL是否支持
+                                    引               走索引
+
+                           TIME类型   是               是
+
+                           YEAR类型   是               否
+
+                           整型（可转为   是               是
+                           带日期的时间
+                           类型）
+
+                           整型（不可转   否               否
+                           为带日期的时
+                           间类型）
+
+                           浮点型（可转   是               是
+                           为带日期的时
+                           间类型）
+
+                           浮点型（不可   否               否
+                           转为带日期的
+                           时间类型）
+
+                           定点型（可转   是               是
+                           为带日期的时
+                           间类型）
+
+                           定点型（不可   否               否
+                           转为带日期的
+                           时间类型）
+
+                           字符串类型    是               是
+                           （可转为带日
+                           期的时间类
+                           型）
+
+                           字符串类型    否               否
+                           （不可转为带
+                           日期的时间类
+                           型）
+
+                           二进制类型    是               是
+                           （可转为带日
+                           期的时间类
+                           型）
+
+                           二进制类型    否               否
+                           （不可转为带
+                           日期的时间类
+                           型）
+
+                  定点型      定点型      是               是
+
+                           整型       是               是
+
+                           浮点型      否               是
+
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司               3346
+GaussDB
+集中式版参考                                                   4 兼容性说明
+
+
+                  索引字段类型   常量类型      GaussDB是否支持走索   MySQL是否支持
+                                     引               走索引
+
+                           字符串类型     否               是
+
+                           二进制类型     否               是
+
+                           带日期的时间    否               是
+                           类型
+
+                           TIME类型    否               是
+
+                           YEAR类型    是               是
+
+                  浮点型      浮点型       是               是
+
+                           整型        是               是
+
+                           定点型       是               是
+
+                           字符串类型     是               是
+
+                           二进制类型     是               是
+
+                           带日期的时间    是               是
+                           类型
+
+                           TIME类型    是               是
+
+                           YEAR类型    是               是
+
+                  整型       整型        是               是
+
+                           浮点型       否               是
+
+                           定点型       是               是
+
+                           字符串类型     是               是
+                           (可转为整型）
+
+                           字符串类型     否               是
+                           (不可转为整
+                           型）
+
+                           二进制类型     是               是
+                           (可转为整型）
+
+                           二进制类型     否               是
+                           (不可转为整
+                           型）
+
+                           带日期的时间    是               是
+                           类型
+
+                           TIME类型    是               是
+
+                           YEAR类型    是               是
+
+                  二进制类型    二进制类型     是               是
+
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                3347
+GaussDB
+集中式版参考                                                            4 兼容性说明
+
+
+                      索引字段类型   常量类型        GaussDB是否支持走索      MySQL是否支持
+                                           引                  走索引
+
+                               字符串类型       是                  是
+
+                               带日期的时间      否                  否
+                               类型
+
+                               TIME类型      是                  否
+
+                               YEAR类型      否                  否
+
+                               整型          否                  否
+
+                               浮点型         否                  否
+
+                               定点型         否                  否
+
+                      字符串类型    字符串类型       是                  是
+
+                               带日期的时间      否                  否
+                               类型
+
+                               TIME类型      是                  否
+
+                               YEAR类型      否                  否
+
+                               二进制类型       否                  否
+
+                               整型          否                  否
+
+                               浮点型         否                  否
+
+                               定点型         否                  否
+
+
+
+
+                       说明
+
+                       ● 仅在GUC参数m_format_behavior_compat_options未开启
+                         disable_int_cmp_num_index选项时，支持整型索引字段与定点型常量比较时，可以执
+                         行索引。
+                       ● 整型索引字段与定点型常量比较执行索引场景中，要求定点型常量不能为用户自定义变
+                         量、CASE WHEN表达式或子查询返回值。
+
+
+4.4.2.4 字符集
+              GaussDB数据库支持指定数据库、模式、表或列的字符集，默认的字符集是utf8，支
+              持的范围如下。
+
+              表 4-158 字符集列表
+
+               MySQL数据库                        GaussDB数据库
+
+               utf8mb4                         支持
+
+               utf8                            支持
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                       3348
+GaussDB
+集中式版参考                                                                      4 兼容性说明
+
+
+               MySQL数据库                            GaussDB数据库
+
+               gbk                                 支持
+
+               gb18030                             支持
+
+               binary                              支持
+
+               latin1                              支持
+
+
+
+
+                     说明
+
+                 ● GaussDB数据库将utf8和utf8mb4视为同一个字符集，编码最大长度为4字节。当字符串字符
+                   集为utf8，指定其字符序为utf8mb4_bin、utf8mb4_general_ci、utf8mb4_unicode_ci、
+                   utf8mb4_0900_ai_ci时（例如SELECT _utf8'a' collate utf8mb4_bin），MySQL会发生报
+                   错，GaussDB不报错。当字符串字符集为utf8mb4，指定其字符序为utf8_bin、
+                   utf8_general_ci、utf8_unicode_ci时，存在同样差异。
+                 ● 词法语法解析按照字节流解析，当多字节字符中包含与'\'、'\''、'\\'等符号一致的编码时，会
+                   导致与MySQL行为不一致，建议暂时关闭转义符开关进行规避。
+                 ● GaussDB数据库对不属于当前字符集的非法字符未执行严格的编码逻辑校验，严格模式下，
+                   使用部分字符函数可能导致此类非法字符成功输入，而MySQL会校验报错。宽松模式下截断
+                   后插入，与MYSQL行为一致。严格模式与宽松模式由GUC参数sql_mode的
+                   strict_trans_tables配置项决定。
+                 ● GaussDB字符集之间的转换逻辑与MySQL存在差异，binary字符集与其他字符集混用时可能
+                   存在转码流程导致的行为不一致，建议使用binary字符集时，client_encoding、
+                   server_encoding、character_set_connection等字符集相关参数保持一致，且仅输入ASCII范
+                   围内的字符。
+
+
+4.4.2.5 排序规则
+              GaussDB数据库支持指定模式、表或列的排序规则，支持的范围如下。
+
+              表 4-159 排序规则列表
+
+               MySQL数据库                            GaussDB数据库
+
+               binary                              支持
+
+               gb18030_bin                         支持
+
+               gb18030_chinese_ci                  支持
+
+               gbk_bin                             支持
+
+               gbk_chinese_ci                      支持
+
+               latin1_bin                          支持
+
+               latin1_swedish_ci                   支持
+
+               utf8_bin                            支持
+
+               utf8_general_ci                     支持
+
+               utf8_unicode_ci                     支持
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                              3349
+GaussDB
+集中式版参考                                                                 4 兼容性说明
+
+
+               MySQL数据库                            GaussDB数据库
+
+               utf8mb4_0900_ai_ci                  支持
+
+               utf8mb4_bin                         支持
+
+               utf8mb4_general_ci                  支持
+
+               utf8mb4_unicode_ci                  支持
+
+
+
+
+                    说明
+
+                  排序规则差异说明：
+                  ● GaussDB数据库仅字符串类型、部分二进制类型支持指定排序规则，其他类型不支持指定排
+                    序规则，可以通过查询pg_type系统表中类型的typcollation属性是否为0来判断该类型是否
+                    支持字符序。MySQL中所有类型均可以指定字符序，但除字符串、二进制类型外，其他类型
+                    指定排序规则无实际意义。
+                  ● GaussDB数据库中排序规则（除binary外）仅支持在其对应字符集与库级字符集一致时可以
+                    指定，字符集必须与数据库的字符集一致，且不支持表内多种字符集混合使用。
+                  ● utf8mb4字符集下默认字符序为utf8mb4_general_ci，与MySQL 5.7保持一致。
+                  ● 使用latin1字符序需要设置兼容性参数m_format_dev_version = 's2'。
+                  ● GaussDB数据库中通过驱动PBE接口传参时，该参数不支持显式指定排序规则，与MySQL行
+                    为存在差异。
+                  ● GaussDB数据库中显式指定操作符两侧的排序规则时，若一侧排序规则为binary，另一侧排
+                    序规则不为binary，则不支持该比较操作，与MySQL行为存在差异。
+
+
+4.4.2.6 事务
+              GaussDB数据库兼容MySQL的事务，但存在部分差异。本章节介绍GaussDB数据库中
+              事务相关的差异，GaussDB数据库隔离级别只有READ COMMITTED、REPEATABLE
+              READ生效。
+
+
+事务默认隔离级别
+              GaussDB数据库默认隔离级别为READ COMMITTED，MySQL默认隔离级别为
+              REPEATABLE-READ。
+              -- 查看当前事务隔离级别。
+              m_db=# SHOW transaction_isolation;
+               transaction_isolation
+              -----------------------
+               read committed
+              (1 row)
+
+
+
+子事务
+              GaussDB数据库中，可使用SAVEPOINT用于在当前事务里建立一个新的保存点（子事
+              务），使用ROLLBACK TO SAVEPOINT回滚到指定保存点（子事务），子事务回滚后
+              父事务可以继续运行，子事务的回滚不影响父事务的事务状态。
+
+              MySQL不存在创建保存点（子事务）。
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                   3350
+GaussDB
+集中式版参考                                                                          4 兼容性说明
+
+
+嵌套事务
+              嵌套事务指在事务块中开启新事务。
+
+              GaussDB数据库中，正常事务块中开启新事务会警告存在一个进行中的事务，忽略开
+              启命令；异常事务块中开启新事务将报错，必须在执行ROLLBACK/COMMIT回滚之前
+              的语句后才可以执行。
+
+              MySQL中，正常事务块中开启新事务会先把之前事务提交，然后开启新事务；异常事
+              务块中开启新事务会忽略错误，提交之前无错误的语句并开启新事务。
+              -- GaussDB数据库正常事务块中，开启新事务会警告并忽略。
+              m_db=# DROP TABLE IF EXISTS test_t;
+              m_db=# CREATE TABLE test_t(a int, b int);
+              m_db=# BEGIN;
+              m_db=# INSERT INTO test_t values(1, 2);
+              m_db=# BEGIN; -- 会警告there is already a transaction in progress。
+              m_db=# SELECT * FROM test_t ORDER BY 1;
+              m_db=# COMMIT;
+
+              -- GaussDB数据库异常事务块中，开启新事务会报错，必须ROLLBACK/COMMIT之后才可以执行。
+              m_db=# BEGIN;
+              m_db=# ERROR sql; -- 错误语句。
+              m_db=# BEGIN; -- 报错。
+              m_db=# COMMIT; -- ROLLBACK/COMMIT之后才可以执行。
+
+
+隐式提交的语句
+              GaussDB数据库使用GaussDB存储，继承GaussDB事务机制，事务中执行DDL、DCL
+              不会自动提交。
+
+              MySQL在DDL、DCL、管理类语句，锁相关语句会自动提交。
+              -- GaussDB数据库创建表和设置GUC参数可以回滚操作。
+              m_db=# DROP TABLE IF EXISTS test_table_rollback;
+              m_db=# BEGIN;
+              m_db=# CREATE TABLE test_table_rollback(a int, b int);
+              m_db=# \d test_table_rollback;
+              m_db=# ROLLBACK;
+              m_db=# \d test_table_rollback; -- 不存在该表。
+
+
+SET TRANSACTION 差异
+              GaussDB数据库中，SET TRANSACTION同时设置多次隔离级别/事务访问模式时，只
+              有最后一个会生效；多个事务特性支持使用空格和逗号分隔。
+
+              MySQL中SET TRANSACTION不允许设置多次隔离级别/事务访问模式；多个事务特性
+              只支持使用逗号分隔。
+
+              表 4-160 SET TRANSACTION 差异
+
+               语法                功能                  差异
+
+               SET               设置事务特               GaussDB数据库中，设置GUC参数
+               TRANSACTI         性。                  m_format_dev_version取值不为's2'时，SET
+               ON                                    TRANSACTION在会话级别生效，功能与SET
+                                                     SESSION TRANSACTION一致；设置GUC参数
+                                                     m_format_dev_version取值为's2'时，SET
+                                                     TRANSACTION是设置下一个事务特性；MySQL中
+                                                     SET TRANSACTION在下一个事务生效。
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                           3351
+GaussDB
+集中式版参考                                                                                   4 兼容性说明
+
+
+               语法             功能               差异
+
+               SET            设置会话级事           -
+               SESSION        务特性。
+               TRANSACTI
+               ON
+
+               SET            设置全局会话           GaussDB数据库中，GLOBAL是全局会话级别生效，
+               GLOBAL         级事务特性，           只针对当前数据库实例，其它数据库不影响。
+               TRANSACTI      该特性适用于           MySQL中，会使所有数据库生效。
+               ON             后续会话，对
+                              当前会话无影
+                              响。
+
+
+
+              -- SET TRANSACTION会话级生效。
+              m_db=# SET TRANSACTION ISOLATION LEVEL READ COMMITTED READ WRITE;
+              m_db=# SHOW transaction_isolation;
+              m_db=# SHOW transaction_read_only;
+              -- GaussDB数据库同时设置多次隔离级别/事务访问模式，最后一个生效。
+              m_db=# SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED, ISOLATION LEVEL
+              REPEATABLE READ, READ WRITE, READ ONLY;
+              m_db=# SHOW transaction_isolation; -- repeatable read
+               transaction_isolation
+              -----------------------
+               repeatable read
+              (1 row)
+              m_db=# SHOW transaction_read_only; -- on
+               transaction_read_only
+              -----------------------
+               on
+              (1 row)
+
+
+START TRANSACTION 差异
+              GaussDB数据库中，START TRANSACTION开启事务时，同时支持设置隔离级别；同
+              时设置多次隔离级别/事务访问模式时，只有最后一个会生效；当前版本不支持立即开
+              启一致性快照；多个事务特性支持空格和逗号分隔。
+
+              MySQL的START TRANSACTION开启事务时，不支持设置隔离级别，不支持设置多次
+              事务访问模式；多个事务特性只支持逗号分隔。
+              -- 开启事务设置隔离级别。
+              m_db=# START TRANSACTION ISOLATION LEVEL READ COMMITTED;
+              m_db=# COMMIT;
+              -- 多次设置访问模式。
+              m_db=# START TRANSACTION READ ONLY, READ WRITE;
+              m_db=# COMMIT;
+
+
+事务相关的 GUC 参数
+
+              表 4-161 事务相关的 GUC 参数差异
+
+               GUC参数          功能               差异
+
+               autocommi      设置事务自动           -
+               t              提交模式。
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                                          3352
+GaussDB
+集中式版参考                                                                             4 兼容性说明
+
+
+               GUC参数          功能              差异
+
+               transaction    在GaussDB中       ● GaussDB中，通过使用SET transaction_isolation
+               _isolation     是设置当前事            = value命令，只能改变当前事务的隔离级别。如
+                              务的隔离级             果想要改变会话级的隔离级别，可以使用
+                              别。                default_transaction_isolation。在MySQL中，通
+                              在MySQL中           过使用SET命令，可以改变会话级的事务隔离级
+                              是设置会话级            别。
+                              事务的隔离级          ● 支持范围差异。
+                              别。                MySQL中，支持以下隔离级别设置，对大小写不
+                                                敏感，对空格敏感：
+                                                – READ-COMMITTED
+                                                – READ-UNCOMMITTED
+                                                – REPEATABLE-READ
+                                                – SERIALIZABLE
+                                                GaussDB中，支持以下隔离级别设置，对大小写
+                                                和空格敏感：
+                                                – read committed
+                                                – read uncommitted（可以设置，但实际生效的
+                                                  隔离级别为read committed）
+                                                – repeatable read
+                                                – serializable（可以设置，但实际生效的隔离级
+                                                  别为repeatable read）
+                                                – default（设置和会话中默认隔离级别一样）
+                                                – 设置m_format_dev_version = 's2'时，支持
+                                                  MySQL的隔离级别设置。
+                                              ● 在GaussDB中，新事务的transaction_isolation值
+                                                将被初始化为default_transaction_isolation的
+                                                值。
+                                              ● 设置m_format_dev_version = 's2'时：
+                                                – 以下语句是设置下一个事务特性：set
+                                                  @@transaction_isolation = value; set
+                                                  transaction isolation level value。
+                                                – 以下语句修改会话级事务特性：set [local|
+                                                  session|@@session.] transaction_isolation =
+                                                  value。
+                                                – 下一个事务特性不允许在事务内使用，如果隐
+                                                  式事务报错，即单个SQL语句报错，继续保持
+                                                  下一个事务特性。
+
+               tx_isolation   设置事务的隔          GaussDB中只支持通过select @@语法查询，不支持
+                              离级别；            通过show语法查询，不支持修改。
+                              tx_isolation
+                              和
+                              transaction_i
+                              solation是同
+                              义词。
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                                      3353
+GaussDB
+集中式版参考                                                                            4 兼容性说明
+
+
+               GUC参数         功能              差异
+
+               default_tra   设置事务的隔          GaussDB中通过SET设置会改变会话级事务隔离级
+               nsaction_is   离级别。            别。
+               olation                       MySQL中不支持该系统参数。
+
+               transaction   在GaussDB中       ● 在GaussDB中，通过使用SET命令，只能改变当前
+               _read_only    是设置当前事            事务的访问模式。如果想要改变会话级的访问模
+                             务的访问模             式，可以使用default_transaction_read_only。
+                             式。                在MySQL中，通过使用SET命令，可以改变会话
+                             在MySQL中           级的事务隔离级别。
+                             是设置会话级          ● 在GaussDB中，新事务的transaction_read_only
+                             事务的访问模            值将被初始化为default_transaction_read_only的
+                             式。                值。
+                                             ● 设置m_format_dev_version = 's2'时：
+                                               – 以下语句是设置下一个事务特性：set
+                                                 @@transaction_read_only = value; set
+                                                 transaction {read write | read only}。
+                                               – 以下语句修改会话级事务特性：set [local|
+                                                 session|@@session.] transaction_read_only =
+                                                 value。
+                                               – 下一个事务特性不允许在事务内使用，如果隐
+                                                 式事务报错，即单个SQL语句报错，继续保持
+                                                 下一个事务特性。
+
+               tx_read_onl   设置事务的访          GaussDB中只支持通过select @@语法查询，不支持
+               y             问模式。            通过show语法查询，不支持修改。
+                             tx_read_only
+                             和
+                             transaction_r
+                             ead_only是同
+                             义词。
+
+               default_tra   设置事务的访          GaussDB中通过SET设置会改变会话级事务访问模
+               nsaction_re   问模式。            式；MySQL中不支持该系统参数。
+               ad_only
+
+
+
+
+4.4.2.7 SQL
+
+4.4.2.7.1 SQL 兼容性概述
+              GaussDB数据库兼容绝大多数MySQL语法，但存在部分差异。本章节介绍GaussDB数
+              据库当前支持的MySQL语法。
+
+              ●   部分关键字在MySQL可以做标识符但在GaussDB数据库不可以或存在限制，如表
+                  4-162所示。
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                                     3354
+

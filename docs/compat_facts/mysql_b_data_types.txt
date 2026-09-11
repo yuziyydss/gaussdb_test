@@ -1,0 +1,1400 @@
+GaussDB
+集中式版参考                                                                    4 兼容性说明
+
+
+4.4.2.8 驱动
+              ●   GaussDB中，驱动PBE接口通过文本模式传参时，如果GUC参数
+                  m_format_behavior_compat_options中不包含disable_zero_chars_conversion选
+                  项时，服务端会将参数中的“\0”字符替换为空格，与MySQL行为存在差异。
+              ●   如果GUC参数m_format_behavior_compat_options中包含
+                  disable_zero_chars_conversion选项，服务端将禁止“\0”字符转换为空格，与
+                  MySQL行为一致。
+              ●   使用MySQL JDBC驱动连接数据库时，当调用setAutoCommit(false)后，若事务
+                  中的任一SQL语句执行失败，该事务将进入中止状态。此时须先显式调用
+                  rollback()以终止当前事务，才能使连接恢复到可正常使用的状态。但当使用
+                  MySQL JDBC驱动连接MySQL数据库时，事务中某条语句失败后，默认只回滚该
+                  失败语句，事务仍处于活动状态，可以继续执行其他语句，无需立即回滚。
+              ●   当通过JDBC PreparedStatement对象的setBigDecimal或setObject接口绑定
+                  NUMERIC类型参数，与整型、时间类型进行加法、减法、乘法或取模运算时，结
+                  果的精度为NUMERIC的最大精度，此行为与MySQL-8.0一致，而与MySQL-5.7不
+                  一致。
+              ●   当通过JDBC PreparedStatement对象的setTime或setTimestamp接口绑定参数，
+                  且url参数中开启mCompatibleSetDateTime=true时，默认带6位毫秒，归类为
+                  NUMERIC类型参数，此行为与MySQL-8.0一致。
+              ●   GaussDB JDBC的PreparedStatement对象的setTime接口会保留毫秒数值，而
+                  MySQL JDBC则会丢弃毫秒数值。
+
+4.4.3 MySQL 兼容性 B 模式
+
+4.4.3.1 数据类型
+
+4.4.3.1.1 数值数据类型
+
+整数类型
+              除特别说明外，MySQL兼容性B模式中的数据类型精度、标度、位数大小等默认不支
+              持用浮点型数值定义，建议使用合法的整型数值定义。
+
+              整数类型公共差异说明：
+
+              ●   输入格式：
+                  –    MySQL
+                       对于类似“asbd”、“12dd”、“12 12”等字符场景的输入，会采取截断
+                       或返回0值并上报WARNING处理，在严格模式时插表会失败。
+                  –    GaussDB
+
+                       ▪   整数类型（TINYINT、SMALLINT、MEDIUMINT、INT、INTEGER、
+                           BIGINT）的输入，当非法字符串部分被截断时，如“12@3”，会直接
+                           截断并无提示信息，插表成功。
+
+                       ▪   当整数类型全部被截断（如“@123”）或字符串为空时，返回0，且插
+                           表成功。
+              ●   操作符：
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                             3449
+GaussDB
+集中式版参考                                                                    4 兼容性说明
+
+                  –    +、-、*操作符
+                       GaussDB：INT/INTEGER/SMALLINT/BIGINT在进行运算时，返回值为类型
+                       本身，不会向上提升类型，当返回值超范围时报错。
+                       MySQL：支持提升类型到BIGINT后计算。
+                  –    |、&、^、~运算符
+                       GaussDB：在类型所占用BIT位中计算；GaussDB中^表示指数运算，如需使
+                       用异或运算符，使用#替换。
+                       MySQL：提升类型计算。
+              ●   负数显式类型转换：
+                  GaussDB：宽松模式结果为0，严格模式报错。
+                  MySQL：依据其对应的二进制将最高位替换成数值位计算结果，例如(-1)::uint4 =
+                  4294967295。
+              ●   其他差异：
+                  INT[(M)]精度，MySQL控制格式化输出，GaussDB仅语法支持，不支持功能。
+              ●   聚集函数：
+                  –    variance：GaussDB表示样本方差，MySQL表示总体方差。
+                  –    stddev：GaussDB表示样本标准差，MySQL表示总体标准差。
+              ●   显示宽度：
+                  –    在为整型数字列指明宽度信息时，如果不同时指定ZEROFILL，则宽度信息在
+                       表结构描述中不显示。
+                  –    INSERT语句插入字符类型字段，GaussDB统一补齐0后插入。
+                  –    JOIN USING语句，涉及类型推导，MySQL默认第一张表列，GaussDB若结
+                       果为有符号类型则宽度信息失效，否则为第一张表字段宽度。
+                  –    greatest/least、ifnull/if、case when/decode，MySQL不补齐0，GaussDB在
+                       类型及宽度信息一致时补齐0。
+                  –    作为函数/存储过程出入参、返回值时，MySQL支持功能、GaussDB语法不报
+                       错功能不支持。
+              GaussDB数据库和MySQL数据库整数类型具体差异请参见表4-170。
+
+              表 4-170 整数类型
+               MySQL数据库       GaussDB数据   差异
+                              库
+
+               BOOL           支持，存在差      MySQL：BOOL/BOOLEAN类型实际映射为
+                              异           TINYINT类型。
+
+               BOOLEAN        支持，存在差      GaussDB：支持BOOL，其中：
+                              异           ● “真”值的有效文本值是：TRUE、't'、'true'、
+                                            'y'、'yes'、'1' 、'TRUE'、true、'on'以及所有非
+                                            0数值。
+                                          ● “假”值的有效文本值是：FALSE、'f'、
+                                            'false'、'n'、'no'、'0'、0、'FALSE'、false、
+                                            'off'。
+                                          使用TRUE和FALSE是比较规范的用法（也是SQL兼
+                                          容的用法）。
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                                  3450
+GaussDB
+集中式版参考                                                                4 兼容性说明
+
+
+               MySQL数据库       GaussDB数据   差异
+                              库
+
+               TINYINT[(M)]   支持，存在差      详情请参见整数类型公共差异说明。
+               [UNSIGNED]     异
+
+               SMALLINT[(     支持，存在差      详情请参见整数类型公共差异说明。
+               M)]            异
+               [UNSIGNED]
+
+               MEDIUMINT[     支持，存在差      MySQL存储MEDIUMINT数据需要3字节。
+               (M)]           异           ● 带符号的范围是-8,388,608 ~ +8,388,607。
+               [UNSIGNED]
+                                          ● 无符号的范围是0 ~ +16,777,215。
+                                          GaussDB映射为INT类型，存储需要4字节。
+                                          ● 带符号的范围是-2,147,483,648 ~
+                                            +2,147,483,647。
+                                          ● 无符号的范围是0 ~ +4,294,967,295。
+                                          其他差异请参见整数类型公共差异说明。
+
+               INT[(M)]       支持，存在差      详情请参见整数类型公共差异说明。
+               [UNSIGNED]     异
+
+               INTEGER[(M)    支持，存在差      详情请参见整数类型公共差异说明。
+               ]              异
+               [UNSIGNED]
+
+               BIGINT[(M)]    支持，存在差      详情请参见整数类型公共差异说明。
+               [UNSIGNED]     异
+
+
+
+
+                  说明
+
+                 因不同兼容性导致数据存在差异的，当该列上有索引，且使用该索引与创建该索引时的兼容性环
+                 境不同时，可能会导致该索引失效，需要reindex该索引。
+
+
+任意精度类型
+
+              表 4-171 任意精度类型
+
+               MySQL数据库       GaussDB数据   差异
+                              库
+
+               DECIMAL[(M[    支持，存在差      ● 操作符：GaussDB中“^”表示指数运算，如需
+               ,D])]          异             使用异或运算符，使用“#”替换；MySQL中
+                                            “^”表示异或。
+               NUMERIC[(      支持，存在差
+               M[,D])]        异           ● 取值范围：精度M，标度D不支持浮点型数值输
+                                            入，只支持整型数值输入。
+               DEC[(M[,D])]   支持，存在差      ● 输入格式：当字符串入参全部被截断时不会报
+                              异             错，如“@123”；只有被部分截断时才会报
+                                            错，如“12@3”。
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                             3451
+GaussDB
+集中式版参考                                                           4 兼容性说明
+
+
+               MySQL数据库       GaussDB数据   差异
+                              库
+
+               FIXED[(M[,D]   不支持         -
+               )]
+
+
+
+
+浮点类型
+
+              表 4-172 浮点类型
+               MySQL数据库       GaussDB数据   差异
+                              库
+
+               FLOAT[(M,D)    支持，存在差      ● 分区表支持：FLOAT数据类型不支持KEY键值分
+               ]              异             区策略分区表。
+                                          ● 操作符：GaussDB中“^”表示指数运算，如需
+                                            使用异或运算符，使用“#”替换；MySQL中
+                                            “^”表示异或。
+                                          ● 取值范围：精度M，标度D不支持浮点型数值输
+                                            入，只支持整型数值输入。
+                                          ● 输出格式：对于非法入参一律报错ERROR，不
+                                            会在sql_mode=''的宽松模式下报WARNING。
+
+               FLOAT(p)       支持，存在差      ● 分区表支持：FLOAT数据类型不支持KEY键值分
+                              异             区策略分区表。
+                                          ● 操作符：数值类型使用^操作符，与MySQL不
+                                            一致，GaussDB中^操作符为取指数运算。
+                                          ● 取值范围：定义精度p时，仅支持使用合法的整
+                                            型数据类型。
+                                          ● 输出格式：对于非法入参一律报错ERROR，不
+                                            会在sql_mode=''的宽松模式下报WARNING。
+
+               DOUBLE[(M,     支持，存在差      ● 分区表支持：DOUBLE数据类型不支持KEY键值
+               D)]            异             分区策略分区表。
+                                          ● 操作符：GaussDB中“^”表示指数运算，如需
+                                            使用异或运算符，使用“#”替换；MySQL中
+                                            “^”表示异或。
+                                          ● 取值范围：精度M，标度D不支持浮点型数值输
+                                            入，只支持整型数值输入。
+                                          ● 输出格式：对于非法入参一律报错ERROR，不
+                                            会在sql_mode=''的宽松模式下报WARNING。
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                     3452
+GaussDB
+集中式版参考                                                          4 兼容性说明
+
+
+               MySQL数据库      GaussDB数据   差异
+                             库
+
+               DOUBLE        支持，存在差      ● 操作符：GaussDB中“^”表示指数运算，如需
+               PRECISION[(   异             使用异或运算符，使用“#”替换；MySQL中
+               M,D)]                       “^”表示异或。
+                                         ● 取值范围：精度M，标度D不支持浮点型数值输
+                                           入，只支持整型数值输入。
+                                         ● 输出格式：对于非法入参一律报错ERROR，不
+                                           会在sql_mode=''的宽松模式下报WARNING。
+
+               REAL[(M,D)]   支持，存在差      ● 分区表支持：REAL数据类型不支持KEY值分区
+                             异             策略分区表。
+                                         ● 操作符：GaussDB中“^”表示指数运算，如需
+                                           使用异或运算符，使用“#”替换；MySQL中
+                                           “^”表示异或。
+                                         ● 取值范围：精度M，标度D不支持浮点型数值输
+                                           入，只支持整型数值输入。
+                                         ● 输出格式：对于非法入参一律报错ERROR，不
+                                           会在sql_mode=''的宽松模式下报WARNING。
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                     3453
+GaussDB
+集中式版参考                                                                                     4 兼容性说明
+
+
+序列整数
+
+              表 4-173 序列整数
+
+               MySQL数据库   GaussDB数据   差异
+                          库
+
+               SERIAL     支持，存在差      GaussDB中SERIAL具体介绍请参见数值类型。
+                          异           规格上与MySQL的差异如下：
+                                      CREATE TABLE test(f1 serial, f2 CHAR(20));
+
+                                      ● 类型定义的差异，MySQL的serial是映射到
+                                        BIGINT(20) UNSIGNED NOT NULL
+                                        AUTO_INCREMENT UNIQUE，GaussDB的
+                                        serial是映射到INTEGER NOT NULL DEFAULT
+                                        nextval('test_f1_seq'::regclass)。如：
+                                         -- MySQL serial的定义：
+                                         mysql> SHOW CREATE TABLE test\G
+                                         *************************** 1. row ***************************
+                                               Table: test
+                                         Create Table: CREATE TABLE `test` (
+                                           `f1` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                                           `f2` char(20) DEFAULT NULL,
+                                           UNIQUE KEY `f1` (`f1`)
+                                         ) ENGINE=InnoDB DEFAULT CHARSET=utf8
+                                         1 row in set (0.00 sec)
+
+                                         -- GaussDB serial的定义
+                                         gaussdb=# \d+ test
+                                                                               Table "public.test"
+                                          Column |      Type      |
+                                         Modifiers                  | Storage | Stats target |
+                                         Description
+                                         --------+---------------
+                                         +---------------------------------------------------+----------
+                                         +--------------+-------------
+                                          f1    | integer      | not null default
+                                         nextval('test_f1_seq'::regclass) | plain |               |
+                                          f2    | character(20) |                                        |
+                                         extended |             |
+                                         Has OIDs: no
+                                         Options: orientation=row, compression=no,
+                                         storage_type=USTORE
+
+                                      ● INSERT场景下serial类型DEFAULT值的差异。
+                                        如：
+                                         -- MySQL插入serial的DEFAULT值
+                                         mysql> INSERT INTO test VALUES(DEFAULT, 'aaaa');
+                                         Query OK, 1 row affected (0.00 sec)
+
+                                         mysql> INSERT INTO test VALUES(10, 'aaaa');
+                                         Query OK, 1 row affected (0.00 sec)
+
+                                         mysql> INSERT INTO test VALUES(DEFAULT, 'aaaa');
+                                         Query OK, 1 row affected (0.00 sec)
+
+                                         mysql> SELECT * FROM test;
+                                         +----+------+
+                                         | f1 | f2 |
+                                         +----+------+
+                                         | 1 | aaaa |
+                                         | 10 | aaaa |
+                                         | 11 | aaaa |
+                                         +----+------+
+                                         3 rows in set (0.00 sec)
+
+
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                                                        3454
+GaussDB
+集中式版参考                                                                           4 兼容性说明
+
+
+               MySQL数据库   GaussDB数据   差异
+                          库
+
+                                       -- GaussDB插入serial的DEFAULT值
+                                       gaussdb=# INSERT INTO test VALUES(DEFAULT, 'aaaa');
+                                       INSERT 0 1
+                                       gaussdb=# INSERT INTO test VALUES(10, 'aaaa');
+                                       INSERT 0 1
+                                       gaussdb=# INSERT INTO test VALUES(DEFAULT, 'aaaa');
+                                       INSERT 0 1
+                                       gaussdb=# SELECT * FROM test;
+                                        f1 |       f2
+                                       ----+----------------------
+                                         1 | aaaa
+                                         2 | aaaa
+                                        10 | aaaa
+                                       (3 rows)
+
+                                      ● REPLACE场景下serial类型引用列的差异，
+                                        GaussDB引用列的介绍请参见REPLACE。如：
+                                       -- MySQL插入serial引用列的值
+                                       mysql> REPLACE INTO test VALUES(f1, 'aaaa');
+                                       Query OK, 1 row affected (0.00 sec)
+
+                                       mysql> REPLACE INTO test VALUES(f1, 'bbbb');
+                                       Query OK, 1 row affected (0.00 sec)
+
+                                       mysql> SELECT * FROM test;
+                                       +----+------+
+                                       | f1 | f2 |
+                                       +----+------+
+                                       | 1 | aaaa |
+                                       | 2 | bbbb |
+                                       +----+------+
+                                       2 rows in set (0.00 sec)
+
+                                       -- GaussDB插入serial引用列的值
+                                       gaussdb=# REPLACE INTO test VALUES(f1, 'aaaa');
+                                       REPLACE 0 1
+                                       gaussdb=# REPLACE INTO test VALUES(f1, 'bbbb');
+                                       REPLACE 0 1
+                                       gaussdb=# SELECT * FROM test;
+                                        f1 |       f2
+                                       ----+----------------------
+                                         0 | aaaa
+                                         0 | bbbb
+                                       (2 rows)
+
+
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                                            3455
+GaussDB
+集中式版参考                                                           4 兼容性说明
+
+
+4.4.3.1.2 日期与时间数据类型
+
+              表 4-174 日期与时间数据类型
+               MySQL数据库   GaussDB数据   差异
+                          库
+
+               DATE       支持，存在差      GaussDB支持date数据类型，与MySQL相比规格
+                          异           上存在如下差异：
+                                      ● 输入格式
+                                        – GaussDB只支持字符类型，不支持数值类
+                                          型。如支持'2020-01-01'或'20200101'字符
+                                          串格式，不支持20200101数值输入。
+                                          MySQL支持数值输入转换为date类型。
+                                        – 分隔符：GaussDB不支持加号“+”、冒号
+                                          “:”作为年、月、日之间的分隔符，其他符
+                                          号都支持。MySQL所有符号均可作为分隔
+                                          符。 分隔符混合使用的某些场景也不支持，
+                                          与MySQL也有差异，如'2020-01>01'，
+                                          '2020/01+01'等，不建议混合使用分隔符，
+                                          建议使用最常用的“-”、“/”作为分隔
+                                          符。
+                                        – 无分隔符：推荐使用完整格式，如
+                                          'YYYYMMDD' 或者 'YYMMDD'。其他不完
+                                          整的格式（包括超长格式）解析的规则与
+                                          MySQL存在差异，可能报错或者解析的结果
+                                          与MySQL不一致，不推荐使用。
+                                      ● 输出格式
+                                        GaussDB在sql_mode参数不包含
+                                        'strict_trans_tables'选项（定义为宽松模式，否
+                                        则为严格模式）时，允许年、月、日的值是0，
+                                        但是输出时会按照年、月、日的顺序依次转换
+                                        为合法的值，如date '0000-00-10' 转换为：
+                                        0002-12-10 BC。 非法输入或者超过范围时，
+                                        会报warning信息，并返回0000-00-00值。
+                                        MySQL对于包含0值年、月、日的date值会原
+                                        样输出。
+                                      ● 取值范围
+                                        GaussDB的范围是4713-01-01 BC ~
+                                        5874897-12-31 AD，支持公元前的日期，宽松
+                                        模式下超过范围时，返回的是0值：
+                                        0000-00-00，严格模式下会报错。MySQL的范
+                                        围是 0000-00-00 ~ 9999-12-31，宽松模式下
+                                        超过范围后，各个场景下的表现并不一致，可
+                                        能报错（如SELECT查询语句中），也可能返回
+                                        0000-00-00值（如INSERT时）。此差异会导致
+                                        date类型作为函数入参时，函数返回的结果存
+                                        在差异。
+                                      ● 操作符
+
+
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                         3456
+GaussDB
+集中式版参考                                                                 4 兼容性说明
+
+
+               MySQL数据库   GaussDB数据   差异
+                          库
+
+                                        – GaussDB仅支持date类型之间的比较操作符
+                                          “=”、“!=”、“<”、“<=”、“>”、
+                                          “>=”，返回true或者false；date与
+                                          interval类型的加法运算，返回结果为date
+                                          类型；date与interval类型的减法运算，返
+                                          回结果为date类型；date类型之间的减法运
+                                          算，返回结果为interval类型。
+                                        – MySQL date类型和其他数值类型运算时，
+                                          会先将date转换为数值类型，然后按照数值
+                                          类型运算，结果也为数值类型。与GaussDB
+                                          存在差异。如：
+                                        -- MySQL： date + 数值，先将date类型转换为数值
+                                        20200101,再与1相加，结果为数值类型20200102。
+                                        mysql> SELECT date'2020-01-01' + 1;
+                                        +----------------------+
+                                        | date'2020-01-01' + 1 |
+                                        +----------------------+
+                                        |         20200102 |
+                                        +----------------------+
+                                        1 row in set (0.00 sec)
+
+                                        -- GaussDB： date + 数值，数值类型会转换为interval类型
+                                        1 day，然后相加得到新的日期。
+                                        gaussdb=# SELECT date'2020-01-01' + 1;
+                                          ?column?
+                                        ------------
+                                         2020-01-02
+                                        (1 row)
+
+                                      ● 类型转换
+                                        相比较MySQL，GaussDB仅支持date类型与
+                                        char(n)、nchar(n)、datetime、timestamp类
+                                        型之间的相互转换，不支持与binary、
+                                        decimal、json、integer、unsigned integer、
+                                        time 类型之间的转换。集合等场景和复杂表达
+                                        式场景下公共类型的确定原则与MySQL也不一
+                                        致，参考数据类型转换章节的描述。
+
+
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                                 3457
+GaussDB
+集中式版参考                                                                 4 兼容性说明
+
+
+               MySQL数据库       GaussDB数据   差异
+                              库
+
+               DATETIME[(fs   支持，存在差      GaussDB支持datetime数据类型，与MySQL相比
+               p)]            异           规格上存在如下差异：
+                                          ● 输入格式：
+                                            – GaussDB只支持字符类型，不支持数值类
+                                              型。如支持'2020-01-01 10:20:30.123456'
+                                              或'20200101102030.123456'字符串格式，
+                                              不支持如20200101102030.123456的数值
+                                              类型输入。MySQL支持数值输入转换为
+                                              datetime类型。
+                                            – 分隔符：GaussDB不支持加号“+”、冒号
+                                              “:”作为年、月、日之间的分隔符，其他的
+                                              符号都支持。仅支持冒号“:”作为时、分、
+                                              秒之间的分隔符，其他的符号都不支持。分
+                                              隔符混合使用的某些场景也不支持，与
+                                              MySQL也有差异，不推荐使用。MySQL支
+                                              持所有符号作为分隔符。
+                                            – 无分隔符：GaussDB推荐使用完整格式
+                                              'YYYYMMDDhhmiss.ffffff'。其他不完整的
+                                              格式（包括超长格式）解析的规则可能与
+                                              MySQL存在差异，可能报错或者解析的结果
+                                              与MySQL不一致，不推荐使用。
+                                          ● 输出格式：
+                                            – 统一为'YYYY-MM-DD hh:mi:ss.ffffff'的格
+                                              式，格式与MySQL无差异，且不受
+                                              DateStyle参数的影响。但是对于精度部分，
+                                              如果最后几位为0，GaussDB不显示，
+                                              MySQL会显示。
+                                            – GaussDB在sql_mode参数不包含
+                                              'strict_trans_tables'选项（定义为宽松模
+                                              式，否则为严格模式）时，允许年、月、日
+                                              值是0，但是输出时会按照年、月、日的顺
+                                              序依次转换为合法的值，如datetime
+                                              '0000-00-10 00:00:00' 转换为：
+                                              0002-12-10 00:00:00 BC。 非法输入或者超
+                                              过范围时，会报warning信息，并返回
+                                              0000-00-00 00:00:00值。MySQL对于包含0
+                                              值年、月、日的datetime值会原样输出。
+                                          ● 取值范围
+                                            4713-11-24 00:00:00.000000 BC ~
+                                            294277-01-09 04:00:54.775806 AD。
+                                            294277-01-09 04:00:54.775807 AD 返回的是
+                                            infinity。对于超过范围的值，严格模式下
+                                            GaussDB会报错，MySQL是否报错取决于使用
+                                            场景。一般查询场景不报错，而执行DML SQL
+                                            语句更改表属性的值时报错。宽松模式下
+                                            GaussDB返回0000-00-00 00:00:00值，MySQL
+                                            根据使用场景可能报错，也可能返回
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                            3458
+GaussDB
+集中式版参考                                                                           4 兼容性说明
+
+
+               MySQL数据库   GaussDB数据   差异
+                          库
+
+                                        0000-00-00 00:00:00值或者null值。这个差异
+                                        会导致以datetime类型为入参的函数执行结果
+                                        与MySQL也存在差异。
+                                      ● 精度
+                                        范围0~6，作为表列的类型时缺省为0，与
+                                        MySQL一致。对于 datetime[(p)] 'str' 表达式
+                                        场景，GaussDB将(p)作为精度解析，缺省为
+                                        6，将'str'按照p指定的精度格式化成datetime
+                                        类型。MySQL不支持datetime[(p)] 'str'表达
+                                        式。
+                                      ● 操作符
+                                        – GaussDB仅支持datetime类型之间的比较操
+                                          作符“=”、“!=”、“<”、“<=”、
+                                          “>”、“>=”，返回true或者false；
+                                          datetime与interval类型的加法运算，返回
+                                          结果为datetime类型；datetime与interval
+                                          类型的减法运算，返回结果为datetime类
+                                          型；datetime类型之间的减法运算，返回结
+                                          果为interval类型。
+                                        – MySQL datetime类型和其他数值类型运算
+                                          时，会先将datetime转换为数值类型，然后
+                                          按照数值类型运算，结果也为数值类型。与
+                                          GaussDB存在差异。如：
+                                        -- MySQL： datetime + 数值，先将datetime类型转换为数值
+                                        20201010123456,再与1相加，结果为数值类型
+                                        20201010123457。
+                                        mysql> SELECT cast('2020-10-10 12:34:56.123456' AS
+                                        datetime) + 1;
+                                        +----------------------------------------------------+
+                                        | cast('2020-10-10 12:34:56.123456' AS datetime) + 1 |
+                                        +----------------------------------------------------+
+                                        |                             20201010123457 |
+                                        +----------------------------------------------------+
+                                        1 row in set (0.00 sec)
+
+                                        -- GaussDB： datetime + 数值，数值类型会转换为interval类
+                                        型 1 day，然后相加得到新的datetime。
+                                        gaussdb=# SELECT cast('2020-10-10 12:34:56.123456' AS
+                                        datetime) + 1;
+                                             ?column?
+                                        ---------------------
+                                         2020-10-11 12:34:56
+                                        (1 row)
+                                        将datetime类型与数值的运算结果作为函数的
+                                        入参，可能导致函数的结果与MySQL也存在差
+                                        异。
+                                      ● 类型转换
+                                        相比较MySQL，GaussDB仅支持datetime类型
+                                        与char(n)、nchar(n)、timestamp类型之间的
+                                        相互转换、datetime到date、time类型的转换
+                                        （仅赋值和显式转换）。不支持与binary、
+                                        decimal、json、integer、unsigned integer类
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                                             3459
+GaussDB
+集中式版参考                                                              4 兼容性说明
+
+
+               MySQL数据库   GaussDB数据   差异
+                          库
+
+                                        型之间的转换。集合等场景和复杂表达式场景
+                                        下公共类型的确定原则与MySQL也不一致，参
+                                        考数据类型转换章节的描述。
+                                      ● 时区
+                                        GaussDB支持datetime值中携带时区信息（时
+                                        区偏移或者时区名），如'2020-01-01
+                                        12:34:56.123456 +01:00' 或者 '2020-01-01
+                                        2:34:56.123456 CST'。GaussDB会将其转换为
+                                        当前服务器时区的时间。MySQL不支持（5.7版
+                                        本不支持，8.0及之后的版本支持）。
+                                      ● GaussDB的datetime数据类型的表字段实际上
+                                        会被转换为timestamp(p) without time zone
+                                        类型，查询表信息或者使用工具导出的表结
+                                        构，其字段的数据类型显示的是timestamp(p)
+                                        without time zone，而不是datetime。MySQL
+                                        显示的是datetime(p)。
+
+
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                              3460
+GaussDB
+集中式版参考                                                                4 兼容性说明
+
+
+               MySQL数据库      GaussDB数据   差异
+                             库
+
+               TIMESTAMP[(   支持，存在差      GaussDB支持timestamp数据类型，与MySQL相
+               fsp)]         异           比规格上存在如下差异：
+                                         ● 输入格式
+                                           – 只支持字符类型，不支持数值类型。如支持
+                                             '2020-01-01 10:20:30.123456'或
+                                             '20200101102030.123456'字符串格式，不
+                                             支持如20200101102030.123456的数值类
+                                             型输入。MySQL支持数值输入转换为
+                                             timestamp类型。
+                                           – 分隔符：不支持加号“+”、冒号“:”作为
+                                             年、月、日之间的分隔符，其他的符号都支
+                                             持。仅支持冒号“:”作为时、分、秒之间的
+                                             分隔符，其他的符号都不支持。分隔符混合
+                                             使用的某些场景也不支持，与MySQL也有差
+                                             异，不推荐使用。MySQL支持所有符号作为
+                                             分隔符。
+                                           – 无分隔符：推荐使用完整格式
+                                             'YYYYMMDDhhmiss.ffffff'。其他不完整的
+                                             格式（包括超长格式）解析的规则可能与
+                                             MySQL存在差异，可能报错或者解析的结果
+                                             与MySQL不一致，不推荐使用。
+                                         ● 输出格式
+                                           – 统一为'YYYY-MM-DD hh:mi:ss.ffffff'的格
+                                             式，格式与MySQL无差异，且不受
+                                             DateStyle参数的影响。但是对于精度部分，
+                                             如果最后几位为0，GaussDB不显示，
+                                             MySQL会显示。
+                                           – GaussDB在sql_mode参数不包含
+                                             'strict_trans_tables'选项（定义为宽松模
+                                             式，否则为严格模式）时，允许年、月、日
+                                             值是0，但是输出时会按照年、月、日的顺
+                                             序依次转换为合法的值，如timestamp
+                                             '0000-00-10 00:00:00' 转换为：
+                                             0002-12-10 00:00:00 BC。 非法输入或者超
+                                             过范围时，会报warning信息，并返回
+                                             0000-00-00 00:00:00值。MySQL对于包含0
+                                             值年、月、日的timestamp值会原样输出。
+                                         ● 取值范围
+                                           4713-11-24 00:00:00.000000 BC ~
+                                           294277-01-09 04:00:54.775806 AD。
+                                           294277-01-09 04:00:54.775807 AD 返回的是
+                                           infinity。对于超过范围的值，严格模式下
+                                           GaussDB会报错，MySQL是否报错取决于使用
+                                           场景。一般查询场景不报错，而执行DML SQL
+                                           语句更改表属性的值时报错。宽松模式下
+                                           GaussDB返回0000-00-00 00:00:00值，MySQL
+                                           根据使用场景可能报错，也可能返回
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                            3461
+GaussDB
+集中式版参考                                                                           4 兼容性说明
+
+
+               MySQL数据库   GaussDB数据   差异
+                          库
+
+                                        0000-00-00 00:00:00值或者null值。这个差异
+                                        会导致以timestamp类型为入参的函数执行结
+                                        果与MySQL也存在差异。
+                                      ● 精度
+                                        范围0~6，作为表列的类型时缺省为0，与
+                                        MySQL一致。对于 timestamp[(p)] 'str' 表达
+                                        式场景：
+                                        – GaussDB将(p)作为精度解析，缺省为6，将
+                                          'str'按照p指定的精度格式化成timestamp类
+                                          型。
+                                        – MySQL将timestamp 'str'的含义与GaussDB
+                                          一致，缺省精度也为6。但是将
+                                          timestamp(p) 'str'解析为函数调用，p作为
+                                          timestamp函数的入参，结果返回一个
+                                          timestamp类型的值，'str'作为投影列的别
+                                          名。
+                                      ● 操作符
+                                        – GaussDB仅支持timestamp类型之间的比较
+                                          操作符“=”、“!=”、“<”、“<=”、
+                                          “>”、“>=”，返回true或者false；
+                                          timestamp与interval类型的加法运算，返回
+                                          结果为timestamp类型；timestamp与
+                                          interval类型的减法运算，返回结果为
+                                          timestamp类型；timestamp类型之间的减
+                                          法运算，返回结果为interval类型。
+                                        – MySQL timestamp类型和其他数值类型运
+                                          算时，会先将timestamp转换为数值类型，
+                                          然后按照数值类型运算，结果也为数值类
+                                          型。与GaussDB存在差异。如：
+                                        -- MySQL： timestamp + 数值，先将timestamp类型转换为
+                                        数值20201010123456.123456,再与1相加，结果为数值类型
+                                        20201010123457.123456。
+                                        mysql> SELECT timestamp '2020-10-10 12:34:56.123456' +
+                                        1;
+                                        +--------------------------------------------+
+                                        | timestamp '2020-10-10 12:34:56.123456' + 1 |
+                                        +--------------------------------------------+
+                                        |                 20201010123457.123456 |
+                                        +--------------------------------------------+
+                                        1 row in set (0.00 sec)
+
+                                        -- GaussDB： timestamp + 数值，数值类型会转换为interval
+                                        类型 1 day，然后相加得到新的timestamp。
+                                        gaussdb=# SELECT timestamp '2020-10-10
+                                        12:34:56.123456' + 1;
+                                                ?column?
+                                        ----------------------------
+                                         2020-10-11 12:34:56.123456
+                                        (1 row)
+                                        将timestamp类型与数值的运算结果作为函数
+                                        的入参，可能导致函数的结果与MySQL也存在
+                                        差异。
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                                             3462
+GaussDB
+集中式版参考                                                              4 兼容性说明
+
+
+               MySQL数据库   GaussDB数据   差异
+                          库
+
+                                      ● 类型转换
+                                        相比较MySQL，GaussDB仅支持timestamp类
+                                        型与char(n)、varchar(n)、datetime类型之间
+                                        的相互转换、timestamp到date、time类型的
+                                        转换（仅赋值和显式转换）。不支持与
+                                        binary、decimal、json、integer、unsigned
+                                        integer类型之间的转换。集合等场景和复杂表
+                                        达式场景下公共类型的确定原则与MySQL也不
+                                        一致，参考数据类型转换章节的描述。
+                                      ● 时区
+                                        GaussDB支持timestamp值中携带时区信息
+                                        （时区偏移或者时区名），如'2020-01-01
+                                        12:34:56.123456 +01:00' 或者 '2020-01-01
+                                        2:34:56.123456 CST'。GaussDB会将其转换为
+                                        当前服务器时区的时间。如果更改服务器时
+                                        区，timestamp类型的值输出时会转换为更改
+                                        后时区的时间戳。MySQL不支持（5.7版本不支
+                                        持，8.0及之后的版本支持）。
+                                      ● GaussDB的timestamp数据类型的表字段实际
+                                        上会被转换为timestamp(p) with time zone类
+                                        型，查询表信息或者使用工具导出的表结构，
+                                        其字段的数据类型显示的是timestamp(p) with
+                                        time zone，而不是timestamp。MySQL显示的
+                                        是timestamp(p)。
+
+
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                              3463
+GaussDB
+集中式版参考                                                                  4 兼容性说明
+
+
+               MySQL数据库      GaussDB数据   差异
+                             库
+
+               TIME[(fsp)]   支持，存在差      GaussDB支持time数据类型，与MySQL相比规格
+                             异           上存在如下差异：
+                                         ● 输入格式
+                                           – 只支持字符类型，不支持数值类型。如支持
+                                             '1 10:20:30'或'102030'字符串格式，不支持
+                                             102030数值输入。MySQL支持数值输入转
+                                             换为time类型。
+                                           – 分隔符：GaussDB仅支持冒号“:”作为时、
+                                             分、秒之间的分隔符，其他的符号都不支
+                                             持。MySQL支持所有的符号作为分隔符。
+                                           – 无分隔符：推荐使用完整格式，如
+                                             'hhmiss.ffffff'。其他不完整的格式（包括超
+                                             长格式）解析的规则可能与MySQL存在差
+                                             异，可能报错或者解析的结果与MySQL不一
+                                             致，不推荐使用。
+                                           – 分、秒、精度输入负数时，GaussDB数据库
+                                             可能会忽略第一个负数开始的部分，涉及的
+                                             部分解析为0，如：'00:00:-10' 解析结果为
+                                             '00:00:00'。 也可能报错，如：
+                                             '00:00:-10000' 会解析报错。取决于输入值
+                                             的范围。而MySQL数据库统一报错。
+                                         ● 输出格式
+                                           统一为hh:mi:ss.ffffff的格式，格式与MySQL无
+                                           差异。但是对于精度部分，如果最后几位为0，
+                                           GaussDB不显示，MySQL会显示。
+                                         ● 取值范围
+                                           -838:59:59.000000 ~ 838:59:59.000000，与
+                                           MySQL一致。对于超过范围的值，GaussDB在
+                                           宽松模式下执行SELECT、INSERT、UPDATE等
+                                           DML操作时，返回的值都是就近的边界
+                                           值：-838:59:59或838:59:59。MySQL是查询时
+                                           报错，DML操作返回的值才是就近边界值，场
+                                           景上存在差异。此差异会导致time类型作为函
+                                           数入参时，函数返回的结果也存在差异。
+                                         ● 精度
+                                           范围0~6，作为表列的类型时缺省为0，与
+                                           MySQL一致。对于 time(p) 'str' 表达式场景，
+                                           GaussDB将(p)作为精度解析，缺省为6，将'str'
+                                           按照p指定的精度格式化成time类型。MySQL
+                                           是解析为time函数，p是入参，'str'是投影列的
+                                           别名。
+                                         ● 操作符
+                                           – GaussDB仅支持time类型之间的比较操作符
+                                             “=”、“!=”、“<”、“<=”、“>”、
+                                             “>=”，返回true或者false；time与
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                              3464
+GaussDB
+集中式版参考                                                                4 兼容性说明
+
+
+               MySQL数据库   GaussDB数据   差异
+                          库
+
+                                           interval类型的加法运算，返回结果为time
+                                           类型；time与interval类型的减法运算，返
+                                           回结果为time类型；time类型之间的减法运
+                                           算，返回结果为interval类型。
+                                        – MySQL time类型和其他数值类型运算时，
+                                          会先将time转换为数值类型，然后按照数值
+                                          类型运算，结果也为数值类型。与GaussDB
+                                          存在差异。如：
+                                        -- MySQL： time + 数值，先将time类型转换为数值123456,
+                                        再与1相加，结果为数值类型123457。
+                                        mysql> SELECT time '12:34:56' + 1;
+                                        +---------------------+
+                                        | time '12:34:56' + 1 |
+                                        +---------------------+
+                                        |          123457 |
+                                        +---------------------+
+                                        1 row in set (0.00 sec)
+
+                                        -- GaussDB： time + 数值，数值类型会转换为interval类型
+                                        1 day，然后相加得到新的time，由于是加了24小时，得到的
+                                        仍然是12:34:56。
+                                        gaussdb=# SELECT time '12:34:56' + 1;
+                                         ?column?
+                                        ----------
+                                         12:34:56
+                                        (1 row)
+                                        将time类型与数值的运算结果作为函数的入
+                                        参，可能导致函数的结果与MySQL也存在差
+                                        异。
+                                      ● 类型转换
+                                        相比较MySQL，GaussDB仅支持time类型与
+                                        char(n)、nchar(n)类型之间的相互转换、
+                                        datetime、timestamp到time类型的转换。不
+                                        支持与binary、decimal、date、json、
+                                        integer、unsigned integer类型之间的转换。
+                                        集合等场景和复杂表达式场景下公共类型的确
+                                        定原则与MySQL也不一致，参考数据类型转换
+                                        章节的描述。
+
+
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                                3465
+GaussDB
+集中式版参考                                                                4 兼容性说明
+
+
+               MySQL数据库    GaussDB数据   差异
+                           库
+
+               YEAR[(4)]   支持，存在差      GaussDB支持year数据类型，与MySQL相比规格
+                           异           上存在如下差异：
+                                       ● 操作符
+                                         – GaussDB仅支持year类型之间的比较操作符
+                                           “=”、“!=”、“<”、“<=”、“>”、
+                                           “>=”，返回true或者false。
+                                         – GaussDB仅支持year类型与int4类型之间的
+                                           算术操作符“+”、“-”，返回整型值，
+                                           MySQL是返回无符号整型值。
+                                       ● 类型转换
+                                         相比较MySQL，GaussDB仅支持year类型与
+                                         int4类型的转换，仅支持int4、varchar、
+                                         numeric、date、time、timestamp、
+                                         timestamptz类型到year类型的转换。集合等场
+                                         景和复杂表达式场景下公共类型的确定原则与
+                                         MySQL也不一致，参考数据类型转换章节的描
+                                         述。
+
+               INTERVAL    支持，存在差      GaussDB支持INTERVAL数据类型，但INTERVAL
+                           异           在MySQL中为表达式，同时存在以下差异：
+                                       ● 不支持字符串类型的日期输入作为运算，如：
+                                         SELECT '2023-01-01' + interval 1 day。
+                                       ● 不支持interval expr unit语法中，expr为负整
+                                         数或浮点数的输入，如：SELECT
+                                         date'2023-01-01' + interval -1 day。
+                                       ● 不支持interval expr unit语法中，expr为运算
+                                         表达式的输入，如：SELECT date'2023-01-01'
+                                         + interval 4/2 day。
+                                       ● interval表达式参与运算时，返回值固定为
+                                         datetime类型，MySQL为datetime或date类
+                                         型。运算的逻辑与原有GaussDB保持一致，与
+                                         MySQL有差异。
+                                       ● interval expr unit语法中，expr数值支持的范
+                                         围会根据unit单位的不同有所差异，最大可支
+                                         持的范围为[-2147483648, 2147483647]。超
+                                         过范围时，严格模式报error，宽松模式报
+                                         warning并返回0值。
+                                       ● interval expr unit语法中，expr指定的字段数
+                                         量大于unit预期的字段数量时，在严格模式，
+                                         报error；在宽松模式，报warning并返回0值。
+                                         如unit取值为DAY_HOUR，预期的字段数量为
+                                         2，expr取值为'1-2-3'，字段数量为3。
+
+
+
+
+文档版本 01 (2026-04-30)        版权所有 © 华为云计算技术有限公司                              3466
+GaussDB
+集中式版参考                                                              4 兼容性说明
+
+
+4.4.3.1.3 字符串数据类型
+
+              表 4-175 字符串数据类型
+               MySQL数据库    GaussDB数据   差异
+                           库
+
+               CHAR[(M)]   支持，存在差      ● 输入格式
+                           异             – GaussDB自定义函数参数和返回值不支持长
+                                           度校验，存储过程参数不支持长度校验，同
+                                           时也不支持在
+                                           PAD_CHAR_TO_FULL_LENGTH打开时补齐
+                                           正确的空格，MySQL支持。
+                                         – GaussDB不支持转义字符输入，不支持""双
+                                           引号输入，MySQL支持。
+                                       ● 语法
+                                         GaussDB的 Cast（expr as char）语法无法根
+                                         据输入的字符串长度转成对应的类型，只支持
+                                         转成varchar类型。不支持cast( '' as char) 和
+                                         cast( '' as char(0))将空串转成char(0)类型。
+                                         MySQL支持按长度转成对应的类型。
+                                       ● 操作符
+                                         – GaussDB能正常转成浮点型的字符串与整型
+                                           值进行加、减、乘、除、求余计算，返回值
+                                           是整型值，MySQL是返回浮点型。
+                                         – GaussDB除以0会报错，MySQL返回null。
+                                         – “~”：GaussDB返回负数，MySQL返回8
+                                           字节无符号整数。
+                                         – “^”：GaussDB表示次方幂，MySQL表示
+                                           按位异或。
+
+
+
+
+文档版本 01 (2026-04-30)        版权所有 © 华为云计算技术有限公司                            3467
+GaussDB
+集中式版参考                                                         4 兼容性说明
+
+
+               MySQL数据库     GaussDB数据   差异
+                            库
+
+               VARCHAR(M)   支持，存在差      ● 输入格式
+                            异            – GaussDB的自定义函数参数和返回值不支持
+                                           长度校验，存储过程参数不支持长度校验，
+                                           MySQL支持。
+                                         – GaussDB的自定义函数和存储过程中的临时
+                                           变量支持长度校验以及严格宽松模式下的报
+                                           错和截断告警，MySQL不支持。
+                                         – GaussDB不支持转义字符输入，不支持""双
+                                           引号输入，MySQL支持。
+                                        ● 操作符
+                                         – GaussDB能正常转成浮点型的字符串与整型
+                                           值进行加、减、乘、除、求余计算，返回值
+                                           是整型值，MySQL是返回浮点型。
+                                         – GaussDB除以0会报错，MySQL返回null。
+                                         – “~”：GaussDB返回负数，MySQL返回8
+                                           字节无符号整数。
+                                         – “^”：GaussDB表示次方幂，MySQL表示
+                                           按位异或。
+
+               TINYTEXT     支持，存在差      ● 输入格式
+                            异            – GaussDB中该类型的长度不能超过1GB，超
+                                           过长度限制后会报错。MySQL中该类型不能
+                                           超过255字节，超过长度限制后，在严格模
+                                           式下会报错，在宽松模式下会对数据进行截
+                                           断并告警。
+                                         – GaussDB不支持转义字符输入，不支持""双
+                                           引号输入，MySQL支持。
+                                        ● 操作符
+                                         – GaussDB能正常转成浮点型的字符串与整型
+                                           值进行加、减、乘、除、求余计算，返回值
+                                           是整型值，MySQL是返回浮点型。
+                                         – GaussDB除以0会报错，MySQL返回null。
+                                         – “~”：GaussDB返回负数，MySQL返回8
+                                           字节无符号整数。
+                                         – “^”：GaussDB表示次方幂，MySQL表示
+                                           按位异或。
+
+
+
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                    3468
+GaussDB
+集中式版参考                                                         4 兼容性说明
+
+
+               MySQL数据库     GaussDB数据   差异
+                            库
+
+               TEXT         支持，存在差      ● 输入格式
+                            异            – GaussDB中该类型的长度不能超过1GB，超
+                                           过长度限制后会报错。MySQL中该类型不能
+                                           超过65535字节，超过长度限制后，在严格
+                                           模式下会报错，在宽松模式下会对数据进行
+                                           截断并告警。
+                                         – GaussDB不支持转义字符输入，不支持""双
+                                           引号输入，MySQL支持。
+                                        ● 操作符
+                                         – GaussDB能正常转成浮点型的字符串与整型
+                                           值进行加、减、乘、除、求余计算，返回值
+                                           是整型值，MySQL是返回浮点型。
+                                         – GaussDB除以0会报错，MySQL返回null。
+                                         – “~”：GaussDB返回负数，MySQL返回8
+                                           字节无符号整数。
+                                         – “^”：GaussDB表示次方幂，MySQL表示
+                                           按位异或。
+
+               MEDIUMTEXT   支持，存在差      ● 输入格式
+                            异            – GaussDB中该类型的长度不能超过1GB，超
+                                           过长度限制后会报错。MySQL中该类型不能
+                                           超过16777215字节，超过长度限制后，在
+                                           严格模式下会报错，在宽松模式下会对数据
+                                           进行截断并告警。
+                                         – GaussDB不支持转义字符输入，不支持""双
+                                           引号输入，MySQL支持。
+                                        ● 操作符
+                                         – GaussDB能正常转成浮点型的字符串与整型
+                                           值进行加、减、乘、除、求余计算，返回值
+                                           是整型值，MySQL是返回浮点型。
+                                         – GaussDB除以0会报错，MySQL返回null。
+                                         – “~”：GaussDB返回负数，MySQL返回8
+                                           字节无符号整数。
+                                         – “^”：GaussDB表示次方幂，MySQL表示
+                                           按位异或。
+
+
+
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                    3469
+GaussDB
+集中式版参考                                                                  4 兼容性说明
+
+
+               MySQL数据库           GaussDB数据   差异
+                                  库
+
+               LONGTEXT           支持，存在差      ● 输入格式
+                                  异               – GaussDB只支持不超过1GB的长度，MySQL
+                                                    支持4GB-1字节的长度。
+                                                  – GaussDB不支持转义字符输入，不支持""双
+                                                    引号输入，MySQL支持。
+                                              ● 操作符
+                                                  – GaussDB能正常转成浮点型的字符串与整型
+                                                    值进行加、减、乘、除、求余计算，返回值
+                                                    是整型值，MySQL是返回浮点型。
+                                                  – GaussDB除以0会报错，MySQL返回null。
+                                                  – “~”：GaussDB返回负数，MySQL返回8
+                                                    字节无符号整数。
+                                                  – “^”：GaussDB表示次方幂，MySQL表示
+                                                    按位异或。
+
+               ENUM('value        不支持         -
+               1','value2',...)
+
+               SET('value1','v    支持          -
+               alue2',...)
+
+
+
+
+4.4.3.1.4 二进制数据类型
+
+              表 4-176 二进制数据类型
+               MySQL数据库           GaussDB数据   差异
+                                  库
+
+               BINARY[(M)]        不支持         -
+
+               VARBINARY(         不支持         -
+               M)
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                       3470
+GaussDB
+集中式版参考                                                       4 兼容性说明
+
+
+               MySQL数据库   GaussDB数据   差异
+                          库
+
+               TINYBLOB   支持，存在差      ● 取值范围：GaussDB中该类型由BYTEA类型映
+                          异             射得来，长度不能超过1GB，超过长度限制后
+                                        会报错。MySQL中该类型不能超过255字节，
+                                        超过长度限制后，在严格模式下会报错，在宽
+                                        松模式下会对数据进行截断并告警。
+                                      ● 输入格式：不支持转义字符输入，不支持""双
+                                        引号输入。
+                                      ● 输出格式：对于'\0'字符，查询结果表现为
+                                        “\000”，使用JDBC驱动的getBytes接口获取
+                                        表现为'\0'字符。
+                                      ● 操作符：不支持算数运算符“+”、“-”、
+                                        “*”、“/”、“%”；不支持常用逻辑运算符
+                                        或、与、非（“||”、“&&”、“!”）；不支
+                                        持常用位运算符“~”、“&”、“|”、
+                                        “^”。
+
+               BLOB       支持，存在差      ● 取值范围：GaussDB中该类型由BYTEA类型映
+                          异             射得来，长度不能超过1GB，超过长度限制后
+                                        会报错。MySQL中该类型不能超过65535字
+                                        节，超过长度限制后，在严格模式下会报错，
+                                        在宽松模式下会对数据进行截断并告警。
+                                      ● 输入格式：不支持转义字符输入，不支持""双
+                                        引号输入。
+                                      ● 输出格式：对于'\0'字符，查询结果表现为
+                                        “\000”，使用JDBC驱动的getBytes接口获取
+                                        表现为'\0'字符。
+                                      ● 操作符：不支持算数运算符“+”、“-”、
+                                        “*”、“/”、“%”；不支持常用逻辑运算符
+                                        或、与、非（“||”、“&&”、“!”）；不支
+                                        持常用位运算符“~”、“&”、“|”、
+                                        “^”。
+
+
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                     3471
+GaussDB
+集中式版参考                                                        4 兼容性说明
+
+
+               MySQL数据库    GaussDB数据   差异
+                           库
+
+               MEDIUMBLO   支持，存在差      ● 取值范围：GaussDB中该类型由BYTEA类型映
+               B           异             射得来，长度不能超过1GB，超过长度限制后
+                                         会报错。MySQL中该类型不能超过16777215字
+                                         节，超过长度限制后，在严格模式下会报错，
+                                         在宽松模式下会对数据进行截断并告警。
+                                       ● 输入格式：不支持转义字符输入，不支持""双
+                                         引号输入。
+                                       ● 输出格式：对于'\0'字符，查询结果表现为
+                                         “\000”，使用JDBC驱动的getBytes接口获取
+                                         表现为'\0'字符。
+                                       ● 操作符：不支持算数运算符“+”、“-”、
+                                         “*”、“/”、“%”；不支持常用逻辑运算符
+                                         或、与、非（“||”、“&&”、“!”）；不支
+                                         持常用位运算符“~”、“&”、“|”、
+                                         “^”。
+
+               LONGBLOB    支持，存在差      ● 取值范围：GaussDB中该类型由BYTEA类型映
+                           异             射得来，只支持不超过1GB的长度，具体范围
+                                         参照bytea数据类型集中式和分布式规格。
+                                       ● 输入格式：不支持转义字符输入，不支持""双
+                                         引号输入。
+                                       ● 输出格式：对于'\0'字符，查询结果表现为
+                                         “\000”，使用JDBC驱动的getBytes接口获取
+                                         表现为'\0'字符。
+                                       ● 操作符：不支持算数运算符“+”、“-”、
+                                         “*”、“/”、“%”；不支持常用逻辑运算符
+                                         或、与、非（“||”、“&&”、“!”）；不支
+                                         持常用位运算符“~”、“&”、“|”、
+                                         “^”。
+
+               BIT[(M)]    不支持         -
+
+
+
+4.4.3.1.5 JSON 数据类型
+
+              表 4-177 JSON 数据类型
+               MySQL数据库    GaussDB数据   差异
+                           库
+
+               JSON        支持，存在差      ● GaussDB数据库MySQL兼容性B模式中的JSON
+                           异             类型与GaussDB数据库原生的JSON类型行为一
+                                         致，与MySQL行为差异较大，此处不再逐个列
+                                         出。
+                                       ● GaussDB数据库MySQL兼容性B模式中的JSON
+                                         类型具体行为请参见JSON/JSONB类型。
+
+
+
+文档版本 01 (2026-04-30)        版权所有 © 华为云计算技术有限公司                     3472
+GaussDB
+集中式版参考                                                                4 兼容性说明
+
+
+4.4.3.1.6 数据类型支持的属性
+
+              表 4-178 数据类型支持的属性
+               MySQL数据库                               GaussDB数据库
+
+               NULL                                   支持
+
+               NOT NULL                               支持
+
+               DEFAULT                                支持
+
+               ON UPDATE                              支持
+
+               PRIMARY KEY                            支持
+
+               AUTO_INCREMENT                         支持
+
+               CHARACTER SET name                     支持
+
+               COLLATE name                           支持
+
+
+
+
+4.4.3.1.7 数据类型转换
+              不同的数据类型之间支持转换。有如下场景涉及到数据类型转换：
+
+              ●   操作符（比较操作符、运算操作符等）的操作数的数据类型不一致。常见于查询
+                  条件或者关联条件中的比较运算。
+              ●   函数调用时实参和形参的数据类型不一致。
+              ●   DML语句要更新（包括INSERT、UPDATE、MERGE、REPLACE等）的目标列，数
+                  据的类型和列的定义类型不一致。
+              ●   显式的类型转换：cast(expr AS datatype)，将expr表达式类型转换为datatype类
+                  型。
+              ●   集合运算（UNION、EXCEPT）确定最终投影列的目标数据类型后，各个SELECT
+                  查询的投影列的类型和目标数据类型不一致。
+              ●   其他表达式计算场景，根据不同表达式的数据类型， 来决定用于比较或者最终结
+                  果的目标数据类型。
+                  –    DECODE
+                  –    CASE WHEN
+                  –    lexpr [ NOT ] IN (expr_list)
+                  –    BETWEEN AND
+                  –    JOIN USING(a,b)
+                  –    GREATEST和LEAST
+                  –    NVL 和 COALESCE
+
+              GaussDB和MySQL数据库对于数据类型转换、转换的目标数据类型有着完全不同的规
+              则。如下示例体现了两者处理的差异：
+              -- MySQL： in 执行结果为0，表示false。根据规则，会将'1970-01-01'与列表中的表达式依次比较，结果都为
+              0，因此最终结果为0。
+              mysql> SELECT '1970-01-01' IN ('1970-01-02', 1, '1970-01-02');
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                       3473
+GaussDB
+集中式版参考                                                                            4 兼容性说明
+
+              +-------------------------------------------------+
+              | '1970-01-01' IN ('1970-01-02', 1, '1970-01-02') |
+              +-------------------------------------------------+
+              |                                    0|
+              +-------------------------------------------------+
+
+              -- GaussDB： in 执行结果为true，与MySQL结果相反：根据规则选定的公共类型为int类型，因此将左表达式
+              '1970-01-01'转换为int类型与列表中的表达式转换为int类型后的值依次比较。
+              -- '1970-01-01'和'1970-01-02'转换为int类型时都为1970（MySQL兼容性下，转换时遇到非法字符后忽略，将前
+              面部分转换为int类型），比较结果为相等，因此返回结果为true。
+              gaussdb=# SELECT '1970-01-01' IN ('1970-01-02', 1::int, '1970-01-02') AS result;
+               result
+              --------
+               t
+              (1 row)
+
+              数据类型转换规则的差异：
+
+              ●     GaussDB数据库对于不同数据类型之间的转换规则有明确的定义：
+                    –     是否支持转换：pg_cast系统表中是否定义两种类型的转换路径，没有定义则
+                          不支持。
+                    –     支持转换的场景：支持任意场景转换、仅支持显式（cast表达式）转换、仅
+                          支持赋值时转换。不支持的场景下即使定义了转换路径，也不能进行数据类
+                          型转换。
+              ●     MySQL数据库支持任意两种数据类型之间做转换。
+              由于存在以上差异，基于MySQL数据库的应用程序向GaussDB数据库迁移时，SQL语
+              句可能由于不支持不同数据类型之间的转换而报错。或者支持转换的场景下，转换的
+              规则有差异导致SQL语句执行的结果不同。
+              推荐的做法是：SQL语句中尽量使用相同的数据类型做比较或者赋值等操作，避免因
+              为数据类型转换导致非预期结果或者性能损耗。
+
+              选择目标数据类型的规则差异：
+              对于有些场景，比较的数据类型或者返回的数据类型需要综合考虑多个表达式的类型
+              才能确定。比如UNION运算中，不同SELECT语句中相同位置的投影列具有不同的数据
+              类型，查询结果的最终数据类型，需要由各个SELECT语句投影列的数据类型共同确
+              定。
+              确定目标数据类型的规则，GaussDB数据库和MySQL数据库存在体系上的差异。
+
+              ●     GaussDB数据库规则：
+                    –     操作符的操作数类型不一致时，并不是将操作数的类型统一转换为目标类型
+                          再计算。而是直接注册两个数据类型的操作符，操作符处理中定义两个不同
+                          类型的处理规则。此方式不存在类型隐式转换，但自定义的处理规则隐含了
+                          转换的操作。
+                    –     集合运算和表达式场景，确定目标数据类型的规则：
+
+                          ▪     如果所有类型都相同，则此类型即为目标类型。
+
+                          ▪     两个数据类型如果不同，检查数据类型是否属于同一种类的数据类型，
+                                如数值类型、字符类型、日期时间类型等。不属于同一种类的数据类
+                                型，无法确定目标类型，此时SQL语句执行会报错。
+
+                          ▪     对于category属性（在pg_type系统表中定义）相同的数据类型，具有
+                                preferred属性（在pg_type系统表中定义）的数据类型会被选为目标类
+                                型。或者操作数1能转换为操作数2（没有转换路径），而操作数2无法转
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                               3474
+GaussDB
+集中式版参考                                                                4 兼容性说明
+
+                           换为操作数1或数值类型优先级小于操作数2，则选择操作数2作为目标类
+                           型。
+
+                       ▪   如果涉及到3个及以上的数据类型，确定目标类型的规则为：
+                           common_type(type1,type2,type3) =
+                           common_type(common_type(type1,type2),type3)，依次迭代处理，得
+                           到最终的结果。
+
+                       ▪   对于IN和NOT IN表达式，如果根据以上规则无法确认目标类型，会将
+                           lexpr与expr_list中每一个表达式单独按照等值操作符（=）逐个比较。
+
+                       ▪   精度的确定：以最终选定的表达式的精度作为最终结果。
+              ●   MySQL数据库规则：
+                  –    操作符的操作数类型不一致时，先按照如下规则确定目标类型。确定后将类
+                       型不一致的操作数转换成目标类型后再做处理。
+
+                       ▪   两个参数都是string类型，则都按照string类型比较。
+
+                       ▪   两个参数都是integer类型，则都按照integer类型比较。
+
+                       ▪   十六进制数值如果不与数值比较，则当做二进制字符串比较。
+
+                       ▪   一个参数是datetime/timestamp类型，另一个参数是常量，将常量转换
+                           为时间戳类型然后比较。
+
+                       ▪   如果其中一个参数是decimal类型，比较时使用的数据类型取决于另外一
+                           个参数。另外一个是decimal或者integer类型时，按照decimal类型；另
+                           外一个是其他类型，按照real类型比较。
+
+                       ▪   其他场景都转换为 real 类型后比较。
+                  –    集合运算和表达式场景，确定目标数据类型的规则如下：
+
+                       ▪   建立任意两个类型之间的目标类型矩阵。给定两个类型，通过矩阵即可
+                           以确定目标类型。
+
+                       ▪   如果涉及到3个及以上的数据类型，确定目标类型的规则为：
+                           common_type(type1,type2,type3) =
+                           common_type(common_type(type1,type2),type3)，依次迭代处理，得
+                           到最终的结果。
+
+                       ▪   如果目标类型是integer类型，且各个表达式类型包含有符号和无符号的
+                           混合场景，则会将类型提升到更高精度的integer类型。符号的确定：所
+                           有表达式都是无符号时，结果才为无符号，否则结果为有符号。
+
+                       ▪   精度确定：以表达式中的最大精度作为最终结果。
+
+              从以上规则可知：GaussDB和MySQL数据库在数据类型的转换规则上有很大差异，不
+              能直接对比。在上述场景下，SQL语句的执行结果可能和MySQL数据库不一致。当前
+              版本推荐各个表达式使用相同的类型，或提前使用cast转换成需要的类型来规避差
+              异。
+
+
+4.4.3.2 系统函数
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                         3475
+

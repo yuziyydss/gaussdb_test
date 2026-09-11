@@ -1,0 +1,200 @@
+GaussDB
+集中式版参考                                                                                      4 兼容性说明
+
+
+               Oracle数据库                             GaussD   差异
+                                                     B数据库
+
+               删除表的主键约束                              部分支      ● GaussDB仅支持DROP PRIMARY
+               语法：                                   持，有差       KEY语法，不支持其他选项。
+               DROP PRIMARY KEY [ CASCADE ]          异。
+                                                              ● 当进行该操作时，Oracle会同时将
+               [( KEEP | DROP ) INDEX ] [ ONLINE ]
+                                                                创建主键时自动为创建的主键列添
+                                                                加的NOT NULL约束进行删除；
+                                                                GaussDB不会删除，仍然保留NOT
+                                                                NULL约束。
+                                                                -- GaussDB:
+                                                                gaussdb=# CREATE TABLE t1 (id int
+                                                                PRIMARY KEY);
+                                                                NOTICE: CREATE TABLE / PRIMARY KEY
+                                                                will create implicit index "t1_pkey" for
+                                                                table "t1"
+                                                                CREATE TABLE
+                                                                gaussdb=# ALTER TABLE t1 DROP
+                                                                PRIMARY KEY;
+                                                                ALTER TABLE
+                                                                gaussdb=# INSERT INTO t1 VALUES(null);
+                                                                ERROR: The null value in column "id"
+                                                                violates the not-null constraint.
+                                                                DETAIL: Failing row contains (null).
+                                                                gaussdb=# DROP TABLE t1;
+
+                                                                -- Oracle:
+                                                                SQL> CREATE TABLE t1 (id int PRIMARY
+                                                                KEY);
+                                                                SQL> ALTER TABLE t1 DROP PRIMARY KEY;
+                                                                SQL> INSERT INTO t1 VALUES(null);
+                                                                -- 该操作可以插入成功，即主键列的NOT
+                                                                NULL约束也同时被删除。
+                                                                SQL> DROP TABLE t1;
+
+
+
+
+4.3.9 SQL 查询和子查询
+              GaussDB数据库兼容除分层查询以外的SQL查询和子查询。
+
+              表 4-45 SQL 查询和子查询
+               Oracle数据库            GaussDB数据        差异
+                                    库
+
+               创建简单查询               支持               -
+
+               分层查询                 支持，有差异           GaussDB仅支持Oracle中的
+                                                     CONNECT_BY_FILTERING 模式，不支持
+                                                     CONNECT_BY_NOFILTERING。
+
+               UNION                支持               -
+               [ALL]，
+               INTERSECT，
+               减运算符
+
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                             3135
+GaussDB
+集中式版参考                                                                             4 兼容性说明
+
+
+               Oracle数据库   GaussDB数据   差异
+                           库
+
+               查询结果排序      支持，有差异      GaussDB查询不包含分组，且目标列同时包含聚
+                                       集函数和集合返回函数时，不忽略对集合返回函
+                                       数列的排序。
+
+               Joins       支持，有差异      GaussDB只支持和Oracle的Join Types， 如 left/
+                                       right、self 、natural、full outer join等。不支
+                                       持 In-Memory Join Group 等 Join
+                                       Optimizations方法。
+
+               使用子查询       支持          -
+
+               嵌套子查询的      支持，有差异      GaussDB不支持显式指定HASH_AJ或
+               解嵌套                     MERGE_AJ。
+
+               分布式查询       支持，有差异      GaussDB需要显式指定DBLINK查询。
+
+               聚集函数嵌套      支持          -
+
+               层次查询        支持，有差异      ● GaussDB在非CONNECT BY子句中使用
+                                         PRIOR关键字修饰列时，列回显名称与
+                                         Oracle有差异。例如对于列a，GaussDB回显
+                                         为__prior_a__，Oracle回显为PRIORA。
+                                       ● 在SELECT的GROUP BY子句中使用带有
+                                         PRIOR列的表达式，GaussDB表现与Oracle
+                                         有差异。GaussDB支持在GROUP BY子句中
+                                         使用带有PRIOR列的表达式，Oracle会报
+                                         错。
+                                           -- GaussDB:
+                                           gaussdb=# CREATE TABLE test (c1 INT, c2 INT, c3 INT);
+                                           CREATE TABLE
+                                           gaussdb=# INSERT INTO test VALUES(1,2,3);
+                                           INSERT 0 1
+                                           gaussdb=# INSERT INTO test VALUES(2,3,4);
+                                           INSERT 0 1
+                                           gaussdb=# SELECT PRIOR c1 + 1 AS result FROM test
+                                           CONNECT BY PRIOR c2 = c1 GROUP BY PRIOR c1 + 1;
+                                            result
+                                           --------
+
+                                               2
+                                           (2 rows)
+
+                                           gaussdb=# DROP TABLE test;
+                                           DROP TABLE
+
+                                           -- Oracle:
+                                           SQL> CREATE TABLE test (c1 INT, c2 INT, c3 INT);
+                                           SQL> INSERT INTO test VALUES(1,2,3);
+                                           SQL> INSERT INTO test VALUES(2,3,4);
+                                           -- 该操作会报错not a GROUP BY expression
+                                           SQL> SELECT PRIOR c1 + 1 AS result FROM test
+                                           CONNECT BY PRIOR c2 = c1 GROUP BY PRIOR c1 + 1;
+                                           SQL> DROP TABLE test;
+
+                                       ● GaussDB语法上允许ORDER SIBLINGS BY和
+                                         ORDER BY同时使用，此时最终输出的排序
+                                         结果以外层的ORDER BY为准，Oracle不支持
+                                         该用法。
+
+
+文档版本 01 (2026-04-30)        版权所有 © 华为云计算技术有限公司                                               3136
+GaussDB
+集中式版参考                                               4 兼容性说明
+
+
+
+
+4.3.10 PL/SQL 语言
+              GaussDB数据库基本兼容的PL/SQL操作符、表达式，控制语句、集合和record等等，
+              不支持预定义的PL/SQL常量和类型、子类型等。
+
+
+4.3.10.1 PL/SQL 基本语法
+
+              表 4-46 PL/SQL 操作符
+
+               Oracle数据库             GaussDB数据库
+
+               +                     支持
+
+               :=                    支持
+
+               =>                    支持
+
+               %                     支持
+
+               '                     支持
+
+               .                     支持
+
+               ||                    支持
+
+               /                     支持
+
+               **                    不支持
+
+               (                     支持
+
+               )                     支持
+
+               :                     支持
+
+               ,                     支持
+
+               <<                    支持
+
+               >>                    支持
+
+               /*                    支持
+
+               */                    支持
+
+               *                     支持
+
+               "                     支持
+
+               ..                    支持
+
+               =                     支持
+
+               <>                    支持
+
+               !=                    支持
+
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司           3137
+
