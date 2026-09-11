@@ -1,0 +1,1368 @@
+GaussDB
+集中式版参考                                                            4 兼容性说明
+
+                表 4-192 表达式
+                MySQL数据库                      GaussDB数据库
+
+                用户自定义变量@var_name              部分支持
+
+                全局变量@@var_name                部分支持
+
+
+
+
+4.4.3.7 SQL
+
+4.4.3.7.1 DDL
+
+                表 4-193 DDL 语法兼容介绍
+                MySQL数据库功能概      详细语法说明               GaussDB数据库实现差异
+                述
+
+                建表和修改表时支持创       ALTER TABLE、CREATE   ● GaussDB当前不支持
+                建主键、UNIQUE索      TABLE                  UNIQUE INDEX|KEY
+                引、外键约束                                  index_name语法，使用
+                                                        UNIQUE INDEX|KEY
+                                                        index_name语法时会报
+                                                        错。
+                                                      ● 当约束被建立为全局二级索
+                                                        引，SQL语句中指定using
+                                                        btree时，底层会建立为
+                                                        ubtree。
+                                                      ● 当约束关联的表为ustore，
+                                                        且SQL语句中指定为using
+                                                        btree时，底层会建立为
+                                                        ubtree。
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                           3500
+GaussDB
+集中式版参考                                                           4 兼容性说明
+
+
+               MySQL数据库功能概   详细语法说明               GaussDB数据库实现差异
+               述
+
+               支持自增列         ALTER TABLE、CREATE   ● 自动增长列建议为索引（非
+                             TABLE                  全局二级索引）的第一个字
+                                                    段，否则建表时产生警告，
+                                                    含有自动增长列的表进行某
+                                                    些操作时会产生错误，例
+                                                    如：ALTER TABLE
+                                                    EXCHANGE PARTITION。
+                                                    MySQL自动增长列必须为
+                                                    索引第一个字段。
+                                                  ● AUTO_INCREMENT =
+                                                    value语法，value必须为小
+                                                    于2^127的正数。MySQL不
+                                                    校验value。
+                                                  ● 当自增值已经达到字段数据
+                                                    类型的最大值时，继续自增
+                                                    将产生错误。MySQL有些
+                                                    场景产生错误或警告，有些
+                                                    场景仍自增为最大值。
+                                                  ● 不支持
+                                                    innodb_autoinc_lock_mod
+                                                    e系统变量，GaussDB的
+                                                    GUC参数
+                                                    auto_increment_cache=0
+                                                    时，批量插入自动增长列的
+                                                    行为与MySQL系统变量
+                                                    innodb_autoinc_lock_mod
+                                                    e=1相似。
+                                                  ● 自动增长列在导入数据或者
+                                                    进行Batch Insert执行计划
+                                                    的插入操作时，对于混合
+                                                    0、NULL和确定值的场景，
+                                                    如果产生错误，后续插入自
+                                                    增值不一定与MySQL完全
+                                                    一致。提供
+                                                    auto_increment_cache参
+                                                    数，可以控制预留自增值的
+                                                    数量。
+                                                  ● 并行导入或插入自动增长列
+                                                    触发自增时，每个并行线程
+                                                    预留的缓存值也只在其线程
+                                                    中使用，未完全使用完毕的
+                                                    话，也会出现表中自动增长
+                                                    列的值不连续的情况。并行
+                                                    插入产生的自增值结果无法
+                                                    保证与MySQL完全一致。
+                                                  ● 本地临时表中的自动增长列
+                                                    批量插入时不会预留自增
+
+
+文档版本 01 (2026-04-30)     版权所有 © 华为云计算技术有限公司                             3501
+GaussDB
+集中式版参考                                                   4 兼容性说明
+
+
+               MySQL数据库功能概   详细语法说明      GaussDB数据库实现差异
+               述
+
+                                              值，正常场景不会产生不连
+                                              续的自增值。MySQL临时
+                                              表与普通表中的自动增长列
+                                              自增结果一致。
+                                         ● SERIAL数据类型为原有的自
+                                           增列，与
+                                           AUTO_INCREMENT自增列
+                                           有差异。MySQL的SERIAL
+                                           数据类型就是
+                                           AUTO_INCREMENT自增
+                                           列。
+                                         ● 不允许
+                                           auto_increment_offset的值
+                                           大于
+                                           auto_increment_increment
+                                           的值，会产生错误。
+                                           MySQL允许，并说明
+                                           auto_increment_offset会被
+                                           忽略。
+                                         ● 在表有主键或索引的情况
+                                           下，ALTER TABLE命令重写
+                                           表数据的顺序与MySQL不
+                                           一定相同，GaussDB按照表
+                                           数据存储顺序重写，
+                                           MySQL会按主键或索引顺
+                                           序重写，导致自增值的顺序
+                                           可能不同。
+                                         ● ALTER TABLE命令添加或修
+                                           改自增列时，第一次预留自
+                                           增值的数量是表统计信息中
+                                           的行数，统计信息的行数不
+                                           一定与MySQL一致。
+                                         ● last_insert_id函数返回值为
+                                           128位的整型。
+                                         ● 在触发器或用户自定义函数
+                                           中自增时，刷新
+                                           last_insert_id返回值。
+                                           MySQL不刷新。
+                                         ● 对GUC参数
+                                           auto_increment_offset和
+                                           auto_increment_increment
+                                           设置超出范围的值会产生错
+                                           误。MySQL会自动改为边
+                                           界值。
+                                         ● sql_mode设置
+                                           no_auto_value_on_zero参
+
+
+
+文档版本 01 (2026-04-30)     版权所有 © 华为云计算技术有限公司                     3502
+GaussDB
+集中式版参考                                                         4 兼容性说明
+
+
+               MySQL数据库功能概    详细语法说明               GaussDB数据库实现差异
+               述
+
+                                                       数，表定义的自动增长列为
+                                                       非NOT NULL约束，向表中
+                                                       插入数据不指定自动增长列
+                                                       的值时，GaussDB中自动增
+                                                       长列插入NULL值，且不触
+                                                       发自增；MySQL中自动增
+                                                       长列插入NULL值，触发自
+                                                       增。
+
+               支持前缀索引         CREATE INDEX、ALTER   ● 前缀长度不得超过2676，
+                              TABLE、CREATE TABLE     键值的实际长度受内部页面
+                                                     限制，若字段中含有多字节
+                                                     字符或者一个索引上有多个
+                                                     键，索引行长度可能会超限
+                                                     报错。
+                                                   ● CREATE INDEX语法中，不
+                                                     支持以下关键字作为前缀键
+                                                     的字段名称：COALESCE、
+                                                     EXTRACT、GREATEST、
+                                                     LEAST、LNNVL、
+                                                     NULLIF、NVL、NVL2、
+                                                     OVERLAY、POSITION、
+                                                     REGEXP_LIKE、
+                                                     SUBSTRING、
+                                                     TIMESTAMPDIFF、
+                                                     TREAT、TRIM、
+                                                     XMLCONCAT、
+                                                     XMLELEMENT、
+                                                     XMLEXISTS、
+                                                     XMLFOREST、
+                                                     XMLPARSE、XMLPI、
+                                                     XMLROOT、
+                                                     XMLSERIALIZE。
+                                                   ● 主键索引中不支持前缀键。
+
+               支持指定字符集与排序     ALTER SCHEMA、ALTER   -
+               规则             TABLE、CREATE
+                              SCHEMA、CREATE
+                              TABLE
+
+               修改表时支持在表第一     ALTER TABLE          -
+               列前面或者在指定列后
+               面添加列
+
+               修改列名称/定义语法     ALTER TABLE          -
+               兼容
+
+               定时任务EVENT语法兼   ALTER EVENT、CREATE   -
+               容              EVENT、DROP
+                              EVENT、SHOW EVENTS
+
+
+
+文档版本 01 (2026-04-30)     版权所有 © 华为云计算技术有限公司                         3503
+GaussDB
+集中式版参考                                                      4 兼容性说明
+
+
+               MySQL数据库功能概   详细语法说明               GaussDB数据库实现差异
+               述
+
+               创建分区表语法兼容     CREATE TABLE         -
+                             PARTITION、CREATE
+                             TABLE SUBPARTITION
+
+               建表和修改表时支持指    CREATE TABLE、ALTER   -
+               定表级和列级        TABLE
+               comment
+
+               创建索引时支持指定索    CREATE INDEX         -
+               引级comment
+
+
+
+
+文档版本 01 (2026-04-30)     版权所有 © 华为云计算技术有限公司                        3504
+GaussDB
+集中式版参考                                                     4 兼容性说明
+
+
+               MySQL数据库功能概   详细语法说明        GaussDB数据库实现差异
+               述
+
+               交换普通表和分区表分    ALTER TABLE   ALTER TABLE EXCHANGE
+               区的数据          PARTITION     PARTITION的差异点：
+                                           ● 对于自增列，MySQL执行
+                                             alter exchange partition
+                                             后，自增列会被重置；
+                                             GaussDB则不会被重置，自
+                                             增列则按照旧的自增值递
+                                             增。
+                                           ● MySQL表或分区使用
+                                             tablespace时，则无法进行
+                                             分区和普通表数据的交换；
+                                             GaussDB表或分区使用不同
+                                             的tablespace时，仍可进行
+                                             分区和普通表数据的交换。
+                                           ● 对于列默认值，MySQL不
+                                             会校验默认值，因此默认值
+                                             不同时也可进行分区和普通
+                                             表数据的交换；GaussDB会
+                                             校验默认值，如果默认值不
+                                             同，则无法进行分区和普通
+                                             表数据的交换。
+                                           ● MySQL在分区表或普通表
+                                             上进行DROP列操作后，表
+                                             结构仍然一致，则可进行分
+                                             区和普通表数据的交换；
+                                             GaussDB需要保证普通表和
+                                             分区表的被删除列严格对齐
+                                             才能进行分区和普通表数据
+                                             的交换。
+                                           ● MySQL和GaussDB的哈希
+                                             算法不同，所以两者在相同
+                                             的hash分区存储的数据可能
+                                             不一致，导致最后交换的数
+                                             据也可能不一致。
+                                           ● MySQL的分区表不支持外
+                                             键，普通表包含外键或其他
+                                             表引用普通表的外键，则无
+                                             法进行分区和普通表数据的
+                                             交换；GaussDB的分区表支
+                                             持外键，在两个表的外键约
+                                             束一致时，则可进行分区和
+                                             普通表数据的交换，
+                                             GaussDB的分区表不带外
+                                             键，普通表有其他表引用，
+                                             如果分区表和普通表表一
+                                             致，则可进行分区和普通表
+                                             数据的交换。
+
+
+
+文档版本 01 (2026-04-30)     版权所有 © 华为云计算技术有限公司                       3505
+GaussDB
+集中式版参考                                                                  4 兼容性说明
+
+
+               MySQL数据库功能概          详细语法说明                  GaussDB数据库实现差异
+               述
+
+               支持删除表的主键外键           ALTER TABLE DROP        -
+               约束                   [PRIMARY |
+                                    FOREIGN]KEY
+
+               支持CREATE TABLE ...   CREATE TABLE ... LIKE   ● 在MySQL 8.0.16 之前的版
+               LIKE语法兼容                                       本中，CHECK约束会被语法
+                                                              解析但功能会被忽略，表现
+                                                              为不复制CHECK约束，
+                                                              GaussDB支持复制CHECK约
+                                                              束。
+                                                            ● 对于主键约束名称，在建表
+                                                              时，MySQL所有主键约束
+                                                              名称固定为PRIMARY
+                                                              KEY，GaussDB不支持复
+                                                              制。
+                                                            ● 对于唯一键约束名称，在建
+                                                              表时，MySQL支持复制，
+                                                              GaussDB不支持复制。
+                                                            ● 对于CHECK约束名称，在建
+                                                              表时，MySQL 8.0.16 之前
+                                                              的版本无CHECK约束信息，
+                                                              GaussDB支持复制。
+                                                            ● 对于索引名称，在建表时，
+                                                              MySQL支持复制，
+                                                              GaussDB不支持复制。
+                                                            ● 在跨sql_mode模式建表
+                                                              时，MySQL受宽松模式和
+                                                              严格模式控制，GaussDB可
+                                                              能存在严格模式失效的情
+                                                              况。
+                                                              例如：源表存在默认值
+                                                              “0000-00-00”，在
+                                                              “no_zero_date”严格模式
+                                                              下，GaussDB建表成功，且
+                                                              包含默认值
+                                                              “0000-00-00”，严格模
+                                                              式失效；而MySQL建表失
+                                                              败，受严格模式控制。
+                                                            ● 针对跨数据库创建表，
+                                                              MySQL支持，GaussDB不
+                                                              支持。
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                            3506
+GaussDB
+集中式版参考                                                            4 兼容性说明
+
+
+               MySQL数据库功能概   详细语法说明                 GaussDB数据库实现差异
+               述
+
+               支持更改表名兼容语法    ALTER TABLE tbl_name   ● GaussDB的alter rename语
+                             RENAME [TO | AS | =]     法仅支持修改表名称功能操
+                             new_tbl_name;            作，不能耦合其它功能操
+                             RENAME {TABLE |          作。
+                             TABLES} tbl_name TO    ● GaussDB中，仅旧表名字段
+                             new_tbl_name [,          支持使用
+                             tbl_name2 TO             schema.table_name格式，
+                             new_tbl_name2, ...];     且新表名与旧表名将属于同
+                                                      一个Schema。
+                                                    ● GaussDB不支持新旧表跨
+                                                      Schema重命名操作；但如
+                                                      有权限，则可在当前
+                                                      Schema下修改其它Schema
+                                                      下表名称。
+                                                    ● GaussDB的rename多组表
+                                                      的语法支持全为本地临时表
+                                                      的重命名，不支持本地临时
+                                                      表和非本地临时表组合的场
+                                                      景。
+                                                    ● GaussDB的RENAME TABLE
+                                                      校验顺序与MySQL不一
+                                                      致，导致报错信息不一致。
+
+
+
+
+文档版本 01 (2026-04-30)     版权所有 © 华为云计算技术有限公司                             3507
+GaussDB
+集中式版参考                                                                                  4 兼容性说明
+
+
+                MySQL数据库功能概       详细语法说明                       GaussDB数据库实现差异
+                述
+
+                支持增加子分区语法兼        ALTER TABLE [ IF             ● 不支持如下语法添加多分
+                容                 EXISTS ] { table_name          区：
+                                  [*] | ONLY table_name |          ALTER TABLE table_name ADD
+                                                                   PARTITION (partition_definition1,
+                                  ONLY ( table_name )}             partition_definition1,…);
+                                  action [, ... ];             ● 仅支持原有添加多分区语
+                                  action:                        法：
+                                                                   ALTER TABLE table_name ADD
+                                  move_clause |                    PARTITION
+                                                                   (partition_definition1), ADD
+                                  exchange_clause |                PARTITION
+                                  row_clause |                     (partition_definition2[y1] ), …;
+
+                                  merge_clause |
+                                  modify_clause |
+                                  split_clause |
+                                  add_clause |
+                                  drop_clause |
+                                  ilm_clause
+                                  add_clause:
+                                  ADD
+                                  {{partition_less_than_ite
+                                  m|
+                                  partition_start_end_ite
+                                  m | partition_list_item} |
+                                  PARTITION({partition_le
+                                  ss_than_item |
+                                  partition_start_end_ite
+                                  m|
+                                  partition_list_item})}
+
+
+
+
+4.4.3.7.2 DML
+
+                表 4-194 DML 语法兼容介绍
+
+                MySQL数据库功能概       详细语法说明                       GaussDB数据库实现差异
+                述
+
+                DELETE支持从多个表      DELETE                       -
+                中删除数据
+
+                DELETE支持ORDER     DELETE                       -
+                BY和LIMIT
+
+                DELETE支持从指定分      DELETE                       -
+                区（或子分区）删除数
+                据
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                                                3508
+GaussDB
+集中式版参考                                                    4 兼容性说明
+
+
+               MySQL数据库功能概       详细语法说明     GaussDB数据库实现差异
+               述
+
+               UPDATE支持从多个表      UPDATE     -
+               中更新数据
+
+               UPDATE支持ORDER     UPDATE     -
+               BY和LIMIT
+
+               SELECT INTO语法兼容   SELECT     ● GaussDB可以使用SELECT
+                                              INTO根据查询结果创建一
+                                              个新表，MySQL不支持。
+                                            ● GaussDB的SELECT INTO语
+                                              法不支持将多个查询进行集
+                                              合运算后的结果作为查询结
+                                              果。
+
+
+
+
+文档版本 01 (2026-04-30)        版权所有 © 华为云计算技术有限公司                 3509
+GaussDB
+集中式版参考                                                              4 兼容性说明
+
+
+               MySQL数据库功能概       详细语法说明     GaussDB数据库实现差异
+               述
+
+               REPLACE INTO语法兼   REPLACE    ● 时间类型初始值的差异。例
+               容                              如:
+                                                 – MySQL不受严格模式和
+                                                   宽松模式的影响，可向
+                                                   表中插入时间0值，即：
+                                                  mysql> CREATE TABLE test(f1
+                                                  TIMESTAMP NOT NULL, f2
+                                                  DATETIME NOT NULL, f3
+                                                  DATE NOT NULL);
+                                                  Query OK, 1 row affected
+                                                  (0.00 sec)
+
+                                                  mysql> REPLACE INTO test
+                                                  VALUES(f1, f2, f3);
+                                                  Query OK, 1 row affected
+                                                  (0.00 sec)
+
+                                                  mysql> SELECT * FROM test;
+                                                  +---------------------
+                                                  +---------------------+------------
+                                                  +
+                                                  | f1              | f2
+                                                  | f3      |
+                                                  +---------------------
+                                                  +---------------------+------------
+                                                  +
+                                                  | 0000-00-00 00:00:00 |
+                                                  0000-00-00 00:00:00 |
+                                                  0000-00-00 |
+                                                  +---------------------
+                                                  +---------------------+------------
+                                                  +
+                                                  1 row in set (0.00 sec)
+                                                 – GaussDB在宽松模式下
+                                                   才可以成功插入时间0
+                                                   值，即
+                                                  gaussdb=# SET
+                                                  b_format_version = '5.7';
+                                                  SET
+                                                  gaussdb=# SET
+                                                  b_format_dev_version = 's1';
+                                                  SET
+                                                  gaussdb=# SET sql_mode = '';
+                                                  SET
+                                                  gaussdb=# CREATE TABLE
+                                                  test(f1 TIMESTAMP NOT
+                                                  NULL, f2 DATETIME NOT
+                                                  NULL, f3 DATE NOT NULL);
+                                                  CREATE TABLE
+                                                  gaussdb=# REPLACE INTO
+                                                  test VALUES(f1, f2, f3);
+                                                  REPLACE 0 1
+                                                  gaussdb=# SELECT * FROM
+                                                  test;
+                                                  f1        |       f2       |    f3
+                                                  ---------------------
+                                                  +---------------------+------------
+                                                  0000-00-00 00:00:00 |
+                                                  0000-00-00 00:00:00 |
+                                                  0000-00-00
+                                                  (1 row)
+
+
+
+
+文档版本 01 (2026-04-30)        版权所有 © 华为云计算技术有限公司                                  3510
+GaussDB
+集中式版参考                                                         4 兼容性说明
+
+
+               MySQL数据库功能概    详细语法说明      GaussDB数据库实现差异
+               述
+
+                                                在严格模式下，则报错
+                                                date/time field value
+                                                out of range:
+                                                "0000-00-00
+                                                00:00:00"。
+                                          ● 位串类型初始值的差异。例
+                                            如：
+                                               – MySQLBIT类型的初始值
+                                                 为空串''，即：
+                                                mysql> CREATE TABLE test(f1
+                                                BIT(3) NOT NULL);
+                                                Query OK, 0 rows affected
+                                                (0.01 sec)
+
+                                                mysql> REPLACE INTO test
+                                                VALUES(f1);
+                                                Query OK, 1 row affected
+                                                (0.00 sec)
+
+                                                mysql> SELECT f1, f1 IS NULL
+                                                FROM test;
+                                                +----+------------+
+                                                | f1 | f1 is null |
+                                                +----+------------+
+                                                | |           0|
+                                                | |           0|
+                                                +----+------------+
+                                                2 rows in set (0.00 sec)
+                                               – GaussDB位串类型BIT的
+                                                 初始值为NULL，则报
+                                                 错。
+                                                gaussdb=# CREATE TABLE
+                                                test(f1 BIT(3) NOT NULL);
+                                                CREATE TABLE
+                                                gaussdb=# REPLACE INTO
+                                                test VALUES(f1);
+                                                ERROR: null value in column
+                                                "f1" violates not-null
+                                                constraint
+                                                DETAIL: Failing row contains
+                                                (null).
+
+               SELECT支持指定多分   SELECT      -
+               区查询
+
+               UPDATE支持指定多分   UPDATE      -
+               区更新
+
+
+
+
+文档版本 01 (2026-04-30)      版权所有 © 华为云计算技术有限公司                             3511
+GaussDB
+集中式版参考                                                                 4 兼容性说明
+
+
+               MySQL数据库功能概     详细语法说明      GaussDB数据库实现差异
+               述
+
+               LOAD DATA导入数据   LOAD DATA   ● LOAD DATA语法执行结果
+               功能                            与MySQL严格模式一致，
+                                             宽松模式暂未适配。例如当
+                                             导入源数据包含非法字符
+                                             时，GaussDB报错，
+                                             MySQL严格模式下报错，
+                                             宽松模式下对非法字符进行
+                                             截断处理后导入。
+                                                -- GaussDB
+                                                gaussdb=# SET sql_mode='';
+                                                SET
+                                                gaussdb=# DROP TABLE IF EXISTS
+                                                t1;
+                                                DROP TABLE
+                                                gaussdb=# CREATE TABLE t1(a
+                                                text) CHARSET gbk;
+                                                CREATE TABLE
+                                                gaussdb=# SELECT
+                                                unhex('1AFF1F') INTO OUTFILE
+                                                '/tmp/3.data';
+                                                COPY 1
+                                                gaussdb=# LOAD DATA INFILE
+                                                '/tmp/3.data' INTO TABLE t1
+                                                CHARACTER SET gbk;
+                                                ERROR: invalid byte sequence for
+                                                encoding "GBK": 0xff 0x1f
+                                                CONTEXT: COPY t1, line 1.
+                                                gaussdb=# DROP TABLE t1;
+                                                DROP TABLE
+
+                                                -- MySQL
+                                                mysql> SET sql_mode='';
+                                                Query OK, 0 rows affected (0.00
+                                                sec)
+                                                mysql> DROP TABLE IF EXISTS t1;
+                                                Query OK, 0 rows affected (0.02
+                                                sec)
+                                                mysql> CREATE TABLE t1(a text)
+                                                CHARSET gbk;
+                                                Query OK, 0 rows affected (0.03
+                                                sec)
+                                                mysql> SELECT unhex('1AFF1F')
+                                                INTO OUTFILE '/tmp/3.data';
+                                                Query OK, 1 row affected (0.00
+                                                sec)
+                                                mysql> LOAD DATA INFILE '/tmp/
+                                                3.data' INTO TABLE t1
+                                                CHARACTER SET gbk;
+                                                Query OK, 1 row affected, 1
+                                                warning (0.01 sec)
+                                                Records: 1 Deleted: 0 Skipped: 0
+                                                Warnings: 1
+                                                mysql> SHOW warnings;
+                                                +---------+------
+                                                +---------------------------------------
+                                                ---------------------+
+                                                | Level | Code |
+                                                Message
+                                                           |
+                                                +---------+------
+                                                +---------------------------------------
+                                                ---------------------+
+
+
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                                      3512
+GaussDB
+集中式版参考                                                               4 兼容性说明
+
+
+               MySQL数据库功能概   详细语法说明      GaussDB数据库实现差异
+               述
+                                              | Warning | 1366 | Incorrect string
+                                              value: '\xFF\x1F' for column 'a' at
+                                              row 1 |
+                                              +---------+------
+                                              +---------------------------------------
+                                              ---------------------+
+                                              1 row in set (0.00 sec)
+                                              mysql> SELECT hex(a) FROM t1;
+                                              +--------+
+                                              | hex(a) |
+                                              +--------+
+                                              | 1A    |
+                                              +--------+
+                                              1 row in set (0.00 sec)
+                                              mysql> DROP TABLE t1;
+                                              Query OK, 0 rows affected (0.02
+                                              sec)
+
+                                         ● IGNORE与LOCAL参数功能
+                                           仅为当导入数据与表中数据
+                                           存在冲突时，忽略当前冲突
+                                           行数据功能和当文件中字段
+                                           数小于指定表中列数时自动
+                                           为其余列填充默认值功能，
+                                           其余功能暂未适配。
+                                         ● 指定LOCAL关键字，且文件
+                                           路径为相对路径时，文件从
+                                           二进制目录下搜索；不指定
+                                           LOCAL关键字，且文件路径
+                                           为相对路径时，文件从数据
+                                           目录下搜索。
+                                         ● 语法中指定分隔符，转义字
+                                           符，分行符等符号时，若指
+                                           定为单引号，将导致词法解
+                                           析错误。
+                                         ● [(col_name_or_user_var [,
+                                           col_name_or_user_var] ...)]
+                                           指定列参数不支持重复指定
+                                           列。
+                                         ● [FIELDS TERMINATED BY
+                                           'string']指定换行符不能与
+                                           [LINES TERMINATED BY
+                                           'string']分隔符相同。
+                                         ● 执行LOAD DATA语法写入
+                                           表中的数据若无法转换为表
+                                           中数据类型格式时报错。
+                                         ● LOAD DATA SET表达式中
+                                           不支持指定列名计算。
+                                         ● 若set表达式返回值类型与
+                                           对应列类型之间不存在隐式
+                                           转换函数则报错。
+
+
+
+文档版本 01 (2026-04-30)     版权所有 © 华为云计算技术有限公司                                      3513
+GaussDB
+集中式版参考                                                             4 兼容性说明
+
+
+               MySQL数据库功能概   详细语法说明      GaussDB数据库实现差异
+               述
+
+                                         ● LOAD DATA只能用于表，
+                                           不能用于视图。
+                                         ● Windows下的文件与Linux
+                                           环境下文件默认换行符存在
+                                           差异，LOAD DATA无法识
+                                           别此场景会报错，建议用户
+                                           导入时检查导入文件行尾换
+                                           行符。
+                                         ● 当源数据的字段数比目标表
+                                           的字段数多时，GaussDB提
+                                           示告警信息，MySQL在以
+                                           下任一场景提示告警信息，
+                                           其他场景报错。
+                                              – sql_mode未设置严格模
+                                                式。
+                                              – 指定了IGNORE选项。
+                                              – 指定了LOCAL选项且未
+                                                指定REPLACE选项。
+                                         ● 当源数据文件尾以列分隔符
+                                           结束时，MySQL按分隔符
+                                           后无新列处理，GaussDB下
+                                           按分隔符后包含一列空字符
+                                           串处理。
+                                              -- 1.csv源数据
+                                              1,2,
+
+                                              -- GaussDB
+                                              gaussdb=# DROP TABLE IF EXISTS
+                                              t1;
+                                              NOTICE: table "t1" does not exist,
+                                              skipping
+                                              DROP TABLE
+                                              gaussdb=# CREATE TABLE t1(a
+                                              char(30), b char(30), c char(30));
+                                              CREATE TABLE
+                                              gaussdb=# LOAD DATA infile
+                                              '/tmp/1.csv' INTO TABLE t1 fields
+                                              terminated by ',';
+                                              COPY 1
+                                              gaussdb=# SELECT c IS NULL,
+                                              length(c) FROM t1;
+                                               ?column? | length
+                                              ----------+--------
+                                               f      |    0
+                                              (1 row)
+
+                                              -- MySQL
+                                              mysql> DROP TABLE IF EXISTS t1;
+                                              Query OK, 0 rows affected (0.06
+                                              sec)
+
+                                              mysql> CREATE TABLE t1(a
+                                              char(30), b char(30), c char(30));
+                                              Query OK, 0 rows affected (0.04
+                                              sec)
+
+
+
+文档版本 01 (2026-04-30)     版权所有 © 华为云计算技术有限公司                                  3514
+GaussDB
+集中式版参考                                                           4 兼容性说明
+
+
+               MySQL数据库功能概   详细语法说明      GaussDB数据库实现差异
+               述
+
+                                              mysql> LOAD DATA infile '/tmp/
+                                              1.csv' INTO TABLE t1 fields
+                                              terminated by ',';
+                                              ERROR 1261 (01000): Row 1
+                                              doesn't contain data for all
+                                              columns
+
+
+
+
+文档版本 01 (2026-04-30)     版权所有 © 华为云计算技术有限公司                               3515
+GaussDB
+集中式版参考                                                                 4 兼容性说明
+
+
+               MySQL数据库功能概       详细语法说明          GaussDB数据库实现差异
+               述
+
+               INSERT IGNORE兼容   INSERT IGNORE   ● GaussDB会返回降级后的错
+                                                   误信息，MySQL则会将降
+                                                   级后的错误信息记录到错误
+                                                   堆栈中，然后调用show
+                                                   warnings;命令查看。
+                                                 ● 时间类型的差异。例如：
+                                                  – GaussDB中date、
+                                                    datetime、timestamp
+                                                    默认零值。
+                                                    gaussdb=# CREATE TABLE
+                                                    test(f1 DATE NOT NULL, f2
+                                                    DATETIME NOT NULL, f3
+                                                    TIMESTAMP NOT NULL);
+                                                    CREATE TABLE
+                                                    gaussdb=# INSERT IGNORE
+                                                    INTO test VALUES(NULL,
+                                                    NULL, NULL);
+                                                    WARNING: null value in
+                                                    column "f1" violates not-null
+                                                    constraint
+                                                    DETAIL: Failing row contains
+                                                    (null, null, null, null).
+                                                    WARNING: null value in
+                                                    column "f2" violates not-null
+                                                    constraint
+                                                    DETAIL: Failing row contains
+                                                    (null, null, null, null).
+                                                    WARNING: null value in
+                                                    column "f3" violates not-null
+                                                    constraint
+                                                    DETAIL: Failing row contains
+                                                    (null, null, null, null).
+                                                    INSERT 0 1
+                                                    gaussdb=#
+                                                    SELECT * FROM test;
+                                                        f1    |        f2       |
+                                                    f3
+                                                    ------------+---------------------
+                                                    +---------------------
+                                                     1970-01-01 | 1970-01-01
+                                                    00:00:00 | 1970-01-01
+                                                    00:00:00
+                                                    (1 row)
+                                                  – MySQL中date、
+                                                    datetime、timestamp
+                                                    默认零值。
+                                                    mysql> CREATE TABLE test(f1
+                                                    DATE NOT NULL, f2
+                                                    DATETIME NOT NULL, f3
+                                                    TIMESTAMP NOT NULL);
+                                                    Query OK, 0 rows affected
+                                                    (0.00 sec)
+
+                                                    mysql> INSERT IGNORE INTO
+                                                    test VALUES(NULL, NULL,
+                                                    NULL);
+                                                    Query OK, 1 row affected, 3
+                                                    warnings (0.00 sec)
+
+
+
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                                   3516
+GaussDB
+集中式版参考                                                            4 兼容性说明
+
+
+               MySQL数据库功能概   详细语法说明      GaussDB数据库实现差异
+               述
+                                                mysql> show warnings;
+                                                +---------+------
+                                                +----------------------------+
+                                                | Level | Code |
+                                                Message                  |
+                                                +---------+------
+                                                +----------------------------+
+                                                | Warning | 1048 | Column 'f1'
+                                                cannot be null |
+                                                | Warning | 1048 | Column 'f2'
+                                                cannot be null |
+                                                | Warning | 1048 | Column 'f3'
+                                                cannot be null |
+                                                +---------+------
+                                                +----------------------------+
+                                                3 rows in set (0.00 sec)
+
+                                                mysql> SELECT * FROM test;
+                                                +------------+---------------------
+                                                +---------------------+
+                                                | f1      | f2              |
+                                                f3              |
+                                                +------------+---------------------
+                                                +---------------------+
+                                                | 0000-00-00 | 0000-00-00
+                                                00:00:00 | 0000-00-00
+                                                00:00:00 |
+                                                +------------+---------------------
+                                                +---------------------+
+                                                1 row in set (0.00 sec)
+
+                                         ● 由于GaussDB不支持
+                                           MySQL的bit类型，因此忽
+                                           略bit类型NOT NULL约束和
+                                           插入的bit类型长度与定义不
+                                           同的场景下不支持INSERT
+                                           IGNORE错误降级。
+                                              – GaussDB中bit类型
+                                                gaussdb=# CREATE TABLE
+                                                test(f1 BIT(10) NOT NULL);
+                                                CREATE TABLE
+                                                gaussdb=# INSERT IGNORE
+                                                INTO test VALUES(NULL);
+                                                ERROR: Un-support feature
+                                                DETAIL: ignore null for insert
+                                                statement is not supported in
+                                                column f1.
+                                                gaussdb=# INSERT IGNORE
+                                                INTO test VALUES('1010');
+                                                ERROR: bit string length 4
+                                                does not match type bit(10)
+                                                CONTEXT: referenced column:
+                                                f1
+                                              – MySQL中bit类型
+                                                mysql> CREATE TABLE test(f1
+                                                BIT(10) NOT NULL);
+                                                Query OK, 0 rows affected
+                                                (0.00 sec)
+
+                                                mysql> INSERT IGNORE INTO
+                                                test VALUES(NULL);
+
+
+
+
+文档版本 01 (2026-04-30)     版权所有 © 华为云计算技术有限公司                                   3517
+GaussDB
+集中式版参考                                                          4 兼容性说明
+
+
+               MySQL数据库功能概   详细语法说明      GaussDB数据库实现差异
+               述
+                                               Query OK, 1 row affected, 1
+                                               warning (0.00 sec)
+
+                                               mysql> INSERT IGNORE INTO
+                                               test VALUES('1010');
+                                               Query OK, 1 row affected, 1
+                                               warning (0.01 sec)
+
+                                         ● MySQL数据库时间类型指
+                                           定精度时，插入时间零值会
+                                           显示精度，GaussDB则不显
+                                           示，例如：
+                                              – GaussDB指定时间精度
+                                               gaussdb=# CREATE TABLE
+                                               test(f1 TIME(3) NOT NULL, f2
+                                               DATETIME(3) NOT NULL, f3
+                                               TIMESTAMP(3) NOT NULL);
+                                               CREATE TABLE
+                                               gaussdb=# INSERT IGNORE
+                                               INTO test
+                                               VALUES(NULL,NULL,NULL);
+                                               WARNING: null value in
+                                               column "f1" violates not-null
+                                               constraint
+                                               DETAIL: Failing row contains
+                                               (null, null, null).
+                                               WARNING: null value in
+                                               column "f2" violates not-null
+                                               constraint
+                                               DETAIL: Failing row contains
+                                               (null, null, null).
+                                               WARNING: null value in
+                                               column "f3" violates not-null
+                                               constraint
+                                               DETAIL: Failing row contains
+                                               (null, null, null).
+                                               INSERT 0 1
+                                               gaussdb=# SELECT * FROM
+                                               test;
+                                                  f1 |         f2        |
+                                               f3
+                                               ----------+---------------------
+                                               +---------------------
+                                                00:00:00 | 1970-01-01
+                                               00:00:00 | 1970-01-01 00:00:00
+                                               (1 row)
+                                              – MySQL指定时间精度
+                                               mysql> CREATE TABLE test(f1
+                                               TIME(3) NOT NULL, f2
+                                               DATETIME(3) NOT NULL, f3
+                                               TIMESTAMP(3) NOT NULL);
+                                               Query OK, 0 rows affected
+                                               (0.00 sec)
+
+                                               mysql> INSERT IGNORE INTO
+                                               test
+                                               VALUES(NULL,NULL,NULL);
+                                               Query OK, 1 row affected, 3
+                                               warnings (0.00 sec)
+
+                                               mysql> SELECT * FROM test;
+                                               +--------------
+
+
+
+
+文档版本 01 (2026-04-30)     版权所有 © 华为云计算技术有限公司                               3518
+GaussDB
+集中式版参考                                                          4 兼容性说明
+
+
+               MySQL数据库功能概   详细语法说明      GaussDB数据库实现差异
+               述
+                                                +-------------------------
+                                                +-------------------------+
+                                                | f1        | f2            |
+                                                f3                 |
+                                                +--------------
+                                                +-------------------------
+                                                +-------------------------+
+                                                | 00:00:00.000 | 0000-00-00
+                                                00:00:00.000 | 0000-00-00
+                                                00:00:00.000 |
+                                                +--------------
+                                                +-------------------------
+                                                +-------------------------+
+                                                1 row in set (0.00 sec)
+
+                                         ● 由于MySQL数据库和
+                                           GaussDB执行过程的差异，
+                                           因此，产生的warnings条数
+                                           可能不同，例如：
+                                              – GaussDB产生的
+                                                warnings条数
+                                                gaussdb=# CREATE TABLE
+                                                test(f1 INT, f2 INT not null);
+                                                CREATE TABLE
+                                                gaussdb=# INSERT INTO test
+                                                VALUES(1,0),(3,0),(5,0);
+                                                INSERT 0 3
+                                                gaussdb=# INSERT IGNORE
+                                                INTO test SELECT f1+1, f1/f2
+                                                FROM test;
+                                                WARNING: division by zero
+                                                CONTEXT: referenced column:
+                                                f2
+                                                WARNING: null value in
+                                                column "f2" violates not-null
+                                                constraint
+                                                DETAIL: Failing row contains
+                                                (2, null).
+                                                WARNING: division by zero
+                                                CONTEXT: referenced column:
+                                                f2
+                                                WARNING: null value in
+                                                column "f2" violates not-null
+                                                constraint
+                                                DETAIL: Failing row contains
+                                                (4, null).
+                                                WARNING: division by zero
+                                                CONTEXT: referenced column:
+                                                f2
+                                                WARNING: null value in
+                                                column "f2" violates not-null
+                                                constraint
+                                                DETAIL: Failing row contains
+                                                (6, null).
+                                                INSERT 0 3
+                                              – MySQL产生的warnings
+                                                条数
+                                                mysql> CREATE TABLE test(f1
+                                                INT, f2 INT not null);
+                                                Query OK, 0 rows affected
+                                                (0.01 sec)
+
+
+
+
+文档版本 01 (2026-04-30)     版权所有 © 华为云计算技术有限公司                               3519
+GaussDB
+集中式版参考                                                         4 兼容性说明
+
+
+               MySQL数据库功能概   详细语法说明      GaussDB数据库实现差异
+               述
+
+                                               mysql> INSERT INTO test
+                                               VALUES(1,0),(3,0),(5,0);
+                                               Query OK, 3 rows affected
+                                               (0.00 sec)
+                                               Records: 3 Duplicates: 0
+                                               Warnings: 0
+
+                                               mysql> INSERT IGNORE INTO
+                                               test SELECT f1+1, f1/f2 FROM
+                                               test;
+                                               Query OK, 3 rows affected, 4
+                                               warnings (0.00 sec)
+                                               Records: 3 Duplicates: 0
+                                               Warnings: 4
+
+                                         ● MySQL数据库和GaussDB
+                                           INSERT IGNORE在触发器
+                                           中的差异，例如：
+                                              – GaussDB触发器中使用
+                                                INSERT IGNORE
+                                               gaussdb=# CREATE TABLE
+                                               test1(f1 INT NOT NULL);
+                                               CREATE TABLE
+                                               gaussdb=# CREATE TABLE
+                                               test2(f1 INT);
+                                               CREATE TABLE
+                                               gaussdb=# CREATE OR
+                                               REPLACE FUNCTION
+                                               trig_test() RETURNS TRIGGER
+                                               AS $$
+                                               gaussdb$# BEGIN
+                                               gaussdb$# INSERT IGNORE
+                                               INTO test1 VALUES(NULL);
+                                               gaussdb$# RETURN NEW;
+                                               gaussdb$# END;
+                                               gaussdb$# $$ LANGUAGE
+                                               plpgsql;
+                                               CREATE FUNCTION
+                                               gaussdb=# CREATE TRIGGER
+                                               trig2 BEFORE INSERT ON
+                                               test2 FOR EACH ROW
+                                               EXECUTE PROCEDURE
+                                               trig_test();
+                                               CREATE TRIGGER
+                                               gaussdb=# INSERT INTO test2
+                                               VALUES(NULL);
+                                               WARNING: null value in
+                                               column "f1" violates not-null
+                                               constraint
+                                               DETAIL: Failing row contains
+                                               (null).
+                                               CONTEXT: SQL statement
+                                               "INSERT IGNORE INTO test1
+                                               VALUES(NULL)"
+                                               PL/pgSQL function trig_test()
+                                               line 3 at SQL statement
+                                               INSERT 0 1
+                                               gaussdb=# SELECT * FROM
+                                               test1;
+                                                f1
+                                               ----
+
+
+
+
+文档版本 01 (2026-04-30)     版权所有 © 华为云计算技术有限公司                                3520
+GaussDB
+集中式版参考                                                        4 兼容性说明
+
+
+               MySQL数据库功能概   详细语法说明      GaussDB数据库实现差异
+               述
+                                                0
+                                               (1 rows)
+
+                                               gaussdb=# SELECT * FROM
+                                               test2;
+                                                f1
+                                               ----
+
+                                               (1 rows)
+                                              – MySQL触发器中使用
+                                                INSERT IGNORE
+                                               mysql> CREATE TABLE
+                                               test1(f1 INT NOT NULL);
+                                               Query OK, 0 rows affected
+                                               (0.01 sec)
+
+                                               mysql> CREATE TABLE
+                                               test2(f1 INT);
+                                               Query OK, 0 rows affected
+                                               (0.00 sec)
+
+                                               mysql> DELIMITER ||
+                                               mysql> CREATE TRIGGER trig2
+                                               BEFORE INSERT ON test2 FOR
+                                               EACH ROW
+                                                  -> BEGIN
+                                                  -> INSERT IGNORE into
+                                               test1 values(NULL);
+                                                  -> END||
+                                               Query OK, 0 rows affected
+                                               (0.01 sec)
+
+                                               mysql> DELIMITER ;
+                                               mysql> INSERT INTO test2
+                                               VALUES(NULL);
+                                               ERROR 1048 (23000): Column
+                                               'f1' cannot be null
+                                               mysql> INSERT IGNORE INTO
+                                               test2 VALUES(NULL);
+                                               Query OK, 1 row affected
+                                               (0.00 sec)
+
+                                               mysql> SELECT * FROM test1;
+                                               +----+
+                                               | f1 |
+                                               +----+
+                                               | 0|
+                                               +----+
+                                               1 row in set (0.00 sec)
+
+                                               mysql> SELECT * FROM test2;
+                                               +------+
+                                               | f1 |
+                                               +------+
+                                               | NULL |
+                                               +------+
+                                               1 row in set (0.00 sec)
+
+                                         ● GaussDB的bool、serial的
+                                           实现机制与MySQL不同，
+                                           因此其默认零值与MySQL
+                                           不同，例如：
+
+
+
+文档版本 01 (2026-04-30)     版权所有 © 华为云计算技术有限公司                                3521
+GaussDB
+集中式版参考                                                         4 兼容性说明
+
+
+               MySQL数据库功能概   详细语法说明      GaussDB数据库实现差异
+               述
+
+                                              – GaussDB的行为
+                                               gaussdb=# CREATE TABLE
+                                               test(f1 SERIAL, f2 BOOL NOT
+                                               NULL);
+                                               NOTICE: CREATE TABLE will
+                                               create implicit sequence
+                                               "test_f1_seq" for serial column
+                                               "test.f1"
+                                               CREATE TABLE
+                                               gaussdb=# INSERT IGNORE
+                                               INTO test values(NULL,NULL);
+                                               WARNING: null value in
+                                               column "f1" violates not-null
+                                               constraint
+                                               DETAIL: Failing row contains
+                                               (null, null).
+                                               WARNING: null value in
+                                               column "f2" violates not-null
+                                               constraint
+                                               DETAIL: Failing row contains
+                                               (null, null).
+                                               INSERT 0 1
+                                               gaussdb=# SELECT * FROM
+                                               test;
+                                                f1 | f2
+                                               ----+----
+                                                 0|f
+                                               (1 row)
+                                              – MySQL的行为
+                                               mysql> CREATE TABLE test(f1
+                                               SERIAL, f2 BOOL NOT NULL);
+                                               Query OK, 0 rows affected
+                                               (0.00 sec)
+
+                                               mysql> INSERT IGNORE INTO
+                                               test values(NULL,NULL);
+                                               Query OK, 1 row affected, 1
+                                               warning (0.00 sec)
+
+                                               mysql> SELECT * FROM test;
+                                               +----+----+
+                                               | f1 | f2 |
+                                               +----+----+
+                                               | 1| 0|
+                                               +----+----+
+                                               1 row in set (0.00 sec)
+
+
+
+
+文档版本 01 (2026-04-30)     版权所有 © 华为云计算技术有限公司                               3522
+GaussDB
+集中式版参考                                                                      4 兼容性说明
+
+
+4.4.3.7.3 DCL
+
+                表 4-195 DCL 语法兼容介绍
+
+                概述                    详细语法说明                差异
+
+                支持SET用户自定义变           SET                   自定义变量长度的差异。例
+                量                                           如：
+                                                            ● MySQL自定义变量名长度
+                                                              没有约束。
+                                                            ● GaussDB自定义变量名长度
+                                                              不超过64字节，超过部分的
+                                                              变量名会截断并提示告警。
+
+                SET TRANSACTION语      SET TRANSACTION       MySQL可以设置当前会话
+                法兼容                                         （session）和全局（global）
+                                                            的事务隔离级别和读写模式，
+                                                            GaussDB设置当前会话需要设
+                                                            置参数
+                                                            b_format_behavior_compat_o
+                                                            ptions包含
+                                                            set_session_transaction，设置
+                                                            全局只对当前数据库生效。
+
+                SET NAMES指定           SET [ SESSION |       GaussDB暂不支持指定
+                COLLATE子句             LOCAL ] NAMES         charset_name与数据库字符集
+                                      {'charset_name'       不同。具体请参见SET。
+                                      [COLLATE
+                                      'collation_name'] |
+                                      DEFAULT};
+
+
+
+
+4.4.3.8 驱动
+
+4.4.3.8.1 JDBC 接口参考
+                GaussDB与MySQL的JDBC接口定义一致，均遵循业界规范，本章节主要介绍GaussDB
+                数据库的MySQL兼容性B模式与MySQL数据库JDBC接口的行为差异。
+
+
+获取结果集中的数据
+                ResultSet对象提供了丰富的方法，以获取结果集中的数据。获取数据常用的方法如表
+                4-196所示，其他方法请参考JDK官方文档。
+
+
+                表 4-196 ResultSet 对象的常用方法
+
+                方法               描述           差异
+
+                int getInt(int   按列标获取        -
+                columnIndex)     int型数据。
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                               3523
+

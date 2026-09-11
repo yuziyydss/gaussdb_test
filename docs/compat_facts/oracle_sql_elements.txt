@@ -1,0 +1,791 @@
+GaussDB
+集中式版参考                                                      4 兼容性说明
+
+
+              发布日期                      修改说明
+
+              2025-03-30                第一次正式发布，包含以下内容：
+
+                                        ● MySQL兼容性B模式，新增“系统函数
+                                          兼容性概述”。相关文档系统函数兼
+                                          容性概述。
+                                        ● MySQL兼容性M-Compatibility模式，
+                                          新增“数据类型兼容性概述”。相关
+                                          文档数据类型兼容性概述。
+                                        ● MySQL兼容性M-Compatibility模式，
+                                          新增“系统函数兼容性概述”。相关
+                                          文档系统函数兼容性概述。
+                                        ● MySQL兼容性M-Compatibility模式，
+                                          新增“SQL兼容性概述”。相关文档
+                                          SQL兼容性概述。
+                                        ● MySQL兼容性M-Compatibility模式，
+                                          新增“驱动”。相关文档驱动。
+
+
+
+4.2 GaussDB 数据库兼容性概述
+              在GaussDB中，创建数据库可以选择不同的兼容性模式，如A、B、C、PG、M，分别
+              代表Oracle兼容性、MySQL兼容性B模式、TD兼容性、Postgres兼容性和MySQL兼容
+              性M-Compatibility模式。不同兼容性模式会直接影响SQL语法、数据类型、系统函
+              数、存储过程等行为，部分兼容性接口可能仅在相应的兼容性模式下支持。MySQL兼
+              容性中M-Compatibility模式在语法、数据类型、元数据、协议等功能上对MySQL数据
+              库的兼容度较高，B模式由于架构限制无法很好的与MySQL兼容，后续不再演进。
+              Oracle兼容性、MySQL兼容性M-Compatibility模式、MySQL兼容性B模式的兼容性说
+              明可参考Oracle兼容性说明、MySQL兼容性M-Compatibility模式、MySQL兼容性B
+              模式等章节内容，用户可根据实际需要，选择合适的兼容性。
+
+
+4.3 Oracle 兼容性说明
+
+4.3.1 Oracle 数据库兼容性概述
+              GaussDB数据库在基本功能（数据类型、SQL、数据库对象等）和PL/SQL方面与
+              Oracle数据库基本兼容。但是由于架构设计方面的差异，还是存在一些不兼容的项。
+              本章节主要介绍GaussDB数据库的Oracle兼容模式与Oracle数据库19c版本的兼容性对
+              比信息。
+
+4.3.2 SQL 的基本元素
+
+
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                    3085
+GaussDB
+集中式版参考                                                                      4 兼容性说明
+
+
+4.3.2.1 数据类型
+
+              表 4-1 数值类型
+               Oracle数据库        GaussDB数据        差异
+                                库
+
+               NUMBER [ ( p     支持，有差异           精度和用法存在差异。
+               [,s])]                            ● NUMBER带参数时，GaussDB的精度p与标度s
+                                                   的最大边界值比Oracle更大。
+                                                 ● NUMBER不带参数时，GaussDB的精度p的默
+                                                   认值远大于带参数时的最大边界值；而在
+                                                   Oracle中，精度p的默认值等于带参数时的最
+                                                   大边界值。
+                                                 ● GaussDB不支持标度s为负值；在Oracle中，
+                                                   标度s为负值时会精确到相应的整数位。
+                                                 ● GaussDB支持插入NaN值；在Oracle中，插入
+                                                   NaN值会报错。
+
+               FLOAT            支持               -
+               [(p)]
+
+               BINARY_FLOA      不支持              -
+               T
+
+               BINARY_DOU       支持               -
+               BLE
+
+
+
+
+              表 4-2 日期时间类型
+               Oracle数据库                        GaussDB数   差异
+                                                据库
+
+               DATE                             支持，有差      GaussDB在未开启
+                                                异          mapping_date_to_datea参数时精
+                                                           度有差异，GaussDB支持的公元时
+                                                           间较Oracle范围更大；GaussDB在
+                                                           开启mapping_date_to_datea参数
+                                                           时，GaussDB支持的语法、操作
+                                                           符、格式控制与Oracle数据库中
+                                                           DATE类型有差异。
+
+               TIMESTAMP                        支持，有差      -
+               [ ( fractional_seconds_precisi   异
+               on ) ]
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                             3086
+GaussDB
+集中式版参考                                                                        4 兼容性说明
+
+
+               Oracle数据库                        GaussDB数   差异
+                                                据库
+
+               TIMESTAMP                        支持，有差      GaussDB的timestamptz等价于
+               [ ( fractional_seconds_precisi   异          Oracle的
+               on ) ] WITH TIME ZONE                       timestampwithlocaltimezone，缺
+                                                           少Oracle对应的timestamptz类型。
+                                                           时区更新：部分国家或地区经常会
+                                                           更新时区信息， 数据库系统因此需
+                                                           要同步修改时区文件以确保时间内
+                                                           容的正确性。
+                                                           GaussDB时区类型目前只涉及
+                                                           timestamp with timezone，当新的
+                                                           时区文件生效时，不会对已有的数
+                                                           据进行变更，新数据会随时区文件
+                                                           信息进行同步调整。与Oracle的同
+                                                           类型数据能力存在差异。
+
+               TIMESTAMP                        不支持        -
+               [ ( fractional_seconds_precisi
+               on ) ] WITH LOCAL TIME
+               ZONE
+
+               INTERVAL YEAR                    支持         -
+               [ ( year_precision ) ] TO
+               MONTH
+
+               INTERVAL DAY                     支持         -
+               [ ( day_precision ) ] TO
+               SECOND
+               [ ( fractional_seconds_precisi
+               on ) ]
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                               3087
+GaussDB
+集中式版参考                                                                           4 兼容性说明
+
+
+                  说明
+
+                 ● A兼容模式下，GaussDB中日历系统和Oracle日历系统存在以下差异。
+                   ●    Oracle中存在两套日历系统：儒略历和格里历（公历）。公元1582年10月5日前使用儒
+                        略历，闰年计算规则是满足年份能被4整除；公元1582年10月5日后使用格里历，闰年
+                        计算规则为满足年份能被4整除且不能被100整除，或者能被400整除。GaussDB中只有
+                        格里历（公历）日历系统，闰年计算规则为满足年份能被4整除且不能被100整除，或
+                        者能被400整除。
+                   ●    Oracle中公元1582年包含355天，缺少的10天为公元1582年10月5号到公元1582年10
+                        月14号，公元1582年10月4号的下一天是公元1582年10月15号；GaussDB中公元1582
+                        年包含365天。
+                   ●    Oracle存在公元0年，即'-0001-01-01 00:00:00'到'0001-01-01 00:00:00'包含731天；
+                        GaussDB中不存在公元0年，即'-0001-01-01 00:00:00'到'0001-01-01 00:00:00'包含
+                        366天。
+                 ● A兼容模式下，在未开启mapping_date_to_datea参数时DATE类型被替换为TIMESTAMP(0)
+                   WITHOUT TIME ZONE，差异同TIMESTAMP(0) WITHOUT TIME ZONE。在开启
+                   mapping_date_to_datea参数时DATE类型被替换为DATEA，差异同DATEA。
+                 ● 对于TIMESTAMP [ ( fractional_seconds_precision ) ] / TIMESTAMP
+                   [ ( fractional_seconds_precision ) ] WITH TIME ZONE与Oracle存在以下差异。
+                   ●    fractional_seconds_precision：GaussDB支持的精度范围为0~6，Oracle支持的精度范
+                        围为0~9。
+                   ●    GaussDB通过DateStyle设置日期和时间值的显示格式，以及有歧义的输入值的解析规
+                        则。具体请参见日期/时间类型中日期输入的说明介绍。Oracle在一般情况下的输入格
+                        式校验及输出显示由NLS_TIMESTAMP_FORMAT/NLS_TIMESTAMP_TZ_FORMAT参数
+                        进行控制。
+                   ●    对于秒的小数部分的显示，GaussDB默认去除末尾的零，Oracle依据格式化参数中的设
+                        置（FF/FF1-FF9）进行显示控制。如 '2017-09-01 10:32:19.212000'，GaussDB显示为
+                        '2017-09-01 10:32:19.212'，Oracle在format参数中含FF时显示为'2017-09-01
+                        10:32:19.212000'，在format参数中含FF9时显示为'2017-09-01
+                        10:32:19.212000000'。
+                   ●    支持的时间范围存在差异，GaussDB支持的公元时间较Oracle范围更大。
+                   ●    对于超过6位精度的字面量会首先按照第7位精度遵循四舍六入五成双的规则做转换，
+                        即第7位为5的时候，第6位将取最接近的偶数。6位精度内的舍入规则以时间
+                        2000-01-01 00:00:00为基线，基线前时间五舍六入，基线后时间四舍五入，其中
+                        TIMESTAMP WITH TIME ZONE类型的时间基线按照UTC-0时区计算。
+                 ● A兼容模式下，在开启mapping_date_to_datea参数时DATE与Oracle的DATE类型存在以下
+                   差异。
+                   ●    支持字面量定义DATEA类型，如“SELECT datea '2024-10-01' ;”，与Oracle存在差
+                        异，GaussDB中的字面量字符串受nls_date_format校验，若不符合nls_date_format值
+                        则会报错或输出错误数据，而Oracle中字面量格式校验则受到固定格式YYYY-MM-DD
+                        的校验。
+                   ●    在使用CREATE TABLE、CREATE VIEW、PREPARE创建对象时，GaussDB与Oracle存在
+                        差异。
+                        GaussDB中，如果存在未明确类型（UNKNOWN）时，会对UNKNOWN类型向明确类
+                        型进行一次转换，如果转换失败，则创建对象报错，如果转换成功则会将该值保存为确
+                        定类型值，并且之后的操作不再受额外参数的影响。例如，有如下的典型场景：
+                        WHERE datea_column > 'unknown_text'
+                        'unknown_text'::datea
+                        cast('unknown_text' as datea)
+                        datea'unknown text'
+                        而如果原始定义中存在函数等其他表达式时，则使用宽松校验。定义对象时，只要该表
+                        达式返回值类型能够转换成目标类型，则可以创建成功，不需要在定义时执行该表达
+                        式。例如：
+                        CREATE TABLE t (a DATE DEFAULT to_date('2024-10-01'));
+                        上述语句在创建表时不会受nls_date_format格式校验。
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                                  3088
+GaussDB
+集中式版参考                                                                        4 兼容性说明
+
+                   ●   当UNKNOWN、CHAR、CHARACTER、NCHAR、BPCHAR、VARCHAR、CHARACTER
+                       VARYING、VARCHAR2、NVARCHAR2、TEXT、CLOB类型格式符合数值格式，
+                       GaussDB支持DATEA加以上类型（左右操作数可交换）和DATEA减以上类型，不支持
+                       以上类型减DATEA类型；当CHAR、CHARACTER、NCHAR、VARCHAR、CHARACTER
+                       VARYING、VARCHAR2、NVARCHAR2类型格式符合数值格式，Oracle支持DATE类型
+                       加以上类型（左右操作数可交换）和DATE类型减以上类型，不支持以上类型减DATE类
+                       型。
+                   ●   当UNKNOWN、CHAR、CHARACTER、NCHAR、BPCHAR、VARCHAR、CHARACTER
+                       VARYING、VARCHAR2、NVARCHAR2、TEXT、CLOB类型格式符合时间格式，
+                       GaussDB支持以上类型减DATEA类型，不支持DATEA加以上类型（左右操作数可交
+                       换）和DATEA减以上类型；当CHAR、CHARACTER、NCHAR、VARCHAR、
+                       CHARACTER VARYING、VARCHAR2、NVARCHAR2类型格式符合时间格式，Oracle不
+                       支持DATE类型加以上类型（左右操作数可交换），不支持DATE类型减以上类型和以上
+                       类型减DATE类型。
+                   ●   GaussDB中DATEA类型格式控制只支持nls_date_format参数，Oracle中除了
+                       nls_date_format参数还支持nls_date_language参数。
+                   ●   GaussDB中DATEA类型和CLOB类型之间支持互相隐式转换；Oracle在某些场景下不支
+                       持。
+                   ●   GaussDB中支持DATEA类型和INTERVAL类型、数值类型、RAW等类型之间的比较操
+                       作，Oracle不支持，具体请参见比较操作符。
+                   ●   GaussDB中支持的nls_date_format元素与Oracle存在一些行为差异，包括：
+                       1. GaussDB不支持E/EE，Oracle支持。
+                       2. DL/DS/TS在GaussDB中不能用于to_date，Oracle支持用于to_date。
+                       3. 不支持输入的字符串带后置空格，如nls_date_format = 'yyyy-mm-dd'; 在将下面字
+                          符串转为date类型时会报错：“SELECT date '2024 -10-01' FROM dual;”, Oracle
+                          支持该写法。
+                       4. 在Oracle中对于"text"分隔符，需要校验输入，但是在当前GaussDB中，只影响输
+                          出，不影响输入。
+                       5. FX和FM与Oracle行为存在差异，GaussDB中的FM功能和Oracle一样，都用来转为
+                          字符串时抑制前导0和后置空格，但GaussDB中其只能作为前缀，且作用范围只是
+                          在每一个基础元素上，与Oracle中的作用范围有差异；FX功能与Oracle中一致，都
+                          是用于精确校验是否符合nls格式，但GaussDB中FX作用范围为只要FX出现1次，后
+                          面的所有元素都需要精确校验，直到遇到FM为止，与Oracle中的作用范围有差异。
+                       6. GaussDB支持TH作为后缀；Oracle实际不起作用。
+                       7. GaussDB不支持THSP、SPTH作为后缀，SP可以设置为后缀，但实际不起作用。
+                       8. GaussDB中前缀、后缀不允许在一个格式化模型元素中连续多次出现，如
+                          FMFMYYYY、YYYYTHTH。
+                   ●   GaussDB中的DATEA类型仅支持btree/ubtree/psort/cbtree索引，不支持gin/ugin/gist
+                       索引。
+                   ●   GaussDB中的DATEA类型仅支持JDBC、ODBC、libpq驱动，不支持GO、Python驱
+                       动。
+                   ●   GaussDB中的DATEA类型不支持作为范围类型使用。
+                   ●   GaussDB的gsql端不按照nls_date_format格式显示DATEA数据，而是按照固定格式
+                       'YYYY-MM-DD HH24:MI:SS AD/BC'显示。Oracle的sqlplus端按照nls_date_format格
+                       式显示DATE数据。
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                                    3089
+GaussDB
+集中式版参考                                                                4 兼容性说明
+
+              表 4-3 字符类型
+               Oracle数据库            GaussDB数据   差异
+                                    库
+
+               VARCHAR2 ( size      支持，有差异      在GaussDB中，size的单位为字节，最大值为
+               [ BYTE | CHAR ] )                10M。
+                                                在Oracle中，当
+                                                MAX_STRING_SIZE=EXTENDED时，最大长
+                                                度为32767字节；当
+                                                MAX_STRING_SIZE=STANDARD时，最大长
+                                                度为4000字节。
+
+               NVARCHAR2            支持，有差异      在GaussDB中，size的单位为字节，最大值为
+               ( size )                         10M，实际能容纳的字符数与使用的字符集
+                                                有关；在Oracle中，当
+                                                MAX_STRING_SIZE=EXTENDED时，最大长
+                                                度为32767字节，当
+                                                MAX_STRING_SIZE=STANDARD时，最大长
+                                                度为4000字节，实际能容纳的字符数与使用
+                                                的字符集有关。
+                                                在GaussDB中，NVARCHAR2结尾的空格在插
+                                                入时会被忽略；在Oracle中，NVARCHAR2结
+                                                尾的空格在插入时不会被忽略。
+
+               CHAR [ ( size        支持，有差异      在GaussDB中，size的单位为字节，最大值为
+               [ BYTE |                         10M；在Oracle中，最大长度为2000字节。
+               CHAR ] ) ]
+
+               NCHAR [ ( size ) ]   支持，有差异      在GaussDB中，size单位为字节，最大
+                                                10MB；而在Oracle中，size单位为字符，最
+                                                大容量为2000个字节，实际能容纳的字符数
+                                                与使用的字符集有关。
+
+               CLOB                 支持，有差异      不支持定位器。
+
+               NCLOB                不支持         -
+
+               LONG                 不支持         -
+
+
+
+              表 4-4 二进制类型
+               Oracle数据        GaussDB数   差异
+               库               据库
+
+               RAW ( size )    支持，有差异     在GaussDB中，size是指字节长度建议值，不会用于
+                                          校验输入raw类型的字节长度。
+
+               LONG RAW        不支持        -
+
+               BLOB            支持         -
+
+               BFILE           不支持        -
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                     3090
+GaussDB
+集中式版参考                                                                  4 兼容性说明
+
+              表 4-5 ROWID 类型
+               Oracle数据      GaussDB数据   差异
+               库             库
+
+               ROWID         支持，有差异      在GaussDB中，ROWID类型是按照node_slice、
+                                         table_oid、bucket_id、row_no字段数值依次比
+                                         较；在Oracle中，ROWID类型是按照data object
+                                         number、relate file number、block number、
+                                         row number字段数值依次比较。ROWID类型操作
+                                         符比较规则参见操作符。
+
+               UROWID        不支持         -
+
+
+
+
+              表 4-6 用户自定义类型
+               Oracle数据库                     GaussDB数据库
+
+               对象类型                          不支持
+
+               REF数据类型                       不支持
+
+               可变数组                          支持
+
+               嵌套表                           支持
+
+
+
+
+              表 4-7 伪类型
+               Oracle数据库                     GaussDB数据库
+
+               anytype                       不支持
+
+               anydata                       不支持
+
+               anydataset                    不支持
+
+
+
+
+              表 4-8 xml 类型
+               Oracle数据     GaussDB数据    差异
+               库            库
+
+               XMLTYPE      支持，有差异       在GaussDB中，不支持部分操作，如不能通过使用
+                                         XMLELEMENT函数将字符串转变为XMLTYPE类型，
+                                         而是转变成XML类型。具体请参见XMLTYPE类型。
+
+               URITYPE      不支持          -
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                             3091
+GaussDB
+集中式版参考                                                             4 兼容性说明
+
+              表 4-9 空间类型
+               Oracle数据库                  GaussDB数据库
+
+               SDO_GEOMETRY               不支持
+
+               SDO_TOPO_GEOMETRY          不支持
+
+               SDO_GEORASTER              不支持
+
+
+
+
+              表 4-10 锁模式
+               Oracle数据库                  GaussDB数据库
+
+               none                       -
+
+               null                       AccessShare
+
+               RS                         RowShare
+
+               RX                         RowExclusive
+
+               S                          ShareUpdateExclusive
+
+               SRX                        Share
+
+               -                          ShareRowExclusive
+
+               X                          Exclusive
+
+               -                          AccessExclusive
+
+               -                          INVALID
+                                          说明
+                                           GaussDB的INVALID表示被赋予了非法锁。仅在运行过程
+                                           中出现了GaussDB无法识别的锁时会被赋予INVALID锁。
+
+
+
+
+4.3.2.2 数据类型比较规则
+              数据类型比较（排序）规则是指相同数据类型的值之间发生比较（排序）时遵循的比
+              较（排序）规则。
+
+              表 4-11 比较规则
+               Oracle数据    GaussDB数   差异
+               库           据库
+
+               Numeric值    支持         -
+
+               日期时间值       支持         -
+
+               二进制值        支持         -
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                      3092
+GaussDB
+集中式版参考                                                             4 兼容性说明
+
+
+               Oracle数据    GaussDB数   差异
+               库           据库
+
+               字符值         支持，有差      ● 在GaussDB和Oracle中，支持的比较规则不完全相
+                           异            同，相同比较规则的名称也可能不同。
+                                      ● GaussDB和Oracle的比较规则在可指定性上有差异，
+                                        例如GaussDB不支持指定表级别的比较规则，而
+                                        Oracle支持。
+                                      ● GaussDB和Oracle在指定比较规则的语法上有差异，
+                                        例如在GaussDB中，使用ENCODING、LC_CTYPE和
+                                        LC_COLLATE三个参数决定创建数据库时使用的字符
+                                        集、字符分类和比较规则，具体请参见CREATE
+                                        DATABASE。而在Oracle中，各级别的比较规则通常
+                                        由一系列带有NLS前缀的参数确定。
+
+               对象值         不支持        -
+
+               Varrays和    支持，有差      Oracle和GaussDB均支持Varrays的比较，与Oracle不同
+               嵌套表         异          的是，GaussDB不仅支持比较两个Varrays中的元素个
+                                      数，还支持同类型的Varrays之间的比较。
+
+               数据类型优       支持         -
+               先级
+
+               数据转换        支持         -
+               （显式/隐
+               式类型转
+               换）
+
+
+
+
+4.3.2.3 字面量
+
+              表 4-12 字面量
+               Oracle数据库                  GaussDB数据库
+
+               文本字面量                      支持
+
+               数值字面量                      支持
+
+               日期时间字面量                    支持
+
+               区间字面量                      支持
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                      3093
+GaussDB
+集中式版参考                                                                        4 兼容性说明
+
+
+4.3.2.4 格式模型
+
+              表 4-13 格式
+
+               Oracle数据库      GaussDB数据       差异
+                              库
+
+               数字格式           支持，有差异          GaussDB仅在参数a_format_version值为10c和
+                                              a_format_dev_version值为s1的情况下，支持$、
+                                              C、TM、TM9、TME、U格式。同时在该参数下，
+                                              不支持TH、PL、SG格式。
+                                              GaussDB具体支持情况请参见表1-72。
+
+               日期时间格式         支持，有差异          GaussDB中用于时间截断和时间四舍五入的参数，
+                                              仅在参数a_format_version值为10c和
+                                              a_format_dev_version值为s1的情况下有效。
+                                              GaussDB具体支持情况请参见表1-70。
+
+               格式模型修饰         支持              -
+               符
+
+               字符串到日期         支持，有差异          GaussDB中to_timestamp_tz函数在参数
+               转换规则                           a_format_version值为10c和a_format_dev_version
+                                              值为s1的情况下有效。
+                                              GaussDB具体支持情况请参见类型转换函数章节的
+                                              “to_date/to_timestamp/to_timestamp_tz”。
+
+               xml格式模式        不支持             -
+
+
+
+
+4.3.2.5 空值
+
+              表 4-14 空值
+
+               Oracle数据库                  GaussDB数据库
+
+               IS NULL和IS NOT NULL        支持
+
+               NULLS in conditions        支持
+
+
+
+
+4.3.2.6 注释
+
+              表 4-15 comment
+
+               Oracle数据库      GaussDB数    差异
+                              据库
+
+               斜杠和星号          支持          -
+               （/*）
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                                 3094
+GaussDB
+集中式版参考                                                              4 兼容性说明
+
+
+               Oracle数据库    GaussDB数       差异
+                            据库
+
+               两个连字符        支持             -
+               （--）
+
+               COMMENT命     支持             -
+               令
+
+               HINT         支持，有差          GaussDB不支持'--+'hint形式。
+                            异              具体信息请参见《SQL调优指南》中“使用Plan
+                                           Hint进行调优”章节。
+
+
+
+
+4.3.2.7 数据库对象
+
+              表 4-16 schema 对象
+               Oracle数据    GaussDB数    差异
+               库           据库
+
+               分析视图        不支持         -
+
+               属性维度        不支持         -
+
+               集群          支持          -
+
+               约束          支持          -
+
+               数据库链接       支持          -
+
+               数据库触发       支持          -
+               器
+
+               尺寸          支持          -
+
+               外部过程库       不支持         -
+
+               分层结构        不支持         -
+
+               索引组织表       不支持         -
+
+               索引          支持          Oracle数据库的唯一索引为组合列时会认为NULL ==
+                                       NULL，而GaussDB默认遵守SQL标准，认为NULL !=
+                                       NULL。如需兼容这一行为，可以开启GUC参数
+                                       enable_uniq_idx_a_compat进行兼容，该参数在
+                                       GaussDB A兼容模式下默认关闭。
+
+               索引类型        不支持         -
+
+               Java类       不支持         -
+
+               Java资源      不支持         -
+
+               Java源码      不支持         -
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                      3095
+GaussDB
+集中式版参考                                                         4 兼容性说明
+
+
+               Oracle数据      GaussDB数   差异
+               库             据库
+
+               join groups   不支持        -
+
+               物化视图          支持         -
+
+               物化视图日         不支持        -
+               志
+
+               挖掘模型          不支持        -
+
+               对象表           不支持        -
+
+               对象类型          不支持        -
+
+               对象视图          不支持        -
+
+               operators     支持         -
+
+               包             支持         -
+
+               序列            支持         -
+
+               存储函数          支持         -
+
+               存储过程          支持         -
+
+               同义词           支持，有差      Oracle数据库的数据库对象在同一namespace内不能
+                             异          重名；GaussDB内同一namespace内同义词可与表、
+                                        视图、函数、package重名，重名时，优先访问该名
+                                        称对象，未寻找到该名称对象时才会寻找该名称的同
+                                        义词指向的对象；同义词指向的对象的Schema名是
+                                        用户名时才会搜索PUBLIC同义词。详细的搜索顺序
+                                        参见注意事项。
+
+               表             支持         -
+
+               视图            支持         -
+
+               zone map      不支持        -
+
+
+
+
+              表 4-17 nonschema 对象
+               Oracle数据库                    GaussDB数据库
+
+               上下文                          不支持
+
+               目录                           支持
+
+               版本                           不支持
+
+               闪回存档                         不支持
+
+               锁定配置文件                       不支持
+
+               配置文件                         不支持
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                3096
+GaussDB
+集中式版参考                                                    4 兼容性说明
+
+
+               Oracle数据库             GaussDB数据库
+
+               还原点                   支持
+
+               角色                    支持
+
+               回滚段                   ● ustore支持回滚段
+                                     ● astore不支持回滚段
+
+               表空间                   支持
+
+               表空间集                  不支持
+
+               统一审计策略                支持
+
+               用户                    支持
+
+
+
+
+4.3.2.8 数据库对象名称和限定符
+
+              表 4-18 命名规则
+               Oracle数据库    GaussDB数据库     差异
+
+               数据库对象命名规     支持，有差异         GaussDB默认小写。
+               则
+
+               模式对象命名规则     支持             -
+
+
+
+
+4.3.2.9 SQL 语句中的引用架构对象和部件的语法
+
+              表 4-19 对象引用
+               Oracle数据库              GaussDB数据库
+
+               引用对象的一般语法              支持
+
+               解析对象的引用                支持
+
+               引用外部模式对象               支持
+
+               引用外部数据库对象              支持
+
+               引用表和索引分区和子分区           支持
+
+
+
+
+文档版本 01 (2026-04-30)        版权所有 © 华为云计算技术有限公司                3097
+GaussDB
+集中式版参考                                                            4 兼容性说明
+
+
+4.3.3 伪列
+分层查询伪列
+
+              表 4-20 分层查询伪列
+               Oracle数据库                      GaussDB数据库
+
+               connect_by_iscycle             支持
+
+               connect_by_isleaf              支持
+
+               level伪列                        支持
+
+
+
+
+序列伪列
+
+              表 4-21 序列
+               Oracle数据      GaussDB数据库       差异
+               库
+
+               currval       支持，有差异           GaussDB以函数形式实现。兼容Oracle调用方
+                                              式。
+
+               nextval       支持，有差异           GaussDB以函数形式实现。兼容Oracle调用方
+                                              式。
+
+
+
+
+rowid 伪列
+
+              表 4-22 rowid
+               Oracle数据      GaussDB数    差异
+               库             据库
+
+               rowid         支持，有差异      Oracle在创建表时支持rowid伪列；GaussDB在创建
+                                         表时使用hasrowid选项支持rowid伪列。
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                 3098
+
