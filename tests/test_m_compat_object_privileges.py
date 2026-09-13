@@ -60,9 +60,13 @@ class MObjectPrivilegeTests(unittest.TestCase):
                 self.assertEqual(self.r.manifests[mid].expected.scope,'syntax_only')
 
     def test_exact_builder_reconstruction(self):
+        # m_grant已进入人工演进阶段（新增source completion facts与
+        # scenario），不再回退到batch_04一次性builder的输出。
         from scripts.build_m_compat_batch_04 import BUILDERS,rendered_files
         for key in ('grant','revoke'):
             p=BUILDERS[key]()
+            if p.id == 'm_grant':
+                continue
             for name,obj in rendered_files(p).items():
                 self.assertEqual((ROOT/'specs/dcl'/p.id/name).read_text(),yaml.safe_dump(obj,allow_unicode=True,sort_keys=False,width=110))
 
