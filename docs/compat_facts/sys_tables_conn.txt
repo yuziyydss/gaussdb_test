@@ -1,0 +1,236 @@
+GaussDB
+集中式版参考                                                            8 系统表和系统视图
+
+
+               名称          类型                         描述
+
+               locktime    timestamp with time zone   默认显示角色的创建日期，如果角色被
+                                                      管理员锁定，或者登录失败次数超过阈
+                                                      值被锁定，则显示角色被锁定的日期。
+
+               rolstatus   smallint                   角色的状态。
+                                                      ● 0：正常状态。
+                                                      ● 1：由于登录失败次数超过阈值被锁
+                                                        定了一定的时间。
+                                                      ● 2：被管理员锁定。
+                                                      ● 3：登录失败次数超过阈值，但不锁
+                                                        定账户。
+
+               permspac    bigint                     角色已经使用的永久表存储空间大小。
+               e
+
+               tempspac    bigint                     角色已经使用的临时表存储空间大小。
+               e
+
+               password    smallint                   密码是否失效。
+               expired                                ● 0：密码有效。
+                                                      ● 1：密码失效。
+
+               passwordl   smallint                   密码有效天数。不设置时默认值为0，表
+               ifetime                                示密码长期有效。
+
+
+
+
+8.2.11 连接和认证
+
+8.2.11.1 PG_AUTHID
+              PG_AUTHID系统表存储有关数据库认证标识符（角色）的信息。角色把“用户”的概
+              念包含在内。一个用户实际上就是一个rolcanlogin标志被设置的角色。任何角色（不
+              管rolcanlogin设置与否）都能够把其他角色作为成员。
+
+              GaussDB中只有一份pg_authid，不是每个数据库有一份。需要有系统管理员权限才可
+              以访问此系统表。
+
+              表 8-46 PG_AUTHID 字段
+
+               名称               类型             描述
+
+               oid              oid            行标识符（隐含属性，必须明确选择）。
+
+               rolname          name           角色名称。
+
+               rolsuper         boolean        角色是否是拥有最高权限的初始系统管理员。
+                                               ● t（true）：表示是。
+                                               ● f（false）：表示不是。
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                   4870
+GaussDB
+集中式版参考                                                               8 系统表和系统视图
+
+
+               名称               类型               描述
+
+               rolinherit       boolean          角色是否自动继承其所属角色的权限。
+                                                 ● t（true）：表示自动继承。
+                                                 ● f（false）：表示不自动继承。
+
+               rolcreaterole    boolean          角色是否可以创建更多角色。
+                                                 ● t（true）：表示可以。
+                                                 ● f（false）：表示不可以。
+
+               rolcreatedb      boolean          角色是否可以创建数据库。
+                                                 ● t（true）：表示可以。
+                                                 ● f（false）：表示不可以。
+
+               rolcatupdate     boolean          角色是否可以直接更新系统表。只有
+                                                 usesysid=10的初始系统管理员拥有此权限。其
+                                                 他用户无法获得此权限。
+                                                 ● t（true）：表示可以。
+                                                 ● f（false）：表示不可以。
+
+               rolcanlogin      boolean          角色是否可以登录，也就是说，这个角色可以给
+                                                 予会话认证标识符。
+                                                 ● t（true）：表示可以。
+                                                 ● f（false）：表示不可以。
+
+               rolreplication   boolean          角色是否具有复制权限。
+                                                 ● t（true）：表示有。
+                                                 ● f（false）：表示没有。
+
+               rolauditadmin    boolean          角色是否具有审计管理员权限。
+                                                 ● t（true）：表示有。
+                                                 ● f（false）：表示没有。
+
+               rolsystemadmi    boolean          角色是否具有系统管理员权限。
+               n                                 ● t（true）：表示有。
+                                                 ● f（false）：表示没有。
+
+               rolconnlimit     integer          对于可以登录的角色，限制其最大并发连接数
+                                                 量。
+                                                 -1 表示没有限制。
+
+               rolpassword      text             密码密文，如果没有密码，则为NULL。
+
+               rolvalidbegin    timestamp        账户的有效开始时间，如果没有开始时间，则为
+                                with time zone   NULL。
+
+               rolvaliduntil    timestamp        账户的有效结束时间，如果没有结束时间，则为
+                                with time zone   NULL。
+
+               rolrespool       name             用户所能够使用的resource pool。
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                        4871
+GaussDB
+集中式版参考                                                              8 系统表和系统视图
+
+
+               名称                    类型         描述
+
+               roluseft              boolean    角色是否可以操作外表。
+                                                ● t（true）：表示可以。
+                                                ● f（false）：表示不可以。
+
+               rolparentid           oid        用户所在组用户的OID。
+
+               roltabspace           text       用户数据表的最大空间限额。
+
+               rolkind               "char"     特殊用户种类。
+                                                ● n：表示普通用户。
+                                                ● p：表示永久用户。
+
+               rolnodegroup          oid        该字段不支持。
+
+               roltempspace          text       用户临时表的最大空间限额，单位为KB。
+
+               rolspillspace         text       用户执行作业时下盘数据的最大空间限额，单位
+                                                为KB。
+
+               rolexcpdata           text       用户可以设置的查询规则（当前未使用）。
+
+               rolmonitorad          boolean    角色是否具有监控管理员权限。
+               min                              ● t（true）：表示有。
+                                                ● f（false）：表示没有。
+
+               roloperatorad         boolean    角色是否具有运维管理员权限。
+               min                              ● t（true）：表示有。
+                                                ● f（false）：表示没有。
+
+               rolpolicyadmi         boolean    角色是否具有安全策略管理员权限。
+               n                                ● t（true）：表示有。
+                                                ● f（false）：表示没有。
+
+
+
+
+8.2.11.2 PG_AUTH_HISTORY
+              PG_AUTH_HISTORY系统表记录了角色的认证历史。需要有系统管理员权限才可以访
+              问此系统表。
+
+
+              表 8-47 PG_AUTH_HISTORY 字段
+
+               名称              类型               描述
+
+               oid             oid              行标识符（隐含属性，必须明确选择）。
+
+               roloid          oid              角色标识。
+
+               passwordti      timestamp with   创建和修改密码的时间。
+               me              time zone
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                  4872
+GaussDB
+集中式版参考                                                               8 系统表和系统视图
+
+
+               名称            类型                 描述
+
+               rolpasswor    text               角色密码密文，加密方式由GUC参数
+               d                                password_encryption_type确定。
+
+
+
+
+8.2.11.3 PG_AUTH_MEMBERS
+              PG_AUTH_MEMBERS系统表存储显示角色之间的成员关系。
+
+              表 8-48 PG_AUTH_MEMBERS 字段
+
+               名称                    类型         描述
+
+               roleid                oid        拥有成员的角色ID。
+
+               member                oid        属于ROLEID角色的一个成员的角色ID。
+
+               grantor               oid        赋予此成员关系的角色ID。
+
+               admin_option          boolean    如果MEMBER可以把ROLEID角色的成员关系赋
+                                                予其他角色则为真，不可以则为假。
+
+
+
+
+8.2.12 动态脱敏
+
+8.2.12.1 GS_MASKING_POLICY
+              GS_MASKING_POLICY系统表记录动态数据脱敏策略的主体信息，每条记录对应一个
+              脱敏策略。需要有系统管理员或安全策略管理员权限才可以访问此系统表。
+
+              表 8-49 GS_MASKING_POLICY 表字段
+
+               名称                     类型                  描述
+
+               oid                    oid                 行标识符（隐含属性，必须明确选
+                                                          择）。
+
+               polname                name                策略名称，唯一不可重复。
+
+               polcomments            name                策略描述字段，记录策略相关的描述
+                                                          信息，通过COMMENTS关键字体
+                                                          现。
+
+               modifydate             timestamp without   策略创建或修改的最新时间戳。
+                                      time zone
+
+               polenabled             boolean             策略启动开关。
+                                                          ● t（true）：表示策略启动。
+                                                          ● f（false）：表示策略没有启动。
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                        4873
+
