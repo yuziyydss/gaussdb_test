@@ -1,0 +1,1122 @@
+GaussDB
+集中式版参考                                                                                                3 存储过程
+
+              /
+              CREATE PROCEDURE
+              gaussdb=#
+              DECLARE
+               a integer := 1;
+               c integer;
+              BEGIN
+                execute immediate 'begin test_proc_exception001(:1,:2,:1); end;' using in out a, out c, a;
+              END;
+              /
+              ERROR: The numbers of parameters do not match in Dynamic SQL, expected number of parameters : 3 ,
+              actual number of SQL parameters : 2.
+              CONTEXT: PL/pgSQL function inline_code_block line 4 at EXECUTE statement
+              --修改同名占位符
+              gaussdb=#
+              DECLARE
+               a integer := 1;
+               c integer;
+              BEGIN
+                execute immediate 'begin test_proc_exception001(:1,:2,:3); end;' using in out a, out c, a;
+              END;
+              /
+              ANONYMOUS BLOCK EXECUTE
+              gaussdb=# DROP PROCEDURE test_proc_exception001;
+              DROP PROCEDURE
+
+
+
+3.8 控制语句
+
+3.8.1 返回语句
+              GaussDB提供两种方式返回数据：RETURN或RETURN NEXT及RETURN QUERY。其
+              中，RETURN NEXT和RETURN QUERY只适用于函数，不适用存储过程。
+
+3.8.1.1 RETURN
+
+语法
+              返回语句的语法图如图3-21所示。
+
+              图 3-21 return_clause::=
+
+
+
+
+              对以上语法的解释如下：
+              用于将存储过程或函数返回结果赋值给调用者。
+
+示例
+              请参见示例。
+
+3.8.1.2 RETURN NEXT 及 RETURN QUERY
+
+语法
+              创建函数时需要指定返回值SETOF datatype。
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                    2553
+GaussDB
+集中式版参考                                                                                             3 存储过程
+
+
+              ●    return_next_clause::=
+                   return_next_clause::=语句如图3-22所示。
+
+                   图 3-22 return_next_clause::=
+
+
+
+
+              ●    return_query_clause::=
+                   return_query_clause::=语句如图3-23所示。
+
+                   图 3-23 return_query_clause::=
+
+
+
+
+              对以上语法的解释如下：
+              当需要函数返回一个集合时，使用RETURN NEXT或者RETURN QUERY向结果集追加
+              结果，然后继续执行函数的下一条语句。随着后续的RETURN NEXT或RETURN
+              QUERY命令的执行，结果集中会有多个结果。函数执行完成后会一起返回所有结果。
+              RETURN NEXT可用于标量和复合数据类型。
+              RETURN QUERY有一种变体RETURN QUERY EXECUTE，后面还可以增加动态查询，
+              通过USING向查询插入参数。
+
+示例
+              gaussdb=# DROP TABLE t1;
+              gaussdb=# CREATE TABLE t1(a int);
+              gaussdb=# INSERT INTO t1 VALUES(1),(10);
+
+              --RETURN NEXT
+              gaussdb=# CREATE OR REPLACE FUNCTION fun_for_return_next() RETURNS SETOF t1 AS $$
+              DECLARE
+                 r t1%ROWTYPE;
+              BEGIN
+                 FOR r IN select * from t1
+                 LOOP
+                    RETURN NEXT r;
+                 END LOOP;
+                 RETURN;
+              END;
+              $$ LANGUAGE plpgsql;
+              gaussdb=# call fun_for_return_next();
+               a
+              ---
+               1
+               10
+              (2 rows)
+
+              -- RETURN QUERY
+              gaussdb=# CREATE OR REPLACE FUNCTION fun_for_return_query() RETURNS SETOF t1 AS $$
+              DECLARE
+                 r t1%ROWTYPE;
+              BEGIN
+                 RETURN QUERY select * from t1;
+              END;
+              $$
+              language plpgsql;
+              gaussdb=# call fun_for_return_query();
+               a
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                              2554
+GaussDB
+集中式版参考                                                        3 存储过程
+
+              ---
+               1
+               10
+              (2 rows)
+
+
+3.8.2 条件语句
+              条件语句的主要作用判断参数或者语句是否满足已给定的条件，根据判定结果执行相
+              应的操作。
+              GaussDB有五种形式的IF：
+
+              ●    IF_THEN
+                   IF_THEN::=语句如图3-24所示。
+
+                   图 3-24 IF_THEN::=
+
+
+
+
+                   IF_THEN语句是IF的最简单形式。如果条件为真，statements将被执行。否则，将
+                   忽略它们的结果使该IF_THEN语句执行结束。
+                   示例
+                   gaussdb=# DECLARE
+                      v_user_id integer default 1;
+                   BEGIN
+                   IF v_user_id <> 0 THEN
+                      raise info 'v_user_id is NOT 0';
+
+                   END IF;
+                   END;
+                   /
+                   INFO: v_user_id is NOT 0
+
+              ●    IF_THEN_ELSE
+                   IF_THEN_ELSE::=语句如图3-25所示。
+
+                   图 3-25 IF_THEN_ELSE::=
+
+
+
+
+                   IF_THEN_ELSE语句增加了ELSE的分支，可以声明在条件为假的时候执行的语句。
+                   示例
+                   gaussdb=# DECLARE
+                     v_user_id integer default 1;
+                   BEGIN
+                     IF v_user_id <> 0 THEN
+                        raise info 'v_user_id is NOT 0';
+                     ELSE
+                        raise info 'v_user_id is 0';
+                     END IF;
+                   END;
+
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司      2555
+GaussDB
+集中式版参考                                                                                         3 存储过程
+
+                  /
+                  INFO: v_user_id is NOT 0
+
+              ●   IF_THEN_ELSE IF
+                  IF语句可以嵌套，嵌套方式如下：
+                  gaussdb=# DECLARE
+                    v_user_id integer default 1;
+                  BEGIN
+                    IF v_user_id = 0 THEN
+                       raise info 'v_user_id is 0';
+                    ELSE
+                       IF v_user_id > 0 THEN
+                          raise info 'v_user_id > 0';
+                       END IF;
+                    END IF;
+                  END;
+                  /
+                  INFO: v_user_id > 0
+                  这种形式实际上就是在一个IF语句的ELSE部分嵌套了另一个IF语句。因此需要一个
+                  END IF语句给每个嵌套的IF，另外还需要一个END IF语句结束父IF-ELSE。如果有
+                  多个选项，可使用下面的形式。
+              ●   IF_THEN_ELSIF_ELSE
+                  IF_THEN_ELSIF_ELSE::语句如图3-26所示。
+
+                  图 3-26 IF_THEN_ELSIF_ELSE::=
+
+
+
+
+                  示例
+                  gaussdb=# DECLARE
+                    v_user_id integer default NULL;
+                  BEGIN
+                    IF v_user_id = 0 THEN
+                       raise info 'v_user_id is 0';
+                    ELSIF v_user_id > 0 THEN
+                       raise info 'v_user_id > 0';
+                    ELSIF v_user_id < 0 THEN
+                       raise info 'v_user_id < 0';
+                    ELSE
+                       raise info 'v_user_id is NULL';
+                    END IF;
+                  END;
+                  /
+                  INFO: v_user_id is NULL
+
+              ●   IF_THEN_ELSEIF_ELSE
+                  ELSEIF是ELSIF的别名。
+                  综合示例
+                  gaussdb=# CREATE OR REPLACE PROCEDURE proc_control_structure(i in integer)
+                  AS
+                     BEGIN
+                       IF i > 0 THEN
+                          raise info 'i:% is greater than 0. ',i;
+                       ELSIF i < 0 THEN
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                        2556
+GaussDB
+集中式版参考                                                                                           3 存储过程
+
+                          raise info 'i:% is smaller than 0. ',i;
+                       ELSE
+                          raise info 'i:% is equal to 0. ',i;
+                       END IF;
+                       RETURN;
+                     END;
+                   /
+                   CREATE PROCEDURE
+
+                   gaussdb=# CALL proc_control_structure(3);
+                   INFO: i:3 is greater than 0.
+                    proc_control_structure
+                   ------------------------
+
+                   (1 row)
+
+                   --删除存储过程
+                   gaussdb=# DROP PROCEDURE proc_control_structure;
+                   DROP PROCEDURE
+
+
+3.8.3 循环语句
+简单 LOOP 语句
+              语法图
+              loop::=语句如图3-27所示。
+
+              图 3-27 loop::=
+
+
+
+
+              label declaration ::=语句如图3-28所示。
+
+              图 3-28 label declaration ::=
+
+
+
+
+              示例
+              gaussdb=# CREATE OR REPLACE PROCEDURE proc_loop(i in integer, count out integer)
+              AS
+                 BEGIN
+                   count:=0;
+                   LOOP
+                   IF count > i THEN
+                      raise info 'count is %. ', count;
+                      EXIT;
+                   ELSE
+                      count:=count+1;
+                   END IF;
+                   END LOOP;
+                 END;
+              /
+              CREATE PROCEDURE
+
+              gaussdb=# CALL proc_loop(10,5);
+
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                                         2557
+GaussDB
+集中式版参考                                                                                   3 存储过程
+
+              INFO: count is 11.
+               count
+              -------
+                 11
+              (1 row)
+
+
+
+                  须知
+
+              该循环必须要结合EXIT使用，否则将陷入死循环。
+
+
+WHILE_LOOP 语句
+              语法图
+              while_loop::=语句如图3-29所示。
+
+              图 3-29 while_loop::=
+
+
+
+
+              label declaration ::=语句如图3-30所示。
+
+              图 3-30 label declaration ::=
+
+
+
+
+              只要条件表达式为真，WHILE语句就会不停地在一系列语句上进行循环，在每次进入
+              循环体的时候进行条件判断。
+              示例
+              gaussdb=# CREATE TABLE integertable(c1 integer) ;
+              CREATE TABLE
+              gaussdb=# CREATE OR REPLACE PROCEDURE proc_while_loop(maxval in integer)
+              AS
+                 DECLARE
+                 i int :=1;
+                 BEGIN
+                     WHILE i < maxval LOOP
+                        INSERT INTO integertable VALUES(i);
+                        i:=i+1;
+                     END LOOP;
+                 END;
+              /
+              CREATE PROCEDURE
+
+              --调用存储过程
+              gaussdb=# CALL proc_while_loop(10);
+               proc_while_loop
+              -----------------
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                    2558
+GaussDB
+集中式版参考                                                                         3 存储过程
+
+
+              (1 row)
+
+              --删除存储过程和表
+              gaussdb=# DROP PROCEDURE proc_while_loop;
+              DROP PROCEDURE
+              gaussdb=# DROP TABLE integertable;
+              DROP TABLE
+
+
+FOR_LOOP（integer 变量）语句
+              语法图
+              for_loop::=语句如图3-31所示。
+
+              图 3-31 for_loop::=
+
+
+
+
+              label declaration ::=语句如图3-32所示。
+
+              图 3-32 label declaration ::=
+
+
+
+
+                    说明
+
+                   ● 变量name会自动定义为integer类型并且只在此循环里存在。变量name介于lower_bound和
+                     upper_bound之间。
+                   ● 当使用REVERSE关键字时，lower_bound必须大于等于upper_bound，否则循环体不会被执
+                     行。
+
+              示例
+              --从0到5进行循环
+              gaussdb=# CREATE OR REPLACE PROCEDURE proc_for_loop()
+              AS
+                 BEGIN
+                 FOR I IN 0..5 LOOP
+                   DBE_OUTPUT.PRINT_LINE('It is '||to_char(I) || ' time;') ;
+                 END LOOP;
+              END;
+              /
+              CREATE PROCEDURE
+
+              --调用存储过程
+              gaussdb=# CALL proc_for_loop();
+              It is 0 time;
+              It is 1 time;
+              It is 2 time;
+              It is 3 time;
+              It is 4 time;
+              It is 5 time;
+               proc_for_loop
+              ---------------
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                        2559
+GaussDB
+集中式版参考                                                                      3 存储过程
+
+
+              (1 row)
+
+              --删除存储过程
+              gaussdb=# DROP PROCEDURE proc_for_loop;
+              DROP PROCEDURE
+
+
+FOR_LOOP 查询语句
+              语法图
+              for_loop_query::=语句如图3-33所示。
+
+              图 3-33 for_loop_query::=
+
+
+
+
+              label declaration ::=语句如图3-34所示。
+
+              图 3-34 label declaration ::=
+
+
+
+
+                    说明
+
+                  ● 变量target会自动定义，类型和query的查询结果的类型一致，并且只在此循环中有效。
+                    target的取值就是query的查询结果。
+                  ● query可以使用EXECUTE增加动态查询，通过USING向查询插入参数。
+
+              示例
+              --循环输出查询结果。
+              gaussdb=# CREATE OR REPLACE PROCEDURE proc_for_loop_query()
+              AS
+                 record VARCHAR2(50);
+              BEGIN
+                 FOR record IN SELECT spcname FROM pg_tablespace LOOP
+                 dbe_output.print_line(record);
+                 END LOOP;
+              END;
+              /
+              CREATE PROCEDURE
+
+              --调用存储过程
+              gaussdb=# CALL proc_for_loop_query();
+              pg_default
+              pg_global
+               proc_for_loop_query
+              ---------------------
+
+              (1 row)
+
+              --删除存储过程
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                      2560
+GaussDB
+集中式版参考                                                                               3 存储过程
+
+              gaussdb=# DROP PROCEDURE proc_for_loop_query;
+              DROP PROCEDURE
+
+              --动态查询
+              gaussdb=# CREATE TABLE t1(id int);
+              gaussdb=# INSERT INTO t1 VALUES(1);
+              gaussdb=#
+              DECLARE
+              a int := 1;
+              item t1%rowtype;
+              BEGIN
+                 FOR item IN EXECUTE 'SELECT * FROM t1 WHERE id = :1' USING a LOOP
+                     RAISE INFO '%', item;
+                 END LOOP;
+              END;
+              /
+              INFO: (1)
+              ANONYMOUS BLOCK EXECUTE
+              gaussdb=# DROP TABLE t1;
+
+
+FORALL 批量查询语句
+              语法图
+              forall::=语句如图3-35所示。
+
+              图 3-35 forall::=
+
+
+
+
+              label declaration ::语句如图3-36所示。
+
+              图 3-36 label declaration ::=
+
+
+
+
+                    说明
+
+                  ● 变量index会自动定义为integer类型并且只在此循环里存在。index的取值介于low_bound和
+                    upper_bound之间。
+                  ● 如果声明了SAVE EXCEPTIONS，则会将循环体DML执行过程中每次遇到的异常保存在SQL
+                    %BULK_EXCEPTIONS中，并在执行结束后统一抛出一个异常，循环过程中没有异常的执行
+                    的结果在当前子事务内不会回滚。
+                  ● 使用FORALL + BULK COLLECT INTO时，INTO的变量仅返回单条DML语句执行结果。
+                  ● FORALL循环体中只能包含DML语句。
+
+              示例
+              gaussdb=# CREATE TABLE hdfs_t1 (
+               title NUMBER(6),
+               did VARCHAR2(20),
+               data_period VARCHAR2(25),
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                2561
+GaussDB
+集中式版参考                                                                                                       3 存储过程
+
+                kind VARCHAR2(25),
+                interval VARCHAR2(20),
+                time DATE,
+                isModified VARCHAR2(10)
+              );
+              CREATE TABLE
+
+              gaussdb=# INSERT INTO hdfs_t1 VALUES( 8, 'Donald', 'OConnell', 'DOCONNEL', '650.507.9833',
+              to_date('21-06-1999', 'dd-mm-yyyy'), 'SH_CLERK' );
+              INSERT 0 1
+
+              gaussdb=# CREATE OR REPLACE PROCEDURE proc_forall()
+              AS
+              BEGIN
+                 FORALL i IN 100..120
+                   update hdfs_t1 set title = title + 100*i;
+              END;
+              /
+              CREATE PROCEDURE
+
+              --调用存储过程
+              gaussdb=# CALL proc_forall();
+               proc_forall
+              -------------
+
+              (1 row)
+
+              --查询存储过程调用结果
+              gaussdb=# SELECT * FROM hdfs_t1;
+               title | did | data_period | kind | interval |              time        | ismodified
+              --------+--------+-------------+----------+--------------+---------------------+------------
+               231008 | Donald | OConnell | DOCONNEL | 650.507.9833 | 1999-06-21 00:00:00 | SH_CLERK
+              (1 row)
+
+              --删除存储过程和表
+              gaussdb=# DROP PROCEDURE proc_forall;
+              DROP PROCEDURE
+
+              gaussdb=# DROP TABLE hdfs_t1;
+              DROP TABLE
+
+
+3.8.4 分支语句
+
+语法
+              分支语句的语法图如图3-37所示。
+
+              图 3-37 case_when::=
+
+
+
+
+              when_clause子句的语法图如图3-38所示。
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                                      2562
+GaussDB
+集中式版参考                                                                                                 3 存储过程
+
+              图 3-38 when_clause::=
+
+
+
+
+              参数说明：
+              ●    case_expression：变量或表达式。
+              ●    when_expression：常量或者条件表达式。
+              ●    statement：执行语句。
+
+示例
+              gaussdb=# CREATE OR REPLACE PROCEDURE proc_case_branch(pi_result in integer, pi_return out integer)
+              AS
+                 BEGIN
+                   CASE pi_result
+                      WHEN 1 THEN
+                         pi_return := 111;
+                      WHEN 2 THEN
+                         pi_return := 222;
+                      WHEN 3 THEN
+                         pi_return := 333;
+                      WHEN 6 THEN
+                         pi_return := 444;
+                      WHEN 7 THEN
+                         pi_return := 555;
+                      WHEN 8 THEN
+                         pi_return := 666;
+                      WHEN 9 THEN
+                         pi_return := 777;
+                      WHEN 10 THEN
+                         pi_return := 888;
+                      ELSE
+                         pi_return := 999;
+                   END CASE;
+                   raise info 'pi_return : %',pi_return ;
+              END;
+              /
+              CREATE PROCEDURE
+
+              gaussdb=# CALL proc_case_branch(3,0);
+              INFO: pi_return : 333
+               pi_return
+              -----------
+                    333
+              (1 row)
+
+              --删除存储过程
+              gaussdb=# DROP PROCEDURE proc_case_branch;
+              DROP PROCEDURE
+
+
+3.8.5 空语句
+              在PL/SQL程序中，可以用NULL语句来说明“不用做任何事情”，相当于一个占位
+              符，可以使某些语句变得有意义，提高程序的可读性。
+
+语法
+              空语句的用法如下：
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                    2563
+GaussDB
+集中式版参考                                                           3 存储过程
+
+              DECLARE
+                …
+              BEGIN
+                …
+                IF v_num IS NULL THEN
+                   NULL; -- 不需要处理任何数据。
+                END IF;
+              END;
+              /
+
+              参数说明：
+              ●        v_num：变量或表达式。
+
+示例
+              gaussdb=# DECLARE
+                v_num integer default NULL;
+              BEGIN
+                IF v_num IS NOT NULL THEN
+                   raise info 'v_num is NULL';
+                ELSE
+                   NULL; -- 不需要处理任何数据。
+                END IF;
+              END;
+              /
+              ANONYMOUS BLOCK EXECUTE
+
+
+3.8.6 错误捕获语句
+              缺省时，当PL/SQL函数执行过程中发生错误时退出函数执行，并且周围的事务也会回
+              滚。可以用一个带有EXCEPTION子句的BEGIN块捕获错误并且从中恢复。其语法是正
+              常的BEGIN块语法的一个扩展。
+
+语法
+              [<<label>>]
+              [DECLARE
+                  declarations]
+              BEGIN
+                  statements
+              EXCEPTION
+                WHEN condition [OR condition ...] THEN
+                       handler_statements
+                  [WHEN condition [OR condition ...] THEN
+                       handler_statements
+                ...]
+              END;
+
+              如果没有发生错误，这种形式的包围块只是简单地执行所有语句，然后转到END之后
+              的下一个语句。但是如果在执行的语句内部发生了一个错误，则这个语句将会回滚，
+              然后转到EXCEPTION列表。寻找匹配错误的第一个条件。若找到匹配，则执行对应的
+              handler_statements，然后转到END之后的下一个语句。如果没有找到匹配，则会向
+              事务的外层报告错误，和没有EXCEPTION子句一样。错误码可以捕获同一类的其他错
+              误码。
+              也就是说该错误可以被一个包围块用EXCEPTION捕获，如果没有包围块，则进行退出
+              函数处理。
+              condition的名称可以是SQL标准错误码编号说明的任意值。特殊的条件名OTHERS匹
+              配除了QUERY_CANCELED之外的所有错误类型。
+              如果在选中的handler_statements里发生了新错误，则不能被这个EXCEPTION子句捕
+              获，而是向事务的外层报告错误。一个外层的EXCEPTION子句可以捕获它。
+
+文档版本 01 (2026-04-30)                        版权所有 © 华为云计算技术有限公司      2564
+GaussDB
+集中式版参考                                                                                            3 存储过程
+
+              如果一个错误被EXCEPTION捕获，PL/SQL函数的局部变量保持错误发生时的原值，但
+              是所有该块中想写入数据库中的状态都回滚。
+              示例：
+              gaussdb=# CREATE TABLE mytab(id INT,firstname VARCHAR(20),lastname VARCHAR(20)) ;
+              CREATE TABLE
+
+              gaussdb=# INSERT INTO mytab(firstname, lastname) VALUES('Tom', 'Jones');
+              INSERT 0 1
+
+              gaussdb=# CREATE FUNCTION fun_exp() RETURNS INT
+              AS $$
+              DECLARE
+                x INT :=0;
+                y INT;
+              BEGIN
+                UPDATE mytab SET firstname = 'Joe' WHERE lastname = 'Jones';
+                x := x + 1;
+                y := x / 0;
+              EXCEPTION
+                WHEN division_by_zero THEN
+                   RAISE NOTICE 'caught division_by_zero';
+                   RETURN x;
+              END;$$
+              LANGUAGE plpgsql;
+              CREATE FUNCTION
+
+              gaussdb=# call fun_exp();
+              NOTICE: caught division_by_zero
+               fun_exp
+              ---------
+                    1
+              (1 row)
+
+              gaussdb=# select * from mytab;
+               id | firstname | lastname
+              ----+-----------+----------
+                 | Tom       | Jones
+              (1 row)
+
+              gaussdb=# DROP FUNCTION fun_exp();
+              DROP FUNCTION
+
+              gaussdb=# DROP TABLE mytab;
+              DROP TABLE
+
+              当控制到达给y赋值的地方时，会有一个division_by_zero错误失败。这个错误将被
+              EXCEPTION子句捕获。而在RETURN语句里返回的数值将是x的增量值。
+
+                    说明
+
+                  ● 进入和退出一个包含EXCEPTION子句的块要比不包含的块开销大的多。因此，不必要的时候
+                    不要使用EXCEPTION。
+                  ● 在下列场景中，无法捕获处理异常，整个存储过程回滚：1. 节点故障，2. 网络故障引起的存
+                    储过程参与节点线程退出以及COPY FROM操作中源数据与目标表的表结构不一致造成的异
+                    常，3. EXCEPTION清理子事务时的异常（对于包含EXCEPTION语句的存储过程，执行时会
+                    开启一个隐式的子事务，正常执行完毕statements时，会自动清理此子事务，清理过程中可
+                    能会由于内存管控发生异常）。
+
+              示例 ：UPDATE/INSERT异常
+              这个例子根据使用异常处理器执行恰当的UPDATE或INSERT 。
+              gaussdb=# CREATE TABLE db (a INT, b TEXT);
+              CREATE TABLE
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                            2565
+GaussDB
+集中式版参考                                                                                 3 存储过程
+
+              gaussdb=# CREATE FUNCTION merge_db(key INT, data TEXT) RETURNS VOID AS
+              $$
+              BEGIN
+                 LOOP
+
+              --第一次尝试更新key
+                   UPDATE db SET b = data WHERE a = key;
+                   IF found THEN
+                      RETURN;
+                   END IF;
+              --不存在，所以尝试插入key，如果其他人同时插入相同的key，可能得到唯一key失败。
+                   BEGIN
+                      INSERT INTO db(a,b) VALUES (key, data);
+                      RETURN;
+                   EXCEPTION WHEN unique_violation THEN
+                   --什么也不做，并且循环尝试再次更新。
+                   END;
+                 END LOOP;
+              END;
+              $$
+              LANGUAGE plpgsql;
+              CREATE FUNCTION
+
+              gaussdb=# SELECT merge_db(1, 'david');
+               merge_db
+              ----------
+
+              (1 row)
+
+              gaussdb=# SELECT merge_db(1, 'dennis');
+               merge_db
+              ----------
+
+              (1 row)
+
+              --删除FUNCTION和TABLE
+              gaussdb=# DROP FUNCTION merge_db;
+              DROP FUNCTION
+
+              gaussdb=# DROP TABLE db;
+              DROP TABLE
+
+
+3.8.6.1 获取有关错误的信息
+              可以通过使用GET STACKED DIAGNOSTICS语句，查询当前PL/SQL函数执行过程中的
+              异常信息。
+
+语法
+              GET STACKED DIAGNOSTICS {{variable { = | := } item }[ , ... ]};
+
+              语法图如图3-39所示。
+
+              图 3-39 获取有关错误信息语法
+
+
+
+
+              其中，item表示异常专用的诊断项，目前可用的诊断项包括：
+
+              ●    PG_EXCEPTION_DETAIL：详细错误信息。
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                               2566
+GaussDB
+集中式版参考                                                                                        3 存储过程
+
+
+              ●    PG_EXCEPTION_HINT：错误提示。
+              ●    PG_EXCEPTION_CONTEXT：异常的调用栈信息。
+              ●    MESSAGE_TEXT：主要错误信息。
+              ●    RETURNED_SQLSTATE：异常的SQLSTATE错误代码。
+
+
+示例
+              gaussdb=# CREATE TABLE diag_table(int_col int, str_col varchar2);
+              CREATE TABLE
+              gaussdb=# CREATE OR REPLACE PROCEDURE get_diag_proc() AS
+              DECLARE
+                 sql_state text;
+                 message_text text;
+                 pg_exception_detail text;
+                 pg_exception_hint text;
+                 pg_exception_context text;
+              BEGIN
+                 UPDATE diag_table set int_col = 'aaa';
+                 EXCEPTION WHEN others THEN
+                    GET STACKED DIAGNOSTICS sql_state = returned_sqlstate;
+                    GET STACKED DIAGNOSTICS message_text = message_text;
+                    GET STACKED DIAGNOSTICS pg_exception_detail = pg_exception_detail;
+                    GET STACKED DIAGNOSTICS pg_exception_hint = pg_exception_hint;
+                    GET STACKED DIAGNOSTICS pg_exception_context = pg_exception_context;
+                    raise info 'sql_state: %, message_text: %', sql_state, message_text;
+              END;
+              /
+              CREATE PROCEDURE
+              gaussdb=# CALL get_diag_proc();
+              INFO: sql_state: 22P02, message_text: invalid input syntax for integer: "aaa"
+               get_diag_proc
+              ---------------
+
+              (1 row)
+
+              gaussdb=# DROP TABLE diag_table;
+              DROP TABLE
+              gaussdb=# DROP PROCEDURE get_diag_proc();
+              DROP PROCEDURE
+
+
+3.8.6.2 获取当前的执行信息
+              可以通过使用GET [CURRENT] DIAGNOSTICS语句，查询当前PL/SQL函数执行过程中
+              的状态信息。
+
+
+语法
+              GET [ CURRENT ] DIAGNOSTICS {{variable { = | := } item }[ , ... ]};
+
+              语法图如图3-40所示。
+
+              图 3-40 获取当前执行信息语法
+
+
+
+
+              其中，item表示执行状态的诊断项，目前可用的诊断项包括：
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                                      2567
+GaussDB
+集中式版参考                                                                            3 存储过程
+
+
+              ●    ROW_COUNT：上一个SQL语句处理的行数量。
+              ●    RESULT_OID：上一个插入语句的Oid。
+
+示例
+              gaussdb=# CREATE TABLE diag_table(int_col int, str_col varchar2);
+              CREATE TABLE
+              gaussdb=# CREATE OR REPLACE PROCEDURE get_diag_proc() AS
+              DECLARE
+                 nrows INT;
+                 result_oid oid;
+              BEGIN
+                 INSERT INTO diag_table values(1, 'aaa');
+                 GET CURRENT DIAGNOSTICS nrows = row_count;
+                 GET CURRENT DIAGNOSTICS result_oid = result_oid;
+                 raise info 'row_count: %, result_oid: %', nrows, result_oid;
+              END;
+              /
+              CREATE PROCEDURE
+              gaussdb=# CALL get_diag_proc();
+              INFO: row_count: 1, result_oid: 0
+               get_diag_proc
+              ---------------
+
+              (1 row)
+
+              gaussdb=# DROP TABLE diag_table;
+              DROP TABLE
+              gaussdb=# DROP PROCEDURE get_diag_proc();
+              DROP PROCEDURE
+
+
+3.8.7 GOTO 语句
+              GOTO语句可以实现从GOTO位置到目标语句的无条件跳转。GOTO语句会改变原执行
+              逻辑，因此应该慎重使用，或者也可以使用EXCEPTION处理特殊场景。当执行GOTO
+              语句时，目标Label必须是唯一的。
+
+语法
+              label declaration ::=语句如图3-41所示。
+
+              图 3-41 label declaration ::=
+
+
+
+
+              goto statement ::=语句如图3-42所示。
+
+              图 3-42 goto statement ::=
+
+
+
+
+示例
+              gaussdb=# CREATE OR REPLACE PROCEDURE GOTO_test()
+              AS
+              DECLARE
+                 v1 int;
+              BEGIN
+                 v1 := 0;
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                           2568
+GaussDB
+集中式版参考                                                         3 存储过程
+
+                    LOOP
+                    EXIT WHEN v1 > 100;
+                           v1 := v1 + 2;
+                           if v1 > 25 THEN
+                                 GOTO pos1;
+                           END IF;
+                    END LOOP;
+              <<pos1>>
+              v1 := v1 + 10;
+              raise info 'v1 is %. ', v1;
+              END;
+              /
+              CREATE PROCEDURE
+
+              gaussdb=# call GOTO_test();
+              INFO: v1 is 36.
+               goto_test
+              -----------
+
+              (1 row)
+
+
+限制场景
+              GOTO使用有以下限制场景
+              ●    不支持有多个相同的GOTO labels目标场景，无论是否在同一个block中。
+                   BEGIN
+                    GOTO pos1;
+                    <<pos1>>
+                    SELECT * FROM ...
+                    <<pos1>>
+                    UPDATE t1 SET ...
+                   END;
+
+              ●    不支持GOTO跳转到IF语句，CASE语句，LOOP语句中。
+                   BEGIN
+                     GOTO pos1;
+                     IF valid THEN
+                       <<pos1>>
+                       SELECT * FROM ...
+                     END IF;
+                    END;
+
+              ●    不支持GOTO语句从一个IF子句跳转到另一个IF子句，或从一个CASE语句的
+                   WHEN子句跳转到另一个WHEN子句。
+                   BEGIN
+                     IF valid THEN
+                       GOTO pos1;
+                       SELECT * FROM ...
+                     ELSE
+                       <<pos1>>
+                       UPDATE t1 SET ...
+                     END IF;
+                    END;
+
+              ●    不支持从外部块跳转到内部的BEGIN-END块。
+                   BEGIN
+                     GOTO pos1;
+                     BEGIN
+                      <<pos1>>
+                      UPDATE t1 SET ...
+                     END;
+                    END;
+
+              ●    不支持从异常处理部分跳转到当前的BEGIN-END块。但可以跳转到上层BEGIN-
+                   END块。
+                   BEGIN
+                     <<pos1>>
+                     UPDATE t1 SET ...
+
+
+文档版本 01 (2026-04-30)                      版权所有 © 华为云计算技术有限公司      2569
+GaussDB
+集中式版参考                                                          3 存储过程
+
+                    EXCEPTION
+                     WHEN condition THEN
+                       GOTO pos1;
+                   END;
+
+              ●   如果从GOTO到一个不包含执行语句的位置，需要添加NULL语句。
+                  DECLARE
+                    done BOOLEAN;
+                  BEGIN
+                    FOR i IN 1..50 LOOP
+                      IF done THEN
+                        GOTO end_loop;
+                      END IF;
+                      <<end_loop>> -- 除非后面有可执行语句，否则不允许GOTO到这里
+                      NULL; -- 这里添加NULL语句避免错误
+                    END LOOP; -- 如果没有上一句NULL会报错
+                  END;
+                  /
+
+
+
+3.9 事务管理
+              存储过程本身就处于一个事务中，开始调用最外围存储过程时会自动开启一个事务，
+              在调用结束时自动提交或者发生异常时回滚。除了系统自动的事务控制外，也可以使
+              用COMMIT/ROLLBACK来控制存储过程中的事务。在存储过程中调用COMMIT/
+              ROLLBACK命令，将提交/回滚当前事务并自动开启一个新的事务，后续的所有操作都
+              会在此新事务中运行。
+              保存点SAVEPOINT是事务中的一个特殊记号，它允许将那些在它建立后执行的命令全
+              部回滚，把事务的状态恢复到保存点所在的时刻。存储过程中允许使用保存点来进行
+              事务管理，当前支持保存点的创建、回滚和释放操作。存储过程中使用回滚保存点只
+              是回退当前事务的修改，而不会改变存储过程的执行流程，也不会回退存储过程中的
+              局部变量值等。
+
+语法格式
+              定义保存点
+               SAVEPOINT savepoint_name;
+              回滚保存点
+               ROLLBACK TO [SAVEPOINT] savepoint_name;
+              释放保存点
+               RELEASE [SAVEPOINT] savepoint_name;
+
+
+使用场景
+              支持调用的上下文环境：
+
+              ●   支持在PL/SQL的存储过程内使用COMMIT/ROLLBACK/SAVEPOINT。
+              ●   支持含有EXCEPTION的存储过程使用COMMIT/ROLLBACK/SAVEPOINT。
+              ●   支持在存储过程的EXCEPTION语句内使用COMMIT/ROLLBACK/SAVEPOINT。
+              ●   支持在事务块里调用含有COMMIT/ROLLBACK/SAVEPOINT的存储过程，即通过
+                  BEGIN/START/END等开启控制的外部事务。
+              ●   支持在子事务中调用含有SAVEPOINT的存储过程，即存储过程中使用外部定义的
+                  SAVEPOINT，回退事务状态到存储过程外定义的SAVEPOINT位置。
+              ●   支持存储过程外部对存储过程内定义的SAVEPOINT可见，即存储过程外可以将事
+                  务修改回滚到存储过程中定义SAVEPOINT的位置。
+              ●   支持多数PL/SQL的上下文和语句内调用COMMIT/ROLLBACK/SAVEPOINT，包括
+                  常用的IF/FOR/CURSOR LOOP/WHILE。
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司             2570
+

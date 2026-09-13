@@ -1,0 +1,558 @@
+GaussDB
+集中式版参考                                                                        3 存储过程
+
+              proc_test var1 = 1
+
+              -- 调用本地声明的下层子程序
+              CREATE OR REPLACE PROCEDURE proc_test() AS
+                 PROCEDURE proc_sub1 IS
+                     PROCEDURE proc_sub2 IS
+                     BEGIN
+                        dbe_output.put_line('--this is subprogram2 begin');
+                        dbe_output.put_line('--this is subprogram2 end');
+                     END;
+                 BEGIN
+                 dbe_output.put_line('this is subprogram1 begin');
+                 proc_sub2();
+                 dbe_output.put_line('this is subprogram1 end');
+                 END;
+              BEGIN
+                 dbe_output.put_line('this is a procedure begin');
+                 proc_sub1();
+                 dbe_output.put_line('this is a procedure end');
+              END;
+              /
+              BEGIN
+                 proc_test;
+              END;
+              /
+              -- 输出结果
+              this is a procedure begin
+              this is subprogram1 begin
+              --this is subprogram2 begin
+              --this is subprogram2 end
+              this is subprogram1 end
+              this is a procedure end
+
+
+
+嵌套子程序的变量
+              变量类型包括：基础类型、record类型、table of类型、cursor类型和varray类型等其
+              它PL/SQL支持的变量类型。
+
+              ●     可访问的变量：
+                    –     自身声明的变量。
+                    –     上层子程序声明的变量。
+              ●     变量的访问规则：
+                    –     如果变量不带限定符，首先将在本程序内查找变量。如果变量名不存在，则
+                          向上层查找变量，以此类推。
+                    –     如果变量带有限定符，将在限定符的区域查找。目前仅支持一个限定符的使
+                          用。
+
+
+3.6 基本语句
+              在PL/SQL编程中，需要定义变量、进行赋值、调用存储过程等基础操作。本节将介绍
+              PL/SQL中的基本语句，包括定义变量、赋值语句、调用语句以及返回语句。
+
+                    说明
+
+                   避免在存储过程中调用包含密码的SQL语句，因为存储在数据库中的存储过程文本可能被其他具
+                   有访问权限的用户查看，从而导致密码信息泄露。若存储过程中包含其他敏感信息，建议配置存
+                   储过程的访问权限，以确保敏感数据的安全性。
+
+
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                      2536
+GaussDB
+集中式版参考                                                                       3 存储过程
+
+
+3.6.1 定义变量
+              介绍PL/SQL中变量的声明，以及该变量在代码中的作用域。
+
+变量声明
+              变量声明语法如图3-8所示。
+
+              图 3-8 declare_variable::=
+
+
+
+
+              对以上语法格式的解释如下：
+
+              ●    variable_name：变量名。
+              ●    type：变量类型。
+              ●    value：该变量的初始值（如果不给定初始值，则初始为NULL）。value也可以是
+                   表达式。
+              示例
+              gaussdb=# DECLARE
+                emp_id INTEGER := 7788; --定义变量并赋值
+              BEGIN
+                emp_id := 5*7784; --变量赋值
+              END;
+              /
+              ANONYMOUS BLOCK EXECUTE
+
+              变量类型除了支持基本类型，还可以是使用%TYPE和%ROWTYPE去声明一些与其他表
+              字段或表结构本身相关的变量。
+              %TYPE属性
+              %TYPE主要用于声明某个与其他变量类型（例如：表中某列的类型）相同的变量。假
+              如定义一个my_name变量，它的变量类型与employee表的firstname列类型相同，可
+              以通过如下定义：
+              my_name employee.firstname%TYPE
+              --示例
+              DROP TABLE IF EXISTS employee;
+              NOTICE: table "employee" does not exist, skipping
+              DROP TABLE
+              CREATE TABLE employee(firstname varchar,secondname varchar);
+              CREATE TABLE
+              DECLARE
+                my_name employee.firstname%TYPE;
+              BEGIN
+                my_name = 'abc';
+                DBE_OUTPUT.PRINT_LINE(my_name);
+              END;
+              /
+              abc
+              ANONYMOUS BLOCK EXECUTE
+
+              这样定义可以带来两个优势：首先，无需预先知道employee表的firstname列的数据类
+              型。其次，当firstname列的数据类型发生变化时，也无需修改my_name的类型定义。
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                        2537
+GaussDB
+集中式版参考                                                                                 3 存储过程
+
+              TYPE employee_record is record (id INTEGER, firstname VARCHAR2(20));
+              my_employee employee_record;
+              my_id my_employee.id%TYPE;
+              my_id_copy my_id%TYPE;
+              --示例
+              DECLARE
+                TYPE employee_record is record (id INTEGER, firstname VARCHAR2(20));
+                my_employee employee_record;
+                my_id my_employee.id%TYPE;
+                my_id_copy my_id%TYPE;
+              BEGIN
+                my_employee.id := 1;
+                my_employee.firstname := 'ab2';
+                my_id = 2;
+                my_id_copy = 3;
+                DBE_OUTPUT.PRINT_LINE(my_employee.id);
+                DBE_OUTPUT.PRINT_LINE(my_employee.firstname);
+                DBE_OUTPUT.PRINT_LINE(my_id);
+                DBE_OUTPUT.PRINT_LINE(my_id_copy);
+              END;
+              /
+              1
+              ab2
+              2
+              3
+              ANONYMOUS BLOCK EXECUTE
+
+              %ROWTYPE属性
+              %ROWTYPE属性主要用于声明一组数据的类型，用于存储表中的一行数据或从游标匹
+              配的结果中获取。若需要一组数据，其字段名称与字段类型均与employee表相同。可
+              以通过如下定义：
+              my_employee employee%ROWTYPE
+              --示例
+              DROP TABLE IF EXISTS employee;
+              DROP TABLE
+              CREATE TABLE employee(firstname varchar,secondname varchar);
+              CREATE TABLE
+              DECLARE
+                my_employee employee%ROWTYPE;
+              BEGIN
+                my_employee.firstname := 'ab1';
+                my_employee.secondname := 'ab2';
+                DBE_OUTPUT.PRINT_LINE(my_employee.firstname);
+                DBE_OUTPUT.PRINT_LINE(my_employee.secondname);
+              END;
+              /
+              ab1
+              ab2
+              ANONYMOUS BLOCK EXECUTE
+
+              同样可以使用在cursor上面，该组数据的字段名称与字段类型都与employee表相同
+              （对于PACKAGE中的cursor，可以省略%ROWTYPE）。%TYPE也可以引用cursor中某
+              一列的类型，可以通过如下定义：
+              cursor cur is select * from employee;
+              my_employee cur%ROWTYPE
+              my_name cur.firstname%TYPE
+              my_employee2 cur -- 对于PACKAGE中定义的cursor，可以省略%ROWTYPE字段
+              --示例
+              set behavior_compat_options = 'allow_procedure_compile_check';
+              SET
+              DROP TABLE IF EXISTS employee;
+              DROP TABLE
+              CREATE TABLE employee(firstname varchar,secondname varchar);
+              CREATE TABLE
+              CREATE OR REPLACE procedure proc1()
+              IS
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                  2538
+GaussDB
+集中式版参考                                                                           3 存储过程
+
+                cursor cur is select * from employee;
+                my_employee cur%ROWTYPE;
+                my_name cur.firstname%TYPE;
+              BEGIN
+                my_employee.firstname := 'ab1';
+                my_employee.secondname := 'ab2';
+                my_name := 'ab3';
+                DBE_OUTPUT.PRINT_LINE(my_employee.firstname);
+                DBE_OUTPUT.PRINT_LINE(my_employee.secondname);
+                DBE_OUTPUT.PRINT_LINE(my_name);
+              END;
+              /
+              CREATE PROCEDURE
+
+
+
+                  须知
+
+              ● %TYPE仅支持引用跨PACKAGE的record类型的变量、不支持引用cursor变量的某列
+                类型等。
+              ● 开启GUC参数behavior_compat_options，且该参数的值包含
+                allow_procedure_compile_check后，%TYPE可支持引用cursor变量的某列类型。
+              ● %ROWTYPE不支持引用复合类型或RECORD类型变量的类型。
+              ● 不支持非PACKAGE的record变量%TYPE作为变量类型或者出入参类型。
+              ● 不支持view%ROWTYPE、SCHEMA.view%ROWTYPE作为出入参类型。
+              ● 不支持PACKAGE.record变量%TYPE、SCHEMA.PACKAGE.record变量%TYPE作为出
+                入参类型。
+              ● 不支持表/视图.column.column%TYPE、SCHEMA.表/视图.column.column%TYPE
+                嵌套1层及以上，作为变量类型和或者出入参类型。
+              ● 不支持record变量.column.column%TYPE、PACKAGE.record变量.column.column
+                %TYPE嵌套1层及以上的record的某列类型，作为变量类型和或者出入参类型。
+              ● 不支持PACKAGE.cursor变量%ROWTYPE、SCHEMA.PACKAGE.cursor变
+                量%ROWTYPE等更多级的cursor变量作为参数类型或者出入参类型。
+
+
+变量作用域
+              变量的作用域定义了变量在代码块中的可访问性及可用性。变量仅在其作用域范围内
+              有效。
+
+              ●    变量必须在DECLARE部分声明，即必须建立BEGIN-……END块结构。该结构强制
+                   要求变量必须先声明后使用，即变量在过程中具有不同的作用域与生存期。
+              ●    同一变量在不同作用域内可重复定义，内层作用域的定义会覆盖外层作用域的定
+                   义。
+              ●    外部块中定义的变量可在嵌套块中使用，但嵌套块的变量无法被外部块访问。
+              示例
+              gaussdb=# DECLARE
+                emp_id INTEGER :=7788; --定义变量并赋值
+                outer_var INTEGER :=6688; --定义变量并赋值
+              BEGIN
+                DECLARE
+                   emp_id INTEGER :=7799; --定义变量并赋值
+                   inner_var INTEGER :=6688; --定义变量并赋值
+                BEGIN
+                   dbe_output.print_line('inner emp_id ='||emp_id); --显示值为7799
+                   dbe_output.print_line('outer_var ='||outer_var); --引用外部块的变量
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                             2539
+GaussDB
+集中式版参考                                                                          3 存储过程
+
+                 END;
+                 dbe_output.print_line('outer emp_id ='||emp_id); --显示值为7788
+              END;
+              /
+              inner emp_id =7799
+              outer_var =6688
+              outer emp_id =7788
+              ANONYMOUS BLOCK EXECUTE
+
+
+3.6.2 赋值语句
+变量语法
+              给变量赋值的语法如图3-9所示。
+
+              图 3-9 assignment_value::=
+
+
+
+
+              对以上语法格式的解释如下：
+              ●    variable_name：变量名。
+              ●    value：可以是值或表达式。值value的类型需与变量variable_name的类型兼容才
+                   能正确赋值。
+              示例：
+              DECLARE
+                emp_id INTEGER := 7788;--赋值
+              BEGIN
+                emp_id := 5;--赋值
+                DBE_OUTPUT.PRINT_LINE(emp_id);
+                emp_id := 5*7784;
+                DBE_OUTPUT.PRINT_LINE(emp_id);
+              END;
+              /
+              --结果如下：
+              5
+              38920
+              ANONYMOUS BLOCK EXECUTE
+
+                    说明
+
+                  在打开GUC参数（即SET behavior_compat_options = 'proc_outparam_override';）后，赋值语
+                  句的值value不支持返回类型为复合类型或数组类型的重载函数以引用字段的形式调用（例如
+                  func(x).a或func(x)[1]）。
+
+
+嵌套赋值
+              给变量嵌套赋值的语法如图3-10所示。
+
+              图 3-10 nested_assignment_value::=
+
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                             2540
+GaussDB
+集中式版参考                                                                              3 存储过程
+
+              对以上语法格式的解释如下：
+
+              ●    variable_name：变量名。
+              ●    col_name：列名。
+              ●    subscript：下标，针对数组变量使用，可以是值或表达式，类型必须为INT。
+              ●    value：可以是值或表达式。值value的类型需与变量variable_name的类型兼容才
+                   能正确赋值。
+
+              示例：
+              gaussdb=# CREATE TYPE o1 AS (a int, b int);
+              CREATE TYPE
+              gaussdb=# DECLARE
+                TYPE r1 is VARRAY(10) of o1;
+                emp_id r1;
+              BEGIN
+                emp_id(1).a := 5;--赋值
+                emp_id(1).b := 5*7784;
+              END;
+              /
+              ANONYMOUS BLOCK EXECUTE
+
+
+
+
+                  须知
+
+              INTO方式赋值仅支持对第一层列赋值，且不支持二维及以上数组。
+
+
+
+INTO/BULK COLLECT INTO
+              ●    将存储过程内语句返回的值存储到变量内，BULK COLLECT INTO支持将部分或全
+                   部返回值临时存储至数组中。
+              ●    支持返回空结果集。
+
+
+语法格式
+              SELECT select_expressions INTO [STRICT] target FROM ...
+              SELECT INTO [STRICT] target [FROM ..]
+              EXECUTE [IMMEDIATE] select_expressions BULK COLLECT INTO target ...
+
+              对以上语法格式的解释如下：
+
+              ●    select_expressions：查询的SQL语句。通过基础SQL命令加INTO子句可以将单行
+                   或多列的结果赋值给一个变量（记录、行类型和标量变量列表）。
+              ●    target ：目标变量。可以是一个记录变量、一个行变量或一个有逗号分隔的简单
+                   变量和记录/行域列表。
+              ●    STRICT：可选。在开启参数set behavior_compat_options =
+                   'select_into_return_null'的前提下（默认未开启），若指定该选项则该查询结果必
+                   须返回一行结果集，且该行不为空，否则会报错。报错信息可能是
+                   NO_DATA_FOUND（没有行）、TOO_MANY_ROWS（多于一行）或
+                   QUERY_RETURNED_NO_ROWS（没有数据返回）。若不指定该选项则没有该限
+                   定，且支持返回空结果集。
+
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                              2541
+GaussDB
+集中式版参考                                                                                                  3 存储过程
+
+
+                    说明
+
+                   ● BULK COLLECT INTO只支持批量赋值给数组或集合。集合类型合理使用LIMIT子句避免操作
+                     过多数据导致性能下降。
+                   ● INTO/BULK COLLECT INTO只支持4层以下Record类型直接嵌套。
+                   ● 返回空结果集需要数据库初始化使用PG兼容参数，配置GUC参数set
+                     behavior_compat_options = 'select_into_return_null'为开启。配置GUC参数set
+                     behavior_compat_options = ''则关闭。
+                   ● 对于数组变量，小括号“()”将优先识别为下标，因此对于带括号的表达式，不支持写在数
+                     组变量后面。如对于select (1+3) into va(5)，不支持写为select into va(5) (1+3)或select
+                     into va[5] (1+3)。
+                   ● INSERT INTO、UPDATE INTO、DELETE INTO和EXECUTION INTO不支持返回空结果集。
+                   ● 给多个变量赋值时，由于后面的变量存在语法错误，所以均不赋值。
+                   ● BULK COLLECT INTO只支持在A兼容性数据库下使用。
+                   ● IMMEDIATE关键字仅用作语法兼容，无实际意义。
+                   ● 存储过程内SELECT INTO数据放入指定的输出变量中，当输出变量的个数大于实际查询结果
+                     集合的数据列时，会给多出的变量赋空值，不会产生报错。
+
+              示例：
+              gaussdb=# DROP TABLE IF EXISTS customers;
+              NOTICE: table "customers" does not exist, skipping
+              DROP TABLE
+              gaussdb=# CREATE TABLE customers(id int,name varchar);
+              CREATE TABLE
+              gaussdb=# INSERT INTO customers VALUES(1,'ab');
+              gaussdb=# DECLARE
+                 my_id integer;
+              BEGIN
+                 select id into my_id from customers limit 1; -- 赋值
+              END;
+              /
+              ANONYMOUS BLOCK EXECUTE
+              gaussdb=# DECLARE
+                 type id_list is varray(6) of customers.id%type;
+                 id_arr id_list;
+              BEGIN
+                 select id bulk collect into id_arr from customers order by id DESC limit 20; -- 批量赋值
+              END;
+              /
+              ANONYMOUS BLOCK EXECUTE
+              gaussdb=# CREATE TABLE test(a integer);
+              CREATE TABLE
+              gaussdb=# INSERT INTO test VALUES(1);
+              INSERT 0 1
+              gaussdb=# CREATE OR REPLACE FUNCTION check_test() RETURNS integer
+                 language plpgsql
+                 AS $function$
+                 DECLARE
+                    b integer;
+                 BEGIN
+                    SELECT INTO b FROM test WHERE a=1; -- 返回空结果集
+                        RETURN b;
+                 END;
+                 $function$;
+              CREATE FUNCTION
+              gaussdb=# SELECT check_test();
+               check_test
+              ------------
+                      1
+              (1 row)
+              gaussdb=# DECLARE
+                 TYPE id_list IS varray(6) OF customers.id%type;
+                 id_arr id_list;
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                                 2542
+GaussDB
+集中式版参考                                                                                                     3 存储过程
+
+                sql_qry varchar2(150);
+              BEGIN
+                sql_qry := 'SELECT id FROM customers ORDER BY id DESC LIMIT 20';
+                EXECUTE IMMEDIATE sql_qry BULK COLLECT INTO id_arr; -- 批量赋值
+              END;
+              /
+              ANONYMOUS BLOCK EXECUTE
+
+
+3.6.3 调用语句
+语法
+              调用语句的语法如图3-11所示。
+
+              图 3-11 call_clause::=
+
+
+
+
+              对以上语法格式的解释如下：
+
+              ●    procedure_name：存储过程名称。
+              ●    parameter：存储过程的参数，可以没有或有多个参数。
+
+示例
+              --建表
+              gaussdb=# CREATE SCHEMA hr;
+              CREATE SCHEMA
+              gaussdb=# SET CURRENT_SCHEMA = hr;
+              SET
+              gaussdb=# CREATE TABLE staffs
+              (
+                section_id INTEGER,
+                salary INTEGER
+              );
+              CREATE TABLE
+              gaussdb=# INSERT INTO staffs VALUES (30, 10);
+              INSERT 0 1
+              gaussdb=# INSERT INTO staffs VALUES (30, 20);
+              INSERT 0 1
+              --创建存储过程proc_staffs
+              gaussdb=# CREATE OR REPLACE PROCEDURE proc_staffs
+              (
+              section    NUMBER(6),
+              salary_sum out NUMBER(8,2),
+              staffs_count out INTEGER
+              )
+              IS
+              BEGIN
+              SELECT sum(salary), count(*) INTO salary_sum, staffs_count FROM hr.staffs where section_id = section;
+              END;
+              /
+              CREATE PROCEDURE
+
+              --创建存储过程proc_return.
+              gaussdb=# CREATE OR REPLACE PROCEDURE proc_return
+              AS
+              v_num NUMBER(8,2);
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                                        2543
+GaussDB
+集中式版参考                                                            3 存储过程
+
+              v_sum INTEGER;
+              BEGIN
+              proc_staffs(30, v_sum, v_num); --调用语句
+              dbe_output.print_line(v_sum||'#'||v_num);
+              RETURN; --返回语句
+              END;
+              /
+              CREATE PROCEDURE
+              --调用存储过程proc_return.
+              gaussdb=# CALL proc_return();
+              30#2.00
+               proc_return
+              -------------
+
+              (1 row)
+              --清除存储过程
+              gaussdb=# DROP PROCEDURE proc_staffs;
+              DROP PROCEDURE
+              gaussdb=# DROP PROCEDURE proc_return;
+              DROP PROCEDURE
+              gaussdb=# DROP TABLE staffs;
+              DROP TABLE
+              gaussdb=# DROP SCHEMA hr;
+              DROP SCHEMA
+
+
+
+3.7 动态语句
+
+3.7.1 执行动态查询语句
+              介绍执行动态查询语句。GaussDB提供两种方式：使用EXECUTE IMMEDIATE、OPEN
+              FOR实现动态查询。前者通过动态执行SELECT语句，后者结合了游标的使用。当需要
+              将查询的结果保存在一个数据集用于提取时，可使用OPEN FOR实现动态查询。
+
+EXECUTE IMMEDIATE
+              语法图如图3-12所示。
+
+              图 3-12 EXECUTE IMMEDIATE dynamic_select_clause::=
+
+
+
+
+              using_clause子句的语法图如图3-13所示。
+
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司            2544
+

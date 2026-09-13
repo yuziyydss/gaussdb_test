@@ -1,0 +1,584 @@
+GaussDB
+集中式版参考                                                            3 存储过程
+
+              v_sum INTEGER;
+              BEGIN
+              proc_staffs(30, v_sum, v_num); --调用语句
+              dbe_output.print_line(v_sum||'#'||v_num);
+              RETURN; --返回语句
+              END;
+              /
+              CREATE PROCEDURE
+              --调用存储过程proc_return.
+              gaussdb=# CALL proc_return();
+              30#2.00
+               proc_return
+              -------------
+
+              (1 row)
+              --清除存储过程
+              gaussdb=# DROP PROCEDURE proc_staffs;
+              DROP PROCEDURE
+              gaussdb=# DROP PROCEDURE proc_return;
+              DROP PROCEDURE
+              gaussdb=# DROP TABLE staffs;
+              DROP TABLE
+              gaussdb=# DROP SCHEMA hr;
+              DROP SCHEMA
+
+
+
+3.7 动态语句
+
+3.7.1 执行动态查询语句
+              介绍执行动态查询语句。GaussDB提供两种方式：使用EXECUTE IMMEDIATE、OPEN
+              FOR实现动态查询。前者通过动态执行SELECT语句，后者结合了游标的使用。当需要
+              将查询的结果保存在一个数据集用于提取时，可使用OPEN FOR实现动态查询。
+
+EXECUTE IMMEDIATE
+              语法图如图3-12所示。
+
+              图 3-12 EXECUTE IMMEDIATE dynamic_select_clause::=
+
+
+
+
+              using_clause子句的语法图如图3-13所示。
+
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司            2544
+GaussDB
+集中式版参考                                                                   3 存储过程
+
+              图 3-13 using_clause::=
+
+
+
+
+              对以上语法格式的解释如下：
+
+              ●    define_variable：用于指定存放查询结果的变量。
+              ●    USING IN bind_argument：用于指定存放传递给动态SQL值的变量，即在
+                   dynamic_select_string中存在占位符时使用。
+              ●    USING OUT bind_argument：用于指定存放动态SQL返回值的变量。
+
+
+                       须知
+
+                   ● 查询语句中，into和out不能同时存在；
+                   ● 占位符命名以“:”开始，后面可跟数字、字符或字符串（不能使用带引号的数
+                     字、字符或字符串），与USING子句的bind_argument一一对应；
+                   ● bind_argument只能是值、变量或表达式，不能是表名、列名和数据类型等数
+                     据库对象，即不支持使用bind_argument为动态SQL语句传递模式对象。如果
+                     存储过程需要通过声明参数传递数据库对象来构造动态SQL语句（常见于执行
+                     DDL语句时），建议采用连接运算符“||”拼接dynamic_select_clause；
+                   ● 动态PL/SQL块允许出现重复的占位符，即相同占位符只能与USING子句的一个
+                     bind_argument按位置对应。当设置guc参数behavior_compat_options值为
+                     dynamic_sql_compat时，会按照占位符的顺序依次匹配USING子句
+                     bind_argument，重复的占位符不会再识别为同一个占位符。
+                   ● IMMEDIATE关键字仅用作语法兼容，无实际意义。
+
+              示例
+              gaussdb=# DROP SCHEMA IF EXISTS hr CASCADE;
+              NOTICE: drop cascades to table staffs
+              DROP SCHEMA
+              gaussdb=# CREATE SCHEMA hr;
+              CREATE SCHEMA
+              gaussdb=# SET CURRENT_SCHEMA = hr;
+              SET
+              gaussdb=# CREATE TABLE staffs
+              (
+                staff_id NUMBER,
+                first_name VARCHAR2,
+                salary NUMBER
+              );
+              CREATE TABLE
+              gaussdb=# INSERT INTO staffs VALUES (200, 'mike', 5800);
+              INSERT 0 1
+              gaussdb=# INSERT INTO staffs VALUES (201, 'lily', 3000);
+              INSERT 0 1
+              gaussdb=# INSERT INTO staffs VALUES (202, 'john', 4400);
+              INSERT 0 1
+              --从动态语句检索值（INTO 子句）：
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                   2545
+GaussDB
+集中式版参考                                                                                             3 存储过程
+
+              gaussdb=# DECLARE
+                staff_count VARCHAR2(20);
+              BEGIN
+                EXECUTE IMMEDIATE 'select count(*) from hr.staffs'
+                   INTO staff_count;
+                dbe_output.print_line(staff_count);
+              END;
+              /
+              3
+              ANONYMOUS BLOCK EXECUTE
+              --传递并检索值（INTO子句用在USING子句前）：
+              gaussdb=# CREATE OR REPLACE PROCEDURE dynamic_proc
+              AS
+                staff_id     NUMBER(6) := 200;
+                first_name VARCHAR2(20);
+                salary       NUMBER(8,2);
+              BEGIN
+                EXECUTE IMMEDIATE 'select first_name, salary from hr.staffs where staff_id = :1'
+                    INTO first_name, salary
+                    USING IN staff_id;
+                dbe_output.print_line(first_name || ' ' || salary);
+              END;
+              /
+              CREATE PROCEDURE
+              --调用存储过程
+              gaussdb=# CALL dynamic_proc();
+              mike 5800.00
+               dynamic_proc
+              --------------
+
+              (1 row)
+              --删除存储过程
+              gaussdb=# DROP PROCEDURE dynamic_proc;
+              DROP PROCEDURE
+
+
+OPEN FOR
+              动态查询语句还可以使用OPEN FOR打开动态游标来执行。
+              语法图如图3-14所示。
+
+              图 3-14 open_for::=
+
+
+
+
+              参数说明：
+
+              ●    cursor_name：要打开的游标名。
+              ●    dynamic_string：动态查询语句。
+              ●    USING value：在dynamic_string中存在占位符时使用。
+              游标的使用请参考游标。
+              示例
+              gaussdb=# CREATE SCHEMA hr;
+              CREATE SCHEMA
+              gaussdb=# SET CURRENT_SCHEMA = hr;
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                            2546
+GaussDB
+集中式版参考                                                                                 3 存储过程
+
+              SET
+              gaussdb=# CREATE TABLE staffs
+              (
+                section_id NUMBER,
+                first_name VARCHAR2,
+                phone_number VARCHAR2,
+                salary NUMBER
+                );
+              CREATE TABLE
+              gaussdb=# INSERT INTO staffs VALUES (30, 'mike', '13567829252', 5800);
+              INSERT 0 1
+              gaussdb=# INSERT INTO staffs VALUES (40, 'john', '17896354637', 4000);
+              INSERT 0 1
+              gaussdb=# DECLARE
+                  name       VARCHAR2(20);
+                  phone_number VARCHAR2(20);
+                  salary    NUMBER(8,2);
+                  sqlstr    VARCHAR2(1024);
+
+                TYPE app_ref_cur_type IS REF CURSOR; --定义游标类型
+                my_cur app_ref_cur_type; --定义游标变量
+
+              BEGIN
+                sqlstr := 'select first_name,phone_number,salary from hr.staffs
+                    where section_id = :1';
+                OPEN my_cur FOR sqlstr USING '30'; --打开游标, using是可选的
+                FETCH my_cur INTO name, phone_number, salary; --获取数据
+                WHILE my_cur%FOUND LOOP
+                    dbe_output.print_line(name||'#'||phone_number||'#'||salary);
+                    FETCH my_cur INTO name, phone_number, salary;
+                END LOOP;
+                CLOSE my_cur; --关闭游标
+              END;
+              /
+              mike#13567829252#5800.00
+              ANONYMOUS BLOCK EXECUTE
+
+
+3.7.2 执行动态非查询语句
+
+语法
+              语法图如图3-15所示。
+
+              图 3-15 noselect::=
+
+
+
+
+              using_clause子句的语法图如图3-16所示。
+
+              图 3-16 using_clause::=
+
+
+
+
+              对以上语法格式的解释如下：
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                2547
+GaussDB
+集中式版参考                                                                                                  3 存储过程
+
+              USING IN bind_argument用于指定存放传递给动态SQL值的变量，在
+              dynamic_noselect_string中存在占位符时使用，即动态SQL语句执行时，
+              bind_argument将替换相对应的占位符。要注意的是，bind_argument只能是值、变
+              量或表达式，不能是表名、列名和数据类型等数据库对象。如果存储过程需要通过声
+              明参数传递数据库对象来构造动态SQL语句（常见于执行DDL语句时），建议采用连接
+              运算符“||”拼接dynamic_select_clause。另外，动态语句允许出现重复的占位符，相
+              同占位符只能与唯一一个bind_argument按位置一一对应。当设置guc参数
+              behavior_compat_options值为dynamic_sql_compat时，会按照占位符的顺序依次匹
+              配USING子句bind_argument，重复的占位符不会再识别为同一个占位符（占位符名
+              不能使用带引号的数字、字符或字符串）。
+
+示例
+              --创建表
+              gaussdb=# CREATE TABLE sections_t1
+              (
+                 section      NUMBER(4) ,
+                 section_name VARCHAR2(30),
+                 manager_id NUMBER(6),
+                 place_id      NUMBER(4)
+              );
+              CREATE TABLE
+              --声明变量
+              gaussdb=# DECLARE
+                 section      NUMBER(4) := 280;
+                 section_name VARCHAR2(30) := 'Info support';
+                 manager_id NUMBER(6) := 103;
+                 place_id      NUMBER(4) := 1400;
+                 new_colname VARCHAR2(10) := 'sec_name';
+              BEGIN
+              --执行查询
+                  EXECUTE IMMEDIATE 'insert into sections_t1 values(:1, :2, :3, :4)'
+                    USING section, section_name, manager_id,place_id;
+              --执行查询（重复占位符）
+                  EXECUTE IMMEDIATE 'insert into sections_t1 values(:1, :2, :3, :1)'
+                    USING section, section_name, manager_id;
+              --执行ALTER语句（建议采用“||”拼接数据库对象构造DDL语句）
+                  EXECUTE IMMEDIATE 'alter table sections_t1 rename section_name to ' || new_colname;
+              END;
+              /
+              ANONYMOUS BLOCK EXECUTE
+              --查询数据
+              gaussdb=# SELECT * FROM sections_t1;
+               section | sec_name | manager_id | place_id
+              ---------+--------------+------------+----------
+                   280 | Info support |      103 |     1400
+                   280 | Info support |      103 |      280
+              (2 rows)
+              --删除表
+              gaussdb=# DROP TABLE sections_t1;
+              DROP TABLE
+
+
+3.7.3 动态调用存储过程
+              动态调用存储过程必须使用匿名的语句块将存储过程或语句块包在里面，使用
+              EXECUTE IMMEDIATE…USING语句后面带IN、OUT来输入和输出参数。
+
+语法
+              语法图如图3-17所示。
+
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                  2548
+GaussDB
+集中式版参考                                                            3 存储过程
+
+              图 3-17 call_procedure::=
+
+
+
+
+              using_clause子句的语法图如图3-18所示。
+
+              图 3-18 using_clause::=
+
+
+
+
+              对以上语法格式的解释如下：
+              ●    CALL procedure_name: 调用存储过程。
+              ●    [:placeholder1，:placeholder2，…]: 存储过程参数占位符列表，占位符名不能使
+                   用带引号的数字、字符或字符串。占位符个数与参数个数相同。
+              ●    USING [IN|OUT|IN OUT] bind_argument: 用于指定存放传递给存储过程参数值
+                   的变量。bind_argument前的修饰符与对应参数的修饰符一致。
+              ●    不支持调用存储过程时使用“=>”跳过参数进行调用。
+              示例
+              --创建存储过程proc_add。
+              gaussdb=# CREATE OR REPLACE PROCEDURE proc_add
+              (
+                 param1 in INTEGER,
+                 param2 out INTEGER,
+                 param3 in INTEGER
+              )
+              AS
+              BEGIN
+                param2:= param1 + param3;
+              END;
+              /
+              CREATE PROCEDURE
+              gaussdb=# DECLARE
+                 input1 INTEGER:=1;
+                 input2 INTEGER:=2;
+                 statement VARCHAR2(200);
+                 param2    INTEGER;
+              BEGIN
+                --声明调用语句
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司               2549
+GaussDB
+集中式版参考                                                                    3 存储过程
+
+                 statement := 'call proc_add(:col_1, :col_2, :col_3)';
+                 --执行语句
+                 EXECUTE IMMEDIATE statement
+                    USING IN input1, OUT param2, IN input2;
+                 dbe_output.print_line('result is: '||to_char(param2));
+              END;
+              /
+              result is: 3
+              ANONYMOUS BLOCK EXECUTE
+              --删除存储过程
+              gaussdb=# DROP PROCEDURE proc_add;
+              DROP PROCEDURE
+
+
+3.7.4 动态调用匿名块
+              动态调用匿名块是指在动态语句中执行匿名块，使用EXECUTE IMMEDIATE…USING
+              语句后面带IN、OUT来输入、输出参数。
+
+
+语法
+              语法图如图3-19所示。
+
+              图 3-19 call_anonymous_block::=
+
+
+
+
+              using_clause子句的语法图如图3-20所示。
+
+              图 3-20 using_clause::=
+
+
+
+
+              对以上语法格式的解释如下：
+
+              ●     匿名块程序实施部分，以BEGIN语句开始，以END语句停顿，以一个分号结束。
+
+文档版本 01 (2026-04-30)                      版权所有 © 华为云计算技术有限公司                 2550
+GaussDB
+集中式版参考                                                                   3 存储过程
+
+
+              ●    USING [IN|OUT|IN OUT] bind_argument，用于指定存放传递给存储过程参数值
+                   的变量。bind_argument前的修饰符与对应参数的修饰符一致。
+              ●    匿名块中间的输入输出参数使用占位符来指明，要求占位符个数与参数个数相
+                   同，并且占位符所对应参数的顺序和USING中参数的顺序一致。
+
+
+                  须知
+
+              ● 仅支持匿名块中调用SQL语句和存储过程时绑定参数，其余绑定参数场景皆不支
+                持。例如：匿名块中使用表达式以及cursor等、匿名块中嵌套调用动态语句。
+              ● 不支持匿名块中SELECT INTO语句调用含有出参的FUNCTION/PROCEDURE时，绑
+                定出参。
+              ● 不支持匿名块绑定复合类型的出参。
+              ● 不支持同一条语句同时使用匿名块内声明的变量和绑定参数。
+              ● 不支持绑定参数时使用PERFORM关键字调用存储过程。
+              ● 调用存储过程时，仅支持绑定参数直接作为出入参，不支持表达式形式（如
+                “1+:va”）作为出入参，并且占位符名不能使用带引号的数字、字符或字符串。
+              ● 绑定入参类型为refcursor时，存储过程内的修改与入参相互隔离。
+              ● 打开dynamic_sql_check参数时，占位符个数与参数个数一致时使用同名占位符作
+                为匿名块参数会报错，需修改为不同名参数，详见示例。
+
+
+示例
+              gaussdb=# DROP SCHEMA IF EXISTS hr CASCADE;
+              gaussdb=# CREATE SCHEMA hr;
+              CREATE SCHEMA
+              gaussdb=# SET CURRENT_SCHEMA = hr;
+              SET
+              gaussdb=# CREATE TABLE staffs
+              (
+                staff_id NUMBER,
+                first_name VARCHAR2,
+                salary NUMBER
+              );
+              CREATE TABLE
+              gaussdb=# INSERT INTO staffs VALUES (200, 'mike', 5800);
+              INSERT 0 1
+              gaussdb=# INSERT INTO staffs VALUES (201, 'lily', 3000);
+              INSERT 0 1
+              gaussdb=# INSERT INTO staffs VALUES (202, 'john', 4400);
+              INSERT 0 1
+
+              --创建重载函数
+              gaussdb=# CREATE OR REPLACE PACKAGE pkg1
+              IS
+                 PROCEDURE plus(var1 in int, var2 int, var3 out int);
+                 PROCEDURE plus(var1 in out int);
+              END pkg1;
+              /
+              CREATE PACKAGE
+              gaussdb=# CREATE OR REPLACE PACKAGE BODY pkg1 IS
+                 PROCEDURE plus(var1 in int, var2 int, var3 out int)
+                 AS
+                 BEGIN
+                   var3 = var1 + var2 + 1;
+                 END;
+                 PROCEDURE plus(var1 in out int)
+                 AS
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                   2551
+GaussDB
+集中式版参考                                                                                                       3 存储过程
+
+                BEGIN
+                  var1 = var1 + 1;
+                END;
+              END pkg1;
+              /
+              CREATE PACKAGE BODY
+
+              --创建存储过程dynamic_proc
+              gaussdb=# CREATE OR REPLACE PROCEDURE dynamic_proc
+              AS
+                staff_id     NUMBER(6) := 200;
+                first_name VARCHAR2(20);
+                salary       NUMBER(8,2);
+              BEGIN
+                 --执行匿名块
+                 EXECUTE IMMEDIATE 'begin select first_name, salary into :first_name, :salary from hr.staffs where
+              staff_id= :dno; end;'
+                    USING OUT first_name, OUT salary, IN staff_id;
+                dbe_output.print_line(first_name|| ' ' || salary);
+              END;
+              /
+              CREATE PROCEDURE
+              --创建存储过程调用重载函数
+              gaussdb=# CREATE OR REPLACE PROCEDURE dynamic_proc1
+              AS
+                  v_sql VARCHAR2(200);
+                  var1 NUMBER(6) := 1;
+                  var2 NUMBER(6) := 2;
+                  var3 NUMBER(6);
+              BEGIN
+                  v_sql := 'begin pkg1.plus(:1, :2, :3); end;';
+                  EXECUTE IMMEDIATE v_sql USING var1, var2, out var3;
+                  dbe_output.print_line('var3: ' || var3);
+              END;
+              /
+              CREATE PROCEDURE
+
+              --调用存储过程
+              gaussdb=# CALL dynamic_proc();
+              mike 5800.00
+               dynamic_proc
+              --------------
+
+              (1 row)
+              gaussdb=# CALL dynamic_proc1();
+              var3: 4
+               dynamic_proc1
+              ---------------
+
+              (1 row)
+              --删除存储过程
+              gaussdb=# DROP PROCEDURE dynamic_proc;
+              DROP PROCEDURE
+              gaussdb=# DROP PROCEDURE dynamic_proc1;
+              DROP PROCEDURE
+
+              --开启dynamic_sql_check时报错示例
+              gaussdb=# SET behavior_compat_options = 'dynamic_sql_check';
+              SET
+              gaussdb=# CREATE OR REPLACE PROCEDURE test_proc_exception001(a out integer, b inout integer, c
+              integer)
+              as
+              BEGIN
+               a := 1;
+               begin b := 1/0; end;
+              EXCEPTION
+               WHEN others THEN
+                b := 2;
+              END;
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                                           2552
+GaussDB
+集中式版参考                                                                                                3 存储过程
+
+              /
+              CREATE PROCEDURE
+              gaussdb=#
+              DECLARE
+               a integer := 1;
+               c integer;
+              BEGIN
+                execute immediate 'begin test_proc_exception001(:1,:2,:1); end;' using in out a, out c, a;
+              END;
+              /
+              ERROR: The numbers of parameters do not match in Dynamic SQL, expected number of parameters : 3 ,
+              actual number of SQL parameters : 2.
+              CONTEXT: PL/pgSQL function inline_code_block line 4 at EXECUTE statement
+              --修改同名占位符
+              gaussdb=#
+              DECLARE
+               a integer := 1;
+               c integer;
+              BEGIN
+                execute immediate 'begin test_proc_exception001(:1,:2,:3); end;' using in out a, out c, a;
+              END;
+              /
+              ANONYMOUS BLOCK EXECUTE
+              gaussdb=# DROP PROCEDURE test_proc_exception001;
+              DROP PROCEDURE
+
+
+
+3.8 控制语句
+
+3.8.1 返回语句
+              GaussDB提供两种方式返回数据：RETURN或RETURN NEXT及RETURN QUERY。其
+              中，RETURN NEXT和RETURN QUERY只适用于函数，不适用存储过程。
+
+3.8.1.1 RETURN
+
+语法
+              返回语句的语法图如图3-21所示。
+
+              图 3-21 return_clause::=
+
+
+
+
+              对以上语法的解释如下：
+              用于将存储过程或函数返回结果赋值给调用者。
+
+示例
+              请参见示例。
+
+3.8.1.2 RETURN NEXT 及 RETURN QUERY
+
+语法
+              创建函数时需要指定返回值SETOF datatype。
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                    2553
+
