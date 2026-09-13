@@ -275,6 +275,81 @@ facts:
   statement: 注意事项将\N称为空字符串、option默认TEXT空值写\n，而原生参数写\N；当前无NULL输入，保留原文冲突。
   status: needs_verification
   source_anchor: 2.4.2.8.5 L34-34
+- id: m_copy_fact_purpose
+  type: syntax
+  statement: COPY FROM从文件导数据到表，COPY TO把表数据导出到文件。适合低并发本地小数据量。
+  status: confirmed
+  source_anchor: 2.4.2.8.5 L4-7
+- id: m_copy_fact_permissions
+  type: environment
+  statement: COPY TO需SELECT权限，COPY FROM需INSERT权限。enable_copy_server_files关闭时仅初始用户可用FILENAME；打开时SYSADMIN或gs_role_copy_files继承者可用。
+  status: confirmed
+  source_anchor: 2.4.2.8.5 L10-21
+- id: m_copy_fact_table_only
+  type: constraint
+  statement: COPY只能用于表，不能用于视图。
+  status: confirmed
+  source_anchor: 2.4.2.8.5 L21-21
+- id: m_copy_fact_column_list
+  type: behavior_oracle
+  statement: 声明字段列表时仅复制已声明字段；未声明字段FROM插入缺省值。任意行字段数不符则报错。
+  status: confirmed
+  source_anchor: 2.4.2.8.5 L24-33
+- id: m_copy_fact_no_preprocess
+  type: constraint
+  statement: COPY FROM不支持导入过程预处理（表达式运算、填充默认值）。需预处理时先导入临时表再SQL插入。
+  status: confirmed
+  source_anchor: 2.4.2.8.5 L36-42
+- id: m_copy_fact_generated_columns
+  type: constraint
+  statement: 生成列不能出现在指定列列表中。COPY TO未指定列时除生成列外全部导出。COPY FROM时生成列自动更新。
+  status: confirmed
+  source_anchor: 2.4.2.8.5 L36-42
+- id: m_copy_fact_server_vs_client
+  type: environment
+  statement: COPY是服务端命令，\COPY是客户端元命令。云上环境两者均用云上路径。
+  status: confirmed
+  source_anchor: 2.4.2.8.5 L46-59
+- id: m_copy_fact_safe_data_path
+  type: environment
+  statement: GUC参数safe_data_path设置导入导出路径白名单；COPY路径必须为子路径。为空时白名单不生效。
+  status: confirmed
+  source_anchor: 2.4.2.8.5 L10-16
+- id: m_copy_fact_null_marker
+  type: syntax
+  statement: COPY FROM中\N为空字符串。TEXT默认null值为\N，CSV默认为无引号空字符串。null值不能为\r/\n，不能与分隔符/quote相同。
+  status: confirmed
+  source_anchor: 2.4.2.8.5 L36-42, L244-253
+- id: m_copy_fact_end_marker
+  type: syntax
+  statement: 数据结束用\.行表示。文件读取不需要结束标记；客户端间复制必须有。
+  status: confirmed
+  source_anchor: 2.4.2.8.5 L30-33
+- id: m_copy_fact_delimiter
+  type: syntax
+  statement: 分隔符不能是\r和\n。TEXT默认tab，CSV默认逗号。
+  status: confirmed
+  source_anchor: 2.4.2.8.5 L227-242
+- id: m_copy_fact_binary_restrictions
+  type: constraint
+  statement: BINARY模式下不能声明DELIMITER、NULL、CSV选项。DATE_FORMAT不支持BINARY。
+  status: confirmed
+  source_anchor: 2.4.2.8.5 L219-225, L271-275, L321-332
+- id: m_copy_fact_error_tolerance
+  type: behavior_oracle
+  statement: LOG ERRORS/LOG ERRORS DATA开启容错。数据格式错误时回滚事务但错误信息不足。容错选项使批量插入变单行，性能劣化。
+  status: confirmed
+  source_anchor: 2.4.2.8.5 L154-196
+- id: m_copy_fact_float_precision
+  type: environment
+  statement: 导出float类型时推荐extra_float_digits=3以避免精度丢失。
+  status: confirmed
+  source_anchor: 2.4.2.8.5 L50-52
+- id: m_copy_fact_zero_char_truncation
+  type: constraint
+  statement: 含零字符（\0）数据进行COPY FROM/TO时存在数据截断。
+  status: confirmed
+  source_anchor: 2.4.2.8.5 L55-56
 rules: []
 structural_checks: []
 exported_fact_refs: []
@@ -289,3 +364,4 @@ fixture_refs:
 - fixture_m_copy_shared_table
 scenario_refs:
 - scenario_m_copy_protocol_and_formats
+- scenario_m_copy_source_completion_review
