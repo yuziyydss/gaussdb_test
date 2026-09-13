@@ -1,0 +1,103 @@
+document: 集中式版参考 / 7 数据库运行参数说明 / 双机复制
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-12'
+extraction_method: pdftotext -layout
+verification_status: confirmed_by_pdftotext_dual_mode
+facts:
+- id: guc_max_wal_senders
+  type: environment
+  statement: max_wal_senders指定Xlog发送线程并发连接最大数量，必须小于max_connections；取值0~1024，建议8~100，默认20。wal_level需为archive、hot_standby或logical以允许备机连接。
+  source_anchor: 7.3.7.1 发送端服务器 max_wal_senders
+  status: confirmed
+  verification_method: pdftotext双模式交叉验证通过（页4272-4273）
+- id: guc_wal_keep_segments
+  type: environment
+  statement: wal_keep_segments设置pg_xlog目录保留Xlog日志文件的最小数量，取值2~2147483647，默认128；异步复制连续导入大对象或重建备机时建议调大。
+  source_anchor: 7.3.7.1 发送端服务器 wal_keep_segments
+  status: confirmed
+  verification_method: pdftotext双模式交叉验证通过（页4273）
+- id: guc_wal_sender_timeout
+  type: environment
+  statement: wal_sender_timeout设置本节点等待日志接收端的最大时间，单位ms，默认6000；该值不能大于wal_receiver_timeout或数据库重建超时参数。
+  source_anchor: 7.3.7.1 发送端服务器 wal_sender_timeout
+  status: confirmed
+  verification_method: pdftotext双模式交叉验证通过（页4273）
+- id: guc_max_replication_slots
+  type: environment
+  statement: max_replication_slots设置主机端日志复制slot最大数量，取值0~1024，建议8~100，默认20；应覆盖物理流复制、备份和逻辑复制槽需求。
+  source_anchor: 7.3.7.1 发送端服务器 max_replication_slots
+  status: confirmed
+  verification_method: pdftotext双模式交叉验证通过（页4274）
+- id: guc_synchronous_standby_names
+  type: environment
+  statement: synchronous_standby_names配置同步复制备机列表，支持ANY num_sync(...)、[FIRST] num_sync(...)和standby_name列表；ANY任选N个，FIRST按顺序取前N个，*匹配任意同步备机。
+  source_anchor: 7.3.7.2 主服务器 synchronous_standby_names
+  status: confirmed
+  verification_method: pdftotext双模式交叉验证通过（页4291-4292）
+- id: guc_most_available_sync
+  type: environment
+  statement: most_available_sync控制所有同步备机故障时是否阻塞主机事务提交：on不阻塞并进入最大可用模式，off阻塞；默认off，开启会降低多数派写入保证。
+  source_anchor: 7.3.7.2 主服务器 most_available_sync
+  status: confirmed
+  verification_method: pdftotext双模式交叉验证通过（页4292）
+- id: guc_keep_sync_window
+  type: environment
+  statement: keep_sync_window在most_available_sync开启且同步备数量不满足时，延迟进入最大可用模式；0表示立即进入，非0为阻塞主机提交的等待窗口，默认0。
+  source_anchor: 7.3.7.2 主服务器 keep_sync_window
+  status: confirmed
+  verification_method: pdftotext双模式交叉验证通过（页4292-4293）
+- id: guc_enable_stream_replication
+  type: environment
+  statement: enable_stream_replication控制主备数据和日志同步，默认on；关闭仅用于性能对比测试，会失去多副本能力并影响切换、故障和备份。
+  source_anchor: 7.3.7.2 主服务器 enable_stream_replication
+  status: confirmed
+  verification_method: pdftotext双模式交叉验证通过（页4293）
+- id: guc_enable_mix_replication
+  type: environment
+  statement: enable_mix_replication控制主备WAL日志与数据页混合复制模式；on开启，off关闭。默认off，且为POSTMASTER受控参数，不允许外部修改。
+  source_anchor: 7.3.7.2 主服务器 enable_mix_replication
+  status: confirmed
+  verification_method: pdftotext双模式交叉验证通过（页4293-4294）
+- id: guc_hot_standby
+  type: environment
+  statement: hot_standby设置备机恢复到minrecovery点后是否接受连接和查询，默认on；开启要求wal_level为hot_standby或以上，否则数据库无法启动。
+  source_anchor: 7.3.7.3 备服务器 hot_standby
+  status: confirmed
+  verification_method: pdftotext双模式交叉验证通过（页4303）
+- id: guc_max_standby_streaming_delay
+  type: environment
+  statement: max_standby_streaming_delay设置流复制回放与备机查询冲突时取消查询前等待时间，单位ms，默认3000；-1尽可能等待，0立即取消。
+  source_anchor: 7.3.7.3 备服务器 max_standby_streaming_delay
+  status: confirmed
+  verification_method: pdftotext双模式交叉验证通过（页4305-4306）
+- id: guc_hot_standby_feedback
+  type: environment
+  statement: hot_standby_feedback控制备机是否将执行查询的最小事务号反馈给主机以避免查询冲突，默认off；开启会限制主机旧版本数据清理并影响主机性能。
+  source_anchor: 7.3.7.3 备服务器 hot_standby_feedback
+  status: confirmed
+  verification_method: pdftotext双模式交叉验证通过（页4306）
+- id: guc_wal_receiver_timeout
+  type: environment
+  statement: wal_receiver_timeout设置备机从主机接收数据的最大等待时间，单位ms，取值0~2147483647，默认6000；过小会在网络波动时导致walreceiver频繁断开。
+  source_anchor: 7.3.7.3 备服务器 wal_receiver_timeout
+  status: confirmed
+  verification_method: pdftotext双模式交叉验证通过（页4306）
+- id: guc_max_changes_in_memory
+  type: environment
+  statement: max_changes_in_memory设置逻辑解码时单个事务在内存中缓存DML语句数量上限，取值1~2147483647，默认4096；过大增加内存，过小降低解码效率。
+  source_anchor: 7.3.7.4 逻辑复制 max_changes_in_memory
+  status: confirmed
+  verification_method: pdftotext双模式交叉验证通过（页4313）
+- id: guc_max_cached_tuplebufs
+  type: environment
+  statement: max_cached_tuplebufs设置逻辑解码时总元组信息内存缓存数量上限，取值1~2147483647，默认8192；建议至少为max_changes_in_memory的两倍。
+  source_anchor: 7.3.7.4 逻辑复制 max_cached_tuplebufs
+  status: confirmed
+  verification_method: pdftotext双模式交叉验证通过（页4314）
+- id: guc_logical_sender_timeout
+  type: environment
+  statement: logical_sender_timeout设置本端等待逻辑日志接收端的最大时间，单位ms，取值0~2147483647，默认30000。
+  source_anchor: 7.3.7.4 逻辑复制 logical_sender_timeout
+  status: confirmed
+  verification_method: pdftotext双模式交叉验证通过（页4315）

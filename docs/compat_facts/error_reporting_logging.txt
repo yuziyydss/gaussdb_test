@@ -1,0 +1,1434 @@
+GaussDB
+集中式版参考                                                       7 数据库运行参数说明
+
+              设置方式：该参数属于POSTMASTER类型参数，请参见表7-1中对应设置方法进行设
+              置。
+
+              设置建议：推荐使用默认值。
+
+              设置不当的风险与影响：此值设置过小，会导致频发触发清理，遗漏历史记录；设置
+              过大，会导致占用磁盘空间增大。
+
+
+spm_enable_async_flush
+              参数说明：是否启用SPM消息异步持久化功能。
+
+              参数类型：布尔型
+
+              参数单位：无
+
+              取值范围：
+
+              ●   on：表示启用SPM消息异步持久化功能。
+              ●   off：表示关闭SPM消息异步持久化功能。
+
+              默认值：on
+
+              设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+
+              设置建议：推荐使用默认值。
+
+              设置不当的风险与影响：当此参数关闭时，将停用异步消息持久化功能，并导致
+              spm_enable_plan_capture和spm_enable_plan_history_logging功能失效，具体请
+              参见《开发指南》中“特性使用指导 > SPM计划管理”章节的“SPM持久化方式”部
+              分。
+
+
+spm_async_sub_mq_maxsize
+              参数说明：用于控制每个消息队列的最大长度。
+
+              参数类型：整型
+
+              参数单位：无
+
+              取值范围：[0, 10000]，当设置为0时，将停止新的消息入队。
+
+              默认值：1024
+
+              设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+
+              设置建议：推荐使用默认值。
+
+              设置不当的风险与影响：当此参数的值设置较大时，异步消息入队成功率将提升；反
+              之，将降低。若设置为0，会导致spm_enable_plan_capture和
+              spm_enable_plan_history_logging功能触发的异步消息不再被处理，具体请参见
+              《开发指南》中“特性使用指导 > SPM计划管理”章节的“SPM持久化方式”部分。
+
+7.3.10 错误报告和日志
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                          4354
+GaussDB
+集中式版参考                                                      7 数据库运行参数说明
+
+
+7.3.10.1 记录日志的位置
+
+log_destination
+              参数说明：GaussDB支持多种方法记录服务器日志，log_destination的取值为一个逗
+              号分隔开的列表（如log_destination="stderr,csvlog"）。
+              参数类型：字符串
+              参数单位：无
+              取值范围：有效值为"stderr"、"csvlog"、"syslog"、"eventlog"。
+
+              ●   "stderr"：表示日志打印到屏幕。
+              ●   "csvlog"：表示日志的输出格式为“逗号分隔值”即CSV（Comma Separated
+                  Value）格式。使用csvlog记录日志的前提是将logging_collector设置为on，请
+                  参见使用CSV格式写日志。
+              ●   "syslog"：表示通过操作系统的syslog记录日志。GaussDB使用syslog的LOCAL0 ~
+                  LOCAL7记录日志，请参见syslog_facility。使用syslog记录日志需在操作系统后
+                  台服务配置文件中添加代码：
+                  local0.* /var/log/omm
+
+              ●   "eventlog"，表示通过事件日志组件记录日志。仅在windows系统下支持。
+              默认值："stderr"
+              设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：推荐使用默认值。
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+logging_collector
+              参数说明：控制开启后端日志收集线程logger进行日志收集。该线程捕获到stderr或
+              csvlog日志消息，将其写入日志文件。
+              这种记录日志的方法比将日志记录到syslog更加有效，因为某些类型的消息在syslog的
+              输出中无法显示。例如动态链接库加载失败消息和脚本产生的错误消息。
+
+
+                  须知
+
+              将服务器日志发送到stderr时可以不使用logging_collector参数，此时日志消息会被发
+              送到服务器的stderr指向的空间。这种方法的缺点是日志回滚困难，只适用于较小的日
+              志容量。
+
+              参数类型：布尔型
+              参数单位：无
+              取值范围：
+
+              ●   on：表示开启日志收集功能。
+              ●   off：表示关闭日志收集功能。
+              默认值：on
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司             4355
+GaussDB
+集中式版参考                                                               7 数据库运行参数说明
+
+                设置方式：该参数属于POSTMASTER类型参数，请参见表7-1中对应设置方法进行设
+                置。
+
+                设置建议：推荐使用默认值。
+
+                设置不当的风险与影响：关闭时无法使用csvlog记录日志。
+
+
+log_directory
+                参数说明：logging_collector设置为on时，log_directory决定存放服务器日志文件的
+                目录。它可以是绝对路径，或者是相对路径（相对于数据目录的路径）。
+                log_directory支持动态修改，可以通过gs_guc reload实现，仅sysadmin用户可以访
+                问。
+
+
+
+                  须知
+
+                ● 当配置文件中log_directory的值为非法路径时，会导致数据库无法重新启动。
+                ● 通过gs_guc reload动态修改log_directory时，当指定路径为合法路径时，日志输出
+                  到新的路径下。当指定路径为非法路径时，日志输出到上一次合法的日志输出路径
+                  下而不影响数据库正常运行。此时即使指定的log_directory的值非法，也会写入到
+                  配置文件中。
+                ● 在沙箱环境，路径中不可以包含/var/chroot，例如log的绝对路径是/var/
+                  chroot/var/lib/log/Ruby/gs_log/cn_log，则只需要设置为/var/lib/log/Ruby/
+                  gs_log/cn_log。
+
+
+                    说明
+
+                   ● 合法路径：用户对此路径有读写权限。
+                   ● 非法路径：用户对此路径无读写权限。
+
+                参数类型：字符串
+
+                参数单位：无
+
+                取值范围：字符串
+
+                默认值：安装时指定。
+
+                设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+
+                设置建议：推荐使用默认值。
+
+                设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+
+log_filename
+                参数说明：logging_collector设置为on时，log_filename设置服务器运行日志文件的
+                名称。通常日志文件名是按照strftime模式生成，因此可以用系统时间定义日志文件
+                名，用%转义字符实现，仅sysadmin用户可以访问。
+
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                                 4356
+GaussDB
+集中式版参考                                                     7 数据库运行参数说明
+
+
+                须知
+
+              ● 建议使用%转义字符定义日志文件名称，否则难以对日志文件进行有效的管理。
+              ● 当log_destination设为csvlog时，系统会生成附加了时间戳的日志文件名，文件格
+                式为csv格式，例如“server_log.1093827753.csv”。
+
+              参数类型：字符串
+              参数单位：无
+              取值范围：字符串
+              默认值：gaussdb-%Y-%m-%d_%H%M%S.log
+              设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：推荐使用默认值。
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+log_file_mode
+              参数说明：logging_collector设置为on时，log_file_mode设置服务器日志文件的权
+              限。通常log_file_mode的取值是能够被chmod和umask系统调用接受的数字。
+
+
+                须知
+
+              ● 使用此选项前请设置log_directory，将日志存储到数据目录之外的地方。
+              ● 因日志文件可能含有敏感数据，故不能将其设为对外可读。
+
+              参数类型：整型
+              参数单位：无
+              取值范围：0000 ~ 0777（8进制计数，转化为十进制为0 ~ 511）。
+
+                  说明
+
+                 ● 0600表示只允许服务器管理员读写日志文件。
+                 ● 0640表示允许管理员所在用户组成员只能读日志文件。
+
+              默认值：0600
+              设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：推荐使用默认值。
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+log_truncate_on_rotation
+              参数说明：logging_collector设置为on时，log_truncate_on_rotation设置日志消息的
+              写入方式。
+              参数类型：布尔型
+
+文档版本 01 (2026-04-30)        版权所有 © 华为云计算技术有限公司                         4357
+GaussDB
+集中式版参考                                                               7 数据库运行参数说明
+
+              参数单位：无
+              取值范围：
+
+              ●     on：表示GaussDB以覆盖写入的方式写服务器日志消息。
+              ●     off：表示GaussDB将日志消息附加到同名的现有日志文件上。
+              默认值：off
+              设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：推荐使用默认值。
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+log_rotation_age
+              参数说明：logging_collector设置为on时，log_rotation_age决定创建一个新日志文件
+              的时间间隔。当现在的时间减去上次创建服务器日志的时间超过了log_rotation_age
+              时，将生成一个新的日志文件。
+
+                    说明
+
+                  假设日志需要保留7天，每天生成一个日志文件，日志文件名设置为server_log.Mon、
+                  server_log.Tue等。第二周的周二生成的日志消息会覆盖写入到server_log.Tue。
+                  设置方法：将log_filename设置为server_log.%a ，log_truncate_on_rotation设置为on，
+                  log_rotation_age设置为1440。
+
+              参数类型：整型
+              参数单位：min（分钟）
+              取值范围：0 ~ 35791394。其中0表示关闭基于时间的新日志文件的创建。
+              默认值：1440(min)
+              设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：推荐使用默认值。
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+log_rotation_size
+              参数说明：logging_collector设置为on时，log_rotation_size决定服务器日志文件的最
+              大容量。当日志消息的总量超过日志文件最大容量时，服务器将生成一个新的日志文
+              件。
+              参数类型：整型
+              参数单位：kB
+              取值范围：0 ~ 2097151。0表示关闭基于容量的新日志文件的创建。
+              默认值：20480（20MB）
+              设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：推荐使用默认值。
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                                 4358
+GaussDB
+集中式版参考                                                           7 数据库运行参数说明
+
+
+syslog_facility
+               参数说明：log_destination设置为syslog时，syslog_facility配置使用syslog记录日志
+               的“设备”。
+
+               参数类型：枚举类型
+
+               参数单位：无
+
+               取值范围：local0、local1、local2、local3、local4、local5、local6、local7。
+
+               默认值：local0
+
+               设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+
+               设置建议：推荐使用默认值。
+
+               设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+
+syslog_ident
+               参数说明：log_destination设置为syslog时，syslog_ident表示在syslog日志中
+               GaussDB日志消息的标识。
+
+               参数类型：字符串
+
+               参数单位：无
+
+               取值范围：字符串
+
+               默认值："postgres"
+
+               设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+
+               设置建议：推荐使用默认值。
+
+               设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+
+event_source
+               参数说明：该参数仅在windows环境下生效。log_destination设置为eventlog时，
+               event_source设置在日志中GaussDB日志消息的标识。
+
+               参数类型：字符串
+
+               参数单位：无
+
+               取值范围：字符串
+
+               默认值："PostgreSQL"
+
+               设置方式：该参数属于POSTMASTER类型参数，请参见表7-1中对应设置方法进行设
+               置。
+
+               设置建议：推荐使用默认值。
+
+               设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                             4359
+GaussDB
+集中式版参考                                                    7 数据库运行参数说明
+
+
+7.3.10.2 记录日志的时间
+
+client_min_messages
+              参数说明：用于控制发送到客户端的消息级别，级别不低于参数设置值的所有消息会
+              被发送。该参数可在PDB级别设置。
+              参数类型：枚举类型
+              参数单位：无
+              取值范围：消息级别从低到高依次为debug5、debug4、debug3、debug2、
+              debug1、log、info、notice、warning、error、fatal和panic。参数的详细信息请参见
+              表7-16。
+
+
+                须知
+
+              ● 通常，设置的级别越低，发送给客户端的消息就越多。
+              ● 对于客户端日志消息：如果client_min_messages参数值设置为fatal或panic，该参
+                数的实际值会被强制指定为error。client_min_messages无论设置为哪个级别，info
+                级别消息都会发送到客户端。
+
+              默认值：notice。在PDB场景内，若未设置该参数，则继承来自全局的设置。
+              设置方式：该参数属于USERSET类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：推荐使用默认值。
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+log_min_messages
+              参数说明：用于控制写入服务器日志的消息级别，级别不低于参数设置值的所有消息
+              会被写入。该参数可在PDB级别设置。
+              参数类型：枚举类型
+              参数单位：无
+              取值范围：消息级别从低到高依次为debug5、debug4、debug3、debug2、
+              debug1、log、info、notice、warning、error、fatal和panic。参数的详细信息请参见
+              表7-16。
+
+
+                须知
+
+              ● 通常，设置的级别越低，写入服务器日志的消息就越多。
+              ● 对于服务器日志消息：当log_min_messages设置级别不高于error时，log级别消息
+                都会写入服务器日志。
+              ● 由于频繁打印会影响系统性能和稳定性，参数级别debug1 ~ debug5一般作为客户
+                现场问题定位手段使用，且建议优先按照模块（参见logging_module）开启这些
+                级别，并在后续及时恢复原有日志级别。
+
+
+文档版本 01 (2026-04-30)        版权所有 © 华为云计算技术有限公司                       4360
+GaussDB
+集中式版参考                                                    7 数据库运行参数说明
+
+              默认值：warning。在PDB场景内，若未设置该参数，则继承来自全局的设置。
+              设置方式：该参数属于SUSET类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：推荐使用默认值。
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+log_min_error_statement
+              参数说明：用于控制写入服务器日志的SQL语句对应的消息级别，级别不低于参数设
+              置值的消息对应的所有SQL语句会被写入。该参数可在PDB级别设置。
+              参数类型：枚举类型
+              参数单位：无
+              取值范围：消息级别从低到高依次为debug5、debug4、debug3、debug2、
+              debug1、log、info、notice、warning、error、fatal和panic。参数的详细信息请参见
+              表7-16。
+
+
+                须知
+
+              ● 通常，设置的级别越低，写入服务器日志的SQL语句就越多。
+              ● 对于服务器日志SQL消息：当设置级别不高于error时，log级别消息对应的SQL语句
+                都会写入服务器日志。
+              ● 当SQL语句中包含用户个人信息时，若不需要记录报错的SQL语句，可以将
+                log_min_error_statement设置为panic。
+
+              默认值：error。在PDB场景内，若未设置该参数，则继承来自全局的设置。
+              设置方式：该参数属于SUSET类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：推荐使用默认值。
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+log_min_duration_statement
+              参数说明：当某条SQL语句的执行时间大于等于该参数设定的值时，这条SQL语句和其
+              执行时间会一并被记录。该参数可在PDB级别设置。
+              设置log_min_duration_statement可以很方便地跟踪需要优化的查询语句。对于使用
+              扩展查询协议的客户端，语法分析、绑定、执行每一步所花的时间将被独立记录。
+              参数类型：整型
+              参数单位：ms（毫秒）
+
+
+                须知
+
+              当此参数与log_statement同时使用时，已经被log_statement记录的SQL语句不会被
+              重复记录。在没有使用syslog情况下，推荐使用log_line_prefix记录PID或会话ID，方
+              便通过PID或会话ID关联语句消息和执行时间消息。
+
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                      4361
+GaussDB
+集中式版参考                                                   7 数据库运行参数说明
+
+              取值范围：-1 ~ 2147483647
+
+              ●   设置为-1，关闭此功能。
+              ●   设置为0，记录所有SQL语句和其执行时间。
+              ●   设置为正整数，当某条SQL语句的执行时间大于等于设置值时，这条SQL语句和其
+                  执行时间会一并被记录。
+
+              默认值：3000（即3s）。在PDB场景内，若未设置该参数，则继承来自全局的设置。
+
+              设置方式：该参数属于SUSET类型参数，请参见表7-1中对应设置方法进行设置。取值
+              为整数时，默认单位为ms；取值如果带单位，必须为ms、s、min、h、d。例如，不
+              带单位取值600，表示log_min_duration_statement为600ms；带单位取值10min，表
+              示log_min_duration_statement为10min。
+
+              设置建议：设置为默认值。
+
+              设置不当的风险与影响：取值若超出范围，或者取值带有除ms、s、min、h、d以外的
+              单位时，会有报错提示。
+
+
+backtrace_min_messages
+              参数说明：用于控制写入服务器日志的函数堆栈信息的消息级别，级别不低于参数设
+              置值的消息对应的所有堆栈信息会被写入。该参数可在PDB级别设置。
+
+              参数类型：枚举类型
+
+              参数单位：无
+
+              取值范围：消息级别从低到高为debug5、debug4、debug3、debug2、debug1、
+              log、info、notice、warning、error、fatal、panic。参数的详细信息请参见表7-16。
+
+
+
+                  须知
+
+              ● 通常，设置的级别越低，写入服务器日志的堆栈信息就越多。
+              ● 该参数作为客户现场问题定位手段使用。由于频繁打印函数堆栈会影响到系统开销
+                及稳定性，问题定位时建议将backtrace_min_messages设置为fatal或panic。
+
+
+              默认值：panic。在PDB场景内，若未设置该参数，则继承来自全局的设置。
+
+              设置方式：该参数属于SUSET类型参数，请参见表7-1中对应设置方法进行设置。
+
+              设置建议：推荐使用默认值。
+
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。如果
+              设置的级别过低，在高并发场景下，线程并发打印堆栈可能影响业务正常执行。例
+              如，如果在高并发建立连接时此参数设置不合理，会拖慢建连线程池处理效率，甚至
+              导致数据库实例不可连接。
+
+              表7-16解释GaussDB中使用的消息安全级别。当日志输出到syslog或者eventlog(仅
+              windows环境下，GaussDB版本不涉及该参数)时，GaussDB进行如表中的转换。
+
+
+
+文档版本 01 (2026-04-30)        版权所有 © 华为云计算技术有限公司                       4362
+GaussDB
+集中式版参考                                                     7 数据库运行参数说明
+
+              表 7-16 信息严重程度分类
+
+               信息严重程度类型      详细说明                 系统日志       事件日志
+
+               debug[1-5]    报告详细调试信息。            DEBUG      INFORMATIO
+                                                             N
+
+               log           报告对数据库管理员有用的信        INFO       INFORMATIO
+                             息，比如检查点操作统计信                    N
+                             息。
+
+               info          报告用户可能需求的信息，比        INFO       INFORMATIO
+                             如在VACUUM VERBOSE过程              N
+                             中的信息。
+
+               notice        报告可能对用户有帮助的信         NOTICE     INFORMATIO
+                             息，比如， 长标识符的截断，                  N
+                             作为主键一部分创建的索引
+                             等。
+
+               warning       报告警告信息， 比如在事务块       NOTICE     WARNING
+                             范围之外的COMMIT。
+
+               error         报告导致当前命令退出的错         WARNING    ERROR
+                             误。
+
+               fatal         报告导致当前会话终止的原         ERR        ERROR
+                             因。
+
+               panic         报告导致整个数据库被关闭的        CRIT       ERROR
+                             原因。
+
+
+
+
+7.3.10.3 记录日志的内容
+
+debug_print_parse
+              参数说明：用于控制打印解析树结果。
+
+              参数类型：布尔型
+
+              参数单位：无
+
+              取值范围：
+
+              ●      on：表示开启打印解析树结果的功能。
+              ●      off：表示关闭打印解析树结果的功能。
+
+              默认值：off
+
+              设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+
+              设置建议：推荐使用默认值。
+
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                        4363
+GaussDB
+集中式版参考                                                    7 数据库运行参数说明
+
+
+debug_print_rewritten
+              参数说明：用于控制打印查询重写结果。
+
+              参数类型：布尔型
+
+              参数单位：无
+
+              取值范围：
+
+              ●   on：表示开启打印查询重写结果的功能。
+              ●   off：表示关闭打印查询重写结果的功能。
+
+              默认值：off
+
+              设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+
+              设置建议：推荐使用默认值。
+
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+
+debug_print_plan
+              参数说明：用于设置是否将查询的执行计划打印到日志中。
+
+              参数类型：布尔型
+
+              参数单位：无
+
+              取值范围：
+
+              ●   on：表示将查询的执行计划打印到日志中。
+              ●   off：表示不将查询的执行计划打印到日志中。
+
+              默认值：off
+
+              设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+
+              设置建议：推荐使用默认值。
+
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+
+
+                  须知
+
+              ● 只有当日志的级别为log及以上时，debug_print_parse、debug_print_rewritten和
+                debug_print_plan的调试信息才会输出。当这些选项打开时，调试信息只会记录在
+                服务器的日志中，而不会输出到客户端的日志中。通过设置client_min_messages
+                和log_min_messages参数可以改变日志级别。
+              ● 在打开debug_print_plan开关的情况下需尽量避免调用gs_encrypt_aes128及
+                gs_decrypt_aes128函数，避免敏感参数信息在日志中泄露的风险。同时建议用户
+                在打开debug_print_plan开关生成的日志中对gs_encrypt_aes128及
+                gs_decrypt_aes128函数的参数信息进行过滤后再提供给外部维护人员定位，日志
+                使用完成后请及时删除。
+
+
+文档版本 01 (2026-04-30)        版权所有 © 华为云计算技术有限公司                        4364
+GaussDB
+集中式版参考                                               7 数据库运行参数说明
+
+
+debug_pretty_print
+              参数说明：打开此参数会对debug_print_parse、debug_print_rewritten和
+              debug_print_plan产生的日志进行缩进，会生成易读且更长的输出格式。该参数可在
+              PDB级别设置。
+              参数类型：布尔型
+              参数单位：无
+              取值范围：
+
+              ●   on：表示进行缩进。
+              ●   off：表示不进行缩进。
+              默认值：on。在PDB场景内，若未设置该参数，则继承来自全局的设置。
+              设置方式：该参数属于USERSET类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：推荐使用默认值。
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+log_checkpoints
+              参数说明：控制在服务器日志中记录检查点和重启点的信息。打开此参数时，服务器
+              日志消息包含涉及检查点和重启点的统计量，其中包含需要写的缓存区的数量及写入
+              所花费的时间等。
+              参数类型：布尔型
+              参数单位：无
+              取值范围：
+
+              ●   on：表示打开此参数，服务器日志消息包含涉及检查点和重启点的统计量。
+              ●   off：表示关闭此参数，服务器日志消息不包含涉及检查点和重启点的统计量。
+              默认值：off
+              设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：推荐使用默认值。
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+log_connections
+              参数说明：控制是否记录客户端连接请求的日志信息。日志信息包括连接的IP、
+              PORT、用户名、数据库名、GaussDB数据库响应建立连接流程中关键步骤的耗时等。
+
+                  说明
+
+                  有些客户端程序（例如gsql），在判断是否需要口令的时候会尝试连接两次，因此日志消息中可
+                  能存在重复的“connection receive”（收到连接请求）。
+
+              参数类型：布尔型
+              参数单位：无
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                  4365
+GaussDB
+集中式版参考                                                       7 数据库运行参数说明
+
+               取值范围：
+
+               ●   on：表示记录日志信息。
+               ●   off：表示不记录日志信息。
+               默认值：off
+               设置方式：该参数属于BACKEND类型参数，请参见表7-1中对应设置方法进行设置。
+               设置建议：推荐使用默认值。
+               设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+log_disconnections
+               参数说明：控制记录客户端结束连接信息。
+               参数类型：布尔型
+               参数单位：无
+               取值范围：
+
+               ●   on：表示记录信息。
+               ●   off：表示不记录信息。
+               默认值：off
+               设置方式：该参数属于BACKEND类型参数，请参见表7-1中对应设置方法进行设置。
+               设置建议：推荐使用默认值。
+               设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+log_duration
+               参数说明：控制记录每个已完成SQL语句的执行时间。对使用扩展查询协议的客户
+               端，会记录语法分析、绑定和执行每一步所花费的时间。该参数可在PDB级别设置。
+               参数类型：布尔型
+               参数单位：无
+               取值范围：
+
+               ●   on：表示记录所有已完成SQL语句的执行时间。
+               ●   off：表示不记录SQL语句的执行时间。
+                   说明
+
+                   该参数设置为on或log_min_duration_statement设置为0都会记录每个已完成SQL语句的执行
+                   时间，不同之处在于log_min_duration_statement会强制记录SQL语句。
+
+               默认值：off。在PDB场景内，若未设置该参数，则继承来自全局的设置。
+               设置方式：该参数属于SUSET类型参数，请参见表7-1中对应设置方法进行设置。
+               设置建议：推荐使用默认值。
+               设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                        4366
+GaussDB
+集中式版参考                                               7 数据库运行参数说明
+
+
+log_error_verbosity
+              参数说明：控制服务器日志中每条记录的消息写入的详细度。该参数可在PDB级别设
+              置。
+
+              参数类型：枚举类型
+
+              参数单位：无
+
+              取值范围：
+
+              ●   terse：表示不包括DETAIL、HINT、QUERY及CONTEXT错误信息的记录。
+              ●   verbose：表示包括SQLSTATE错误代码 、源代码文件名、函数名及产生错误所在
+                  的行号。
+              ●   default：表示包括DETAIL、HINT、QUERY及CONTEXT错误信息的记录，不包括
+                  SQLSTATE错误代码 、源代码文件名、函数名及产生错误所在的行号。
+
+              默认值：default。在PDB场景内，若未设置该参数，则继承来自全局的设置。
+
+              设置方式：该参数属于SUSET类型参数，请参见表7-1中对应设置方法进行设置。
+
+              设置建议：根据对日志消息的详细度要求进行设置。推荐使用默认值。
+
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+
+log_hostname
+              参数说明：此参数关闭状态下，连接消息日志只显示正在连接主机的IP地址。打开此
+              参数，表示会同时记录主机名。由于解析主机名需要一定的时间，可能影响数据库的
+              性能。
+
+              参数类型：布尔型
+
+              参数单位：无
+
+              取值范围：
+
+              ●   on：表示记录主机名。
+              ●   off：表示不记录主机名。
+
+              默认值：off
+
+              设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+
+              设置建议：推荐使用默认值。
+
+              设置不当的风险与影响：开启时可能影响数据库的性能。
+
+
+log_line_prefix
+              参数说明：控制每条日志信息的前缀格式。日志前缀类似于printf风格的字符串，在日
+              志的每行开头输出。用以%为开头的“转义字符”表示状态信息，具体请参见表
+              7-17。
+
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                    4367
+GaussDB
+集中式版参考                                               7 数据库运行参数说明
+
+              表 7-17 转义字符表
+               转义字符    状态信息
+
+               %a      应用程序名称。
+
+               %u      用户名。
+
+               %d      数据库名。
+
+               %r      远端主机名或者IP地址以及远端端口，在不启动log_hostname时显示
+                       IP地址及远端端口。
+
+               %h      远端主机名或者IP地址，在不启动log_hostname时只显示IP地址。
+
+               %p      线程ID。
+
+               %t      时间戳（不带毫秒）。
+
+               %m      带毫秒的时间戳。
+
+               %n      表示指定错误上报的节点。
+
+               %i      命令标签：会话当前执行的命令类型。
+
+               %e      SQLSTATE错误码。
+
+               %c      会话ID，详见说明。
+
+               %l      每个会话或线程的日志编号，从1开始。
+
+               %s      线程启动时间。
+
+               %v      虚拟事务ID（backendID/ localXID）
+
+               %x      事务ID（0表示没有分配事务ID）。
+
+               %q      不产生任何输出。如果当前线程是后端线程，忽略这个转义序列，继
+                       续处理后面的转义序列；如果当前线程不是后端线程，忽略这个转义
+                       序列和它后面的所有转义序列。
+
+               %S      会话ID。
+
+               %T      Trace ID。
+
+               %%      字符%。
+
+
+
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司              4368
+GaussDB
+集中式版参考                                                                                  7 数据库运行参数说明
+
+
+                   说明
+
+                  转义字符%c打印的会话ID，由两个4字节的十六进制数组成，通过字符“.”分开。这两个十六
+                  进制数分别表示线程的启动时间及线程编号，所以%c也可以用作一种更节省空间的记录线程启
+                  动时间和编号的方式。比如，可以用下面的查询从pg_stat_activity中生成这种十六进制的会话
+                  ID：
+                  SELECT to_hex(EXTRACT(EPOCH FROM backend_start)::integer) || '.' ||
+                      to_hex(pid)
+                  FROM pg_stat_activity;
+                  ● 当log_line_prefix设置为非空值时，需要保证最后一个字符是一个空格，以此来直观地与后
+                    续的日志行进行区分，也可以使用一个标点符号。
+                  ● Syslog会生成时间戳及线程ID信息，所以当登录日志时，不需要包含这些转义字符。
+
+              参数类型：字符串
+              参数单位：无
+              取值范围：字符串
+              默认值：%m %n %u %d %h %p %S %x %a
+
+                   说明
+
+                  %m %n %u %d %h %p %S %x %a 表示会话开始时间戳、错误上报节点、用户名、数据库
+                  名、远程主机名或IP、线程ID、会话ID、事务ID、应用程序名称。
+
+              设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：根据对日志状态信息的需求进行设置。
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+log_lock_waits
+              参数说明：当一个会话的等待获得一个锁的时间超过deadlock_timeout的值时，此参
+              数控制在数据库日志中记录此消息，有助于判断锁等待事件是否会导致死锁等问题。
+              该参数可在PDB级别设置。
+              参数类型：布尔型
+              参数单位：无
+              取值范围：
+
+              ●   on：表示记录此信息。
+              ●   off：表示不记录此信息。
+              默认值：off。在PDB场景内，若未设置该参数，则继承来自全局的设置。
+              设置方式：该参数属于SUSET类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：推荐使用默认值。
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+log_statement
+              参数说明：控制记录SQL语句。对于使用扩展查询协议的客户端，记录接收到执行消
+              息的事件和绑定参数的值（内置单引号要双写）。该参数可在PDB级别设置。
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                        4369
+GaussDB
+集中式版参考                                                   7 数据库运行参数说明
+
+
+                  须知
+
+              ● 即使log_statement设置为all，包含简单语法错误的语句也不会被记录，因为仅在
+                完成基本的语法分析并确定了语句类型之后才记录日志。在使用扩展查询协议的情
+                况下，执行阶段之前（语法分析或规划阶段）同样不会记录。将
+                log_min_error_statement设为ERROR或更低才能记录这些语句。
+              ● 设置该参数为非none时，可视为开启相关语句审计功能，数据库DBA可以访问服务
+                端日志查看SQL执行记录。
+
+              参数类型：枚举类型
+
+              参数单位：无
+
+              取值范围：
+
+              ●   none：表示不记录SQL语句。
+              ●   ddl：表示记录所有的数据定义语句，比如CREATE、ALTER和DROP语句。
+              ●   mod：表示记录所有DDL语句，还包括数据修改语句INSERT、UPDATE、
+                  DELETE、TRUNCATE和COPY FROM 。
+              ●   all：表示记录所有语句，PREPARE、EXECUTE和EXPLAIN ANALYZE语句也同样被
+                  记录。
+
+              默认值：none。在PDB场景内，若未设置该参数，则继承来自全局的设置。
+
+              设置方式：该参数属于SUSET类型参数，请参见表7-1中对应设置方法进行设置。
+
+              设置建议：根据是否需要记录SQL语句进行设置。
+
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+log_temp_files
+              参数说明：控制记录比该参数设定值大的临时文件的删除信息。临时文件可以用来排
+              序、哈希及临时查询结果。当一个临时文件被删除时，将会产生一条日志消息。该参
+              数可在PDB级别设置。
+
+              参数类型：整型
+
+              参数单位：kB
+
+              取值范围：-1 ~ 2147483647
+
+              ●   正整数表示只记录比log_temp_files设定值大的临时文件的删除信息。
+              ●   0表示记录所有的临时文件的删除信息。
+              ●   -1表示不记录任何临时文件的删除信息。
+
+              默认值：-1。在PDB场景内，若未设置该参数，则继承来自全局的设置。
+
+              设置方式：该参数属于SUSET类型参数，请参见表7-1中对应设置方法进行设置。取值
+              为整数时，默认单位为kB；如果带单位，必须为kB、MB、GB。例如，不带单位取值
+              16384，表示log_temp_files为16384kB；带单位取值16MB，表示log_temp_files为
+              16MB。
+
+              设置建议：推荐使用默认值。
+
+文档版本 01 (2026-04-30)        版权所有 © 华为云计算技术有限公司                       4370
+GaussDB
+集中式版参考                                                                             7 数据库运行参数说明
+
+               设置不当的风险与影响：设置为非-1的值时，当满足记录要求的临时文件越多，日志
+               记录也会越多，则会影响系统性能。取值若超出范围，或者取值带有除kB、MB、GB
+               以外的单位时，会有报错提示。
+
+log_timezone
+               参数说明：设置服务器写日志文件时使用的时区。与TimeZone不同，这个值是数据库
+               范围的，针对所有连接到本数据库的会话生效。
+               参数类型：字符串
+               参数单位：无
+               取值范围：字符串，可查询视图PG_TIMEZONE_NAMES（具体请参见
+               PG_TIMEZONE_NAMES）获得。
+               默认值：根据OS时区设置。
+               设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+               设置建议：推荐使用默认值。
+               设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+                    说明
+
+                   gs_initdb进行相应系统环境设置时会对默认值进行修改。
+
+
+logging_module
+               参数说明：用于设置或者显示模块日志在服务端的可输出性。该参数依赖于
+               log_min_messages参数的设置，低于log_min_messages设置级别的模块日志不会打
+               印。
+               参数类型：字符串
+               参数单位：无
+               取值范围：所有模块日志在服务端不输出，可由SHOW logging_module查看：
+               ALL,on(),off(COMMAND,DFS,GUC,GSCLEAN,HDFS,ORC,SLRU,MEM_CTL,AUTOVAC,CACHE,ADIO,SSL,GDS,TBL
+               SPC,WLM,OBS,INDEX,EXECUTOR,OPFUSION,GPC,GSC,VEC_EXECUTOR,STREAM,LLVM,OPT,OPT_REWRITE,CB
+               OPT_REWRITE,OPT_JOIN,OPT_AGG,OPT_CHOICE,OPT_SUBPLAN,OPT_SETOP,OPT_SKEW,OPT_PLANNER,OPT_
+               STAT_EXT,SPM,SPM_BG,SPM_KEY_FLOW,SPM_BG,UDF,COOP_ANALYZE,WLMCP,ACCELERATE,MOT,PLANHINT,
+               PARQUET,PGSTAT,CARBONDATA,SNAPSHOT,XACT,HANDLE,CLOG,EC,REMOTE,CN_RETRY,PLSQL,TEXTSEARCH,
+               SEQ,REDO,FUNCTION,PARSER,INSTR,WDR_SNAPSHOT,WDR_REPORT,ASP_REPORT,INCRE_CKPT,INCRE_BG_W
+               RITER,DBL_WRT,RTO_RPO,HEARTBEAT,COMM_IPC,COMM_PARAM,TIMESERIES,SCHEMA,GTT,SEGMENT_PAG
+               E,LIGHTPROXY,HOTKEY,THREAD_POOL,OPT_AI,WALRECEIVER,USTORE,UPAGE,UBTREE,UNDO,TIMECAPSULE,
+               GEN_COL,DCF,AI4DB,DB4AI,ABO,MOD_ABOFEEDBACK,PLDEBUGGER,ADVISOR,SEC,SEC_FE,SEC_LEGER,SEC_P
+               OLICY,SEC_SDD,SEC_TDE,COMM_FRAMEWORK,COMM_PROXY,COMM_POOLER,COMM_STATUS,VACUUM,JO
+               B,SPI,NEST_COMPILE,RESOWNER,GSSTACK,LOGICAL_DECODE,GPRC,DISASTER_READ,STANDBY_READ,REPSY
+               NC,SQLPATCH,PARTITION,UBT_NEWPAGE,GPI,GS_DEPENDENCY,LWLOCK,LOCK,UNIQUE_SQL,GLC,SRF,DBLIN
+               K,BARRIER_CREATOR,EXRTO_PAGE_P,SEQ_TUP_P,BT_TUP_P,DISPATCH_VERIFY,HBKT,DBE_STATS,DBE_XMLGEN
+               ,GS_ILM,GSPERF,EXEC_REMOTE,UBTREE_PARA,BTREE_PARA,ANTI_CACHE,ANTI_RECYCLER,VERIFYLOG,GS_REP
+               AIR,AUTHID,CCINDEX,ONLINE_DDL,MTD,EXRTO_BUFFER,STREAM_PBE,HTAP,UALT,GTM_LITE_READ_S,UGIN,
+               BYTECODE,ROWID,PLSQL_TRANS)
+
+
+
+                  须知
+
+               当前版本CN_RETRY不生效。
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                             4371
+GaussDB
+集中式版参考                                                                                                      7 数据库运行参数说明
+
+              默认值："on(LOCK)"。在PDB场景内，若未设置该参数，则继承来自全局的设置。
+              设置方式：该参数属于会话级参数，不建议通过gs_guc工具来设置。该参数可在PDB
+              级别设置。
+              首先，可以通过SHOW logging_module来查看哪些模块是支持可控制的。例如，查询
+              输出结果为：
+              gaussdb=# show logging_module;
+              logging_module
+              ------------------------------------------------------------------------------------------------------------------------------
+              ------------------------------------------------------------------------------------------------------------------------------
+              --------------------------------------------------
+              ALL,on(),off(COMMAND,DFS,GUC,GSCLEAN,HDFS,ORC,SLRU,MEM_CTL,AUTOVAC,CACHE,ADIO,SSL,GDS,TBL
+              SPC,WLM,OBS,INDEX,EXECUTOR,OPFUSION,GPC,GSC,VEC_EXECUTOR,STREAM,LLVM,OPT,OPT_REWRITE,CB
+              OPT_REWRITE,OPT_JOIN,OPT_AGG,OPT_CHOICE,OPT_SUBPLAN,OPT_SETOP,OPT_SKEW,OPT_PLANNER,OPT_
+              STAT_EXT,SPM,SPM_BG,SPM_KEY_FLOW,UDF,COOP_ANALYZE,WLMCP,ACCELERATE,MOT,PLANHINT,PARQUET
+              ,PGSTAT,CARBONDATA,SNAPSHOT,XACT,HANDLE,CLOG,EC,REMOTE,CN_RETRY,PLSQL,TEXTSEARCH,SEQ,RED
+              O,FUNCTION,PARSER,INSTR,WDR_SNAPSHOT,WDR_REPORT,ASP_REPORT,INCRE_CKPT,INCRE_BG_WRITER,DB
+              L_WRT,RTO_RPO,HEARTBEAT,COMM_IPC,COMM_PARAM,TIMESERIES,SCHEMA,GTT,SEGMENT_PAGE,LIGHTP
+              ROXY,HOTKEY,THREAD_POOL,OPT_AI,WALRECEIVER,USTORE,UPAGE,UBTREE,UNDO,TIMECAPSULE,GEN_COL
+              ,DCF,AI4DB,DB4AI,ABO,MOD_ABOFEEDBACK,PLDEBUGGER,ADVISOR,SEC,SEC_FE,SEC_LEGER,SEC_POLICY,SEC
+              _SDD,SEC_TDE,COMM_FRAMEWORK,COMM_PROXY,COMM_POOLER,COMM_STATUS,VACUUM,JOB,SPI,NES
+              T_COMPILE,RESOWNER,GSSTACK,LOGICAL_DECODE,GPRC,DISASTER_READ,STANDBY_READ,REPSYNC,SQLPA
+              TCH,PARTITION,UBT_NEWPAGE,GPI,GS_DEPENDENCY,LWLOCK,LOCK,UNIQUE_SQL,GLC,SRF,DBLINK,BARRIER
+              _CREATOR,EXRTO_PAGE_P,SEQ_TUP_P,BT_TUP_P,DISPATCH_VERIFY,HBKT,DBE_STATS,DBE_XMLGEN,GS_ILM,G
+              SPERF,EXEC_REMOTE,UBTREE_PARA,BTREE_PARA,ANTI_CACHE,ANTI_RECYCLER,VERIFYLOG,GS_REPAIR,AUTH
+              ID,CCINDEX,ONLINE_DDL,MTD,EXRTO_BUFFER,STREAM_PBE,HTAP,UALT,GTM_LITE_READ_S,UGIN,BYTECODE
+              ,ROWID,PLSQL_TRANS)
+              (1 row)
+
+              支持可控制的模块使用大写来标识，特殊标识ALL用于对所有模块日志进行设置。可以
+              使用on/off来控制模块日志的输出。设置SSL模块日志为可输出，使用如下命令：
+              gaussdb=# set logging_module='on(SSL)page
+              gaussdb=# show
+              logging_module;
+                    logging_module
+              ------------------------------------------------------------------------------------------------------------------------------
+              ------------------------------------------------------------------------------------------------------------------------------
+              -------------------------------------------------
+              ALL,on(SSL),off(COMMAND,DFS,GUC,GSCLEAN,HDFS,ORC,SLRU,MEM_CTL,AUTOVAC,CACHE,ADIO,SSL,GDS,
+              TBLSPC,WLM,OBS,INDEX,EXECUTOR,OPFUSION,GPC,GSC,VEC_EXECUTOR,STREAM,LLVM,OPT,OPT_REWRITE,
+              CBOPT_REWRITE,OPT_JOIN,OPT_AGG,OPT_CHOICE,OPT_SUBPLAN,OPT_SETOP,OPT_SKEW,OPT_PLANNER,O
+              PT_STAT_EXT,SPM,SPM_BG,SPM_KEY_FLOW,UDF,COOP_ANALYZE,WLMCP,ACCELERATE,MOT,PLANHINT,PARQ
+              UET,PGSTAT,CARBONDATA,SNAPSHOT,XACT,HANDLE,CLOG,EC,REMOTE,CN_RETRY,PLSQL,TEXTSEARCH,SEQ,
+              REDO,FUNCTION,PARSER,INSTR,WDR_SNAPSHOT,WDR_REPORT,ASP_REPORT,INCRE_CKPT,INCRE_BG_WRITE
+              R,DBL_WRT,RTO_RPO,HEARTBEAT,COMM_IPC,COMM_PARAM,TIMESERIES,SCHEMA,GTT,SEGMENT_PAGE,LIG
+              HTPROXY,HOTKEY,THREAD_POOL,OPT_AI,WALRECEIVER,USTORE,UPAGE,UBTREE,UNDO,TIMECAPSULE,GEN_
+              COL,DCF,AI4DB,DB4AI,ABO,MOD_ABOFEEDBACK,PLDEBUGGER,ADVISOR,SEC,SEC_FE,SEC_LEGER,SEC_POLICY
+              ,SEC_SDD,SEC_TDE,COMM_FRAMEWORK,COMM_PROXY,COMM_POOLER,COMM_STATUS,VACUUM,JOB,SPI,
+              NEST_COMPILE,RESOWNER,GSSTACK,LOGICAL_DECODE,GPRC,DISASTER_READ,STANDBY_READ,REPSYNC,S
+              QLPATCH,PARTITION,UBT_NEWPAGE,GPI,GS_DEPENDENCY,LWLOCK,LOCK,UNIQUE_SQL,GLC,SRF,DBLINK,BA
+              RRIER_CREATOR,EXRTO_PAGE_P,SEQ_TUP_P,BT_TUP_P,DISPATCH_VERIFY,HBKT,DBE_STATS,DBE_XMLGEN,GS_
+              ILM,GSPERF,EXEC_REMOTE,UBTREE_PARA,BTREE_PARA,ANTI_CACHE,ANTI_RECYCLER,VERIFYLOG,GS_REPAIR,
+              AUTHID,CCINDEX,ONLINE_DDL,MTD,EXRTO_BUFFER,STREAM_PBE,HTAP,UALT,GTM_LITE_READ_S,UGIN,BYTE
+              CODE,ROWID,PLSQL_TRANS)
+              (1 row)
+
+              可以看到模块SSL的日志输出被打开。
+              ALL标识相当于一个快捷操作，即对所有模块的日志可输出进行开启或关闭。
+              gaussdb=# set logging_module='off(ALL)';
+              SET
+              gaussdb=# show
+              logging_module;
+                      logging_module
+              ------------------------------------------------------------------------------------------------------------------------------
+
+
+文档版本 01 (2026-04-30)                         版权所有 © 华为云计算技术有限公司                                                                      4372
+GaussDB
+集中式版参考                                                                                                      7 数据库运行参数说明
+
+              ------------------------------------------------------------------------------------------------------------------------------
+              --------------------------------------------------
+              ALL,on(),off(COMMAND,DFS,GUC,GSCLEAN,HDFS,ORC,SLRU,MEM_CTL,AUTOVAC,CACHE,ADIO,SSL,GDS,TBL
+              SPC,WLM,OBS,INDEX,EXECUTOR,OPFUSION,GPC,GSC,VEC_EXECUTOR,STREAM,LLVM,OPT,OPT_REWRITE,CB
+              OPT_REWRITE,OPT_JOIN,OPT_AGG,OPT_CHOICE,OPT_SUBPLAN,OPT_SETOP,OPT_SKEW,OPT_PLANNER,OPT_
+              STAT_EXT,SPM,SPM_BG,SPM_KEY_FLOW,UDF,COOP_ANALYZE,WLMCP,ACCELERATE,MOT,PLANHINT,PARQUET
+              ,PGSTAT,CARBONDATA,SNAPSHOT,XACT,HANDLE,CLOG,EC,REMOTE,CN_RETRY,PLSQL,TEXTSEARCH,SEQ,RED
+              O,FUNCTION,PARSER,INSTR,WDR_SNAPSHOT,WDR_REPORT,ASP_REPORT,INCRE_CKPT,INCRE_BG_WRITER,DB
+              L_WRT,RTO_RPO,HEARTBEAT,COMM_IPC,COMM_PARAM,TIMESERIES,SCHEMA,GTT,SEGMENT_PAGE,LIGHTP
+              ROXY,HOTKEY,THREAD_POOL,OPT_AI,WALRECEIVER,USTORE,UPAGE,UBTREE,UNDO,TIMECAPSULE,GEN_COL
+              ,DCF,AI4DB,DB4AI,ABO,MOD_ABOFEEDBACK,PLDEBUGGER,ADVISOR,SEC,SEC_FE,SEC_LEGER,SEC_POLICY,SEC
+              _SDD,SEC_TDE,COMM_FRAMEWORK,COMM_PROXY,COMM_POOLER,COMM_STATUS,VACUUM,JOB,SPI,NES
+              T_COMPILE,RESOWNER,GSSTACK,LOGICAL_DECODE,GPRC,DISASTER_READ,STANDBY_READ,REPSYNC,SQLPA
+              TCH,PARTITION,UBT_NEWPAGE,GPI,GS_DEPENDENCY,LWLOCK,LOCK,UNIQUE_SQL,GLC,SRF,DBLINK,BARRIER
+              _CREATOR,EXRTO_PAGE_P,SEQ_TUP_P,BT_TUP_P,DISPATCH_VERIFY,HBKT,DBE_STATS,DBE_XMLGEN,GS_ILM,G
+              SPERF,EXEC_REMOTE,UBTREE_PARA,BTREE_PARA,ANTI_CACHE,ANTI_RECYCLER,VERIFYLOG,GS_REPAIR,AUTH
+              ID,CCINDEX,ONLINE_DDL,MTD,EXRTO_BUFFER,STREAM_PBE,HTAP,UALT,GTM_LITE_READ_S,UGIN,BYTECODE
+              ,ROWID,PLSQL_TRANS)
+              (1 row)
+
+              gaussdb=# set logging_module='on(ALL)';
+              SET
+              gaussdb=# show
+              logging_module;
+                     logging_module
+              ------------------------------------------------------------------------------------------------------------------------------
+              ------------------------------------------------------------------------------------------------------------------------------
+              --------------------------------------------------
+              ALL,on(COMMAND,DFS,GUC,GSCLEAN,HDFS,ORC,SLRU,MEM_CTL,AUTOVAC,CACHE,ADIO,SSL,GDS,TBLSPC,
+              WLM,OBS,INDEX,EXECUTOR,OPFUSION,GPC,GSC,VEC_EXECUTOR,STREAM,LLVM,OPT,OPT_REWRITE,CBOPT_
+              REWRITE,OPT_JOIN,OPT_AGG,OPT_CHOICE,OPT_SUBPLAN,OPT_SETOP,OPT_SKEW,OPT_PLANNER,OPT_STAT
+              _EXT,SPM,SPM_BG,SPM_KEY_FLOW,UDF,COOP_ANALYZE,WLMCP,ACCELERATE,MOT,PLANHINT,PARQUET,PGS
+              TAT,CARBONDATA,SNAPSHOT,XACT,HANDLE,CLOG,EC,REMOTE,CN_RETRY,PLSQL,TEXTSEARCH,SEQ,REDO,FU
+              NCTION,PARSER,INSTR,WDR_SNAPSHOT,WDR_REPORT,ASP_REPORT,INCRE_CKPT,INCRE_BG_WRITER,DBL_W
+              RT,RTO_RPO,HEARTBEAT,COMM_IPC,COMM_PARAM,TIMESERIES,SCHEMA,GTT,SEGMENT_PAGE,LIGHTPROXY
+              ,HOTKEY,THREAD_POOL,OPT_AI,WALRECEIVER,USTORE,UPAGE,UBTREE,UNDO,TIMECAPSULE,GEN_COL,DCF,
+              AI4DB,DB4AI,ABO,MOD_ABOFEEDBACK,PLDEBUGGER,ADVISOR,SEC,SEC_FE,SEC_LEGER,SEC_POLICY,SEC_SD
+              D,SEC_TDE,COMM_FRAMEWORK,COMM_PROXY,COMM_POOLER,COMM_STATUS,VACUUM,JOB,SPI,NEST_C
+              OMPILE,RESOWNER,GSSTACK,LOGICAL_DECODE,GPRC,DISASTER_READ,STANDBY_READ,REPSYNC,SQLPATC
+              H,PARTITION,UBT_NEWPAGE,GPI,GS_DEPENDENCY,LWLOCK,LOCK,UNIQUE_SQL,GLC,SRF,DBLINK,BARRIER_C
+              REATOR,EXRTO_PAGE_P,SEQ_TUP_P,BT_TUP_P,DISPATCH_VERIFY,HBKT,DBE_STATS,DBE_XMLGEN,GS_ILM,GSP
+              ERF,EXEC_REMOTE,UBTREE_PARA,BTREE_PARA,ANTI_CACHE,ANTI_RECYCLER,VERIFYLOG,GS_REPAIR,AUTHID,
+              CCINDEX,ONLINE_DDL,MTD,EXRTO_BUFFER,STREAM_PBE,HTAP,UALT,GTM_LITE_READ_S,UGIN,BYTECODE,R
+              OWID,PLSQL_TRANS),off()
+              (1 row)
+
+              设置建议：根据需要开启对应模块日志的打印。不建议开启所有模块的日志打印
+              （即：'on(ALL)'）。
+
+              设置不当的风险与影响：开启时可能会打印较多对应模块相关的日志，影响系统性
+              能。
+
+enable_unshipping_log
+              参数说明：用于控制是否打印算子不下推的日志，主要用于帮助用户定位不下推语句
+              可能导致的性能问题。
+
+              参数类型：布尔型
+
+              参数单位：无
+
+              取值范围：
+
+              ●     on：表示打印日志。
+              ●     off：表示不打印日志。
+
+文档版本 01 (2026-04-30)                         版权所有 © 华为云计算技术有限公司                                                                     4373
+GaussDB
+集中式版参考                                                     7 数据库运行参数说明
+
+              默认值：off
+              设置方式：该参数属于USERSET类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：推荐使用默认值。
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+opfusion_debug_mode
+              参数说明：用于调试简单查询是否进行查询优化。设置成log级别可以在数据库节点的
+              执行计划中看到没有查询优化的具体原因。该参数可在PDB级别设置。
+              参数类型：枚举类型
+              参数单位：无
+              取值范围：
+
+              ●   off：表示不打开该功能。
+              ●   log：表示打开该功能，可以在数据库节点的执行计划中看到没有查询优化的具体
+                  原因。
+
+
+                  须知
+
+              提供在log中显示语句没有查询优化的具体原因，需要将参数设置成log级别，
+              log_min_messages设置成debug4级别，logging_module设置'on(OPFUSION)'，注
+              意log内容可能会比较多，尽可能在调优期间执行少量作业使用。
+
+              默认值：off。在PDB场景内，若未设置该参数，则继承来自全局的设置。
+              设置方式：该参数属于USERSET类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：推荐使用默认值。
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+enable_debug_vacuum
+              参数说明：允许输出一些与VACUUM相关的日志，便于定位VACUUM相关问题。开发
+              人员专用，不建议普通用户使用。
+              参数类型：布尔型
+              参数单位：无
+              取值范围：
+
+              ●   on：表示开启此日志开关。
+              ●   off：表示关闭此日志开关。
+              默认值：off
+              设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：推荐使用默认值。
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+文档版本 01 (2026-04-30)        版权所有 © 华为云计算技术有限公司                         4374
+GaussDB
+集中式版参考                                                      7 数据库运行参数说明
+
+
+enable_err_stack
+              参数说明：控制ERROR级别中ACTION为"Contact Huawei technical support."的错误
+              码报错是否打印堆栈。
+              参数类型：布尔型
+              参数单位：无
+              取值范围：
+
+              ●    on：表示开启此日志开关。
+              ●    off：表示关闭此日志开关。
+              默认值：on
+              设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：推荐使用默认值。
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+enable_show_err_code
+              参数说明：控制gsql等前端连接是否显示报错的错误码。
+              参数类型：布尔型
+              参数单位：无
+              取值范围：
+
+              ●    on：表示开启此开关。
+              ●    off：表示关闭此开关。
+              默认值：off
+              设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：推荐使用默认值。
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+7.3.10.4 使用 CSV 格式写日志
+
+前提条件
+              ●    log_destination的值设置为csvlog。
+              ●    logging_collector的值设置为on。
+
+csvlog 定义
+              以“逗号分隔值” 即CSV（Comma Separated Value）的形式发出日志。
+              以下是简单的用来存储CSV形式日志输出的表定义：
+              CREATE TABLE gaussdb_log
+              (
+              log_time timestamp(3) with time zone,
+              node_name text,
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司              4375
+GaussDB
+集中式版参考                                                                        7 数据库运行参数说明
+
+              user_name text,
+              database_name text,
+              process_id bigint,
+              connection_from text,
+              "session_id" text,
+              session_line_num bigint,
+              command_tag text,
+              session_start_time timestamp with time zone,
+              virtual_transaction_id text,
+              transaction_id bigint,
+              query_id bigint,
+              module text,
+              error_severity text,
+              sql_state_code text,
+              message text,
+              detail text,
+              hint text,
+              internal_query text,
+              internal_query_pos integer,
+              context text,
+              query text,
+              query_pos integer,
+              location text,
+              application_name text
+              );
+
+              详细说明请参见表7-18。
+
+              表 7-18 csvlog 字段含义表
+               字段名              字段含义             字段名           字段含义
+
+               log_time         毫秒级的时            module        日志所属模块
+                                间戳
+
+               node_nam         节点名称             error_seve    ERRORSTATE代码
+               e                                 rity
+
+               user_name        用户名              sql_state_c   SQLSTATE代码
+                                                 ode
+
+               database_        数据库名             message       错误消息
+               name
+
+               process_id       线程ID             detail        详细错误消息
+
+               connection       客户主机：            hint          提示
+               _from            端口号
+
+               session_id       会话ID             internal_q    内部查询（查询那些导致错误的信息，如
+                                                 uery          果有的话）
+
+               session_lin      每个会话的            internal_q    内部查询指针
+               e_num            行数               uery_pos
+
+               command          命令标签             context       环境
+               _tag
+
+               session_st       会话开始时            query         错误发生位置的字符统计
+               art_time         间
+
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                             4376
+GaussDB
+集中式版参考                                                                            7 数据库运行参数说明
+
+
+                字段名             字段含义              字段名             字段含义
+
+                virtual_tra     常规事务              query_pos       错误发生位置指针
+                nsaction_i
+                d
+
+                transactio      事务ID              location        在GaussDB源代码中错误的位置（如果
+                n_id                                              log_error_verbosity的值设为verbose ）
+
+                query_id        查询ID              applicatio      应用名称
+                                                  n_name
+
+
+
+
+               使用COPY FROM命令将日志文件导入这个表：
+               COPY gaussdb_log FROM '/opt/data/gs_log/logfile.csv' WITH csv;
+
+                     说明
+
+                   此处的日志名“logfile.csv”要换成实际生成的日志的名称。
+
+
+简化输入
+               简化输入到CSV日志文件，可以通过如下操作：
+
+               ●    设置log_filename和log_rotation_age，为日志文件提供一个一致的、可预测的
+                    命名方案。通过日志文件名，预测一个独立的日志文件完成并进入准备导入状态
+                    的时间。
+               ●    将log_rotation_size设为0来终止基于尺寸的日志回滚，因为基于尺寸的日志回滚
+                    让预测日志文件名变得非常的困难。
+               ●    将log_truncate_on_rotation设为on以便区分在同一日志文件中旧的日志数据和
+                    新的日志数据。
+
+7.3.11 告警上报
+               在数据库运行的过程中，会对数据库中的错误场景进行上报，便于用户及早感知到数
+               据库的错误。告警写入的system_alarm日志可以在$GAUSSLOG/cm、$GAUSSLOG/
+               gs_log或$GAUSSLOG/roach/agent路径下查看。
+
+enable_alarm
+               参数说明：设置是否打开告警上报线程，上报数据库中可能的故障场景。
+               参数类型：布尔型
+               参数单位：无
+               取值范围：
+
+               ●    on：表示打开告警上报线程。
+               ●    off：表示关闭告警上报线程。
+               默认值：on
+               设置方式：该参数属于POSTMASTER类型参数，请参见表7-1中对应设置方法进行设
+               置。
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                     4377
+GaussDB
+集中式版参考                                                  7 数据库运行参数说明
+
+              设置建议：推荐使用默认值。
+
+              设置不当的风险与影响：关闭该参数会导致用户无法感知数据库中的某些故障场景。
+
+                  说明
+
+                  该参数生效范围仅为DN节点。
+
+
+connection_alarm_rate
+              参数说明：设置允许和数据库连接的最大并发连接数的比率限制。数据库连接的最大
+              并发连接数为max_connections * connection_alarm_rate。当并发连接数超过
+              max_connections * connection_alarm_rate时，后台会打印连接信息的日志
+              connection_log，日志中可以查看pg_stat_activity视图和线程池视图
+              LOCAL_THREADPOOL_STATUS（查看pg_stat_activity视图需要开启追踪功能，查看
+              线程池视图LOCAL_THREADPOOL_STATUS需要开启线程池功能）。
+
+              参数类型：浮点型
+
+              参数单位：无
+
+              取值范围：0 ~ 1
+
+              默认值：0.9
+
+              设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。
+
+              设置建议：推荐使用默认值。
+
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+
+alarm_report_interval
+              参数说明：指定告警上报的时间间隔。
+
+              参数类型：整型
+
+              参数单位：s（秒）
+
+              取值范围：0 ~ 2147483647
+
+              默认值：10
+
+              设置方式：该参数属于SIGHUP类型参数，请参见表7-1中对应设置方法进行设置。设
+              置时取值不能带单位。
+
+              设置建议：推荐使用默认值。
+
+              设置不当的风险与影响：
+
+              ●   该值设置过大时，若指定告警上报时间间隔内检测出多次相同告警，会丢失关键
+                  告警。
+              ●   该值设置过小时，若指定告警上报时间间隔内持续检测出同一告警，告警会频繁
+                  上报。
+
+
+
+文档版本 01 (2026-04-30)        版权所有 © 华为云计算技术有限公司                     4378
+GaussDB
+集中式版参考                                                 7 数据库运行参数说明
+
+
+alarm_component
+              参数说明：在告警上报时，会进行告警抑制，即同一个实例的同一个告警项在
+              alarm_report_interval（默认值为10s）内不做重复上报。在这种情况下设置用于处
+              理告警内容的告警组件的位置，仅sysadmin用户可以访问。
+              参数类型：字符串
+              参数单位：无
+              取值范围：合法文件名称。
+
+              ●   若前置脚本gs_preinstall中的--alarm-type参数设置为5时，表示未对接第三方组
+                  件，告警写入system_alarm日志，此时GUC参数alarm_component的取值
+                  为：/opt/huawei/snas/bin/snas_cm_cmd。
+              ●   若前置脚本gs_preinstall中的--alarm-type参数设置为1时，表示对接第三方组
+                  件，此时GUC参数alarm_component的值为第三方组件的可执行程序的绝对路
+                  径。
+              默认值："/opt/huawei/snas/bin/snas_cm_cmd"
+              设置方式：该参数属于POSTMASTER类型参数，请参见表7-1中对应设置方法进行设
+              置。
+              设置建议：推荐使用默认值。
+              设置不当的风险与影响：请在充分理解参数含义，并经过测试验证后进行修改。
+
+table_skewness_warning_threshold
+              参数说明：设置用于表倾斜告警的阈值。该参数可在PDB级别设置。
+              参数类型：浮点型
+              参数单位：无
+              取值范围：0 ~ 1
+              默认值：1。在PDB场景内，若未设置该参数，则继承来自全局的设置。
+              设置方式：该参数属于USERSET类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：推荐使用默认值，并根据业务场景对表倾斜的敏感度适时调整。
+              设置不当的风险与影响：设置较小时，可能对表倾斜更敏感，无显著风险。
+
+table_skewness_warning_rows
+              参数说明：设置用于表倾斜告警的行数。该参数可在PDB级别设置。
+              参数类型：整型
+              参数单位：无
+              取值范围：0 ~ 2147483647
+              默认值：100000。在PDB场景内，若未设置该参数，则继承来自全局的设置。
+              设置方式：该参数属于USERSET类型参数，请参见表7-1中对应设置方法进行设置。
+              设置建议：推荐使用默认值，并根据业务场景对表倾斜的敏感度适时调整。
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                 4379
+
