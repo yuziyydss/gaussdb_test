@@ -95,9 +95,9 @@ class MCompatPilotTests(unittest.TestCase):
                 path = ROOT/'work/m_compat_batch_01/corpus'/src.catalog_chapter_ref.source_relpath
                 self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), src.artifact_sha256)
                 ledger = self.registry.source_ledgers[factor.source_ledger_ref]
-                # m_delete/m_update/m_create_view已完成source extraction；
+                # m_delete/m_update/m_create_view/m_insert已完成source extraction；
                 # 其余试点包仍需诚实保留unmapped账本。
-                if fid not in ('m_delete', 'm_update', 'm_create_view'):
+                if fid not in ('m_delete', 'm_update', 'm_create_view', 'm_insert'):
                     self.assertTrue(any(u.status == 'unmapped' for u in ledger.units))
                 else:
                     self.assertFalse(any(u.status == 'unmapped' for u in ledger.units))
