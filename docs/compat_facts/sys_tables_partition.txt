@@ -1,0 +1,275 @@
+GaussDB
+集中式版参考                                          8 系统表和系统视图
+
+
+
+
+                                 8    系统表和系统视图
+
+
+
+8.1 系统表和系统视图概述
+              系统表是GaussDB存放结构元数据的地方，它是GaussDB数据库系统运行控制信息的
+              来源，是数据库系统的核心组成部分。
+
+              系统视图提供了查询系统表和访问数据库内部状态的方法。
+
+              系统表和系统视图要么只对管理员可见，要么对所有用户可见。下面的系统表和视图
+              有些标识了需要管理员权限，这些系统表和视图只有管理员可以查询。
+
+              用户可以删除后重新创建这些表、增加列、插入和更新数值，但是用户修改系统表会
+              导致系统信息的不一致，从而导致系统控制紊乱。正常情况下不应该由用户手工修改
+              系统表或系统视图，或者手工重命名系统表或系统视图所在的模式，而是由SQL语句
+              关联的系统表操作自动维护系统表信息。
+
+
+
+                须知
+
+              ● 不建议用户修改系统表和系统视图的权限。
+              ● 用户应该禁止对系统表进行增删改等操作，人为对系统表的修改或破坏可能会导致
+                系统各种异常情况甚至数据库不可用。
+              ● 系统表和系统视图中的字段类型详见数据类型章节介绍。
+              ● 对于ADM类视图，由于访问到的对象是数据库下所有的该类型的对象，考虑对
+                ADM类视图进行统一权限管理，默认只有系统管理员有权限访问该类型视图，部分
+                ADM类的视图数据来自基表中公开、非敏感的字段；对于DB类视图，查询到的是
+                数据库内当前用户有权限访问的对象，普通用户即可访问该类视图；对于MY类视
+                图，查询到的是当前用户所属的对象，普通用户即可访问该类视图。
+
+
+
+8.2 系统表
+
+8.2.1 分区表
+
+文档版本 01 (2026-04-30)    版权所有 © 华为云计算技术有限公司             4838
+GaussDB
+集中式版参考                                                                8 系统表和系统视图
+
+
+8.2.1.1 PG_PARTITION
+              PG_PARTITION系统表存储数据库内所有分区表（partitioned table）、分区（table
+              partition）和索引分区（index partition）三类对象的信息。分区表索引（partitioned
+              index）的信息不在PG_PARTITION系统表中保存。由于分区表（partitioned table）
+              没有实际的物理文件，所以在pg_partition中不会记录其relfilenode、relpages、
+              reltuples、reltoastrelid、reltoastidxid等信息。
+
+              表 8-1 PG_PARTITION 字段
+               名称              类型          描述
+
+               oid             oid         行标识符（隐含属性，必须明确选择）。
+
+               relname         name        分区表、分区、分区上toast表和索引分区的名
+                                           称。
+
+               parttype        "char"      对象类型：
+                                           ● 'r'：partitioned table
+                                           ● 'p'：table partition
+                                           ● 's'：table subpartition
+                                           ● 'x'：index partition
+
+               parentid        oid         ● 当对象为分区表或分区时，此字段表示分区
+                                             表在PG_CLASS中的OID。
+                                           ● 当对象为二级分区时，此字段表示其一级分
+                                             区在PG_PARTITION中的OID。
+                                           ● 当对象为index partition时，此字段表示所属
+                                             分区表索引（partitioned index）的OID。
+
+               rangenum        integer     保留字段。
+
+               intervalnum     integer     保留字段。
+
+               partstrategy    "char"      分区表分区策略，现在仅支持：
+                                           ● 'r'：范围分区。
+                                           ● 'i'：间隔分区。
+                                           ● 'l'：list分区。
+                                           ● 'a'：自动扩展的list分区。
+                                           ● 'h'：hash分区。
+                                           ● 'n'：无分区策略，该对象不是表分区。
+
+               relfilenode     oid         table partition、index partition、分区上toast
+                                           表的物理存储位置。
+
+               reltablespace   oid         table partition、index partition、分区上toast
+                                           表所属表空间的OID。
+
+               relpages        double      统计信息：table partition、index partition的
+                               precision   数据页数量。
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                                4839
+GaussDB
+集中式版参考                                                                    8 系统表和系统视图
+
+
+               名称                   类型           描述
+
+               reltuples            double       统计信息：table partition、index partition的
+                                    precision    元组数。
+
+               relallvisible        integer      统计信息：table partition、index partition的
+                                                 可见数据页数。
+
+               reltoastrelid        oid          table partition所对应toast表的OID。
+
+               reltoastidxid        oid          table partition所对应toast表的索引的OID。
+
+               indextblid           oid          index partition对应table partition的OID。
+
+               indisusable          boolean      索引分区是否可用。
+
+               reldeltarelid        oid          暂不支持。
+
+               reldeltaidx          oid          暂不支持。
+
+               relcudescrelid       oid          暂不支持。
+
+               relcudescidx         oid          暂不支持。
+
+               relfrozenxid         xid32        冻结事务ID号。
+                                                 为保持前向兼容，保留此字段，新增
+                                                 relfrozenxid64用于记录此信息。
+
+               intspnum             integer      间隔分区所属表空间的个数。
+
+               partkey              int2vector   分区键的列号。
+
+               intervaltablespace   oidvector    间隔分区所属的表空间，间隔分区以round-
+                                                 robin方式落在这些表空间内。
+
+               interval             text[]       间隔分区的间隔值。
+
+               boundaries           text[]       范围分区和间隔分区的上边界。
+
+               transit              text[]       间隔分区的跳转点。
+
+               reloptions           text[]       设置partition的存储属性，与
+                                                 pg_class.reloptions的形态一样，用
+                                                 “keyword=value”格式的字符串来表示 ，目
+                                                 前用于在线扩容的信息搜集。
+
+               relfrozenxid64       xid          冻结事务ID号。
+
+               relminmxid           xid          冻结多事务ID号。
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                   4840
+GaussDB
+集中式版参考                                                               8 系统表和系统视图
+
+
+               名称                 类型          描述
+
+               partitionno        integer     用于维护分区表中的分区Map结构。
+                                              ● 当对象为分区时，此字段表示分区ID，从1开
+                                                始自增。
+                                              ● 当对象为分区表时，此字段表示分区ID的最
+                                                大值，并使用负值来特殊标记，该值会随着
+                                                部分分区DDL语法不断递增。
+                                              ● 当对象为其他类型时，此字段为空值，没有
+                                                任何含义。
+                                              partitionno是一个永久自增列，可以通过语法
+                                              ALTER TABLE t_name RESET PARTITION命令重
+                                              置/回收。
+
+               subpartitionno     integer     用于维护分区表中的二级分区Map结构。
+                                              ● 当对象为二级分区时，此字段表示二级分区
+                                                ID，从1开始自增。
+                                              ● 当对象为二级分区表的一级分区时，此字段
+                                                表示二级分区ID的最大值，并使用负值来特
+                                                殊标记，该值会随着部分分区DDL语法不断
+                                                递增。
+                                              ● 当对象为其他类型时，此字段为空值，没有
+                                                任何含义。
+                                              subpartitionno是一个永久自增列，可以通过语
+                                              法ALTER TABLE t_name RESET PARTITION命令
+                                              重置/回收。
+
+               partkeyexpr        pg_node_t   用于记录表达式分区场景下，表达式分区键信
+                                  ree         息。当前仅M-Compatibility模式数据库中支
+                                              持。
+
+
+
+
+8.2.1.2 GS_SUBPARTITION_TEMPLATE
+              GS_SUBPARTITION_TEMPLATE系统表记录了二级分区模板的信息。
+
+              表 8-2 GS_SUBPARTITION_TEMPLATE 字段
+               名称                 类型          描述
+
+               table_oid          oid         模板所属基表的OID。
+
+               position           integer     模板定义的分区编号，从1开始。
+
+               spart_name         name        模板定义的分区名。
+
+               spart_tablespace   oid         模板定义的分区表空间OID。
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                            4841
+GaussDB
+集中式版参考                                                               8 系统表和系统视图
+
+
+               名称                      类型          描述
+
+               spart_boundaries        text[]      模板定义的分区边界。对于不同类型的分区，分
+                                                   区边界如下：
+                                                   ● 范围分区：分区的上边界。
+                                                   ● 列表分区：列表值。
+                                                   ● 哈希分区：hash取余值。
+
+
+
+
+8.2.2 负载管理
+
+8.2.2.1 GS_ABNORMAL_SQL_INFO
+              GS_ABNORMAL_SQL_INFO系统表提供了数据库CPU使用异常的SQL的信息，数据来
+              源于DBE_PERF.ABNORMAL_SQL视图，每10s系统表从视图同步一次。
+
+              表 8-3 GS_ABNORMAL_SQL_INFO 字段
+               名称                        类型             描述
+
+               unique_sql_id             bigint         sql唯一id。
+
+               abnormal_count            integer        异常次数。
+
+               current_controllable      boolean        CPU使用当前是否被管控。
+
+               is_logged_when_con        boolean        被管控时是否打印日志。
+               trolled
+
+               control_expiration_ti     timestamp      管控过期时间。
+               me                        without time
+                                         zone
+
+               abnormal_type             name           异常类型。
+
+               user_id                   oid            异常SQL所属的用户oid。
+
+
+
+
+8.2.2.2 GS_ABNORMAL_SQL_WHITE_LIST
+              GS_ABNORMAL_SQL_WHITE_LIST系统表提供了数据库CPU使用异常SQL白名单的信
+              息，数据来源于 DBE_PERF.ABNORMAL_SQL_ALLOWLIST视图。
+
+              表 8-4 GS_ABNORMAL_SQL_WHITE_LIST 字段
+               名称                        类型             描述
+
+               unique_sql_id             bigint         sql唯一id。
+
+               user_id                   oid            异常SQL所属的用户oid。
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                       4842
+
