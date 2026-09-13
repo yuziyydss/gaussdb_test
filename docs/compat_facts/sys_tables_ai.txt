@@ -1,0 +1,308 @@
+GaussDB
+集中式版参考                                                               8 系统表和系统视图
+
+
+8.2.8 AI
+
+8.2.8.1 GS_MODEL_WAREHOUSE
+              GS_MODEL_WAREHOUSE系统表用于存储AI引擎训练模型，其中包含模型，训练过程
+              的详细描述。
+
+
+              表 8-30 GS_MODEL_WAREHOUSE 字段
+
+               名称                      数据类型                     描述
+
+               oid                     oid                      隐含列。
+
+               modelname               name                     唯一约束。
+
+               modelowner              oid                      模型拥有者的OID。
+
+               createtime              timestamp without time   模型创建的时间。
+                                       zone
+
+               processedtuples         integer                  训练涉及的元组数。
+
+               discardedtuples         integer                  未参加训练的不合格元组
+                                                                数。
+
+               preprocesstime          real                     数据预处理时长。
+
+               exectime                real                     训练时长。
+
+               iterations              integer                  迭代轮次。
+
+               outputtype              oid                      模型输出的数据类型
+                                                                OID。
+
+               modeltype               text                     AI算子的类型名称。
+
+               query                   text                     创建模型所执行的query语
+                                                                句。
+
+               modeldata               bytea                    保存的二进制模型信息。
+
+               weight                  real[]                   目前只适用于GD算子模
+                                                                型。
+
+               hyperparametersnames    text[]                   涉及的超参名称。
+
+               hyperparametersvalues   text[]                   超参所对应的取值。
+
+               hyperparametersoids     oid[]                    超参对应的数据类型
+                                                                OID。
+
+               coefnames               text[]                   模型参数名称。
+
+               coefvalues              text[]                   模型参数对应的取值。
+
+               coefoids                oid[]                    模型参数对应的数据类型
+                                                                OID。
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                          4860
+GaussDB
+集中式版参考                                                         8 系统表和系统视图
+
+
+               名称                        数据类型             描述
+
+               trainingscoresname        text[]           度量模型性能方法的名
+                                                          称。
+
+               trainingscoresvalue       real[]           度量模型性能方法的数
+                                                          值。
+
+               modeldescribe             text[]           模型的描述信息。
+
+
+
+
+8.2.8.2 GS_OPT_MODEL
+              GS_OPT_MODEL是启用AiEngine执行计划时间预测功能时的数据表，记录机器学习模
+              型的配置、训练结果、功能、对应系统函数、训练历史等相关信息。
+
+                    说明
+
+                    当前版本AiEngine功能不可用。
+
+
+              表 8-31 GS_OPT_MODEL 字段
+               名称                        类型               描述
+
+               template_name             name             机器学习模型的模板名，
+                                                          决定训练和预测调用的函
+                                                          数接口，目前只实现了
+                                                          rlstm，方便后续扩展。
+
+               model_name                name             模型的实例名，每个模型
+                                                          对应AiEngine在线学习进
+                                                          程中的一套参数、训练日
+                                                          志、模型系数。此列需为
+                                                          unique。
+
+               datname                   name             该模型所服务的database
+                                                          名，每个模型只针对单个
+                                                          database。此参数决定训
+                                                          练时所使用的数据。
+
+               ip                        name             AiEngine端所部署的host
+                                                          ip地址。
+
+               port                      integer          AiEngine端所侦听的端口
+                                                          号。
+
+               max_epoch                 integer          模型每次训练的迭代次数
+                                                          上限。
+
+               learning_rate             real             模型训练的学习速率，推
+                                                          荐缺省值1。
+
+               dim_red                   real             模型特征维度降维系数。
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                  4861
+GaussDB
+集中式版参考                                                    8 系统表和系统视图
+
+
+               名称                   类型             描述
+
+               hidden_units         integer        模型隐藏层神经元个数。
+                                                   如果训练发现模型长期无
+                                                   法收敛，可以适量提升本
+                                                   参数。
+
+               batch_size           integer        模型每次迭代时一个batch
+                                                   的大小，尽量设为大于等
+                                                   于训练数据总量的值，加
+                                                   快模型的收敛速度。
+
+               feature_size         integer        [不需设置] 模型特征的长
+                                                   度，用于触发重新训练，
+                                                   模型训练后该参数自动更
+                                                   新。
+
+               available            boolean        [不需设置]标识模型是否
+                                                   收敛。
+
+               is_training          boolean        [不需设置]标识模型是否
+                                                   正在训练。
+
+               label                "char"[]       模型的目标任务：
+                                                   ● S: startup time
+                                                   ● T: total time
+                                                   ● R: rows
+                                                   ● M: peak memory
+                                                   目前受模型性能限制，推
+                                                   荐{S, T}或{R}。
+
+               max                  bigint[]       [不需设置]标识模型各任
+                                                   务标签的最大值，用于触
+                                                   发重新训练。
+
+               acc                  real[]         [不需设置]标识模型各任
+                                                   务的准确率。
+
+               description          text           模型注释。
+
+
+
+
+8.2.8.3 GS_ABO_MODEL_STATISTIC
+              GS_ABO_MODEL_STATISTIC系统表用于存储ABO基于反馈基数估计模型的元信息、模
+              型名称、算子信息等。
+
+              表 8-32 GS_ABO_MODEL_STATISTIC 字段
+
+               名称                   数据类型           描述
+
+               oid                  oid            隐含列。
+
+               modelname            name           模型名称，唯一约束。
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                       4862
+GaussDB
+集中式版参考                                                                       8 系统表和系统视图
+
+
+               名称                         数据类型                     描述
+
+               createtime                 timestamp without time   模型创建/更新时间。
+                                          zone
+
+               groupkey                   oid                      模型对应算子哈希。
+
+               joinkey                    oid                      模型对应算子连接形状哈
+                                                                   希。
+
+               fixed_selectivity          double precision         不包含数值条件的算子固
+                                                                   定选择率。
+
+               avg_qerror                 double precision         模型平均qerror误差。
+
+               max_qerror                 double precision         模型最大qerror误差。
+
+               feedback_num               integer                  模型训练数据量。
+
+               status                     integer                  模型状态。
+                                                                   ● 0：表示模型无效。
+                                                                   ● 1：表示模型有效。
+                                                                   ● 2：表示模型待更新。
+                                                                   ● 3：表示模型处于黑名
+                                                                     单中。
+                                                                   ● 4：表示该模型下次使
+                                                                     用时将被替换为默认模
+                                                                     型。
+
+               train_count                integer                  模型总训练次数。
+
+               train_failure_count        integer                  模型训练失败次数。
+
+               prediction_count           integer                  模型总预测次数。
+
+               prediction_failure_count   integer                  模型预测失败次数。
+
+               rtable_ids                 oid[]                    模型条件输入基表顺序。
+
+               attnums                    int2[]                   模型输入条件所涉及列的
+                                                                   顺序。
+
+
+
+
+8.2.8.4 GS_ABO_HISTORY
+              GS_ABO_HISTORY系统表用于存储ABO基于反馈基数估计模型使用情况统计信息等。
+
+
+              表 8-33 GS_ABO_HISTORY 字段
+
+               名称                         数据类型                     描述
+
+               sql_id                     bigint                   sql id。
+
+               user_id                    oid                      用户id。
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                             4863
+GaussDB
+集中式版参考                                                                8 系统表和系统视图
+
+
+               名称                       数据类型                     描述
+
+               acm_sql_status           tinyint                  是否在黑名单中。
+                                                                 ● 0：不在黑名单中。
+                                                                 ● 1：在黑名单中。
+                                                                 ● 2：不在黑名单中且正
+                                                                   在执行。
+
+               explore_count            bigint                   用于黑名单机制的计划的
+                                                                 探索次数
+
+               execution_time           double precision         本次查询的执行时间，单
+                                                                 位为毫秒。
+
+               usage_count              bigint                   使用反馈基数的次数。
+
+               create_time              timestamp without time   本条记录的创建时间。
+                                        zone
+
+
+
+
+8.2.9 审计
+
+8.2.9.1 GS_AUDITING_POLICY
+              GS_AUDITING_POLICY系统表记录统一审计的主体信息，每条记录对应一个审计策
+              略。默认只有系统管理员权限或安全策略管理员权限才可以访问，普通用户需要授权
+              才可以访问。
+
+              表 8-34 GS_AUDITING_POLICY 字段
+               名称                 类型                       描述
+
+               oid                oid                      行标识符（隐含属性，必须明确选
+                                                           择）。
+
+               polname            name                     策略名称，需要唯一，不可重复。
+
+               polcomments        name                     策略描述字段，记录策略相关的描述
+                                                           信息，通过COMMENTS关键字体
+                                                           现。
+
+               modifydate         timestamp without        策略创建或修改的最新时间戳。
+                                  time zone
+
+               polenabled         boolean                  用来表示策略启动开关。
+                                                           ● t（true）：表示策略启动。
+                                                           ● f（false）：表示策略没有启动。
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                             4864
+

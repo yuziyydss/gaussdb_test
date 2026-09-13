@@ -1,0 +1,990 @@
+GaussDB
+集中式版参考                                                                8 系统表和系统视图
+
+
+               名称            类型                   描述
+
+               needrefresh   boolean              保留字段。
+
+               refreshtime   timestamp            物化视图上一次刷新时间，若未刷新则为null。
+                             without time         仅对增量物化视图维护该字段，全量物化视图为
+                             zone                 null。
+
+
+
+
+8.2.14.2 GS_MATVIEW_DEPENDENCY
+              GS_MATVIEW_DEPENDENCY系统表提供了关于数据库中每一个增量物化视图、基表
+              和mlog表的关联信息。全量物化视图不存在与基表对应的mlog表，不会写入记录。
+
+              表 8-54 GS_MATVIEW_DEPENDENCY 字段
+
+               名称                  类型                     描述
+
+               oid                 oid                    行标识符（隐含属性，必须明确选
+                                                          择）。
+
+               matviewid           oid                    物化视图的oid。
+
+               relid               oid                    物化视图基表的oid。
+
+               mlogid              oid                    物化视图mlog表的oid，mlog表为
+                                                          物化视图日志表，与基表一一对
+                                                          应。
+
+               mxmin               integer                保留字段。
+
+
+
+
+8.2.15 逻辑解码
+              在逻辑解码独立多版本字典中，使用的逻辑解码字典表是系统表。逻辑解码系统表均
+              为实例级系统表，仅管理员权限用户可以查看和修改系统表。
+
+8.2.15.1 GS_LOGICAL_ATTRDEF
+              GS_LOGICAL_ATTRDEF系统表记录逻辑解码需要使用的存储列的默认值。
+
+              表 8-55 GS_LOGICAL_ATTRDEF 字段
+
+               字段名称                      字段类型                  说明
+
+               adid                      oid                   属性描述符的标识符。
+
+               adrelid                   oid                   所属表的OID。
+
+               adnum                     smallint              属性号。
+
+               csnmin                    bigint                插入元组时的CSN（提交
+                                                               序列号）。
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                            4876
+GaussDB
+集中式版参考                                                              8 系统表和系统视图
+
+
+               字段名称                      字段类型                  说明
+
+               csnmax                    bigint                更新或删除元组时的
+                                                               CSN。
+
+               createtime                timestamp with time   插入元组的时间戳。
+                                         zone
+
+               originid                  integer               元组的来源标识符。
+
+               dbnode                    oid                   数据库OID。
+
+               adbin                     pg_node_tree          默认值表达式。
+
+               adgencol                  "char"                是否为GENERATED列。
+
+
+
+
+8.2.15.2 GS_LOGICAL_ATTRIBUTE
+              GS_LOGICAL_ATTRIBUTE系统表记录逻辑解码需要使用的关于表字段的信息。
+
+
+              表 8-56 GS_LOGICAL_ATTRIBUTE 字段
+
+               字段名称          字段类型                  说明
+
+               attrelid      oid                   包含该属性的RELATION OID。
+
+               attname       name                  属性名称。
+
+               atttypid      oid                   属性的数据类型的OID。
+
+               attlen        smallint              属性的长度。
+
+               attnum        smallint              表示属性的编号，用于唯一标识关系中的每
+                                                   个属性。
+
+               atthasdef     boolean               属性是否有默认值。
+
+               csnmin        bigint                插入元组时的CSN（提交序列号）。
+
+               csnmax        bigint                更新或删除元组时的CSN。
+
+               createtime    timestamp with time   插入元组的时间戳。
+                             zone
+
+               originid      integer               元组的来源标识符。
+
+               dbnode        oid                   数据库OID。
+
+               attndims      integer               如果是数组类型，则为声明的维数，否则为
+                                                   零。
+
+               attcacheoff   integer               用于函数缓存属性在堆元组中的字节偏移。
+
+               attbyval      boolean               表示属性是否是按值传递。
+
+               attstorage    "char"                属性存储方式。
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                       4877
+GaussDB
+集中式版参考                                                              8 系统表和系统视图
+
+
+               字段名称            字段类型                说明
+
+               attalign        "char"              表示属性的对齐方式。
+
+               attisdroppe     boolean             是否已删除（即逻辑上不可见）。
+               d
+
+               attinitdefval   bytea               存储属性的默认值表达式。
+
+               attcollation    oid                 这个字段类型的PG_ATTRIBUTE中
+                                                   attcollation的复制。
+
+               atttypmod       integer             这个字段类型的PG_ATTRIBUTE中
+                                                   atttypmod的复制。
+
+
+
+
+8.2.15.3 GS_LOGICAL_AUTHID
+              GS_LOGICAL_AUTHID系统表记录逻辑解码需要使用的用户信息。
+
+              表 8-57 GS_LOGICAL_AUTHID 字段
+
+               字段名称                      字段类型                  说明
+
+               rolid                     oid                   用户ID。
+
+               rolname                   name                  用户名称。
+
+               createtime                timestamp with time   插入元组的时间戳。
+                                         zone
+
+               csnmin                    bigint                插入元组时的CSN（提交
+                                                               序列号）。
+
+               csnmax                    bigint                更新或删除元组时的
+                                                               CSN。
+
+               originid                  integer               元组的来源标识符。
+
+               rolkind                   "char"                用户类型。
+
+               pdbid                     oid                   用户对应的租户ID。
+
+
+
+
+8.2.15.4 GS_LOGICAL_CLASS
+              GS_LOGICAL_CLASS系统表记录逻辑解码需要使用的数据库对象信息及其之间的关
+              系。
+
+              表 8-58 GS_LOGICAL_CLASS 字段
+
+               字段名称             字段类型               说明
+
+               relname          name               表名。
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                     4878
+GaussDB
+集中式版参考                                                                   8 系统表和系统视图
+
+
+               字段名称             字段类型             说明
+
+               relnamespac      oid              命名空间OID。
+               e
+
+               relpersistence   "char"           表的持久性（例如，'p'表示永久表）。
+
+               relkind          "char"           表的类型（例如，'r'表示关系）。
+
+               relnatts         smallint         表中的列数。
+
+               relhaspkey       bool             表是否有（或曾经有过）主键索引。
+
+               relcmprs         tinyint          表的行的压缩属性。
+
+               relreplident     "char"           Replica identity复制方式。
+
+               spacenode        oid              表空间OID。
+
+               dbnode           oid              数据库OID。
+
+               relnode          oid              表对应的物理存储文件的标识符。
+
+               createtime       timestamp with   插入元组的时间戳。
+                                time zone
+
+               csnmin           bigint           插入元组时的CSN（提交序列号）。
+
+               csnmax           bigint           更新或删除元组时的CSN。
+
+               originid         integer          元组的来源标识符。
+
+               relid            oid              关系标识符（表OID）。
+
+               relowner         oid              表所有者的标识符。
+
+               reltoastrelid    oid              TOAST表OID（如果存在）。
+
+               relhasoids       boolean          表示表是否具有OID（对象标识符）列。
+
+               relam            oid              表示表使用的索引方法的标识符。
+
+               reloptions       text[]           保存表的附加选项，以文本格式存储。
+
+               relbucket        oid              表示表所属的哈希分区桶的标识符。
+
+               parttype         "char"           表示该表是否是分区表，'p'表示为分区表；
+                                                 'n'表示为非分区表。
+
+
+
+
+8.2.15.5 GS_LOGICAL_CONSTRAINT
+              GS_LOGICAL_CONSTRAINT系统表记录逻辑解码需要使用的表上的检查约束、主键和
+              唯一约束。
+
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                        4879
+GaussDB
+集中式版参考                                                     8 系统表和系统视图
+
+              表 8-59 GS_LOGICAL_CONSTRAINT 字段
+               名称               类型        描述
+
+               conname          name      约束名称（不一定是唯一的）。
+
+               connamespace     oid       包含这个约束的名称空间的OID。
+
+               contype          "char"    ● c：检查约束。
+                                          ● p：主键约束。
+                                          ● u：唯一约束。
+                                          ● t：触发器约束。
+                                          ● x：互斥约束。
+                                          ● f：外键约束。
+                                          ● s：聚簇约束。
+                                          ● i：无效约束。
+
+               condeferrable    boolean   这个约束是否可以推迟。
+                                          ● true：表示可以。
+                                          ● false：表示不可以。
+
+               condeferred      boolean   缺省时这个约束是否可以推迟。
+                                          ● true：表示可以。
+                                          ● false：表示不可以。
+
+               convalidated     boolean   约束是否有效。目前，只有外键和CHECK约束
+                                          可将其设置为false。
+                                          ● true：表示有效。
+                                          ● false：表示无效。
+
+               conrelid         oid       这个约束所在的表，如果不是表约束则为0。
+
+               contypid         oid       这个约束所在的域，如果不是一个域约束则为
+                                          0。
+
+               conindid         oid       与约束关联的索引ID。
+
+               confrelid        oid       如果是外键，则为参考的表，否则为0。
+
+               confupdtype      "char"    外键更新动作代码。
+                                          ● a：没动作。
+                                          ● r：限制。
+                                          ● c：级联。
+                                          ● n：设置为null。
+                                          ● d：设置为缺省。
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                 4880
+GaussDB
+集中式版参考                                                            8 系统表和系统视图
+
+
+               名称               类型           描述
+
+               confdeltype      "char"       外键删除动作代码。
+                                             ● a：没动作。
+                                             ● r：限制。
+                                             ● c：级联。
+                                             ● n：设置为null。
+                                             ● d：设置为缺省。
+
+               confmatchtype    "char"       外键匹配类型。
+                                             ● f：全部。
+                                             ● p：部分。
+                                             ● u：未指定（在f的基础上允许匹配NULL
+                                               值）。
+
+               conislocal       boolean      是否是为关系创建的本地约束。
+                                             ● true：表示是。
+                                             ● false：表示不是。
+
+               coninhcount      integer      约束直接继承父表的数目。继承父表数非零
+                                             时，不能删除或重命名该约束。
+
+               connoinherit     boolean      是否可以被继承。
+                                             ● true：表示可以。
+                                             ● false：表示不可以。
+
+               consoft          boolean      是否为信息约束(Informational Constraint)。
+                                             ● true：表示是。
+                                             ● false：表示不是。
+
+               conopt           boolean      是否使用信息约束优化执行计划。
+                                             ● true：表示使用。
+                                             ● false：表示不使用。
+
+               csnmin           bigint       插入元组时的CSN（提交序列号）。
+
+               csnmax           bigint       更新或删除元组时的CSN。
+
+               createtime       timestamp    插入元组的时间戳。
+                                with time
+                                zone
+
+               originid         integer      元组的来源标识符。
+
+               dbnode           oid          数据库OID。
+
+               constroid        oid          行标识符。
+
+               conkey           smallint[]   如果是表约束，则是约束控制的字段列表。
+
+               confkey          smallint[]   如果是一个外键，是参考的字段的列表。
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                            4881
+GaussDB
+集中式版参考                                                                8 系统表和系统视图
+
+
+               名称                       类型           描述
+
+               conpfeqop                oid[]        如果是一个外键，是做PK=FK比较的相等操作
+                                                     符ID的列表。
+
+               conppeqop                oid[]        如果是一个外键，是做PK=PK比较的相等操作
+                                                     符ID的列表。
+
+               conffeqop                oid[]        如果是一个外键，是做FK=FK比较的相等操作
+                                                     符ID的列表。
+
+               conexclop                oid[]        如果是一个排他约束，是列的排他操作符ID列
+                                                     表。
+
+               consrc                   text         如果是检查约束，则是表达式的可读形式。
+
+               conincluding             smallint[]   不用做约束，但是会包含在INDEX中的属性
+                                                     列。
+
+
+
+
+8.2.15.6 GS_LOGICAL_DATABASE
+              GS_LOGICAL_DATABASE系统表存储关于可用数据库的信息。
+
+              表 8-60 GS_LOGICAL_DATABASE 字段
+               字段名称           字段类型                   说明
+
+               datname        name                   数据库名称。
+
+               datid          oid                    数据库OID。
+
+               csnmin         bigint                 插入元组时的CSN（提交序列号）。
+
+               csnmax         bigint                 更新或删除元组时的CSN。
+
+               createtime     timestamp with         插入元组的时间戳。
+                              time zone
+
+               originid       integer                元组的来源标识符。
+
+               datdba         oid                    数据库所有人，通常为其创建者。
+
+               encoding       integer                数据库的字符编码方式。
+
+               datcollate     name                   数据库使用的字符分类。
+
+               datctype       name                   数据库使用的排序顺序。
+
+               dattablesp     oid                    数据库的缺省表空间。
+               ace
+
+               datcompati     name                   数据库兼容模式，当前支持五种兼容模式：
+               bility                                A、B、C、M和PG，分别表示兼容O、MY、
+                                                     TD、M-Compatibility和POSTGRES。
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                          4882
+GaussDB
+集中式版参考                                                             8 系统表和系统视图
+
+
+               字段名称             字段类型              说明
+
+               dattimezon       name              数据库时区信息，默认为PRC时区。
+               e
+
+
+
+
+8.2.15.7 GS_LOGICAL_DICTIONARY
+              GS_LOGICAL_DICTIONARY系统表记录逻辑解码数据字典信息。
+
+              表 8-61 GS_LOGICAL_DICTIONARY 字段
+               字段名称                     字段类型                  说明
+
+               status                   integer               表示逻辑解码数据字典是
+                                                              否有效可用。
+
+               restart_lsn              bigint unsigned       预留字段。
+
+               restart_lsn_time         timestamp with time   基线化完成时间。
+                                        zone
+
+               dictionary_csn_min       bigint unsigned       使用的最小版本号。
+
+               last_clean_time          timestamp with time   数据字典表最后一次清理
+                                        zone                  的时间。
+
+               last_clean_result        bool                  数据字典表最后一次清理
+                                                              的结果。
+
+               originid                 integer               元组的来源标识符。
+
+               last_flush_csn           bigint unsigned       上一次元信息修改的
+                                                              CSN。
+
+               pdbid                    oid                   该行数据对应的租户ID。
+
+
+
+
+8.2.15.8 GS_LOGICAL_INDEX
+              GS_LOGICAL_INDEX系统表存储了索引的部分信息，其他的信息存储在
+              GS_LOGICAL_CLASS系统表中。
+
+              表 8-62 GS_LOGICAL_INDEX 字段
+               字段名称          字段类型                 说明
+
+               indexrelid    Oid                  索引的OID。
+
+               indrelid      Oid                  它所引用的RELATION OID。
+
+               indnatts      smallint             索引中的总列数。
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                    4883
+GaussDB
+集中式版参考                                                            8 系统表和系统视图
+
+
+               字段名称           字段类型                  说明
+
+               indisuniqu     boolean               是否是唯一索引。
+               e
+
+               indisprimar    boolean               这个索引是否为主键。
+               y
+
+               csnmin         bigint                插入元组时的 CSN（提交序列号）。
+
+               csnmax         bigint                更新或删除元组时的 CSN。
+
+               createtime     timestamp with time   插入元组的时间戳。
+                              zone
+
+               originid       integer               元组的来源标识符。
+
+               dbnode         oid                   数据库OID。
+
+               indimmedi      boolean               是否立即执行唯一性约束。
+               ate
+
+               indisvalid     boolean               此索引是否可用于查询。
+
+               indisready     boolean               此索引是否准备好接受插入。
+
+               indisusable    boolean               此索引是否可用于插入和选择。
+
+               indkey         int2vector            索引列的列编号。
+
+               indcollatio    oidvector             排序标识符。
+               n
+
+               indpred        pg_node_tree          如果是部分索引，则为谓词的表达式树；否
+                                                    则为 NULL。
+
+               indisreplide   boolean               索引是否被标识为复制标识索引。
+               nt
+
+
+
+
+8.2.15.9 GS_LOGICAL_NAMESPACE
+              GS_LOGICAL_NAMESPACE系统表存储名称空间相关的信息。
+
+
+              表 8-63 GS_LOGICAL_NAMESPACE 字段
+
+               字段名称            字段类型                   说明
+
+               nspid           oid                    命名空间的OID。
+
+               nspname         name                   命名空间名称。
+
+               nspowner        oid                    命名空间所有者的OID。
+
+               nsptimeline     bigint                 命名空间的时间线标识符。
+
+               csnmin          bigint                 插入元组时的 CSN（提交序列号）。
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                4884
+GaussDB
+集中式版参考                                                                     8 系统表和系统视图
+
+
+               字段名称            字段类型                        说明
+
+               csnmax          bigint                      更新或删除元组时的 CSN。
+
+               createtime      timestamp with time         插入元组的时间戳。
+                               zone
+
+               originid        integer                     元组的来源标识符。
+
+               dbnode          oid                         数据库OID。
+
+
+
+
+8.2.15.10 GS_LOGICAL_PARTITION
+              GS_LOGICAL_PARTITION系统表存储分区表相关的信息。
+
+              表 8-64 GS_LOGICAL_PARTITION 字段
+               字段名称                  字段类型                       说明
+
+               partitionid           Oid                        分区表OID。
+
+               relname               name                       分区表的名称。
+
+               parttype              char                       分区类型。
+
+               parentid              oid                        父表OID。
+
+               relfilenode           oid                        分区表relfilenode。
+
+               reltoastrelid         oid                        TOAST 表的OID。
+
+               reltoastidxid         oid                        TOAST索引的OID。
+
+               csnmin                bigint                     插入元组时的 CSN（提交序列
+                                                                号）。
+
+               csnmax                bigint                     更新或删除元组时的 CSN。
+
+               originid              integer                    元组的来源标识符。
+
+               createtime            timestamp with time        插入元组的时间戳。
+                                     zone
+
+               reltablespace         oid                        表空间的OID。
+
+               dbnode                oid                        数据库OID。
+
+
+
+
+8.2.15.11 GS_LOGICAL_TYPE
+              GS_LOGICAL_TYPE系统表存储数据类型的相关信息。
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                           4885
+GaussDB
+集中式版参考                                                       8 系统表和系统视图
+
+              表 8-65 GS_LOGICAL_TYPE 字段
+               字段名称        字段类型             说明
+
+               typname     name             类型名称。
+
+               typname     oid              包含此类型的命名空间的OID。
+               space
+
+               typlen      smallint         该类型值所使用的字节数。
+
+               typbyval    boolean          该类型的值是按值还是按引用传递。
+
+               typtype     "char"           表示表的行类型。
+
+               typisdefi   boolean          表示类型是否被完全定义。
+               ned
+
+               typreceiv   regproc          二进制格式的接收函数。
+               e
+
+               typsend     regproc          发送函数。
+
+               typmodin    regproc          用于可选类型修饰符的输入函数。
+
+               typmodo     regproc          输出函数。
+               ut
+
+               typid       oid              类型的OID。
+
+               dbnode      oid              数据库OID。
+
+               originid    integer          元组的来源标识符。
+
+               createtim   timestamp with   插入元组的时间戳。
+               e           time zone
+
+               csnmin      bigint           插入元组时的 CSN（提交序列号）。
+
+               csnmax      bigint           更新或删除元组时的 CSN。
+
+               typstorag   "char"           指定字段的数据存储方式，具体包含以下几个类
+               e                            型：
+                                            ● p：普通存储（plain）。数值总是以简单方式
+                                              存储。
+                                            ● e：外部存储（external）。数据实际存储在
+                                              主表以外的地方（如TOAST表），主表存储的
+                                              是指向该外部存储数据的引用。
+                                            ● m：主体存储（main）。该方式与“普通存
+                                              储”类似，可以以内联的压缩方式存储。通常
+                                              用于存储需要自定义存储方式的类型，如自定
+                                              义的复合类型。
+                                            ● x：扩展存储（extended）。值可以被压缩和/
+                                              或移动到一个二级关系表中。
+                                              x一般是TOAST类型存储的方式。
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司              4886
+GaussDB
+集中式版参考                                                           8 系统表和系统视图
+
+
+               字段名称         字段类型              说明
+
+               typelem      oid               如果typelem不为零，那么它表示
+                                              gs_logical_type表中的另一行，该行定义了通过
+                                              下标获取的类型（如数组）。如果typsubscript
+                                              为零，则typelem应该为零。如果处理程序不需
+                                              要typelem来确定下标类型，那么当typsubscript
+                                              不为零时typelem也可以为零。请注意，typelem
+                                              依赖关系表示了该类型中元素类型物理上的约
+                                              束；因此，DDL修改类型时可能会因这种类型的
+                                              存在而受到限制。
+
+               typinput     regproc           输入转换函数（文本格式）。
+
+               typoutpu     regproc           输出转换函数（文本格式）。
+               t
+
+               typrelid     oid               如果是复合类型（请参见typtype），则这个字段
+                                              指向GS_LOGICAL_CLASS中定义该表的行。对于
+                                              复合类型，GS_LOGICAL_CLASS的类型不是一个
+                                              表。对于非复合类型，该字段为零。
+
+
+
+
+8.2.15.12 GS_SQLAPPLY_SKIP
+              GS_SQLAPPLY_SKIP系统表存储逻辑回放可跳过执行的规则。
+
+              表 8-66 GS_SQLAPPLY_SKIP 字段
+               字段名称          字段类型        说明
+
+               createtime    timestam    新建时间戳。
+                             p
+
+               originid      int4        复制源标识。
+
+               skiptype      int4        SKIP类型：
+                                         ● 1：SKIP OBJ
+                                         ● 2：SKIP TXN
+                                         ● 3：SKIP ERR
+
+               dumpconte     char        转储事务到文件：
+               xt                        ● 'a'：转储整个事务。
+                                         ● 'n'：不转储。
+                                         ● 's'：仅转储事务跳过的变更。
+
+               param1        text        参考表8-67、表8-68中的字段说明。
+
+               param2        text        参考表8-67、表8-68中的字段说明。
+
+               param3        text        参考表8-67中的字段说明。
+
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                  4887
+GaussDB
+集中式版参考                                                               8 系统表和系统视图
+
+
+               字段名称           字段类型      说明
+
+               param4         text      参考表8-67中的字段说明。
+
+               param5         text      预留字段。
+
+
+
+
+              表 8-67 SKIP OBJ 或 SKIP ERR 时，param1-4 的字段
+               字段名称                      字段类型                  说明
+
+               db_name                   text                  数据库名称。
+
+               schema_name               text                  模式名称。
+
+               object_name               text                  对象名称。
+
+               stmt_type                 text                  SQL语句类型。
+
+
+
+
+              表 8-68 SKIP TXN 时，param1-2 字段
+               字段名称                      字段类型                  说明
+
+               csn                       text                  事务序列号。
+
+               xid                       text                  事务ID。
+
+
+
+
+8.2.15.13 GS_TXN_LSN_TIME
+              GS_TXN_LSN_TIME系统表记录逻辑解码提交序列号、日志序列号、时间戳的对应关
+              系。
+
+              表 8-69 GS_TXN_LSN_TIME 字段
+               字段名称                      字段类型                  说明
+
+               create_csn                bigint                提交序列号。
+
+               create_lsn                bigint                日志序列号。
+
+               snp_xmin                  bigint                快照xmin。
+
+               snp_snapshot              text                  快照序列化文本。
+
+               barrier                   text                  barrier信息。
+
+               create_time               timestamp with time   插入元组的时间戳。
+                                         zone
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                     4888
+GaussDB
+集中式版参考                                                                                              8 系统表和系统视图
+
+
+                   说明
+
+                 ● create_lsn在该系统表中是以数字形式存储的，该LSN可以通过SQL语法转换为常见的LSN格
+                   式（仅供参考），即XXXXXXXX/XXXXXXXX，转换语法如下所示：
+                       SELECT CONCAT(to_hex(({lsn_num}::bigint >> 32) & x'ffffffff'::bigint), '/', to_hex(({lsn_num}::bigint
+                       << 32 >> 32) & x'ffffffff'::bigint));
+                       使用上述SQL语句时需将lsn_num转为自己需要的数字，以469920056为例如下所示：
+                       gaussdb=# SELECT CONCAT(to_hex((469920056::bigint >> 32) & x'ffffffff'::bigint), '/',
+                       to_hex((469920056::bigint << 32 >> 32) & x'ffffffff'::bigint));
+                       concat
+                       ------------
+                       0/1c026938
+                       (1 row)
+                 ● 由于M兼容语法与高斯数据库语法有区别，M兼容库需要使用以下转换语句：
+                       SELECT CONCAT(hex(({lsn_num} >> 32) & 4294967295), '/', hex((({lsn_num}<< 32) >> 32) &
+                       4294967295));
+                       使用上述SQL语句时需将lsn_num转为自己需要的数字，以469920056为例如下所示：
+                       gaussdb_m=# SELECT CONCAT(hex((469920056 >> 32) & 4294967295), '/', hex(((469920056 <<
+                       32) >> 32) & 4294967295));
+                         concat
+                       ------------
+                        0/1c026938
+                       (1 row)
+
+
+8.2.15.14 GS_LOGICAL_SET
+              GS_LOGICAL_SET系统表存储SET数据类型定义的元数据。
+
+              表 8-70 GS_LOGICAL_SET 字段
+               字段名称            字段类型                       说明
+
+               setid           oid                        行标识符。
+
+               settypid        oid                        SET数据类型的OID。
+
+               setnum          tinyint                    SET数据类型的成员数量，最大64个成员。
+
+               setsortor       tinyint                    SET数据类型定义时成员的排序位置，从0开始编
+               der                                        号。
+
+               setlabel        text                       SET数据类型的成员名称。
+
+               dbnode          oid                        数据库OID。
+
+               originid        integer                    元组的来源标识符。
+
+               createtim       timestamp with             插入元组的时间戳。
+               e               time zone
+
+               csnmin          bigint                     插入元组时的CSN（提交序列号）。
+
+               csnmax          bigint                     更新或删除元组时的CSN。
+
+               numbers         integer                    用于M-Compatibility模式兼容SET和ENUM数据类
+                                                          型的成员数量，仅M-Compatibility兼容模式用到
+                                                          该字段。
+
+
+
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                                                            4889
+GaussDB
+集中式版参考                                                              8 系统表和系统视图
+
+
+               字段名称         字段类型                说明
+
+               sortorder    integer             用于M-Compatibility模式兼容SET和ENUM数据类
+                                                型定义时成员的排序位置，仅M-Compatibility兼
+                                                容模式用到该字段。
+
+
+
+
+8.2.15.15 GS_LOGICAL_ENUM
+              GS_LOGICAL_ENUM系统表存储了每个枚举类型值和标签的记录。
+
+              表 8-71 GS_LOGICAL_ENUM 字段
+
+               字段名称                   字段类型             说明
+
+               enumid                 oid              行标识符。
+
+               enumtypid              oid              拥有这个枚举值的PG_TYPE记录的OID。
+
+               enumlabel              name             这个枚举值的文本标签。
+
+               enumsortorder          real             这个枚举值在它的枚举类型中的排序位
+                                                       置。
+
+               dbnode                 oid              数据库OID。
+
+               originid               integer          元组的来源标识符。
+
+               createtime             timestamp with   插入元组的时间戳。
+                                      time zone
+
+               csnmin                 bigint           插入元组时的 CSN（提交序列号）。
+
+               csnmax                 bigint           更新或删除元组时的 CSN。
+
+
+
+
+8.2.15.16 GS_SQLAPPLY_HISTORY
+              GS_SQLAPPLY_HISTORY系统表存储了逻辑回放开始和结束时间的解码位点。
+
+              表 8-72 GS_SQLAPPLY_HISTORY 字段
+
+               字段名称            字段类型             说明
+
+               occurtime       timestamp        逻辑回放开始或结束时间。
+                               with time
+                               zone
+
+               originid        integer          逻辑回放解码元信息标识。
+
+               opkind          char             逻辑回放的开始信息'b'或结束信息'e'。
+
+               l_xid           bigint           逻辑回放本地数据库实例开始或结束的事务号。
+
+               l_lsn           bigint           逻辑回放本地数据库实例开始或结束的日志位点。
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                     4890
+GaussDB
+集中式版参考                                                               8 系统表和系统视图
+
+
+               字段名称           字段类型                说明
+
+               l_csn          bigint              逻辑回放本地数据库实例开始或结束的事务提交
+                                                  序。
+
+               r_restartlsn   bigint              远端数据库实例逻辑解码的开始或结束日志流位
+                                                  点。
+
+               r_confirmlsn   bigint              远端数据库实例逻辑解码返回事务的最早或最晚提
+                                                  交日志位点。
+
+               r_confirmcsn   bigint              远端数据库实例逻辑解码返回事务的最早或最晚提
+                                                  交序。
+
+               uuid           text                逻辑灾备数据库实例的标识。
+
+
+
+
+8.2.16 多租数据库
+
+8.2.16.1 GS_PDB
+              GS_PDB系统表存储关于PDB的信息。
+
+               字段名称                         字段类型                说明
+
+               id                           oid                 PDB的逻辑ID。
+
+               name                         name                PDB名称，与其对应的
+                                                                database同名。
+
+               is_opened                    boolean             PDB的开启状态。
+                                                                ● true：表示开启。
+                                                                ● false：表示关闭。
+
+               grp_respool_oid              oid                 PDB对应的资源池ID。
+
+               acl                          aclitem[]           访问权限。
+
+
+
+
+8.2.16.2 GS_RESOURCE_PLANS
+              GS_RESOURCE_PLANS是实例级系统表，其作为资源计划主表，记录资源计划的主体
+              信息。
+
+               字段名称              字段类型                   说明
+
+               name              name                   计划名称。
+
+               mandatory         smallint               计划是否可删除。
+                                                        1：表示不可删除。
+                                                        0：表示可删除。
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                            4891
+

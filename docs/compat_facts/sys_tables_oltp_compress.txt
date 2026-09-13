@@ -1,0 +1,463 @@
+GaussDB
+集中式版参考                                                         8 系统表和系统视图
+
+
+8.2.2.3 PG_APP_WORKLOADGROUP_MAPPING
+              PG_APP_WORKLOADGROUP_MAPPING系统表提供了数据库负载映射组的信息。
+
+              表 8-5 PG_APP_WORKLOADGROUP_MAPPING 字段
+                 名称                     类型          描述
+
+                 oid                    oid         行标识符（隐含属性，必须明确选
+                                                    择）。
+
+                 appname                name        应用名称。
+
+                 workload_gpname        name        映射到的负载组名称。
+
+
+
+
+8.2.3 OLTP 表压缩
+
+8.2.3.1 GS_ILM
+              GS_ILM系统表提供了ILM策略的主体信息，其中包括策略名称、策略属主、策略类
+              型、策略编号和策略状态。
+
+              表 8-6 GS_ILM 字段
+                 名称        类型             描述
+
+                 pidx      integer        策略序号，全局唯一以1开始的流水号。
+
+                 creator   oid            策略属主。
+
+                 name      name           策略名称，目前不支持自定义名称，默认名称为p
+                                          +pidx。
+
+                 ptype     "char"         策略类型：
+                                          ● m：DATA MOVEMENT。
+
+                 flag      smallint       取值范围：
+                                          ● 0：策略整体启用状态。
+                                          ● 1：策略整体被禁用。
+                                          ● 2：库级策略。
+
+
+
+
+8.2.3.2 GS_ILM_JOBDETAIL
+              GS_ILM_JOBDETAIL系统表记录了Job类型、Job状态、Job统计信息等。
+
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司              4843
+GaussDB
+集中式版参考                                                          8 系统表和系统视图
+
+              表 8-7 GS_ILM_JOBDETAIL 字段
+               名称                类型          描述
+
+               taskoid           bigint      所属ADO Task的oid。
+
+               jobtype           "char"      当前Job类型：压缩（‘c’）。
+
+               jobstatus         smallint    当前Job状态：
+                                             ● 1：JOB CREATED
+                                             ● 2：COMPLETED SUCCESSFULLY
+                                             ● 3：FAILED
+                                             ● 4：STOPPED
+                                             ● 5：JOB CREATION FAILED
+
+               jobname           text        ADO Job名称表内唯一，关联系统表
+                                             PG_JOB的job_name。
+
+               starttime         timestamp   启动时间。
+                                 with time
+                                 zone
+
+               completetime      timestamp   完成时间。
+                                 with time
+                                 zone
+
+               payload           text        当前Job的具体执行内容PL/SQL代码。
+
+               statistics        text        当前Job的统计信息。
+
+               comments          text        记录当前Job执行的描述信息，如失败原因
+                                             等。
+
+
+
+
+8.2.3.3 GS_ILM_OBJECT
+              GS_ILM_OBJECT记录数据对象与策略的关系，同时记录策略在该数据对象上的调度信
+              息等。注意当给分区表的表上设置策略时，此表会为每一个分区/子分区都生成独立的
+              一条记录。
+
+              表 8-8 GS_ILM_OBJECT 字段
+               名称              类型             描述
+
+               pidx            integer        策略编号。
+
+               objoid          oid            逻辑数据对象oid有分区的表、有二级分
+                                              区的分区。
+
+               dataobjoid      oid            物理数据对象oid，真正需要执行策略的
+                                              实体，树级分区关系的叶子。
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                          4844
+GaussDB
+集中式版参考                                                              8 系统表和系统视图
+
+
+               名称                  类型               描述
+
+               objtype             "char"           当前数据对象类型：
+                                                    ● 表（‘r’）
+                                                    ● 分区（‘p’）
+                                                    ● 二级分区（‘s’）
+                                                    ● 普通索引（‘i’）
+                                                    ● 全局索引（‘I’）
+                                                    ● 索引分区（‘x’）
+
+               origobjoid          oid              定义该策略的原始对象oid。
+
+               origobjtype         "char"           定义该策略的原始数据对象类型：
+                                                    ● 表（‘r’）
+                                                    ● 分区（‘p’）
+                                                    ● 二级分区（‘s’）
+                                                    ● 普通索引（‘i’）
+                                                    ● 全局索引（‘I’）
+
+               lastchktime         timestamp with   最近一次ADO Task时间。
+                                   time zone
+
+               lastexetime         timestamp with   最近一次ADO Job时间。
+                                   time zone
+
+               roundcnt            smallint         成功回合的次数。
+
+               failcnt             smallint         失败次数。
+
+               lastjobstatus       "char"           上一次Job的执行状态。
+
+               lastroundstarttim   timestamp with   该轮全表扫描开始的时间。
+               e                   time zone
+
+               lastjobblkid        bigint           上一次Job处理完成的BlockId。
+
+               flag                smallint         取值范围：
+                                                    ● 0：启用对象压缩策略。
+                                                    ● 1：禁用对象压缩策略。
+                                                    ● 2：启用对象压缩策略，上次压缩调度
+                                                      完成1次全表扫描。
+
+               lasthashbktpos      oidvector        记录上一轮压缩调度最后压缩的位置信
+                                                    息，记录两个值[bucketid, blockid]。
+
+
+
+
+8.2.3.4 GS_ILM_PARAM
+              GS_ILM_PARAM系统表为特性参数表，记录控制ILM特性相关参数，如后台调度的各
+              种控制参数。
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                         4845
+GaussDB
+集中式版参考                                                         8 系统表和系统视图
+
+              表 8-9 GS_ILM_PARAM 字段
+               名称                      类型                 描述
+
+               idx                     smallint           参数编号。
+
+               name                    name               参数名称。
+
+               value                   double precision   参数值，详见表8-10的描
+                                                          述列。
+
+
+
+
+              表 8-10 GS_ILM_PARAM 特性参数范围
+               参数编     参数名称               描述
+               号
+
+               1       EXECUTION_INTE     ADO Task的执行频率，单位分钟，默认值15。取
+                       RVAL               值范围为大于等于1小于等于2147483647的整数或
+                                          浮点数，作用时向下取整。
+
+               2       RETENTION_TIME     ADO相关历史的保留时长，单位天，默认值30。取
+                                          值范围大于等于1小于等于2147483647的整数或浮
+                                          点数，作用时向下取整。
+
+               7       ENABLE             后台调度的状态。该参数不支持使用
+                                          DBE_ILM_ADMIN.CUSTOMIZE_ILM修改，应使用
+                                          disable_ilm()和enable_ilm()修改。
+
+               11      POLICY_TIME        控制ADO的条件单位是天还是秒，秒仅用来做测试
+                                          用。
+                                          取值范围：
+                                          ● 0：单位为天，默认值为0。
+                                          ● 1：单位为秒，一般用于测试场景。
+
+               12      ABS_JOBLIMIT       控制一次ADO Task最多生成多少个ADO Job，默
+                                          认值10。取值范围大于等于0小于等于2147483647
+                                          的整数或浮点数，作用时向下取整。
+
+               13      JOB_SIZELIMIT      控制单个ADO Job可以处理的最大字节数，单位
+                                          兆，默认值1024。取值范围大于等于0小于等于
+                                          2147483647的整数或浮点数，作用时向下取整。
+
+               14      WIND_DURATION      维护窗口持续时长，单位分钟，默认240分钟（4小
+                                          时）；取值范围为大于等于0小于1440（24小时）
+                                          的整数或浮点数，作用时向下取整。
+
+               15      BLOCK_LIMITS       控制实例级的行存压缩速率上限，默认是40；取值
+                                          范围是0到10000（0表示不限制）；单位是
+                                          block/ms，表示每毫秒最多压缩多少个block。
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                       4846
+GaussDB
+集中式版参考                                                     8 系统表和系统视图
+
+
+               参数编     参数名称              描述
+               号
+
+               16      ENABLE_META_C     是否开启header压缩，默认为0，0表示关闭，1表
+                       OMPRESSION        示开启。
+                                         说明
+                                          设置此参数为1时，对于单行数据较短的表，压缩率会有
+                                          一定提升，但是访问压缩行的性能会有较大幅度的下降。
+                                          若数据库多是单行数据较长的表，不建议开启此参数。
+
+               17      SAMPLE_MIN        常量编码和等值编码采样步长最小值，默认为10，
+                                         取值范围[1, 100]，支持小数输入，小数会自动向
+                                         下取整。
+
+               18      SAMPLE_MAX        常量编码和等值编码采样步长最大值，默认为10，
+                                         取值范围[1, 100]，支持小数输入，小数会自动向
+                                         下取整。
+
+               19      CONST_PRIO        常量编码优先级，默认为40，取值范围[0, 100]，
+                                         100表示关闭常量编码，支持小数输入，小数会自
+                                         动向下取整。
+
+               20      CONST_THRESHO     常量编码阈值，默认为90，取值范围[1, 100]，表
+                       LD                示一列常量值的占比超过该阈值时进行常量编码，
+                                         支持小数输入，小数会自动向下取整。
+
+               21      EQVALUE_PRIO      等值编码优先级，默认为60，取值范围[0, 100]，
+                                         100表示关闭等值编码，支持小数输入，小数会自
+                                         动向下取整。
+
+               22      EQVALUE_THRES     等值编码阈值，默认为80，取值范围[1, 100]，表
+                       HOLD              示两列数据的等值比例超过该阈值时进行等值编
+                                         码，支持小数输入，小数会自动向下取整。
+
+               23      ENABLE_DELTA_E    差值编码开关，默认为1，支持小数输入，0表示关
+                       NCODE_SWITCH      闭，1表示开启，小数会自动向下取整。
+
+               24      LZ4_COMPRESSIO    lz4压缩等级，默认为0，取值范围[0, 16]，支持小
+                       N_LEVEL           数输入，小数会自动向下取整。
+
+               25      ENABLE_LZ4_PART   部分解压开关，默认为1，支持小数输入，0表示关
+                       IAL_DECOMPRESS    闭，1表示开启，小数会自动向下取整。
+                       ION
+
+               26      INDEXJOB_SIZELI   控制索引压缩单个ADO Job可以处理的最大字节
+                       MIT               数，单位兆，默认值1024。取值范围大于等于0小
+                                         于等于2147483647的整数或浮点数，作用时向下
+                                         取整。
+
+               27      ENABLE_INDEX_C    索引压缩开关，默认为0，取值范围为0或1，0表示
+                       OMPRESS           关闭，1表示开启。
+
+
+
+
+8.2.3.5 GS_ILM_POLICY
+              GS_ILM_POLICY系统表提供了记录策略动作类型、判定条件等。
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                   4847
+GaussDB
+集中式版参考                                                                  8 系统表和系统视图
+
+              表 8-11 GS_ILM_POLICY 字段
+               名称             类型            描述
+
+               pidx           integer       策略序号。
+
+               action         "char"        策略动作：仅支持压缩（‘c’）。
+
+               ctype          "char"        压缩类型：仅支持高级行压缩（‘a’），跨页透明
+                                            压缩（‘t’）。
+
+               condition      "char"        判定条件类型：仅支持LAST MODIFICATION
+                                            （‘m’）。
+
+               days           smallint      判定天数量。
+
+               scope          "char"        策略作用域：仅支持Row（‘r’），Unit
+                                            （‘u’）。
+
+               predicate      pg_node_tre   策略行级表达式。
+                              e
+
+               csubtype       "char"        压缩级别：高级压缩仅支持Medium（‘m’）和
+                                            High（‘h’）；透明压缩支持Low（‘l’），
+                                            Medium（‘m’），High（‘h’）。
+
+
+
+8.2.3.6 GS_ILM_TASK
+              GS_ILM_TASK系统表记录ADO Task的主体信息（创建时间、开始完成时间、执行状态
+              等）。
+
+              表 8-12 GS_ILM_TASK 字段
+               名称                类型                    描述
+
+               taskoid           bigint                ADO Task的oid。
+
+               creator           oid                   ADO Task发起人。
+
+               createtime        timestamp with time   创建时间。
+                                 zone
+
+               starttime         timestamp with time   启动时间。
+                                 zone
+
+               completetime      timestamp with time   完成时间。
+                                 zone
+
+               executestate      smallint              取值范围：
+                                                       ● 1：'INACTIVE'
+                                                       ● 2：'ACTIVE'
+                                                       ● 3：'COMPLETED'
+
+               flag              smallint              预留字段。
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                           4848
+GaussDB
+集中式版参考                                                                8 系统表和系统视图
+
+
+8.2.3.7 GS_ILM_TASKDETAIL
+              GS_ILM_TASKDETAIL系统表记录一次指定数据对象与策略的评估结果。
+
+              表 8-13 GS_ILM_TASKDETAIL 字段
+
+               名称                类型                    描述
+
+               pidx              integer               策略序号。
+
+               objoid            oid                   数据对象oid。
+
+               objtype           "char"                数据对象类型。
+
+               taskoid           bigint                所属ADO Task的oid。
+
+               evalresult        smallint              评估结果：
+                                                       ● 0：SELECTED FOR EXECUTION，
+                                                         评估通过。
+                                                       ● 1：PRECONDITION NOT
+                                                         SATISFIED，条件不满足。
+                                                       ● 2：JOB ALREADY EXISTS，Job已
+                                                         存在。
+
+               jobname           text                  评估通过后生成的ADO Job Name关
+                                                       联系统表GS_ILM_JOBDETAIL的
+                                                       jobname字段。
+
+
+
+
+8.2.3.8 GS_ILM_TICKER
+              GS_ILM_TICKER系统表记录LSN以及时间的映射关系，最多保留3650行记录。
+
+              表 8-14 GS_ILM_TICKER 字段
+
+               名称                类型                    描述
+
+               ilm_ticker_lsn    bigint                触发打点操作时的当前LSN。
+
+               ilm_ticker_time   timestamp with time   触发打点操作时的当前时间。
+                                 zone
+
+
+
+
+8.2.3.9 GS_ILM_TURBO_OBJECT
+              GS_ILM_TURBO_OBJECT系统表记录透明压缩策略信息。
+
+              表 8-15 GS_ILM_TURBO_OBJECT 字段
+
+               名称                类型                    描述
+
+               objoid            oid                   定义该策略的原始对象oid。
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                             4849
+GaussDB
+集中式版参考                                                  8 系统表和系统视图
+
+
+               名称             类型          描述
+
+               objtype        "char"      当前数据对象类型：
+                                          ● 表（‘r’）
+                                          ● 分区（‘p’）
+                                          ● 二级分区（‘s’）
+                                          ● 普通索引（‘i’）
+                                          ● 全局索引（‘I’）
+                                          ● 索引分区（‘x’）
+
+               csubtype       "char"      透明压缩策略级别：
+                                          ● 低（‘l’）
+                                          ● 中（‘m’）
+                                          ● 高（‘h’）
+
+               encodetype     tinyint     编码类型
+                                          ● 平铺（‘1’）
+                                          ● 模糊分列（‘2’）
+                                          ● 模式编码（‘3’）
+
+               compresstype   tinyint     通用压缩器类型
+                                          ● lz4（‘1’）
+                                          ● zstd（‘2’）
+
+               compressunit   tinyint     压缩单元长度
+                                          ● 1（‘1’）
+                                          ● 2（‘2’）
+                                          ● 4（‘3’）
+                                          ● 8（‘4’）
+                                          ● 16（‘5’）
+                                          ● 32（‘6’）
+                                          ● 64（‘7’）
+
+               lmtinterval    integer     冷热管理时间间隔，单位：小时
+
+
+
+
+8.2.4 密态等值查询
+
+8.2.4.1 GS_CLIENT_GLOBAL_KEYS
+              GS_CLIENT_GLOBAL_KEYS系统表记录密态等值特性中客户端加密主密钥相关信息，
+              每条记录对应一个客户端加密主密钥。
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司               4850
+
