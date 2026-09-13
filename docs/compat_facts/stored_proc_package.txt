@@ -1,0 +1,108 @@
+GaussDB
+集中式版参考                                                            3 存储过程
+
+
+
+
+3.15 package
+              package是一组相关存储过程、函数、变量、常量和游标等PL/SQL程序的组合，具有
+              面向对象的特点，可以对PL/SQL程序设计元素进行封装。package中的函数具有统一
+              性，创建、删除、修改都统一进行。
+
+              package包含包头（Package Specification）和Package Body两个部分，其中包头所
+              包含的声明可以被外部函数、匿名块等访问；而在包体中包含的声明不能被外部函
+              数、匿名块等访问，只能被包体内函数和存储过程等访问。
+
+              PACKAGE的创建请参见CREATE PACKAGE。
+
+
+                  须知
+
+              ● 跨PACKAGE变量不支持作为FOR循环中控制变量使用。
+              ● PACKAGE中定义类型不支持删除、修改等操作，也不支持定义表。
+              ● 不支持以SCHEMA.PACKAGE.CURSOR的形式引用cursor变量。
+              ● 带参数的CURSOR仅支持在当前PACKAGE内打开。
+              ● 不支持package变量作为函数或存储过程参数的默认值。
+              ● 如果PACKAGE内的存储过程入参包含伪类型（如：anyelement），不支持调用时
+                传入变长类型的参数。
+              ● 包头、包体的函数in/out/inout参数不一致时，系统将识别为不同的函数。
+
+
+
+3.16 失效重编译
+
+3.16.1 失效重编译概述
+              失效重编译提供一次性入库、失效重编译和级联失效功能。
+
+              ●   一次性入库：新建存储过程、函数和PACKAGE使用未定义的对象。例如表、函数
+                  或类型不存在，可新建成功，打印告警。系统表pg_object对应的valid字段为
+                  false。
+              ●   失效重编译功能：当未定义的对象都存在时，运行失效重编译高级包
+                  pkg_util.gs_compile_schema或者alter compile功能时，把对象变为有效，然后正
+                  常执行存储过程、函数和PACKAGE。
+              ●   级联失效功能：当被依赖的对象被删除时，不再级联删除依赖对象，而是失效依
+                  赖对象，例如函数出入参依赖表，删除表时，函数失效，但函数未被级联删除。
+              ●   重新创建包头，不删除原有包体功能：当使用CREATE OR REPLACE PACKAGE覆
+                  盖原有包头定义时，已经存在的包体定义不会被删除，而是被失效。支持使用
+                  ALTER COMPILE功能，尝试将包体变为有效。
+
+              使用该功能，推荐开启如下GUC参数:
+
+              ●   enable_force_create_obj=on，提供一次性入库功能。参数信息，请参见
+                  enable_force_create_obj。
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                       3041
+GaussDB
+集中式版参考                                                                        3 存储过程
+
+
+              ●   ddl_invalid_mode='invalid'，提供级联失效功能。参数信息，请参见
+                  ddl_invalid_mode。
+
+
+                  须知
+
+              ● 集中式A兼容模式数据库支持。
+              ● 开启失效重编参数后，数据库存在用户自定义函数失效对象时，将无法使用\df全量
+                查询或查询单个失效函数，提示存在失效对象报错。
+              ● 视图依赖函数的场景，重建被依赖函数仅支持自动重建与函数相同Schema的视
+                图，其他场景需要手动重建视图。
+              ● 不支持记录同义词的依赖关系，支持记录同义词指向的原始对象依赖关系。
+              ● 不支持记录临时表的依赖关系。
+              ● 不支持记录物化视图的依赖关系。
+              ● PACKAGE和FUNCTION的执行块访问其他对象时，直接调用FUNCTION，直接调用
+                PACKAGE内FUNCTION，直接访问PACKAGE变量记录依赖关系，其他场景不支持
+                记录依赖关系。
+              ● PACKAGE和FUNCTION变量的默认值、表达式右值访问其他对象时，直接调用
+                FUNCTION，直接调用PACKAGE内FUNCTION，直接访问PACKAGE变量记录依赖
+                关系，其他场景不支持记录依赖关系。
+              ● 自治事务函数调用，触发依赖对象嵌套编译，依赖对象状态不更新，需要手动
+                ALTER PACKAGE刷新。
+              ● 匿名块和函数参数的CAST类型转换使用失效PACKAGE的类型时，需要手动ALTER
+                PACKAGE刷新。
+              ● 开启GUC参数forbid_package_spec_circular_dependency，PACKAGE包头依赖成环
+                对象状态为失效。
+
+
+3.16.2 一次性入库
+              设置GUC参数enable_force_create_obj值为on后，支持函数、存储过程和包的一次性
+              入库。
+              开启参数后，以下场景不支持入库。
+
+              ●   包外函数语法不支持的场景：
+                  –    table%type、table.column.column%type、table.column.column.column
+                       %type、schema.table.column.column%type作为函数参数类型语法报错。
+                  –    view%rowtype、schema.view%rowtype作为函数参数类型，正向创建语法
+                       报错，调换顺序可以入库，编译、执行报错。
+                  –    view%type、view.column.column%type、view.column.column.column
+                       %type、schema.view.column.column%type作为函数参数类型语法报错。
+                  –    type%type、type%rowtype、schema.type%rowtype、
+                       type.column.column%type、type.column.column.column%type、
+                       schema.type.column.column%type、catalog.schema.type%rowtype作为函
+                       数参数类型，正向创建语法报错，调换顺序可以入库，编译、执行报错，
+                       catalog指的是数据库名，详细使用可参考示例。
+                  –    schema.package.type%rowtype、schema.package.var%type、
+                       schema.package.type%type、package.var.col%type、
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                                3042
+

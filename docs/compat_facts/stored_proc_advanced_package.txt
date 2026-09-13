@@ -1,0 +1,4653 @@
+GaussDB
+集中式版参考                                                                        3 存储过程
+
+                END LOOP;
+              END;
+              /
+              Tom
+              ANONYMOUS BLOCK EXECUTE
+
+              --创建表
+              gaussdb=# CREATE TABLE integerTable1( A INTEGER);
+              CREATE TABLE
+              gaussdb=# CREATE TABLE integerTable2( B INTEGER);
+              CREATE TABLE
+              gaussdb=# INSERT INTO integerTable2 VALUES(2);
+              INSERT 0 1
+              --多游标共享游标属性的标量
+              gaussdb=# DECLARE
+                CURSOR C1 IS SELECT A FROM integerTable1;--声明游标
+                CURSOR C2 IS SELECT B FROM integerTable2;
+                PI_A INTEGER;
+                PI_B INTEGER;
+              BEGIN
+                OPEN C1;--打开游标
+                OPEN C2;
+                FETCH C1 INTO PI_A; ---- C1%FOUND 和 C2%FOUND 值为 FALSE
+                FETCH C2 INTO PI_B; ---- C1%FOUND 和 C2%FOUND 的值都为 TRUE
+                --判断游标状态
+                IF C1%FOUND THEN
+                   IF C2%FOUND THEN
+                     DBE_OUTPUT.PRINT_LINE('Dual cursor share parameter.');
+                  END IF;
+                END IF;
+                CLOSE C1;--关闭游标
+                CLOSE C2;
+              END;
+              /
+              ANONYMOUS BLOCK EXECUTE
+
+              --删除临时表
+              gaussdb=# DROP TABLE integerTable1;
+              DROP TABLE
+              gaussdb=# DROP TABLE integerTable2;
+              DROP TABLE
+
+
+
+3.12 高级包
+              高级包现有两套接口，第一套为基础接口，第二套是为了提高易用性做了二次封装的
+              接口，推荐使用第二套接口。
+
+3.12.1 基础接口
+
+3.12.1.1 PKG_SERVICE
+              PKG_SERVICE支持的接口如表3-3所示。
+
+
+              表 3-3 PKG_SERVICE
+
+               接口名称                                   描述
+
+               PKG_SERVICE.SQL_IS_CONTEX              确认该CONTEXT是否已注册。
+               T_ACTIVE
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                         2591
+GaussDB
+集中式版参考                                                                       3 存储过程
+
+
+               接口名称                                    描述
+
+               PKG_SERVICE.SQL_CLEAN_ALL_              取消所有注册的CONTEXT。
+               CONTEXTS
+
+               PKG_SERVICE.SQL_REGISTER_C              注册一个CONTEXT。
+               ONTEXT
+
+               PKG_SERVICE.SQL_UNREGISTE               取消注册该CONTEXT。
+               R_CONTEXT
+
+               PKG_SERVICE.SQL_SET_SQL                 向CONTEXT设置一条SQL语句，目前只支持
+                                                       SELECT。
+
+               PKG_SERVICE.SQL_RUN                     在一个CONTEXT上执行设置的SQL语句。
+
+               PKG_SERVICE.SQL_NEXT_ROW                读取该CONTEXT中的下一行数据。
+
+               PKG_SERVICE.SQL_GET_VALUE               读取该CONTEXT中动态定义的列值。
+
+               PKG_SERVICE.SQL_SET_RESULT              根据类型OID动态定义该CONTEXT的一个列。
+               _TYPE
+
+               PKG_SERVICE.JOB_CANCEL                  通过任务id来删除定时任务。
+
+               PKG_SERVICE.JOB_FINISH                  禁用或者启用定时任务。
+
+               PKG_SERVICE.JOB_SUBMIT                  提交一个定时任务。作业号由系统自动生成或
+                                                       由用户指定。
+
+               PKG_SERVICE.JOB_UPDATE                  修改定时任务的属性，包括任务内容、下次执
+                                                       行时间和执行间隔。
+
+               PKG_SERVICE.SUBMIT_ON_NO                提交一个任务到所有节点，作业号由系统自动
+               DES                                     生成。
+
+               PKG_SERVICE.ISUBMIT_ON_NO               提交一个任务到所有节点，作业号由用户指
+               DES                                     定。
+
+               PKG_SERVICE.SQL_GET_ARRAY               获取该CONTEXT中返回的数组值。
+               _RESULT
+
+               PKG_SERVICE.SQL_GET_VARIA               获取该CONTEXT中返回的列值。
+               BLE_RESULT
+
+
+
+
+              ●   PKG_SERVICE.SQL_IS_CONTEXT_ACTIVE
+                  该函数用于确认一个CONTEXT是否已注册。该函数传入想查找的CONTEXT id，
+                  如果该CONTEXT存在返回true，否则返回false。
+                  PKG_SERVICE.SQL_IS_CONTEXT_ACTIVE原型为：
+                  PKG_SERVICE.SQL_IS_CONTEXT_ACTIVE(
+                   context_id IN INTEGER
+                  )
+                  RETURN BOOLEAN;
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                           2592
+GaussDB
+集中式版参考                                                                      3 存储过程
+
+                  表 3-4 PKG_SERVICE.SQL_IS_CONTEXT_ACTIVE 接口参数说明
+                   参数名称                                 描述
+
+                   context_id                           想查找的CONTEXT id号。
+
+
+              ●   PKG_SERVICE.SQL_CLEAN_ALL_CONTEXTS
+                  该函数用于取消所有CONTEXT。
+                  PKG_SERVICE.SQL_CLEAN_ALL_CONTEXTS原型为：
+                  PKG_SERVICE.SQL_CLEAN_ALL_CONTEXTS(
+                  )
+                  RETURN VOID;
+
+              ●   PKG_SERVICE.SQL_REGISTER_CONTEXT
+                  该函数用于打开一个CONTEXT。打开CONTEXT是后续对该CONTEXT进行各项操
+                  作的前提。该函数无需传入任何参数，内部会自动递增生成CONTEXT id，并将其
+                  作为返回值赋给一个INTEGER类型的变量。
+                  PKG_SERVICE.SQL_REGISTER_CONTEXT原型为：
+                  DBE_SQL.REGISTER_CONTEXT(
+                  )
+                  RETURN INTEGER;
+
+              ●   PKG_SERVICE.SQL_UNREGISTER_CONTEXT
+                  该函数用于关闭一个CONTEXT。关闭CONTEXT是该CONTEXT中各项操作的结
+                  束。如果在存储过程结束时未调用该函数，CONTEXT占用的内存将不会被释放，
+                  因此关闭CONTEXT非常重要。由于异常情况可能导致存储过程中途退出，从而导
+                  致CONTEXT未能关闭，建议存储过程中有异常处理，将该接口包含在内。
+                  PKG_SERVICE.SQL_UNREGISTER_CONTEXT原型为：
+                  PKG_SERVICE.SQL_UNREGISTER_CONTEXT(
+                   context_id IN INTEGER
+                  )
+                  RETURN INTEGER;
+
+
+                  表 3-5 PKG_SERVICE.SQL_UNREGISTER_CONTEXT 接口参数说明
+                   参数名称                                 描述
+
+                   context_id                           打算关闭的CONTEXT id号。
+
+
+              ●   PKG_SERVICE.SQL_SET_SQL
+                  该函数用于解析给定游标的查询语句，被传入的查询语句会立即执行。目前仅支
+                  持SELECT查询语句的解析，且语句参数仅可通过text类型传递，长度不大于1G。
+                  PKG_SERVICE.SQL_SET_SQL原型为：
+                  PKG_SERVICE.SQL_SET_SQL(
+                  context_id   IN INTEGER,
+                  query_string IN TEXT,
+                  language_flag IN INTEGER
+                  )
+                  RETURN BOOLEAN;
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                          2593
+GaussDB
+集中式版参考                                                                 3 存储过程
+
+                  表 3-6 PKG_SERVICE.SQL_SET_SQL 接口参数说明
+
+                   参数名称                       描述
+
+                   context_id                 执行查询语句解析的CONTEXT id。
+
+                   query_string               执行的查询语句。
+
+                   language_flag              版本语言号，指定不同版本的行为。
+                                              ● 1为非兼容版本。
+                                              ● 2为A兼容模式版本。
+
+
+              ●   PKG_SERVICE.SQL_RUN
+                  该函数用于执行一个给定的CONTEXT。该函数接收一个CONTEXT id，运行后获
+                  得的数据用于后续操作。目前仅支持SELECT查询语句的执行。
+                  PKG_SERVICE.SQL_RUN原型为：
+                  PKG_SERVICE.SQL_RUN(
+                  context_id IN INTEGER,
+                  )
+                  RETURN INTEGER;
+
+
+                  表 3-7 PKG_SERVICE.SQL_RUN 接口参数说明
+
+                   参数名称                               描述
+
+                   context_id                         执行查询语句解析的CONTEXT id。
+
+
+              ●   PKG_SERVICE.SQL_NEXT_ROW
+                  该函数返回执行SQL实际返回的数据行数，每一次调用该接口都会读取下一行数
+                  据，直到数据读取完毕获取不到新行为止。
+                  PKG_SERVICE.SQL_NEXT_ROW原型为：
+                  PKG_SERVICE.SQL_NEXT_ROW(
+                  context_id IN INTEGER,
+                  )
+                  RETURN INTEGER;
+
+
+                  表 3-8 PKG_SERVICE.SQL_NEXT_ROW 接口参数说明
+
+                   参数名称                               描述
+
+                   context_id                         执行的CONTEXT id。
+
+
+              ●   PKG_SERVICE.SQL_GET_VALUE
+                  该函数用于返回指定CONTEXT中在给定位置的CONTEXT元素值。该接口访问的
+                  是由PKG_SERVICE.SQL_NEXT_ROW获取的数据。
+                  PKG_SERVICE.SQL_GET_VALUE原型为：
+                  PKG_SERVICE.SQL_GET_VALUE(
+                  context_id     IN INTEGER,
+                  pos          IN INTEGER,
+                  col_type      IN ANYELEMENT
+                  )
+                  RETURN ANYELEMENT;
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                     2594
+GaussDB
+集中式版参考                                                                         3 存储过程
+
+                  表 3-9 PKG_SERVICE.SQL_GET_VALUE 接口参数说明
+                   参数名称                                  描述
+
+                   context_id                            执行的CONTEXT id。
+
+                   pos                                   动态定义列在查询中的位置。
+
+                   col_type                              任意类型变量，定义列的返回值类型。
+
+
+              ●   PKG_SERVICE.SQL_SET_RESULT_TYPE
+                  该函数用于定义从指定CONTEXT返回的列。该接口只能应用于SELECT定义的
+                  CONTEXT中。定义的列通过查询列表的相对位置来标识，
+                  PKG_SERVICE.SQL_SET_RESULT_TYPE原型为：
+                  PKG_SERVICE.SQL_SET_RESULT_TYPE(
+                  context_id   IN INTEGER,
+                  pos        IN INTEGER,
+                  coltype_oid IN ANYELEMENT,
+                  maxsize      IN INTEGER
+                  )
+                  RETURN INTEGER;
+
+
+                  表 3-10 PKG_SERVICE.SQL_SET_RESULT_TYPE 接口参数说明
+                   参数名称                                       描述
+
+                   context_id                                 执行的CONTEXT id。
+
+                   pos                                        动态定义列在查询中的位置。
+
+                   coltype_oid                                任意类型的变量，可根据变量类型得
+                                                              到对应类型OID。
+
+                   maxsize                                    定义的列的长度。
+
+
+              ●   PKG_SERVICE.JOB_CANCEL
+                  该函数用于删除指定的定时任务。
+                  PKG_SERVICE.JOB_CANCEL原型为：
+                  PKG_SERVICE.JOB_CANCEL(
+                  id IN INTEGER);
+
+
+                  表 3-11 PKG_SERVICE.JOB_CANCEL 接口参数说明
+                   参数        类型      入参/出            是否可以为      描述
+                                     参               空
+
+                   id        integ   IN              否          指定的作业号。
+                             er
+
+
+              ●   PKG_SERVICE.JOB_FINISH
+                  该函数用于禁用或者启用定时任务。
+                  PKG_SERVICE.JOB_FINISH原型为：
+                  PKG_SERVICE.JOB_FINISH(
+                  id     IN INTEGER,
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                           2595
+GaussDB
+集中式版参考                                                                                3 存储过程
+
+                  broken    IN BOOLEAN,
+                  next_time IN TIMESTAMP DEFAULT sysdate);
+
+
+                  表 3-12 PKG_SERVICE.JOB_FINISH 接口参数说明
+                   参数        类型         入参/       是否可           描述
+                                        出参        以为空
+
+                   id        integer    IN        否             指定的作业号。
+
+                   broke     boolea     IN        否             状态标志位，true代表禁用，false代表启
+                   n         n                                  用。根据true或false值更新当前JOB的状
+                                                                态；如果为空值，则不改变原有JOB的状
+                                                                态。
+
+                   next_     timesta    IN        是             下次运行时间，默认为当前系统时间。该
+                   time      mp                                 参数可以省略，为默认值。
+                                                                ● 如果参数broken状态为true，则更新该
+                                                                  参数为'4000-1-1'。
+                                                                ● 如果参数broken状态为false，参数
+                                                                  next_time不为空值时，更新指定JOB
+                                                                  的next_time值；next_time为空值时，
+                                                                  不更新next_time值。
+
+
+              ●   PKG_SERVICE.JOB_SUBMIT
+                  该函数用于提交一个系统提供的定时任务。
+                  PKG_SERVICE.JOB_SUBMIT原型为：
+                  PKG_SERVICE.JOB_SUBMIT(
+                  id         IN BIGINT,
+                  content      IN TEXT,
+                  next_time     IN TIMESTAMP DEFAULT sysdate,
+                  interval_time IN TEXT DEFAULT 'null',
+                  job         OUT INTEGER);
+
+                        说明
+
+                        ● 当创建一个定时任务（JOB）时，系统默认将当前数据库和用户名与当前创建的定时任
+                          务绑定起来。
+                        ● 该接口函数可以通过CALL语句或SELECT语句调用，如果通过SELECT语句调用，可以不
+                          填写出参。如果在存储过程中，则需要通过PERFORM语句调用该接口函数。
+                        ● 如果提交的SQL语句任务使用到非PUBLIC的schema，应该指定表或者函数的schema，
+                          或者在SQL语句前添加SET current_schema = xxx;语句。
+
+
+                  表 3-13 PKG_SERVICE.JOB_SUBMIT 接口参数说明
+                   参数           类型       入参/        是否          描述
+                                         出参         可以
+                                                    为空
+
+                   id           bigin    IN         否           作业号。如果传入id为NULL，则内部会
+                                t                               生成作业id。
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                   2596
+GaussDB
+集中式版参考                                                                            3 存储过程
+
+
+                   参数           类型       入参/        是否    描述
+                                         出参         可以
+                                                    为空
+
+                   content      text     IN         否     要执行的SQL语句。支持一个或多个
+                                                          DML、匿名块、调用存储过程的语句或
+                                                          三种混合类型的场景。
+
+                   next_tim     times    IN         否     下次作业运行时间。默认值为当前系统
+                   e            tamp                      时间（sysdate）。如果是过去时间，在
+                                                          提交作业时表示立即执行。
+
+                   interval_    text     IN         是     用来计算下次作业运行时间的时间表达
+                   time                                   式，可以是interval表达式，也可以是
+                                                          sysdate加上一个numeric值（例如：
+                                                          sysdate+1.0/24）。如果为空值或字符串
+                                                          "null"，表示只执行一次，执行后，JOB
+                                                          状态STATUS变成'd' ，表示不再执行。
+
+                   job          integ    OUT        否     作业号。范围为1～3000000。当使用
+                                er                        SELECT语句调用pkg_service.job_submit
+                                                          时，该参数可以省略。
+
+
+              ●   PKG_SERVICE.JOB_UPDATE
+                  该函数用于修改定时任务的属性，包括任务内容、下次执行时间和执行间隔。
+                  PKG_SERVICE.JOB_UPDATE原型为：
+                  PKG_SERVICE.JOB_UPDATE(
+                  id         IN BIGINT,
+                  next_time     IN TIMESTAMP,
+                  interval_time IN TEXT,
+                  content      IN TEXT);
+
+
+                  表 3-14 PKG_SERVICE.JOB_UPDATE 接口参数说明
+                   参数          类型       入       是否可      描述
+                                        参/      以为空
+                                        出参
+
+                   id          intege   IN      否        指定的作业号。
+                               r
+
+                   next_ti     timest   IN      是        下次运行时间。如果该参数为空值，则不更
+                   me          amp                       新指定JOB的next_time值，否则更新指定
+                                                         JOB的next_time值。
+
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                              2597
+GaussDB
+集中式版参考                                                                                                   3 存储过程
+
+
+                  参数          类型         入         是否可         描述
+                                         参/        以为空
+                                         出参
+
+                  interv      text       IN        是           用来计算下次作业运行时间的时间表达式。
+                  al_tim                                       ● 如果该参数为空值，则不更新指定job的
+                  e                                              interval_time值。
+                                                               ● 如果该参数不为空值，会校验
+                                                                 interval_time是否为有效的时间类型或
+                                                                 interval类型，若是则更新指定JOB的
+                                                                 interval_time值。
+                                                               ● 如果为字符串"null"，表示只执行一次，
+                                                                 执行后，JOB状态STATUS变成'd' ，表示
+                                                                 不再执行。
+
+                  conten      text       IN        是           执行的存储过程名或者SQL语句块。如果该
+                  t                                            参数为空值，则不更新指定JOB的content
+                                                               值，否则更新指定JOB的content值。
+
+
+
+                 示例：
+                 CREATE TABLE test_table(a int);
+                 CREATE TABLE
+
+                 CREATE OR REPLACE PROCEDURE test_job(a in int) IS
+                 BEGIN
+                 INSERT INTO test_table VALUES(a);
+                 COMMIT;
+                 END;
+                 /
+                 CREATE PROCEDURE
+
+                 --PKG_SERVICE.JOB_SUBMIT
+                 SELECT PKG_SERVICE.JOB_SUBMIT(NULL, 'call test_job(1);', to_date('20180101','yyyymmdd'),'sysdate
+                 +1');
+                  job_submit
+                 ------------
+                      28269
+                 (1 row)
+
+                 SELECT PKG_SERVICE.JOB_SUBMIT(NULL, 'call test_job(1);', to_date('20180101','yyyymmdd'),'sysdate
+                 +1.0/24');
+                  job_submit
+                 ------------
+                       1506
+                 (1 row)
+
+                 CALL PKG_SERVICE.JOB_SUBMIT(NULL, 'INSERT INTO test_table VALUES(1); call test_job(1); call
+                 test_job(1);', add_months(to_date('201701','yyyymm'),1), 'date_trunc(''day'',SYSDATE) + 1
+                 +(8*60+30.0)/(24*60)' ,:jobid);
+                   job
+                 -------
+                  14131
+                 (1 row)
+
+                 SELECT PKG_SERVICE.JOB_SUBMIT (101, 'insert_msg_statistic1;', sysdate, 'sysdate+3.0/24');
+                  job_submit
+                 ------------
+                       101
+                 (1 row)
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                      2598
+GaussDB
+集中式版参考                                                                                                     3 存储过程
+
+                  --PKG_SERVICE.JOB_UPDATE
+                  CALL PKG_SERVICE.JOB_UPDATE(101, sysdate, 'sysdate + 1.0/1440', 'call test_job(1);');
+                   job_update
+                  ------------
+
+                  (1 row)
+
+                  CALL PKG_SERVICE.JOB_UPDATE(101, sysdate, 'sysdate + 1.0/1440', 'insert into test_table values(1);');
+                   job_update
+                  ------------
+
+                  (1 row)
+
+                  --PKG_SERVICE.JOB_FINISH
+                  CALL PKG_SERVICE.JOB_FINISH(101,true);
+                   job_finish
+                  ------------
+
+                  (1 row)
+
+                  --PKG_SERVICE.JOB_CANCEL
+                  CALL PKG_SERVICE.JOB_CANCEL(101);
+                   job_cancel
+                  ------------
+
+                  (1 row)
+
+                  DROP TABLE test_table;
+                  DROP TABLE
+
+              ●   PKG_SERVICE.SUBMIT_ON_NODES
+                  该函数用于创建一个节点上的定时任务。仅sysadmin/monitor admin有权限调用
+                  该函数。
+                  PKG_SERVICE.SUBMIT_ON_NODES原型为：
+                  PKG_SERVICE.SUBMIT_ON_NODES(
+                  node_name IN NAME,
+                  database     IN NAME,
+                  what       IN TEXT,
+                  next_date IN TIMESTAMP WITHOUT TIME ZONE,
+                  job_interval IN TEXT,
+                  job       OUT INTEGER);
+
+
+                  表 3-15 PKG_SERVICE.SUBMIT_ON_NODES 接口参数说明
+
+                   参数            类型        入参/出         是否         描述
+                                           参            可以
+                                                        为空
+
+                   node_na       text      IN           否          指定作业的执行节点，当前仅支持值为
+                   me                                              'ALL_NODE'（在所有节点执行）。
+
+                   databas       text      IN           否          数据库实例作业所使用的database，节
+                   e                                               点类型为'ALL_NODE'时仅支持值为
+                                                                   'postgres'。
+
+                   what          text      IN           否          要执行的SQL语句。支持一个或多个
+                                                                   DML、匿名块、调用存储过程的语句或
+                                                                   三种类型混合的场景。
+
+                   nextdate      tim       IN           否          下次作业运行时间。默认值为当前系统
+                                 esta                              时间（sysdate）。如果是过去时间，在
+                                 mp                                提交作业时表示立即执行。
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                                        2599
+GaussDB
+集中式版参考                                                                                                     3 存储过程
+
+
+                   参数              类型       入参/出           是否          描述
+                                            参              可以
+                                                           为空
+
+                   job_inter       text     IN             否           用来计算下次作业运行时间的时间表达
+                   val                                                 式，可以是interval表达式，也可以是
+                                                                       sysdate加上一个numeric值（例如：
+                                                                       sysdate+1.0/24）。如果为空值或字符串
+                                                                       “null，表示只执行一次，执行后，JOB
+                                                                       状态STATUS变成'd'，表示不再执行。
+
+                   job             inte     OUT            否           作业号。范围为1～3000000。当使用
+                                   ger                                 SELECT调用DBMS.SUBMIT_ON_NODES
+                                                                       时，该参数可以省略。
+
+
+
+
+                  示例：
+                  SELECT pkg_service.submit_on_nodes('ALL_NODE', 'postgres', 'select
+                  capture_view_to_json(''dbe_perf.statement'', 0);', sysdate, 'interval ''60 second''');
+                   submit_on_nodes
+                  -----------------
+                           25376
+                  (1 row)
+
+              ●   PKG_SERVICE.ISUBMIT_ON_NODES
+                  ISUBMIT_ON_NODES与SUBMIT_ON_NODES语法功能相同，但其第一个参数是
+                  入参，即指定的作业号，SUBMIT最后一个参数是出参，表示系统自动生成的作业
+                  号。仅sysadmin/monitor admin有权限调用该函数。
+              ●   PKG_SERVICE.SQL_GET_ARRAY_RESULT
+                  该函数用于返回绑定的数组类型的OUT参数的值，可以用来获取存储过程中的
+                  OUT参数。
+                  PKG_SERVICE.SQL_GET_ARRAY_RESULT原型为：
+                  PKG_SERVICE.SQL_GET_ARRAY_RESULT(
+                     context_id in int,
+                     pos in VARCHAR2,
+                     column_value inout anyarray,
+                     result_type in anyelement
+                  );
+
+
+                  表 3-16 PKG_SERVICE.SQL_GET_ARRAY_RESULT 接口参数说明
+
+                   参数名称                                                   描述
+
+                   context_id                                             想查找的CONTEXT id号。
+
+                   pos                                                    绑定的参数名。
+
+                   column_value                                           返回值。
+
+                   result_type                                            返回值类型。
+
+
+              ●   PKG_SERVICE.SQL_GET_VARIABLE_RESULT
+                  该函数用于返回绑定的非数组类型的OUT参数的值，可以用来获取存储过程中的
+                  OUT参数。
+
+文档版本 01 (2026-04-30)                      版权所有 © 华为云计算技术有限公司                                                  2600
+GaussDB
+集中式版参考                                                                      3 存储过程
+
+                 PKG_SERVICE.SQL_GET_VARIABLE_RESULT原型为：
+                 PKG_SERVICE.SQL_GET_VARIABLE_RESULT(
+                   context_id in int,
+                   pos in VARCHAR2,
+                   result_type in anyelement
+                 )
+                 RETURNS anyelement;
+
+
+                 表 3-17 PKG_SERVICE.SQL_GET_VARIABLE_RESULT 接口参数说明
+
+                    参数名称                                 描述
+
+                    context_id                           想查找的CONTEXT id号。
+
+                    pos                                  绑定的参数名。
+
+                    result_type                          返回值类型。
+
+
+
+
+3.12.1.2 PKG_UTIL
+              PKG_UTIL支持的所有接口请参见表3-18：
+
+
+              表 3-18 PKG_UTIL
+
+               接口名称                                     描述
+
+               PKG_UTIL.LOB_GET_LENGTH                  获取LOB的长度。
+
+               PKG_UTIL.LOB_READ                        读取LOB对象的一部分。
+
+               PKG_UTIL.LOB_WRITE                       将源对象按照指定格式写入到目标对
+                                                        象。
+
+               PKG_UTIL.LOB_APPEND                      将LOB源对象追加到目标LOB对象。
+
+               PKG_UTIL.LOB_COMPARE                     根据指定长度比较两个LOB对象。
+
+               PKG_UTIL.LOB_MATCH                       返回一个字符串在LOB中第N次出现的位
+                                                        置。
+
+               PKG_UTIL.LOB_RESET                       将lob的指定位置重置为指定字符。
+
+               PKG_UTIL.LOB_GET_LENGTH                  该函数获取并返回指定的LOB类型对象的
+                                                        长度。
+
+               PKG_UTIL.LOB_READ_HUGE                   根据指定的长度及起始位置偏移读取LOB
+                                                        内容的一部分,并返回读取到的LOB和长
+                                                        度。
+
+               PKG_UTIL.LOB_WRITEAPPEND_HUGE            该函数将源BLOB/CLOB对象读取指定长
+                                                        度内容，并追加到目标blob/clob对象, 并
+                                                        返回目标对象。
+
+               PKG_UTIL.LOB_APPEND_HUGE                 该函数将源BLOB/CLOB对象追加到目标
+                                                        BLOB/CLOB对象, 并返回目标对象。
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                           2601
+GaussDB
+集中式版参考                                                                 3 存储过程
+
+
+               接口名称                           描述
+
+               PKG_UTIL.READ_BFILE_TO_BLOB    该函数将源BFILE文件读取成目标BLOB
+                                              对象, 并返回目标对象。
+
+               PKG_UTIL.LOB_COPY_HUGE         该函数将源BLOB/CLOB对象，从指定偏
+                                              移读取指定长度内容，写入到目标BLOB/
+                                              CLOB对象的指定偏移位置, 并返回目标
+                                              对象。
+
+               PKG_UTIL.BLOB_RESET            该函数将BLOB中一段数据set为value
+                                              值，返回处理后的BLOB以及实际处理的
+                                              长度。
+
+               PKG_UTIL.CLOB_RESET            该函数将一段数据set为空格，返回处理
+                                              后的CLOB以及实际处理的长度。
+
+               PKG_UTIL.LOADBLOBFROMFILE      将源BFILE对象，从指定偏移读取指定长
+                                              度内容，写入到目标BLOB对象的指定偏
+                                              移位置, 并返回目标对象，读取位置，写
+                                              入位置。
+
+               PKG_UTIL.LOADCLOBFROMFILE      将源BFILE对象，从指定偏移读取指定长
+                                              度内容，写入到目标CLOB对象的指定偏
+                                              移位置, 并返回目标对象，读取位置，写
+                                              入位置。
+
+               PKG_UTIL.LOB_CONVERTTOBLOB_H   将src_clob从指定偏移位置读取指定长度
+               UGE                            内容转成BLOB，并写入dest_lob的指定
+                                              位置，amount为要转换的长度。
+
+               PKG_UTIL.LOB_CONVERTTOCLOB_H   将src_clob从指定偏移位置读取指定长度
+               UGE                            内容转成CLOB，并写入dest_lob的指定
+                                              位置，amount为要转换的长度。
+
+               PKG_UTIL.BFILE_GET_LENGTH      该函数获取并返回指定的BFILE文件的长
+                                              度。
+
+               PKG_UTIL.BFILE_OPEN            该函数打开BFILE文件，返回文件描述
+                                              符。
+
+               PKG_UTIL.BFILE_CLOSE           该函数关闭打开的BFILE文件。
+
+               PKG_UTIL.LOB_WRITE_HUGE        将源对象从起始位置读取len长度内容，
+                                              写入目标LOB对象的指定偏移位置，覆盖
+                                              该位置已有的内容, 并返回目标LOB对
+                                              象。
+
+               PKG_UTIL.IO_PRINT              将字符串打印输出。
+
+               PKG_UTIL.RAW_GET_LENGTH        获取raw的长度。
+
+               PKG_UTIL.RAW_CAST_FROM_VARCH   将VARCHAR2转化为raw。
+               AR2
+
+               •PKG_UTIL.RAW_CAST_FROM_...    将binary integer转化为raw。
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                         2602
+GaussDB
+集中式版参考                                                                    3 存储过程
+
+
+               接口名称                              描述
+
+               •PKG_UTIL.RAW_CAST_TO_BI...       将raw转化为binary integer。
+
+               PKG_UTIL.RANDOM_SET_SEED          设置随机种子。
+
+               PKG_UTIL.RANDOM_GET_VALUE         返回随机值。
+
+               PKG_UTIL.FILE_SET_DIRNAME         设置当前操作的目录。
+
+               PKG_UTIL.FILE_OPEN                根据指定文件名和设置的目录打开一个
+                                                 文件。
+
+               PKG_UTIL.FILE_SET_MAX_LINE_SIZE   设置写入文件一行的最大长度。
+
+               PKG_UTIL.FILE_IS_CLOSE            检测一个文件句柄是否关闭。
+
+               PKG_UTIL.FILE_READ                从一个打开的文件句柄中读取指定长度
+                                                 的数据。
+
+               PKG_UTIL.FILE_READLINE            从一个打开的文件句柄中读取一行数
+                                                 据。
+
+               PKG_UTIL.FILE_WRITE               将buffer中的数据写入到文件中。
+
+               PKG_UTIL.FILE_WRITELINE           将buffer写入文件，并追加换行符。
+
+               PKG_UTIL.FILE_NEWLINE             新起一行。
+
+               PKG_UTIL.FILE_READ_RAW            从一个打开的文件句柄中读取指定长度
+                                                 的二进制数据。
+
+               PKG_UTIL.FILE_WRITE_RAW           将二进制数据写入到文件中。
+
+               PKG_UTIL.FILE_FLUSH               将一个文件句柄中的数据写入到物理文
+                                                 件中。
+
+               PKG_UTIL.FILE_CLOSE               关闭一个打开的文件句柄。
+
+               PKG_UTIL.FILE_REMOVE              删除一个物理文件，操作需要有对应权
+                                                 限。
+
+               PKG_UTIL.FILE_RENAME              对于磁盘上的文件进行重命名，类似
+                                                 Unix的mv。
+
+               PKG_UTIL.FILE_SIZE                返回文件大小。
+
+               PKG_UTIL.FILE_BLOCK_SIZE          返回文件含有的块数量。
+
+               PKG_UTIL.FILE_EXISTS              判断文件是否存在。
+
+               PKG_UTIL.FILE_GETPOS              返回文件的偏移量，单位字节。
+
+               PKG_UTIL.FILE_SEEK                设置文件位置为指定偏移。
+
+               PKG_UTIL.FILE_CLOSE_ALL           关闭一个会话中打开的所有文件句柄。
+
+               PKG_UTIL.EXCEPTION_REPORT_ERRO    抛出一个异常。
+               R
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                           2603
+GaussDB
+集中式版参考                                                                3 存储过程
+
+
+               接口名称                              描述
+
+               PKG_UTIL.RANDOM_SET_SEED          设置一个随机数种子。
+
+               PKG_UTIL.APP_READ_CLIENT_INFO     读取client_info信息。
+
+               PKG_UTIL.APP_SET_CLIENT_INFO      设置client_info信息。
+
+               PKG_UTIL.LOB_CONVERTTOBLOB        CLOB类型转换成BLOB类型。
+
+               PKG_UTIL.LOB_CONVERTTOCLOB        BLOB类型转换成CLOB类型。
+
+               PKG_UTIL.LOB_RAWTOTEXT            raw类型转成TEXT类型。
+
+               PKG_UTIL.LOB_RESET                清空一个LOB类型的数据。
+
+               PKG_UTIL.LOB_TEXTTORAW            TEXT类型转成raw类型。
+
+               PKG_UTIL.LOB_RAWTOTEXT            raw类型转成TEXT类型。
+
+               PKG_UTIL.LOB_WRITE                将数据写入LOB类型。
+
+               PKG_UTIL.MATCH_EDIT_DISTANCE_SI   计算两个字符串的差距。
+               MILARITY
+
+               PKG_UTIL.RAW_CAST_TO_VARCHAR2     raw类型转成VARCHAR2类型。
+
+               PKG_UTIL.SESSION_CLEAR_CONTEXT    清空session_context中的属性值。
+
+               PKG_UTIL.SESSION_SEARCH_CONTEX    查找一个属性值。
+               T
+
+               PKG_UTIL.SESSION_SET_CONTEXT      设置一个属性值。
+
+               PKG_UTIL.UTILITY_FORMAT_CALL_ST   查看存储过程的调用堆栈。
+               ACK
+
+               PKG_UTIL.UTILITY_FORMAT_ERROR_    查看存储过程的错误堆栈。
+               BACKTRACE
+
+               PKG_UTIL.UTILITY_FORMAT_ERROR_    查看存储过程的报错信息。
+               STACK
+
+               PKG_UTIL.UTILITY_GET_TIME         查看系统Unix时间戳。
+
+               PKG_UTIL.UTILITY_COMPILE_SCHEM    重编译指定Schema、PACKAGE、函数和
+               A                                 存储过程。当编译到的PL/SQL对象遇到
+                                                 报错时，将直接返回，不再继续编译。
+                                                 不推荐使用该接口，推荐使用
+                                                 pkg_util.gs_compile_schema。
+
+               PKG_UTIL.GS_COMPILE_SCHEMA        重编译指定Schema、PACKAGE、函数和
+                                                 存储过程。当编译遇到PL/SQL对象报错
+                                                 时，异常将会被捕获，继续编译其它对
+                                                 象，直到全部对象编译成功或者到达尝
+                                                 试次数后停止。通过jdbc执行该高级包，
+                                                 sqlstate会打印00000错误码，00000错
+                                                 误码代表成功完成。
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                           2604
+GaussDB
+集中式版参考                                                           3 存储过程
+
+
+               接口名称                               描述
+
+               PKG_UTIL.APP_SET_MODULE            设置module的值。
+
+               PKG_UTIL.APP_READ_MODULE           读取module的值。
+
+               PKG_UTIL.APP_SET_ACTION            设置action的值。
+
+               PKG_UTIL.APP_READ_ACTION           读取action的值。
+
+               PKG_UTIL.MODIFY_PACKAGE_STATE      用于修改当前会话的PL/SQL的状态，从
+                                                  会话中释放与以前运行的每个PL/SQL程
+                                                  序关联的所有内存。
+
+
+
+
+              ●   PKG_UTIL.LOB_GET_LENGTH
+                  该函数LOB_GET_LENGTH获取输入数据的长度。
+                  PKG_UTIL.LOB_GET_LENGTH函数原型为：
+                  PKG_UTIL.LOB_GET_LENGTH(
+                  lob   IN CLOB
+                  )
+                  RETURN INTEGER;
+
+                  PKG_UTIL.LOB_GET_LENGTH(
+                  lob   IN BLOB
+                  )
+                  RETURN INTEGER;
+
+
+                  表 3-19 PKG_UTIL.LOB_GET_LENGTH 接口参数说明
+                   参数         类型     入参/出    是否   描述
+                                     参       可以
+                                             为空
+
+                   lob        CLO    IN      否    待获取长度的对象。
+                              B/
+                              BLO
+                              B
+
+
+              ●   PKG_UTIL.LOB_READ
+                  该函数LOB_READ读取一个对象，并返回指定部分。
+                  PKG_UTIL.LOB_READ函数原型为：
+                  PKG_UTIL.LOB_READ(
+                  lob   IN ANYELEMENT,
+                  len   IN INT,
+                  start IN INT,
+                  mode    IN INT
+                  )
+                  RETURN ANYELEMENT
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司               2605
+GaussDB
+集中式版参考                                                                      3 存储过程
+
+                  表 3-20 PKG_UTIL.LOB_READ 接口参数说明
+                   参数            类型        入参/     是否   描述
+                                           出参      可以
+                                                   为空
+
+                   lob           CLOB      IN      否    clob或者blob类型数据。
+                                 /
+                                 BLOB
+
+                   len           INT       IN      否    返回结果长度。
+
+                   start         INT       IN      否    相较于第一个字符的偏移量。
+
+                   mode          INT       IN      否    判断读取操作的类型， 0 ：read; 1 :
+                                                        trim; 2 : substr。
+
+
+              ●   PKG_UTIL.LOB_WRITE
+                  该函数LOB_WRITE将源对象按照指定的参数写入目标对象, 并返回目标对象。
+                  PKG_UTIL.LOB_WRITE函数原型为：
+                  PKG_UTIL.LOB_WRITE(
+                  dest_lob INOUT BLOB,
+                  src_lob    IN    RAW
+                  len       IN    INT,
+                  start_pos IN      BIGINT
+                  )
+                  RETURN BLOB;
+                  PKG_UTIL.LOB_WRITE(
+                  dest_lob INOUT CLOB,
+                  src_lob    IN    VARCHAR2
+                  len       IN    INT,
+                  start_pos     IN     BIGINT
+                  )
+                  RETURN CLOB;
+
+
+                  表 3-21 PKG_UTIL.LOB_WRITE 接口参数说明
+                   参数            类型        入参/     是否   描述
+                                           出参      可以
+                                                   为空
+
+                   dest_lob      CLOB      INOUT   否    写入的目标对象。
+                                 /
+                                 BLOB
+
+                   src_lob       CLOB      IN      否    被写入的源对象。
+                                 /
+                                 BLOB
+
+                   len           INT       IN      否    源对象的写入长度。
+
+                   start_po      BIGIN     IN      否    目标对象的写入起始位置。
+                   s             T
+
+
+              ●   PKG_UTIL.LOB_APPEND
+                  该函数LOB_APPEND将源BLOB/CLOB对象追加到目标BLOB/CLOB对象, 并返回目
+                  标对象。
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                         2606
+GaussDB
+集中式版参考                                                                      3 存储过程
+
+                  PKG_UTIL.LOB_APPEND函数原型为：
+                  PKG_UTIL.LOB_APPEND(
+                  dest_lob INOUT BLOB,
+                  src_lob  IN   BLOB,
+                  len     IN   INT DEFAULT NULL
+                  )
+                  RETURN BLOB;
+
+                  PKG_UTIL.LOB_APPEND(
+                  dest_lob INOUT CLOB,
+                  src_lob  IN   CLOB,
+                  len     IN   INT DEFAULT NULL
+                  )
+                  RETURN CLOB;
+
+
+                  表 3-22 PKG_UTIL.LOB_APPEND 接口参数说明
+                   参数          类型      入参/出        是否   描述
+                                       参           可以
+                                                   为空
+
+                   dest_lob    BLO     INOUT       否    写入的目标blob/clob对象。
+                               B/
+                               CLO
+                               B
+
+                   src_lob     BLO     IN          否    被写入的源blob/clob对象。
+                               B/
+                               CLO
+                               B
+
+                   len         INT     IN          是    src中读取并append到dest上的长度，默
+                                                        认null，将src全部append上去。
+
+
+              ●   PKG_UTIL.LOB_COMPARE
+                  该函数LOB_COMPARE按照指定的起始位置、个数比较对象是否相同，lob1大则
+                  返回1，lob2大返回-1，相等返回0。
+                  PKG_UTIL.LOB_COMPARE函数原型为：
+                  PKG_UTIL.LOB_COMPARE(
+                  lob1      IN ANYELEMENT,
+                  lob2      IN ANYELEMENT,
+                  len      IN INT DEFAULT 1073741771,
+                  start_pos1   IN INT DEFAULT 1,
+                  start_pos2   IN INT DEFAULT 1
+                  )
+                  RETURN INTEGER;
+
+
+                  表 3-23 PKG_UTIL.LOB_COMPARE 接口参数说明
+                   参数          类型           入参/    是否   描述
+                                            出参     可以
+                                                   为空
+
+                   lob1        CLOB/        IN     否    待比较的字符串。
+                               BLOB
+
+                   lob2        CLOB/        IN     否    待比较的字符串。
+                               BLOB
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                        2607
+GaussDB
+集中式版参考                                                             3 存储过程
+
+
+                   参数          类型        入参/   是否   描述
+                                         出参    可以
+                                               为空
+
+                   len         INT       IN    否    比较的长度。
+
+                   start_po    INT       IN    否    lob1起始偏移量。
+                   s1
+
+                   start_po    INT       IN    否    lob2起始偏移量。
+                   s2
+
+
+              ●   PKG_UTIL.LOB_MATCH
+                  该函数LOB_MATCH返回pattern出现在lob对象中第match_nth次的位置。
+                  PKG_UTIL.LOB_MATCH函数原型为：
+                  PKG_UTIL.LOB_MATCH(
+                  lob     IN ANYELEMENT,
+                  pattern   IN ANYELEMENT,
+                  start    IN INT,
+                  match_nth IN INT DEFAULT 1
+                  )
+                  RETURN INTEGER;
+
+
+                  表 3-24 PKG_UTIL.LOB_MATCH 接口参数说明
+                   参数          类型        入参/   是否   描述
+                                         出参    可以
+                                               为空
+
+                   lob         CLOB/     IN    否    待比较的字符串。
+                               BLOB
+
+                   pattern     CLOB/     IN    否    待匹配的pattern。
+                               BLOB
+
+                   start       INT       IN    否    lob的起始比较位置。
+
+                   match_n     INT       IN    否    第几次匹配到。
+                   th
+
+
+              ●   PKG_UTIL.LOB_RESET
+                  该函数LOB_RESET清除一段数据为字符value。
+                  PKG_UTIL.LOB_RESET函数原型为：
+                  PKG_UTIL.LOB_RESET(
+                  lob     INOUT BLOB,
+                  len     INOUT INT,
+                  start    IN INT DEFAULT 1,
+                  value     IN INT DEFAULT 0
+                  )
+                  RETURN RECORD;
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司               2608
+GaussDB
+集中式版参考                                                            3 存储过程
+
+                  表 3-25 PKG_UTIL.LOB_RESET 接口参数说明
+                   参数         类型     入参/出    是否   描述
+                                     参       可以
+                                             为空
+
+                   lob        BLO    IN      否    待重置的字符串。
+                              B
+
+                   len        INT    IN      否    重置的长度。
+
+                   start      INT    IN      否    重置的起始位置。
+
+                   value      INT    IN      是    设置的字符。默认值‘0’。
+
+
+              ●   PKG_UTIL.LOB_GET_LENGTH
+                  该函数获取并返回指定的LOB类型对象的长度。
+                  PKG_UTIL.LOB_GET_LENGTH函数原型为：
+                  PKG_UTIL.LOB_GET_LENGTH(
+                    lob IN BLOB)
+                  RETURN BIGINT;
+
+                  PKG_UTIL.LOB_GET_LENGTH(
+                    lob IN CLOB)
+                  RETURN BIGINT;
+
+
+                  表 3-26 PKG_UTIL.LOB_GET_LENGTH 接口参数说明
+                   参数         类型     入参/出    是否   描述
+                                     参       可以
+                                             为空
+
+                   lob        BLO    IN      否    指定的LOB类型对象。
+                              B/
+                              CLO
+                              B
+
+
+              ●   PKG_UTIL.LOB_READ_HUGE
+                  根据指定的长度及起始位置偏移读取LOB内容的一部分，并返回读取到的LOB和长
+                  度。
+                  PKG_UTIL.LOB_READ_HUGE函数原型为：
+                  PKG_UTIL.LOB_READ_HUGE(
+                    lob     IN CLOB,
+                    len     IN BIGINT,
+                    start_pos IN BIGINT,
+                    mode      IN INTEGER)
+                  RETURN RECORD;
+
+                  PKG_UTIL.LOB_READ_HUGE(
+                    lob     IN BLOB,
+                    len     IN BIGINT,
+                    start_pos IN BIGINT,
+                    mode      IN INTEGER)
+                  RETURN RECORD;
+
+                  PKG_UTIL.LOB_READ_HUGE(
+                    fd     IN INTEGER,
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司               2609
+GaussDB
+集中式版参考                                                                      3 存储过程
+
+                    len     IN BIGINT,
+                    start_pos IN BIGINT,
+                    mode      IN INTEGER)
+                  RETURN RECORD;
+
+
+                  表 3-27 PKG_UTIL.LOB_READ_HUGE 接口参数说明
+
+                   参数           类型      入参/出       是否   描述
+                                        参          可以
+                                                   为空
+
+                   lob/fd       BLO     IN         否    指定的LOB类型对象/BFILE文件的文件描
+                                B/                      述符。
+                                CLO
+                                B/
+                                INT
+                                EGE
+                                R
+
+                   len          BIGI    IN         否    读取长度。
+                                NT
+
+                   start_po     BIGI    IN         否    读取起始偏移位置。
+                   s            NT
+
+                   mode         INT     IN         否    read模式（0代表read、1代表trim、2代
+                                EGE                     表substr）。
+                                R
+
+
+              ●   PKG_UTIL.LOB_WRITEAPPEND_HUGE
+                  该函数LOB_WRITEAPPEND_HUGE将源BLOB/CLOB对象读取指定长度内容，并追
+                  加到目标BLOB/CLOB对象，并返回目标对象。
+                  PKG_UTIL.LOB_WRITEAPPEND_HUGE函数原型为：
+                  PKG_UTIL.LOB_WRITEAPPEND_HUGE(
+                    dest_lob INOUT CLOB,
+                    len    IN INTEGER,
+                    src_lob IN VARCHAR2
+                  )RETURN CLOB;
+
+                  PKG_UTIL.LOB_WRITEAPPEND_HUGE(
+                    dest_lob INOUT BLOB,
+                    len    IN INTEGER,
+                    src_lob IN RAW
+                  )RETURN BLOB;
+
+
+                  表 3-28 PKG_UTIL.LOB_WRITEAPPEND_HUGE 接口参数说明
+
+                   参数           类型      入参/出       是否   描述
+                                        参          可以
+                                                   为空
+
+                   dest_lob     BLO     INOUT      否    写入的目标BLOB/CLOB对象。
+                                B/
+                                CLO
+                                B
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                        2610
+GaussDB
+集中式版参考                                                                    3 存储过程
+
+
+                   参数          类型     入参/出       是否   描述
+                                      参          可以
+                                                 为空
+
+                   len         INT    IN         是    写入源对象的长度，为NULL则默认写入
+                               EGE                    源对象全部。
+                               R
+
+                   src_lob     VAR    IN         否    被写入的源BLOB/CLOB对象。
+                               CH
+                               AR2
+                               /RA
+                               W
+
+
+              ●   PKG_UTIL.LOB_APPEND_HUGE
+                  该函数LOB_APPEND_HUGE将源blob/clob对象追加到目标blob/clob对象, 并返回
+                  目标对象。
+                  PKG_UTIL.LOB_APPEND_HUGE函数原型为：
+                  PKG_UTIL.LOB_APPEND_HUGE(
+                    dest_lob INOUT BLOB,
+                    src_lob IN BLOB)
+                  RETURN BLOB;
+                  PKG_UTIL.LOB_APPEND_HUGE(
+                    dest_lob INOUT CLOB,
+                    src_lob IN CLOB)
+                  RETURN CLOB;
+
+
+                  表 3-29 PKG_UTIL.LOB_APPEND_HUGE 接口参数说明
+                   参数          类型     入参/出       是否   描述
+                                      参          可以
+                                                 为空
+
+                   dest_lob    BLO    INOUT      否    写入的目标BLOB/CLOB对象。
+                               B/
+                               CLO
+                               B
+
+                   src_lob     BLO    IN         否    被写入的源BLOB/CLOB对象。
+                               B/
+                               CLO
+                               B
+
+
+              ●   PKG_UTIL.READ_BFILE_TO_BLOB
+                  该函数READ_BFILE_TO_BLOB将源BFILE文件读取成目标BLOB对象, 并返回目标对
+                  象。
+                  PKG_UTIL.READ_BFILE_TO_BLOB函数原型为：
+                  PKG_UTIL.READ_BFILE_TO_BLOB(
+                    fd IN INTEGER
+                  )RETURN BLOB;
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                        2611
+GaussDB
+集中式版参考                                                                       3 存储过程
+
+                  表 3-30 PKG_UTIL.READ_BFILE_TO_BLOB 接口参数说明
+
+                   参数           类型     入参/出            是否   描述
+                                       参               可以
+                                                       为空
+
+                   fd           INT    IN              否    读取的源BFILE文件。
+                                EGE
+                                R
+
+
+              ●   PKG_UTIL.LOB_COPY_HUGE
+                  该函数LOB_COPY_HUGE将源blob/clob对象，从指定偏移读取指定长度内容，写
+                  入到目标blob/clob对象的指定偏移位置, 并返回目标对象。
+                  PKG_UTIL.LOB_COPY_HUGE函数原型为：
+                  PKG_UTIL.LOB_COPY_HUGE(
+                    lob_obj INOUT BLOB,
+                    source_obj IN BLOB,
+                    amount       IN BIGINT,
+                    dest_offset IN BIGINT DEFAULT 1,
+                    src_offset IN BIGINT DEFAULT 1
+                  )RETURN BLOB;
+
+                  PKG_UTIL.LOB_COPY_HUGE(
+                    lob_obj INOUT CLOB,
+                    source_obj IN CLOB,
+                    amount       IN BIGINT,
+                    dest_offset IN BIGINT DEFAULT 1,
+                    src_offset IN BIGINT DEFAULT 1
+                  )RETURN CLOB;
+
+
+                  表 3-31 PKG_UTIL.LOB_COPY_HUGE 接口参数说明
+
+                   参数           类型     入参/出            是否   描述
+                                       参               可以
+                                                       为空
+
+                   lob_obj      BLO    INOUT           否    目标BLOB/CLOB对象。
+                                B/
+                                CLO
+                                B
+
+                   source_o     BLO    IN              否    源BLOB/CLOB对象。
+                   bj           B/
+                                CLO
+                                B
+
+                   amount       BIGI   IN              否    复制的长度（BLOB以字节为单位，
+                                NT                          CLOB以字符为单位）。
+
+                   dest_off     BIGI   IN              否    目标LOB的载入偏移位置。
+                   set          NT
+
+                   src_offse    BIGI   IN              否    源LOB的读取偏移位置。
+                   t            NT
+
+
+              ●   PKG_UTIL.BLOB_RESET
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                          2612
+GaussDB
+集中式版参考                                                                    3 存储过程
+
+                  该函数将BLOB中一段数据set为value值，返回处理后的BLOB以及实际处理的长
+                  度。
+                  PKG_UTIL.BLOB_RESET函数原型为：
+                  PKG_UTIL.BLOB_RESET(
+                    lob     INOUT BLOB,
+                    len     INOUT BIGINT,
+                    start_pos IN BIGINT DEFAULT 1,
+                    value    IN INTEGER DEFAULT 0
+                  )RETURN RECORD；
+
+
+                  表 3-32 PKG_UTIL.BLOB_RESET 接口参数说明
+                   参数          类型      入参/出          是否   描述
+                                       参             可以
+                                                     为空
+
+                   lob         BLO     INOUT         否    待重置的LOB。
+                               B
+
+                   len         INT     INOUT         否    重置的长度，单位字节。
+                               EGE
+                               R
+
+                   start       INT     IN            否    重置的起始位置。
+                               EGE
+                               R
+
+                   value       INT     IN            是    设置的字符。默认值‘0’。
+                               EGE
+                               R
+
+
+              ●   PKG_UTIL.CLOB_RESET
+                  该函数将一段数据set为空格。
+                  PKG_UTIL.CLOB_RESET函数原型为：
+                  PKG_UTIL.CLOB_RESET(
+                    lob     INOUT CLOB,
+                    len     INOUT BIGINT,
+                    start_pos IN BIGINT DEFAULT 1
+                  )RETURN RECORD;
+
+
+                  表 3-33 PKG_UTIL.CLOB_RESET 接口参数说明
+                   参数          类型      入参/出          是否   描述
+                                       参             可以
+                                                     为空
+
+                   lob         CLO     INOUT         否    待重置的LOB。
+                               B
+
+                   len         INT     INOUT         否    重置的长度，单位字符。
+                               EGE
+                               R
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                       2613
+GaussDB
+集中式版参考                                                                   3 存储过程
+
+
+                   参数           类型     入参/出       是否   描述
+                                       参          可以
+                                                  为空
+
+                   start        INT    IN         否    重置的起始位置，默认为1。
+                                EGE
+                                R
+
+
+              ●   PKG_UTIL.LOADBLOBFROMFILE
+                  该函数LOADBLOBFROMFILE将源BFILE对象，从指定偏移读取指定长度内容，写
+                  入到目标BLOB对象的指定偏移位置, 并返回目标对象，读取位置，写入位置。
+                  PKG_UTIL.LOADBLOBFROMFILE函数原型为：
+                  PKG_UTIL.LOADBLOBFROMFILE(
+                    dest_lob     INOUT BLOB,
+                    fd         IN    INTEGER,
+                    amount        IN    BIGINT,
+                    dest_offset INOUT BIGINT,
+                    file_offset INOUT BIGINT
+                  )RETURN RECORD;
+
+
+                  表 3-34 PKG_UTIL.LOADBLOBFROMFILE 接口参数说明
+
+                   参数           类型     入参/出       是否   描述
+                                       参          可以
+                                                  为空
+
+                   dest_lob     BLO    INOUT      否    IN参数为目标BLOB对象，OUT参数为写
+                                B                      入后的目标BLOB对象。
+
+                   fd           INT    IN         否    源BFILE对象的文件描述符。
+                                EGE
+                                R
+
+                   amount       BIGI   IN         否    复制的长度（BLOB以字节为单位，
+                                NT                     CLOB以字符为单位）。
+
+                   dest_off     BIGI   INOUT      否    IN参数为目标LOB的写入偏移位置，
+                   set          NT                     OUT参数为实际写入位置。
+
+                   src_offse    BIGI   INOUT      否    IN参数为源BFILE的读取偏移位置，OUT
+                   t            NT                     参数为实际读取位置。
+
+
+              ●   PKG_UTIL.LOADCLOBFROMFILE
+                  该函数LOADCLOBFROMFILE将源BFILE对象，从指定偏移读取指定长度内容，写
+                  入到目标CLOB对象的指定偏移位置，并返回目标对象、读取位置和写入位置。
+                  PKG_UTIL.LOADCLOBFROMFILE函数原型为：
+                  PKG_UTIL.LOADCLOBFROMFILE(
+                    dest_lob     INOUT CLOB,
+                    fd         IN    INTEGER,
+                    amount        IN    BIGINT,
+                    dest_offset INOUT BIGINT,
+                    file_offset INOUT BIGINT
+                  )RETURN RECORD;
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                      2614
+GaussDB
+集中式版参考                                                                 3 存储过程
+
+                  表 3-35 PKG_UTIL.LOADCLOBFROMFILE 接口参数说明
+
+                   参数          类型      入参/出     是否   描述
+                                       参        可以
+                                                为空
+
+                   dest_lob    CLO     INOUT    否    IN参数为目标CLOB对象，OUT参数为写
+                               B                     入后的目标CLOB对象。
+
+                   fd          INT     IN       否    源BFILE对象的文件描述符。
+                               EGE
+                               R
+
+                   amount      BIGI    IN       否    复制的长度（CLOB以字符为单位）。
+                               NT
+
+                   dest_off    BIGI    INOUT    否    IN参数为目标LOB的写入偏移位置，
+                   set         NT                    OUT参数为实际写入位置。
+
+                   src_offse   BIGI    INOUT    否    IN参数为源BFILE的读取偏移位置，OUT
+                   t           NT                    参数为实际读取位置。
+
+
+              ●   PKG_UTIL.LOB_CONVERTTOBLOB_HUGE
+                  将src_clob从指定偏移位置读取指定长度内容转成BLOB，并写入dest_lob的指定
+                  位置，amount为要转换的长度。
+                  PKG_UTIL.LOB_CONVERTTOBLOB_HUGE函数原型为：
+                  PKG_UTIL.LOB_CONVERTTOBLOB_HUGE(
+                    dest_lob INOUT BLOB,
+                    src_clob IN     CLOB,
+                    amount       IN  BIGINT,
+                    dest_offset INOUT BIGINT,
+                    src_offset INOUT BIGINT)
+                  )RETURN RECORD;
+
+
+                  表 3-36 PKG_UTIL.LOB_CONVERTTOBLOB_HUGE 接口参数说明
+
+                   参数          类      入     是   描述
+                               型      参/    否
+                                      出     可
+                                      参     以
+                                            为
+                                            空
+
+                   dest_lob    BL     IN    否   目标LOB。
+                               O      O
+                               B      UT
+
+                   src_clob    CL     IN    否   要转换的CLOB。
+                               O
+                               B
+
+                   amount      BI     IN    否   转换的长度，字符为单位。
+                               GI
+                               N
+                               T
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                    2615
+GaussDB
+集中式版参考                                                            3 存储过程
+
+
+                   参数          类    入    是    描述
+                               型    参/   否
+                                    出    可
+                                    参    以
+                                         为
+                                         空
+
+                   dest_off    BI   IN   否    IN参数为目标LOB的写入起始位置，OUT参数为实
+                   set         GI   O         际的写入位置。
+                               N    UT
+                               T
+
+                   src_offse   BI   IN   否    IN参数为源CLOB的读取起始位置，OUT参数为实
+                   t           GI   O         际的读取起始位置。
+                               N    UT
+                               T
+
+
+              ●   PKG_UTIL.LOB_CONVERTTOCLOB_HUGE
+                  将src_clob从指定偏移位置读取指定长度内容转成CLOB，并写入dest_lob的指定
+                  位置，amount为要转换的长度。
+                  PKG_UTIL.LOB_CONVERTTOCLOB_HUGE函数原型为：
+                  PKG_UTIL.LOB_CONVERTTOCLOB_HUGE(
+                    dest_lob INOUT CLOB,
+                    src_blob IN     BLOB,
+                    amount       IN  BIGINT,
+                    dest_offset INOUT BIGINT,
+                    src_offset INOUT BIGINT)
+                  )RETURN RECORD;
+
+
+                  表 3-37 PKG_UTIL.LOB_CONVERTTOCLOB_HUGE 接口参数说明
+                   参数          类    入    是    描述
+                               型    参/   否
+                                    出    可
+                                    参    以
+                                         为
+                                         空
+
+                   dest_lob    CL   IN   否    目标LOB。
+                               O    O
+                               B    UT
+
+                   src_blob    BL   IN   否    要转换的BLOB。
+                               O
+                               B
+
+                   amount      BI   IN   否    转换的长度，字节为单位。
+                               GI
+                               N
+                               T
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司               2616
+GaussDB
+集中式版参考                                                                  3 存储过程
+
+
+                   参数          类     入        是   描述
+                               型     参/       否
+                                     出        可
+                                     参        以
+                                              为
+                                              空
+
+                   dest_off    BI    IN       否   IN参数为目标LOB的写入起始位置，OUT参数为实
+                   set         GI    O            际的写入位置。
+                               N     UT
+                               T
+
+                   src_offse   BI    IN       否   IN参数为源CLOB的读取起始位置，OUT参数为实
+                   t           GI    O            际的读取起始位置。
+                               N     UT
+                               T
+
+
+              ●   PKG_UTIL.BFILE_GET_LENGTH
+                  该函数获取并返回指定的BFILE文件的长度。
+                  PKG_UTIL.BFILE_GET_LENGTH函数原型为：
+                  PKG_UTIL.BFILE_GET_LENGTH(
+                    fd INTEGER
+                  )RETURN BIGINT;
+
+
+                  表 3-38 PKG_UTIL.LOB_GET_LENGTH 接口参数说明
+
+                   参数          类型        入参/出     是否   描述
+                                         参        可以
+                                                  为空
+
+                   fd          INT       IN       否    指定的BFILE文件的文件描述符。
+                               EGE
+                               R
+
+
+              ●   PKG_UTIL.BFILE_OPEN
+                  该函数打开BFILE文件，返回文件描述符。
+                  PKG_UTIL.BFILE_OPEN函数原型为：
+                  PKG_UTIL.BFILE_OPEN(
+                    file_name TEXT,
+                    open_mode TEXT)
+                  RETURN INTEGER;
+
+
+                  表 3-39 PKG_UTIL.BFILE_OPEN 接口参数说明
+
+                   参数          类型        入参/出     是否   描述
+                                         参        可以
+                                                  为空
+
+                   file_nam    TEX       IN       否    指定的BFILE文件的文件name。
+                   e           T
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                     2617
+GaussDB
+集中式版参考                                                                 3 存储过程
+
+
+                   参数          类型         入参/出    是否   描述
+                                          参       可以
+                                                  为空
+
+                   open_m      TEX        IN      否    打开方式（只支持‘r’，read功能）。
+                   ode         T
+
+
+              ●   PKG_UTIL.BFILE_CLOSE
+                  该函数关闭打开的BFILE文件。
+                  PKG_UTIL.BFILE_CLOSE函数原型为：
+                  PKG_UTIL.BFILE_CLOSE(
+                    fd INTEGER)
+                  RETURN bool;
+
+
+                  表 3-40 PKG_UTIL.BFILE_CLOSE 接口参数说明
+
+                   参数          类型         入参/出    是否   描述
+                                          参       可以
+                                                  为空
+
+                   fd          INT        IN      否    指定的BFILE文件的文件描述符。
+                               EGE
+                               R
+
+
+              ●   PKG_UTIL.LOB_WRITE_HUGE
+                  将源对象从起始位置读取len长度内容，写入目标LOB对象的指定偏移位置，覆盖
+                  该位置已有的内容, 并返回目标LOB对象。
+                  PKG_UTIL.LOB_WRITE_HUGE函数原型为：
+                  PKG_UTIL.LOB_WRITE_HUGE(
+                    dest_lob INOUT BLOB,
+                    len     IN INTEGER,
+                    start_pos IN BIGINT,
+                    src_lob IN RAW
+                  )RETURN BLOB;
+
+                  PKG_UTIL.LOB_WRITE_HUGE(
+                    dest_lob INOUT CLOB,
+                    len     IN INTEGER,
+                    start_pos IN BIGINT,
+                    src_lob IN VARCHAR2
+                  )RETURN CLOB;
+
+
+                  表 3-41 PKG_UTIL.LOB_WRITE_HUGE 接口参数说明
+
+                   参数          类型         入参/出    是否   描述
+                                          参       可以
+                                                  为空
+
+                   dest_lob    BLO        INOUT   否    IN参数为待写入的目标LOB，OUT参数
+                               B/                      为写入内容后的LOB。
+                               CLO
+                               B
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                    2618
+GaussDB
+集中式版参考                                                                 3 存储过程
+
+
+                   参数          类型     入参/出   是否   描述
+                                      参      可以
+                                             为空
+
+                   len         INT    IN     否    待写入的长度（BLOB以字节为单位，
+                               EGE                CLOB以字符为单位）。
+                               R
+
+                   start_po    BIGI   IN     否    在dest_lob中写入的偏移位置。
+                   s           NT
+
+                   src_lob     RA     IN     否    源LOB对象。
+                               W/
+                               VAR
+                               CH
+                               AR2
+
+
+              ●   PKG_UTIL.IO_PRINT
+                  该函数IO_PRINT将一段字符串打印输出。
+                  PKG_UTIL.IO_PRINT函数原型为：
+                  PKG_UTIL.IO_PRINT(
+                  format      IN TEXT,
+                  is_one_line IN BOOLEAN
+                  )
+                  RETURN void;
+
+
+                  表 3-42 PKG_UTIL.IO_PRINT 接口参数说明
+                   参数          类型     入参/出   是否   描述
+                                      参      可以
+                                             为空
+
+                   format      TEX    IN     否    待打印输出的字符串。
+                               T
+
+                   is_one_li   BO     IN     否    是否输出为一行。
+                   ne          OLE
+                               AN
+
+
+              ●   PKG_UTIL.RAW_GET_LENGTH
+                  该函数RAW_GET_LENGTH获取raw的长度。
+                  PKG_UTIL.RAW_GET_LENGTH函数原型为：
+                  PKG_UTIL.RAW_GET_LENGTH(
+                  value    IN RAW
+                  )
+                  RETURN INTEGER;
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                   2619
+GaussDB
+集中式版参考                                                                   3 存储过程
+
+                  表 3-43 PKG_UTIL.RAW_GET_LENGTH 接口参数说明
+
+                   参数         类型     入参/出       是否         描述
+                                     参          可以
+                                                为空
+
+                   raw        RA     IN         否          待获取长度的对象。
+                              W
+
+
+              ●   PKG_UTIL.RAW_CAST_FROM_VARCHAR2
+                  该函数RAW_CAST_FROM_VARCHAR2将VARCHAR2转化为RAW。
+                  PKG_UTIL.RAW_CAST_FROM_VARCHAR2函数原型为：
+                  PKG_UTIL.RAW_CAST_FROM_VARCHAR2(
+                  str   IN VARCHAR2
+                  )
+                  RETURN raw;
+
+
+                  表 3-44 PKG_UTIL.RAW_CAST_FROM_VARCHAR2 接口参数说明
+
+                   参数         类型      入参/出      是否         描述
+                                      参         可以
+                                                为空
+
+                   str        VAR     IN        否          需要转化的源数据。
+                              CHA
+                              R2
+
+
+              ●   PKG_UTIL.RAW_CAST_FROM_BINARY_INTEGER
+                  该函数RAW_CAST_FROM_BINARY_INTEGER将BIGINT转化为RAW。
+                  PKG_UTIL.RAW_CAST_FROM_BINARY_INTEGER函数原型为：
+                  PKG_UTIL.RAW_CAST_FROM_BINARY_INTEGER(
+                  value    IN BIGINT,
+                  endianess IN INTEGER
+                  )
+                  RETURN RAW;
+
+
+                  表 3-45 PKG_UTIL.RAW_CAST_FROM_BINARY_INTEGER 接口参数说明
+
+                   参数         类型      入参/出      是否         描述
+                                      参         可以
+                                                为空
+
+                   value      BIGI    IN        否          需要转化的源数据。
+                              NT
+
+                   endiane    INTE    IN        否          表示字典序的整型值，现支持1或2或3
+                   ss         GER                          （1代表BIG_ENDIAN，2代表
+                                                           LITTLE_ENDIAN，3代表
+                                                           MACHINE_ENDIAN）。
+
+
+              ●   PKG_UTIL.RAW_CAST_TO_BINARY_INTEGER
+                  该函数RAW_CAST_TO_BINARY_INTEGER将RAW转化为BINARY_INTEGER。
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                       2620
+GaussDB
+集中式版参考                                                                 3 存储过程
+
+                  PKG_UTIL.RAW_CAST_TO_BINARY_INTEGER函数原型为：
+                  PKG_UTIL.RAW_CAST_TO_BINARY_INTEGER(
+                  value    IN RAW,
+                  endianess IN INTEGER
+                  )
+                  RETURN INTEGER;
+
+
+                  表 3-46 PKG_UTIL.RAW_CAST_TO_BINARY_INTEGER 接口参数说明
+                   参数          类型      入参/出      是否      描述
+                                       参         可以
+                                                 为空
+
+                   value       RAW     IN        否       需要转化的源数据。
+
+                   endiane     INTE    IN        否       表示字典序的整型值，现支持1或2或3
+                   ss          GER                       （1代表BIG_ENDIAN，2代表
+                                                         LITTLE_ENDIAN，3代表
+                                                         MACHINE_ENDIAN）。
+
+
+              ●   PKG_UTIL.RANDOM_SET_SEED
+                  该函数RANDOM_SET_SEED设置随机数种子。
+                  PKG_UTIL.RANDOM_SET_SEED函数原型为：
+                  PKG_UTIL.RANDOM_SET_SEED(
+                  seed     IN INT
+                  )
+                  RETURN integer;
+
+
+                  表 3-47 PKG_UTIL.RANDOM_SET_SEED 接口参数说明
+                   参数          类型     入参/出       是否      描述
+                                      参          可以
+                                                 为空
+
+                   seed        INT    IN         否       随机数种子。
+
+
+              ●   PKG_UTIL.RANDOM_GET_VALUE
+                  该函数RANDOM_GET_VALUE返回0~1区间的一个随机数，其有效数字为15位。
+                  PKG_UTIL.RANDOM_GET_VALUE函数原型为：
+                  PKG_UTIL.RANDOM_GET_VALUE(
+                  )
+                  RETURN NUMERIC;
+
+                       说明
+
+                       建议不要在安全场景下使用PKG_UTIL.RANDOM_SET_SEED和
+                       PKG_UTIL.RANDOM_GET_VALUE函数。
+              ●   PKG_UTIL.FILE_SET_DIRNAME
+                  设置当前操作的目录，基本上所有涉及单个目录的操作，都需要调用此方法先设
+                  置操作的目录。
+                  PKG_UTIL.FILE_SET_DIRNAME函数原型为：
+                  PKG_UTIL.FILE_SET_DIRNAME(
+                  dir IN TEXT
+                  )
+                  RETURN BOOL
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                   2621
+GaussDB
+集中式版参考                                                                         3 存储过程
+
+                  表 3-48 PKG_UTIL.FILE_SET_DIRNAME 接口参数说明
+                   参数           类    入      是        描述
+                                型    参/     否
+                                     出      可
+                                     参      以
+                                            为
+                                            空
+
+                   dirname      TE   IN     否        文件的目录位置，这个字符串是一个目录对象名。
+                                XT                   说明
+                                                      文件目录的位置，需要添加到系统表PG_DIRECTORY
+                                                      中，如果传入的路径和PG_DIRECTORY中的路径不匹
+                                                      配，会报路径不存在的错误，下面的涉及location作为参
+                                                      数的函数也是同样的情况。
+
+
+
+              ●   PKG_UTIL.FILE_OPEN
+                  该函数用来打开一个文件，最多可以同时打开50个文件。并且该函数返回
+                  INTEGER类型的一个句柄。
+                  PKG_UTIL.FILE_OPEN函数原型为：
+                  PKG_UTIL.FILE_OPEN(
+                  file_name IN TEXT,
+                  open_mode IN INTEGER)
+
+
+                  表 3-49 PKG_UTIL.FILE_OPEN 接口参数说明
+                   参数           类    入      是        描述
+                                型    参/     否
+                                     出      可
+                                     参      以
+                                            为
+                                            空
+
+                   file_nam     TE   IN     否        文件名，包含扩展（文件类型），不包括路径名。
+                   e            XT                   如果文件名中包含路径，在OPEN中会被忽略，在
+                                                     Unix系统中，文件名不能以/.结尾。
+
+                   open_m       IN   IN     否        指定文件的打开模式，包含r：read text，w: write
+                   ode          TE                   text和a: append text。
+                                GE                   说明
+                                R                     对于写操作，会检测文件类型，如果写入elf文件，将会
+                                                      报错并退出。
+
+
+
+              ●   PKG_UTIL.FILE_SET_MAX_LINE_SIZE
+                  设置写入文件一行的最大长度。
+                  PKG_UTIL.FILE_SET_MAX_LINE_SIZE函数原型为：
+                  PKG_UTIL.FILE_SET_MAX_LINE_SIZE(
+                  max_line_size in INTEGER)
+                  RETURN BOOL
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                           2622
+GaussDB
+集中式版参考                                                                3 存储过程
+
+                  表 3-50 PKG_UTIL.FILE_SET_MAX_LINE_SIZE 接口参数说明
+                   参数           类     入     是      描述
+                                型     参/    否
+                                      出     可
+                                      参     以
+                                            为
+                                            空
+
+                   max_lin      IN    IN    否      每行最大字符数，包含换行符（最小值是1，最大
+                   e_size       TE                 值是32767）。如果没有指定，会指定一个默认值
+                                GE                 1024。
+                                R
+
+
+              ●   PKG_UTIL.FILE_IS_CLOSE
+                  检测一个文件句柄是否关闭。
+                  PKG_UTIL.FILE_IS_CLOSE函数原型为：
+                  PKG_UTIL.FILE_IS_CLOSE(
+                  file in INTEGER
+                  )
+                  RETURN BOOL
+
+
+                  表 3-51 PKG_UTIL.FILE_IS_CLOSE 接口参数说明
+                   参数           类     入     是      描述
+                                型     参/    否
+                                      出     可
+                                      参     以
+                                            为
+                                            空
+
+                   file         IN    IN    否      一个打开的文件句柄。
+                                TE
+                                GE
+                                R
+
+
+              ●   PKG_UTIL.FILE_READ
+                  根据指定的长度从一个打开的文件句柄中读取出数据。
+                  PKG_UTIL.FILE_READ函数原型为：
+                  PKG_UTIL.FILE_READ(
+                  file  IN INTEGER,
+                  buffer OUT TEXT,
+                  len    IN BIGINT DEFAULT 1024)
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                  2623
+GaussDB
+集中式版参考                                                                     3 存储过程
+
+                  表 3-52 PKG_UTIL.FILE_READ 接口参数说明
+
+                   参数          类     入     是       描述
+                               型     参/    否
+                                     出     可
+                                     参     以
+                                           为
+                                           空
+
+                   file        IN    IN    否       通过调用OPEN打开的文件句柄，文件必须以读的
+                               TE                  模式打开，否则会抛出INVALID_OPERATION的异
+                               GE                  常。
+                               R
+
+                   buffer      TE    IN    否       用于接收数据的BUFFER。
+                               XT
+
+                   len         BI    IN    是       从文件中读取的字节数。
+                               GI
+                               N
+                               T
+
+
+              ●   PKG_UTIL.FILE_READLINE
+                  根据指定的长度从一个打开的文件句柄中读取出一行数据。
+                  PKG_UTIL.FILE_READLINE函数原型为：
+                  PKG_UTIL.FILE_READLINE(
+                  file IN INTEGER,
+                  buffer OUT TEXT,
+                  len   IN INTEGER DEFAULT NULL)
+
+
+                  表 3-53 PKG_UTIL.FILE_READLINE 接口参数说明
+
+                   参数          类     入     是       描述
+                               型     参/    否
+                                     出     可
+                                     参     以
+                                           为
+                                           空
+
+                   file        IN    IN    否       通过调用OPEN打开的文件句柄，文件必须以读的
+                               TE                  模式打开，否则会抛出INVALID_OPERATION的异
+                               GE                  常。
+                               R
+
+                   buffer      TE    IN    否       用于接收数据的BUFFER。
+                               XT
+
+                   len         IN    IN    是       从文件中读取的字节数，默认是NULL。如果是默
+                               TE                  认NULL，会使用max_line_size来指定大小。
+                               GE
+                               R
+
+
+              ●   PKG_UTIL.FILE_WRITE
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                        2624
+GaussDB
+集中式版参考                                                               3 存储过程
+
+                  将BUFFER中指定的数据写入到文件中。
+                  PKG_UTIL.FILE_WRITE函数原型为：
+                  PKG_UTIL.FILE_WRITE(
+                  file IN INTEGER,
+                  buffer IN TEXT
+                  )
+                  RETURN BOOL
+
+
+                  表 3-54 PKG_UTIL.FILE_WRITE 接口参数说明
+                   参数           类    入     是   描述
+                                型    参/    否
+                                     出     可
+                                     参     以
+                                           为
+                                           空
+
+                   file         IN   IN    否   一个打开的文件句柄。
+                                TE
+                                GE
+                                R
+
+                   buffer       TE   IN    否   要写入文件的文本数据，BUFFER的最大值是
+                                XT             32767个字节。如果没有指定值，默认是1024个字
+                                               节，没有刷新到文件之前，一系列的PUT操作的
+                                               BUFFER总和不能超过32767个字节。
+                                               说明
+                                                对于写操作，会检测文件类型，如果写入elf文件，将会
+                                                报错并退出。
+
+
+
+              ●   PKG_UTIL.FILE_NEWLINE
+                  向一个打开的文件中写入一个行终结符。行终结符和平台相关。
+                  PKG_UTIL.FILE_NEWLINE函数原型为：
+                  PKG_UTIL.FILE_NEWLINE(
+                  file IN INTEGER
+                  )
+                  RETURN BOOL
+
+
+                  表 3-55 PKG_UTIL.FILE_NEWLINE 接口参数说明
+                   参数           类    入     是   描述
+                                型    参/    否
+                                     出     可
+                                     参     以
+                                           为
+                                           空
+
+                   file         IN   IN    否   一个打开的文件句柄。
+                                TE
+                                GE
+                                R
+
+
+              ●   PKG_UTIL.FILE_WRITELINE
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                 2625
+GaussDB
+集中式版参考                                                                3 存储过程
+
+                  向一个打开的文件中写入一行。
+                  PKG_UTIL.FILE_WRITELINE函数原型为：
+                  PKG_UTIL.FILE_WRITELINE(
+                  file IN INTEGER,
+                  buffer IN TEXT
+                  )
+                  RETURN BOOL
+
+
+                  表 3-56 PKG_UTIL.FILE_WRITELINE 接口参数说明
+                   参数           类    入       是     描述
+                                型    参/      否
+                                     出       可
+                                     参       以
+                                             为
+                                             空
+
+                   file         IN   IN      否     一个打开的文件句柄。
+                                TE
+                                GE
+                                R
+
+                   buffer       TE   IN      否     要写入的内容。
+                                XT
+
+
+              ●   PKG_UTIL.FILE_READ_RAW
+                  从一个打开的文件句柄中读取指定长度的二进制数据，返回读取的二进制数据，
+                  返回类型为RAW。
+                  PKG_UTIL.FILE_READ_RAW函数原型为：
+                  PKG_UTIL.FILE_READ_RAW(
+                  file  IN INTEGER,
+                  length IN INTEGER DEFAULT NULL
+                  )
+                  RETURN raw
+
+
+                  表 3-57 PKG_UTIL.FILE_READ_RAW 接口参数说明
+                   参数           类    入       是     描述
+                                型    参/      否
+                                     出       可
+                                     参       以
+                                             为
+                                             空
+
+                   file         IN   IN      否     一个打开的文件句柄。
+                                TE
+                                GE
+                                R
+
+                   length       IN   IN      是     要读取的长度，默认为NULL。默认情况下读取文
+                                TE                 件中所有数据，最大为1G。
+                                GE
+                                R
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                  2626
+GaussDB
+集中式版参考                                                                 3 存储过程
+
+
+              ●   PKG_UTIL.FILE_WRITE_RAW
+                  向一个打开的文件中写入传入二进制对象RAW。插入成功返回true。
+                  PKG_UTIL.FILE_WRITE_RAW函数原型为：
+                  PKG_UTIL.FILE_WRITE_RAW(
+                  file IN INTEGER,
+                  r IN RAW
+                  )
+                  RETURN BOOL
+
+
+                  表 3-58 PKG_UTIL.FILE_NEWLINE 接口参数说明
+
+                   参数          类    入        是   描述
+                               型    参/       否
+                                    出        可
+                                    参        以
+                                             为
+                                             空
+
+                   file        IN   IN       否   一个打开的文件句柄。
+                               TE
+                               GE
+                               R
+
+                   r           RA   IN       是   准备传入文件的数据。
+                               W                 说明
+                                                  对于写操作，会检测文件类型，如果写入elf文件，将会
+                                                  报错并退出。
+
+
+
+              ●   PKG_UTIL.FILE_FLUSH
+                  一个文件句柄中的数据要写入到物理文件中，缓冲区中的数据必须要有一个行终
+                  结符。当文件必须在打开时读取，刷新非常有用。例如，调试信息可以刷新到文
+                  件中，以便立即读取。
+                  PKG_UTIL.FILE_FLUSH函数原型为：
+                  PKG_UTIL.FILE_FLUSH（
+                  file IN INTEGER
+                  ）
+                  RETURN VOID
+
+
+                  表 3-59 PKG_UTIL.FILE_FLUSH 接口参数说明
+
+                   参数          类    入        是   描述
+                               型    参/       否
+                                    出        可
+                                    参        以
+                                             为
+                                             空
+
+                   file        IN   IN       否   一个打开的文件句柄。
+                               TE
+                               GE
+                               R
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                    2627
+GaussDB
+集中式版参考                                                            3 存储过程
+
+
+              ●   PKG_UTIL.FILE_CLOSE
+                  关闭一个打开的文件句柄。
+                  PKG_UTIL.FILE_CLOSE函数原型为：
+                  PKG_UTIL.FILE_CLOSE（
+                  file IN INTEGER
+                  ）
+                  RETURN BOOL
+
+
+                  表 3-60 PKG_UTIL.FILE_CLOSE 接口参数说明
+
+                   参数          类     入     是         描述
+                               型     参/    否
+                                     出     可
+                                     参     以
+                                           为
+                                           空
+
+                   file        IN    IN    否         一个打开的文件句柄。
+                               TE
+                               GE
+                               R
+
+
+              ●   PKG_UTIL.FILE_REMOVE
+                  删除一个磁盘文件，操作的时候需要有充分的权限。
+                  PKG_UTIL.FILE_REMOVE函数原型为：
+                  PKG_UTIL.FILE_REMOVE(
+                  file_name IN TEXT
+                  )
+                  RETURN VOID
+
+
+                  表 3-61 PKG_UTIL.FILE_REMOVE 接口参数说明
+
+                   参数          类     入     是         描述
+                               型     参/    否
+                                     出     可
+                                     参     以
+                                           为
+                                           空
+
+                   filen_am    TE    IN    否         要删除的文件名。
+                   e           XT
+
+
+              ●   PKG_UTIL.FILE_RENAME
+                  对于磁盘上的文件进行重命名，类似Unix的mv。
+                  PKG_UTIL.FILE_RENAME函数原型为：
+                  PKG_UTIL.FILE_RENAME(
+                  src_dir IN TEXT,
+                  src_file_name IN TEXT,
+                  dest_dir IN TEXT,
+                  dest_file_name IN TEXT,
+                  overwrite BOOLEAN DEFAULT FALSE)
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司               2628
+GaussDB
+集中式版参考                                                                        3 存储过程
+
+                  表 3-62 PKG_UTIL.FILE_RENAME 接口参数说明
+                   参数           类     入        是   描述
+                                型     参/       否
+                                      出        可
+                                      参        以
+                                               为
+                                               空
+
+                   src_dir      TE    IN       是   源文件目录（大小写敏感）。
+                                XT                 说明
+                                                    ● 文件目录的位置，需要添加到系统表PG_DIRECTORY
+                                                      中，如果传入的路径和PG_DIRECTORY中的路径不匹
+                                                      配，会报路径不存在的错误。
+                                                   ● 在打开guc参数safe_data_path时，用户只能通过高
+                                                     级包操作safe_data_path指定文件路径下的文件。
+
+                   src_file_    TE    IN       是   源文件名。
+                   name         XT
+
+                   dest_dir     TE    IN       是   目标文件目录（大小写敏感）。
+                                XT                 说明
+                                                    ● 文件目录的位置，需要添加到系统表PG_DIRECTORY
+                                                      中，如果传入的路径和PG_DIRECTORY中的路径不匹
+                                                      配，会报路径不存在的错误。
+                                                   ● 在打开guc参数safe_data_path时，用户只能通过高
+                                                     级包操作safe_data_path指定文件路径下的文件。
+
+                   dest_file    TE    IN       是   目标文件名。
+                   _name        XT
+
+                   overwrit     B     IN       否   默认是false，如果目的目录下存在一个同名的文
+                   e            O                  件，不会进行重写。
+                                O
+                                LE
+                                A
+                                N
+
+
+              ●   PKG_UTIL.FILE_SIZE
+                  返回指定的文件大小。
+                  PKG_UTIL.FILE_SIZE函数原型为：
+                  BIGINT PKG_UTIL.FILE_SIZE(
+                  file_name IN TEXT
+                  )RETURN BIGINT
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                           2629
+GaussDB
+集中式版参考                                                      3 存储过程
+
+                  表 3-63 PKG_UTIL.FILE_SIZE 接口参数说明
+
+                   参数           类     入     是        描述
+                                型     参/    否
+                                      出     可
+                                      参     以
+                                            为
+                                            空
+
+                   file_nam     TE    IN    否        文件名。
+                   e            XT
+
+
+              ●   PKG_UTIL.FILE_BLOCK_SIZE
+                  返回指定的文件含有的块数量。
+                  PKG_UTIL.FILE_BLOCK_SIZE函数原型为：
+                  BIGINT PKG_UTIL.FILE_BLOCK_SIZE(
+                  file_name IN TEXT
+                  )RETURN BIGINT
+
+
+                  表 3-64 PKG_UTIL.FILE_BLOCK_SIZE 接口参数说明
+
+                   参数           类     入     是        描述
+                                型     参/    否
+                                      出     可
+                                      参     以
+                                            为
+                                            空
+
+                   file_nam     TE    IN    否        文件名。
+                   e            XT
+
+
+              ●   PKG_UTIL.FILE_EXISTS
+                  判断指定的文件是否存在。
+                  PKG_UTIL.FILE_EXISTS函数原型为：
+                  PKG_UTIL.FILE_EXISTS(
+                  file_name IN TEXT
+                  )
+                  RETURN BOOL
+
+
+                  表 3-65 PKG_UTIL.FILE_EXISTS 接口参数说明
+
+                   参数           类     入     是        描述
+                                型     参/    否
+                                      出     可
+                                      参     以
+                                            为
+                                            空
+
+                   file_nam     TE    IN    否        文件名。
+                   e            XT
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司        2630
+GaussDB
+集中式版参考                                                        3 存储过程
+
+
+              ●   PKG_UTIL.FILE_GETPOS
+                  返回文件的偏移量，单位字节。
+                  PKG_UTIL.FILE_GETPOS函数原型为：
+                  PKG_UTIL.FILE_GETPOS(
+                  file IN INTEGER
+                  )
+                  RETURN BIGINT
+
+
+                  表 3-66 PKG_UTIL.FILE_GETPOS 接口参数说明
+
+                   参数           类    入       是   描述
+                                型    参/      否
+                                     出       可
+                                     参       以
+                                             为
+                                             空
+
+                   file         IN   IN      否   一个打开的文件句柄。
+                                TE
+                                GE
+                                R
+
+
+              ●   PKG_UTIL.FILE_SEEK
+                  根据用户指定的字节数向前或者向后调整文件指针的位置。
+                  PKG_UTIL.FILE_SEEK函数原型为：
+                  VOID PKG_UTIL.FILE_SEEK(
+                  file IN INTEGER,
+                  start IN BIGINT
+                  )
+                  RETURN VOID
+
+
+                  表 3-67 PKG_UTIL.FILE_SEEK 接口参数说明
+
+                   参数           类    入       是   描述
+                                型    参/      否
+                                     出       可
+                                     参       以
+                                             为
+                                             空
+
+                   file         IN   IN      否   一个打开的文件句柄。
+                                TE
+                                GE
+                                R
+
+                   start        BI   IN      否   文件偏移，字节。
+                                GI
+                                N
+                                T
+
+
+              ●   PKG_UTIL.FILE_CLOSE_ALL
+                  关闭一个会话中打开的所有的文件句柄。该函数无入参、出参。
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司          2631
+GaussDB
+集中式版参考                                                               3 存储过程
+
+                  PKG_UTIL.FILE_CLOSE_ALL函数原型为：
+                  PKG_UTIL.FILE_CLOSE_ALL(
+                  )
+                  RETURN VOID
+
+              ●   PKG_UTIL.EXCEPTION_REPORT_ERROR
+                  抛出一个异常。
+                  PKG_UTIL.EXCEPTION_REPORT_ERROR函数原型为：
+                  PKG_UTIL.EXCEPTION_REPORT_ERROR(
+                  code INTEGER,
+                  log TEXT,
+                  flag BOOLEAN DEFAULT FALSE
+                  )
+                  RETURN INTEGER
+
+
+                  表 3-68 PKG_UTIL.EXCEPTION_REPORT_ERROR 接口参数说明
+                   参数            类     入      是    描述
+                                 型     参/     否
+                                       出      可
+                                       参      以
+                                              为
+                                              空
+
+                   code          IN    IN     否    运行异常所打印的错误码。
+                                 TE
+                                 GE
+                                 R
+
+                   log           TE    IN     否    运行异常所打印的日志提示信息。
+                                 XT
+
+                   flag          B     IN     是    保留字段，默认为false。
+                                 O
+                                 O
+                                 LE
+                                 A
+                                 N
+
+
+              ●   PKG_UTIL.APP_READ_CLIENT_INFO
+                  读取client_info信息。
+                  PKG_UTIL.app_read_client_info函数原型为：
+                  PKG_UTIL.app_read_client_info(
+                  OUT buffer TEXT
+                  )RETURN TEXT
+
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                2632
+GaussDB
+集中式版参考                                                                   3 存储过程
+
+                  表 3-69 PKG_UTIL.APP_READ_CLIENT_INFO 接口参数说明
+                   参数           类      入        是   描述
+                                型      参/       否
+                                       出        可
+                                       参        以
+                                                为
+                                                空
+
+                   buffer       TE     IN       否   返回的client_info信息。
+                                XT
+
+
+              ●   PKG_UTIL.APP_SET_CLIENT_INFO
+                  设置client_info信息。
+                  PKG_UTIL.APP_SET_CLIENT_INFO函数原型为：
+                  PKG_UTIL.APP_SET_CLIENT_INFO(
+                  str TEXT
+                  )
+
+
+                  表 3-70 PKG_UTIL.APP_SET_CLIENT_INFO 接口参数说明
+                   参数           类      入        是   描述
+                                型      参/       否
+                                       出        可
+                                       参        以
+                                                为
+                                                空
+
+                   str          TE     IN       否   要设置的client_info信息。
+                                XT
+
+
+              ●   PKG_UTIL.LOB_CONVERTTOBLOB
+                  将clob转成blob，amount为要转换的长度。
+                  PKG_UTIL.LOB_CONVERTTOBLOB函数原型为：
+                  PKG_UTIL.lob_converttoblob(
+                  dest_lob BLOB,
+                  src_clob CLOB,
+                  amount INTEGER,
+                  dest_offset INTEGER,
+                  src_offset INTEGER
+                  )RETURN RAW
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                     2633
+GaussDB
+集中式版参考                                                            3 存储过程
+
+                  表 3-71 PKG_UTIL.LOB_CONVERTTOBLOB 接口参数说明
+                   参数            类     入        是   描述
+                                 型     参/       否
+                                       出        可
+                                       参        以
+                                                为
+                                                空
+
+                   dest_lob      BL    IN       否   目标LOB。
+                                 O
+                                 B
+
+                   src_clob      CL    IN       否   要转换的CLOB。
+                                 O
+                                 B
+
+                   amount        IN    IN       否   转换的长度。
+                                 TE
+                                 GE
+                                 R
+
+                   dest_off      IN    IN       否   目标LOB的起始位置。
+                   set           TE
+                                 GE
+                                 R
+
+                   src_offse     IN    IN       否   源CLOB的起始位置。
+                   t             TE
+                                 GE
+                                 R
+
+
+              ●   PKG_UTIL.LOB_CONVERTTOCLOB
+                  将blob转成clob，amount为要转换的长度。
+                  PKG_UTIL.lob_converttoclob函数原型为：
+                  PKG_UTIL.lob_converttoclob(
+                  dest_lob CLOB,
+                  src_blob BLOB,
+                  amount INTEGER,
+                  dest_offset INTEGER,
+                  src_offset INTEGER
+                  )RETURN TEXT
+
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司             2634
+GaussDB
+集中式版参考                                                        3 存储过程
+
+                  表 3-72 PKG_UTIL.LOB_CONVERTTOCLOB 接口参数说明
+
+                   参数          类    入       是   描述
+                               型    参/      否
+                                    出       可
+                                    参       以
+                                            为
+                                            空
+
+                   dest_lob    CL   IN      否   目标LOB。
+                               O
+                               B
+
+                   src_blob    BL   IN      否   要转换的CLOB。
+                               O
+                               B
+
+                   amount      IN   IN      否   转换的长度。
+                               TE
+                               GE
+                               R
+
+                   dest_off    IN   IN      否   目标LOB的起始位置。
+                   set         TE
+                               GE
+                               R
+
+                   src_offse   IN   IN      否   源CLOB的起始位置。
+                   t           TE
+                               GE
+                               R
+
+
+              ●   PKG_UTIL.LOB_TEXTTORAW
+                  将TEXT转成RAW。
+                  PKG_UTIL.LOB_TEXTTORAW函数原型为：
+                  PKG_UTIL.LOB_TEXTTORAW(
+                  src_lob CLOB
+                  )
+                  RETURN RAW
+
+
+                  表 3-73 PKG_UTIL.LOB_TEXTTORAW 接口参数说明
+
+                   参数          类    入       是   描述
+                               型    参/      否
+                                    出       可
+                                    参       以
+                                            为
+                                            空
+
+                   src_lob     CL   IN      否   要转换的LOB数据。
+                               O
+                               B
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司           2635
+GaussDB
+集中式版参考                                                                3 存储过程
+
+
+              ●   PKG_UTIL.LOB_RAWTOTEXT
+                  将RAW转成TEXT。
+                  PKG_UTIL.LOB_RAWTOTEXT函数原型为：
+                  PKG_UTIL.LOB_RAWTOTEXT(
+                  src_lob IN BLOB
+                  )
+                  RETURN TEXT
+
+
+                  表 3-74 PKG_UTIL.LOB_RAWTOTEXT 接口参数说明
+
+                   参数          类    入       是    描述
+                               型    参/      否
+                                    出       可
+                                    参       以
+                                            为
+                                            空
+
+                   src_lob     BL   IN      否    要转换的lob数据。
+                               O
+                               B
+
+
+              ●   PKG_UTIL.MATCH_EDIT_DISTANCE_SIMILARITY
+                  计算两个字符串的差别。
+                  PKG_UTIL.MATCH_EDIT_DISTANCE_SIMILARITY函数原型为：
+                  PKG_UTIL.MATCH_EDIT_DISTANCE_SIMILARITY(
+                  str1 TEXT,
+                  str2 TEXT
+                  )
+                  RETURN INTEGER
+
+
+                  表 3-75 PKG_UTIL.MATCH_EDIT_DISTANCE_SIMILARITY 接口参数说明
+
+                   参数          类    入       是    描述
+                               型    参/      否
+                                    出       可
+                                    参       以
+                                            为
+                                            空
+
+                   str1        TE   IN      否    第一个字符串。
+                               XT
+
+                   str2        TE   IN      否    第二个字符串。
+                               XT
+
+
+              ●   PKG_UTIL.RAW_CAST_TO_VARCHAR2
+                  RAW类型转成VARCHAR2。
+                  PKG_UTIL.RAW_CAST_TO_VARCHAR2函数原型为：
+                  PKG_UTIL.RAW_CAST_TO_VARCHAR2(
+                  str RAW
+                  )
+                  RETURN VARCHAR2
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                    2636
+GaussDB
+集中式版参考                                                                       3 存储过程
+
+                  表 3-76 PKG_UTIL.RAW_CAST_TO_VARCHAR2 接口参数说明
+                   参数          类    入     是     描述
+                               型    参/    否
+                                    出     可
+                                    参     以
+                                          为
+                                          空
+
+                   str         RA   IN    否     十六进制字符串。
+                               W
+
+
+              ●   PKG_UTIL.SESSION_CLEAR_CONTEXT
+                  清除session_context信息。
+                  PKG_UTIL.SESSION_CLEAR_CONTEXT函数原型为：
+                  PKG_UTIL.SESSION_CLEAR_CONTEXT(
+                  namespace TEXT,
+                  client_identifier TEXT,
+                  attribute TEXT
+                  )
+                  RETURN INTEGER
+
+
+                  表 3-77 PKG_UTIL.SESSION_CLEAR_CONTEXT 接口参数说明
+                   参数          类    入     是     描述
+                               型    参/    否
+                                    出     可
+                                    参     以
+                                          为
+                                          空
+
+                   namesp      TE   IN    否     属性的命名空间。
+                   ace         XT
+
+                   client_id   TE   IN    否     client_identifier，一般与namespace相同即可，当
+                   entifier    XT               为null时，默认修改所有namespace。
+
+                   attribute   TE   IN    否     要清除的属性值。
+                               XT
+
+
+              ●   PKG_UTIL.SESSION_SEARCH_CONTEXT
+                  查找属性值。
+                  PKG_UTIL.SESSION_SEARCH_CONTEXT函数原型为：
+                  PKG_UTIL.SESSION_SEARCH_CONTEXT(
+                  namespace TEXT,
+                  attribute TEXT
+                  )
+                  RETURN INTEGER
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                           2637
+GaussDB
+集中式版参考                                                            3 存储过程
+
+                  表 3-78 PKG_UTIL.SESSION_SEARCH_CONTEXT 接口参数说明
+                   参数           类    入      是     描述
+                                型    参/     否
+                                     出      可
+                                     参      以
+                                            为
+                                            空
+
+                   namesp       TE   IN     否     属性的命名空间。
+                   ace          XT
+
+                   attribute    TE   IN     否     要查找的属性值。
+                                XT
+
+
+              ●   PKG_UTIL.SESSION_SET_CONTEXT
+                  设置属性值。
+                  PKG_UTIL.SESSION_SET_CONTEXT函数原型为：
+                  PKG_UTIL.SESSION_SET_CONTEXT(
+                  namespace TEXT,
+                  attribute TEXT,
+                  value TEXT
+                  )
+                  RETURN INTEGER
+
+
+                  表 3-79 PKG_UTIL.SESSION_SET_CONTEXT 接口参数说明
+                   参数           类    入      是     描述
+                                型    参/     否
+                                     出      可
+                                     参      以
+                                            为
+                                            空
+
+                   namesp       TE   IN     否     属性的命名空间。
+                   ace          XT
+
+                   attribute    TE   IN     否     要设置的属性。
+                                XT
+
+                   value        TE   IN     否     属性对应的值。
+                                XT
+
+
+              ●   PKG_UTIL.UTILITY_GET_TIME
+                  打印unix时间戳。
+                  PKG_UTIL.UTILITY_GET_TIME函数原型为：
+                  PKG_UTIL.UTILITY_GET_TIME()
+                  RETURN BIGINT
+
+              ●   PKG_UTIL.UTILITY_FORMAT_ERROR_BACKTRACE
+                  查看存储过程的错误堆栈。
+                  PKG_UTIL.UTILITY_FORMAT_ERROR_BACKTRACE函数原型为：
+                  PKG_UTIL.UTILITY_FORMAT_ERROR_BACKTRACE()
+                  RETURN TEXT
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司              2638
+GaussDB
+集中式版参考                                                                        3 存储过程
+
+
+              ●   PKG_UTIL.UTILITY_FORMAT_ERROR_STACK
+                  查看存储过程的报错信息。
+                  PKG_UTIL.UTILITY_FORMAT_ERROR_STACK函数原型为：
+                  PKG_UTIL.UTILITY_FORMAT_ERROR_STACK()
+                  RETURN TEXT
+
+              ●   PKG_UTIL.UTILITY_COMPILE_SCHEMA
+                  重编译指定schema中的包函数和存储过程。
+                  PKG_UTIL.UTILITY_COMPILE_SCHEMA函数原型为：
+                  PKG_UTIL.UTILITY_COMPILE_SCHEMA (
+                  schema IN VARCHAR2,
+                  compile_all IN BOOLEAN DEFAULT TRUE,
+                  reuse_settings IN BOOLEAN DEFAULT FALSE
+                  )
+                  RETURNS VOID
+
+              ●   PKG_UTIL.GS_COMPILE_SCHEMA
+                  重编译指定schema中的包函数和存储过程。
+                  PKG_UTIL.GS_COMPILE_SCHEMA存储过程原型为：
+                  PKG_UTIL.GS_COMPILE_SCHEMA (
+                  schema_name IN VARCHAR2 DEFAULT NULL,
+                  compile_all IN BOOLEAN DEFAULT FALSE,
+                  retry_times IN INT DEFAULT 10
+                  )
+
+
+                  表 3-80 PKG_UTIL.GS_COMPILE_SCHEMA 接口参数说明
+                   参数           类    入      是      描述
+                                型    参/     否
+                                     出      可
+                                     参      以
+                                            为
+                                            空
+
+                   schema_      VA   IN     是      命名空间的名称。
+                   name         RC
+                                H
+                                AR
+                                2
+
+                   compile_     B    IN     是      编译所有。
+                   all          O
+                                                   ● false：编译pg_object表中状态为false的包、函
+                                O
+                                                     数和存储过程。
+                                LE
+                                A                  ● true：编译pg_object表中所有的包、函数和存
+                                N                    储过程。
+
+                   retry_ti     IN   IN     是      重试次数。
+                   mes          T
+
+
+              ●   PKG_UTIL.UTILITY_FORMAT_CALL_STACK
+                  查看存储过程调用堆栈。
+                  PKG_UTIL.UTILITY_FORMAT_CALL_STACK函数原型为：
+                  PKG_UTIL.UTILITY_FORMAT_CALL_STACK()
+                  RETURN TEXT
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                          2639
+GaussDB
+集中式版参考                                                                    3 存储过程
+
+                  示例：
+                  -- 删除schema
+                  drop schema if exists pkg_var_test cascade;
+                  -- 创建pkg_var_test
+                  create schema pkg_var_test;
+                  -- 设置schema和参数
+                  set current_schema = pkg_var_test;
+                  -- 创建包
+                  create or replace package test_pkg as
+                      referenced_var int;
+                      unreferenced_var int;
+                  end test_pkg;
+                  /
+                  -- 创建函数
+                  create or replace function test_func return int
+                  is
+                  begin
+                    return 1;
+                  end;
+                  /
+                  -- 创建存储过程
+                  create or replace procedure test_proc
+                  is
+                    proc_var int;
+                  begin
+                    proc_var := 1;
+                  end;
+                  /
+                  -- 重编译pkg_var_test下的包 函数和存储过程
+                  call pkg_util.utility_compile_schema('pkg_var_test');
+                  或者
+                  call pkg_util.gs_compile_schema(' ',false,2);
+                  -- 删掉pkg_var_test
+                  drop schema if exists pkg_var_test cascade;
+
+              ●   PKG_UTIL.APP_SET_MODULE
+                  设置module的值。
+                  PKG_UTIL.APP_SET_MODULE存储过程原型为：
+                  PKG_UTIL.APP_SET_MODULE (
+                    str TEXT)
+                  RETURNS VOID
+
+
+                  表 3-81 PKG_UTIL.APP_SET_MODULE 接口参数说明
+
+                   参数             类      入      是       描述
+                                  型      参/     否
+                                         出      可
+                                         参      以
+                                                为
+                                                空
+
+                   text           TE     IN     是       要设置module的值。
+                                  XT
+
+
+
+
+                  示例：
+                  CALL PKG_UTIL.APP_SET_MODULE('set module');
+                   app_set_module
+                  ----------------
+
+                  (1 row)
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                    2640
+GaussDB
+集中式版参考                                                           3 存储过程
+
+
+              ●   PKG_UTIL.APP_READ_MODULE
+                  读取module的值。
+                  PKG_UTIL.APP_READ_MODULE存储过程原型为：
+                  PKG_UTIL.APP_READ_MODULE(
+                  OUT BUFFER TEXT
+                  )
+
+
+                  表 3-82 PKG_UTIL.APP_READ_MODULE 接口参数说明
+                   参数           类    入        是   描述
+                                型    参/       否
+                                     出        可
+                                     参        以
+                                              为
+                                              空
+
+                   buffer       TE   O        是   返回的module的值。
+                                XT   UT
+
+
+
+                  示例：
+                  CALL PKG_UTIL.APP_SET_MODULE('set module');
+                   app_set_module
+                  ----------------
+
+                  (1 row)
+
+                  DECLARE
+                      module VARCHAR2(64);
+                  BEGIN
+                      PKG_UTIL.APP_READ_MODULE(module);
+                      DBE_OUTPUT.PRINT_LINE(module);
+                  END;
+                  /
+                  set module
+                  ANONYMOUS BLOCK EXECUTE
+
+              ●   PKG_UTIL.APP_SET_ACTION
+                  设置action的值。
+                  PKG_UTIL.APP_SET_ACTION存储过程原型为：
+                  PKG_UTIL.APP_SET_ACTION (
+                    str TEXT)
+                  RETURNS VOID
+
+
+                  表 3-83 PKG_UTIL.APP_SET_ACTION 接口参数说明
+                   参数           类    入        是   描述
+                                型    参/       否
+                                     出        可
+                                     参        以
+                                              为
+                                              空
+
+                   text         TE   IN       是   要设置action的值。
+                                XT
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司             2641
+GaussDB
+集中式版参考                                                             3 存储过程
+
+                  示例：
+                  CALL PKG_UTIL.APP_SET_ACTION('set action');
+                   app_set_action
+                  ----------------
+
+                  (1 row)
+
+              ●   PKG_UTIL.APP_READ_ACTION
+                  读取action的值。
+                  PKG_UTIL.APP_READ_ACTION存储过程原型为：
+                  PKG_UTIL.APP_READ_ACTION(
+                  OUT buffer TEXT
+                  )
+
+
+                  表 3-84 PKG_UTIL.APP_READ_ACTION 接口参数说明
+                   参数           类     入      是      描述
+                                型     参/     否
+                                      出      可
+                                      参      以
+                                             为
+                                             空
+
+                   buffer       TE    O      是      返回的action的值。
+                                XT    UT
+
+
+
+
+                  示例：
+                  CALL PKG_UTIL.APP_SET_ACTION('set action');
+                   app_set_action
+                  ----------------
+
+                  (1 row)
+
+                  DECLARE
+                      action VARCHAR2(64);
+                  BEGIN
+                      PKG_UTIL.APP_READ_ACTION(action);
+                      DBE_OUTPUT.PRINT_LINE(action);
+                  END;
+                  /
+                  set action
+                  ANONYMOUS BLOCK EXECUTE
+
+              ●   PKG_UTIL.MODIFY_PACKAGE_STATE
+                  用于修改当前会话的PL/SQL的状态。
+                  PKG_UTIL.MODIFY_PACKAGE_STATE存储过程原型为：
+                  PKG_UTIL.MODIFY_PACKAGE_STATE (
+                    flags INT)
+                  RETURNS VOID
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司               2642
+GaussDB
+集中式版参考                                                                 3 存储过程
+
+                 表 3-85 PKG_UTIL.MODIFY_PACKAGE_STATE 接口参数说明
+                   参数         类    入     是      描述
+                              型    参/    否
+                                   出     可
+                                   参     以
+                                         为
+                                         空
+
+                   flags      IN   IN    是      对PL/SQL采取的操作的位标志。
+                              T    T            当flags=1时，在执行完最顶层的PL/SQL后，会释
+                                                放会话中目前运行的PL/SQL的会话缓存。清除任
+                                                何包全局的当前值并关闭缓存的游标。在后续使用
+                                                时，PL/SQL将重新实例化，并重新初始化包全
+                                                局。
+                                                不支持其他位标志。
+
+
+
+
+                 示例：
+                 CALL PKG_UTIL.MODIFY_PACKAGE_STATE(1);
+                  modify_package_state
+                 ----------------------
+
+                 (1 row)
+
+
+3.12.1.3 DBE_XML
+              DBE_XML支持的所有接口请参见表3-86：
+
+              表 3-86 DBE_XML 接口参数说明
+               接口名称                            描述
+
+               DBE_XML.XML_FREE_PARSE          释放PARSER。
+               R
+
+               DBE_XML.XML_PARSER_GE           获取解析的document节点。
+               T_DOC
+
+               DBE_XML.XML_GET_VALID           获取validate属性。
+               ATION_MODE
+
+               DBE_XML.XML_SET_VALIDA          新建PARSER实例。
+               TION_MODE
+
+               DBE_XML.XML_PARSE_BUF           解析VARCHAR字符串。
+               FER
+
+               DBE_XML.XML_PARSE_CLO           解析CLOB字符串。
+               B
+
+               DBE_XML.XML_SET_VALIDA          设置validate属性。
+               TION_MODE
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                     2643
+GaussDB
+集中式版参考                                                             3 存储过程
+
+
+               接口名称                    描述
+
+               DBE_XML.XML_DOM_APPE    将newchild node添加到parent(n)节点最后面,并返
+               ND_CHILD                回新添加的Node节点。
+
+               DBE_XML.XML_DOM_CREA    返回创建指定名称的DOMElement对象。
+               TE_ELEMENT
+
+               DBE_XML.XML_DOM_CREA    返回创建指定名称和命名空间的DOMElement对
+               TE_ELEMENT_NS           象。
+
+               DBE_XML.XML_DOM_CREA    创建并返回DOMText对象。
+               TE_TEXT_NODE
+
+               DBE_XML.XML_DOM_FREE_   将指定的xmldom类型对象释放。
+               DOCUMENT
+
+               DBE_XML.XML_DOM_FREE_   将指定的xmldom类型对象释放。
+               ELEMENT
+
+               DBE_XML.XML_DOM_FREE_   释放DOMNode节点。
+               NODE
+
+               DBE_XML.XML_DOM_FREE_   释放DOMNodelist节点。
+               NODELIST
+
+               DBE_XML.XML_DOM_GET_    获取指定的xmldom类型对象的属性。
+               ATTRIBUTE
+
+               DBE_XML.XML_DOM_GET_    将DOMNode节点属性值作为map返回。
+               ATTRIBUTES
+
+               DBE_XML.XML_DOM_GET_    将节点下的若干子节点转换成节点列表。
+               CHILD_NODES
+
+               DBE_XML.XML_DOM_GET_    获取指定的xmldom类型对象指定子节点组成的列
+               CHILDREN_BY_TAGNAME     表。
+
+               DBE_XML.XML_DOM_GET_    获取指定的xmldom类型对象指定命名空间指定子
+               CHILDREN_BY_TAGNAME_    节点组成的列表。
+               NS
+
+               DBE_XML.XML_DOM_GET_    返回指定DOCUMENT的首个子节点。
+               DOCUMENT_ELEMENT
+
+               DBE_XML.XML_DOM_GET_F   返回node节点的第一个子节点。
+               IRST_CHILD
+
+               DBE_XML.XML_DOM_GET_L   返回node节点的最后一个子节点。
+               AST_CHILD
+
+               DBE_XML.XML_DOM_GET_L   根据类型节点中内容返回节点数。
+               ENGTH
+
+               DBE_XML.XML_DOM_GET_L   返回给定对象的本地名称。
+               OCALNAME
+
+
+
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                       2644
+GaussDB
+集中式版参考                                                         3 存储过程
+
+
+               接口名称                    描述
+
+               DBE_XML.XML_DOM_GET_    检索由名称指定的节点。
+               NAMED_ITEM
+
+               DBE_XML.XML_DOM_GET_    检索由名称和命名空间指定的节点。
+               NAMED_ITEM_NS
+
+               DBE_XML.XML_DOM_GET_    返回该节点的下一个节点。
+               NEXT_SIBLING
+
+               DBE_XML.XML_DOM_GET_    返回节点的名称。
+               NODE_NAME
+
+               DBE_XML.XML_DOM_GET_    返回节点的类型。
+               NODE_TYPE
+
+               DBE_XML.XML_DOM_GET_    返回NODE节点的值。
+               NODE_VALUE
+
+               DBE_XML.XML_DOM_GET_    返回给定NODE节点的父节点。
+               PARENT_NODE
+
+               DBE_XML.XML_DOM_GET_    获取指定的xmldom类型对象的标签名。
+               TAGNAME
+
+               DBE_XML.XML_DOM_HAS_    检查DOMNode对象是否拥有任一子节点。
+               CHILD_NODES
+
+               DBE_XML.XML_DOM_IMPO    该函数将节点复制到另一节点中，并将复制后的节
+               RT_NODE                 点挂载到指定document中。
+
+               DBE_XML.XML_DOM_IS_NU   判断给定对象是否为NULL。
+               LL
+
+               DBE_XML.XML_DOM_ITEM    根据索引返回list或map中与索引对应的元素。
+
+               DBE_XML.XML_DOM_MAKE    返回转换后的DOMElement对象。
+               _ELEMENT
+
+               DBE_XML.XML_DOM_MAKE    将给定对象强制转换为DOMNode类型。
+               NODE
+
+               DBE_XML.XML_DOM_NEW_    返回新的DOMDocument对象。
+               DOM_DOCUMENT_EMPTY
+
+               XML_DOM_NEW_DOM_DO      返回从指定的CLOB类型创建的新DOMDocument
+               CUMENT_CLOB             实例对象。
+
+               DBE_XML.XML_DOM_NEW_    返回从指定的XMLType类型创建的新
+               DOCUMENT_XMLTYPE        DOMDOCUMENT实例对象。
+
+               DBE_XML.XML_DOM_SET_A   设置指定的xmldom类型对象的属性。
+               TTRIBUTE
+
+               DBE_XML.XML_DOM_SET_C   设置DOM设置DOMDocument的CHARSET字符
+               HARSET                  集。
+
+
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                       2645
+GaussDB
+集中式版参考                                                                   3 存储过程
+
+
+               接口名称                          描述
+
+               DBE_XML.XML_DOM_SET_          设置DOMDocument的外部DTD。
+               DOCTYPE
+
+               DBE_XML.XML_DOM_SET_          此函数用于向DOMNode对象中设置节点的值。
+               NODE_VALUE
+
+               DBE_XML.XML_DOM_WRIT          将给定的DOMDocument类型对象写入缓冲区。
+               E_TO_BUFFER_DOC
+
+               DBE_XML.XML_DOM_WRIT          将给定的DOMNode类型对象写入缓冲区。
+               E_TO_BUFFER_NODE
+
+               DBE_XML.XML_DOM_WRIT          将给定的DOMDocument类型对象写入Clob。
+               E_TO_CLOB_DOC
+
+               DBE_XML.XML_DOM_WRIT          将给定的DOMNode类型对象写入Clob。
+               E_TO_CLOB_NODE
+
+               DBE_XML.XML_DOM_WRIT          使用数据库字符集将XML节点写入指定文件。
+               E_TO_FILE_DOC
+
+               DBE_XML.XML_DOM_WRIT          使用数据库字符集将XML节点写入指定文件。
+               E_TO_FILE_NODE
+
+               DBE_XML.XML_DOM_GET_S         显示当前session中所有类型的DOM树的数量。
+               ESSION_TREE_NUM
+
+               DBE_XML.XML_DOM_GET_          显示document类型的dom树的内存占用、节点数
+               DOC_TREES_INFO                量等统计信息。
+
+               DBE_XML.XML_DOM_GET_          显示特定的document变量的各类型节点数量。
+               DETAIL_DOC_TREE_INFO
+
+
+
+
+              ●   DBE_XML.XML_FREE_PARSER
+                  释放给定的PARSER对象。
+                  DBE_XML.XML_FREE_PARSER的存储过程原型为：
+                  DBE_XML.XML_FREE_PARSER(
+                  id IN RAW(13))
+                  RETURNS VOID;
+
+
+                  表 3-87 DBE_XML.XML_FREE_PARSER 接口参数说明
+
+                   参数              类型             入参/出参   是否可以为空    描述
+
+                   id              RAW(13)        IN      是         指定的parser
+                                                                    类型对象。
+
+
+              ●   DBE_XML.XML_PARSER_GET_DOC
+                  XML_PARSER_GET_DOC返回PARSER构建的DOM树文档的根节点。
+                  DBE_XML.XML_PARSER_GET_DOC的函数原型为：
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                        2646
+GaussDB
+集中式版参考                                                                     3 存储过程
+
+                  DBE_XML.XML_PARSER_GET_DOC(
+                  id IN RAW(13))
+                  RETURNS RAW(13);
+
+
+                  表 3-88 DBE_XML.XML_PARSER_GET_DOC 接口参数说明
+
+                   参数              类型                入参/出参   是否可以为空   描述
+
+                   id              RAW(13)           IN      是        指定的parser
+                                                                      类型对象。
+
+
+
+
+                        说明
+
+                        ● DBE_XML.XML_PARSER_GET_DOC函数传空，返回null。
+                        ● DBE_XML.XML_PARSER_GET_DOC函数传入的parser还没有解析文档，返回null。
+              ●   DBE_XML.XML_GET_VALIDATION_MODE
+                  获取给定PARSER的解析验证模式。如果DTD验证开启返回TRUE，否则返回
+                  FALSE。
+                  DBE_XML.XML_GET_VALIDATION_MODE的函数原型为：
+                  DBE_XML.XML_GET_VALIDATION_MODE(
+                  id RAW(13))
+                  RETURNS BOOL;
+
+
+                  表 3-89 DBE_XML.XML_GET_VALIDATION_MODE 接口参数说明
+
+                   参数              类型                入参/出参   是否可以为空   描述
+
+                   id              RAW(13)           IN      是        指定的parser
+                                                                      类型对象。
+
+
+              ●   DBE_XML.XML_NEW_PARSER
+                  新建PARSER对象，返回一个新的解析器实例。
+                  DBE_XML.XML_NEW_PARSER的函数原型为：
+                  DBE_XML.XML_NEW_PARSER()
+                  RETURNS RAW(13);
+
+              ●   DBE_XML.XML_PARSE_BUFFER
+                  XML_PARSE_BUFFER解析存储在字符串中的XML文档。
+                  DBE_XML.XML_PARSE_BUFFER的存储过程原型为：
+                  DBE_XML.XML_PARSE_BUFFER(
+                  id RAW(13),
+                  xmlstr VARCHAR2)
+                  RETURNS VOID;
+
+
+                  表 3-90 DBE_XML.XML_PARSE_BUFFER 接口参数说明
+
+                   参数              类型                入参/出参   是否可以为空   描述
+
+                   id              RAW(13)           IN      是        指定的parser
+                                                                      类型对象。
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                          2647
+GaussDB
+集中式版参考                                                                              3 存储过程
+
+
+                   参数              类型             入参/出参         是否可以为空         描述
+
+                   xmlstr          VARCHAR2       IN            否              存储XML文档
+                                                                               的字符串。
+
+
+
+
+                         说明
+
+                        ● XML_PARSE_BUFFER函数能够解析的字符串最大长度为32767，超过最大长度解析报
+                          错。
+                        ● 与A数据库差异：字符串encoding只支持UTF-8；version字段只支持1.0，1.0-1.9解析
+                          警告但正常执行，1.9以上报错。
+                        ● 与A数据库DTD校验差异：
+                          ●   !ATTLIST to type (CHECK|check|Check) "Ch..."将报错，因默认值"Ch..."不属于括
+                              号中枚举值，而A数据库不报错。
+                          ●   <!ENTITY baidu "www.baidu.com">...... &Baidu;&writer将报错，因区分字母大小
+                              写，Baidu无法与baidu对应，而A数据库不报错。
+                        ● 与A数据库命名空间校验差异：解析未声明的命名空间标签正常执行，而A数据库会报
+                          错。
+                        ● 与A数据库XML预定义实体解析差异：&apos;&quot;会被解析转义为字符，而A数据库
+                          中预定义实体统一都没有转义为字符。
+              ●   DBE_XML.XML_PARSE_CLOB
+                  XML_PARSE_CLOB解析存储在CLOB中的XML文档。
+                  DBE_XML.XML_PARSE_CLOB的存储过程原型为：
+                  DBE_XML.XML_PARSE_CLOB(
+                  id IN RAW(13),
+                  doc IN CLOB)
+                  RETURNS VOID；
+
+
+                  表 3-91 DBE_XML.XML_PARSE_CLOB 接口参数说明
+                   参数              类型             入参/出参         是否可以为空         描述
+
+                   id              RAW(13)        IN            是              指定的parser
+                                                                               类型对象。
+
+                   doc             CLOB           IN            否              存储XML文档
+                                                                               的字符串。
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                                     2648
+GaussDB
+集中式版参考                                                                             3 存储过程
+
+
+                        说明
+
+                        ● xml_parse_clob不支持解析大于等于2GB的CLOB。
+                        ● 与A数据库差异：字符串encoding只支持UTF-8；version字段只支持1.0，1.0-1.9解析
+                          警告但正常执行，1.9以上报错。
+                        ● 与A数据库DTD校验差异：
+                          ●   !ATTLIST to type (CHECK|check|Check) "Ch..."将报错，因默认值"Ch..."不属于括
+                              号中枚举值，而A数据库不报错。
+                          ●   <!ENTITY baidu "www.baidu.com">...... &Baidu;&writer将报错，因区分字母大小
+                              写，Baidu无法与baidu对应，而A数据库不报错。
+                        ● 与A数据库命名空间校验差异：解析未声明的命名空间标签正常执行，而A数据库会报
+                          错。
+                        ● 与A数据库xml预定义实体解析差异：&apos;&quot;会被解析转义为字符’”，而A数
+                          据库中预定义实体统一都没有转义为字符。
+              ●   DBE_XML.XML_SET_VALIDATION_MODE
+                  设置给定PARSER的解析验证模式。
+                  DBE_XML.XML_SET_VALIDATION_MODE的存储过程原型为：
+                  DBE_XML.XML_SET_VALIDATION_MODE(
+                  id RAW(13),
+                  validate BOOLEAN)
+                  RETURNS VOID;
+
+
+                  表 3-92 DBE_XML.XML_SET_VALIDATION_MODE 接口参数说明
+
+                   参数         类型          入参/出参         是否可以为        描述
+                                                        空
+
+                   id         RAW(13)     IN            是            指定的parser类型对象。
+
+                   validate   BOOLEAN     IN            是            要设置的模式：
+                                                                     ● TRUE：开启DTD验
+                                                                       证。
+                                                                     ● FALSE：不开启验
+                                                                       证。
+
+
+
+
+                        说明
+
+                        ● DBE_XML.XML_SET_VALIDATION_MODE函数validate传入为空，不改变parser的解析
+                          验证模式。
+                        ● parser初始化默认为开启DTD验证模式。
+              ●   DBE_XML.XML_DOM_APPEND_CHILD
+                  将newchild node添加到parent(n)节点最后面,并返回新添加的Node节点。
+                  DBE_XML.XML_DOM_APPEND_CHILD的存储过程原型为：
+                  DBE_XML.XML_DOM_APPEND_CHILD(
+                    parentid IN RAW(13),
+                    childid IN RAW(13)
+                  )
+                  RETURNS RAW(13);
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                                    2649
+GaussDB
+集中式版参考                                                                    3 存储过程
+
+                  表 3-93 DBE_XML.XML_DOM_APPEND_CHILD 接口参数说明
+
+                   参数           类型           入参/出参         是否可以   描述
+                                                           为空
+
+                   parentId     RAW(13)      IN            否      指定的xmldom类型对
+                                                                  象。
+
+                   childId      RAW(13)      IN            否      指定的xmldom类型对
+                                                                  象。
+
+
+              ●   DBE_XML.XML_DOM_CREATE_ELEMENT
+                  返回创建指定名称的DOMElement对象。
+                  DBE_XML.XML_DOM_CREATE_ELEMENT的函数原型为：
+                  DBE_XML.XML_DOM_CREATE_ELEMENT(
+                    id IN RAW(13),
+                    tagname IN VARCHAR2
+                  )
+                  RETURNS RAW(13);
+
+
+                  表 3-94 DBE_XML.XML_DOM_CREATE_ELEMENT 接口参数说明
+
+                   参数         类型           入参/出参       是否可以为空     描述
+
+                   id         RAW(13)      IN          否          指定的xmldom类型对
+                                                                  象。
+
+                   tagnam     VARCHAR2     IN          否          新建的DOMElement
+                   e                                              名称。
+
+
+              ●   DBE_XML.XML_DOM_CREATE_ELEMENT_NS
+                  返回创建指定名称和命名空间的DOMElement对象。
+                  DBE_XML.XML_DOM_CREATE_ELEMENT_NS的函数原型为：
+                  DBE_XML.XML_DOM_CREATE_ELEMENT_NS(
+                    id IN RAW(13),
+                    tagname IN VARCHAR2,
+                    ns IN VARCHAR2
+                  )
+                  RETURNS RAW(13);
+
+
+                  表 3-95 DBE_XML.XML_DOM_CREATE_ELEMENT_NS 接口参数说明
+
+                   参数         类型           入参/出参       是否可以为      描述
+                                                       空
+
+                   id         RAW(13)      IN          否          指定的xmldom类型对
+                                                                  象。
+
+                   tagnam     VARCHAR2     IN          否          新建的DOMElement名
+                   e                                              称。
+
+                   ns         VARCHAR2     IN          否          命名空间。
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                         2650
+GaussDB
+集中式版参考                                                                     3 存储过程
+
+
+              ●   DBE_XML.XML_DOM_CREATE_TEXT_NODE
+                  创建并返回DOMText对象。
+                  DBE_XML.XML_DOM_CREATE_TEXT_NODE的函数原型为：
+                  DBE_XML.XML_DOM_CREATE_TEXT_NODE(
+                    id IN RAW(13),
+                    data IN VARCHAR2
+                  )
+                  RETURNS RAW(13);
+
+
+                  表 3-96 DBE_XML.XML_DOM_CREATE_TEXT_NODE 接口参数说明
+
+                   参数        类型            入参/出参        是否可以为   描述
+                                                        空
+
+                   id        RAW(13)       IN           否       指定的xmldom类型对
+                                                                象。
+
+                   data      VARCHAR2      IN           否       新建的DOMText节点内
+                                                                容。
+
+
+              ●   DBE_XML.XML_DOM_FREE_DOCUMENT
+                  将指定的XMLDOM类型对象释放。
+                  DBE_XML.XML_DOM_FREE_DOCUMENT的存储过程原型为：
+                  DBE_XML.XML_DOM_FREE_DOCUMENT(
+                    id RAW(13)
+                  )
+                  RETURNS VOID;
+
+
+                  表 3-97 DBE_XML.XML_DOM_FREE_DOCUMENT 接口参数说明
+
+                   参数         类型                入参/出参       是否可以为   描述
+                                                            空
+
+                   id         RAW(13)           IN          否       指定的xmldom类型
+                                                                    对象。
+
+
+              ●   DBE_XML.XML_DOM_FREE_ELEMENT
+                  将指定的XMLDOM类型对象释放。
+                  DBE_XML.XML_DOM_FREE_ELEMENT的存储过程原型为：
+                  DBE_XML.XML_DOM_FREE_ELEMENT (
+                    id RAW(13)
+                  )
+                  RETURNS VOID;
+
+
+                  表 3-98 DBE_XML.XML_DOM_FREE_ELEMENT 接口参数说明
+
+                   参数           类型                 入参/出参    是否可以为    描述
+                                                            空
+
+                   id           RAW(13)            IN       否        指定的xmldom类型
+                                                                     对象。
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                          2651
+GaussDB
+集中式版参考                                                                       3 存储过程
+
+
+              ●   DBE_XML.XML_DOM_FREE_NODE
+                  释放DOMNODE节点。
+                  DBE_XML.XML_DOM_FREE_NODE的函数原型为：
+                  DBE_XML.XML_DOM_FREE_NODE (
+                    id RAW(13)
+                  )
+                  RETURNS VOID;
+
+
+                  表 3-99 DBE_XML.XML_DOM_FREE_NODE 接口参数说明
+
+                   参数              类型               入参/出参    是否可以为空     描述
+
+                   id              RAW(13)          IN       否          指定的
+                                                                        xmldom类型
+                                                                        对象。
+
+
+              ●   DBE_XML.XML_DOM_FREE_NODELIST
+                  释放DOMNODELIST节点。
+                  DBE_XML.XML_DOM_FREE_NODELIST的存储过程原型为：
+                  DBE_XML.XML_DOM_FREE_NODELIST(
+                    id IN RAW(13)
+                  )
+                  RETURNS VOID
+
+
+                  表 3-100 DBE_XML.XML_DOM_FREE_NODELIST 接口参数说明
+
+                   参数          类型           入参/出参        是否可以为   描述
+                                                         空
+
+                   id          RAW(13)      IN           否       指定的xmldom类型对
+                                                                 象。
+
+
+              ●   DBE_XML.XML_DOM_GET_ATTRIBUTE
+                  获取指定的xmldom类型对象的属性。
+                  DBE_XML.XML_DOM_GET_ATTRIBUTE的存储过程原型为：
+                  DBE_XML.XML_DOM_GET_ATTRIBUTE (
+                    docid IN RAW(13),
+                    name IN VARCHAR2
+                  )
+                  RETURNS VARCHAR2;
+
+
+                  表 3-101 DBE_XML.XML_DOM_GET_ATTRIBUTE 接口参数说明
+
+                   参数              类型               入参/出参    是否可以为    描述
+                                                             空
+
+                   docid           RAW(13)          IN       否        指定的xmldom类
+                                                                      型对象。
+
+                   name            VARCHAR2         IN       否        字符串。
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                            2652
+GaussDB
+集中式版参考                                                                    3 存储过程
+
+
+              ●   DBE_XML.XML_DOM_GET_ATTRIBUTES
+                  将DOMNode节点属性值作为map返回。
+                  DBE_XML.XML_DOM_GET_ATTRIBUTES的函数原型为：
+                  DBE_XML.XML_DOM_GET_ATTRIBUTES (
+                    id RAW(13)
+                  )
+                  RETURNS RAW(13);
+
+
+                  表 3-102 DBE_XML.XML_DOM_GET_ATTRIBUTES 接口参数说明
+
+                   参数              类型                入参/出参    是否可以   描述
+                                                              为空
+
+                   id              RAW(13)           IN       否      指定的xmldom类
+                                                                     型对象。
+
+
+              ●   DBE_XML.XML_DOM_GET_CHILD_NODES
+                  将节点下的若干子节点转换成节点列表。
+                  DBE_XML.XML_DOM_GET_CHILD_NODES的函数原型为：
+                  DBE_XML.XML_DOM_GET_CHILD_NODES(
+                    id IN RAW(13)
+                  )
+                  RETURNS RAW(13);
+
+
+                  表 3-103 DBE_XML.XML_DOM_GET_CHILD_NODES 接口参数说明
+
+                   参数              类型                入参/出参    是否可以   描述
+                                                              为空
+
+                   id              RAW(13)           IN       否      指定的xmldom
+                                                                     类型对象。
+
+
+              ●   DBE_XML.XML_DOM_GET_CHILDREN_BY_TAGNAME
+                  获取指定的xmldom类型对象指定子节点组成的列表。
+                  DBE_XML.XML_DOM_GET_CHILDREN_BY_TAGNAME的存储过程原型为：
+                  DBE_XML.XML_DOM_GET_CHILDREN_BY_TAGNAME (
+                    docid IN RAW(13),
+                    name IN VARCHAR2
+                  )
+                  RETURNS RAW(13);
+
+
+                  表 3-104 DBE_XML.XML_DOM_GET_CHILDREN_BY_TAGNAME 接口参数说明
+
+                   参数              类型                入参/出参    是否可以   描述
+                                                              为空
+
+                   docid           RAW(13)           IN       否      指定的xmldom类
+                                                                     型对象。
+
+                   name            VARCHAR2          IN       否      字符串。
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                         2653
+GaussDB
+集中式版参考                                                                       3 存储过程
+
+
+              ●   DBE_XML.XML_DOM_GET_CHILDREN_BY_TAGNAME_NS
+                  获取指定的xmldom类型对象指定命名空间指定子节点组成的列表。
+                  DBE_XML.XML_DOM_GET_CHILDREN_BY_TAGNAME_NS的存储过程原型为：
+                  DBE_XML.XML_DOM_GET_CHILDREN_BY_TAGNAME_NS (
+                    docid IN RAW(13),
+                    name IN VARCHAR2,
+                    ns   IN VARCHAR2
+                  )
+                  RETURNS RAW(13);
+
+
+                  表 3-105 DBE_XML.XML_DOM_GET_CHILDREN_BY_TAGNAME_NS 接口参数说
+                  明
+                   参数              类型                入参/出参       是否可以   描述
+                                                                 为空
+
+                   docid           RAW(13)           IN          否      指定的xmldom
+                                                                        类型对象。
+
+                   name            VARCHAR2          IN          否      字符串。
+
+                   ns              VARCHAR2          IN          是      字符串。
+
+
+              ●   DBE_XML.XML_DOM_GET_DOCUMENT_ELEMENT
+                  返回指定DOCUMENT的首个子节点。
+                  DBE_XML.XML_DOM_GET_DOCUMENT_ELEMENT的存储过程原型为：
+                  DBE_XML.XML_DOM_GET_DOCUMENT_ELEMENT(
+                    id RAW(13)
+                  )
+                  RETURNS RAW(13);
+
+
+                  表 3-106 DBE_XML.XML_DOM_GET_DOCUMENT_ELEMENT 接口参数说明
+                   参数              类型                入参/出参       是否可以   描述
+                                                                 为空
+
+                   id              RAW(13)           IN          否      指定的xmldom类
+                                                                        型对象。
+
+
+              ●   DBE_XML.XML_DOM_GET_FIRST_CHILD
+                  返回node节点的第一个子节点。
+                  DBE_XML.XML_DOM_GET_FIRST_CHILD的函数原型为：
+                  DBE_XML.XML_DOM_GET_FIRST_CHILD(
+                    id IN RAW(13)
+                  )
+                  RETURNS RAW(13);
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                            2654
+GaussDB
+集中式版参考                                                                  3 存储过程
+
+                  表 3-107 DBE_XML.XML_DOM_GET_FIRST_CHILD 接口参数说明
+                   参数              类型               入参/出参   是否可以   描述
+                                                            为空
+
+                   id              RAW(13)          IN      否      指定的xmldom类
+                                                                   型对象。
+
+
+              ●   DBE_XML.XML_DOM_GET_LAST_CHILD
+                  返回node节点的最后一个子节点。
+                  DBE_XML.XML_DOM_GET_LAST_CHILD的函数原型为：
+                  DBE_XML.XML_DOM_GET_LAST_CHILD(
+                    id IN RAW(13)
+                  )
+                  RETURNS RAW(13);
+
+
+                  表 3-108 DBE_XML.XML_DOM_GET_LAST_CHILD 接口参数说明
+                   参数              类型               入参/出参   是否可以   描述
+                                                            为空
+
+                   id              RAW(13)          IN      否      指定的xmldom类
+                                                                   型对象。
+
+
+              ●   DBE_XML.XML_DOM_GET_LENGTH
+                  根据类型节点中内容返回节点数。
+                  DBE_XML.XML_DOM_GET_LENGTH的存储过程原型为：
+                  DBE_XML.XML_DOM_GET_LENGTH(
+                    id RAW(13)
+                  )
+                  RETURNS VOID;
+
+
+                  表 3-109 DBE_XML.XML_DOM_GET_LENGTH 接口参数说明
+                   参数              类型               入参/出参   是否可以   描述
+                                                            为空
+
+                   id              RAW(13)          IN      是      指定的xmldom
+                                                                   类型对象。
+
+
+              ●   DBE_XML.XML_DOM_GET_LOCALNAME
+                  返回给定对象的本地名称。
+                  DBE_XML.XML_DOM_GET_LOCALNAME的存储过程原型为：
+                  DBE_XML.XML_DOM_GET_LOCALNAME (
+                    id RAW(13)
+                  )
+                  RETURNS VARCHAR2;
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                       2655
+GaussDB
+集中式版参考                                                                   3 存储过程
+
+                  表 3-110 DBE_XML.XML_DOM_GET_LOCALNAME 接口参数说明
+                   参数             类型                入参/出参   是否可以    描述
+                                                            为空
+
+                   id             RAW(13)           IN      是       指定的xmldom
+                                                                    类型对象。
+
+
+              ●   DBE_XML.XML_DOM_GET_NAMED_ITEM
+                  检索由名称指定的节点。
+                  DBE_XML.XML_DOM_GET_NAMED_ITEM的函数原型为：
+                  DBE_XML.XML_DOM_GET_NAMED_ITEM(
+                    id IN RAW(13),
+                    nodeName IN VARCHAR2
+                  )
+                  RETURNS RAW(13);
+
+
+                  表 3-111 DBE_XML.XML_DOM_GET_NAMED_ITEM 接口参数说明
+                   参数             类型                入参/出参   是否可以   描述
+                                                            为空
+
+                   id             RAW(13)           IN      否      指定的xmldom类
+                                                                   型对象。
+
+                   nodeName       VARCHAR2          IN      否      要检索的元素的名
+                                                                   称。
+
+
+              ●   DBE_XML.XML_DOM_GET_NAMED_ITEM_NS
+                  检索由名称和命名空间指定的节点。
+                  DBE_XML.XML_DOM_GET_NAMED_ITEM_NS的函数原型为：
+                  DBE_XML.XML_DOM_GET_NAMED_ITEM_NS(
+                    id RAW(13),
+                    nodename IN VARCHAR2,
+                    ns IN VARCHAR2
+                  )
+                  RETURNS RAW(13);
+
+
+                  表 3-112 DBE_XML.XML_DOM_GET_NAMED_ITEM_NS 接口参数说明
+                   参数             类型                入参/出参   是否可以   描述
+                                                            为空
+
+                   id             RAW(13)           IN      否      指定的xmldom
+                                                                   类型对象。
+
+                   nodeName       VARCHAR2          IN      否      要检索的元素的
+                                                                   名称。
+
+                   ns             VARCHAR2          IN      是      命名空间。
+
+
+              ●   DBE_XML.XML_DOM_GET_NEXT_SIBLING
+                  返回该节点的下一个节点。
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                         2656
+GaussDB
+集中式版参考                                                                    3 存储过程
+
+                  DBE_XML.XML_DOM_GET_NEXT_SIBLING的函数原型为：
+                  DBE_XML.XML_DOM_GET_NEXT_SIBLING(
+                    id IN RAW(13)
+                  )
+                  RETURNS RAW(13);
+
+
+                  表 3-113 DBE_XML.XML_DOM_GET_NEXT_SIBLING 接口参数说明
+                   参数              类型                 入参/出参   是否可以   描述
+                                                              为空
+
+                   id              RAW(13)            IN      否      指定的xmldom类
+                                                                     型对象。
+
+
+              ●   DBE_XML.XML_DOM_GET_NODE_NAME
+                  返回节点的名称。
+                  DBE_XML.XML_DOM_GET_NODE_NAME的函数原型为：
+                  DBE_XML.XML_DOM_GET_NODE_NAME(
+                    id IN RAW(13)
+                  )
+                  RETURNS VARCHAR2;
+
+
+                  表 3-114 DBE_XML.XML_DOM_GET_NODE_NAME 接口参数说明
+                   参数              类型                 入参/出参   是否可以   描述
+                                                              为空
+
+                   id              RAW(13)            IN      否      指定的xmldom类
+                                                                     型对象。
+
+
+              ●   DBE_XML.XML_DOM_GET_NODE_TYPE
+                  返回节点的类型。
+                  DBE_XML.XML_DOM_GET_NODE_TYPE的函数原型为：
+                  DBE_XML.XML_DOM_GET_NODE_TYPE(
+                    id IN RAW(13)
+                  )
+                  RETURNS INTEGER;
+
+
+                  表 3-115 DBE_XML.XML_DOM_GET_NODE_TYPE 接口参数说明
+                   参数              类型                 入参/出参   是否可以   描述
+                                                              为空
+
+                   id              RAW(13)            IN      否      指定的xmldom
+                                                                     类型对象。
+
+
+              ●   DBE_XML.XML_DOM_GET_NODE_VALUE
+                  返回NODE节点的值。
+                  DBE_XML.XML_DOM_GET_NODE_VALUE的存储过程原型为：
+                  DBE_XML.XML_DOM_GET_NODE_VALUE(
+                  id IN RAW(13))
+                  RETURNS VARCHAR2;
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                         2657
+GaussDB
+集中式版参考                                                                 3 存储过程
+
+                  表 3-116 DBE_XML.XML_DOM_GET_NODE_VALUE 接口参数说明
+                   参数             类型              入参/出参   是否可以为   描述
+                                                          空
+
+                   id             RAW(13)         IN      是       指定的xmldom
+                                                                  类型对象。
+
+
+              ●   DBE_XML.XML_DOM_GET_PARENT_NODE
+                  返回给定NODE节点的父节点。
+                  DBE_XML.XML_DOM_GET_PARENT_NODE的存储过程原型为：
+                  DBE_XML.XML_DOM_GET_PARENT_NODE(
+                  id IN RAW(13))
+                  RETURNS RAW(13);
+
+
+                  表 3-117 DBE_XML.XML_DOM_GET_PARENT_NODE 接口参数说明
+                   参数             类型              入参/出参   是否可以为   描述
+                                                          空
+
+                   id             RAW(13)         IN      是       指定的xmldom
+                                                                  类型对象。
+
+
+              ●   DBE_XML.XML_DOM_GET_TAGNAME
+                  获取指定的xmldom类型对象的标签名。
+                  DBE_XML.XML_DOM_GET_TAGNAME的存储过程原型为：
+                  DBE_XML.XML_DOM_GET_TAGNAME (
+                    docid RAW(13)
+                  )
+                  RETURNS VARCHAR2;
+
+
+                  表 3-118 DBE_XML.XML_DOM_GET_TAGNAME 接口参数说明
+                   参数             类型              入参/出参   是否可以    描述
+                                                          为空
+
+                   docid          RAW(13)         IN      是       指定的xmldom
+                                                                  类型对象。
+
+
+              ●   DBE_XML.XML_DOM_HAS_CHILD_NODES
+                  检查DOMNODE对象是否拥有任一子节点。
+                  DBE_XML.XML_DOM_HAS_CHILD_NODES的存储过程原型为：
+                  DBE_XML.XML_DOM_HAS_CHILD_NODES(
+                  id IN RAW(13))
+                  RETURNS BOOLEAN
+
+
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                       2658
+GaussDB
+集中式版参考                                                                    3 存储过程
+
+                  表 3-119 DBE_XML.XML_DOM_HAS_CHILD_NODES 接口参数说明
+
+                   参数              类型              入参/出参    是否可以     描述
+                                                            为空
+
+                   id              RAW(13)         IN       是        指定的xmldom
+                                                                     类型对象。
+
+
+              ●   DBE_XML.XML_DOM_IMPORT_NODE
+                  该函数将节点复制到另一节点中，并将复制后的节点挂载到指定document中。若
+                  被复制节点的类型不属于xmldom的constants所规定的12种类型，则直接抛出类
+                  型不支持异常。
+                  DBE_XML.XML_DOM_IMPORT_NODE的函数原型为：
+                  DBE_XML.XML_DOM_IMPORT_NODE(
+                    doc_id IN RAW(13),
+                    node_id IN RAW(13),
+                    deep IN BOOLEAN
+                  )
+                  RETURNS RAW(13);
+
+
+                  表 3-120 DBE_XML.XML_DOM_IMPORT_NODE 接口参数说明
+
+                   参数          类型             入参/出参     是否可以    描述
+                                                        为空
+
+                   doc_id      RAW(13)        IN        否       节点挂载的文档。
+
+                   node_id     RAW(13)        IN        否       将要导入的节点。
+
+                   deep        BOOLEAN        IN        否       设置递归导入：
+                                                                ● 如果为TRUE，则导入
+                                                                  该节点及其所有子节
+                                                                  点。
+                                                                ● 如果为FALSE，则只导
+                                                                  入节点本身。
+
+
+              ●   DBE_XML.XML_DOM_IS_NULL
+                  判断给定对象是否为NULL，如果是则返回True，否则返回false。
+                  DBE_XML.XML_DOM_IS_NULL的函数原型为：
+                  DBE_XML.XML_DOM_IS_NULL (
+                    id RAW(13)
+                  )
+                  RETURNS BOOLEAN;
+
+
+                  表 3-121 DBE_XML.XML_DOM_IS_NULL 接口参数说明
+
+                   参数              类型              入参/出参    是否可以为    描述
+                                                            空
+
+                   id              RAW(13)         IN       是        指定的xmldom
+                                                                     类型对象。
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                         2659
+GaussDB
+集中式版参考                                                                 3 存储过程
+
+
+              ●   DBE_XML.XML_DOM_ITEM
+                  根据索引返回list或map中与索引对应的元素。
+                  DBE_XML.XML_DOM_ITEM的函数原型为：
+                  DBE_XML.XML_DOM_ITEM (
+                    id IN RAW(13),
+                    index IN INTEGER
+                  )
+                  RETURNS RAW(13);
+
+
+                  表 3-122 DBE_XML.XML_DOM_ITEM 接口参数说明
+
+                   参数              类型             入参/出参   是否可以    描述
+                                                          为空
+
+                   id              RAW(13)        IN      否       指定的xmldom类
+                                                                  型对象。
+
+                   index           INTEGER        IN      否       要检索的元素的
+                                                                  索引。
+
+
+              ●   DBE_XML.XML_DOM_MAKE_ELEMENT
+                  返回转换后的DOMELEMENT对象。
+                  DBE_XML.XML_DOM_MAKE_ELEMENT的存储过程原型为：
+                  DBE_XML.XML_DOM_MAKE_ELEMENT(
+                  id IN RAW(13))
+                  RETURNS RAW(13)
+
+
+                  表 3-123 DBE_XML.XML_DOM_MAKE_ELEMENT 接口参数说明
+
+                   参数              类型             入参/出参   是否可以    描述
+                                                          为空
+
+                   id              RAW(13)        IN      否       指定的xmldom
+                                                                  类型对象。
+
+
+              ●   DBE_XML.XML_DOM_MAKENODE
+                  将给定对象强制转换为DOMNODE类型。
+                  DBE_XML.XML_DOM_MAKENODE的存储过程原型为：
+                  DBE_XML.XML_DOM_MAKENODE(
+                    id RAW(13)
+                  )
+                  RETURNS DOMNODE;
+
+
+                  表 3-124 DBE_XML.XML_DOM_MAKENODE 接口参数说明
+
+                   参数              类型             入参/出参   是否可以为   描述
+                                                          空
+
+                   id              RAW(13)        IN      是       指定的xmldom
+                                                                  类型对象。
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                      2660
+GaussDB
+集中式版参考                                                                     3 存储过程
+
+
+              ●   DBE_XML.XML_DOM_NEW_DOM_DOCUMENT_EMPTY
+                  返回新的DOMDOCUMENT对象。
+                  DBE_XML.XML_DOM_NEW_DOM_DOCUMENT_EMPTY的函数原型为：
+                  DBE_XML.XML_DOM_NEW_DOM_DOCUMENT_EMPTY()
+                  RETURNS RAW(13);
+
+              ●   XML_DOM_NEW_DOM_DOCUMENT_CLOB
+                  返回从指定的CLOB类型创建的新DOMDOCUMENT实例对象。
+                  XML_DOM_NEW_DOM_DOCUMENT_CLOB的函数原型为：
+                  DBE_XML.XML_DOM_NEW_DOM_DOCUMENT_CLOB(
+                    content IN CLOB
+                  )
+                  RETURNS RAW(13);
+
+
+                  表 3-125 XML_DOM_NEW_DOM_DOCUMENT_CLOB 接口参数说明
+                   参数              类型              入参/出参     是否可以为空   描述
+
+                   content         CLOB            IN        否        指定的CLOB
+                                                                      类型。
+
+
+              ●   DBE_XML.XML_DOM_NEW_DOCUMENT_XMLTYPE
+                  返回从指定的XMLType类型创建的新DOMDOCUMENT实例对象。
+                  DBE_XML.XML_DOM_NEW_DOCUMENT_XMLTYPE的函数原型为：
+                  DBE_XML.XML_DOM_NEW_DOCUMENT_XMLTYPE(
+                    content IN CLOB
+                  )
+                  RETURNS RAW(13);
+
+
+                  表 3-126 DBE_XML.XML_DOM_NEW_DOCUMENT_XMLTYPE 接口参数说明
+                   参数              类型              入参/出参     是否可以为空   描述
+
+                   content         CLOB            IN        否        指定的CLOB
+                                                                      类型。
+
+
+              ●   DBE_XML.XML_DOM_SET_ATTRIBUTE
+                  设置指定的xmldom类型对象的属性。
+                  DBE_XML.XML_DOM_SET_ATTRIBUTE的存储过程原型为：
+                  DBE_XML.XML_DOM_SET_ATTRIBUTE(
+                    docid IN RAW(13),
+                    name IN VARCHAR2,
+                    value IN VARCHAR2
+                  )
+                  RETURNS VOID;
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                          2661
+GaussDB
+集中式版参考                                                                     3 存储过程
+
+                  表 3-127 DBE_XML.XML_DOM_SET_ATTRIBUTE 接口参数说明
+
+                   参数                类型          入参/出参       是否可以     描述
+                                                             为空
+
+                   id                RAW(13)     IN          否        指定的xmldom
+                                                                      类型对象。
+
+                   name              VARCHAR2    IN          否        字符串。
+
+                   value             VARCHAR2    IN          否        字符串。
+
+
+              ●   DBE_XML.XML_DOM_SET_CHARSET
+                  设置DOMDOCUMENT的CHARSET字符集。
+                  DBE_XML.XML_DOM_SET_CHARSET的函数原型为：
+                  DBE_XML.XML_DOM_SET_CHARSET(
+                    id    IN RAW(13),
+                    charset IN VARCHAR2
+                  )
+                  RETURNS VOID;
+
+
+                  表 3-128 DBE_XML.XML_DOM_SET_CHARSET 接口参数说明
+
+                   参数                类型          入参/出参       是否可以     描述
+                                                             为空
+
+                   id                RAW(13)     IN          否        指定的xmldom
+                                                                      类型对象。
+
+                   charset           VARCHAR2    IN          否        字符集。
+
+
+              ●   DBE_XML.XML_DOM_SET_DOCTYPE
+                  设置DOMDOCUMENT的外部DTD。
+                  DBE_XML.XML_DOM_SET_DOCTYPE的函数原型为：
+                  dbe_xml.xml_dom_set_doctype(
+                    id       IN RAW(13),
+                    dtd_name IN VARCHAR2,
+                    system_id IN VARCHAR2,
+                    public_id IN VARCHAR2
+                  )
+                  RETURNS VOID;
+
+
+                  表 3-129 DBE_XML.XML_DOM_SET_DOCTYPE 接口参数说明
+
+                   参数                类型          入参/出参   是否可以       描述
+                                                         为空
+
+                   id                RAW(13)     IN      否          指定的xmldom类型
+                                                                    对象。
+
+                   dtd_name          VARCHAR2    IN      否          需要初始化doctype
+                                                                    的名称。
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                        2662
+GaussDB
+集中式版参考                                                                              3 存储过程
+
+
+                   参数             类型                入参/出参         是否可以       描述
+                                                                  为空
+
+                   system_id      VARCHAR2          IN            否          需要初始化doctype
+                                                                             的system ID。
+
+                   public_id      VARCHAR2          IN            否          需要初始化doctype
+                                                                             的public ID。
+
+
+              ●   DBE_XML.XML_DOM_SET_NODE_VALUE
+                  此函数用于向DOMNODE对象中设置节点的值。
+                  DBE_XML.XML_DOM_SET_NODE_VALUE的存储过程原型为：
+                  DBE_XML.XML_DOM_SET_NODE_VALUE(
+                  id IN RAW(13),
+                  node_value IN VARCHAR2)
+                  RETURNS VOID
+
+
+                  表 3-130 DBE_XML.XML_DOM_SET_NODE_VALUE 接口参数说明
+
+                   参数          类型              入参/出        是否可以为          描述
+                                               参           空
+
+                   id          RAW(13)         IN          否              指定的xmldom类型
+                                                                          对象。
+
+                   node_val    VARCHAR2        IN          否              向DOMNODE对象中
+                   ue                                                     设置的字符串。
+
+
+              ●   DBE_XML.XML_DOM_WRITE_TO_BUFFER_DOC
+                  将给定的DOMDOCUMENT类型对象写入缓冲区。
+                  DBE_XML.XML_DOM_WRITE_TO_BUFFER_DOC的存储过程原型为：
+                  DBE_XML.DBE_XML.XML_DOM_WRITE_TO_BUFFER_DOC(
+                  id IN RAW(13))
+                  RETURNS VARCHAR2;
+
+
+                  表 3-131 DBE_XML.XML_DOM_WRITE_TO_BUFFER_DOC 接口参数说明
+
+                   参数             类型                入参/出参             是否可以     描述
+                                                                      为空
+
+                   id             RAW(13)           IN                是        指定的xmldom
+                                                                               类型对象。
+
+
+              ●   DBE_XML.XML_DOM_WRITE_TO_BUFFER_NODE
+                  将给定的DOMNODE类型对象写入缓冲区。
+                  DBE_XML.XML_DOM_WRITE_TO_BUFFER_NODE的存储过程原型为：
+                  DBE_XML.DBE_XML.XML_DOM_WRITE_TO_BUFFER_NODE(
+                  id IN RAW(13))
+                  RETURNS VARCHAR2;
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                                   2663
+GaussDB
+集中式版参考                                                                 3 存储过程
+
+                  表 3-132 DBE_XML.XML_DOM_WRITE_TO_BUFFER_NODE 接口参数说明
+                   参数              类型             入参/出参   是否可以为   描述
+                                                          空
+
+                   id              RAW(13)        IN      是       指定的xmldom
+                                                                  类型对象。
+
+
+              ●   DBE_XML.XML_DOM_WRITE_TO_CLOB_DOC
+                  将给定的DOMDOCUMENT类型对象写入Clob。
+                  DBE_XML.XML_DOM_WRITE_TO_CLOB_DOC的存储过程原型为：
+                  DBE_XML.XML_DOM_WRITE_TO_CLOB_DOC(
+                    id IN RAW(13)
+                  )
+                  RETURNS VARCHAR2;
+
+
+                  表 3-133 DBE_XML.XML_DOM_WRITE_TO_CLOB_DOC 接口参数说明
+                   参数              类型             入参/出参   是否可以    描述
+                                                          为空
+
+                   id              RAW(13)        IN      是       指定的xmldom
+                                                                  类型对象。
+
+
+              ●   DBE_XML.XML_DOM_WRITE_TO_CLOB_NODE
+                  将给定的DOMNODE类型对象写入Clob。
+                  DBE_XML.XML_DOM_WRITE_TO_CLOB_NODE的存储过程原型为：
+                  DBE_XML.XML_DOM_WRITE_TO_CLOB_NODE(
+                    id     IN RAW(13)
+                  )
+                  RETURNS CLOB;
+
+
+                  表 3-134 DBE_XML.XML_DOM_WRITE_TO_CLOB_NODE 接口参数说明
+                   参数              类型             入参/出参   是否可以为   描述
+                                                          空
+
+                   id              RAW(13)        IN      是       指定的xmldom
+                                                                  类型对象。
+
+
+              ●   DBE_XML.XML_DOM_WRITE_TO_FILE_DOC
+                  使用数据库字符集将XML节点写入指定文件。
+                  DBE_XML.XML_DOM_WRITE_TO_FILE_DOC的存储过程原型为：
+                  DBE_XML.XML_DOM_WRITE_TO_FILE_DOC(
+                  id IN RAW(13),
+                  file_dir IN VARCHAR2)
+                  RETURNS VOID
+
+                  DBE_XML.XML_DOM_WRITE_TO_FILE_DOC(
+                  id IN RAW(13),
+                  file_dir IN VARCHAR2,
+                  charset IN VARCHAR2)
+                  RETURNS VOID PACKAGE
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                      2664
+GaussDB
+集中式版参考                                                                    3 存储过程
+
+                  表 3-135 DBE_XML.XML_DOM_WRITE_TO_FILE_DOC 接口参数说明
+                   参数              类型              入参/出参      是否可以   描述
+                                                              为空
+
+                   id              RAW(13)         IN         是      指定的xmldom
+                                                                     类型对象。
+
+                   file_dir        VARCHAR2        IN         否      要写入的文件。
+
+                   charset         VARCHAR2        IN         否      指定字符集。
+
+
+              ●   DBE_XML.XML_DOM_WRITE_TO_FILE_NODE
+                  使用数据库字符集将XML节点写入指定文件。
+                  DBE_XML.XML_DOM_WRITE_TO_FILE_NODE的存储过程原型为：
+                  DBE_XML.XML_DOM_WRITE_TO_FILE_NODE(
+                  id IN RAW(13),
+                  filename IN VARCHAR2)
+                  RETURNS VOID
+
+
+                  表 3-136 DBE_XML.XML_DOM_WRITE_TO_FILE_NODE 接口参数说明
+                   参数              类型              入参/出参      是否可以   描述
+                                                              为空
+
+                   id              RAW(13)         IN         否      指定的xmldom
+                                                                     类型对象。
+
+                   filename        VARCHAR2        IN         否      指定文件地址。
+
+
+              ●   DBE_XML.XML_DOM_GET_SESSION_TREE_NUM
+                  查询当前session中所有类型的dom树数量。
+                  DBE_XML.XML_DOM_GET_SESSION_TREE_NUM的函数原型为：
+                  DBE_XML.XML_DOM_GET_SESSION_TREE_NUM()
+                  RETURNS INTEGER
+
+              ●   DBE_XML.XML_DOM_GET_DOC_TREES_INFO
+                  查询当前session中Document类型的DOM树信息，如内存占用等。
+                  DBE_XML.XML_DOM_GET_DOC_TREES_INFO的函数原型为：
+                  DBE_XML.XML_DOM_GET_DOC_TREES_INFO()
+                  RETURNS VARCHAR2
+
+              ●   DBE_XML.XML_DOM_GET_DETAIL_DOC_TREE_INFO
+                  查询传入的document内的各类型子节点的数量。
+                  DBE_XML.XML_DOM_GET_DETAIL_DOC_TREE_INFO的函数原型为：
+                  DBE_XML.XML_DOM_GET_DETAIL_DOC_TREE_INFO(
+                  id IN RAW(13))
+                  RETURNS VARCHAR2
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                         2665
+GaussDB
+集中式版参考                                                             3 存储过程
+
+                 表 3-137 DBE_XML.XML_DOM_GET_DETAIL_DOC_TREE_INFO 接口参数说明
+
+                  参数              类型        入参/出参     是否可以   描述
+                                                      为空
+
+                  id              RAW(13)   IN        否      指定的xmldom
+                                                             类型对象。
+
+
+
+3.12.2 二次封装接口
+
+3.12.2.1 DBE_ALERT
+              DBE_ALERT包的主要功能是在不同会话之间传递数据库的警报信息，包括注册、发送
+              和接收告警。高级功能包DBE_ALERT支持的视图请参见
+              DBE_ALERT.DBE_ALERT_INFO。
+
+                  说明
+
+                 ● DBE_ALERT包仅支持在主节点使用。
+                 ● DBE_ALERT包仅支持在A、B、C、PG兼容性数据库下使用。
+                 ● 退出当前会话时会删除该会话所注册的所有警报。
+
+
+接口介绍
+              高级功能包DBE_ALERT支持的接口如表3-138所示。
+
+              表 3-138 DBE_ALERT
+
+               接口名称                              描述
+
+               DBE_ALERT.REGISTER                为当前会话注册感兴趣的警报。
+
+               DBE_ALERT.REMOVE                  从当前会话的注册列表中删除不感兴趣
+                                                 的警报。
+
+               DBE_ALERT.REMOVEALL               从当前会话的注册列表中删除所有警
+                                                 报。
+
+               DBE_ALERT.SET_DEFAULTS            为查询警报设置轮询间隔。无实际意
+                                                 义，仅用于兼容。
+
+               DBE_ALERT.SIGNAL                  用于发送警报信号。
+
+               DBE_ALERT.WAITANY                 用于等待当前会话注册列表中的任一警
+                                                 报收到警报信号。该函数不受事务回滚
+                                                 影响。
+
+               DBE_ALERT.WAITONE                 用于等待传入警报收到警报信号，警报
+                                                 必须在当前会话注册列表中。该函数不
+                                                 受事务回滚影响。
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                       2666
+

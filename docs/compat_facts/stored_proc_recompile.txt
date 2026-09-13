@@ -1,0 +1,1376 @@
+GaussDB
+集中式版参考                                                            3 存储过程
+
+
+
+
+3.15 package
+              package是一组相关存储过程、函数、变量、常量和游标等PL/SQL程序的组合，具有
+              面向对象的特点，可以对PL/SQL程序设计元素进行封装。package中的函数具有统一
+              性，创建、删除、修改都统一进行。
+
+              package包含包头（Package Specification）和Package Body两个部分，其中包头所
+              包含的声明可以被外部函数、匿名块等访问；而在包体中包含的声明不能被外部函
+              数、匿名块等访问，只能被包体内函数和存储过程等访问。
+
+              PACKAGE的创建请参见CREATE PACKAGE。
+
+
+                  须知
+
+              ● 跨PACKAGE变量不支持作为FOR循环中控制变量使用。
+              ● PACKAGE中定义类型不支持删除、修改等操作，也不支持定义表。
+              ● 不支持以SCHEMA.PACKAGE.CURSOR的形式引用cursor变量。
+              ● 带参数的CURSOR仅支持在当前PACKAGE内打开。
+              ● 不支持package变量作为函数或存储过程参数的默认值。
+              ● 如果PACKAGE内的存储过程入参包含伪类型（如：anyelement），不支持调用时
+                传入变长类型的参数。
+              ● 包头、包体的函数in/out/inout参数不一致时，系统将识别为不同的函数。
+
+
+
+3.16 失效重编译
+
+3.16.1 失效重编译概述
+              失效重编译提供一次性入库、失效重编译和级联失效功能。
+
+              ●   一次性入库：新建存储过程、函数和PACKAGE使用未定义的对象。例如表、函数
+                  或类型不存在，可新建成功，打印告警。系统表pg_object对应的valid字段为
+                  false。
+              ●   失效重编译功能：当未定义的对象都存在时，运行失效重编译高级包
+                  pkg_util.gs_compile_schema或者alter compile功能时，把对象变为有效，然后正
+                  常执行存储过程、函数和PACKAGE。
+              ●   级联失效功能：当被依赖的对象被删除时，不再级联删除依赖对象，而是失效依
+                  赖对象，例如函数出入参依赖表，删除表时，函数失效，但函数未被级联删除。
+              ●   重新创建包头，不删除原有包体功能：当使用CREATE OR REPLACE PACKAGE覆
+                  盖原有包头定义时，已经存在的包体定义不会被删除，而是被失效。支持使用
+                  ALTER COMPILE功能，尝试将包体变为有效。
+
+              使用该功能，推荐开启如下GUC参数:
+
+              ●   enable_force_create_obj=on，提供一次性入库功能。参数信息，请参见
+                  enable_force_create_obj。
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                       3041
+GaussDB
+集中式版参考                                                                        3 存储过程
+
+
+              ●   ddl_invalid_mode='invalid'，提供级联失效功能。参数信息，请参见
+                  ddl_invalid_mode。
+
+
+                  须知
+
+              ● 集中式A兼容模式数据库支持。
+              ● 开启失效重编参数后，数据库存在用户自定义函数失效对象时，将无法使用\df全量
+                查询或查询单个失效函数，提示存在失效对象报错。
+              ● 视图依赖函数的场景，重建被依赖函数仅支持自动重建与函数相同Schema的视
+                图，其他场景需要手动重建视图。
+              ● 不支持记录同义词的依赖关系，支持记录同义词指向的原始对象依赖关系。
+              ● 不支持记录临时表的依赖关系。
+              ● 不支持记录物化视图的依赖关系。
+              ● PACKAGE和FUNCTION的执行块访问其他对象时，直接调用FUNCTION，直接调用
+                PACKAGE内FUNCTION，直接访问PACKAGE变量记录依赖关系，其他场景不支持
+                记录依赖关系。
+              ● PACKAGE和FUNCTION变量的默认值、表达式右值访问其他对象时，直接调用
+                FUNCTION，直接调用PACKAGE内FUNCTION，直接访问PACKAGE变量记录依赖
+                关系，其他场景不支持记录依赖关系。
+              ● 自治事务函数调用，触发依赖对象嵌套编译，依赖对象状态不更新，需要手动
+                ALTER PACKAGE刷新。
+              ● 匿名块和函数参数的CAST类型转换使用失效PACKAGE的类型时，需要手动ALTER
+                PACKAGE刷新。
+              ● 开启GUC参数forbid_package_spec_circular_dependency，PACKAGE包头依赖成环
+                对象状态为失效。
+
+
+3.16.2 一次性入库
+              设置GUC参数enable_force_create_obj值为on后，支持函数、存储过程和包的一次性
+              入库。
+              开启参数后，以下场景不支持入库。
+
+              ●   包外函数语法不支持的场景：
+                  –    table%type、table.column.column%type、table.column.column.column
+                       %type、schema.table.column.column%type作为函数参数类型语法报错。
+                  –    view%rowtype、schema.view%rowtype作为函数参数类型，正向创建语法
+                       报错，调换顺序可以入库，编译、执行报错。
+                  –    view%type、view.column.column%type、view.column.column.column
+                       %type、schema.view.column.column%type作为函数参数类型语法报错。
+                  –    type%type、type%rowtype、schema.type%rowtype、
+                       type.column.column%type、type.column.column.column%type、
+                       schema.type.column.column%type、catalog.schema.type%rowtype作为函
+                       数参数类型，正向创建语法报错，调换顺序可以入库，编译、执行报错，
+                       catalog指的是数据库名，详细使用可参考示例。
+                  –    schema.package.type%rowtype、schema.package.var%type、
+                       schema.package.type%type、package.var.col%type、
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                                3042
+GaussDB
+集中式版参考                                                                         3 存储过程
+
+                       schema.package.var.col%type、package.var.var.var%type、
+                       package.type.type.col%type作为函数参数类型语法报错。
+                  –    catalog.schema.package.type、catalog.schema.package.type%type作为函
+                       数参数类型语法报错。
+                  –    使用未定义的函数或变量作为函数参数默认值不支持入库。
+                  –    package.var%rowtype作为函数参数类型不支持入库。
+              ●   包外函数支持入库，执行时语义解析报错的场景：
+                  –    catalog.schema.type、catalog.package.type作为函数参数类型。
+                  –    package.type%rowtype作为函数参数类型，正向、调换创建顺序可以入库，
+                       可以编译，执行报错。
+              ●   包内函数语法不支持的场景
+                  –    table%type、table.column.column%type、table.column.column.column
+                       %type、schema.table.column.column%type作为函数参数类型语法报错。
+                  –    view%rowtype、schema.view%rowtype作为函数参数类型语法报错，调换
+                       顺序可以入库，编译、执行报错。
+                  –    view%type、view.column.column%type、view.column.column.column
+                       %type、schema.view.column.column%type作为函数参数类型语法报错。
+                  –    type%rowtype、schema.type%rowtype语法报错，调换顺序可以入库，编
+                       译、执行报错。
+                  –    package.var%rowtype作为函数参数类型不支持入库。
+                  –    type%type、type.column.column%type、type.column.column.column
+                       %type、schema.type.column.column%type、catalog.schema.type
+                       %rowtype作为函数参数类型语法报错。
+                  –    schema.package.type%rowtype、schema.package.type%rowtype、
+                       package.var.var.var%type、package.type.col.col%type、
+                       catalog.schema.package.type、catalog.schema.package.type%type作为函
+                       数参数类型语法报错。
+                  –    使用当前package内的type%rowtype、var%rowtype作为函数参数类型语法
+                       报错。
+                  –    使用当前package内var%type创建包头可以入库，创建包体报错。
+              ●   包内函数支持入库，执行时语义解析报错的场景：
+                  –    使用catalog.schema.type、catalog.package.type作为函数参数类型。
+                  –    使用package.type%rowtype作为函数参数类型。
+                  –    schema.package.var%type、schema.package.type%type作为参数类型。
+              ●   包嵌套依赖其他包，执行实例化报错的场景：
+                  –    包2依赖包1，在创建包2的时候执行包1的实例化，执行实例化报错。
+                  –    包2依赖包1，包1依赖包2，在创建包2的时候执行包1的实例化触发包2的实
+                       例化，执行实例化成环报错。
+              ●   其他场景
+                  –    开启allow_procedure_compile_check选项后，包内游标查询不存在的表、未
+                       定义的PACKAGE内变量均不支持入库。
+                  –    开启allow_procedure_compile_check选项后，包内游标访问未定义的包内的
+                       函数不支持入库。
+                  –    使用未定义的包内类型的列类型，即pkg.type.col%type作为record类型的列
+                       类型不支持入库。
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                               3043
+GaussDB
+集中式版参考                                                                                                 3 存储过程
+
+                   –     通过CREATE OR REPLACE的方式，构造PACKAGE依赖成环触发报错，不支
+                         持入库，触发场景请参见CREATE OR REPLACE构造依赖成环示例。
+                   –     开启级联失效参数后，实例化块中调用已失效的函数会触发报错，需要通过
+                         ALTER COMPILE的方式使函数变为有效后再执行。
+                    说明
+
+                  一次性入库并不能保证将编译报错信息全部展示出来，报错信息不全不影响对象的入库。当用户
+                  手动创建缺失的依赖对象并重新编译当前对象时，剩余报错信息会被重新打印。
+
+
+示例
+              一次性入库使用示例。
+              -- 设置如下参数。
+              SET ddl_invalid_mode='invalid';
+              SET
+              SET enable_force_create_obj=on;
+              SET
+
+              -- 新建函数，入参使用的类型不存在。
+              CREATE OR REPLACE FUNCTION func1(var type_not_exist) RETURN int
+              IS
+              BEGIN
+              RETURN NULL;
+              END;
+              /
+              WARNING: Type type_not_exist does not exist.
+              WARNING: Function created with compilation errors.
+              CREATE FUNCTION
+
+              -- 查询状态。
+              SELECT proname,valid FROM pg_object obj JOIN pg_proc proc ON obj.object_oid = proc.oid AND proname =
+              'func1' AND propackageid = 0;
+               proname | valid
+              ---------+-------
+               func1 | f
+              (1 row)
+
+              -- 新建PACKAGE，入参使用的类型不存在。
+              CREATE OR REPLACE PACKAGE pkg
+              IS
+              FUNCTION func1(var type_not_exist) RETURN int;
+              END pkg;
+              /
+              WARNING: Type type_not_exist does not exist.
+              WARNING: Package created with compilation errors.
+              CREATE PACKAGE
+
+              CREATE OR REPLACE PACKAGE BODY pkg
+              IS
+              FUNCTION func1(var type_not_exist) RETURN int AS
+              DECLARE
+              BEGIN
+              RETURN NULL;
+              END;
+              END pkg;
+              /
+              WARNING: Type type_not_exist does not exist.
+              WARNING: Package Body created with compilation errors.
+              CREATE PACKAGE BODY
+
+              -- 查询状态。
+              SELECT pkgname,object_type,valid FROM pg_object obj JOIN gs_package pkg ON obj.object_oid = pkg.oid
+              AND pkgname = 'pkg';
+               pkgname | object_type | valid
+              ---------+-------------+-------
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                     3044
+GaussDB
+集中式版参考                                                                                                 3 存储过程
+
+              pkg    |B        |f
+              pkg    |S        |f
+
+              -- 重新创建入参使用的类型。
+              CREATE TYPE type_not_exist AS (f1 int, f2 text);
+              CREATE TYPE
+
+              ALTER PACKAGE pkg COMPILE;
+              ALTER PACKAGE
+              SELECT pkgname,object_type,valid FROM pg_object obj JOIN gs_package pkg ON obj.object_oid = pkg.oid
+              AND pkgname = 'pkg';
+               pkgname | object_type | valid
+              ---------+-------------+-------
+               pkg     |S         |t
+               pkg     |B         |t
+              (2 rows)
+
+              不支持场景报错示例。
+              CREATE OR REPLACE构造依赖成环示例。
+              -- 打开失效重编译和一次性入库参数。
+              gaussdb=# SET DDL_INVALID_MODE='INVALID';
+              SET
+              gaussdb=# SET ENABLE_FORCE_CREATE_OBJ='ON';
+              SET
+              -- 正向创建package，依赖关系不成环。
+              gaussdb=# DROP PACKAGE IF EXISTS pkg1;
+              NOTICE: package pkg1() does not exist, skipping
+              DROP PACKAGE
+              gaussdb=# DROP PACKAGE IF EXISTS pkg2;
+              NOTICE: package pkg2() does not exist, skipping
+              DROP PACKAGE
+              gaussdb=# DROP PACKAGE IF EXISTS pkg3;
+              NOTICE: package pkg3() does not exist, skipping
+              DROP PACKAGE
+              gaussdb=# CREATE OR REPLACE PACKAGE pkg1 IS
+              gaussdb$#     p1_v1 number(3);
+              gaussdb$#     p1_v2 int;
+              gaussdb$# END pkg1;
+              gaussdb$# /
+              CREATE PACKAGE
+              gaussdb=# CREATE OR REPLACE PACKAGE pkg2 IS
+              gaussdb$#     p1_v1 number(3);
+              gaussdb$#     p1_v2 pkg1.p1_v2%type;
+              gaussdb$# END pkg2;
+              gaussdb$# /
+              CREATE PACKAGE
+              gaussdb=# CREATE OR REPLACE PACKAGE pkg3 IS
+              gaussdb$#     p1_v1 pkg2.p1_v1%type;
+              gaussdb$#     p1_v2 varchar(3);
+              gaussdb$# END pkg3;
+              gaussdb$# /
+              CREATE PACKAGE
+              -- 通过CREATE OR REPLACE重建pkg1，使依赖关系成环，会触发报错。
+              gaussdb=# CREATE OR REPLACE PACKAGE pkg1 IS
+              gaussdb$#     p1_v1 number(3);
+              gaussdb$#     p1_v2 pkg3.p1_v2%type;
+              gaussdb$# END pkg1;
+              gaussdb$# /
+              WARNING: Warning when compiling package, pkg is compiled into a loop.
+              DETAIL: When compile package, there is a dependence itself.
+              CONTEXT: compilation of PL/pgSQL package "pkg2" near line 2
+              compilation of PL/pgSQL package "pkg3" near line 1
+              compilation of PL/pgSQL package "pkg1" near line 2
+              ERROR: invalid type name "pkg1.p1_v2%type"
+              LINE 2:   p1_v2 pkg1.p1_v2%type;
+                          ^
+              QUERY: PACKAGE DECLARE p1_v1 number(3);
+                 p1_v2 pkg1.p1_v2%type;
+
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                                                   3045
+GaussDB
+集中式版参考                                                                                                   3 存储过程
+
+              END
+              CONTEXT: compilation of PL/pgSQL package "pkg2" near line 2
+              compilation of PL/pgSQL package "pkg3" near line 1
+              compilation of PL/pgSQL package "pkg1" near line 2
+
+              view%rowtype、type%rowtype作为函数参数类型使用示例。
+              -- view%rowtype、type%rowtype作为函数参数类型，正向创建报错。
+              DROP FUNCTION IF EXISTS func1;
+              DROP VIEW IF EXISTS teview;
+              DROP TABLE IF EXISTS tetab;
+              DROP TYPE IF EXISTS tp1;
+              CREATE TYPE tp1 IS (a int,b int);
+              CREATE TABLE tetab(a int,b int);
+              CREATE OR REPLACE VIEW teview AS SELECT * FROM tetab;
+              gaussdb=# CREATE OR REPLACE FUNCTION func1(a teview%rowtype)
+              gaussdb-# RETURN INTEGER
+              gaussdb-# AS
+              gaussdb$# BEGIN
+              gaussdb$# RETURN 1;
+              gaussdb$# END;
+              gaussdb$# /
+              ERROR: The relationship does not exist when the statement is parsed.
+              DETAIL: Relation "teview" referenced by %ROWTYPE does not exist.
+              gaussdb=# CREATE OR REPLACE FUNCTION func1(param1 tp1%rowtype) RETURN INTEGER
+              gaussdb-# AS
+              gaussdb$# BEGIN
+              gaussdb$# RETURN 1;
+              gaussdb$# END;
+              gaussdb$# /
+              ERROR: The relationship does not exist when the statement is parsed.
+              DETAIL: Relation "tp1" referenced by %ROWTYPE does not exist.
+
+
+              -- 调换顺序后可以入库，无法执行。
+              DROP FUNCTION IF EXISTS func1;
+              DROP VIEW IF EXISTS teview;
+              DROP TABLE IF EXISTS tetab;
+              DROP TYPE IF EXISTS tp1;
+              CREATE OR REPLACE FUNCTION func1(a teview%rowtype)
+              RETURN INTEGER
+              AS
+              BEGIN
+              RETURN 1;
+              END;
+              /
+              CREATE TABLE tetab(a int,b int);
+              CREATE OR REPLACE VIEW teview AS SELECT * FROM tetab;
+
+              -- 执行和编译报错。
+              gaussdb=# SELECT func1((1,2));
+              ERROR: Function func1(record) does not exist.
+              LINE 1: SELECT func1((1,2));
+                        ^
+              HINT: No function matches the given name and argument types. You might need to add explicit type casts.
+              CONTEXT: referenced column: func1
+
+              gaussdb=# ALTER FUNCTION func1 COMPILE;
+              ERROR: The relationship does not exist when the statement is parsed.
+              DETAIL: Relation "teview" referenced by %ROWTYPE does not exist.
+
+              CREATE OR REPLACE FUNCTION func1(param1 tp1%rowtype) RETURN INTEGER
+              AS
+              BEGIN
+              RETURN 1;
+              END;
+              /
+              CREATE TYPE tp1 IS (a int,b int);
+              gaussdb=# SELECT func1((1,2));
+              ERROR: Function func1(record) does not exist.
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                       3046
+GaussDB
+集中式版参考                                                                                                   3 存储过程
+
+              LINE 1: SELECT func1((1,2));
+                        ^
+              HINT: No function matches the given name and argument types. You might need to add explicit type casts.
+              CONTEXT: referenced column: func1
+
+              gaussdb=# ALTER FUNCTION func1 COMPILE;
+              ERROR: The relationship does not exist when the statement is parsed.
+              DETAIL: Relation "tp1" referenced by %ROWTYPE does not exist.
+
+              catalog.schema.type%rowtype、catalog.package.type%rowtype作为函数参数类型
+              使用示例。
+              -- CATALOG相关，跨数据库访问。
+              DROP DATABASE IF EXISTS tedb1;
+              DROP DATABASE IF EXISTS tedb2;
+              CREATE DATABASE tedb1;
+              CREATE DATABASE tedb2;
+              \c tedb1
+              CREATE SCHEMA sch1;
+              CREATE TYPE sch1.tp1 IS (a int,b int);
+              CREATE OR REPLACE PACKAGE pkg1
+              AS
+              TYPE tp1 IS record(a int,b int);
+              END PKG1;
+              /
+
+              \c tedb2
+              tedb2=# CREATE OR REPLACE FUNCTION func1(param tedb1.sch1.tp1%rowtype) RETURN INTEGER
+              tedb2-# AS
+              tedb2$# BEGIN
+              tedb2$# RETURN 1;
+              tedb2$# END;
+              tedb2$# /
+              ERROR: cross-database references are not implemented: "tedb1.sch1.tp1"
+
+              tedb2=# CREATE OR REPLACE FUNCTION func1(param tedb1.pkg1.tp1%rowtype) RETURN INTEGER
+              tedb2-# AS
+              tedb2$# BEGIN
+              tedb2$# RETURN 1;
+              tedb2$# END;
+              tedb2$# /
+              ERROR: cross-database references are not implemented: "tedb1.pkg1.tp1"
+
+              catalog.package.type作为函数参数类型使用示例。
+              -- CATALOG相关，跨数据库访问。
+              DROP DATABASE IF EXISTS tedb1;
+              DROP DATABASE IF EXISTS tedb2;
+              CREATE DATABASE tedb1;
+              CREATE DATABASE tedb2;
+              \c tedb1
+              CREATE SCHEMA sch1;
+              CREATE TYPE sch1.tp1 IS (a int,b int);
+              CREATE OR REPLACE PACKAGE pkg1
+              AS
+              TYPE tp1 IS record(a int,b int);
+              END pkg1;
+              /
+
+              \c tedb2
+              CREATE OR REPLACE FUNCTION func1(param tedb1.sch1.tp1) RETURN INTEGER
+              AS
+              BEGIN
+              RETURN 1;
+              END;
+              /
+              -- 执行报错，编译无效。
+              tedb2=# SELECT func1((1,2));
+              WARNING: Type tp1 does not exist.
+              CONTEXT: SQL statement "alter function public.func1 compile"
+
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                                                     3047
+GaussDB
+集中式版参考                                                                                                   3 存储过程
+
+              PL/pgSQL function inline_code_block line 11 at SQL statement
+              WARNING: Function func1 recompile with compilation errors.
+              CONTEXT: SQL statement "alter function public.func1 compile"
+              PL/pgSQL function inline_code_block line 11 at SQL statement
+              ERROR: Function func1(record) does not exist.
+              LINE 1: SELECT func1((1,2));
+                        ^
+              HINT: No function matches the given name and argument types. You might need to add explicit type casts.
+              CONTEXT: referenced column: func1
+
+              tedb2=# ALTER FUNCTION func1 COMPILE;
+              WARNING: Type tp1 does not exist.
+              WARNING: Function func1 recompile with compilation errors.
+              ALTER FUNCTION
+
+              CREATE OR REPLACE FUNCTION func1(param tedb1.pkg1.tp1) RETURN INTEGER
+              AS
+              BEGIN
+              RETURN 1;
+              END;
+              /
+              -- 执行报错，编译无效。
+              tedb2=# SELECT func1((1,2));
+              WARNING: Type tp1 does not exist.
+              CONTEXT: SQL statement "alter function public.func1 compile"
+              PL/pgSQL function inline_code_block line 11 at SQL statement
+              WARNING: Function func1 recompile with compilation errors.
+              CONTEXT: SQL statement "alter function public.func1 compile"
+              PL/pgSQL function inline_code_block line 11 at SQL statement
+              ERROR: Function func1(record) does not exist.
+              LINE 1: SELECT func1((1,2));
+                        ^
+              HINT: No function matches the given name and argument types. You might need to add explicit type casts.
+              CONTEXT: referenced column: func1
+
+              tedb2=# ALTER FUNCTION func1 COMPILE;
+              WARNING: Type tp1 does not exist.
+              WARNING: Function func1 recompile with compilation errors.
+              ALTER FUNCTION
+
+              package.type%rowtype作为函数参数类型使用示例。
+              -- package.type%rowtype作为函数参数类型。
+              DROP PACKAGE IF EXISTS pkg1;
+              DROP FUNCTION IF EXISTS func1;
+              CREATE OR REPLACE PACKAGE pkg1 IS
+                 TYPE rec IS record(c1 int, c2 varchar);
+                 var1 rec;
+              END pkg1;
+              /
+              CREATE OR REPLACE FUNCTION func1(p pkg1.rec%rowtype) RETURN INTEGER IS
+              BEGIN
+                 RETURN 1;
+              END;
+              /
+              -- 执行报错，编译无效。
+              gaussdb=# SELECT func1((1,'var1'));
+              WARNING: The relationship does not exist when the statement is parsed.
+              DETAIL: Relation "pkg1.rec" referenced by %ROWTYPE does not exist.
+              CONTEXT: SQL statement "alter function public.func1 compile"
+              PL/pgSQL function inline_code_block line 12 at SQL statement
+              WARNING: Function func1 recompile with compilation errors.
+              CONTEXT: SQL statement "alter function public.func1 compile"
+              PL/pgSQL function inline_code_block line 12 at SQL statement
+              ERROR: Function func1(record) does not exist.
+              LINE 1: SELECT func1((1,'var1'));
+                         ^
+              HINT: No function matches the given name and argument types. You might need to add explicit type casts.
+              CONTEXT: referenced column: func1
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                       3048
+GaussDB
+集中式版参考                                                                                                   3 存储过程
+
+              gaussdb=# ALTER FUNCTION func1 COMPILE;
+              WARNING: The relationship does not exist when the statement is parsed.
+              DETAIL: Relation "pkg1.rec" referenced by %ROWTYPE does not exist.
+              WARNING: Function func1 recompile with compilation errors.
+              ALTER FUNCTION
+
+              -- 变更顺序。
+              DROP PACKAGE IF EXISTS pkg1;
+              DROP FUNCTION IF EXISTS func1;
+              CREATE OR REPLACE FUNCTION func1(p pkg1.rec%rowtype) RETURN INTEGER IS
+              BEGIN
+                 RETURN 1;
+              END;
+              /
+              CREATE OR REPLACE PACKAGE pkg1 IS
+                 TYPE rec IS record(c1 int, c2 varchar);
+                 var1 rec;
+              END PKG1;
+              /
+              -- 执行报错，编译无效。
+              gaussdb=# SELECT func1((1,'var1'));
+              WARNING: The relationship does not exist when the statement is parsed.
+              DETAIL: Relation "pkg1.rec" referenced by %ROWTYPE does not exist.
+              CONTEXT: SQL statement "alter function public.func1 compile"
+              PL/pgSQL function inline_code_block line 12 at SQL statement
+              WARNING: Function func1 recompile with compilation errors.
+              CONTEXT: SQL statement "alter function public.func1 compile"
+              PL/pgSQL function inline_code_block line 12 at SQL statement
+              ERROR: Function func1(record) does not exist.
+              LINE 1: SELECT func1((1,'var1'));
+                         ^
+              HINT: No function matches the given name and argument types. You might need to add explicit type casts.
+              CONTEXT: referenced column: func1
+
+              gaussdb=# ALTER FUNCTION func1 COMPILE;
+              WARNING: The relationship does not exist when the statement is parsed.
+              DETAIL: Relation "pkg1.rec" referenced by %ROWTYPE does not exist.
+              WARNING: Function func1 recompile with compilation errors.
+              ALTER FUNCTION
+
+              报错信息显示不全示例。
+              gaussdb=# CREATE FUNCTION test_proc1(var1int t1.id%type, var2int pkg_v.rec1)
+              gaussdb-# RETURN int
+              gaussdb-# AS
+              gaussdb$# BEGIN
+              gaussdb$# RETURN 1;
+              gaussdb$# END;
+              gaussdb$# /
+              WARNING: dependent type id is not exist.
+              DETAIL: N/A
+              WARNING: dependent type id is not exist.
+              DETAIL: N/A
+              WARNING: Function created with compilation errors.
+              CREATE FUNCTION
+
+              -- 建表后，重新编译函数会提示pkg.type不存在。
+              gaussdb=# CREATE TABLE t1(id int, name varchar2);
+              CREATE TABLE
+              gaussdb=# ALTER FUNCTION test_proc1 COMPILE;
+              NOTICE: type reference t1.id%TYPE converted to integer
+              WARNING: Type rec1 does not exist.
+              WARNING: Function test_proc1 recompile with compilation errors.
+              ALTER FUNCTION
+
+              包嵌套依赖其他包，执行实例化报错的场景。
+
+              ●    包2依赖包1，在创建包2的时候执行包1的实例化，执行实例化报错。
+                   示例：
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                       3049
+GaussDB
+集中式版参考                                                                                   3 存储过程
+
+                  CREATE TABLE t1(a INT);
+                  CREATE TABLE
+
+                  CREATE OR REPLACE PACKAGE package2 IS
+                    var1 t1%ROWTYPE;
+                    PROCEDURE procedure3();
+                  END package2;
+                  /
+                  CREATE PACKAGE
+
+                  CREATE OR REPLACE PACKAGE package1 IS
+                    PROCEDURE procedure1();
+                    PROCEDURE procedure2();
+                  END package1;
+                  /
+                  CREATE PACKAGE
+
+                  CREATE OR REPLACE PACKAGE BODY package2 IS
+                    PROCEDURE procedure3() IS
+                    DECLARE
+                    BEGIN
+                      package1.procedure2();
+                    END;
+                  BEGIN
+                    SELECT * INTO var1 FROM t1;
+                    package1.procedure1();
+                  END package2;
+                  /
+                  CREATE PACKAGE BODY
+
+                  CREATE OR REPLACE PACKAGE BODY package1 IS
+                    PROCEDURE procedure1() IS
+                    DECLARE
+                    BEGIN
+                      package2.procedure3();
+                    END;
+                    PROCEDURE procedure2() IS
+                    DECLARE
+                    BEGIN
+                      null;
+                    END;
+                  BEGIN
+                    package2.procedure3();
+                  END package1;
+                  /
+                  ERROR: Query does not return rows when INTO is processed.
+                  CONTEXT: PL/pgSQL function inline_code_block line 2 at SQL statement
+                  compilation of PL/pgSQL package "package1" near line 2
+
+              ●   包2依赖包1，包1依赖包2，在创建包2的时候执行包1的实例化触发包2的实例
+                  化，执行实例化成环报错。
+                  示例：
+                  CREATE OR REPLACE PACKAGE packag1 IS
+                    PROCEDURE procedure1();
+                    PROCEDURE procedure2();
+                  END packag1;
+                  /
+                  CREATE PACKAGE
+
+                  CREATE OR REPLACE PACKAGE package2 IS
+                    PROCEDURE procedure3();
+                  END;
+                  /
+                  CREATE PACKAGE
+
+                  CREATE OR REPLACE PACKAGE BODY package2 IS
+                    PROCEDURE procedure3() IS
+                  BEGIN
+                    packag1.procedure2();
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                     3050
+GaussDB
+集中式版参考                                                                                   3 存储过程
+
+                   END;
+                   BEGIN
+                     packag1.procedure1();
+                   END;
+                   /
+                   CREATE PACKAGE BODY
+
+                   CREATE OR REPLACE PACKAGE BODY packag1 IS
+                   PROCEDURE procedure1() IS
+                   BEGIN
+                     package2.func3();
+                   END;
+                   PROCEDURE procedure2() IS
+                   BEGIN
+                     NULL;
+                   END;
+                   BEGIN
+                     package2.func3();
+                   END;
+                   /
+                   ERROR: Warning when compiling package, pkg is compiled into a loop.
+                   DETAIL: When compile package, there is a dependence itself.
+                   CONTEXT: SQL statement "CALL packag1.procedure1()"
+                   PL/pgSQL function inline_code_block line 2 at PERFORM
+                   compilation of PL/pgSQL package "packag1" near line 2
+
+              部分场景一次性入库支持，但是无法执行。
+              包内函数支持入库，执行阶段报错的场景：
+              synonym.col%type，其中同义词指向table。
+              示例：
+              -- 设置如下参数。
+              SET ddl_invalid_mode='invalid';
+              SET
+              SET enable_force_create_obj=on;
+              SET
+
+              CREATE OR REPLACE PACKAGE pkg1 IS
+              DECLARE
+                FUNCTION proc1(var1 type1_syn.id%TYPE) RETURN INT;
+              END pkg1;
+              /
+              WARNING: dependent type id is not exist.
+              DETAIL: N/A
+              CONTEXT: compilation of PL/pgSQL package "pkg1" near line 3
+              WARNING: dependent type id is not exist.
+              DETAIL: N/A
+              WARNING: Package created with compilation errors.
+              CREATE PACKAGE
+
+              CREATE OR REPLACE PACKAGE body pkg1 IS
+              DECLARE
+              FUNCTION proc1(var1 type1_syn.id%TYPE) RETURN INT as
+                BEGIN
+                var1 := 'aaa';
+                   RETURN 1;
+                END;
+              END pkg1;
+              /
+              WARNING: dependent type id is not exist.
+              DETAIL: N/A
+              CONTEXT: compilation of PL/pgSQL package "pkg1" near line 3
+              WARNING: dependent type id is not exist.
+              DETAIL: N/A
+              WARNING: dependent type id is not exist.
+              DETAIL: N/A
+              CONTEXT: compilation of PL/pgSQL package "pkg1" near line 7
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                   3051
+GaussDB
+集中式版参考                                                                                                     3 存储过程
+
+              WARNING: dependent type id is not exist.
+              DETAIL: N/A
+              WARNING: dependent type id is not exist.
+              DETAIL: N/A
+              WARNING: dependent type id is not exist.
+              DETAIL: N/A
+              WARNING: Package Body created with compilation errors.
+              CREATE PACKAGE BODY
+
+              CREATE TYPE type1 as (id varchar(20));
+              CREATE TYPE
+
+              CREATE SYNONYM type1_syn FOR TYPE1;
+              CREATE SYNONYM
+
+              ALTER PACKAGE pkg1 COMPILE;
+              NOTICE: type reference type1_syn.id%TYPE converted to character varying
+              NOTICE: type reference type1_syn.id%TYPE converted to character varying
+              NOTICE: type reference type1_syn.id%TYPE converted to character varying
+              NOTICE: type reference type1_syn.id%TYPE converted to character varying
+              ALTER PACKAGE
+
+              SELECT pkg1.proc1('bbb');
+              ERROR: relation "type1_syn" does not exist
+              DETAIL: Maybe you want to use synonym to reference a type object, but it is not yet supported.
+              CONTEXT: compilation of PL/pgSQL package "pkg1" near line 3
+              referenced column: proc1
+
+
+3.16.3 依赖关系记录
+              使用函数、存储过程和包过程中会记录对象依赖其他对象的关系。
+              具体请参见示例。
+
+示例
+              --设置如下参数：
+              SET ddl_invalid_mode='invalid';
+              SET
+              SET enable_force_create_obj=on;
+              SET
+
+              -- pkg2通过类型依赖pkg1
+              CREATE OR REPLACE PACKAGE pkg1 IS
+              TYPE rec1 IS RECORD(id INT, name VARCHAR(2));
+              END pkg1;
+              /
+              CREATE PACKAGE
+
+              CREATE OR REPLACE PACKAGE pkg2 IS
+              TYPE rec2 IS RECORD(rec1 pkg1.rec1);
+              END pkg2;
+              /
+              CREATE PACKAGE
+              SELECT DISTINCT p.pkgname AS objname, q.pkgname AS refobjname FROM pg_depend AS dp
+              INNER JOIN gs_package AS p ON dp.objid=p.oid
+              INNER JOIN gs_package AS q ON dp.refobjid=q.oid
+              WHERE p.pkgname='pkg2';
+               objname | refobjname
+              ---------+------------
+               pkg2 | pkg1
+
+              -- pkg2通过变量依赖pkg1
+              CREATE OR REPLACE PACKAGE pkg1 IS
+              var1 INT;
+              END pkg1;
+              /
+              CREATE PACKAGE
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                                     3052
+GaussDB
+集中式版参考                                                                                             3 存储过程
+
+
+              CREATE OR REPLACE PACKAGE pkg2 IS
+              var2 INT := pkg1.var1;
+              END pkg2;
+              /
+              CREATE PACKAGE
+
+              SELECT DISTINCT p.pkgname AS objname, q.pkgname AS refobjname FROM pg_depend AS dp
+              INNER JOIN gs_package AS p ON dp.objid=p.oid
+              INNER JOIN gs_package AS q ON dp.refobjid=q.oid
+              WHERE p.pkgname='pkg2';
+               objname | refobjname
+              ---------+------------
+               pkg2 | pkg1
+              (1 row)
+
+              -- pkg2通过直接调用依赖pkg1
+              CREATE OR REPLACE PACKAGE pkg1 IS
+              PROCEDURE proc1();
+              END pkg1;
+              /
+              CREATE PACKAGE
+
+              CREATE OR REPLACE PACKAGE BODY pkg1 IS
+              PROCEDURE proc1() AS
+              BEGIN
+              RAISE INFO 'proc1';
+              END;
+              END pkg1;
+              /
+              CREATE PACKAGE BODY
+
+              CREATE OR REPLACE PACKAGE pkg2 IS
+              PROCEDURE proc2();
+              END pkg2;
+              /
+              CREATE PACKAGE
+
+              CREATE OR REPLACE PACKAGE BODY pkg2 IS
+              PROCEDURE proc2() AS
+              BEGIN
+              RAISE INFO 'proc2';
+              pkg1.proc1();
+              END;
+              END pkg2;
+              /
+              CREATE PACKAGE BODY
+              SELECT DISTINCT p.pkgname AS objname, q.pkgname AS refobjname FROM pg_depend AS dp
+              INNER JOIN gs_package AS p ON dp.objid=p.oid
+              INNER JOIN gs_package AS q ON dp.refobjid=q.oid
+              WHERE p.pkgname='pkg2';
+               objname | refobjname
+              ---------+------------
+               pkg2 | pkg1
+              (1 row)
+
+              -- func2通过直接调用依赖func1
+              CREATE OR REPLACE FUNCTION func1 RETURN INT AS
+              BEGIN
+              RETURN 1;
+              END;
+              /
+              CREATE FUNCTION
+
+              CREATE OR REPLACE FUNCTION func2 RETURN INT AS
+              BEGIN
+              func1();
+              RETURN 1;
+              END;
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                               3053
+GaussDB
+集中式版参考                                                                                                3 存储过程
+
+              /
+              CREATE FUNCTION
+
+              SELECT DISTINCT p.proname AS objname, q.proname AS refobjname FROM pg_depend AS dp
+              INNER JOIN pg_proc AS p ON dp.objid=p.oid
+              INNER JOIN pg_proc AS q ON dp.refobjid=q.oid
+              WHERE p.proname='func2' AND q.proname='func1';
+               objname | refobjname
+              ---------+------------
+               func2 | func1
+              (1 row)
+
+              -- func2通过perform调用func1，不记录依赖关系
+              CREATE OR REPLACE FUNCTION func1 RETURN INT AS
+              BEGIN
+              RETURN 1;
+              END;
+              /
+              CREATE FUNCTION
+
+              CREATE OR REPLACE FUNCTION func2 RETURN INT AS
+              BEGIN
+              PERFORM func1();
+              RETURN 1;
+              END;
+              /
+              CREATE FUNCTION
+
+              SELECT DISTINCT p.proname AS objname, q.proname AS refobjname FROM pg_depend AS dp
+              INNER JOIN pg_proc AS p ON dp.objid=p.oid
+              INNER JOIN pg_proc AS q ON dp.refobjid=q.oid
+              WHERE p.proname='func2' AND q.proname='func1';
+               objname | refobjname
+              ---------+------------
+              (0 rows)
+
+
+3.16.4 级联失效
+              设置GUC参数ddl_invalid_mode值为invalid后，支持函数、存储过程和包的级联失
+              效。
+              具体请参见示例。
+
+示例
+              --设置如下参数：
+              SET ddl_invalid_mode='invalid';
+              SET
+
+              CREATE TYPE type1 AS (f1 int, f2 text);
+              CREATE TYPE
+              CREATE OR REPLACE FUNCTION func1(var type1) RETURN varchar
+              IS
+              BEGIN
+              RETURN NULL;
+              END;
+              /
+              CREATE FUNCTION
+              SELECT proname,valid FROM pg_object obj JOIN pg_proc proc ON obj.object_oid = proc.oid AND proname =
+              'func1' AND propackageid = 0;
+               proname | valid
+              ---------+-------
+               func1 | t
+              (1 row)
+
+              DROP TYPE type1;
+              DROP TYPE
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                                   3054
+GaussDB
+集中式版参考                                                                                                3 存储过程
+
+              -- 查询状态。
+              SELECT proname,valid FROM pg_object obj JOIN pg_proc proc ON obj.object_oid = proc.oid AND proname =
+              'func1' AND propackageid = 0;
+               proname | valid
+              ---------+-------
+               func1 | f
+              (1 row)
+
+              -- 函数未被删除，函数依然存在。
+              SELECT proname FROM pg_proc WHERE proname = 'func1' AND propackageid = 0;
+               proname
+              ---------
+               func1
+              (1 row)
+
+              -- 删除已创建的对象。
+              DROP FUNCTION func1;
+              DROP FUNCTION
+
+              使用PACKAGE关键字创建的重载函数，级联失效后参数类型发生变更，同时存在多个
+              重载函数时，需要重建入参相同的函数后再进行删除。
+              --设置如下参数：
+              SET ddl_invalid_mode='invalid';
+              SET
+
+              CREATE TABLE t1(a INTEGER, b INTEGER);
+              CREATE TABLE
+
+              CREATE OR REPLACE FUNCTION func1(a t1, b INTEGER) RETURN INTEGER PACKAGE AS
+              BEGIN
+              RETURN 1;
+              END;
+              /
+              CREATE FUNCTION
+
+              CREATE OR REPLACE FUNCTION func1(a out t1, b INTEGER) RETURN INTEGER PACKAGE AS
+              BEGIN
+              RETURN 1;
+              END;
+              /
+              CREATE FUNCTION
+
+              -- 删除TABLE后重建
+              DROP TABLE T1;
+              DROP TABLE
+              CREATE TABLE t1(a INTEGER, b INTEGER);
+              CREATE TABLE
+
+              -- 重建函数
+              CREATE OR REPLACE FUNCTION func1(a t1, b INTEGER) RETURN INTEGER PACKAGE AS
+              BEGIN
+              RETURN 1;
+              END;
+              /
+              CREATE FUNCTION
+
+              CREATE OR REPLACE FUNCTION func1(a out t1, b INTEGER) RETURN INTEGER PACKAGE AS
+              BEGIN
+              RETURN 1;
+              END;
+              /
+              CREATE FUNCTION
+
+              -- 指定参数类型后删除
+              DROP FUNCTION func1(t1, INTEGER);
+              DROP FUNCTION
+
+              DROP FUNCTION func1;
+              DROP FUNCTION
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                                   3055
+GaussDB
+集中式版参考                                                                                                3 存储过程
+
+
+3.16.5 重编译
+              通过函数调用或者ALTER COMPILE语法可以将失效的存储过程、函数和包重编译为有
+              效。
+              具体请参见示例。
+
+示例
+              CREATE OR REPLACE FUNCTION func1 RETURN INT AS
+              BEGIN
+              RETURN 1;
+              END;
+              /
+              CREATE FUNCTION
+
+              CREATE OR REPLACE PACKAGE pkg IS
+              PROCEDURE proc1();
+              END pkg;
+              /
+              CREATE PACKAGE
+
+              CREATE OR REPLACE PACKAGE BODY pkg IS
+              PROCEDURE proc1() AS
+              BEGIN
+              RAISE INFO 'proc1';
+              END;
+              END pkg;
+              /
+              CREATE PACKAGE BODY
+
+              -- 运行失效重编译高级包。
+              CALL pkg_util.gs_compile_schema('public', false, 1);
+
+              -- 执行结果。
+              INFO: successful
+              gs_compile_schema
+              -------------------
+
+              (1 row)
+
+              -- 查询状态。
+              SELECT proname,valid FROM pg_object obj JOIN pg_proc proc ON obj.object_oid = proc.oid AND proname =
+              'func1' AND propackageid = 0;
+              proname | valid
+              ---------+-------
+              func1 | t
+              (1 row)
+              SELECT pkgname,object_type,valid FROM pg_object obj JOIN gs_package pkg ON obj.object_oid = pkg.oid
+              AND pkgname = 'pkg';
+              pkgname | object_type | valid
+              ---------+-------------+-------
+              pkg     |S         |t
+              pkg     |B         |t
+              (2 rows)
+
+              -- 执行函数。
+              SELECT func1();
+               func1
+              -------
+                  1
+              (1 row)
+              CALL pkg.proc1();
+              INFO: proc1
+               proc1
+              -------
+
+              (1 row)
+
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                                                  3056
+GaussDB
+集中式版参考                                                                                                                   3 存储过程
+
+
+              -- 删除已创建的对象。
+              DROP FUNCTION func1;
+              DROP FUNCTION
+
+              DROP PACKAGE pkg;
+              NOTICE: drop cascades to function public.proc1()
+              DROP PACKAGE
+
+
+3.16.6 重建包头不删除包体
+              重建包头的场景不删除包体定义。
+              具体请参见示例。
+
+示例
+              -- 创建包头包体。
+              CREATE OR REPLACE PACKAGE pkg_1 AS
+              var1 int;
+              var2 int;
+              PROCEDURE proc1;
+              END pkg_1;
+              /
+              CREATE PACKAGE
+
+              CREATE OR REPLACE PACKAGE BODY pkg_1 AS
+              PROCEDURE proc1 AS
+              BEGIN
+              var1 := var1 + var2;
+              END;
+              END pkg_1;
+              /
+              CREATE PACKAGE BODY
+
+              -- 重新创建包头。
+              CREATE OR REPLACE PACKAGE pkg_1 AS
+              var1 int;
+              var2 int;
+              var3 int;
+              PROCEDURE proc1;
+              END pkg_1;
+              /
+              CREATE PACKAGE
+
+              -- 查询状态，包体定义未被删除。
+              SELECT * FROM gs_package WHERE pkgname='pkg_1';
+               pkgnamespace | pkgowner | pkgname |             pkgspecsrc       | pkgbodydeclsrc | pkgbodyinitsrc | pkgacl |
+              pkgsecdef
+              --------------+----------+---------+--------------------+----------------------+----------------+--------+-----------
+                     2200 |      10 | pkg_1 | PACKAGE DECLARE +| PACKAGE DECLARE +|                                |      |f
+                         |       |      | var1 int;       +| procedure proc1 as +|                   |      |
+                         |       |      | var2 int;       +| begin              +|           |         |
+                         |       |      | var3 int;       +| var1 := var1 + var2;+|               |       |
+                         |       |      | procedure proc1; +| end;                 +|            |       |
+                         |       |      | end             | end               |            |       |
+              (1 row)
+
+              -- 包体对象被置为无效。
+              SELECT * FROM pg_object WHERE object_oid = (SELECT oid FROM gs_package WHERE pkgname='pkg_1');
+               object_oid | object_type | creator |            ctime           |          mtime             | createcsn | changecsn |
+              valid
+              ------------+-------------+---------+-------------------------------+-------------------------------+-----------
+              +-----------+-------
+                  171138 | B           |   10 | 2024-12-31 16:50:29.923577+08 | 2025-01-17 15:56:42.271533+08 |                    |
+              183936 | f
+                  171138 | S          |    10 | 2024-12-24 16:09:29.527485+08 | 2025-01-17 15:56:42.271533+08 |                    |
+              183936 | t
+
+
+文档版本 01 (2026-04-30)                        版权所有 © 华为云计算技术有限公司                                                                   3057
+GaussDB
+集中式版参考                                                                                                     3 存储过程
+
+              (2 rows)
+
+              -- 删除已创建的对象。
+              DROP PACKAGE pkg_1;
+              NOTICE: drop cascades to function public.proc1()
+              DROP PACKAGE
+
+              -- 包头包体定义被删除。
+              SELECT * FROM gs_package WHERE pkgname='pkg_1';
+               pkgnamespace | pkgowner | pkgname | pkgspecsrc | pkgbodydeclsrc | pkgbodyinitsrc | pkgacl | pkgsecdef
+              --------------+----------+---------+------------+----------------+----------------+--------+-----------
+              (0 rows)
+
+              SELECT * FROM pg_object WHERE object_oid = (SELECT oid FROM gs_package WHERE pkgname='pkg_1');
+               object_oid | object_type | creator | ctime | mtime | createcsn | changecsn | valid
+              ------------+-------------+---------+-------+-------+-----------+-----------+-------
+              (0 rows)
+
+
+3.16.7 失效重编译特性函数
+              ●    gs_set_object_invalid()/gs_set_object_invalid(schema, objname, objtype)
+                   描述：将PACKAGE和FUNCTION在pg_object中的状态置为false，同时级联将依
+                   赖PACKAGE和FUNCTION的对象状态置为false。调用该函数的用户需要具有
+                   SYSADMIN权限。
+                   参数：该函数为重载函数。当无入参时，将当前DATABASE内的PACKAGE和
+                   FUNCTION对象置为失效。当指定schema、objname、objtype三个参数时可将
+                   当前DATABASE内的PACKAGE和FUNCTION对象在pg_object中的状态置为false。
+                   其中：schema为对象所属的schema名称；objname为对象名称；objtype为对象
+                   类型，对象为package类型时值为“package”，对象为函数或存储过程时值为
+                   “function”。
+
+
+                         须知
+
+                   ● 需要将PACKAGE和FUNCTION和依赖PACKAGE和FUNCTION的对象状态置为
+                     失效时可以使用该函数。
+                   ● 仅系统管理员可以调用函数。
+
+                   示例：
+                   该函数不返回失效结果，可通过pg_object系统表查询失效结果，对象有效时查找
+                   到对应的valid状态为true，对象失效后对应的valid状态为false。
+                   gs_set_plsql_invalid所属的Schema为pg_catalog，但不指定Schema也可调用该
+                   函数。
+                   -- 创建一个包pkg1，pkg2和函数f3，查询pg_object信息，状态为valid。
+                   SET enable_force_create_obj=on;
+                   SET
+                   SET ddl_invalid_mode=invalid;
+                   SET
+                   CREATE SCHEMA testInvalidate;
+                   CREATE SCHEMA
+                   SET CURRENT_SCHEMA TO testInvalidate;
+                   SET
+                   CREATE OR REPLACE PACKAGE pkg1 AS
+                   var1 VARCHAR;
+                   FUNCTION f1() RETURN VARCHAR;
+                   END pkg1;
+                   /
+                   CREATE PACKAGE
+                   CREATE OR REPLACE PACKAGE BODY pkg1 AS
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                                        3058
+GaussDB
+集中式版参考                                                                  3 存储过程
+
+                 FUNCTION f1() RETURN VARCHAR
+                 IS
+                 BEGIN
+                 var1 := '2';
+                 RETURN var1;
+                 END;
+                 END pkg1;
+                 /
+                 CREATE PACKAGE BODY
+                 CREATE OR REPLACE PACKAGE pkg2 AS
+                 var1 pkg1.var1%TYPE;
+                 FUNCTION f2() RETURN VARCHAR;
+                 END pkg2;
+                 /
+                 CREATE PACKAGE
+                 CREATE OR REPLACE PACKAGE BODY pkg2 AS
+                 FUNCTION f2() RETURN VARCHAR
+                 IS
+                 BEGIN
+                 var1 := '2';
+                 RETURN var1;
+                 END;
+                 END pkg2;
+                 /
+                 CREATE PACKAGE BODY
+                 CREATE OR REPLACE FUNCTION f3() RETURN VARCHAR
+                 IS
+                 DECLARE
+                 var2 VARCHAR := 'li2';
+                 BEGIN
+                 var2='22';
+                 RETURN var2;
+                 END
+                 /
+                 CREATE FUNCTION
+                 SELECT pkg1.f1();
+                  f1
+                 ----
+                  2
+                 (1 row)
+                 SELECT pkg2.f2();
+                  f2
+                 ----
+                  2
+                 (1 row)
+                 SELECT f3();
+                  f3
+                 ----
+                  22
+                 (1 row)
+
+                 -- 调用函数，指定schema、函数名、类型即可将pkg1和pkg2失效，再次查询pg_object，pkg1和pkg2对应
+                 的valid为false。
+                 SELECT gs_set_object_invalid('testinvalidate','pkg1','package');
+                  set_object_invalid
+                 -------------------------
+                 (1 row)
+                 -- 如果要失效function，参数如下所示，查询pg_object，f3对应的valid为false。
+                 SELECT gs_set_object_invalid('testinvalidate','f3','function');
+                  set_object_invalid
+                 -------------------------
+                 (1 row)
+                 -- 调用时没有入参，则将失效所有缓存对象。
+                 SELECT gs_set_object_invalid();
+                  set_object_invalid
+                 -------------------------
+                 (1 row)
+
+
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                          3059
+GaussDB
+集中式版参考                                                             3 存储过程
+
+
+
+
+3.17 存储过程的字节码执行框架
+
+3.17.1 字节码简介
+              字节码和汇编指令类似，是为PL/SQL专门定义的一组用于实现PL/SQL语义的指令，通
+              过将PL/SQL语句转化为字节码完成用户的指令。一个字节码对应一个原子化的操作，
+              一条语句对应一个或多个字节码。通过逐条解析存储过程内的语句，将存储过程语句
+              的执行转化为顺序执行字节码组成的数组。
+              字节码通过将传统存储过程基于AST（Abstract Syntax Tree，抽象语法树）的解释执
+              行引擎转变为基于字节码的解释执行引擎，可以有效提升支持场景下存储过程的执行
+              性能。通过调整GUC参数plsql_code_type，可以验证字节码框架对存储过程的性能提
+              升。当GUC参数plsql_code_type设置为BYTECODE时，存储过程在支持字节码的场景
+              下执行路径为字节码框架，不支持字节码的场景下执行路径为传统AST框架；设置为
+              INTERPRETED时，存储过程执行路径为传统AST框架。
+
+3.17.2 字节码规格约束
+规格
+              ●   通过GUC参数plsql_code_type进行控制，设置为INTERPRETED时，通过传统AST
+                  框架执行存储过程；设置为BYTECODE时，通过字节码框架执行存储过程，当存
+                  储过程存在不支持字节码的场景，则存储过程以传统引擎框架进行执行；不支持
+                  将GUC参数plsql_code_type设置为其他值。
+              ●   该特性仅在A兼容模式数据库中生效，当A兼容性参数behavior_compat_options
+                  设置中包含compat_cursor、allow_procedure_compile_check、
+                  proc_outparam_override、dynamic_sql_compat、
+                  proc_outparam_transfer_length以及varray_compat参数选项时，支持执行字节
+                  码。
+
+约束
+              ●   目前不支持的DFX功能：PLDEBUGGER（打开PLDEBUGGER时，函数或存储过程
+                  将通过传统引擎执行），PG_STAT_USER_FUNCTIONS视图（仅统计通过传统引
+                  擎执行存储过程或函数的时间）。
+              ●   不支持PACKAGE实例化。
+              ●   不支持匿名块。
+              ●   不支持TRIGGER。
+              ●   不支持返回集合的函数。
+              ●   不支持高级包以及系统函数。
+              ●   不支持带有出参的FUNCTION在表达式中嵌套调用。
+              ●   不支持RETURN复合类型的带有出参的FUNCTION。
+              ●   不支持PROCEDURE显式指定RETURN值（正常用法PROCEDURE无需RETURN
+                  值）。
+              ●   不支持子程序。
+              ●   主事务不支持嵌套调用自治事务的表达式执行字节码（自治事务创建的新
+                  SESSION执行存储过程可以通过字节码框架执行）。
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                        3060
+
