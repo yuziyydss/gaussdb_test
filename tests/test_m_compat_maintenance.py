@@ -79,8 +79,12 @@ class MMaintenanceTests(unittest.TestCase):
 
     def test_source_conflicts_and_reconstruction(self):
         from scripts.build_m_compat_batch_05 import BUILDERS
+        # m_analyze/m_copy已进入人工演进阶段（新增source completion facts），
+        # 不再回退到batch_05一次性builder的输出。
         for builder in BUILDERS.values():
             p=builder()
+            if p.id in ('m_analyze', 'm_copy'):
+                continue
             for name,obj in p.finish().items():
                 self.assertEqual((ROOT/'specs'/p.category.lower()/p.id/name).read_text(),yaml.safe_dump(obj,allow_unicode=True,sort_keys=False,width=110))
         for fid,suffix in [('m_lock','access_share_conflict'),('m_select_into','duplicate_into'),('m_reindex','partition')]:
