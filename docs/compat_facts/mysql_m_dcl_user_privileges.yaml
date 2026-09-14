@@ -1,0 +1,93 @@
+# M模式 — DCL/用户权限/系统表 — 结构化参考事实
+# 来源: gaussdb-rf-cent.pdf 4.4.2.7.6-4.4.2.7.9
+document: "集中式版参考 / 4.4.2.7.6-9 MySQL兼容性M模式DCL/用户权限/系统表"
+version: "V2.0-10.0.0"
+parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+extraction_date: "2026-09-14"
+extraction_method: pdftotext -layout 逐条精读
+verification_status: confirmed
+
+facts:
+  # === DCL: SET NAMES ===
+  - id: m_dcl_set_names_collate
+    type: behavior_oracle
+    statement: "SET NAMES差异：SQL_ASCII库下GaussDB不支持指定与数据库字符集不同的charset_name。不指定字符集时MySQL报错但GaussDB不报错。"
+    source_anchor: "4.4.2.7.6 表4-165"
+    status: confirmed
+    verification_method: 逐页精读（页3436）
+
+  # === DCL: DESCRIBE ===
+  - id: m_dcl_describe_permission
+    type: behavior_oracle
+    statement: "DESCRIBE/DESC差异：GaussDB需Schema的USAGE权限+表/列任意权限。MySQL仅需表/列任意权限（无Schema USAGE要求）。模糊匹配时Field使用utf8mb4/utf8mb4_general_ci。"
+    source_anchor: "4.4.2.7.6 表4-165"
+    status: confirmed
+    verification_method: 逐页精读（页3437）
+
+  # === DCL: START TRANSACTION ===
+  - id: m_dcl_start_transaction_snapshot
+    type: behavior_oracle
+    statement: "START TRANSACTION快照差异：MySQL可重复读下仅第一个SELECT建立快照。GaussDB事务开启后第一个DDL/DML/DCL也建立一致性读快照。支持多次设置隔离级别/访问模式/快照。"
+    source_anchor: "4.4.2.7.6 表4-165"
+    status: confirmed
+    verification_method: 逐页精读（页3437-3438）
+
+  # === DCL: SET用户变量 ===
+  - id: m_dcl_set_user_variable_name
+    type: constraint
+    statement: "SET用户变量名限制：单引号/双引号/反引号内不能出现相同引号字符。@''''、@\"\"\"\"、@````等解析报错或不匹配。"
+    source_anchor: "4.4.2.7.6 SET用户变量"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3438-3439）
+
+  - id: m_dcl_set_chained_assignment
+    type: constraint
+    statement: "SET连续赋值：MySQL支持SET @a:=@b:=@c=@d:=1，GaussDB不支持（报错user_defined_variables cannot be set）。但GaussDB的expr可为聚集函数（MySQL不支持）。"
+    source_anchor: "4.4.2.7.6 SET用户变量"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3439-3440）
+
+  # === DCL: SET系统参数 ===
+  - id: m_dcl_set_boolean_param
+    type: behavior_oracle
+    statement: "SET BOOLEAN参数差异：GaussDB支持'1'/'0'/'true'/'false'字符串设置成功，MySQL失败。子查询结果为'true'/'false'/非整数1/0时GaussDB成功MySQL失败。NULL时GaussDB失败MySQL成功。"
+    source_anchor: "4.4.2.7.6 SET系统参数"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3440）
+
+  - id: m_dcl_set_sql_mode_numeric
+    type: behavior_oracle
+    statement: "SET sql_mode数字差异：MySQL校验表达式数据类型必须为整数（SET sql_mode='1'报错），GaussDB不做限制（SET sql_mode='4'成功、SET sql_mode=2+2e0成功）。"
+    source_anchor: "4.4.2.7.6 SET系统参数"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3440-3441）
+
+  # === 用户权限 ===
+  - id: m_user_grant_syntax_diff
+    type: constraint
+    statement: "GRANT语法差异：MySQL支持user@host格式、IDENTIFIED WITH auth_plugin、REQUIRE SSL/X509/CIPHER/ISSUER/SUBJECT、WITH resource_option（MAX_QUERIES_PER_HOUR等）。GaussDB不支持这些MySQL特有选项。"
+    source_anchor: "4.4.2.7.8 用户与权限"
+    status: confirmed
+    verification_method: 逐页精读（页3441-3442）
+
+  - id: m_user_privilege_types_diff
+    type: environment
+    statement: "权限类型差异：MySQL支持表4-167中约30种权限类型（含ALL/ALTER/ALTER ROUTINE/CREATE/CREATE ROUTINE/CREATE TABLESPACE/CREATE TEMPORARY TABLES/CREATE USER/CREATE VIEW/DELETE/DROP等）。GaussDB使用自己的权限模型，部分MySQL权限不直接对应。"
+    source_anchor: "4.4.2.7.8 表4-167"
+    status: confirmed
+    verification_method: 逐页精读（页3442-3444）
+
+  - id: m_user_mysql_specific_privileges
+    type: constraint
+    statement: "MySQL特有权限（GaussDB不支持）：PROXY（用户代理）、SHOW DATABASES、SHUTDOWN、SUPER、TRIGGER、EVENT、EXECUTE（例程级）、FILE、GRANT OPTION（作为资源选项）、LOCK TABLES、PROCESS、RELOAD、REPLICATION CLIENT、REPLICATION SLAVE等。"
+    source_anchor: "4.4.2.7.8 表4-167"
+    status: confirmed
+    verification_method: 逐页精读（页3442-3444）
+
+  # === 系统表和视图 ===
+  - id: m_sys_mysql_compatibility_views
+    type: environment
+    statement: "M模式兼容MySQL部分系统表/视图（如information_schema下的TABLES/COLUMNS/VIEWS等），但字段和权限与MySQL有差异。具体兼容列表和差异见M模式SQL章节。"
+    source_anchor: "4.4.2.7.9"
+    status: confirmed
+    verification_method: 逐页精读（页3449-3454）
