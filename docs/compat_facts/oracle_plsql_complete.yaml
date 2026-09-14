@@ -1,0 +1,149 @@
+# Oracle 兼容性 — PL/SQL 完整语法兼容性 — 结构化参考事实
+# 来源: gaussdb-rf-cent.pdf 4.3.10 (物理页3186-3206)
+document: "集中式版参考 / 4.3.10 Oracle兼容性PL/SQL语言"
+version: "V2.0-10.0.0"
+parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+extraction_date: "2026-09-14"
+extraction_method: pdftotext -layout 逐页精读
+verification_status: confirmed
+
+facts:
+  # 基本语法
+  - id: plsql_operators_supported
+    type: syntax
+    statement: "PL/SQL操作符：+、:=、=>、%、'、.、||、/、(、)、:、,、<<、>>、/*、*/ 均支持。**（幂运算符）不支持。"
+    source_anchor: "4.3.10.1 表4-46"
+    status: confirmed
+    verification_method: 逐页精读（页3186-3187）
+
+  - id: plsql_predefined_not_supported
+    type: constraint
+    statement: "GaussDB不支持预定义的PL/SQL常量和类型、子类型。"
+    source_anchor: "4.3.10"
+    status: confirmed
+    verification_method: 逐页精读（页3186）
+
+  # 数据类型
+  - id: plsql_datatype_length_diff
+    type: constraint
+    statement: "CHARACTER/VARCHAR差异：GaussDB字节长度限制1~10485760，Oracle限制1~32767。"
+    source_anchor: "4.3.10.2 表4-51"
+    status: confirmed
+    verification_method: 逐页精读（页3189）
+
+  - id: plsql_datatype_unsupported
+    type: constraint
+    statement: "STRING类型不支持。PLS_INTEGER不支持（可用int替代）。BINARY_INTEGER支持。"
+    source_anchor: "4.3.10.2 表4-51"
+    status: confirmed
+    verification_method: 逐页精读（页3189）
+
+  - id: plsql_subtype_range
+    type: constraint
+    statement: "SUBTYPE RANGE约束差异：GaussDB仅INT类型支持range约束（Oracle为PLS_INTEGER/BINARY_INTEGER及其子类型）。定义变量时不支持指定range约束。字符类型不支持指定字符集信息。"
+    source_anchor: "4.3.10.2 表4-52"
+    status: confirmed
+    verification_method: 逐页精读（页3189-3190）
+
+  # 控制语句
+  - id: plsql_control_statements
+    type: syntax
+    statement: "控制语句全部支持：IF THEN/ELSE/ELSIF、simple CASE、searched CASE、LOOP/EXIT/CONTINUE（含WHEN变体）、FOR、WHILE LOOP、GOTO、NULL。"
+    source_anchor: "4.3.10.3 表4-53~58"
+    status: confirmed
+    verification_method: 逐页精读（页3190-3191）
+
+  - id: plsql_for_reverse_diff
+    type: behavior_oracle
+    statement: "FOR REVERSE差异：GaussDB要求lower_bound≥upper_bound否则循环体不执行。"
+    source_anchor: "4.3.10.3 表4-55"
+    status: confirmed
+    verification_method: 逐页精读（页3191）
+
+  # 集合和Record
+  - id: plsql_collections_supported
+    type: syntax
+    statement: "集合类型全部支持：Associative array (index-by table)、VARRAY、Nested table、record。"
+    source_anchor: "4.3.10.4 表4-59"
+    status: confirmed
+    verification_method: 逐页精读（页3191-3192）
+
+  # 静态SQL
+  - id: plsql_select_lock_diff
+    type: behavior_oracle
+    statement: "SELECT锁差异：GaussDB不同事务中FOR SHARE/FOR KEY SHARE锁在某些组合下不互相阻塞。导致SKIP LOCKED时锁不会被跳过。"
+    source_anchor: "4.3.10.5 表4-68"
+    status: confirmed
+    verification_method: 逐页精读（页3196）
+
+  - id: plsql_insert_column_count
+    type: behavior_oracle
+    statement: "INSERT列数差异：Oracle目标表列数多于子查询时必须显式指定列名。GaussDB可省略列名，多出的列插NULL或默认值。"
+    source_anchor: "4.3.10.5 表4-69"
+    status: confirmed
+    verification_method: 逐页精读（页3196-3197）
+
+  - id: plsql_insert_all_diff
+    type: behavior_oracle
+    statement: "INSERT ALL差异：GaussDB支持into_clause表别名（Oracle不支持）。sequence nextval在GaussDB中正常自增（Oracle非首次引用返回相同数字）。GaussDB的plan_hint不生效。"
+    source_anchor: "4.3.10.5 表4-69"
+    status: confirmed
+    verification_method: 逐页精读（页3197）
+
+  - id: plsql_set_transaction_diff
+    type: constraint
+    statement: "SET TRANSACTION差异：GaussDB不支持NAME string和USE ROLLBACK SEGMENT语法。"
+    source_anchor: "4.3.10.5 表4-70"
+    status: confirmed
+    verification_method: 逐页精读（页3197）
+
+  - id: plsql_rownum_join_risk
+    type: constraint
+    statement: "ROWNUM差异：不推荐ROWNUM条件用于JOIN ON子句。在LEFT/RIGHT/FULL JOIN和MERGE INTO场景下与其他数据库行为不一致。"
+    source_anchor: "4.3.10.5 表4-71"
+    status: confirmed
+    verification_method: 逐页精读（页3197）
+
+  - id: plsql_implicit_cursor_diff
+    type: behavior_oracle
+    statement: "隐式游标差异：GaussDB在commit/rollback后不刷新SQL%FOUND/NOTFOUND/ROWCOUNT/ISOPEN，Oracle会刷新。"
+    source_anchor: "4.3.10.5 表4-72"
+    status: confirmed
+    verification_method: 逐页精读（页3197-3198）
+
+  # 动态SQL
+  - id: plsql_execute_immediate_diff
+    type: behavior_oracle
+    statement: "EXECUTE IMMEDIATE差异：GaussDB通过dynamic_sql_compat参数控制同名变量读取和绑定参数类型检查。不支持匿名块嵌套动态语句的表达式绑定参数。不支持RETURNING/RETURN INTO。"
+    source_anchor: "4.3.10.6 表4-77"
+    status: confirmed
+    verification_method: 逐页精读（页3199-3200）
+
+  # Trigger
+  - id: plsql_trigger_types
+    type: syntax
+    statement: "Trigger类型：DML TRIGGER支持但不支持Compound DML Triggers。SYSTEM TRIGGER不支持。"
+    source_anchor: "4.3.10.7 表4-78"
+    status: confirmed
+    verification_method: 逐页精读（页3200）
+
+  - id: plsql_trigger_create_diff
+    type: constraint
+    statement: "CREATE TRIGGER差异：不支持EDITIONABLE/NONEDITIONABLE、schema限定、sharing_clause、default_collation_clause。不支持referencing_clause（用from referencing_table替代）、ENABLE/DISABLE。无INSTEAD OF TRIGGER的视图上创建BEFORE/AFTER TRIGGER不报错但执行DML时报错。"
+    source_anchor: "4.3.10.7 表4-79"
+    status: confirmed
+    verification_method: 逐页精读（页3200-3201）
+
+  - id: plsql_trigger_body_diff
+    type: constraint
+    statement: "Trigger body差异：不允许声明PRAGMA AUTONOMOUS_TRANSACTION。CALL routine_clause支持但function必须无参数且返回类型为trigger。"
+    source_anchor: "4.3.10.7 表4-79"
+    status: confirmed
+    verification_method: 逐页精读（页3201-3202）
+
+  - id: plsql_trigger_instead_of_diff
+    type: constraint
+    statement: "INSTEAD OF TRIGGER差异：不支持NESTED TABLE nested_table_column OF、referencing_clause、trigger_edition/ordering_clause、ENABLE/DISABLE。"
+    source_anchor: "4.3.10.7 表4-79"
+    status: confirmed
+    verification_method: 逐页精读（页3202）
