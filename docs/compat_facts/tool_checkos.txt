@@ -1,0 +1,520 @@
+GaussDB
+集中式版参考                                                                     5 工具参考
+
+
+              [Service]
+              Type=idle
+              ExecStart=/usr/local/gauss/script/gauss-OS-set.sh
+              Delegate=yes
+
+
+              [Install]
+              WantedBy=multi-user.target
+
+
+                    说明
+
+                   数据库安装后，新增/usr/local/gauss/script/gauss-OS-set.sh脚本文件，用于在系统启动或
+                   systemd服务启停时执行相关的配置任务。
+
+
+
+5.5 数据库性能监控工具
+
+5.5.1 数据库性能监控工具概览
+              表 5-86 数据库性能监控工具概览
+
+               工具名称                        工具简介
+
+               gs_checkos                  gs_checkos用于检查操作系统、控制参数、磁盘配置等内容，
+                                           并对系统控制参数、I/O配置、网络配置和THP服务等信息进
+                                           行配置。详细信息请参见gs_checkos检查配置。
+
+               gs_cgroup                   gs_cgroup是GaussDB提供的负载管理工具。负责创建默认控
+                                           制组、创建用户自定义控制组、删除用户自定义控制组、更新
+                                           用户自定义控制组的资源配额和资源限额、显示控制组配置文
+                                           件内容、显示控制组树形结构和删除用户的所有控制组。详细
+                                           信息请参见gs_cgroup负载管理。
+
+               gs_check                    gs_check统一当前系统中存在的各种检查工具，帮助用户在数
+                                           据库运行过程中，全量检查数据库运行环境、操作系统环境、
+                                           网络环境及数据库执行环境。详细信息请参见gs_check检查
+                                           数据库状态。
+
+               gstrace                     gstrace是GaussDB提供的用来侦听内核代码执行路径，记录
+                                           内核数据结构，分析代码性能的工具。详细信息请参见
+                                           gstrace追踪分析性能。
+
+
+
+
+5.5.2 gs_checkos 检查配置
+                    说明
+
+                   系统内部工具，不支持单独调用。
+
+
+工具介绍
+              gs_checkos用于检查操作系统、控制参数、磁盘配置等内容，并对系统控制参数、I/O
+              配置、网络配置和THP服务等信息进行配置。
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                     3736
+GaussDB
+集中式版参考                                                                                               5 工具参考
+
+
+前提条件
+              ●   当前机器的硬件和网络环境正常。
+              ●   各主机间root互信状态正常。
+              ●   只能使用root用户执行gs_checkos命令。
+                        说明
+
+                       该工具不支持独立调用，出于安全考虑，数据库前置完成后会自动删除。
+
+
+命令格式
+              ●   检查操作系统信息。
+                  gs_checkos -i ITEM [-f HOSTFILE] [-h HOSTNAME] [-X XMLFILE] [--detail] [-o OUTPUT] [-l LOGFILE]
+
+              ●   显示帮助信息。
+                  gs_checkos -? | --help
+
+              ●   显示版本号信息。
+                  gs_checkos -V | --version
+
+
+参数说明
+              ●   -i
+                  列表编号。格式：-i A、-i B1、-i A1 -i A2或-i A1,A2。
+                  取值范围：A1...A14、B1...B6。
+                        说明
+
+                       ● A1...A14 表示只检查操作系统参数，并不进行参数设置。
+                       ● B1...B6 表示将系统参数设置为期望值。
+                       ● A和B不能同时输入。
+                  详细的检查项请参见表5-87。
+              ●   -f
+                  主机名称列表文件。
+                        说明
+
+                       -f和-h参数不能同时使用。
+                  取值范围：主机名称的列表。
+              ●   -h
+                  指定需要检查的主机名称，可以同时指定多个主机，主机之间使用“,”分隔。
+                  取值范围：数据库实例的主机名称。如果不指定主机，则检查当前主机。
+              ●   -X
+                  数据库实例XML配置文件。
+              ●   --detail
+                  显示检查结果详情。
+              ●   -o
+                  指定OS检查报告输出到指定的文件。
+                  不指定则将检查结果输出到屏幕上。
+              ●   -l
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                   3737
+GaussDB
+集中式版参考                                                                       5 工具参考
+
+                    指定日志文件及存放路径。
+                    默认值：/tmp/gs_checkos/gs_checkos-YYYY-MM-DD_hhmmss.log。
+              ●     -?, --help
+                    显示帮助信息。
+              ●     -V, --version
+                    显示版本号信息。
+
+              表 5-87 操作系统检查项
+               编号       检查项                     检查项详细说明
+
+               A1       OS version status       操作系统版本检查：保证主机平台是支持的
+                                                SUSE12、kylin、Euler、uniontech、hce、
+                                                openeuler平台中的一种。同时保证数据库实例各
+                                                个主机的平台是属于同一混编范围的。
+
+               A2       Kernel version status   内核版本检查。
+
+               A3       Unicode status          字符集设置检查：保证数据库实例各个主机的字符
+                                                集一致，目前OM工具只支持操作系统默认utf-8的
+                                                语言和编码。
+
+               A4       Time zone status        时区状态设置检查：保证数据库实例各个主机的时
+                                                区状态一致。
+
+               A5       Swap memory status      Swap分区检查：各个主机的swap分区大小必须小
+                                                于等于各主机内存总大小。
+
+               A6       System control          内核参数检查：保证当前内核中的参数值和默认的
+                        parameters status       期望值保持一致。
+                                                详细的内核参数请参见表5-88。
+
+               A7       File system             系统文件句柄检查：系统文件句柄的参数值必须大
+                        configuration status    于等于100万。
+                                                线程堆栈大小检查：线程堆栈大小大于等于
+                                                3072KB。
+                                                进程最大可用虚拟内存：系统进程最大可用虚拟内
+                                                存为unlimited。
+
+               A8       Disk configuration      硬盘挂载参数检查：格式为xfs的硬盘，其挂载格
+                        status                  式必须为：
+                                                "rw,noatime,inode64,allocsize=16m"。
+
+               A9       Pre-read block size     预读参数检查：预读参数期望值为16384。
+                        status
+
+               A10      IO scheduler status     I/O调度策略检查：I/O调度策略的方式为
+                                                deadline。
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                           3738
+GaussDB
+集中式版参考                                                                   5 工具参考
+
+
+               编号      检查项                       检查项详细说明
+
+               A11     Network card              万兆以下网卡参数检查：
+                       configuration status      ● 确保网卡mtu=1500。
+                                                 万兆及以上网卡参数检查：
+                                                 ● 当网卡为非绑定模式，同时网卡类型为万兆
+                                                   时，确保mtu=1500，rx/tx >=4096。
+                                                 ● 当网卡为绑定模式时，需保证绑定的每个网卡
+                                                   类型均为万兆，然后再确保mtu=1500，rx/
+                                                   tx>=4096。
+                                                 ● 数据库实例周边设备（例如交换机等）的网卡
+                                                   也要设置成与数据库实例部署的主机一致的
+                                                   值。
+
+               A12     Time consistency          时间一致性检查：确认ntp服务启动，数据库实例
+                       status                    各个主机的系统时间误差不超过60s。
+
+               A13     Firewall service status   防火墙检查：确认防火墙的状态为关闭状态。
+
+               A14     THP service status        THP服务检查：确认THP服务状态为关闭状态。
+
+               B1      Set system control        内核参数设置：当实际值不满足检查条件期望时，
+                       parameters                对结果为Abnormal项参数进行修改设置；对
+                                                 Warning项不进行设置，由用户根据实际环境设
+                                                 置。
+
+               B2      Set file system           系统文件句柄设置：当系统文件句柄的参数值小于
+                       configuration value       100万时，对其进行修改设置。
+                                                 线程堆栈大小设置：线程堆栈大小小于3072KB
+                                                 时，对其进行修改设置。
+                                                 进程最大可用虚拟内存设置：系统进程最大可用虚
+                                                 拟内存不为unlimited时，对其进行修改设置。
+
+               B3      Set pre-read block        硬盘预读参数设置：当系统的实际值小于16384
+                       size value                时，对其进行修改设置。
+
+               B4      Set IO scheduler          I/O配置项的设置：当系统的实际值不为deadline
+                       value                     时，对其进行修改设置。
+
+               B5      Set network card          万兆网卡参数设置：对不满足万兆网卡的RX、TX
+                       configuration value       参数进行设置，不对MTU参数进行设置。
+
+               B6      Set THP service           THP服务设置：如果THP服务启动，将该服务关
+                                                 闭。
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                           3739
+GaussDB
+集中式版参考                                                                          5 工具参考
+
+
+                   说明
+
+                  ● A6选项检查标准来自配置文件check_list.conf下[/etc/sysctl.conf]、[SUGGEST:/etc/
+                    sysctl.conf]域：
+                     若[/etc/sysctl.conf]下参数值与系统实际参数值不同，A6检查提示Abnormal，可以使用B1
+                     参数进行设置。
+                     若[SUGGEST:/etc/sysctl.conf]下参数值与系统实际参数值不同，A6检查提示Warning，B1参
+                     数不会进行设置，需根据实际情况进行手动设置。
+                  ● A7选项检查系统文件句柄标准来自配置文件check_list.conf下[/etc/security/limits.conf]域
+                    open file参数，可以使用B2参数进行设置。
+                  ● A11选项检查万兆网卡参数"MTU"、"RX"、"TX"标准来自配置文件check_list.conf下[/sbin/
+                    ifconfig]域，可以使用B5参数对RX、TX进行设置，MTU需用户手动设置。
+                  ● 使用gs_checkos设置的内核参数值和文件句柄参数值，需重启新会话生效。
+                  ● CCE容器不支持进入容器后配置系统文件句柄设置，以及CCE容器部分内核配置文件不存
+                    在，因此docker模式下默认不执行B2项配置系统文件句柄，不执行A6项检查容器系统控制参
+                    数。
+
+
+              表 5-88 操作系统参数
+               参数名称                 参数说明                                推荐取值
+
+               net.ipv4.tcp_max     表示同时保持TIME_WAIT状态的TCP/IP连           10000
+               _tw_buckets          接最大数量。如果超过所配置的取值，
+                                    TIME_WAIT将立刻被释放并打印警告信
+                                    息。
+
+               net.ipv4.tcp_tw_r    允许将TIME-WAIT状态的sockets重新用于          1
+               euse                 新的TCP连接。
+                                    ● 0表示关闭。
+                                    ● 1表示开启。
+
+               net.ipv4.tcp_tw_r    表示开启TCP连接中TIME-WAIT状态               1
+               ecycle               sockets的快速回收。
+                                    ● 0表示关闭。
+                                    ● 1表示开启。
+
+               net.ipv4.tcp_keep    表示当keepalive启用的时候，TCP发送             30
+               alive_time           keepalive消息的频度。
+
+               net.ipv4.tcp_keep    在认定连接失效之前，发送TCP的                    9
+               alive_probes         keepalive探测包数量。这个值乘以
+                                    tcp_keepalive_intvl之后决定了一个连接发
+                                    送了keepalive之后可以有多少时间没有回
+                                    应。
+
+               net.ipv4.tcp_keep    当探测没有确认时，重新发送探测的频                   30
+               alive_intvl          度。
+
+               net.ipv4.tcp_retri   在建立连接过程中TCP协议最大重试次                  5
+               es1                  数。
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                3740
+GaussDB
+集中式版参考                                                                      5 工具参考
+
+
+               参数名称                 参数说明                              推荐取值
+
+               net.ipv4.tcp_syn_r   TCP协议SYN报文最大重试次数。                 5（该参数值控制
+               etries                                                 数据库向已经建
+                                                                      立连接的远程主
+                                                                      机重新发送数据
+                                                                      的最大次数，低
+                                                                      值可以更早的检
+                                                                      测到与远程主机
+                                                                      失效的连接，因
+                                                                      此服务器可以更
+                                                                      快的释放该连
+                                                                      接；如需减少网
+                                                                      络故障场景超时
+                                                                      时间，可设置该
+                                                                      参数值为2）。
+
+               net.ipv4.tcp_syna    TCP协议SYN应答报文最大重试次数。               5
+               ck_retries
+
+               net.ipv4.tcp_retri   控制内核向已经建立连接的远程主机重新                12
+               es2                  发送数据的次数，低值可以更早的检测到
+                                    与远程主机失效的连接，因此服务器可以
+                                    更快的释放该连接。
+                                    发生“connection reset by peer”时可以
+                                    尝试调大该值规避问题。
+
+               vm.overcommit_       控制在做内存分配的时候，内核的检查方                0
+               memory               式。
+                                    ● 0：表示系统会尽量精确计算当前可用
+                                      的内存。
+                                    ● 1：表示不作检查直接返回成功。
+                                    ● 2：内存总量×
+                                      vm.overcommit_ratio/100＋SWAP的
+                                      总量，如果申请空间超过此数值则返回
+                                      失败。
+                                    内核默认是2过于保守，推荐设置为0，如
+                                    果系统压力大可以设置为1。
+
+               net.ipv4.tcp_rme     TCP协议接收端缓冲区的可用内存大小。               8192，250000，
+               m                    分无压力、有压力和压力大三个区间，单                16777216
+                                    位为页面。
+
+               net.ipv4.tcp_wme     TCP协议发送端缓冲区的可用内存大小。               8192，250000，
+               m                    分无压力、有压力和压力大三个区间，单                16777216
+                                    位为页面。
+
+               net.core.wmem_       socket发送端缓冲区大小的最大值。               21299200
+               max
+
+               net.core.rmem_m      socket接收端缓冲区大小的最大值。               21299200
+               ax
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                           3741
+GaussDB
+集中式版参考                                                                 5 工具参考
+
+
+               参数名称                  参数说明                      推荐取值
+
+               net.core.wmem_d       socket发送端缓冲区大小的默认值。       21299200
+               efault
+
+               net.core.rmem_d       socket接收端缓冲区大小的默认值。       21299200
+               efault
+
+               net.ipv4.ip_local_    服务器可用临时端口范围。              26000-65535
+               port_range
+
+               kernel.sem            内核信号量参数设置大小。              250，6400000，
+                                                               1000，25600
+
+               vm.min_free_kbyt      保证物理内存有足够空闲空间，防止突发        系统总内存的5%
+               es                    性换页。
+
+               net.core.somaxco      定义了系统中每一个端口最大的监听队列        65535
+               nn                    的长度，这是一个全局参数。
+
+               net.ipv4.tcp_sync     当出现SYN等待队列溢出时，启用cookies   1
+               ookies                来处理，可防范少量SYN攻击。
+                                     ● 0表示关闭SYN Cookies。
+                                     ● 1表示开启SYN Cookies。
+
+               net.core.netdev_      在每个网络接口接收数据包的速率比内核        65535
+               max_backlog           处理这些包的速率快时，允许送到队列的
+                                     数据包的最大数目。
+
+               net.ipv4.tcp_max      尚未收到客户端确认信息的连接请求的最        65535
+               _syn_backlog          大值。
+
+               net.ipv4.tcp_fin_ti   系统默认的超时时间。                60
+               meout
+
+               kernel.shmall         内核可用的共享内存总量。              11529215046068
+                                                               46720
+
+               kernel.shmmax         内核参数定义单个共享内存段的最大值。        18446744073709
+                                                               551615
+
+               net.ipv4.tcp_sack     是否启用有选择的应答，通过有选择地应        1
+                                     答乱序接收到的报文来提高性能，让发送
+                                     者只发送丢失的报文段（对于广域网来
+                                     说）。启用该功能可以提高性能，但是会
+                                     增加对CPU的占用，建议启用该功能。
+                                     ● 0表示关闭。
+                                     ● 1表示开启。
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                      3742
+GaussDB
+集中式版参考                                                                         5 工具参考
+
+
+               参数名称                  参数说明                              推荐取值
+
+               net.ipv4.tcp_time     是否启用TCP时间戳（会在TCP包头增加12            1
+               stamps                节），以一种比重发超时更精确的方式
+                                     （参考RFC 1323）来启用对RTT的计算，
+                                     启用该功能可以提高性能。
+                                     ● 0表示关闭。
+                                     ● 1表示开启。
+
+               net.ipv6.conf.all.n   定义地址和设备更改的通知模式。                   1
+               disc_notify           ● 0表示不开启通知。
+                                     ● 1表示当设备启动或硬件地址更改时，
+                                       生成未经请求的邻居通告。
+
+               vm.extfrag_thres      系统内存不够用时，linux会为当前系统内             500
+               hold                  存碎片情况打分，如果超过
+                                     vm.extfrag_threshold的值，kswapd就会
+                                     触发memory compaction。如果该参数的
+                                     值接近1000，说明系统在内存碎片的处理
+                                     上倾向于把旧的页换出，以符合申请的需
+                                     要；而接近0，表示系统在内存碎片的处理
+                                     倾向于做memory compaction。
+
+               vm.overcommit_r       系统使用绝不过量使用内存的算法时，系                90
+               atio                  统整个内存地址空间不得超过内存总量×
+                                     vm.overcommit_ratio/100＋SWAP的总
+                                     量，当vm.overcommit_memory=2时此参
+                                     数生效。
+
+               MTU                   节点网卡最大传输单元。OS默认值为                 8192
+                                     1500。
+
+
+
+
+                   说明
+
+                  表5-88中除MTU值外，其它参数修改可以编辑/etc/sysctl.conf文件，添加或修改相应参数，
+                  如：net.ipv4.tcp_max_tw_buckets = 10000，然后执行sysctl -p 使配置生效，可通过sysctl
+                  net.ipv4.tcp_max_tw_buckets查看当前值。
+              ●   soft nofile
+                  说明：soft nofile表示软限制，用户使用的文件句柄数量可以超过该限制，但是如
+                  果超过会有告警信息。
+                  推荐取值：1000000
+              ●   hard nofile
+                  说明：hard nofile表示硬限制，是一个严格的限制，用户使用的文件句柄数量一
+                  定不能超过该设置。
+                  推荐取值：1000000
+              ●   stack size
+                  说明：线程堆栈大小。
+                  推荐值：3072
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                             3743
+GaussDB
+集中式版参考                                                                                                      5 工具参考
+
+
+示例
+              --检查操作系统参数并输出报告；-h后为主机名，-X后为.xml文件的路径。
+              gs_checkos -i A -h plat1 -X /opt/software/GaussDB_Kernel/clusterconfig.xml --detail -o /var/log/checkos
+              Performing operation system check/set. Output the result to the file /var/log/checkos.
+              Operation system check/set is completed.
+              Total numbers:14. Abnormal numbers:0. Warning number:1.
+
+              --查看操作系统参数检查结果。
+              cat /var/log/checkos
+              Checking items:
+                 A1. [ OS version status ]                       : Normal
+                 A2. [ Kernel version status ]                     : Normal
+                 A3. [ Unicode status ]                         : Normal
+                 A4. [ Time zone status ]                         : Normal
+                 A5. [ Swap memory status ]                             : Normal
+                 A6. [ System control parameters status ]                   : Normal
+                 A7. [ File system configuration status ]                 : Normal
+                 A8. [ Disk configuration status ]                    : Normal
+                 A9. [ Pre-read block size status ]                   : Normal
+                 A10.[ IO scheduler status ]                        : Normal
+                 A11.[ Network card configuration status ]                   : Normal
+                 A12.[ Time consistency status ]                       : Warning
+                 A13.[ Firewall service status ]                   : Normal
+                 A14.[ THP service status ]                        : Normal
+
+
+5.5.3 gs_cgroup 负载管理
+
+工具介绍
+              数据库实例环境下做批量任务处理时，因为多任务复杂性，会导致不同机器间存在负
+              载的差距。为了充分利用数据库实例资源，负载管理变得尤为重要。gs_cgroup是
+              GaussDB提供的负载管理工具。负责创建默认控制组、创建用户自定义控制组、删除
+              用户自定义控制组、更新用户自定义组的资源配额和资源限额、显示控制组配置文件
+              内容、显示控制组树形结构和删除用户的所有控制组。
+
+              gs_cgroup工具为使用数据库的操作系统用户创建Cgroups配置文件，并且在操作系统
+              中生成用户设定的Cgroups。同时为用户提供增加、删除Cgroups，更新Cgroups资源
+              配额，设定Cgroups的CPU或I/O限额，设定异常处理阈值及相应操作等服务。此工具
+              只负责当前操作系统节点的Cgroups操作，使用时需在各个节点上调用相同命令语句进
+              行统一配置。
+
+              这里假设读者已经了解了负载管理的相关原理。
+
+                    说明
+
+                   docker模式下不支持gs_cgroup进行资源管理。
+
+
+命令格式
+              gs_cgroup [OPTION]...
+
+
+参数说明
+              ●    -a [--abort]
+                   对满足设定的异常阈值的作业执行终止动作。
+              ●    -b pct
+                   Backend Cgroups占用Top Backend资源的百分比，需同时指定“-B name”参
+                   数。
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                                          3744
+

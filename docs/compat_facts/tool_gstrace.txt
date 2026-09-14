@@ -1,0 +1,236 @@
+GaussDB
+集中式版参考                                                                                               5 工具参考
+
+              非本地执行：
+              gs_check -i CheckXXX
+
+              ----结束
+
+              示例三
+
+              执行单项检查。
+              gs_check -i CheckCPU -L
+              2024-08-30 17:15:46 [NAM] CheckCPU
+              2024-08-30 17:15:46 [STD]
+              2024-08-30 17:15:46 [RST] OK
+
+              2024-08-30 17:15:46 [RAW]
+              Linux 3.10.0-862.14.1.5.h408.eulerosv2r7.x86_64 (kwephis21718223)    08/30/24   _x86_64_   (8
+              CPU)
+
+              17:15:41        CPU     %user    %nice %system %iowait   %steal     %idle
+              17:15:42        all    2.89   0.00    1.64  0.25  0.00   95.22
+              17:15:43        all    1.13   0.00    1.13  0.13  0.00   97.61
+              17:15:44        all    3.63   0.00    2.38  0.13  0.00   93.86
+              17:15:45        all    2.65   0.00    1.14  0.00  0.00   96.21
+              17:15:46        all    2.78   0.00    1.26  0.38  0.00   95.58
+              Average:        all    2.62   0.00    1.51  0.18  0.00   95.69
+
+
+
+              ---------------------------------------------
+              Run in local time: 5.072552048834041
+              ---------------------------------------------
+
+
+相关工具
+              gs_checkos检查配置
+
+5.5.5 gstrace 追踪分析性能
+
+工具介绍
+              gstrace是GaussDB提供的用来侦听内核代码执行路径，记录内核数据结构，分析代码
+              性能的工具。Trace的有限点位和数据在版本中被固化，无法动态添加和删除。
+
+
+注意事项
+              ●     对内核dump指定内存变量的数据用于诊断分析，不存在直接指定任意寄存器或者
+                    内存地址的行为。读取的内存地址均是在开发阶段固化，没有任意地读取或者修
+                    改寄存器或内存的操作。
+              ●     Trace点可能涉及敏感数据，收集trace信息前需要同用户协商，授权和许可后方可
+                    收集。
+              ●     GaussDB不会在敏感信息上打点，不会trace和用户相关的数据。
+              ●     Trace仅用于诊断目的，开启trace将对性能产生一定影响，影响的大小和负载的高
+                    低、trace的模块相关。
+              ●     Trace工具的权限为0700，仅限于数据库用户读、写和执行。
+              ●     如果进程异常终止，/dev/shm/ 目录下将会有gstrace_trace_cfg_*残留，可以手动
+                    清除。
+
+文档版本 01 (2026-04-30)                         版权所有 © 华为云计算技术有限公司                                          3773
+GaussDB
+集中式版参考                                                                             5 工具参考
+
+
+命令格式
+              ●   开始记录trace。
+                  gstrace start -m <mask> -s <buffer size> -p <port>
+
+              ●   显示trace的配置信息。
+                  gstrace config -p <port>
+
+              ●   将共享内存中的trace信息写入指定文件。
+                  gstrace dump -p <port> -o <output file>
+
+              ●   将dump的二进制文件解析成文本文件。
+                  gstrace detail -f <dump file> -o <output file>
+
+              ●   提取dump文件中的函数调用信息。
+                  gstrace codepath -f <dump file> -o <output file>
+
+              ●   停止trace。
+                  gstrace stop -p <port>
+
+              ●   解析函数的执行信息。
+                  gstrace analyze -f <dump file> -o <output file>
+
+              ●   解析分片性能。
+                  gstrace analyze -f <dump file> -o <output file> -t <step size>
+
+
+参数说明
+              ●   start
+                  开始记录trace。
+              ●   stop
+                  停止trace，释放存储信息的共享内存trace buffer。注意：trace buffer中已捕获
+                  trace信息会丢失。
+              ●   config
+                  显示trace的配置信息。
+              ●   dump
+                  将共享内存中的trace信息写入指定文件。若没有启动trace将报错。
+              ●   detail
+                  将dump的二进制文件解析成文本文件，显示trace点的线程、时间信息。
+              ●   codepath
+                  提取dump文件中的函数调用信息，按照调用栈的方式显示。
+              ●   analyze
+                  统计各个函数的执行次数、总耗时、平均耗时、最长耗时和最短耗时。
+              ●   -p
+                  指定启动trace功能的实例侦听的端口号。
+              ●   -f
+                  指定dump导出的trace文件。
+              ●   -o
+                  指定写入的文件。
+              ●   -t
+                  指定分片分析的时间跨度（秒），将生成单独的{OUTPUT_FILE}.step文件。
+              ●   -m
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                             3774
+GaussDB
+集中式版参考                                                                                   5 工具参考
+
+                   指定哪些模块、函数需要追踪，如果参数为空，则追踪添加trace接口的所有模块
+                   的所有函数。
+                   格式：[comp…][ALL].[func…][ALL]
+                   描述：
+                   –     comp是模块列表，使用‘,’分隔，例如：executer,kernel。也可以使用序
+                         号，例如：executer,2。
+                   –     func是function列表，使用‘,’分隔。例如：
+                         sql_execute_ddl,sql_execute_dcl。也可以使用序号指代模块中第几个
+                         function，例如：2。
+                   –     设置为ALL表示所有模块或所有function被trace。
+                   示例：
+                   –     executer,kernel.ALL：所有定义在executer和kernel模块下的function被
+                         trace。
+                   –     executer,kernel.sql_execute_ddl：定义在executer下的Function
+                         sql_execute_ddl被trace，kernel模块被忽略，因为下面没有该function。
+                   –     executer,kernel.1：定义在模块executer和kernel下的第一个function被
+                         trace。
+                   –     ALL.1,2：定义在所有模块下的第一、二个function被trace。
+              ●    -s
+                   指定用于trace功能的共享内存大小，默认为1073741824 bytes（即1GB）。如果
+                   指定的buffer size小于最小值2048，系统将自动调整为最小值。如果指定的buffer
+                   size不是2^N（二的N次方），则向下对齐2^N；例如：指定为3072，由于
+                   2^11<3072<2^12，系统将调整为2048。
+
+示例
+              --开始记录trace，根据实际需要替换端口号。
+              gstrace start -p 38100
+              Shared memory buffer has been initialized.
+              [GAUSS-TRACE] start Success!
+
+              --显示trace配置信息。
+              gstrace config -p 38100
+              gstrace is enabled
+              Trace buffer size is 1073741824 bytes
+              Trace status is TRACING
+              Trace status counter is 0
+              [GAUSS-TRACE] config Success!
+
+              --将共享内存中的trace信息写入/data/38100_trace.dump文件中。
+              gstrace dump -p 38100 -o /data/38100_trace.dump
+              Shared memory buffer has been dumped to file: /data/38100_trace.dump.
+              [GAUSS-TRACE] dump Success!
+
+              --将dump出来的二进制文件解析成文本文件。
+              gstrace detail -f /data/38100_trace.dump -o /data/38100_trace.detail
+              Found 4109 trace records and formatted 4109 of them
+              [GAUSS-TRACE] detail Success!
+
+              --解析函数调用信息。
+              gstrace codepath -f /data/38100_trace.dump -o /data/38100_trace.codepath
+              Found 4109 trace records and formatted 4109 of them(most recent)
+              [GAUSS-TRACE] codepath Success!
+
+              --解析各个函数的执行信息。
+              gstrace analyze -f /data/38100_trace.dump -o /data/38100_trace.perf
+              Found 4109 trace records and formatted 4109 of them(most recent)
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                  3775
+GaussDB
+集中式版参考                                                                                   5 工具参考
+
+              [GAUSS-TRACE] analyze Success!
+
+              --解析分片性能。
+              gstrace analyze -f /data/38100_trace.dump -o /data/38100_trace.perf -t 1
+              Found 4109 trace records and formatted 4109 of them(most recent)
+              [GAUSS-TRACE] analyze Success!
+
+              --停止trace。
+              gstrace stop -p 38100
+              Successfully deleted shared mem and cleared trace configuration.
+              [GAUSS-TRACE] stop Success!
+
+
+
+5.6 备份/恢复工具
+
+5.6.1 备份/恢复工具概览
+              表 5-93 备份/恢复工具概览
+               工具名称                                 工具简介
+
+               GaussRoach.py                        备份和恢复的实用工具。可对整个数据库中的数据、
+                                                    WAL归档日志和运行日志进行备份。
+
+               gs_roach                             备份和恢复的实用工具。可对整个数据库中的数据、
+                                                    WAL归档日志和运行日志进行备份。
+
+               gs_backup                            对数据库进行备份、恢复。
+
+               gs_finishredo_retrieve               在强切发生后，可从未回放的Xlog里解码出对应的内
+                                                    容，进行参考。
+
+               LogicalStandbyDR.py                  LogicalStandbyDR.py用来在容灾场景下对备数据库
+                                                    做物理转逻辑或逻辑转物理操作。
+
+
+
+
+5.6.2 GaussRoach.py 备份恢复
+
+5.6.2.1 工具介绍
+              GaussRoach.py工具是GaussDB提供的用于备份和恢复的实用工具。可对整个数据库
+              中的数据、WAL归档日志和运行日志进行备份。
+              GaussRoach.py工具是一款数据库高可用性以及容灾恢复策略的备份管理工具。使用该
+              工具不仅可以备份恢复数据库，也可以备份恢复单表；不仅可以备份到物理磁盘，也
+              可以备份到OBS、NAS和REMOTE。数据库级备份包含数据库静态配置文件
+              （cluster_static_config）、数据库动态配置文件（cluster_dynamic_config）、数据节
+              点DN（Datanode）及其备实例。
+
+5.6.2.2 命令行参考
+
+5.6.2.2.1 注意事项
+              以下是使用Roach命令行界面的注意事项：
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                  3776
+

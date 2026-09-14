@@ -1,0 +1,1645 @@
+GaussDB
+集中式版参考                                                          10 Schema
+
+              表 10-194 DBE_PERF.pl_get_trace_info 返回值列表
+               参数           类型            描述
+
+               session_id   bigint        本条SQL语句所属的会话ID。
+
+               level        text          本条SQL语句的等级。
+
+               database     text          本条SQL语句所属数据库名。
+
+               func         oid           本条SQL语句所属存储过程的OID。
+
+               source       text          本条SQL语句。
+
+               plan         text          本条SQL语句的执行计划。
+
+               time         text          本条SQL语句的执行时间。
+
+               threshold    float8        本条SQL语句的阈值（单位：毫秒）。
+
+
+
+
+10.2.21 废弃视图
+
+10.2.21.1 Query
+              GaussDB中下列视图在当前版本中已废弃：
+
+              ●   DBE_PERF.GLOBAL_SLOW_QUERY_HISTORY
+              ●   DBE_PERF.GLOBAL_SLOW_QUERY_INFO
+              ●   DBE_PERF.GLOBAL_STATEMENT_COMPLEX_RUNTIME
+              ●   DBE_PERF.STATEMENT_COMPLEX_RUNTIME
+
+10.2.21.2 Operator
+              GaussDB中下列视图在当前版本中已废弃：
+              DBE_PERF.OPERATOR_HISTORY
+
+
+10.3 WDR Snapshot Schema
+              WDR Snapshot在启动后（打开GUC参数enable_wdr_snapshot）,会在用户表空间
+              "pg_default"，数据库"postgres"下的Snapshot Schema中创建对象，用于持久化WDR
+              快照数据。默认初始化用户或monadmin用户可以访问和操作Snapshot Schema下的
+              对象。
+              根据GUC参数wdr_snapshot_retention_days来自动管理快照的生命周期。
+
+
+                  须知
+
+              用户应该禁止对Snapshot Schema下的表进行增删改等操作，人为对这些表的修改或
+              破坏可能会导致WDR各种异常情况甚至WDR不可用。
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司               5542
+GaussDB
+集中式版参考                                                                    10 Schema
+
+
+10.3.1 WDR Snapshot 原信息
+
+10.3.1.1 SNAPSHOT.SNAPSHOT
+              SNAPSHOT表记录当前系统中存储的WDR快照数据的索引信息、开始和结束时间。只
+              能在系统库中查询到结果，用户库中无法查询，WDR Snapshot在启动后（打开GUC
+              参数enable_wdr_snapshot）会触发创建该表，如表10-195所示。
+
+              表 10-195 SNAPSHOT 字段
+
+               名称            类型         描述                示例
+
+               snapshot_id   bigint     WDR快照序号。          1
+
+               start_ts      timestam   WDR快照的开始时间。       2019-12-28
+                             p                            17:11:27.423742+08
+
+               end_ts        timestam   WDR快照的结束时间。       2019-12-28
+                             p                            17:11:43.67726+08
+
+               version       int        WDR快照的版本信息。       1
+
+               snap_flag     bigint     WDR快照的属性。         0
+                                        ● NULL：代表该快照为
+                                          旧版本快照。
+                                        ● 0：表示该次快照为全
+                                          量快照。
+                                        ● 1：表示该次快照为增
+                                          量快照。
+
+               base_snaps    bigint     WDR快照对应的全量快       1
+               hot_id                   照ID。
+
+
+
+
+10.3.1.2 SNAPSHOT.TABLES_SNAP_TIMESTAMP
+              TABLES_SNAP_TIMESTAMP表记录所有存储的WDR Snapshot中数据库、表对象以及
+              WDR快照的开始和结束时间，WDR Snapshot在启动后（打开GUC参数
+              enable_wdr_snapshot）会触发创建该表，如表10-196所示。
+
+              表 10-196 TABLES_SNAP_TIMESTAMP 字段
+
+               名称            类型         描述                示例
+
+               snapshot_id   bigint     WDR快照序号。          1
+
+               node_name     name       WDR快照的表信息所属       dn_6001
+                                        的节点名。
+
+               db_name       text       WDR Snapshot对应的   tpcc1000
+                                        database。
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                         5543
+GaussDB
+集中式版参考                                                                          10 Schema
+
+
+               名称             类型             描述                 示例
+
+               tablename      text           WDR Snapshot对应的    snap_summary_statement
+                                             table。
+
+               start_ts       timestam       WDR快照的开始时间。        2019-12-28
+                              p                                 17:11:27.425849+08
+
+               end_ts         timestam       WDR快照的结束时间。        2019-12-28
+                              p                                 17:11:27.707398+08
+
+
+
+
+10.3.1.3 SNAPSHOT.SNAP_SEQ
+              SNAP_SEQ是一个递增的sequence，其为WDR Snapshot提供快照的ID。
+
+              WDR Snapshot在启动后（打开GUC参数enable_wdr_snapshot）会触发创建该
+              sequence。
+
+
+10.3.1.4 SNAPSHOT.SNAP_QUERY
+              SNAP_QUERY表记录所有存储的WDR Snapshot中的SQL语句信息，在WDR Snapshot
+              启动后（即GUC参数enable_wdr_snapshot值为on时）会触发创建该表，如表10-197
+              所示。
+
+
+              表 10-197 SNAP_QUERY 字段
+
+               名称                     类型            描述
+
+               snap_node_name         name          节点名称。
+
+               snap_node_id           integer       节点的ID，当前版本该值为0。
+
+               snap_user_name         name          用户名称，若查询时执行query语句的用户已
+                                                    不存在，则显示为*REMOVED_USER*。
+
+               snap_user_id           oid           用户OID。
+
+               snap_unique_sql_id     bigint        归一化的SQL id。
+
+               snap_query             text          归一化的SQL。
+                                                    备注：长度受GUC参数instr_unique_sql_size
+                                                    控制。
+
+               snap_last_updated      timestamp     最后一次更新该语句的时间。
+                                      with time
+                                      zone
+
+               snap_parent_uniqu      bigint        父语句的unique_sql_id，非存储过程子语句
+               e_sql_id                             该值为0。
+
+               snap_db_name           name          连接后端的数据库名称，若查询时执行query
+                                                    语句的数据库已不存在，则显示为
+                                                    *REMOVED_DB*。
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                              5544
+GaussDB
+集中式版参考                                                                10 Schema
+
+
+               名称                    类型          描述
+
+               snap_db_id            db_id       连接后端的数据库OID。
+
+
+
+
+10.3.1.5 SNAPSHOT.SNAP_PLAN
+              SNAP_PLAN表记录所有存储的WDR Snapshot中的SQL语句信息，在WDR Snapshot
+              启动后（即GUC参数enable_wdr_snapshot值为on时）会触发创建该表，如表10-198
+              所示。
+
+
+              表 10-198 SNAP_PLAN 字段
+
+               名称                    类型          描述
+
+               snap_node_id          integer     节点的ID。当前版本该值为0。
+
+               snap_user_id          oid         用户OID。
+
+               snap_unique_sql_id    bigint      归一化的SQL id。
+
+               snap_last_updated     timestamp   最后一次更新该语句的时间。
+                                     with time
+                                     zone
+
+               snap_db_id            db_id       连接后端的数据库OID。
+
+               snap_sql_hash         bigint      SQL语句对应的hash值。
+
+               snap_plan_hash        bigint      SQL语句执行计划对应的hash值。
+
+               snap_query_plan       text        SQL语句的执行计划。
+
+
+
+
+10.3.2 WDR Snapshot 数据表
+              WDR Snapshot数据表命名原则：snap_{源数据表}。
+
+              WDR Snapshot数据表来源为DBE_PERF Schema下的视图，WDR Snapshot在启动后
+              （打开GUC参数enable_wdr_snapshot）会触发创建WDR Snapshot数据表。
+
+
+10.4 DB4AI Schema
+              DB4AI模式在AI特性中主要是用来存储和管理数据集版本。模式中保存数据表的原始视
+              图快照，以及每一个数据版本的更改记录和版本快照的管理信息。模式面向普通用
+              户，用户可在该模式下查找特性DB4AI.SNAPSHOT创建的快照版本信息。
+
+10.4.1 DB4AI.SNAPSHOT
+              SNAPSHOT表记录当前用户通过特性DB4AI.SNAPSHOT存储的快照，如表10-199所
+              示。
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                    5545
+GaussDB
+集中式版参考                                                                          10 Schema
+
+              表 10-199 DB4AI.SNAPSHOT 字段
+
+               名称         类型               描述                          实例
+
+               id         bigint           当前快照的ID。                    1
+
+               parent_i   bigint           父快照的ID。                     0
+               d
+
+               matrix_i   bigint           CSS模式下快照的矩阵ID，否             0
+               d                           则为NULL。
+
+               root_id    bigint           初始快照的ID，通过                  0
+                                           db4ai.create_snapshot()从操
+                                           作数据构建。
+
+               schema     name             导出快照视图的模式。                  public
+
+               name       name             快照的名称，包括版本后缀。               example0@1.1.0
+
+               owner      name             创建此快照的用户的名称。                nw
+
+               comman     text[]           记录如何从其根快照生成到此               {DELETE,"WHERE
+               ds                          快照的SQL语句的完整列表。              id > 7"}
+
+               commen     text             快照说明。                       inherits from
+               t                                                       @1.0.0
+
+               publishe   boolean          TRUE，当且仅当快照当前已发             f
+               d                           布。
+
+               archived   boolean          TRUE，当且仅当快照当前已存             f
+                                           档。
+
+               created    timestamp        快照创建日期的时间戳。                 2021-08-25
+                          without time                                 10:59:52.955604
+                          zone
+
+               row_cou    bigint           此快照中的数据行数。                  8
+               nt
+
+
+
+
+10.4.2 DB4AI.create_snapshot
+              create_snapshot是DB4AI特性用于创建快照的接口函数，如表10-200所示。通过语法
+              CREATE SNAPSHOT调用。
+
+              表 10-200 DB4AI.create_snapshot 入参和返回值列表
+
+               参数                        类型                      描述
+
+               i_schema                  IN NAME                 快照存储的模式名字，默
+                                                                 认值是当前用户或者
+                                                                 PUBLIC。
+
+               i_name                    IN NAME                 快照名称。
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                 5546
+GaussDB
+集中式版参考                                                               10 Schema
+
+
+               参数                   类型                    描述
+
+               i_commands           IN TEXT[]             定义数据获取的SQL命
+                                                          令。
+
+               i_vers               IN NAME               版本后缀。
+
+               i_comment            IN TEXT               快照描述。
+
+               res                  OUT                   结果。
+                                    db4ai.snapshot_name
+
+
+
+
+10.4.3 DB4AI.create_snapshot_internal
+              create_snapshot_internal是DB4AI.create_snapshot函数的内置执行函数，如表
+              10-201所示。函数存在信息校验，无法直接调用。
+
+              表 10-201 DB4AI.create_snapshot_internal 入参和返回值列表
+               参数                   类型                    描述
+
+               s_id                 IN BIGINT             快照id。
+
+               i_schema             IN NAME               快照存储的名字空间。
+
+               i_name               IN NAME               快照名称。
+
+               i_commands           IN TEXT[]             定义数据获取的SQL命
+                                                          令。
+
+               i_comment            IN TEXT               快照描述。
+
+               i_owner              IN NAME               快照拥有者。
+
+
+
+
+10.4.4 DB4AI.prepare_snapshot
+              prepare_snapshot是DB4AI特性中数据准备模型训练和解释快照进行协作，如表
+              10-202所示。快照为所有应用更改的数据和文档提供了完整的序列。通过语法
+              PREPARE SNAPSHOT调用。
+
+              表 10-202 DB4AI.prepare_snapshot 入参和返回值列表
+               参数                   类型                    描述
+
+               i_schema             IN NAME               快照存储的模式名字，默
+                                                          认值是当前用户或者
+                                                          PUBLIC。
+
+               i_parent             IN NAME               父快照名称。
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                           5547
+GaussDB
+集中式版参考                                                                  10 Schema
+
+
+               参数                     类型                      描述
+
+               i_commands             IN TEXT[]               定义快照修改的DDL和
+                                                              DML命令。
+
+               i_vers                 IN NAME                 版本后缀。
+
+               i_comment              IN TEXT                 此数据策展单元的说明。
+
+               res                    OUT                     结果。
+                                      db4ai.snapshot_name
+
+
+
+
+10.4.5 DB4AI.prepare_snapshot_internal
+              prepare_snapshot_internal是DB4AI.prepare_snapshot函数的内置执行函数，如表
+              10-203所示。函数存在信息校验，无法直接调用。
+
+
+              表 10-203 DB4AI.prepare_snapshot_internal 入参列表
+
+               参数                     类型                      描述
+
+               s_id                   IN BIGINT               快照id。
+
+               p_id                   IN BIGINT               父快照id。
+
+               m_id                   IN BIGINT               矩阵id。
+
+               r_id                   IN BIGINT               根快照id。
+
+               i_schema               IN NAME                 快照模式。
+
+               i_name                 IN NAME                 快照名称。
+
+               i_commands             IN TEXT[]               定义快照修改的DDL和
+                                                              DML命令。
+
+               i_comment              IN TEXT                 快照描述。
+
+               i_owner                IN NAME                 快照所有者。
+
+               i_idx                  INOUT INT               exec_cmds的索引。
+
+               i_exec_cmds            INOUT TEXT[]            用于执行的DDL和DML。
+
+               i_mapping              IN NAME[]               将用户列映射到备份列；
+                                                              如果不为NULL，则生成规
+                                                              则。
+
+
+
+
+10.4.6 DB4AI.archive_snapshot
+              archive_snapshot是DB4AI特性用于存档快照的接口函数，如表10-204所示。通过语
+              法ARCHIVE SNAPSHOT调用。生效后的快照无法参与训练等任务。
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                             5548
+GaussDB
+集中式版参考                                                                       10 Schema
+
+              表 10-204 DB4AI.archive_snapshot 入参和返回值列表
+               参数                      类型                      描述
+
+               i_schema                IN NAME                 快照存储的模式名字，默
+                                                               认值是当前用户。
+
+               i_name                  IN NAME                 快照名称。
+
+               res                     OUT                     结果。
+                                       db4ai.snapshot_name
+
+
+
+
+10.4.7 DB4AI.publish_snapshot
+              publish_snapshot是DB4AI特性用于发布快照的接口函数，如表10-205所示。通过语
+              法PUBLISH SNAPSHOT调用。
+
+              表 10-205 DB4AI.publish_snapshot 入参和返回值列表
+               参数                      类型                      描述
+
+               i_schema                IN NAME                 快照存储的模式名字，默
+                                                               认值是当前用户或者
+                                                               PUBLIC。
+
+               i_name                  IN NAME                 快照名称。
+
+               res                     OUT                     结果。
+                                       db4ai.snapshot_name
+
+
+
+
+10.4.8 DB4AI.manage_snapshot_internal
+              manage_snapshot_internal是DB4AI.publish_snapshot和DB4AI.archive_snapshot函
+              数的内置执行函数，如表10-206所示。函数存在信息校验，无法直接调用。
+
+              表 10-206 DB4AI.manage_snapshot_internal 入参和返回值列表
+               参数                      类型                      描述
+
+               i_schema                IN NAME                 快照存储的模式名字。
+
+               i_name                  IN NAME                 快照名称。
+
+               publish                 IN BOOLEAN              是否是发布状态。
+
+               res                     OUT                     结果。
+                                       db4ai.snapshot_name
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                                 5549
+GaussDB
+集中式版参考                                                                10 Schema
+
+
+10.4.9 DB4AI.sample_snapshot
+              sample_snapshot是DB4AI特性用于对基数据进行采样生成快照的接口函数，如表
+              10-207所示。通过语法SAMPLE SNAPSHOT调用。
+
+              表 10-207 DB4AI.sample_snapshot 入参和返回值列表
+
+               参数                     类型                    描述
+
+               i_schema               IN NAME               快照存储的模式名字。
+
+               i_parent               IN NAME               父快照名称。
+
+               i_sample_infixes       IN NAME[]             示例快照名称中缀。
+
+               i_sample_ratios        IN NUMBER[]           每个样本的大小，作为父
+                                                            集的比率。
+
+               i_stratify             IN NAME[]             分层策略。
+
+               i_sample_comments      IN TEXT[]             示例快照描述。
+
+               res                    OUT                   结果。
+                                      db4ai.snapshot_name
+
+
+
+
+10.4.10 DB4AI.purge_snapshot
+              purge_snapshot是DB4AI特性用于删除快照的接口函数，如表10-208所示。通过语法
+              PURGE SNAPSHOT调用。
+
+              表 10-208 DB4AI.purge_snapshot 入参和返回值列表
+
+               参数                     类型                    描述
+
+               i_schema               IN NAME               快照存储的模式名字。
+
+               i_name                 IN NAME               快照名称。
+
+               res                    OUT                   结果。
+                                      db4ai.snapshot_name
+
+
+
+
+10.4.11 DB4AI.purge_snapshot_internal
+              purge_snapshot_internal是DB4AI.purge_snapshot函数的内置执行函数，如表10-209
+              所示。函数存在信息校验，无法直接调用。
+
+              表 10-209 DB4AI.purge_snapshot_internal 入参和返回值列表
+
+               参数                     类型                    描述
+
+               i_schema               IN NAME               快照存储的模式名字。
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                      5550
+GaussDB
+集中式版参考                                                                             10 Schema
+
+
+               参数                                 类型                       描述
+
+               i_name                             IN NAME                  快照名称。
+
+
+
+
+10.5 DBE_PLDEBUGGER Schema
+              DBE_PLDEBUGGER Schema下的系统函数用于调试存储过程，目前支持的接口及其描
+              述如下所示。
+              仅管理员有权限执行这些调试接口，但在该schema上无修改和创建新函数的权限。普
+              通用户只能调试在public schema或用户创建schema下的非系统函数，禁止普通用户
+              调试系统函数。
+
+
+                  须知
+
+              ● 当在函数体中创建用户时，调用attach、next、continue、 info_code、step、
+                info_breakpoint、backtrace、 finish中会返回密码的明文。因此不建议用户在函数
+                体中创建用户。
+              ● 当存储过程调试时，如果被调试的存储过程中涉及加锁的操作，请注意在调试端勿
+                执行可能导致死锁的操作。
+              ● 调试端和被调试端需连接在同一database，否则使用函数oid获取函数信息的接口
+                将不可用。
+              ● 三权分立开启时，仅允许初始用户和属主调试定义者权限的函数；三权分立关闭
+                时，允许系统管理员、属主、初始用户调试定义者权限的函数。
+
+              对应权限角色为gs_role_pldebugger，可以由管理员用户通过如下命令将debugger权
+              限赋权给该用户。
+              GRANT gs_role_pldebugger to user;
+
+              需要有两个客户端连接数据库，一个客户端负责执行调试接口作为debug端，另一个
+              客户端执行调试函数，控制server端存储过程执行。示例如下：
+              ●    准备调试
+                   通过PG_PROC，查找到待调试存储过程的oid，并执行
+                   DBE_PLDEBUGGER.turn_on(oid)。本客户端会作为server端使用。
+                   gaussdb=# CREATE OR REPLACE PROCEDURE test_debug ( IN x INT)
+                   AS
+                   BEGIN
+                      INSERT INTO t1 (a) VALUES (x);
+                      DELETE FROM t1 WHERE a = x;
+                   END;
+                   /
+                   CREATE PROCEDURE
+                   gaussdb=# SELECT OID FROM PG_PROC WHERE PRONAME='test_debug';
+                     oid
+                   -------
+                    16389
+                   (1 row)
+                   gaussdb=# SELECT * FROM DBE_PLDEBUGGER.turn_on(16389);
+                    nodename | port
+                   ----------+------
+                    datanode | 0
+                   (1 row)
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                              5551
+GaussDB
+集中式版参考                                                                                 10 Schema
+
+
+              ●   开始调试
+                  server端执行存储过程，会在存储过程内第一条SQL语句前hang住，等待debug端
+                  发送的调试消息。仅支持直接执行存储过程的调试，不支持通过trigger调用执行
+                  的存储过程调试。
+                  gaussdb=# call test_debug(1);
+                  再起一个客户端，作为debug端，通过turn_on返回的数据，调用
+                  DBE_PLDEBUGGER.attach关联到该存储过程上进行调试。
+                  gaussdb=# SELECT * FROM DBE_PLDEBUGGER.attach('datanode',0);
+                   funcoid | funcname | lineno |               query
+                  ---------+------------+--------+----------------------------------
+                    16389 | test_debug |        3 | INSERT INTO t1 (a) VALUES (x);
+                  (1 row)
+                  在执行attach的客户端调试，执行下一条statement。
+                  gaussdb=# SELECT * FROM DBE_PLDEBUGGER.next();
+                   funcoid | funcname | lineno |          query
+                  ---------+------------+--------+----------------------
+                    16389 | test_debug |        0 | [EXECUTION FINISHED]
+                  (1 row)
+                  在执行attach的客户端调试，可以执行以下变量操作。
+                  gaussdb=# SELECT * FROM DBE_PLDEBUGGER.info_locals(); --打印全部变量
+                   varname | vartype | value | package_name | isconst
+                  ---------+---------+-------+--------------+---------
+                   x      | int4 | 1     |          |f
+                  (1 row)
+                  gaussdb=# SELECT * FROM DBE_PLDEBUGGER.set_var('x', 2); --变量赋值
+                   set_var
+                  ---------
+                   t
+                  (1 row)
+                  gaussdb=# SELECT * FROM DBE_PLDEBUGGER.print_var('x'); --打印单个变量
+                   varname | vartype | value | package_name | isconst
+                  ---------+---------+-------+--------------+---------
+                   x      | int4 | 2     |          |f
+                  (1 row)
+                  直接执行完成当前正在调试的存储过程。
+                  gaussdb=# SELECT * FROM DBE_PLDEBUGGER.continue();
+                   funcoid | funcname | lineno |          query
+                  ---------+------------+--------+----------------------
+                    16389 | test_debug |        0 | [EXECUTION FINISHED]
+                  (1 row)
+                  当存储过程报错时，会出现以下提示，此时进入报错断住逻辑。
+                  gaussdb=# SELECT * FROM DBE_PLDEBUGGER.continue();
+                   funcoid | funcname | lineno |              query
+                  ---------+------------+--------+-------------------------------
+                    16389 | test_debug |        0 | [EXECUTION HAS ERROR OCCURRED!]
+                  (1 row)
+                  此时进入报错断住逻辑，可以调用
+                  error_info_locals,error_backtrace,error_end,print_var接口查看信息，其他接口不
+                  能再使用，需要使用error_end结束当前报错断住。
+                  gaussdb=# SELECT * FROM DBE_PLDEBUGGER.error_end();
+                   funcoid | funcname | lineno |         query
+                  ---------+------------+--------+------------------
+                    16389 | test_debug |        0 | [END HANG ERROR!]
+                  (1 row)
+                  直接退出当前正在调试的存储过程(报错断住逻辑不可用)，不执行尚未执行的语
+                  句。
+                  gaussdb=# SELECT * FROM DBE_PLDEBUGGER.abort();
+                   abort
+                  -------
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                  5552
+GaussDB
+集中式版参考                                                                                             10 Schema
+
+                  t
+                 (1 row)
+                 client端查看代码信息并识别可以设置断点行号。
+                 gaussdb=# SELECT * FROM DBE_PLDEBUGGER.info_code(16389);
+                  lineno |                     query                        | canbreak
+                 --------+-----------------------------------------------------------+----------
+                       | CREATE OR REPLACE PROCEDURE public.test_debug( IN x INT) | f
+                      1 | AS DECLARE                                           |f
+                      2 | BEGIN                                            |f
+                      3|    INSERT INTO t1 (a) VALUES (x);                          |t
+                      4|    DELETE FROM t1 WHERE a = x;                               |t
+                      5 | END;                                            |f
+                      6|/                                              |f
+                 (7 rows)
+                 设置断点。
+                 gaussdb=# SELECT * FROM DBE_PLDEBUGGER.add_breakpoint(16389,4);
+                 breakpointno
+                 --------------
+                           0
+                 (1 row)
+                 查看断点信息。
+                 gaussdb=# SELECT * FROM DBE_PLDEBUGGER.info_breakpoints();
+                  breakpointno | funcoid | lineno |             query             | enable
+                 --------------+---------+--------+---------------------------------+--------
+                           0 | 16389 |      4|     DELETE FROM t1 WHERE a = x; | t
+                 (1 row)
+                 执行至断点。
+                 gaussdb=# SELECT * FROM DBE_PLDEBUGGER.continue();
+                  funcoid | funcname | lineno |               query
+                 ---------+------------+--------+---------------------------------
+                   16389 | test_debug |        4|    DELETE FROM t1 WHERE a = x;
+                 (1 row)
+                 存储过程执行结束后，调试会自动退出，再进行调试需要重新attach关联。如果
+                 server端不需要继续调试，可执行turn_off关闭，或退出session。具体调试接口如
+                 表10-210所示。
+
+                 表 10-210 DBE_PLDEBUGGER
+                  接口名称                                     描述
+
+                  DBE_PLDEBUGGER.turn                      server端调用，标记存储过程可以调试，调用后执
+                  _on                                      行该存储过程时会hang住等待调试信息。
+
+                  DBE_PLDEBUGGER.turn                      server端调用，标记存储过程关闭调试。
+                  _off
+
+                  DBE_PLDEBUGGER.loca                      server端调用，打印本session内所有已turn_on的
+                  l_debug_server_info                      存储过程。
+
+                  DBE_PLDEBUGGER.atta                      debug端调用，关联到正在调试存储过程。
+                  ch
+
+                  DBE_PLDEBUGGER.info                      debug端调用，打印正在调试的存储过程中的变量
+                  _locals                                  当前值。
+
+                  DBE_PLDEBUGGER.next                      debug端调用，单步执行。
+
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                             5553
+GaussDB
+集中式版参考                                                            10 Schema
+
+
+                    接口名称                    描述
+
+                    DBE_PLDEBUGGER.cont     debug端调用，继续执行，直到断点或存储过程结
+                    inue                    束。
+
+                    DBE_PLDEBUGGER.abor     debug端调用，停止调试，server端报错长跳转。
+                    t
+
+                    DBE_PLDEBUGGER.prin     debug端调用，打印正在调试的存储过程中指定的
+                    t_var                   变量当前值。
+
+                    DBE_PLDEBUGGER.info     debug和server端都可以调用，打印指定存储过程
+                    _code                   的源语句和各行对应的行号。
+
+                    DBE_PLDEBUGGER.step     debug端调用，单步进入执行。
+
+                    DBE_PLDEBUGGER.add      debug端调用，新增断点。
+                    _breakpoint
+
+                    DBE_PLDEBUGGER.dele     debug端调用，删除断点。
+                    te_breakpoint
+
+                    DBE_PLDEBUGGER.info     debug端调用，查看当前的所有断点。
+                    _breakpoints
+
+                    DBE_PLDEBUGGER.bac      debug端调用，查看当前的调用栈。
+                    ktrace
+
+                    DBE_PLDEBUGGER.ena      debug端调用，激活被禁用的断点。
+                    ble_breakpoint
+
+                    DBE_PLDEBUGGER.disa     debug端调用，禁用已激活的断点。
+                    ble_breakpoint
+
+                    DBE_PLDEBUGGER.finis    debug端调用，继续调试，直到断点或返回上一层
+                    h                       调用栈。
+
+                    DBE_PLDEBUGGER.set_     debug端调用，为变量进行赋值操作。
+                    var
+
+
+
+10.5.1 DBE_PLDEBUGGER.turn_on
+              该函数用于标记某一存储过程为可调试，执行turn_on后server端可以执行该存储过程
+              来进行调试，如表10-211所示。需要用户根据系统表PG_PROC手动获取存储过程
+              oid，传入函数中。turn_on后本session内执行该存储过程会停在第一条sql前等待
+              debug端的调试操作。该设置会在session断连后默认被清理掉。目前不支持对启用自
+              治事务的存储过程/函数进行调试。同时turn_on的存储过程不超过100个。
+              函数原型为：
+              DBE_PLDEBUGGER.turn_on(Oid)
+              RETURN Record;
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                5554
+GaussDB
+集中式版参考                                                                10 Schema
+
+              表 10-211 DBE_PLDEBUGGER.turn_on 入参和返回值列表
+               名称                       类型                 描述
+
+               func_oid                 IN oid             函数oid。
+
+               nodename                 OUT text           节点名称。
+
+               port                     OUT integer        连接端口号。
+
+
+
+
+10.5.2 DBE_PLDEBUGGER.turn_off
+              仅用于去掉当前session被turn_on添加的调试标记，返回值表示成功或失败，如表
+              10-212所示。可通过DBE_PLDEBUGGER.local_debug_server_info查找已经turn_on的
+              存储过程oid。
+              函数原型为：
+              DBE_PLDEBUGGER.turn_off(Oid)
+              RETURN boolean;
+
+
+              表 10-212 DBE_PLDEBUGGER.turn_off 入参和返回值列表
+               名称                       类型                 描述
+
+               func_oid                 IN oid             函数oid。
+
+               turn_off                 OUT boolean        表示turn off是否成功。
+
+
+
+
+10.5.3 DBE_PLDEBUGGER.local_debug_server_info
+              用于查找当前连接中已经turn_on的存储过程oid。便于用户确认在调试哪些存储过
+              程，需要通过funcoid和pg_proc配合使用，如表10-213所示。
+
+              表 10-213 DBE_PLDEBUGGER.local_debug_server_info 返回值列表
+               名称                            类型            描述
+
+               nodename                      OUT text      节点名称。
+
+               port                          OUT bigint    端口号。
+
+               funcoid                       OUT oid       存储过程oid。
+
+
+
+
+10.5.4 DBE_PLDEBUGGER.attach
+              server端执行存储过程，停在第一条语句前，等待debug端关联。debug端调用
+              attach，传入nodename和port，关联到该存储过程上，如表10-214所示。
+              如果调试过程中报错，attach会自动失效；如果调试过程中attach到其他存储过程上，
+              当前attach的调试也会失效；重复attach会导致当前存储过程断联。
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                    5555
+GaussDB
+集中式版参考                                                           10 Schema
+
+              表 10-214 DBE_PLDEBUGGER.attach 入参和返回值列表
+
+               名称                  类型                   描述
+
+               nodename            IN text              节点名称。
+
+               port                IN integer           连接端口号。
+
+               funcoid             OUT oid              函数id。
+
+               funcname            OUT text             函数名。
+
+               lineno              OUT integer          当前调试运行的下一行行
+                                                        号。
+
+               query               OUT text             当前调试的下一行函数源
+                                                        码。
+
+
+
+
+10.5.5 DBE_PLDEBUGGER.info_locals
+              debug端调试过程中，调用info_locals，打印当前存储过程内变量。该函数入参
+              frameno表示查询遍历的栈层数，支持无入参调用，缺省为查看最上层栈变量，如表
+              10-215所示。
+
+              表 10-215 DBE_PLDEBUGGER.info_locals 入参和返回值列表
+
+               名称                  类型                   描述
+
+               frameno             IN integer （可选）      指定的栈层数，缺省为最
+                                                        顶层。
+
+               varname             OUT text             变量名。
+
+               vartype             OUT text             变量类型。
+
+               value               OUT text             变量值。
+
+               package_name        OUT text             变量对应的package名，
+                                                        非package时为空。
+
+               isconst             OUT boolean          是否为常量。
+
+
+
+
+10.5.6 DBE_PLDEBUGGER.next
+              执行存储过程中当前的sql，返回执行的下一条的行数和对应query，如表10-216所
+              示。
+
+              表 10-216 DBE_PLDEBUGGER.next 返回值列表
+
+               名称                  类型                   描述
+
+               funcoid             OUT oid              函数id。
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                     5556
+GaussDB
+集中式版参考                                                                10 Schema
+
+
+               名称                          类型               描述
+
+               funcname                    OUT text         函数名。
+
+               lineno                      OUT integer      当前调试运行的下一行行
+                                                            号。
+
+               query                       OUT text         当前调试的下一行函数源
+                                                            码。
+
+
+
+
+10.5.7 DBE_PLDEBUGGER.continue
+              执行当前存储过程，直到下一个断点或结束，返回执行的下一条的行数和对应query，
+              如表10-217所示。
+
+              函数原型为：
+              DBE_PLDEBUGGER.continue()
+              RETURN Record;
+
+
+              表 10-217 DBE_PLDEBUGGER.continue 返回值列表
+
+               名称                          类型               描述
+
+               funcoid                     OUT oid          函数id。
+
+               funcname                    OUT text         函数名。
+
+               lineno                      OUT integer      当前调试运行的下一行行
+                                                            号。
+
+               query                       OUT text         当前调试的下一行函数源
+                                                            码。
+
+
+
+
+10.5.8 DBE_PLDEBUGGER.abort
+              令server端执行的存储过程报错跳出。返回值表示是否成功发送abort，如表10-218所
+              示。
+
+              函数原型为：
+              DBE_PLDEBUGGER.abort()
+              RETURN boolean;
+
+
+              表 10-218 DBE_PLDEBUGGER.abort 返回值列表
+
+               名称                          类型               描述
+
+               abort                       OUT boolean      表示是否成功。
+
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                 5557
+GaussDB
+集中式版参考                                                          10 Schema
+
+
+10.5.9 DBE_PLDEBUGGER.print_var
+              debug端调试过程中，调用print_var，打印当前存储过程内变量中指定的变量名及其
+              取值，也可在报错断住时，使用此函数来打印变量，如表10-219所示。该函数入参
+              frameno表示查询遍历的栈层数，支持不加入该参数调用，缺省为查看最上层栈变
+              量。
+
+              表 10-219 DBE_PLDEBUGGER.print_var 入参和返回值列表
+               名称                  类型                  描述
+
+               var_name            IN text             变量。
+
+               frameno             IN integer（可选）      指定的栈层数，缺省为最
+                                                       顶层。
+
+               varname             OUT text            变量名。
+
+               vartype             OUT text            变量类型。
+
+               value               OUT text            变量值。
+
+               package_name        OUT text            变量对应的package名，
+                                                       预留使用，当前均为空。
+
+               isconst             OUT boolean         是否为常量。
+
+
+
+
+10.5.10 DBE_PLDEBUGGER.info_code
+              debug端调试过程中，调用info_code，查看指定存储过程的源语句和各行对应的行
+              号，行号从函数体开始，函数头部分行号为空，如表10-220所示。
+
+              表 10-220 DBE_PLDEBUGGER.info_code 入参和返回值列表
+               名称                  类型                  描述
+
+               funcoid             IN oid              函数id。
+
+               lineno              OUT integer         行号。
+
+               query               OUT text            源语句。
+
+               canbreak            OUT bool            当前行是否支持断点。
+
+
+
+
+10.5.11 DBE_PLDEBUGGER.step
+              debug端调试过程中，如果当前执行的是一个存储过程，则进入该存储过程继续调
+              试，返回该存储过程第一行的行号等信息，如果当前执行的不是存储过程，则和next
+              行为一致，执行该sql后返回下一行的行号等信息，如表10-221所示。
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                    5558
+GaussDB
+集中式版参考                                                             10 Schema
+
+              表 10-221 DBE_PLDEBUGGER.step 入参和返回值列表
+
+               名称                  类型                   描述
+
+               funcoid             OUT oid              函数id。
+
+               funcname            OUT text             函数名。
+
+               lineno              OUT integer          当前调试运行的下一行行
+                                                        号。
+
+               query               OUT text             当前调试的下一行函数源
+                                                        码。
+
+
+
+
+10.5.12 DBE_PLDEBUGGER.add_breakpoint
+              debug端调试过程中，调用add_breakpoint增加新的断点，如表10-222所示。如果返
+              回-1则说明指定的断点不合法，请参见DBE_PLDEBUGGER.info_code的canbreak字段
+              确定合适的断点位置。进入内层函数前，外层函数无断点，则不支持在内层函数执行
+              时，给外层函数添加断点。
+
+
+              表 10-222 DBE_PLDEBUGGER.add_breakpoint 入参和返回值列表
+
+               名称                  类型                   描述
+
+               funcoid             IN text              函数id。
+
+               lineno              IN integer           行号。
+
+               breakpointno        OUT integer          断点编号。
+
+
+
+
+10.5.13 DBE_PLDEBUGGER.delete_breakpoint
+              debug端调试过程中，调用delete_breakpoint删除已有的断点，如表10-223所示。
+
+
+              表 10-223 DBE_PLDEBUGGER.delete_breakpoint 入参和返回值列表
+
+               名称                  类型                   描述
+
+               breakpointno        IN integer           断点编号。
+
+               result              OUT bool             是否成功。
+
+
+
+
+10.5.14 DBE_PLDEBUGGER.info_breakpoints
+              debug端调试过程中，调用info_breakpoints，查看当前的函数断点，如表10-224所
+              示。
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                       5559
+GaussDB
+集中式版参考                                                             10 Schema
+
+              表 10-224 DBE_PLDEBUGGER.info_breakpoints 返回值列表
+
+               名称                   类型                    描述
+
+               breakpointno         OUT integer           断点编号。
+
+               funcoid              OUT oid               函数id。
+
+               lineno               OUT integer           行号。
+
+               query                OUT text              断点内容。
+
+               enable               OUT boolean           是否有效。
+
+
+
+
+10.5.15 DBE_PLDEBUGGER.backtrace
+              debug端调试过程中，调用backtrace，查看当前的调用堆栈，如表10-225所示。
+
+              表 10-225 DBE_PLDEBUGGER.backtrace 返回值列表
+
+               名称                   类型                    描述
+
+               frameno              OUT integer           调用栈编号。
+
+               funcname             OUT text              函数名。
+
+               lineno               OUT integer           行号。
+
+               query                OUT text              断点内容。
+
+               funcoid              OUT oid               函数oid。
+
+
+
+
+10.5.16 DBE_PLDEBUGGER.enable_breakpoint
+              debug端调试过程中，调用enable_breakpoint激活已被禁用的断点，如表10-226所
+              示。
+
+              表 10-226 DBE_PLDEBUGGER.enable_breakpoint 入参和返回值列表
+
+               名称                   类型                    描述
+
+               breakpointno         IN integer            断点编号。
+
+               result               OUT bool              是否成功。
+
+
+
+
+10.5.17 DBE_PLDEBUGGER.disable_breakpoint
+              debug端调试过程中，调用disable_breakpoint禁用已被激活的断点，如表10-227所
+              示。
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                       5560
+GaussDB
+集中式版参考                                                              10 Schema
+
+              表 10-227 DBE_PLDEBUGGER.disable_breakpoint 入参和返回值列表
+               名称                  类型                    描述
+
+               breakpointno        IN integer            断点编号。
+
+               result              OUT bool              是否成功。
+
+
+
+
+10.5.18 DBE_PLDEBUGGER.finish
+              执行存储过程中当前的SQL直到下一个断点触发或执行到上层栈的下一行，如表
+              10-228所示。
+
+              表 10-228 DBE_PLDEBUGGER.finish 入参和返回值列表
+               名称                  类型                    描述
+
+               funcoid             OUT oid               函数id。
+
+               funcname            OUT text              函数名。
+
+               lineno              OUT integer           当前调试运行的下一行行
+                                                         号。
+
+               query               OUT text              当前调试的下一行函数源
+                                                         码。
+
+
+
+
+10.5.19 DBE_PLDEBUGGER.set_var
+              将指定的调试的存储过程中最上层栈上的变量修改为入参的取值，如表10-229所示。
+              如果存储过程中包含同名的变量，set_var只支持第一个变量值的设置。
+
+              表 10-229 DBE_PLDEBUGGER.set_var 入参和返回值列表
+               名称                  类型                    描述
+
+               var_name            IN text               变量名。
+
+               value               IN text               修改值。
+
+               result              OUT boolean           是否成功。
+
+
+
+
+10.5.20 DBE_PLDEBUGGER.error_backtrace
+              server端因为存储过程报错断住，可以在debug端调用error_backtrace，查看当前的函
+              数调用堆栈（限制报错断住时使用），如表10-230所示。
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                        5561
+GaussDB
+集中式版参考                                                                10 Schema
+
+              表 10-230 DBE_PLDEBUGGER.error_backtrace 返回值列表
+
+               名称                    类型                      描述
+
+               frameno               OUT integer             调用栈编号。
+
+               funcname              OUT text                函数名。
+
+               lineno                OUT integer             行号。
+
+               query                 OUT text                断点内容。
+
+               funcoid               OUT oid                 函数oid。
+
+
+
+
+10.5.21 DBE_PLDEBUGGER.error_end
+              server端因为存储过程报错断住，可以在debug端调用error_end结束报错断住流程，
+              结束调试流程，返回结束报错断住，停止调试（限制报错断住时使用），如表10-231
+              所示。
+
+
+              表 10-231 DBE_PLDEBUGGER.error_end 返回值列表
+
+               名称                    类型                 描述
+
+               funcoid               OUT oid            函数id。
+
+               funcname              OUT text           函数名。
+
+               lineno                OUT integer        当前调试运行的下一行行号
+                                                        （固定值：0）。
+
+               query                 OUT text           结束报错断住，停止调试。
+
+
+
+
+10.5.22 DBE_PLDEBUGGER.error_info_locals
+              server端因为存储过程报错断住，可以在debug端调用error_info_locals，打印当前存
+              储过程内变量。该函数入参frameno表示查询遍历的栈层数，支持无入参调用，缺省
+              为查看最上层栈变量（限制报错断住时使用），如表10-232所示。
+
+
+              表 10-232 DBE_PLDEBUGGER.error_info_locals 返回值列表
+
+               名称                    类型                      描述
+
+               frameno               IN integer （可选）         指定的栈层数，缺省为最
+                                                             顶层。
+
+               varname               OUT text                变量名。
+
+               vartype               OUT text                变量类型。
+
+               value                 OUT text                变量值。
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                          5562
+GaussDB
+集中式版参考                                                                            10 Schema
+
+
+               名称                          类型                      描述
+
+               package_name                OUT text                变量对应的package名，
+                                                                   非package时为空。
+
+               isconst                     OUT boolean             是否为常量。
+
+
+
+
+10.6 DBE_PLDEVELOPER
+              DBE_PLDEVELOPER下系统表用于记录PL/SQL包、函数及存储过程编译过程中需要记
+              录的信息。
+
+10.6.1 DBE_PLDEVELOPER.GS_SOURCE
+              用于记录PL/SQL对象（存储过程、函数、包、包体）相关信息，如表10-233所示。
+
+                      说明
+
+                     ● gs_source表中只记录用户定义的原始对象语句，即使用户使用了ALTER改变了创建的
+                       SCHEMA或者名字，gs_source表中的信息也不会发生变化，如果用户更改了对象的SCHEMA
+                       或者名字，用户在删除对象后，对象会从gs_source表中被删除。
+                     ● gs_source表中的owner表示创建的用户，不是用户创建存储过程或package时指定的用户。
+                     ● 设置GUC参数behavior_compat_options="skip_insert_gs_source"后，PL/SQL对象（存储过
+                       程、函数、包、包体）相关信息将不在gs_source中记录。
+                     ● gs_source权限与pg_catalog下的系统表保持一致（系统管理员与普通用户不允许DROP、
+                       ALTER、DELETE、UPDATE、INSERT，允许SELECT），利用GUC参数
+                       allow_system_table_mods控制前向兼容（允许DROP、ALTER、DELETE、UPDATE、
+                       INSERT以及SELECT），此GUC参数默认为off，修改此GUC参数生效需要重启数据库。
+
+
+              表 10-233 DBE_PLDEVELOPER.GS_SOURCE 字段
+               名称              类型               描述
+
+               id              oid              对象id。
+
+               owner           bigint           对象创建用户id。
+
+               nspid           oid              对象的模式id。
+
+               name            name             对象名。
+
+               type            text             对象类型（procedure/function/package/
+                                                package body）。
+
+               status          boolean          是否创建成功。
+
+               src             text             对象创建的原始语句。
+
+
+
+
+10.6.2 DBE_PLDEVELOPER.GS_ERRORS
+              用于记录PL/SQL对象（存储过程、函数、包、包体）编译过程中遇到的报错信息，如
+              表10-234所示。
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                               5563
+GaussDB
+集中式版参考                                                                          10 Schema
+
+              打开plsql_show_all_error参数后，如果编译过程中存在报错，则会跳过报错继续编译
+              并把报错信息记录在gs_errors中，如果关闭plsql_show_all_error参数，且
+              behavior_compat_options参数不为skip_insert_gs_source，则会直接将报错信息插入
+              此表中。
+              该表的owner是创建的用户，修改存储过程或者package的owner不会修改该表信息。
+
+                      说明
+
+                     ● 创建包头时的开头（as/is之前）和结尾（end之后），如果出现错误，不会记录在gs_errors
+                       表格里面，会直接在客户端返回错误的行号和该行具体内容，返回的行号不一定准确。个别
+                       is本身和end本身错误场景也不会记录在gs_errors表格里面。
+                     ● 创建包体时的开头（as/is之前）和结尾（end之后），如果出现错误，不会记录在gs_errors
+                       表格里面，会直接在客户端返回错误的行号和该行具体内容，返回的行号不一定准确。个别
+                       is本身和end本身错误场景也不会记录在gs_errors表格里面。
+                     ● 创建包体时，函数或者存储过程的结尾（end之后），如果出现错误，不会记录在gs_errors
+                       表格里面，会直接在客户端返回错误的行号和该行具体内容，行号不一定准确。
+                     ● 创建包体时，函数或者存储过程的开头（as/is以及as/is之前），如果出现错误，报错行数不
+                       准确。
+                     ● 创建包头时，变量声明少分号，会记录在gs_errors表格里面，记录的报错行号不准确。开启
+                       参数不会记录。
+                     ● 包体内存储过程或函数内部，自治事务标识符PRAGMA AUTONOMOUS_TRANSACTION声
+                       明错误时，不能确保是否能记录在gs_errors表里。
+                     ● 客户端直接报错，但是gs_errors表格未记录的情况，如果客户端报错行号不对，本需求不纠
+                       正已报错的行号。
+                     ● 对于类似if ....then、for....loop、when .... then语句中间的错误或EXCEPTION本身错误，报错
+                       行号在本行，而不是下一个分号所在行。
+                     ● 包内存储过程或函数内部begin本身错误的场景，报错行数不准。
+                     ● gs_errors权限与pg_catalog下的系统表保持一致（系统管理员与普通用户不允许DROP、
+                       ALTER、DELETE、UPDATE、INSERT，允许SELECT），利用allow_system_table_mods这个
+                       guc控制前向兼容（允许DROP、ALTER、DELETE、UPDATE、INSERT以及SELECT），此
+                       guc参数默认为off，修改此guc参数生效需要重启数据库。
+
+
+              表 10-234 DBE_PLDEVELOPER.GS_ERRORS 字段
+               名称              类型              描述
+
+               id              oid             对象id。
+
+               owner           bigint          对象创建用户id。
+
+               nspid           oid             对象的模式id。
+
+               name            name            对象名。
+
+               type            text            对象类型（procedure/function/package/
+                                               package body）。
+
+               line            integer         行号。
+
+               src             text            报错信息。
+
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                             5564
+GaussDB
+集中式版参考                                                                  10 Schema
+
+
+
+
+10.7 DBE_COMPRESSION Schema
+              DBE_COMPRESSION是由ILM特性中创建的一种模式，其中定义了根据输入的参数评
+              估指定数据对象的采样压缩率或者获取指定行数据的压缩类型的系统函数。
+              DBE_COMPRESSION支持的接口如表10-235所示，用户只有使用权限。具体说明请参
+              见DBE_COMPRESSION。
+
+              表 10-235 DBE_COMPRESSION
+               接口名称                             描述
+
+               DBE_COMPRESSION.GET_COMPRESSI    根据输入参数评估指定数据对象的采样
+               ON_RATIO                         压缩率。
+
+               DBE_COMPRESSION.GET_COMPRESSI    根据输入参数获取指定行数据的压缩类
+               ON_TYPE                          型。
+
+               DBE_COMPRESSION.GET_ACTUAL_CO    根据输入参数评估指定数据对象的真实
+               MPRESSION_RATIO                  压缩率。
+
+               DBE_COMPRESSION.GET_HOLE_RATIO   根据输入参数评估指定跨页透明压缩数
+                                                据对象的采样空洞率。
+
+               DBE_COMPRESSION.TURBO_COMPRES    输出turbo_compress_shared_buffers
+               S_BUFFER_STATS                   的使用情况。
+
+               DBE_COMPRESSION.GET_INDEX_COM    根据输入参数获取指定索引页的压缩类
+               PRESSION_TYPE                    型。
+
+
+
+
+10.8 DBE_HEAT_MAP Schema
+              DBE_HEAT_MAP是由ILM特性中的创建一种模式，根据输入的参数返回目标数据块中
+              行的最后修改时间等信息，用于直观浏览每一行被判定为冷、热行的依据。该接口属
+              于运维类接口，不做可见性判断，即传入的ctid为已删除的行时，该接口依然会返回当
+              前行在页面上最新的状态。DBE_HEAT_MAP支持的接口如表10-236所示，用户只有使
+              用权限。跨页透明压缩不支持此模式。具体说明请参见DBE_HEAT_MAP。
+
+              表 10-236 DBE_HEAT_MAP
+               接口名称               描述
+
+               DBE_HEAT_MAP.RO    根据对象所属Schema、数据对象名称、数据对象分区名
+               W_HEAT_MAP         及ctid获取行的最后修改时间等信息。
+
+
+
+
+10.9 DBE_ILM Schema
+              DBE_ILM是由ILM特性创建的一种模式，服务于ILM策略实施，实现ILM策略的评估以
+              及压缩Job的停用接口。DBE_ILM支持的接口如表10-237所示，用户只有使用权限。
+              具体说明请参见DBE_ILM。
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                              5565
+GaussDB
+集中式版参考                                                              10 Schema
+
+              表 10-237 DBE_ILM
+
+               接口名称                      描述
+
+               DBE_ILM.EXECUTE_ILM       根据参数执行对指定的数据和ILM策略进行评估，评估
+                                         通过则会生成对应的压缩Job。
+
+               DBE_ILM.STOP_ILM          根据参数停止正在执行的压缩Job。
+
+
+
+
+10.10 DBE_ILM_ADMIN Schema
+              DBE_ILM_ADMIN是由ILM特性创建的一种模式，服务于ILM策略实施，实现ADO的后
+              台调度以及各个限流参数的控制。DBE_ILM_ADMIN支持的接口如表10-238所示，用
+              户只有使用权限。具体说明请参见DBE_ILM_ADMIN。
+
+
+              表 10-238 DBE_ILM_ADMIN
+
+               接口名称                           描述
+
+               DBE_ILM_ADMIN.CUSTOMIZE_IL     根据输入参数定制ILM策略属性。
+               M
+
+               DBE_ILM_ADMIN.DISABLE_ILM      关闭后台调度。
+
+               DBE_ILM_ADMIN.ENABLE_ILM       开启后台调度。
+
+               DBE_ILM_ADMIN.CREATE_ILM_DB    创建库级压缩策略。
+               _POLICY
+
+               DBE_ILM_ADMIN.DELETE_ILM_DB    删除库级压缩策略。
+               _POLICY
+
+
+
+
+10.11 PRVT_ILM Schema
+              PRVT_ILM内接口为ILM特性内部使用接口，用户无法直接调用。本章节仅列举接口名
+              称，不提供详细的接口原型描述。
+
+
+              表 10-239 PRVT_ILM
+
+               接口名称                      描述
+
+               be_active_ado_window      维护窗口触发动作，刷新ilmadowindow触发时间及动
+                                         作。
+
+               be_create_ado_window_fo   维护窗口触发动作，在实例的每个数据库中创建
+               r_each_db                 ilmadowindow。
+
+               be_execute_ilm            ilmadowindow执行动作，进行自动评估。
+
+               flush_task_executestate   自动调度任务刷新task状态。
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                     5566
+GaussDB
+集中式版参考                                                                     10 Schema
+
+
+               接口名称                       描述
+
+               evaluate_obj_policy        触发调度后对数据对象进行评估。
+
+               change_be_ilm              DBE_ILM_ADMIN.ENABLE_ILM()和DISABLE_ILM()帮
+                                          助函数。该操作会影响数据库实例整体的ILM后台调
+                                          度。
+
+               get_compression_ratio      DBE_COMPRESSION.GET_COMPRESSION_RATIO()
+                                          帮助函数。
+
+               get_compression_type       DBE_COMPRESSION.GET_COMPRESSION_TYPE()帮
+                                          助函数。
+
+               get_lastmodified_time      DBE_HEAT_MAP.ROW_HEAT_MAP()帮助函数。
+
+               gs_ilm_ticker              维护窗口执行动作，执行一次打点，记录LSN与时间
+                                          的映射关系。
+
+               compress_blocks            PRVT_ILM.ILM_JOB_ACTION()帮助函数。
+
+               compress_block_single      当前版本不可用。
+
+               get_job_status             DBE_ILM.STOP_ILM帮助函数。
+
+               ilm_job_action             压缩任务执行体。
+
+               query_unfinishedjob_num    查询是否存在还没有结束的Job，包括初始和运行中的
+                                          状态。
+
+               ilm_seq_nextval            用于获取ILM的下一个Sequence值。
+
+               ilm_seq_setval             用于设置ILM的当前Sequence值。
+
+               check_compatibility        用于统一判断数据库兼容性模式的帮助函数。
+
+               set_pg_settings            用于设置数据库兼容性模式特性GUC参数的帮助函
+                                          数。
+
+               get_actual_compression_r   DBE_COMPRESSION.GET_ACTUAL_COMPRESSION_
+               atio                       RATIO()帮助函数。
+
+               get_turbo_compress_hole    DBE_COMPRESSION.GET_HOLE_RATIO()帮助函数。
+
+               turbo_compress_buffer_st   DBE_COMPRESSION.TURBO_COMPRESS_BUFFER_S
+               ats                        TATS()帮助函数。
+
+               get_index_compression_ty   DBE_COMPRESSION.GET_INDEX_COMPRESSION_TY
+               pe                         PE()帮助函数。
+
+               create_ilm_db_policy       DBE_ILM_ADMIN.CREATE_ILM_DB_POLICY()帮助函
+                                          数。
+
+               delete_ilm_db_policy       DBE_ILM_ADMIN.DELETE_ILM_DB_POLICY()帮助函
+                                          数。
+
+               update_gs_ilm_jobdetail    操作特性相关系统表。
+
+               update_gs_ilm_object       操作特性相关系统表。
+
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                             5567
+GaussDB
+集中式版参考                                                                 10 Schema
+
+
+               接口名称                   描述
+
+               compress_indexes       PRVT_ILM.ILM_JOB_ACTION()帮助函数。
+
+               eval_comp_relgrowth    当前版本不可用。
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                       5568
+GaussDB
+集中式版参考                                                  11 Schema-M-Compatibility 兼容模式
+
+
+
+
+     11                Schema-M-Compatibility 兼容模式
+
+
+              继承了DBE_PLDEVELOPER、SYS Schema，具体请参见Schema章节。继承了
+              DBE_PERF和PG_CATALOG Schema的部分视图同时，在此Schema下新增gs_前缀的更
+              名视图。 其对应关系如表11-1所示。 为了保证兼容性，请优先使用带有gs_前缀的别
+              名视图。
+
+              表 11-1 M-Compatibility 模式数据库系统视图别名
+               schema名称    原视图名称                            视图别名
+
+               dbe_perf    ai_watchdog_detection_warnin     gs_ai_watchdog_detection_w
+                           gs                               arnings
+
+               dbe_perf    ai_watchdog_monitor_status       gs_ai_watchdog_monitor_stat
+                                                            us
+
+               dbe_perf    ai_watchdog_parameters           gs_ai_watchdog_parameters
+
+               dbe_perf    bgwriter_stat                    gs_bgwriter_stat
+
+               dbe_perf    class_vital_info                 gs_class_vital_info
+
+               dbe_perf    config_settings                  gs_config_settings
+
+               dbe_perf    file_iostat                      gs_file_iostat
+
+               dbe_perf    file_redo_iostat                 gs_file_redo_iostat
+
+               dbe_perf    global_bgwriter_stat             gs_global_bgwriter_stat
+
+               dbe_perf    global_candidate_status          gs_global_candidate_status
+
+               dbe_perf    global_ckpt_status               gs_global_ckpt_status
+
+               dbe_perf    global_config_settings           gs_global_config_settings
+
+               dbe_perf    global_double_write_status       gs_global_double_write_statu
+                                                            s
+
+               dbe_perf    global_file_iostat               gs_global_file_iostat
+
+               dbe_perf    global_file_redo_iostat          gs_global_file_redo_iostat
+
+
+
+文档版本 01 (2026-04-30)        版权所有 © 华为云计算技术有限公司                                           5569
+

@@ -1,0 +1,1252 @@
+GaussDB
+集中式版参考                                                                                                      5 工具参考
+
+                                         - HaBackend (shares: 4096, cpus: 0-20, weight: 400)
+                                   - Class (shares: 6144, cpus: 0-20, weight: 600)
+                                         - class1 (shares: 4096, cpus: 0-20, weight: 400)
+                                               - RemainWD:1 (shares: 1000, cpus: 0-20, weight: 100)
+                                                     - RemainWD:2 (shares: 7000, cpus: 0-20, weight: 700)
+                                                           - Timeshare (shares: 1024, cpus: 0-20, weight: 500)
+                                                                - Rush (shares: 8192, cpus: 0-20, weight: 800)
+                                                                - High (shares: 4096, cpus: 0-20, weight: 400)
+                                                                - Medium (shares: 2048, cpus: 0-20, weight: 200)
+                                                                - Low (shares: 1024, cpus: 0-20, weight: 100)
+                                                     - grp1:2 (shares: 3000, cpus: 0-5, weight: 300)
+                                               - TopWD:1 (shares: 9000, cpus: 0-20, weight: 900)
+                                         - DefaultClass (shares: 2048, cpus: 0-20, weight: 200)
+                                               - RemainWD:1 (shares: 1000, cpus: 0-20, weight: 100)
+                                                     - Timeshare (shares: 1024, cpus: 0-20, weight: 500)
+                                                           - Rush (shares: 8192, cpus: 0-20, weight: 800)
+                                                           - High (shares: 4096, cpus: 0-20, weight: 400)
+                                                           - Medium (shares: 2048, cpus: 0-20, weight: 200)
+                                                           - Low (shares: 1024, cpus: 0-20, weight: 100)
+                                               - TopWD:1 (shares: 9000, cpus: 0-20, weight: 900)
+
+
+5.5.4 gs_check 检查数据库状态
+                  说明
+
+                  系统内部工具，不支持单独调用。
+
+
+工具介绍
+              gs_check统一当前系统中存在的各种检查工具，帮助用户在数据库运行过程中，全量
+              检查数据库运行环境、操作系统环境、网络环境及数据库执行环境。此外，在重大操
+              作之前，对各类环境进行全面检查，可以有效保证操作执行成功。
+
+注意事项
+              ●   必须指定-i或-e参数，-i会检查指定的单项，-e会检查对应场景配置中的多项。
+              ●   黑名单检查项仅适用于R5升级到R6。
+              ●   MTU值不一致可能导致检查缓慢或进程停止响应，当巡检工具出现提示时，请修
+                  改各节点MTU值一致后再进行巡检。
+              ●   交换机不支持当前设置的MTU值时，即使MTU值一致也会出现通信问题引起进程
+                  停止响应，需要根据交换机调整MTU大小。
+
+命令格式
+              ●   单项检查。
+                  gs_check -i ITEM [...] [-U USER] [-L] [-l LOGFILE] [-o OUTPUTDIR] [--skip-root-items] [--set] [--
+                  routing] [--cloud-mode] [--time-out=SECS] [--max-thread=NUMBERS] [--server-ip=IP] [--client-ip=IP]
+                  [--fio-ip=IP] [--fio-disk-path=PATH]
+
+              ●   场景检查。
+                  gs_check -e SCENE_NAME [-U USER] [-L] [-l LOGFILE] [-o OUTPUTDIR] [--skip-root-items] [--set] [--
+                  time-out=SECS] [--routing] [--skip-items] [--cloud-mode]
+
+              ●   显示帮助信息。
+                  gs_check -? | --help
+
+              ●   显示版本号信息。
+                  gs_check -V | --version
+
+              ●   接收数据库管理员密码。
+                  单项检查：
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                                                        3753
+GaussDB
+集中式版参考                                                                                                 5 工具参考
+
+                  echo "password" | gs_check -i ITEM [...] [-U USER] [-L] [-l LOGFILE] [-o OUTPUTDIR] [--skip-root-
+                  items][--set][--routing][--cloud-mode][--time-out=SECS][--max-thread=NUMBERS][--server-ip=IP][--
+                  client-ip=IP][--fio-ip=IP][--fio-disk-path=PATH]
+                  场景检查：
+                  echo "password" | gs_check -e SCENE_NAME [-U USER] [-L] [-l LOGFILE] [-o OUTPUTDIR] [--skip-
+                  root-items][--set][--time-out=SECS][--routing][--skip-items][--cloud-mode]
+
+                          说明
+
+                       云上环境中，对于未开启Peer认证方式的数据库系统， 可以使用此方式传入数据库管理员
+                       用户的密码，用于连接数据库进行运维操作。
+
+
+参数说明
+              ●   -U
+                  运行数据库的用户名称。
+              ●   -L
+                  本地执行。
+              ●   -i
+                  指定检查项。格式-i CheckXX详细的检查项请参见表5-91。
+              ●   -e
+                  场景检查项。默认场景包括：inspect（例行巡检）、upgrade（升级前巡检）、
+                  expand（扩容前巡检）、binary_upgrade（就地升级前巡检）、health（健康检
+                  查巡检）、cloud_inspect（云上环境日常巡检）、replace（节点替换）、
+                  longtime（耗时长巡检）、install（安装），用户可以根据需求自己编写场景。
+              ●   -l
+                  指定日志文件路径，文件路径仅能以“.log”结尾。
+              ●   -o
+                  指定检查结果输出文件夹路径。
+              ●   --skip-items
+                  跳过指定的检查项。
+              ●   --format
+                  设置结果报告的格式，仅支持default、json。
+              ●   --set
+                  修复支持设置的异常项。
+              ●   --cid
+                  检查ID，仅被内部check进程所使用。
+              ●   --skip-root-items
+                  跳过具有特殊权限执行的检查项。
+              ●   --time-out
+                  设置超时时间，单位为秒。默认为1500s，用户自定义不得少于1500s。
+              ●   --routing
+                  指定业务IP的网段，格式为IP地址：子网掩码。
+              ●   --disk-threshold
+                  检查磁盘占用时可选指定告警阈值，可指定1-99之间的整数，不输入则默认为
+                  90。检查其他项时不需要该参数。
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                      3754
+GaussDB
+集中式版参考                                                                     5 工具参考
+
+
+              ●     -?, --help
+                    显示帮助信息。
+              ●     -V, --version
+                    显示版本号信息。
+              ●     --max-thread
+                    取值为数字，设置单次并发最大线程数，默认为50，仅在-i CheckFioBenchmark
+                    时有效。
+              ●     --server-ip
+                    取值为节点IP，指定IP来运行iperf server端线程，需与--client-ip一起使用，仅在-
+                    i CheckIperfOnce时生效。
+              ●     --client-ip
+                    取值为节点IP，指定IP来运行iperf client端线程，与iperf server端进行交互，需
+                    与--server-ip一起使用，仅在-i CheckIperfOnce时生效。
+              ●     --fio-ip
+                    取值为节点IP，指定IP来进行基于fio的I/O性能测试，需与--fio-disk-path一起使
+                    用，仅在-i CheckFioOnce时生效。
+              ●     --fio-disk-path
+                    取值为磁盘路径，指定磁盘来进行基于fio的I/O性能测试，需与--fio-ip一起使
+                    用，仅在-i CheckFioOnce时生效。
+              ●     --cloud-mode
+                    指定云上巡检模式，输出不同巡检项Success/Error/NG/Warning状态的数量，并
+                    提供Success/Error/NG/Warning汇总信息。
+
+              表 5-91 数据库状态检查表
+
+               状态              巡检项              检查内容                   是否支持--
+                                                                       set
+
+               os              CheckCPU         检查主机CPU占用率，如果idle大于    否
+                                                30%并且iowait小于30%。则检查
+                                                项通过，否则检查项不通过。
+
+                               CheckTimeZone    检查数据库内各节点时区，如果时        否
+                                                区一致则检查通过，否则检查项不
+                                                通过。
+
+                               CheckSysParams   检查各节点操作系统参数，判断是        否
+                                                否等于预期值。检查项不等于建议
+                                                值则报WARNING，不等于指定值则
+                                                检查项不通过，并打印不满足项。
+                                                麒麟环境不支持此检查项。欧拉
+                                                2.10环境不支持此检查项。
+                                                详见表5-92。
+
+                               CheckOSVer       检查数据库内各个节点的操作系统        否
+                                                版本信息，如果满足版本兼容列表
+                                                且全数据库在同一混搭列表中则检
+                                                查通过，否则检查不通过。
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                      3755
+GaussDB
+集中式版参考                                                                       5 工具参考
+
+
+               状态      巡检项                检查内容                           是否支持--
+                                                                         set
+
+                       CheckNTPD          检查系统NTPD服务，如果服务开启              否
+                                          且各节点时间误差在1分钟以内则检
+                                          查项通过，否则检查项不通过。麒
+                                          麟环境不支持此检查项。
+
+                       CheckTHP           检查系统THP服务，如果服务关闭               否
+                                          则检查项通过，否则检查项不通
+                                          过。
+
+                       CheckCrontabLeft   检查crontab是否残留Gauss相关信          是
+                                          息，若无该信息则检查项通过，否
+                                          则检查项不通过。
+
+                       CheckDirLeft       检查文件目录/opt/huawei/             是
+                                          Bigdata/、/var/log/Bigdata/、/
+                                          home/omm是否存在（若mount目
+                                          录包含此目录则忽略），若不存在
+                                          则查项通过，否则检查项不通过。
+
+                       CheckProcessLeft   检查是否残留gaussdb和omm进             是
+                                          程，若未残留则检查项通过，否则
+                                          检查项不通过。
+
+                       CheckStack         检查栈深度，若各个节点不一致则                否
+                                          报WARNING，若大于等于3072则
+                                          检查项通过，否则不通过。
+
+                       CheckSysPortRang   检查ip_local_port_range系统参数      否
+                       e                  范围，若范围在26000~65535则检
+                                          查项通过，否则检查项不通过。
+
+                       CheckEtcHosts      若/etc/hosts没有配置localhost检查     否
+                                          项不通过，存在带有#GaussDB注释
+                                          的映射则检查项不通过，相同IP不
+                                          同hostname则检查项不通过，
+                                          hostname相同但IP不同检查项不通
+                                          过，否则检查项通过。
+
+                       CheckCpuCount      检查CPU核心与可用CPU，如果不              否
+                                          相符则不通过，相符但存在不可用
+                                          信息则报WARNING， 所有节点
+                                          CPU信息不相同则检查项不通过。
+
+                       CheckHyperThrea    检查超线程，若打开则检查项通                 否
+                       d                  过，否则检查项不通过（ARM平台
+                                          不需要做超线程检查）。
+
+                       CheckMemInfo       检查各节点总内存大小是否一致，                否
+                                          若检查结果一致，则检查项通过，
+                                          否则报WARNING。
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                                3756
+GaussDB
+集中式版参考                                                                5 工具参考
+
+
+               状态       巡检项                 检查内容                  是否支持--
+                                                                  set
+
+                        CheckBalanceStat    查询Balance状态，如果查询结果为   否
+                        e                   Yes则检查项通过，如果不是Yes则
+                                            报WARNING，如果查询失败则检查
+                                            项不通过。
+
+                        CheckCmserverSt     如果数据库cm_server属性为     否
+                        andby               Standby，则检查项通过，否则报
+                                            WARNING。
+
+                        CheckMaxHandle      检查操作系统最大句柄值，如果该       否
+                                            值大于等于1000000则检查项通
+                                            过，否则检查项不通过。
+
+                        CheckKernelVer      检查各节点系统内核版本信息，如       否
+                                            果版本信息一致则检查项通过，否
+                                            则报WARNING。
+
+                        CheckEncoding       检查数据库内各个节点的系统编        否
+                                            码，如果编码一致则检查项通过，
+                                            否则检查项不通过。
+
+                        CheckFilehandle     此检查项检查以下两项，两项都通       否
+                                            过为通过，否则为不通过：
+                                            ● 检查每个gaussdb进程打开的进
+                                              程数是否超过80万，不超过则检
+                                              查通过，否则检查不通过。
+                                            ● 检查是否有slave进程使用的句柄
+                                              数超过master进程，如果没有则
+                                              检查通过，否则检查不通过。
+
+                        CheckKeyProAdj      检查所有关键进程，如果所有关键       否
+                                            进程的omm_adj值为0，则通过，
+                                            否则不通过。
+
+                        CheckCompMem        检查各个组件内存使用是否正常。       否
+
+               device   CheckSwapMemo       检查交换内存和总内存大小，若交       否
+                        ry                  换内存为0则检查项通过，若交换内
+                                            存大于总内存则检查项不通过，否
+                                            则报WARNING。
+
+                        CheckLogicalBlock   检查磁盘逻辑块大小，若为512则检     否
+                                            查项通过，否则检查项不通过
+                                            （SSD场景不支持磁盘逻辑块检
+                                            查）。
+
+                        CheckMaxAsyIOre     获取当前异步请求值，如果异步I/O     否
+                        quests              值大于（dn）*1048576并且大于
+                                            104857600则检查项通过，否则检
+                                            查项不通过。
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                        3757
+GaussDB
+集中式版参考                                                                   5 工具参考
+
+
+               状态      巡检项               检查内容                        是否支持--
+                                                                     set
+
+                       CheckDiskFormat   检查磁盘XFS格式信息，如果配置为           否
+                                         inode64则检查项通过，否则报
+                                         WARNING；如果节点上无XFS格式
+                                         硬盘，检查时提示相应信息。
+
+                       CheckInodeUsage   新节点：所有磁盘                    否
+                                         旧节点：数据库路径
+                                         （GAUSSHOME/PGHOST/
+                                         GAUSSHOME/GAUSSLOG/tmp及
+                                         实例目录）
+                                         检查以上指定目录使用率，如果使
+                                         用率超过WARNING阈值（默认为
+                                         60%）报WARNING，如果超过NG
+                                         阈值（默认为80%）则检查项不通
+                                         过，否则通过。
+
+                       CheckSpaceUsage   新节点：所有磁盘                    否
+                                         旧节点：数据库路径
+                                         （GAUSSHOME/PGHOST/
+                                         GPHOME/GAUSSLOG/tmp/data、
+                                         GAUSSHOME/PGHOST/GPHOME/
+                                         GAUSSLOG/tmp）
+                                         检查磁盘以上指定目录（目录列
+                                         表）使用率，如果使用率超过
+                                         WARNING阈值（默认为70%） 报
+                                         WARNING，如果超过NG阈值（默
+                                         认为90%）则检查项不通过。
+
+                       CheckDiskConfig   检查磁盘名、大小、挂载点是否一             否
+                                         致，若一致则检查项通过，否则报
+                                         WARNING。
+
+                       CheckXid          查询xid的数值，如果大于10亿报           否
+                                         WARNING，大于18亿则检查项不
+                                         通过。
+
+                       CheckSysTabSize   如果每一块磁盘的剩余容量大于该             否
+                                         磁盘上所有实例的系统表容量总
+                                         和，则检查项通过，否则检查项不
+                                         通过。
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                            3758
+GaussDB
+集中式版参考                                                                   5 工具参考
+
+
+               状态      巡检项                 检查内容                      是否支持--
+                                                                     set
+
+                       CheckDiskUsage      检查各DN/CMS/ETCD数据目录大小      否
+                                           以及磁盘使用率, 如果磁盘使用率超
+                                           过阈值则检查不通过。
+                                           ● DN NG=70
+                                           ● DN WARNING=60
+                                           ● CMS NG=50
+                                           ● CMS WARNING=40
+                                           ● ETCD NG=70
+                                           ● ETCD WARNING=60
+
+                       CheckProcMem        检查节点整体内存使用率是否超过           否
+                                           percent_total，若超过则告警，否
+                                           则继续检查各个gaussdb进程是否超
+                                           过max_process_memory的
+                                           percent_max，超过则检查不通
+                                           过。
+
+                       CheckSlowDisk       如果不存在磁盘的I/O平均服务时间         否
+                                           低于普遍水平则检查项通过，否则
+                                           检查项不通过。
+
+                       CheckInstallDiskU   检查磁盘系统安装目录空间和索引           否
+                       sage                使用率，如果使用率低于90%则检
+                                           查项通过，否则检查项不通过。
+
+                       CheckTmpDiskUsa     检查磁盘临时目录磁盘和索引使用           否
+                       ge                  率，如果使用率低于90%则检查项
+                                           通过，否则检查项不通过。
+
+                       CheckIperfBench     检查数据库中两节点间的网络性            否
+                       mark                能，若执行成功会输出iperf done，
+                                           性能结果会保存在gs_check日志目
+                                           录下的iperf文件夹中。
+                                           说明
+                                            ● 该检查需添加参数[-L]。
+                                            ● 如果数据库节点较多，需要增加[--
+                                              time-out=]参数，增加超时时间。
+
+                       CheckFioBenchma     检查数据库中节点上数据盘的I/O性         否
+                       rk                  能，若执行成功会输出fio done，性
+                                           能结果会保存在gs_check日志目录
+                                           下的fio文件夹中。
+                                           说明
+                                            ● 该检查需添加参数[-L]。
+                                            ● 如果数据库节点较多，需要增加[--
+                                              time-out=]参数，增加超时时间。
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                            3759
+GaussDB
+集中式版参考                                                                            5 工具参考
+
+
+               状态        巡检项                 检查内容                             是否支持--
+                                                                              set
+
+                         CheckIperfClean     清理数据库上残留的iperf线程，若               否
+                                             执行成功会输出iperf_clean done。
+                                             说明
+                                              该检查需添加参数[-L]。
+
+                         CheckFioClean       清理数据库上残留的fio线程以及测                否
+                                             试产生的中间文件，若执行成功会
+                                             输出fio_clean done。
+                                             说明
+                                              该检查需添加参数[-L]。
+
+                         CheckIperfOnce      基于iperf检查固定两节点间的网络               否
+                                             性能，若执行成功会输出iperf
+                                             done，性能结果会保存在gs_check
+                                             日志目录下的iperf文件夹中，以
+                                             clientip_serverip_once的方式存
+                                             储。
+                                             说明
+                                              ● 该检查需添加参数[-L]。
+                                              ● 该检查需要添加[--server-ip=]以及
+                                                [--client-ip=]来指定server端IP和
+                                                client端IP。
+
+                         CheckFioOnce        基于fio单次检查固定IP上固定磁盘               否
+                                             的I/O性能，若执行成功会输出fio
+                                             done，性能结果会保存在gs_check
+                                             日志目录下的fio文件夹中，以
+                                             “ip_rw”、“ip_randread”、
+                                             “ip_randwrite”的方式存储。
+                                             说明
+                                              ● 该检查需添加参数[-L]。
+                                              ● 该检查需要添加[--fio-ip=]以及[--
+                                                fio-disk-path=]来指定IP和磁盘。
+
+               cluster   CheckClusterState   检查fencedUDF状态，如果                 否
+                                             fencedUDF状态为down则报
+                                             WARNING；检查数据库状态，如果
+                                             数据库状态为Normal则检查项通
+                                             过，否则检查项不通过。
+
+                         CheckDBParams       主DN实例检查共享缓冲区大小和最                 是
+                                             大连接数。
+                                             共享缓冲区需要大于128KB、大于
+                                             shmmax且大于shmall*PAGESIZE。
+                                             以上项完全满足则检查项通过，否
+                                             则检查项不通过。
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                                   3760
+GaussDB
+集中式版参考                                                                     5 工具参考
+
+
+               状态      巡检项                 检查内容                        是否支持--
+                                                                       set
+
+                       CheckDebugSwitc     检查各实例的配置文件中                 是
+                       h                   log_min_messages参数的值，为空
+                                           则认为日志级别是WARNING。判断
+                                           日志级别是否是WARNING，不是
+                                           WARNING则报WARNING。
+
+                       CheckUpVer          检查数据库各个节点上升级包的版             否
+                                           本，如果一致则检查项通过，否则
+                                           检查项不通过。
+
+                       CheckDirPermissio   检查节点目录（实例Xlog路径、            否
+                       ns                  GAUSSHOME、GPHOME、
+                                           PGHOST、GAUSSLOG）权限，如
+                                           果目录有写入权限且不大于750则检
+                                           查项通过，否则检查项不通过。
+
+                       CheckEnvProfile     检查节点环境变量                    否
+                                           （$GAUSSHOME、
+                                           $LD_LIBRARY_PATH、$PATH），
+                                           检查CMS/CMA/DN进程的环境变
+                                           量。如果环境变量存在并配置正
+                                           确，进程的环境变量存在则检查项
+                                           通过，否则检查项不通过。
+
+                       CheckGaussVer       检查各个节点gaussdb版本是否一          否
+                                           致，如果版本一致则检查项通过，
+                                           否则检查项不通过。
+
+                       CheckPortRange      若ip_local_port_range的范围在阈   否
+                                           值范围内（默认是
+                                           26000~65535），并且实例端口不
+                                           在ip_local_port_range范围内则检
+                                           查项通过，否则检查项不通过。
+
+                       CheckCatchup        检查gaussdb进程堆栈是否能搜索到         否
+                                           CatchupMain函数，若搜索不到则
+                                           检查项通过，否则检查项不通过。
+
+                       CheckProcessStat    检查om_monitor、cm_agent、      否
+                       us                  cm_server、gaussdb进程属主，若
+                                           不存在omm以外的属主则检查项通
+                                           过，否则检查项不通过。
+
+                       CheckSpecialFile    检查tmp目录（PGHOST）、日志目         否
+                                           录（GAUSSLOG）、data目录、程
+                                           序目录（GAUSSHOME）下文件是
+                                           否存在特殊字符以及非omm用户的
+                                           文件，检查OM目录（GPHOME）
+                                           是否存在特殊字符以及非omm用户
+                                           的文件、非root:root用户的文件。
+                                           若不存在则检查项通过，否则检查
+                                           项不通过。
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                              3761
+GaussDB
+集中式版参考                                                                  5 工具参考
+
+
+               状态         巡检项                检查内容                   是否支持--
+                                                                    set
+
+                          CheckCollector     在output目录下查看信息收集是否     否
+                                             成功，若收集成功则检查项通过，
+                                             否则检查项不通过。
+
+                          CheckOMMonitor     检查各个节点om_monitor进程是否   是
+                                             存在，若各节点都存在则检查项通
+                                             过，否则检查项不通过。
+
+                          CheckLargeFile     检查各个DN目录是否存在超过4G的      否
+                                             文件。任一DN目录及其子目录有超
+                                             过4G的单个文件，则检查不通过，
+                                             否则检查通过。
+
+                          CheckProStartTim   检查关键进程启动时间是否间隔超        否
+                          e                  过5分钟，超过则检查不通过，否则
+                                             检查通过。
+
+                          CheckDilateSysTa   检查系统表是否膨胀，若膨胀则不        是
+                          b                  通过，否则检查通过。
+
+                          CheckErrorInLog    检查各个主机$GAUSSLOG是否有最    否
+                                             近阈值（5天）内的ERROR日志，并
+                                             提供最多10条ERROR日志信息，若
+                                             有则检查不通过。
+
+                          CheckBackupResu    检查近两天的全量备份和增量备份        否
+                          lt                 是否正常，如果都正常则通过，否
+                                             则不通过。
+
+                          CheckFDLeak        数据库各进程持有句柄数超过系统        否
+                                             限制60%，则报错；文件句柄泄漏
+                                             存在但是少于10个报WARNING，
+                                             超过10个报NG。
+
+                          CheckProStartTim   检查关键进程启动时间是否间隔超        否
+                          e                  过一分钟，超过则检查不通过，否
+                                             则检查通过。
+
+                          CheckClusterTopo   检查数据库拓扑，仅查询，供离线        否
+                                             分析。
+
+                          CheckMpprcFile     检查是否存在对环境变量分离文件        否
+                                             的改动，若存在则检查不通过，否
+                                             则检查通过。
+
+               database   CheckLockNum       检查数据库锁数量，查询成功检查        否
+                                             项通过。
+
+                          CheckBlackList     检查数据库黑名单语法，如果黑名        否
+                                             单不存在则检查项通过，否则检查
+                                             项不通过。
+
+
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                        3762
+GaussDB
+集中式版参考                                                                       5 工具参考
+
+
+               状态      巡检项                检查内容                           是否支持--
+                                                                         set
+
+                       CheckCurConnCo     检查数据库连接数，如果连接数小                否
+                       unt                于最大连接数的90%则检查项通
+                                          过，否则检查项不通过。
+
+                       CheckCursorNum     检查数据库的游标数，检查成功则                否
+                                          检查项通过，否则检查项不通过。
+
+                       CheckMaxDatano     检查最大DN数，若最大DN数小于               是
+                       de                 xml配置的节点数*DN数（默认值为
+                                          90*5）报WARNING，否则检查项
+                                          通过。
+
+                       CheckLockState     检查数据库是否被锁，若数据库被                否
+                                          锁则不通过，否则检查项通过。
+
+                       CheckIdleSession   检查非空闲会话数，如果数量为0则               否
+                                          检查项通过，否则检查项不通过。
+
+                       CheckDBConnecti    检查能否连接数据库，如果连接成                否
+                       on                 功则检查项通过，否则检查项不通
+                                          过。
+
+                       CheckGUCConsist    ● 对于逻辑数据库，下面两项都一               否
+                       ent                  致时，检查通过，否则检查不通
+                                            过。
+                                            – 检查逻辑数据库实例上，不可
+                                              修改的GUC参数的值是否一
+                                              致。
+                                            – 检查逻辑数据库实例上，可修
+                                              改的GUC参数的值在逻辑数据
+                                              库内部是否一致。
+                                          ● 对于非逻辑数据库，数据库实例
+                                            上的GUC参数的值一致则检查通
+                                            过，否则检查不通过。
+
+                       CheckGUCValue      检查(max_connections +           是
+                                          max_prepared_transactions) *
+                                          max_locks_per_transaction的值，
+                                          若该值大于等于1000000则检查项
+                                          通过，否则检查项不通过。
+
+                       CheckCgroupTabl    检查Cgroups系统表，若不存在用户            是
+                       e                  新建的Cgroups则检查项通过，否则
+                                          报WARNING。
+
+                       CheckPMKData       检查数据库PMK schema是否包含            是
+                                          有异常数据，如果不存在异常数据
+                                          则检查项通过，否则检查项不通
+                                          过。
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                                3763
+GaussDB
+集中式版参考                                                                   5 工具参考
+
+
+               状态      巡检项                检查内容                       是否支持--
+                                                                     set
+
+                       CheckSysTable      检查系统表，检查成功则检查项通            否
+                                          过。
+
+                       CheckSysTabSize    如果每一块磁盘的剩余容量大于该            否
+                                          磁盘上所有实例的系统表容量总
+                                          和，则检查项通过，否则检查项不
+                                          通过。
+
+                       CheckTableSpace    如果表空间路径和数据库路径之间            否
+                                          不存在嵌套且表空间路径相互不存
+                                          在嵌套，则检查项通过，否则检查
+                                          项不通过。
+
+                       CheckTableSkew     若存在表在数据库各DN上的数据分           否
+                                          布不均衡，且分布数据最多的DN比
+                                          最少的DN所分布的数据多100000
+                                          条以上，则检查不通过，否则检查
+                                          通过。
+
+                       CheckDNSkew        检查DN级别的表倾斜数据，若分布           否
+                                          数据最多的DN节点比分布数据最少
+                                          的DN节点数据量多5%以上，则检
+                                          查不通过，否则检查通过。
+
+                       CheckUnAnalyzeT    若存在未做analyze的表，并且表中        是
+                       able               至少包含一条数据，则检查不通
+                                          过，否则检查通过。
+
+                       CheckCreateView    创建视图时，如果查询语句中含有            否
+                                          子查询，并且子查询结果查询解析
+                                          和重写之后存在别名重复，则检查
+                                          不通过，否则检查通过。
+
+                       CheckHashIndex     如果存在hash index则检查不通        否
+                                          过，否则检查通过。
+
+                       CheckNextvalInDe   检查Default表达式中是否包含          否
+                       fault              nextval(sequence)，若包含则不通
+                                          过，否则通过。
+
+                       CheckPoolerNum     检查Pooler使用量，若超过33000则      否
+                                          检查不通过，不超过33000但超过
+                                          28000报WARNING，否则检查通
+                                          过。
+
+                       CheckReturnType    检查用户自定义函数是否包含非法            否
+                                          返回类型，若包含则检查不通过，
+                                          否则检查通过。
+
+                       CheckSysadminUs    检查除数据库属主外是否存在数据            否
+                       er                 库管理员用户，若存在则不通过，
+                                          否则检查通过。
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                            3764
+GaussDB
+集中式版参考                                                                        5 工具参考
+
+
+               状态      巡检项                 检查内容                           是否支持--
+                                                                          set
+
+                       CheckTDDate         检查C模式数据库下的orc表中是否              否
+                                           包含date类型的列，若包含检查不
+                                           通过，否则检查通过。
+
+                       CheckDropColum      如果存在drop column的表，则检           否
+                       n                   查不通过，否则检查通过。
+
+                       CheckDiskFailure    对数据库中的所有数据做全量查                 否
+                                           询，若存在查询错误则检查不通
+                                           过，否则检查通过。
+
+                       CheckXlogPrune      若Xlog的数量超过                     否
+                                           （checkpoint_segments * 4 +
+                                           wal_keep_segments * 2 + 2），则
+                                           不通过。
+
+                       CheckQuerySpillSi   若临时下盘目录空间超过阈值                  否
+                       ze                  （1024MB），则不通过。
+
+                       CheckKeyDBTable     检查最大磁盘占有量的数据库                  否
+                       Size                （TOP 10），然后检查其中最大的
+                                           表（TOP 5）。
+
+                       CheckSQLRespone     检查80%/95%的响应时间是否超过             否
+                       Time                阈值（p80 - 800ms; p95 -
+                                           1000ms）。
+
+                       CheckThreadPool     检查线程池的使用情况。                    否
+
+                       CheckBPHitRatio     检查buffer pool命中率是否超过阈          否
+                                           值（95%）。
+
+                       CheckWorkloadTr     检查workload是否有过高的事务回            否
+                       x                   滚率（1%）。
+
+                       CheckKernelMem      获取DN内存使用分布。                    否
+                       oryUsage
+
+                       CheckDBStat         收集数据库统计信息。                     否
+
+                       CheckClusterStmt    收集归一化sql的信息。                   否
+
+                       CheckSQLTypeDist    收集sql语句分布信息。                   否
+
+                       CheckSlowQueryL     检查最近阈值条数（1000）的慢               否
+                       og                  SQL日志。
+
+                       CheckVacuumStat     若日志中近30分钟内未打印                  否
+                       us                  autovacuum相关日志，则检查不通
+                                           过。
+
+                       CheckBiggestTabl    对数据库中所有的表进行检查，收                否
+                       e                   集各数据库中最大的表。
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                                 3765
+GaussDB
+集中式版参考                                                                            5 工具参考
+
+
+               状态         巡检项               检查内容                              是否支持--
+                                                                              set
+
+                          CheckIntegrity    检查各个节点gaussdb的sha256              否
+                                            值，若各节点一致则检查项通过，
+                                            否则检查项不通过。
+
+                          CheckLogDiskUsa   检查磁盘日志目录空间和索引使用                   否
+                          ge                率，如果使用率低于90%则检查项
+                                            通过，否则检查项不通过。
+
+                          CheckDnWait       检查系统表中处于wait状态的实                  否
+                                            例，若存在处于wait状态的实例，
+                                            将对应的节点以及实例写入结果对
+                                            象。
+
+               network    CheckNetWorkDr    检查各IP一分钟内网络掉包率，如                  否
+                          op                果不超过1%则检查项通过，否则检
+                                            查项不通过。
+
+                          CheckUsedPort     同时满足以下条件，则检查通过：                   否
+                                            检查net.ipv4.ip_local_port_range，
+                                            范围大于等于OS默认值；检查TCP
+                                            协议随机端口数，小于总随机端口
+                                            数的80%；检查SCTP协议随机端口
+                                            数，小于总随机端口数的80%（当
+                                            前版本已经不再支持SCTP通信库，
+                                            查询结果无实际意义）。
+
+                          CheckRouting      检查各节点在业务IP网段的IP个数，                否
+                                            超过1个则报WARNING，否则检查
+                                            通过。
+
+               other      CheckDataDiskUs   检查磁盘DN目录使用率，如果使用                  否
+                          age               率低于90%则检查项通过，否则检
+                                            查项不通过。
+
+                          CheckLogDiskUsa   检查磁盘日志目录空间和索引使用                   否
+                          ge                率，如果使用率低于90%则检查项
+                                            通过，否则检查项不通过。
+
+                          CheckPstree       检查是否支持pstree。                     否
+
+
+
+
+              表 5-92 操作系统参数
+               参数名称               参数说明                                 推荐取值
+
+               net.ipv4.tcp_max   表示同时保持TIME_WAIT状态的TCP/IP连            10000
+               _tw_buckets        接的最大数量。如果超过所配置的取值，
+                                  TIME_WAIT将立刻被释放并打印警告信
+                                  息。
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                                 3766
+GaussDB
+集中式版参考                                                                     5 工具参考
+
+
+               参数名称                 参数说明                              推荐取值
+
+               net.ipv4.tcp_tw_r    表示是否允许将TIME-WAIT状态的sockets        1
+               euse                 重新用于新的TCP连接。
+                                    ● 0：表示不允许。
+                                    ● 1：表示允许。
+
+               net.ipv4.tcp_tw_r    表示是否开启TCP连接中TIME-WAIT状态           1
+               ecycle               sockets的快速回收。
+                                    ● 0：表示关闭。
+                                    ● 1：表示开启。
+
+               net.ipv4.tcp_keep    表示当keepalive启用的时候，TCP发送           30
+               alive_time           keepalive消息的频度。
+
+               net.ipv4.tcp_keep    在认定连接失效之前，发送TCP的                  9
+               alive_probes         keepalive探测包数量。这个值乘以
+                                    tcp_keepalive_intvl的结果决定了一个连接
+                                    发送keepalive之后可以在多长时间内没有
+                                    回应。
+
+               net.ipv4.tcp_keep    当探测没有确认时，重新发送探测的频                 30
+               alive_intvl          度。
+
+               net.ipv4.tcp_retri   在连接建立过程中TCP协议最大重试次                5
+               es1                  数。
+
+               net.ipv4.tcp_syn_r   TCP协议SYN报文最大重试次数。该参数值             5
+               etries               控制数据库向已经建立连接的远程主机重
+                                    新发送数据的最大次数，低值可以更早地
+                                    检测到与远程主机失效的连接，进而服务
+                                    器可以更快地释放该连接。如需减少网络
+                                    故障场景超时时间，可设置该参数值为2。
+
+               net.ipv4.tcp_syna    TCP协议SYN应答报文最大重试次数。               5
+               ck_retries
+
+               net.ipv4.tcp_retri   控制内核向已经建立连接的远程主机重新                12
+               es2                  发送数据的次数，低值可以更早的检测到
+                                    与远程主机失效的连接，因此服务器可以
+                                    更快的释放该连接。
+                                    发生“connection reset by peer”时可以
+                                    尝试调大该值规避问题。
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                        3767
+GaussDB
+集中式版参考                                                                        5 工具参考
+
+
+               参数名称                 参数说明                              推荐取值
+
+               vm.overcommit_       控制在做内存分配的时候，内核的检查方                0
+               memory               式。
+                                    ● 0：表示系统会尽量精确计算当前可用
+                                      的内存。
+                                    ● 1：表示不作检查直接返回成功。
+                                    ● 2：内存总量×
+                                      vm.overcommit_ratio/100＋SWAP的
+                                      总量，如果申请空间超过此数值则返回
+                                      失败。
+                                    内核默认是2过于保守，推荐设置为0，如
+                                    果系统压力大可以设置为1。
+
+               net.ipv4.tcp_rme     TCP协议接收端缓冲区的可用内存大小。               8192 250000
+               m                    分无压力、有压力和压力大三个区间，单                16777216
+                                    位为页面。
+
+               net.ipv4.tcp_wme     TCP协议发送端缓冲区的可用内存大小。               8192 250000
+               m                    分无压力、有压力和压力大三个区间，单                16777216
+                                    位为页面。
+
+               net.core.wmem_       socket发送端缓冲区大小的最大值。               21299200
+               max
+
+               net.core.rmem_m      socket接收端缓冲区大小的最大值。               21299200
+               ax
+
+               net.core.wmem_d      socket发送端缓冲区大小的默认值。               21299200
+               efault
+
+               net.core.rmem_d      socket接收端缓冲区大小的默认值。               21299200
+               efault
+
+               net.ipv4.ip_local_   服务器可用临时端口范围。                      26000-65535
+               port_range
+
+               kernel.sem           内核信号量参数设置大小。                      250 6400000
+                                                                      1000 25600
+
+               vm.min_free_kbyt     保证物理内存有足够空闲空间，防止突发                系统总内存的5%
+               es                   性换页。
+
+               net.core.somaxco     定义了系统中每一个端口最大的侦听队列                65535
+               nn                   的长度，为全局参数。
+
+               net.ipv4.tcp_sync    当出现SYN等待队列溢出时，启用cookies           1
+               ookies               来处理，可防范少量SYN攻击。
+                                    ● 0：表示关闭SYN Cookies。
+                                    ● 1：表示开启SYN Cookies。
+
+               net.core.netdev_     在每个网络接口接收数据包的速率比内核                65535
+               max_backlog          处理这些包的速率快时，允许送到队列的
+                                    数据包的最大数目。
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                              3768
+GaussDB
+集中式版参考                                                                         5 工具参考
+
+
+               参数名称                  参数说明                              推荐取值
+
+               net.ipv4.tcp_max      记录尚未收到客户端确认信息的连接请求                65535
+               _syn_backlog          的最大值。
+
+               net.ipv4.tcp_fin_ti   系统默认的超时时间。                        60
+               meout
+
+               kernel.shmall         内核可用的共享内存总量。                      11529215046068
+                                                                       46720
+
+               kernel.shmmax         内核参数定义单个共享内存段的最大值。                18446744073709
+                                                                       551615
+
+               net.ipv4.tcp_sack     是否启用有选择的应答，有选择地应答乱                1
+                                     序接收到的报文可以提高性能，让发送者
+                                     只发送丢失的报文段（对于广域网来
+                                     说），这个选项应该启用，但是启用会增
+                                     加对CPU的占用。
+                                     ● 0：表示关闭。
+                                     ● 1：表示开启。
+
+               net.ipv4.tcp_time     是否启用TCP时间戳（会在TCP包头增加12            1
+               stamps                节），即以一种比重发超时更精确的方式
+                                     （参考RFC 1323）来启用对RTT的计算，
+                                     启用可以实现更好的性能。
+                                     ● 0：表示关闭。
+                                     ● 1：表示开启。
+
+               vm.extfrag_thres      系统内存不够用时，linux会为当前系统内             500
+               hold                  存碎片情况打分，如果超过
+                                     vm.extfrag_threshold的值，kswapd就会
+                                     触发memory compaction。所以这个值设
+                                     置的接近1000，说明系统在内存碎片的处
+                                     理倾向于把旧的页换出，以符合申请的需
+                                     要，而设置接近0，表示系统在内存碎片的
+                                     处理倾向做memory compaction。
+
+               vm.overcommit_r       系统采用绝不过量使用内存的算法时，系                90
+               atio                  统整个内存地址空间不得超过swap+RAM
+                                     值的此参数百分比，当
+                                     vm.overcommit_memory=2时此参数生
+                                     效。
+
+               MTU                   节点网卡最大传输单元。OS默认值为                 8192
+                                     1500。
+
+
+
+
+                   说明
+
+                  表5-92中除MTU值外，其它参数修改可以编辑/etc/sysctl.conf文件，添加或修改相应参数，
+                  如：net.ipv4.tcp_max_tw_buckets = 10000，然后执行sysctl -p 使配置生效，可通过sysctl
+                  net.ipv4.tcp_max_tw_buckets查看当前值。
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                             3769
+GaussDB
+集中式版参考                                                                           5 工具参考
+
+              文件系统参数：
+
+              ●    soft nofile
+                   说明：soft nofile表示软限制，用户使用的文件句柄数量可以超过该限制，但是如
+                   果超过会有告警信息。
+                   推荐值：1000000
+              ●    hard nofile
+                   说明：hard nofile表示硬限制，是一个严格的限制，用户使用的文件句柄数量一
+                   定不能超过该设置。
+                   推荐值：1000000
+              ●    stack size
+                   说明：线程堆栈大小。
+                   推荐值：3072
+
+示例
+              示例一
+              用户自定义场景。
+
+        步骤1 以操作系统用户omm登录数据库主节点。
+        步骤2 在$GPHOME/script/gspylib/inspection/config路径下新建场景配置文件
+            scene_test.xml。
+        步骤3 将检查项写进场景配置文件中，书写格式为：
+              <?xml version="1.0" encoding="utf-8" ?>
+              <scene name="test" desc="check cluster parameters before test.">
+              <configuration/>
+              <allowitems>
+              <item name="CheckCPU"/>
+              <item name="CheckTimeZone"/>
+              </allowitems>
+              </scene>
+
+              item name为检查项名称，根据实际需要填写。
+
+                    说明
+
+                   用户需保证自定义xml的正确性。
+
+        步骤4 将scene_test.xml文件分发至执行检查的各个节点的$GPHOME/script/gspylib/
+            inspection/config路径下。
+        步骤5 执行以下命令查看检查结果。
+              gs_check -e test
+
+              ----结束
+              示例二
+              用户自定义检查项。
+
+        步骤1 新增巡检项配置，修改$GPHOME/script/gspylib/inspection/config/items.xml文件，
+            格式如下：
+              <checkitem id="10010" name="CheckCPU">
+              <title>
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                           3770
+GaussDB
+集中式版参考                                                                  5 工具参考
+
+              <zh>检查CPU占用率</zh>
+              <en>Check CPU Idle and I/O wait</en>
+              </title>
+              <threshold>
+              StandardCPUIdle=30;
+              StandardWIO=30
+              </threshold>
+              <suggestion>
+              <zh>如果idle不足 CPU负载过高，请扩容节点，如果iowait过高，则磁盘为瓶颈，扩容磁盘</zh>
+              </suggestion>
+              <standard>
+              <zh>检查主机CPU占用率，如果idle大于30%并且iowait小于30%，则检查项通过，否则检查项不通过</zh>
+              </standard>
+              <category>os</category>
+              <permission>user</permission>
+              <scope>all</scope>
+              <analysis>default</analysis>
+              </checkitems>
+
+              ●    id：巡检项id。
+              ●    name：巡检项脚本名，和巡检项脚本文件名相同。
+              ●    title：巡检项描述名称（支持多语言）。
+                   <zh>：中文版检查内容。
+                   <en>：英文版检查内容。
+              ●    standard：巡检项标准说明（支持多语言）。
+              ●    suggestion：巡检项修复建议说明（支持多语言）。
+              ●    threshold：巡检项阈值定义，多值之间使用分号隔开，示例
+                   Key1=Value1;Key2=Value2。
+              ●    category：巡检项分类，取值为os、device、network、cluster、database、
+                   other。
+              ●    permission：巡检项需要的执行权限，取值为root、user（默认值，即普通用
+                   户）。
+              ●    scope：巡检项执行的节点范围，取值为
+                   –     local：仅在当前节点执行。
+                   –     all：在数据库所有节点执行，默认值。
+              ●    analysis：巡检项执行结果分析方式，取值为
+                   –     default：检查每个节点的结果，所有节点检查项通过，则最终检查通过，默
+                         认值。
+                   –     consistent：数据库内所有节点一致性检查，单节点仅返回结果，各个节点结
+                         果一致则判定检查通过。
+                   –     custom：自定义结果分析方式。
+                    说明
+
+                   用户需保证自定义xml的正确性。
+
+        步骤2 新建检查脚本，脚本名称格式遵循CheckXXXX.py，必须以Check开头，脚本放置在
+            $GPHOME/script/gspylib/inspection/items目录下，该目录下脚本按照巡检项分类组
+            织，每个分类一个单独的文件夹，巡检项脚本放置在对应的分类文件夹中。格式如
+            下：
+              class CheckCPU(BaseItem):
+              def __init__(self):
+              super(CheckCPU, self).__init__(self.__class__.__name__)
+              self.idle = None
+              self.wio = None
+
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                3771
+GaussDB
+集中式版参考                                                                                                     5 工具参考
+
+              self.standard = None
+
+              def preCheck(self):
+              # check the threshold was set correctly
+              if (not self.threshold.has_key('StandardCPUIdle')
+              or not self.threshold.has_key('StandardWIO')):
+              raise Exception("threshold can not be empty")
+              self.idle = self.threshold['StandardCPUIdle']
+              self.wio = self.threshold['StandardWIO']
+
+              # format the standard by threshold
+              self.standard = self.standard.format(idle=self.idle, iowait=self.wio)
+
+              def doCheck(self):
+              cmd = "sar 1 5 2>&1"
+              output = SharedFuncs.runShellCmd(cmd)
+              self.result.raw = output
+              # check the result with threshold
+              d = next(n.split() for n in output.splitlines() if "Average" in n)
+              iowait = d[-3]
+              idle = d[-1]
+              rst = ResultStatus.OK
+              vals = []
+              if (iowait > self.wio):
+              rst = ResultStatus.NG
+              vals.append("The %s actual value %s is greater than expected value %s" % ("IOWait", iowait, self.wio))
+              if (idle < self.idle):
+              rst = ResultStatus.NG
+              vals.append("The %s actual value %s is less than expected value %s" % ("Idle", idle, self.idle))
+              self.result.rst = rst
+              if (vals):
+              self.result.val = "\n".join(vals)
+
+              所有脚本基于BaseItem基类开发，基类定义通用的检查流程，通用的检查结果分析方
+              法，默认的结果输出格式。可扩展方法：
+              ●     doCheck：该方法包含该检查项具体的检查方法。
+                    result.rst为检查结果状态，各取值含义：
+                    –     OK：检查项完成，结果通过。
+                    –     NA：当前节点不涉及该检查项。
+                    –     NG：检查项完成，结果不通过。
+                    –     WARNING：检查项完成，结果警告。
+                    –     ERROR：检查项发生内部错误，未完成检查。
+              ●     preCheck：检查前条件判定，取值为localPreCheck，用于检查当前执行节点是否
+                    指定节点。可通过巡检项配置文件中的scope参数进行配置，可重载该方法实现自
+                    定义的前置检查。
+              ●     postAnalysis：检查结果分析方法，取值为default、consistent。可通过巡检项配
+                    置文件中的analysis参数进行配置，可重载该方法实现自定义的结果分析。
+                     说明
+
+                   用户自定义的检查项名称不得与已有检查项名称相同，同时用户需保证自定义检查项脚本的规范
+                   性。
+
+        步骤3 将CheckXXXX.py脚本分发至所有执行节点的$GPHOME/script/gspylib/inspection/
+            items分类目录下。
+        步骤4 执行以下命令，查看结果。
+              本地执行：
+              gs_check -i CheckXXX -L
+
+
+文档版本 01 (2026-04-30)                      版权所有 © 华为云计算技术有限公司                                                      3772
+GaussDB
+集中式版参考                                                                                               5 工具参考
+
+              非本地执行：
+              gs_check -i CheckXXX
+
+              ----结束
+
+              示例三
+
+              执行单项检查。
+              gs_check -i CheckCPU -L
+              2024-08-30 17:15:46 [NAM] CheckCPU
+              2024-08-30 17:15:46 [STD]
+              2024-08-30 17:15:46 [RST] OK
+
+              2024-08-30 17:15:46 [RAW]
+              Linux 3.10.0-862.14.1.5.h408.eulerosv2r7.x86_64 (kwephis21718223)    08/30/24   _x86_64_   (8
+              CPU)
+
+              17:15:41        CPU     %user    %nice %system %iowait   %steal     %idle
+              17:15:42        all    2.89   0.00    1.64  0.25  0.00   95.22
+              17:15:43        all    1.13   0.00    1.13  0.13  0.00   97.61
+              17:15:44        all    3.63   0.00    2.38  0.13  0.00   93.86
+              17:15:45        all    2.65   0.00    1.14  0.00  0.00   96.21
+              17:15:46        all    2.78   0.00    1.26  0.38  0.00   95.58
+              Average:        all    2.62   0.00    1.51  0.18  0.00   95.69
+
+
+
+              ---------------------------------------------
+              Run in local time: 5.072552048834041
+              ---------------------------------------------
+
+
+相关工具
+              gs_checkos检查配置
+
+5.5.5 gstrace 追踪分析性能
+
+工具介绍
+              gstrace是GaussDB提供的用来侦听内核代码执行路径，记录内核数据结构，分析代码
+              性能的工具。Trace的有限点位和数据在版本中被固化，无法动态添加和删除。
+
+
+注意事项
+              ●     对内核dump指定内存变量的数据用于诊断分析，不存在直接指定任意寄存器或者
+                    内存地址的行为。读取的内存地址均是在开发阶段固化，没有任意地读取或者修
+                    改寄存器或内存的操作。
+              ●     Trace点可能涉及敏感数据，收集trace信息前需要同用户协商，授权和许可后方可
+                    收集。
+              ●     GaussDB不会在敏感信息上打点，不会trace和用户相关的数据。
+              ●     Trace仅用于诊断目的，开启trace将对性能产生一定影响，影响的大小和负载的高
+                    低、trace的模块相关。
+              ●     Trace工具的权限为0700，仅限于数据库用户读、写和执行。
+              ●     如果进程异常终止，/dev/shm/ 目录下将会有gstrace_trace_cfg_*残留，可以手动
+                    清除。
+
+文档版本 01 (2026-04-30)                         版权所有 © 华为云计算技术有限公司                                          3773
+

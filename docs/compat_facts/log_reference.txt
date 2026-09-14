@@ -1,0 +1,1618 @@
+GaussDB
+集中式版参考                                                              6 日志参考
+
+
+
+
+                                                       6       日志参考
+
+
+
+6.1 日志类型简介
+              在数据库运行过程中，会出现大量日志，既有保证数据库安全可靠的WAL日志（预写
+              式日志，也称为Xlog），也有用于数据库日常维护的运行和操作日志等。在数据库发
+              生故障时，可以参考这些日志进行问题定位和数据库恢复的操作。
+
+日志类型
+              日志类型的详细说明请参见下表。
+
+              表 6-1 日志类型
+
+               类型      说明
+
+               系统日志    数据库系统进程运行时产生的日志，记录系统进程的异常信息。
+
+               操作日志    通过客户端工具（例如gs_guc）操作数据库时产生的日志。
+
+               审计日志    开启数据库审计功能后，将数据库用户的某些操作记录在日志中，这
+                       些日志称为审计日志。
+
+               WAL日志   又称为REDO日志，在数据库异常损坏时，可以利用WAL日志进行恢
+                       复。由于WAL日志的重要性，所以需要经常备份这些日志。
+
+               内存日志    保存数据库进程动态内存使用超过90%时的内存上下文统计信息。
+
+
+
+
+日志清单
+
+              表 6-2 日志清单
+
+               日志分类        日志名称                  日志路径
+
+               系统日志        gaussdb-current.log   $GAUSSLOG/gs_log
+
+                           gaussdb-创建时间.log      $GAUSSLOG/gs_log
+
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                        4060
+GaussDB
+集中式版参考                                                                 6 日志参考
+
+
+               日志分类    日志名称                      日志路径
+
+                       system_alarm-创建时间-        $GAUSSLOG/gs_log
+                       current.log
+
+                       cm_agent-创建时间-            $GAUSSLOG/cm/cm_agent
+                       current.log
+
+                       system_alarm-创建时间-        $GAUSSLOG/cm/cm_agent
+                       current.log
+
+                       system_call-current.log   $GAUSSLOG/cm/cm_agent
+
+                       system_stat-current.log   $GAUSSLOG/cm/cm_agent
+
+                       cm_server-创建时间-           $GAUSSLOG/cm/cm_server
+                       current.log
+
+                       key_event-创建时间-           $GAUSSLOG/cm/cm_server
+                       current.log
+
+                       system_alarm-创建时间-        $GAUSSLOG/cm/cm_server
+                       current.log
+
+                       cm_ctl-创建时间-              $GAUSSLOG/cm/cm_ctl
+                       current.log
+
+                       om_monitor-创建时间-          $GAUSSLOG/cm/om_monitor
+                       current.log
+
+                       system_alarm-创建时间-        $GAUSSLOG/cm/om_monitor
+                       current.log
+
+                       gns_server-创建时间-          $GAUSSLOG/gns
+                       current.log
+
+                       gns_ctl-创建时间-             $GAUSSLOG/gns
+                       current.log
+
+               操作日志    gs_install-创建时间.log       $GAUSSLOG/om
+
+                       gs_preinstall-创建时间.log    $GAUSSLOG/om
+
+                       gs_om-创建时间.log            $GAUSSLOG/om
+
+                       gs_expand-创建时间.log        $GAUSSLOG/om
+
+                       gs_replace-创建时间.log       $GAUSSLOG/om
+
+                       gs_local-创建时间.log         $GAUSSLOG/om
+
+                       checkRunStatus-创建时        $GAUSSLOG/om
+                       间.log
+
+                       JsonToDbclusterInfo-创建    $GAUSSLOG/om
+                       时间.log
+
+                       killall_log-创建时间.log      $GAUSSLOG/om
+
+
+
+文档版本 01 (2026-04-30)     版权所有 © 华为云计算技术有限公司                                4061
+GaussDB
+集中式版参考                                                                    6 日志参考
+
+
+               日志分类       日志名称                  日志路径
+
+                          uploader-创建时间.log     $GAUSSLOG/om
+
+                          cmd_sender-创建时间.log   $GAUSSLOG/om
+
+                          gs_initdb-创建时间-       $GAUSSLOG/bin/gs_initdb
+                          current.log
+
+                          gs_guc-创建时间-          $GAUSSLOG/bin/gs_guc
+                          current.log
+
+                          gs_cgroup-创建时间.log    $GAUSSLOG/bin/gs_cgroup
+
+                          gs_ctl-创建时间-          $GAUSSLOG/bin/gs_ctl
+                          current.log
+
+                          gs_encrypt-创建时间-      $GAUSSLOG/bin/gs_encrypt
+                          current.log
+
+                          gs_clean-创建时间-        $GAUSSLOG/bin/gs_clean
+                          current.log
+
+                          gs_obs.run.log        $GAUSSLOG/bin/gs_obs
+
+               审计日志       –                     默认$GAUSSLOG/pg_audit（如果使
+                                                用om工具部署数据库实例，则审计
+                                                日志路径为“$GAUSSLOG/
+                                                pg_audit/实例名称”），支持由
+                                                GUC参数audit_directory自主配置路
+                                                径。
+
+               WAL日志      pg_xlog               数据目录/pg_xlog。例如DN实例上
+                                                为/gaussdb/data/data_dn/
+                                                pg_xlog，其中/gaussdb/data/
+                                                data_dn代表数据库实例节点的数据
+                                                目录。
+
+               内存日志       mem_log-创建时间.log      $GAUSSLOG/mem_log
+
+
+
+
+6.2 系统日志
+              数据库运行时数据库节点以及数据库安装部署时产生的日志统称为系统日志。如果数
+              据库在运行时发生故障，可以通过这些系统日志及时定位故障发生的原因，根据日志
+              内容制定恢复数据库的方法。
+
+
+日志文件存储路径
+              数据库节点的运行日志放在“$GAUSSLOG/gs_log”中各自对应的目录下。
+
+              CM（包括cm_agent、cm_server、cm_ctl、om_monitor、etcd）的日志放在
+              “$GAUSSLOG/cm”中各自对应的目录下。
+
+              OM数据库安装卸载时产生的日志放在“$GAUSSLOG/om”目录下。
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                             4062
+GaussDB
+集中式版参考                                                                       6 日志参考
+
+              当数据库节点部署了GNS组件时，GNS组件的日志（包括gns_server、gns_ctl）放在
+              “$GAUSSLOG/gns”中。
+
+
+日志文件命名格式
+              ●   数据库节点运行日志的命名规则：
+                  –    gaussdb-current.log
+                  –    gaussdb-创建时间.log
+                       默认情况下，每日0点或者日志文件大于16MB或者数据库实例（数据库节
+                       点）重新启动后，会生成新的日志文件。
+                  –    system_alarm-创建时间-current.log
+              ●   CM日志的命名规则：
+                  –    cm_agent的日志：cm_agent-创建时间.log、cm_agent-创建时间-
+                       current.log；system_alarm-创建时间-current.log、system_call-
+                       current.log、system_stat-current.log、gaussdb-创建时间_000000.log。
+                  –    cm_server的日志：cm_server-创建时间.log、cm_server-创建时间-
+                       current.log；key_event-创建时间-current.log、system_alarm-创建时间-
+                       current.log。
+                  –    cm_ctl的日志：cm_ctl-创建时间-current.log。
+                  –    om_monitor的日志：om_monitor-创建时间.log、om_monitor-创建时间-
+                       current.log；system_alarm-创建时间-current.log。
+                  其中，不带current标识符的文件是历史日志文件，带current标识符的文件是当前
+                  日志文件。最初调用进程时，进程会先创建一个带current标识符的日志文件，当
+                  该日志文件的大小超过16MB时，会将当前日志文件重命名为历史日志文件，并以
+                  当前时间生成新的日志文件。
+
+                       说明
+
+                       ● 前缀为cm_agent、cm_server、cm_ctl、om_monitor的日志分别是cm_agent、
+                         cm_server、cm_ctl、om_monitor的运行日志。
+                       ● 前缀为system_alarm的日志分别是cm_agent、cm_server、om_monitor的告警日志，
+                         记录数据库实例运行时异常情况的告警上报与清除。
+                       ● 前缀为key_event的日志是cm_server的关键事件日志，记录cm_server仲裁相关信息。
+                       ● 前缀为system_call的日志是cm_agent在运行过程中调用工具命令的情况记录日志。
+                       ● 前缀为system_stat的日志是cm_agent在运行过程中系统的性能监控日志，记录当前系
+                         统的磁盘I/O性能。
+                       ● 前缀为gaussdb的日志是启动fenced模式的运行日志。
+                       ● 日志命名依赖于系统时间戳，数据库会根据时间对旧的日志进行压缩，如果系统发生时
+                         间倒退，可能会把正在写入的日志文件提前压缩，导致日志文件无法继续写入，需要手
+                         动清理未来时间点日志进行恢复。
+
+              ●   GNS日志的命名规则：
+                  –    gns_server的日志：gns_server-创建时间.log。
+                  –    gns_ctl的日志：gns_ctl-创建时间-current.log。
+                  其中，不带current标识符的文件是历史日志文件，带current标识符的文件是当前
+                  日志文件。最初调用进程时，进程会先创建一个带current标识符的日志文件，当
+                  该日志文件的大小超过16MB时，会将当前日志文件重命名为历史日志文件，并以
+                  当前时间生成新的日志文件。
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                              4063
+GaussDB
+集中式版参考                                                                6 日志参考
+
+
+日志内容说明
+              ●   数据库节点的每一行日志内容的默认格式：
+                  日期+时间+节点名称+用户名称+数据库名称+IP地址+会话ID+事务ID+应用程序名
+                  称+日志级别+日志内容
+
+                  表 6-3 数据库节点日志参数
+
+                  字段名称              字段含义
+
+                  日期                日志生成的日期，格式：yyyy-mm-dd。
+
+                  时间                日志生成的时间，格式：hh:mm:ss.ms。
+
+                  节点名称              表示指定错误上报的节点。
+
+                  用户名称              当前触发生成日志的用户名。
+
+                  数据库名称             当前触发生成日志的数据库名。
+
+                  IP地址              当前触发生成日志的客户端的IP地址。
+
+                  线程ID              线程ID。
+
+                  会话ID              当前触发生成日志的session的session id。
+
+                  事务ID              事务ID（0表示没有分配事务ID）。
+
+                  线程名               线程名。
+
+                  查询ID              query_id，用户发起查询时，后台记录此查询的ID。
+
+                  模块名称              模块名称。
+
+                  日志级别              日志的级别，不同级别表示的严重程度不一样，有
+                                    FATAL，ERROR，LOG等级别。
+
+                  日志内容              日志内容。
+
+
+              ●   DN的system_alarm日志每一行内容的默认格式：告警ID+告警名称+告警级别+主
+                  机所属领域列表+告警来源标识+告警操作类型+告警描述+清除类型+开始时间戳
+                  +结束时间戳，日志参数详细请参见表6-4。
+
+                  表 6-4 DN、cm_agent、cm_server、om_monitor 的 system_alarm 日志参数
+
+                  字段名      字段名      字段含义
+                  称-英文     称-中文
+
+                  id       告警ID     告警的ID。
+
+                  name     告警名称     告警的名称。
+
+                  level    告警级别     告警的级别，不同级别表示不同的严重程度，包括
+                                    critical，major，minor，notice等级别。
+
+                  scope    主机所属     主机所属领域列表。指使用newsql的告警平台，固定取
+                           领域列表     值newsql。
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                           4064
+GaussDB
+集中式版参考                                                                   6 日志参考
+
+
+                  字段名         字段名     字段含义
+                  称-英文        称-中文
+
+                  source_t    告警来源    告警的来源标识。
+                  ag          标识
+
+                  op_type     告警操作    告警的操作类型。
+                              类型      ● firing表示告警上报。当为firing时，日志中包含告警
+                                        描述和清除类型。
+                                      ● resolved表示告警清除。当为resolved时，日志中不
+                                        包含告警描述和清除类型。
+
+                  details     告警描述    告警的具体信息。
+
+                  clear_typ   清除类型    告警的清除类型。包括ADAC和ADMC。
+                  e                   ● ADAC：系统能够自动检测到该故障发生，也能自动
+                                        检测到该故障被修复。
+                                      ● ADMC：系统能够自动检测到该故障发生，但无法
+                                        检测到该故障的修复情况。
+
+                  start_tim   开始时间    告警开始的时间。
+                  estamp      戳       ● 上报告警时，start_timestamp时间戳有值，
+                                        end_timestamp值为0。
+                                      ● 解除告警时，start_timestamp值为0，
+                                        end_timestamp时间戳有值。
+
+                  end_tim     结束时间    告警结束的时间。
+                  estamp      戳
+
+
+              ●   cm_agent、cm_server、cm_ctl、om_monitor、gns_server、gns_ctl日志内容如
+                  下所示：
+                  –    cm_agent、cm_server、cm_ctl、om_monitor、gns_server、gns_ctl的运行
+                       日志每一行内容的默认格式：日期+时间+线程ID+线程名+日志级别+日志内
+                       容。
+                  –    cm_agent、cm_server、om_monitor的system_alarm日志每一行内容的默
+                       认格式：告警ID+告警名称+告警级别+主机所属领域列表+告警来源标识+告
+                       警操作类型+告警描述+清除类型+开始时间戳+结束时间戳。
+                  –    cm_server的key_event日志每一行内容的默认格式：日期+时间+线程ID+线
+                       程名+关键事件类型+仲裁对象实例ID+仲裁细节。
+                  –    cm_agent的system_call日志大部分内容的默认格式：日期+时间+节点名称
+                       +用户名称+数据库名称+IP地址+会话ID+事务ID+应用程序名称+日志级别+日
+                       志内容。日志参数详细请参见表6-3。
+                  –    cm_agent的system_stat日志内容的默认格式：时间+操作系统+CPU信息+磁
+                       盘读写情况。
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                           4065
+GaussDB
+集中式版参考                                                                      6 日志参考
+
+                       表 6-5 cm_agent、cm_server、cm_ctl、om_monitor、gns_server、gns_ctl
+                       的运行日志参数
+                       字段名称              字段含义
+
+                       日期                日志生成的日期，格式：yyyy-mm-dd。
+
+                       时间                日志生成的时间，格式：hh:mm:ss.ms。
+
+                       线程ID              生成当前日志的线程ID号。
+
+                       线程名               生成当前日志的线程名称。（cm_ctl、
+                                         om_monitor、gns_ctl运行日志无该参数。）
+
+                       日志级别              日志的级别，不同级别表示不同的严重程度，包括
+                                         LOG、WARNING、ERROR、FATAL等级别。
+
+                       日志内容              日志内容。
+
+
+
+
+                       表 6-6 cm_server 的 key_event 日志参数
+                       字段名称              字段含义
+
+                       日期                日志生成的日期，格式：yyyy-mm-dd。
+
+                       时间                日志生成的时间，格式：hh:mm:ss.ms。
+
+                       线程ID              生成当前日志的线程ID号。
+
+                       线程名               生成当前日志的线程名称。
+
+                       关键事件类型            关键事件的类型，格式：[KeyEvent: xxxx]。
+
+                       关键事件对象实例          关键事件的对象，格式：[Instance: xxxx]。
+                       ID
+
+                       关键事件细节            关键事件的细节，格式：[Details: xxxx]。
+
+
+
+
+                       表 6-7 cm_agent 的 system_stat 日志参数
+                       字段名称              字段含义
+
+                       时间                日志生成的时间，使用中国标准时间（CST）表示。
+
+                       操作系统              主机的操作系统。
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                              4066
+GaussDB
+集中式版参考                                                     6 日志参考
+
+
+                       字段名称         字段含义
+
+                       CPU信息        CPU使用率。其中：
+                                    ● %user：CPU处在用户模式下的时间百分比。
+                                    ● %nice：CPU处在带NICE值的用户模式下的时间
+                                      百分比。
+                                    ● %system：CPU处在系统模式下的时间百分比。
+                                    ● %iowait：CPU等待输入输出完成时间的百分
+                                      比。
+                                    ● %steal：管理程序维护另一个虚拟处理器时，虚
+                                      拟CPU的无意识等待时间百分比。
+                                    ● %idle：CPU空闲时间百分比。
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                4067
+GaussDB
+集中式版参考                                                     6 日志参考
+
+
+                       字段名称         字段含义
+
+                       磁盘读写         磁盘I/O信息。其中：
+                                    ● rrqm/s：每秒合并的读请求次数，即读请求合并
+                                      为更大的块的次数。
+                                    ● wrqm/s：每秒合并的写请求次数，即写请求合并
+                                      为更大的块的次数。
+                                    ● r/s：每秒完成的读请求次数。
+                                    ● w/s：每秒完成的写请求次数。
+                                    ● rMB/s：每秒读取的数据量，单位为MB/s。
+                                    ● wMB/s：每秒写入的数据量，单位为MB/s。
+                                    ● r_await：平均每个读请求的等待时间，单位为毫
+                                      秒。
+                                    ● w_await：平均每个写请求的等待时间，单位为
+                                      毫秒。
+                                    ● %util：磁盘利用率，即磁盘I/O操作占用磁盘总
+                                      时间的百分比。
+                                    ● %rrqm：读取请求在发送到设备之前合并的百分
+                                      比。
+                                    ● %wrqm：写入请求在发送到设备之前合并的百分
+                                      比。
+                                    ● rareq-sz：向设备发出的读请求的平均大小，单
+                                      位为kB。
+                                    ● wareq-sz：向设备发出的写请求的平均大小，单
+                                      位为kB。
+                                    ● d/s：设备每秒完成的丢弃请求数。
+                                    ● dMB/s：每秒设备丢弃的扇区数。
+                                    ● drqm/s：每秒合并到设备排队的丢弃请求数。
+                                    ● %drqm：丢弃请求在发送到设备之前合并的百分
+                                      比。
+                                    ● d_await：向要服务的设备发出丢弃请求的平均时
+                                      间。
+                                    ● dareq-sz：向设备发出的丢弃请求的平均大小，
+                                      单位为kB。
+                                    ● f/s：设备每秒完成的刷新请求数（合并后）。
+                                    ● f_await：向要服务的设备发出的刷新请求的平均
+                                      时间。
+                                    ● aqu-sz：向设备发出的请求的平均队列长度。
+
+
+
+日志示例
+              ●   DN
+                  –    运行日志的典型样例：
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                4068
+GaussDB
+集中式版参考                                                                                                     6 日志参考
+
+                       2023-09-14 21:28:52.647 dn_6001 rdsAdmin postgres localhost 139983342597888 0[0:0#0] 0
+                       dn_6001 0 [BACKEND] LOG: will update control file (create checkpoint), shutdown:0
+
+                  –    system_alarm日志的典型样例：
+                       {"id":"0000001078919222","name":"AbnormalDataInstConnAuthMethod","level":"critical","scope
+                       ":["newsql"],"source_tag":"szvphis5033219-dn_6001","op_type":"firing","details":"Data instance
+                       dn_6001 remote connection trust method
+                       error","clear_type":"ADAC","start_timestamp":1694140757589,"end_timestamp":0}
+
+              ●   cm_agent
+                  –    运行日志的典型样例：
+                       2023-09-05 05:59:59.845 tid=13690 CheckSysStatus ASYN LOG: [MEMORY STAT] memory
+                       system usage: 91.60%, application usage: 97.42%.
+
+                  –    system_alarm日志的典型样例：
+                       {"id":"0000001078919202","name":"DatanodeFailOver","level":"major","scope":
+                       ["newsql"],"source_tag":"pekphis351066-dn_6001","op_type":"firing","details":"Datanode
+                       standby dn_6001 fail
+                       over","clear_type":"ADMC","start_timestamp":1693035351709,"end_timestamp":0}
+
+                  –    system_call日志的典型样例：
+                       2023-09-04 15:37:07.509 dn_6001_6002_6003 [unknown] [unknown] localhost
+                       140252967524864 0[0:0#0] 0 [unknown] 0 [BACKEND] LOG: create gaussdb state file success:
+                       db state(STARTING_STATE), server mode(Pending), connection index(1)
+
+                  –    system_stat日志的典型样例：
+                       Fri Aug 25 16:58:19 CST 2023
+                       Linux 3.10.0-862.14.1.5.h687.eulerosv2r7.x86_64 (pekphis351066)        08/25/2023
+                       _x86_64_      (8 CPU)
+
+                       avg-cpu: %user %nice %system %iowait %steal %idle
+                             18.02 0.00 10.07 0.41 0.00 71.50
+
+                       Device:     rrqm/s wrqm/s   r/s  w/s rMB/s wMB/s avgrq-sz avgqu-sz await r_await
+                       w_await svctm %util
+                       vda          0.01  7.89 0.08 3.67   0.00   0.05 26.96   0.01 2.57 3.41 2.55
+                       0.18 0.07
+                       vdb          0.04 51.39 0.53 103.88   0.09   0.65 14.63   0.09 0.84 4.85 0.82
+                       0.39 4.06
+
+                  –    gs_log目录下的gaussdb日志的典型样例：
+                       [UDF] LOG: Fenced master process start OK.
+
+              ●   cm_server
+                  –    运行日志的典型样例：
+                       2023-09-04 16:03:50.693 tid=95109 MAIN LOG: process startup packet, remote_type 7, nodeid
+                       1, node name pekphis351066, postmaster is false.
+
+                  –    system_alarm日志的典型样例：
+                       {"id":"0000001078919258","name":"ServerSwitchOver","level":"minor","scope":
+                       ["newsql"],"source_tag":"pekphis351066-server_1","op_type":"firing","details":"Server standby
+                       server_1 switch
+                       over","clear_type":"ADMC","start_timestamp":1693031871104,"end_timestamp":0}
+
+                  –    key_event日志的典型样例：
+                       2023-09-04 15:45:10.468 tid=95440 AGENT_WORKER: [KeyEvent: KEY_EVENT_SWITCHOVER]
+                       [Instance: 6001] [Details: send switchover message, node=1, instance=6001]
+
+              ●   cm_ctl
+                  –    运行日志的典型样例：
+                       2023-08-28 16:39:54.113 tid=72942 LOG: set cm_server.conf success.
+
+              ●   gns_server
+                  –    运行日志的典型样例：
+                       2024-02-22 14:38:00.767 tid=14627 GnsStatusCheck LOG: DN instance_id: 6003 up to standby.
+
+              ●   gns_ctl
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                         4069
+GaussDB
+集中式版参考                                                                                                   6 日志参考
+
+                  –    运行日志的典型样例如下。gns_ctl为GNS组件内部工具，在使用gns_ctl工具
+                       进行数据库运维操作时，日志内仅记录应用无损透明特性相关内容，不影响
+                       cm_ctl的日志打印。
+                       2024-03-12 09:43:01.436 tid=31709 LOG: alt mode stop started.
+
+              ●   om_monitor
+                  –    运行日志的典型样例如下所示，CM Agent启动检查完成，
+                       cluster_manual_start、agent_config_file_r和agent_binary_file_x文件存在，
+                       config_change_flag文件不存在，CM Agent之前状态为进程不在，拉起CM
+                       Agent次数为0：
+                       2023-09-05 10:50:41.044 tid=100802 LOG: The CM Agent startup check is complete:
+                       cluster_manual_start=1, agent_config_file_r=1, agent_binary_file_x=1, config_change_flag=0,
+                       previous_status=0, start_count=0.
+
+                  –    system_alarm日志的典型样例：
+                       {"id":"0000001078919226","name":"AbnormalCMAProcess","level":"critical","scope":
+                       ["newsql"],"source_tag":"pekphis351066-
+                       cma","op_type":"resolved","start_timestamp":0,"end_timestamp":1692953836127}
+
+
+日志丢弃机制
+              当系统日志写入异常时（如日志盘故障、日志盘负载过高等），系统会先进行重试
+              （默认重试超时60秒），若重试仍失败则执行日志丢弃，以避免因日志写入阻塞而影
+              响业务。当日志发生丢弃时，会在操作系统日志中打印告警信息：WARNING: logger
+              pipe write failed, dropped a log message.
+
+
+6.3 操作日志
+              操作日志是指数据库管理员使用工具操作数据库时以及工具被数据库调用时产生的日
+              志。如果数据库发生故障，可以通过这些日志信息跟踪用户对数据库进行了哪些操
+              作，重现故障场景。
+
+
+日志文件存储路径
+              默认在“$GAUSSLOG/om” 和“$GAUSSLOG/bin”目录下，如果环境变量
+              $GAUSSLOG不存在或者变量值为空，则工具日志信息不会记录到对应的工具日志文件
+              中，日志信息只会打印到屏幕上。
+
+
+日志文件命名格式
+              日志文件命名格式为：
+
+              ●   工具名-日志创建时间.log
+              ●   工具名-日志创建时间-current.log
+
+              其中，“工具名-日志创建时间.log”是历史日志文件，“工具名-日志创建时间-
+              current.log”是当前日志文件。
+
+              如果日志大小超过16MB，在下一次调用该工具时，会重命名当前日志文件为历史日志
+              文件，并以当前时间生成新的当前日志文件。
+
+              例如将“gs_guc-2015-01-16_183728-current.log”重命名为
+              “gs_guc-2015-01-16_183728.log”，然后重新生成“gs_guc-2015-01-17_142216-
+              current.log”。
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                         4070
+GaussDB
+集中式版参考                                                              6 日志参考
+
+
+日志内容说明
+              ●   OM工具日志，其包含的gs_install、gs_preinstall、gs_om、gs_replace、
+                  gs_local、checkRunStatus（运维操作状态检查接口）、JsonToDbclusterInfo
+                  （数据库实例拓扑Json转xml工具）、killall_log、uploader(pscp工具)、
+                  cmd_sender(pssh工具)的每一行日志内容的默认格式：
+                  调用链ID+日期时间+线程ID+日志上报位置+线程名+日志级别+[Step*]+日志内容
+
+                  表 6-8 OM 包含的工具或者组件的日志参数
+                  字段名称               字段含义
+
+                  调用链ID              调用链ID。
+
+                  日期时间               日志生成的日期和时间，格式：yyyy-mm-dd
+                                     hh:mm:ss.ms。
+
+                  线程ID               当前生成日志的线程ID号。
+
+                  日志上报位置             当前生成日志可能会包含多行，日志上报位置表示日志
+                                     内容处于执行文件的第几行。
+
+                  线程名                当前生成日志的线程名称。
+
+                  日志级别               日志的级别，不同级别表示不同的严重程度，有LOG、
+                                     DEBUG、WARNING、ERROR等级别。
+
+                  Step*              当前时间执行的步骤编号。
+
+                  日志内容               日志内容。
+
+
+              ●   gs_initdb日志内容的默认格式：
+                  日期+时间+日志级别+日志内容
+
+                  表 6-9 gs_initdb 日志参数
+                  字段名称               字段含义
+
+                  日期                 日志生成的日期，格式：yyyy-mm-dd。
+
+                  时间                 日志生成的时间，格式：hh:mm:ss。
+
+                  日志级别               日志的级别，不同级别表示不同的严重程度，有LOG、
+                                     WARNING、ERROR、FATAL等级别。
+
+                  日志内容               日志内容。
+
+
+              ●   gs_guc日志内容的默认格式：
+                  日期+时间+日志内容
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                        4071
+GaussDB
+集中式版参考                                                            6 日志参考
+
+                  表 6-10 gs_guc 日志参数
+                  字段名称                 字段含义
+
+                  日期                   日志生成的日期，格式：yyyy-mm-dd。
+
+                  时间                   日志生成的时间，格式：hh:mm:ss。
+
+                  日志内容                 日志内容。
+
+
+              ●   gs_cgroup每一行日志内容的默认格式：
+                  调用链ID+日期时间+线程ID+日志上报位置+线程名+日志级别+日志内容
+
+                  表 6-11 gs_cgroup 日志参数
+                  字段名称                 字段含义
+
+                  调用链ID                调用链ID。
+
+                  日期时间                 日志生成的日期 时间，格式：yyyy-mm-dd
+                                       hh:mm:ss.ms。
+
+                  线程ID                 当前生成日志的线程ID号。
+
+                  日志上报位置               当前生成日志可能会包含多行，日志上报位置表示日志
+                                       内容处于执行文件的第几行。
+
+                  线程名                  当前生成日志的线程名称。
+
+                  日志级别                 日志的级别，不同级别表示不同的严重程度，有LOG、
+                                       DEBUG、WARNING、ERROR等级别。
+
+                  日志内容                 日志内容。
+
+
+              ●   gs_ctl每一行日志内容的默认格式：
+                  日期+时间+线程ID+node_name+线程名+日志内容
+
+                  表 6-12 gs_ctl 日志参数
+                  字段名称                 字段含义
+
+                  日期                   日志生成的日期，格式：yyyy-mm-dd。
+
+                  时间                   日志生成的时间，格式：hh:mm:ss.ms。
+
+                  线程ID                 当前生成日志的线程ID号。
+
+                  node_name            实例名称。
+
+                  线程名                  当前生成日志的线程名称。
+
+                  日志内容                 日志内容。
+
+
+              ●   gs_obs每一行日志内容的默认格式：
+                  日期+时间+日志级别+线程ID+日志内容
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                     4072
+GaussDB
+集中式版参考                                                                                                        6 日志参考
+
+                  表 6-13 gs_obs 日志参数
+                   字段名称                            字段含义
+
+                   日期                              日志生成的日期，格式：yyyy-mm-dd。
+
+                   时间                              日志生成的时间，格式：hh:mm:ss ms。
+
+                   日志级别                            日志的级别，不同级别表示不同的严重程度，有LOG、
+                                                   WARNING、ERROR、FATAL等级别。
+
+                   线程ID                            当前生成日志的线程ID号。
+
+                   日志内容                            日志内容。
+
+
+
+日志示例
+              ●   OM工具日志的典型样例：
+                  [220822164bc111ee9466fa163e8dd000][2023-09-05 08:02:11.098083][11214]
+                  [InstallImpl.py(doStart:864)][gs_install][DEBUG][Step7]:Successfully started the cluster.
+
+              ●   gs_initdb日志的典型样例：
+                  [2023-09-05 07:57:01]
+
+                  WARNING: enabling "trust" authentication for local connections
+                  You can change this by editing gs_hba.conf or using the option -A, or
+                  --auth-local and --auth-host, the next time you run gs_initdb.
+
+              ●   gs_guc日志的典型样例：
+                  [2023-09-05 09:05:06]
+                  Begin to perform the total nodes: 3.
+                  Popen count is 3, Popen success count is 3, Popen failure count is 0.
+                  Begin to perform gs_guc for datanodes.
+                  [2023-09-05 09:05:07]
+                  expected instance path: [/var/lib/engine/data1/data/dn_6001/gaussdb.conf]
+                  expected instance path: [/var/lib/engine/data1/data/dn_6005/gaussdb.conf]
+                  gs_guc reload: key=value: [/var/lib/engine/data1/data/dn_6001/gaussdb.conf]
+                  server signaled
+                  gs_guc reload: key=value: [/var/lib/engine/data1/data/dn_6005/gaussdb.conf]
+                  server signaled
+
+                  Total instances: 2. Failed instances: 0.
+                  Success to perform gs_guc!
+
+                  Command count is 3, Command success count is 3, Command failure count is 0.
+
+                  Total instances: 6. Failed instances: 0.
+                  ALL: Success to perform gs_guc!
+
+              ●   gs_cgroup日志的典型样例：
+                  [de86987e4bc011eeb3befa163e8dd000][2023-09-05 15:51:49.372997][947]
+                  [PreInstallUtility.py(setCgroup:1793)][gs_cgroup][DEBUG]:The gs_cgroup run with the following
+                  arguments: [/var/chroot/usr/local/package/dependency/bin/gs_cgroup -U Ruby --upgrade -c -H /var/
+                  chroot/usr/local/tool/Ruby ].
+                  '/sys/fs/cgroup/cpu,cpuacct/CM:Ruby' exists, omit to create this cgroup.
+                  '/sys/fs/cgroup/cpu,cpuacct/CM:Ruby' exists, omit to create this cgroup.
+
+              ●   gs_ctl日志的典型样例：
+                  [2023-09-05 08:00:59.538][4053][dn_6004_6005_6006][gs_ctl]: finish fsync all files.
+
+              ●   gs_obs日志的典型样例：
+                  2025-01-21 11:06:42 867| INFO|[140565224322816]|Enter complete_multi_part_upload successfully
+
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                                       4073
+GaussDB
+集中式版参考                                                                                                  6 日志参考
+
+
+
+
+6.4 审计日志
+              数据库安全管理员可以利用审计日志信息，重现导致数据库现状的一系列事件，找出
+              非法操作的用户、时间和内容等。审计功能开启时会不断产生大量的审计日志，占用
+              磁盘空间。用户可以根据磁盘空间的大小设置审计日志维护策略。
+
+日志存储路径
+              默认$GAUSSLOG/pg_audit，如果使用om工具部署数据库实例，则审计日志路径为
+              “$GAUSSLOG/pg_audit/实例名称”。日志存储路径支持由GUC参数audit_directory
+              自主配置路径。
+
+日志查询方法
+              只有拥有AUDITADMIN属性的用户才可以查看审计记录。查询方法如下：
+              查询传统审计记录。
+              gaussdb=# SELECT * FROM gs_query_audit('2021-03-04 08:00:00','2021-03-04 17:00:00');
+
+              查询统一审计记录。
+              gaussdb=# SELECT * FROM gs_query_unified_audit('2025-04-26 08:00:00','2025-04-26 17:00:00');
+
+              starttime和endtime的差值代表要查询的时间段，其有效值为从starttime日期中的
+              00:00:00开始到endtime日期中的23:59:59之间的任何值。请正确指定这两个参数，否
+              则将查不到需要的审计信息。
+
+日志内容说明
+
+              表 6-14 传统审计日志参数
+
+               名称                       描述
+
+               time                     操作时间。
+
+               type                     操作类型。
+
+               result                   操作结果。
+
+               userid                   用户id。
+
+               username                 执行操作的用户名。
+
+               database                 数据库名称。
+
+               client_conninfo          客户端连接信息。
+
+               object_name              操作对象名称。
+
+               detail_info              执行操作详细信息。
+
+               node_name                节点名称。
+
+               thread_id                线程id。
+
+               local_port               本地端口。
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                    4074
+GaussDB
+集中式版参考                                                         6 日志参考
+
+
+               名称                   描述
+
+               remote_port          远端端口。
+
+
+
+
+              日志中各个字段的描述参见gs_query_unified_audit函数定义，如表6-15。
+
+              表 6-15 统一审计日志参数
+               名称                   描述
+
+               time                 操作时间。
+
+               type                 操作类型。
+
+               result               操作结果。
+
+               userid               用户ID。
+
+               username             执行操作的用户名。
+
+               database             数据库名称。
+
+               client_conninfo      客户端连接信息。
+
+               object_name          操作对象名称。
+
+               detail_info          执行操作详细信息。
+
+               node_name            节点名称。
+
+               thread_id            线程ID。
+
+               local_port           本地端口。
+
+               remote_port          远端端口。
+
+               policy_id            统一审计策略ID。
+
+               unified_audit_typ    统一审计策略类型。
+               e
+
+               unified_audit_poli   统一审计策略信息。
+               cy
+
+
+
+
+6.5 WAL 日志
+              预写式日志WAL（Write Ahead Log，也称为Xlog）是指如果要修改数据文件，必须是
+              在这些修改操作已经记录到日志文件之后才能进行修改，即在描述这些变化的日志记
+              录刷新到永久存储器之后。在系统崩溃时，可以使用WAL日志对数据库进行恢复操
+              作。WAL日志记录的详细程度分为几个级别，由GUC参数wal_level控制。
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司            4075
+GaussDB
+集中式版参考                                                                                         6 日志参考
+
+
+日志运行机制
+              GaussDB启动时，会分配一段内存用来缓存数据库运行期间生成的日志，这个缓冲区
+              大小由参数wal_buffers控制。要确保事务的持久化，Wal_buffers中的日志就需要落
+              盘。
+
+              WAL日志会在以下两种情况下写硬盘：
+
+              ●   Commit 事务提交时。系统会调用fdatasync函数，将wal_buffers中的WAL数据写
+                  入WAL日志文件。（wal_sync_method可控制commit时调用的函数，默认为
+                  fdatasync）。
+              ●   walWriter定期写。 walWriter进程会定期将wal_buffers中的WAL数据写入WAL日
+                  志文件。wal_writer_delay 参数用来控制walwriter进程工作的时间间隔，默认
+                  200ms。如果时间过长可能造成WAL缓冲区的内存不足，时间过短会引起WAL不
+                  断写入，增加磁盘I/O负担。
+
+日志文件存储路径
+              路径为数据目录/pg_xlog。
+
+              ●   以一个DN为例，数据目录可以通过如下命令查询。其中/opt/gaussdb/data/dn/
+                  db_6001代表集群节点的数据目录，当前节点的Xlog日志存放在 /opt/gaussdb/
+                  data/dn/db_6001/pg_xlog目录。
+                  $ cm_ctl query -Cvd
+                  [ CMServer State ]
+                  node                          instance               state
+                  ------------------------------------------------------------------------
+                  1 192.168.10.182 1             /opt/gaussdb/data/cm/cm_server Primary
+
+                  [ Cluster State ]
+
+                  cluster_state : Normal
+                  redistributing : No
+                  balanced       : Yes
+                  current_az : AZ_ALL
+
+                  [    Datanode State   ]
+
+                  node                          instance               state
+                  --------------------------------------------------------------------------
+                  1 192.168.10.182 6001 /opt/gaussdb/data/dn/dn_6001 P Primary Normal
+
+
+日志文件命名格式
+              日志文件以段文件的形式存储的，每个段为16MB，并分割成若干页，每页8KB。一个
+              段文件的名称由24个十六进制组成，对WAL日志的命名由如下部分组成：时间线+日
+              志文件标号+日志文件段标号，请参考表6-16。
+
+              日志文件的段标号上限为FF，若有下一个WAL日志文件，需要将文件标号+1，段标号
+              归零，例如0000000100000000000000FF的后一个文件为
+              000000010000000100000000。时间线由1开始，日志文件标号和日志文件的段标号
+              由0开始。
+
+              表 6-16 WAL 日志文件命名规范
+
+               字段名称                          字段含义
+
+               timeline                      时间线。取值范围：8位16进制数字。
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                        4076
+GaussDB
+集中式版参考                                                                                           6 日志参考
+
+
+               字段名称                         字段含义
+
+               wal_file_num                 日志文件标号。取值范围：8位16进制数字。
+
+               wal_segment_num              日志文件段标号。取值范围：8位16进制数字。
+
+
+
+
+              典型的WAL日志文件名如下所示，每个WAL日志文件大小均为16MB。
+              -rW----- 1 gaussdb d gaussdb d 16777216 Jun 11    12:33 0000000100000001000000F2
+              -rW----- 1 gaussdb d gaussdb d 16777216 Jun 11    18:10 0000000100000001000000F3
+              -rW----- 1 gaussdb d gaussdb d 16777216 Jun 11    22:18 0000000100000001000000F4
+              -rW----- 1 gaussdb d gaussdb d 16777216 Jun 12   03:58 0000000100000001000000F5
+              -rW----- 1 gaussdb d gaussdb d 16777216 Jun 12   07:59 0000000100000001000000F6
+              -rW----- 1 gaussdb d gaussdb d 16777216 Jun 12   13:45 0000000100000001000000F7
+              -rW----- 1 gaussdb d gaussdb d 16777216 Jun 12   17:30 0000000100000001000000F8
+              -rW----- 1 gaussdb d gaussdb d 16777216 Jun 12   23:10 0000000100000001000000F9
+              -rW----- 1 gaussdb d gaussdb d 16777216 Jun 13   03:10 0000000100000001000000FA
+              -rW----- 1 gaussdb d gaussdb d 16777216 Jun 13   08:39 0000000100000001000000FB
+              -rW----- 1 gaussdb d gaussdb d 16777216 Jun 13   12:43 0000000100000001000000FC
+              -rW----- 1 gaussdb d gaussdb d 16777216 Jun 13   17:08 0000000100000001000000FD
+              -rW----- 1 gaussdb d gaussdb d 16777216 Jun 13   16:32 0000000100000001000000FE
+
+
+                    说明
+
+                  WAL日志文件名的数字一般情况下是顺序增长使用的（要把所有可用数字都用光也需要非常长
+                  的时间），但也存在循环使用的情况。
+
+
+日志内容说明
+              WAL日志的内容取决于记录事务的类型，在系统崩溃时可以利用WAL日志进行恢复。
+
+              默认配置下，GaussDB每次启动时会先读取WAL日志进行恢复。
+
+日志使用场景
+              数据库崩溃恢复：数据库意外崩溃时，因为Xlog日志中已经完整记录了数据库的变
+              化，在数据库重启后就可以通过回放checkpoint之后的Xlog日志，把之前修改过的数
+              据页面（记录在Xlog里，但是还没有来得及修改数据文件）落盘，确保数据的完整
+              性。这个过程是在数据库启动后自动完成的。
+
+              主备DN数据同步：GaussDB的备DN通过接收来自主DN的Xlog，然后应用Xlog来达到
+              主备一致。主库和备库之间的数据同步也可以通过Xlog来实现。
+
+              数据库备份恢复：用GaussRoach对GaussDB做备份时，不仅要复制数据文件，还需要
+              备份期间产生的Xlog，才能构成一个完整的备份。使用全量备份或增量备份+Xlog，可
+              以做到指定时间点的恢复，即恢复到全量备份之后的指定时间点（即PITR: Point-In-
+              Time Recovery）。
+
+              逻辑复制：逻辑复制工具，如DRS，是通过对Xlog的解析来获取数据流并进行增量数
+              据同步的。
+
+Xlog 的回收
+              数据库运行期间，会持续生成Xlog日志，GaussDB通过checkpoint机制来进行Xlog日
+              志清理（通常被称为Xlog回收）。Xlog日志回收相关参数请参见表6-17，参数设置方
+              式请参见设置参数。
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                           4077
+GaussDB
+集中式版参考                                                                 6 日志参考
+
+              表 6-17 Xlog 日志回收相关参数
+               参数名称                  参数说明
+
+               checkpoint_timeout    设置自动检查点之间的最长时间。在上一次自动检查点
+                                     后，多长时间必须做下一次自动检查点，默认值为
+                                     15min。如果在两次自动检查点期间堆积的Xlog日志数量
+                                     大于checkpoint_segments设置的值，也会触发一次自动检
+                                     查点。
+
+               checkpoint_segment    设置checkpoint_timeout周期内所保留WAL日志文件的最
+               s                     大数量。每个日志文件大小为16MB。
+
+               enable_incremental    增量检查点开关，默认值为on。
+               _checkpoint
+
+               incremental_checkp    开启增量检查点开关（enable_incremental_checkpoint）
+               oint_timeout          之后，设置自动检查点之间的最长时间。
+                                     默认值为1min。即每分钟会启动一次增量检查点，同样会
+                                     检查是否有Xlog需要清理。
+
+               wal_keep_segments     Xlog日志文件的数量，设置“pg_xlog”目录下保留日志文
+                                     件的最小数量。备机通过获取主机的Xlog日志进行流复
+                                     制。默认值为128。一般情况下，数据库在执行checkpoint
+                                     时，会检查当前的pg_xlog目录下的Xlog数量是否大于
+                                     wal_keep_segments设置的值， 如果数量大于
+                                     wal_keep_segments值，就从旧的一端开始清理，保留
+                                     wal_keep_segments设定数量的Xlog日志。
+
+               enable_xlog_prune     设置在任一备机断连时，主机是否根据Xlog日志的大小超
+                                     过参数max_size_for_xlog_prune的值而回收日志，on为开
+                                     启。在备机断联时，为确保主备DN间Xlog日志是连续的，
+                                     将不对Xlog日志进行清理。但是，如果开启
+                                     enable_xlog_prune， 且Xlog堆积的容量大于
+                                     max_size_for_xlog_prune指定的值，一般为256GB，同样
+                                     会触发Xlog日志清理。
+
+               max_size_for_xlog_p   在备机故障时主机保留的Xlog最大数量。在
+               rune                  enable_xlog_prune打开时生效，工作机制如下：
+                                     1. replconninfo系列guc参数配置的所有备机都连接主机
+                                        时，则该参数不生效。
+                                     2. replconninfo系列guc参数配置的备机存在断连时，则该
+                                        参数生效。当主机Xlog日志量大于该参数值，会强制回
+                                        收。例外：在同步提交模式下（即
+                                        synchronous_commit参数不是local/off时），如果存在
+                                        连接中的备机，则主机会考虑保留多数派备机中最小日
+                                        志接受位置以后的日志，这种情况下，保留的日志可能
+                                        多于max_size_for_xlog_prune参数值。
+                                     3. 若存在build中的备机，则该参数不生效，主机日志会全
+                                        量保留，防止build操作期间由于日志被回收引发的失
+                                        败。
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                         4078
+GaussDB
+集中式版参考                                                                          6 日志参考
+
+
+
+
+6.6 内存日志
+              内存日志是保存数据库进程动态内存使用超过设定阈值，或动态内存波动超过设定阈
+              值，或统计周期达到设定值时生成的内存上下文统计信息，由GUC参数
+              memory_trace_level控制是否记录，默认为level1记录日志；由GUC参数
+              memory_log_config设置更多功能，如配置动态内存使用量百分比阈值、内存波动百
+              分比阈值、统计周期、内存上下文top数量、SQL语句top数量。
+
+                  说明
+
+                 ● 内存日志的生成有防振荡机制，当动态内存超过阈值（memory_log_config参数第1部分设
+                   置）时，生成内存日志时的动态内存会记为触发内存。此后，若动态内存若持续高于(触发内
+                   存-动态内存上限*5%)，将不会再因超过阈值而生成内存日志，从而避免在阈值附近小幅振
+                   荡时反复生成日志。
+                 ● 按“内存波动百分比”条件（memory_log_config参数第2部分设置）触发生成内存上下文
+                   快照是基于3秒检测周期的，若在3秒检测周期内满足生成快照条件，不会生成内存上下文快
+                   照。
+                 ● 内存阈值触发、内存波动触发和周期性触发不会同时进行。
+                 ● 仅支持对名为{模块名}_{数字}格式的内存上下文按模块名合并，不符合此特点的不会合并，
+                   例如“pooler_memory_context”、“pooler_core_context”、“pooler_agent_context”
+                   是3种不同的内存上下文，显示时不会合并。
+
+
+日志文件存储路径
+              数据库节点的内存日志目录在“$GAUSSLOG/mem_log”目录下。
+
+
+日志文件命名格式
+              数据库节点的内存日志的命名规则：mem_log-创建时间.log。
+
+
+日志内容说明
+              数据库进程的全局内存上下文、会话级内存上下文、线程级内存上下文的详细使用统
+              计信息，包含占用内存top20的会话级和线程级以及对应的客户端类型和SQL语句等信
+              息，如果存在运行的并行逻辑解码任务，日志中也会包含并行逻辑解码的内存使用信
+              息。
+
+              每种类型的内存上下文、每个query的内存上下文按内存使用量对排序最多显示top n
+              个（由memory_log_config参数的第4部分控制），query信息最多显示top n个（由
+              memory_log_config参数的第5部分控制）。
+
+
+              表 6-18 日志参数
+
+               字段名称                 字段含义
+
+               Max_dynamic_memo     数据库进程最大可使用的动态内存。
+               ry
+
+               Dynamic_used_mem     当前进程已使用的动态内存大小。
+               ory
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                                   4079
+GaussDB
+集中式版参考                                                                    6 日志参考
+
+
+               字段名称                   字段含义
+
+               Dynamic_peak_mem       当前进程动态内存使用的历史最大值。
+               ory
+
+               Dynamic_thread_cxt_    当前进程线程级内存上下文已使用内存大小。
+               used_memory
+
+               Dynamic_session_cxt_   当前进程会话级内存上下文已使用内存大小，仅在启用线
+               used_memory            程池时显示。
+
+               Dynamic_used_shrctx    当前进程全局内存上下文占用的内存大小。
+
+               Dynamic_peak_shrctx    当前进程全局内存上下文占用的历史最大值。
+
+               Max_backend_memo       HA端口连接的会话申请的最大内存大小。
+               ry
+
+               Backend_used_memo      HA端口连接的会话正在占用的内存大小。
+               ry
+
+               other_used_memory      未在内存上下文上申请的其他内存占用大小。
+
+               unit                   同级内存量的单位。
+
+               Context Type           内存上下文类型，有“Shared Memory Context”，
+                                      “Thread Memory Context”，“Session Memory
+                                      Context”三种类型。
+
+               context                内存上下文的名称。同名、同模块名（格式为{模块名}_{数
+                                      字}）的内存上下文会合并显示，名称只显示模块名。
+
+               freeSize               内存上下文上缓存的空闲内存的大小。
+
+               totalSize              内存上下文申请的总的内存大小。
+
+               file                   内存申请所在的代码的文件名，该参数仅在
+                                      memory_trace_level=level2时记录。
+
+               line                   内存申请所在的代码的文件行号，该参数仅在
+                                      memory_trace_level=level2时记录。
+
+               size                   某一文件某一行号处申请的内存的累计大小，该参数仅在
+                                      memory_trace_level=level2时记录。
+
+               count                  合并统计的同名、同模块名内存上下文数量。
+
+               query                  执行的语句。
+
+               unique query id        语句唯一ID。
+
+               debug query id         语句调试ID。
+
+               session id             会话ID。
+
+               thread id              线程ID。
+
+               mem size               语句申请内存大小。
+
+
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                             4080
+GaussDB
+集中式版参考                                                                       6 日志参考
+
+
+               字段名称                          字段含义
+
+               application name              应用名。
+
+
+
+日志示例
+              ●   memory_trace_level=level1时记录日志如下所示：
+                  {
+                    "Global Memory Statistics": {
+                    "Max_dynamic_memory": 34012,
+                    "Dynamic_used_memory": 3645,
+                    "Dynamic_peak_memory": 3664,
+                    "Dynamic_thread_cxt_used_memory": 383,
+                    "Dynamic_session_cxt_used_memory": 2582,
+                    "Dynamic_used_shrctx": 401,
+                    "Dynamic_peak_shrctx": 401,
+                    "Max_backend_memory": 648,
+                    "Backend_used_memory": 1,
+                    "other_used_memory": 0,
+                    "unit": "MB"
+                  },
+                  "Memory Context Info": {
+                    "Memory Context Detail": {
+                      "Context Type": "Shared Memory Context",
+                      "Memory Context": {
+                         "context": "IncreCheckPointContext",
+                         "freeSize": 2864,
+                         "totalSize": 263066352,
+                         "unit": "Byte",
+                         "count": 1
+                      },
+                     ...
+                    },
+                    "Memory Context Detail": {
+                      "Context Type": "Session Memory Context",
+                      "Memory Context": {
+                         "context": "CachedPlan",
+                         "freeSize": 68041368,
+                         "totalSize": 235937792,
+                         "unit": "Byte",
+                         "count": 1
+                      },
+                      ...
+                    },
+                    "Memory Context Detail": {
+                      "Context Type": "Thread Memory Context",
+                      "Memory Context": {
+                         "context": "LocalSysCacheShareMemoryContext",
+                         "freeSize": 60431360,
+                         "totalSize": 644141760,
+                         "unit": "Byte",
+                         "count": 1
+                      },
+                      ...
+                    }
+                  "Query Info": {
+                    "Query Context": {
+                         "query": "select distinct a from t3 order by a;",
+                         "unique query id": "2286703632",
+                         "debug query id": "1407374883554034",
+                         "session id": "2",
+                         "thread id": "140188551411456",
+                         "mem size": 1,
+                         "unit": "MB",
+                         "application name": "gsql",
+                         "Memory Context Detail": {
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                       4081
+GaussDB
+集中式版参考                                                                                                   6 日志参考
+
+                         "Context Type": "Session Memory Context",
+                         "Memory Context": {
+                         "context": "SessionTopMemoryContext",
+                         "freeSize": 97048,
+                         "totalSize": 460520,
+                         "unit": "Byte",
+                         "count": 1
+                          },
+                          ...
+                       },
+                     "Query Context": {
+                           "query": "WLM fetch collect info from data nodes",
+                           "unique query id": "0",
+                           "debug query id": "0",
+                           "session id": "140186948200192",
+                           "thread id": "140186948200192",
+                           "mem size": 1,
+                           "unit": "MB",
+                           "application name": "workload",
+                           "Memory Context Detail": {
+                               "Context Type": "Thread Memory Context",
+                               "Memory Context": {
+                               "context": "LocalSysCacheShareMemoryContext",
+                               "freeSize": 150720,
+                               "totalSize": 1872096,
+                               "unit": "Byte",
+                               "count": 1
+                           },
+                           ...
+                       },
+                      ...
+                    }，
+                   "parallel logical decode Info": [{
+                     "slot name": "slot1",
+                     "memory info": "memory usage: reader toast memory size: 0, sender out buf memory size: 0, [xid,
+                  first_lsn, memory, entry num] : NULL"
+                    }]
+                  }
+
+              ●   memory_trace_level=level2时记录日志如下所示：
+                  {
+                    "Global Memory Statistics": {
+                    "Max_dynamic_memory": 34012,
+                    "Dynamic_used_memory": 3645,
+                    "Dynamic_peak_memory": 3664,
+                    "Dynamic_thread_cxt_used_memory": 383,
+                    "Dynamic_session_cxt_used_memory": 2582,
+                    "Dynamic_used_shrctx": 401,
+                    "Dynamic_peak_shrctx": 401,
+                    "Max_backend_memory": 648,
+                    "Backend_used_memory": 1,
+                    "other_used_memory": 0,
+                    "unit": "MB"
+                  },
+                  "Memory Context Info": {
+                    "Memory Context Detail": {
+                     "Context Type": "Shared Memory Context",
+                     "Memory Context": {
+                       "context": "IncreCheckPointContext",
+                       "freeSize": 2864,
+                       "totalSize": 263066352,
+                       "unit": "Byte",
+                       "count": 1,
+                       "MemoryDetail": {
+                            "file":"xxx.cpp",
+                            "line":411,
+                            "size":211131,
+                        }
+                        ...
+                     },
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                        4082
+GaussDB
+集中式版参考                                                                        6 日志参考
+
+                    ...
+                   },
+                   "Memory Context Detail":              {
+                     "Context Type": "Session Memory Context",
+                     "Memory Context":              {
+                        "context":         "CachedPlan",
+                        "freeSize":       68041368,
+                        "totalSize": 235937792,
+                        "unit": "Byte",
+                        "count": 1,
+                        "MemoryDetail": {
+                              "file":"xxx.cpp",
+                              "line":411,
+                              "size":211131,
+                         }
+                         ...
+                     },
+                     ...
+                   },
+                   "Memory Context Detail": {
+                     "Context Type": "Thread Memory Context",
+                     "Memory Context": {
+                        "context": "LocalSysCacheShareMemoryContext",
+                        "freeSize": 60431360,
+                        "totalSize": 644141760,
+                        "unit": "Byte",
+                        "count": 1,
+                        "MemoryDetail": {
+                              "file":"xxx.cpp",
+                              "line":411,
+                              "size":211131,
+                         }
+                         ...
+                     },
+                     ...
+                   }
+                  "Query Info": {
+                   "Query Context": {
+                        "query": "select distinct a from t3 order by a;",
+                        "unique query id": "2286703632",
+                        "debug query id": "1407374883554034",
+                        "session id": "2",
+                        "thread id": "140188551411456",
+                        "mem size": 1,
+                        "unit": "MB",
+                        "application name": "gsql",
+                        "Memory Context Detail": {
+                             "Context Type": "Session Memory Context",
+                             "Memory Context": {
+                             "context": "SessionTopMemoryContext",
+                             "freeSize": 97048,
+                             "totalSize": 460520,
+                             "unit": "Byte",
+                             "count": 1,
+                             "MemoryDetail": {
+                                 "file": "xxx.cpp",
+                                 "line": 461,
+                                 "size": 62976
+                             },
+                             ...
+                        },
+                        ...
+                     },
+                   "Query Context": {
+                         "query": "WLM fetch collect info from data nodes",
+                         "unique query id": "0",
+                         "debug query id": "0",
+                         "session id": "140186948200192",
+                         "thread id": "140186948200192",
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                         4083
+GaussDB
+集中式版参考                                                                                                   6 日志参考
+
+                       "mem size": 1,
+                       "unit": "MB",
+                       "application name": "workload",
+                       "Memory Context Detail": {
+                           "Context Type": "Thread Memory Context",
+                           "Memory Context": {
+                           "context": "LocalSysCacheShareMemoryContext",
+                           "freeSize": 150720,
+                           "totalSize": 1872096,
+                           "unit": "Byte",
+                           "count": 1,
+                           "MemoryDetail": {
+                               "file": "xxx.cpp",
+                               "line": 352,
+                               "size": 40153344
+                           },
+                           ...
+                       },
+                       ...
+                       },
+                      ...
+                    }，
+                   "parallel logical decode Info": [{
+                     "slot name": "slot1",
+                     "memory info": "memory usage: reader toast memory size: 0, sender out buf memory size: 0, [xid,
+                  first_lsn, memory, entry num] : NULL"
+                    }]
+                  }
+
+
+图形化内存信息 html
+              生成JSON格式的.log文件的同时，还会在同一目录生成名称相同的html文件的.gz压缩
+              包。将压缩包解压、把html文件和同目录下的echarts.min.js文件导出至同一目录下，
+              并使用浏览器打开html文件，可查看图形化的内存信息。
+              内存信息与JSON格式的内存日志对应，由以下几个部分组成：
+
+              ●   Global Memory Statistics：显示各类别动态内存占最大动态内存的占比圆环图。
+              ●   Shared Memory Context：显示共享内存上下文的内存柱状图。若GUC参数
+                  memory_log_config第4部分设置为0则不会显示。
+              ●   Session Memory Context：显示会话内存上下文的内存柱状图。若GUC参数
+                  memory_log_config第4部分设置为0，或GUC参数enable_thread_pool=off，则
+                  不会显示。
+              ●   Thread Memory Context：显示线程内存上下文的内存柱状图。若GUC参数
+                  memory_log_config第4部分设置为0则不会显示。
+              ●   SQL Details：显示执行语句或线程的内存信息。若GUC参数memory_log_config
+                  第5部分设置为0则不会显示。当有内存上下文显示时，可通过单击每条语句条目
+                  来显示其top n内存上下文的内存柱状图。
+                  说明
+
+                  GUC参数memory_trace_level设置为level2时相比于level1，会多显示内存上下文申请内存的位
+                  置和大小信息，可通过单击每种内存上下文的柱状图来显示其申请内存的位置和大小。
+
+              各部分所展示信息的字段含义如下表所示。
+
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                        4084
+GaussDB
+集中式版参考                                                                   6 日志参考
+
+              表 6-19 展示信息
+               字段名称                  字段含义
+
+               Dynamic used share    当前进程已使用的动态内存大小。
+               ctx memory
+
+               Dynamic thread cxt    当前进程线程级内存上下文已使用内存大小。
+               used memory
+
+               Dynamic session cxt   当前进程会话级内存上下文已使用内存大小，仅在开启线
+               used memory           程池时显示。
+
+               Dynamic unused        当前进程未使用内存。
+               memory
+
+               Context Type          内存上下文类型，有“Shared Memory Context”，
+                                     “Thread Memory Context”，“Session Memory
+                                     Context”三种类型。
+
+               context               内存上下文的名称。同名、同模块名（格式为{模块名}_{数
+                                     字}）的内存上下文会合并显示，名称只显示模块名。
+
+               totalSize             内存上下文申请的总的内存大小。
+
+               file                  内存申请所在的代码的文件名，该参数仅在
+                                     memory_trace_level=level2时记录。
+
+               line                  内存申请所在的代码的文件行号，该参数仅在
+                                     memory_trace_level=level2时记录。
+
+               size                  某一文件某一行号处申请的内存的累计大小，该参数仅在
+                                     memory_trace_level=level2时记录。
+
+               query                 执行的语句。
+
+               unique query id       语句唯一ID。
+
+               debug query id        语句调试ID。
+
+               session id            会话ID。
+
+               thread id             线程ID。
+
+               mem size              语句申请内存大小。
+
+               application name      应用名。
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                           4085
+GaussDB
+集中式版参考                                                                                7 数据库运行参数说明
+
+
+
+
+                                                  7            数据库运行参数说明
+
+
+
+7.1 查看参数
+查看 GUC 参数
+              GaussDB安装后，有一套默认的GUC参数，为了使GaussDB与业务的配合度更高，用
+              户需要根据业务场景和数据量的大小进行GUC参数调整。
+
+              操作步骤
+
+        步骤1 连接数据库，具体操作请参见《开发指南》中“数据库使用入门 > 连接数据库 > 使用
+            gsql连接”章节。
+
+        步骤2 查看数据库GUC参数当前取值。
+              ●    方法一：使用SHOW命令。
+                   –    使用如下命令查看单个参数：
+                        gaussdb=# SHOW client_encoding;
+
+                        client_encoding参数用于查看客户端的字符编码类型。
+                   –    使用如下命令查看所有参数：
+                        gaussdb=# SHOW ALL;
+
+              ●    方法二：使用pg_settings视图。
+                   –    使用如下命令查看单个参数：
+                        gaussdb=# SELECT * FROM pg_settings WHERE NAME='client_encoding';
+
+                   –    使用如下命令查看所有参数：
+                        gaussdb=# SELECT * FROM pg_settings;
+
+              ----结束
+
+              示例
+
+              查看客户端的字符编码类型。
+              gaussdb=# SHOW client_encoding;
+               client_encoding
+              ----------------
+               UTF8
+              (1 row)
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                       4086
+

@@ -1,0 +1,581 @@
+GaussDB
+集中式版参考                                                                                                      5 工具参考
+
+
+示例
+              --检查操作系统参数并输出报告；-h后为主机名，-X后为.xml文件的路径。
+              gs_checkos -i A -h plat1 -X /opt/software/GaussDB_Kernel/clusterconfig.xml --detail -o /var/log/checkos
+              Performing operation system check/set. Output the result to the file /var/log/checkos.
+              Operation system check/set is completed.
+              Total numbers:14. Abnormal numbers:0. Warning number:1.
+
+              --查看操作系统参数检查结果。
+              cat /var/log/checkos
+              Checking items:
+                 A1. [ OS version status ]                       : Normal
+                 A2. [ Kernel version status ]                     : Normal
+                 A3. [ Unicode status ]                         : Normal
+                 A4. [ Time zone status ]                         : Normal
+                 A5. [ Swap memory status ]                             : Normal
+                 A6. [ System control parameters status ]                   : Normal
+                 A7. [ File system configuration status ]                 : Normal
+                 A8. [ Disk configuration status ]                    : Normal
+                 A9. [ Pre-read block size status ]                   : Normal
+                 A10.[ IO scheduler status ]                        : Normal
+                 A11.[ Network card configuration status ]                   : Normal
+                 A12.[ Time consistency status ]                       : Warning
+                 A13.[ Firewall service status ]                   : Normal
+                 A14.[ THP service status ]                        : Normal
+
+
+5.5.3 gs_cgroup 负载管理
+
+工具介绍
+              数据库实例环境下做批量任务处理时，因为多任务复杂性，会导致不同机器间存在负
+              载的差距。为了充分利用数据库实例资源，负载管理变得尤为重要。gs_cgroup是
+              GaussDB提供的负载管理工具。负责创建默认控制组、创建用户自定义控制组、删除
+              用户自定义控制组、更新用户自定义组的资源配额和资源限额、显示控制组配置文件
+              内容、显示控制组树形结构和删除用户的所有控制组。
+
+              gs_cgroup工具为使用数据库的操作系统用户创建Cgroups配置文件，并且在操作系统
+              中生成用户设定的Cgroups。同时为用户提供增加、删除Cgroups，更新Cgroups资源
+              配额，设定Cgroups的CPU或I/O限额，设定异常处理阈值及相应操作等服务。此工具
+              只负责当前操作系统节点的Cgroups操作，使用时需在各个节点上调用相同命令语句进
+              行统一配置。
+
+              这里假设读者已经了解了负载管理的相关原理。
+
+                    说明
+
+                   docker模式下不支持gs_cgroup进行资源管理。
+
+
+命令格式
+              gs_cgroup [OPTION]...
+
+
+参数说明
+              ●    -a [--abort]
+                   对满足设定的异常阈值的作业执行终止动作。
+              ●    -b pct
+                   Backend Cgroups占用Top Backend资源的百分比，需同时指定“-B name”参
+                   数。
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                                          3744
+GaussDB
+集中式版参考                                                                    5 工具参考
+
+                  取值范围为1 ~ 99。在不进行设置的情况下，默认CPU配额设置为Vacuum控制组
+                  占20%，DefaultBackend控制组占80%。Vacuum和DefaultBackend控制组配额
+                  之和设置应小于100%。
+              ●   -B name
+                  Backend Cgroups名称，仅可通过指定“-u”参数来更新此Cgroups的资源配额。
+                  “-b pct”可以和“-B name”参数共同作用来控制数据库后备线程的资源比例。
+                  取值范围：字符串，最长为64个字节。
+              ●   -c
+                  创建Cgroups并指定其标识。
+                  普通用户指定“-c”和“-S classname”可以创建新的Class Cgroups，如果再指
+                  定“-G groupname”则创建属于Class Cgroups的Workload Cgroups，新的
+                  Workload Cgroups位于Class Cgroups的最底层（4层是最底层）。
+              ●   -d
+                  删除Cgroups及标识。
+                  普通用户指定“-d”和“-S classname”可以删除已有的Class Cgroups，如果再
+                  指定“-G groupname”则删除属于Class Cgroups的Workload Cgroups，并将附
+                  属的线程重置到“DefaultClass:DefaultWD:1”Cgroups中；若删除的Workload
+                  Cgroups位于Class Cgroups的高层（1层是最高层），则需调整低层的Cgroups的
+                  层级，重建新的Cgroups附属的线程加载到新的Cgroups。
+              ●   -E data
+                  设定异常阈值，目前阈值包括：blocktime、elapsedtime、allcputime、
+                  spillsize、broadcastsize以及qualificationtime和cpuskewpercent，指定多个阈值
+                  时用“,”分隔。参数值0表示取消设置，设置不合法的值时会提示。
+
+
+                  表 5-89 异常阈值类型
+
+                   异常阈         说明                           取值范围（0       支持的异
+                   值类型                                      表示取消设        常操作
+                                                            置）
+
+                   blockti     作业的阻塞时间，单位：秒。包括全局            0~UINT_MA    abort
+                   me          并发排队以及局部并发排队的总时间。            X
+
+                   elapsed     作业的已被执行时间，单位：秒。从开            0~UINT_MA    abort
+                   time        始执行到当前所消耗的时间。                X
+
+                   allcputi    作业在所有DN上执行时所耗费的CPU           0~UINT_MA    abort，
+                   me          总时间，单位：秒。                    X            penalty
+
+                   cpuske      作业在DN上执行时的CPU时间的倾斜           0~100        abort，
+                   wperce      率，依赖于qualificationtime的设置。                penalty
+                   nt
+
+                   qualific    检查作业执行CPU倾斜率的间隔时间，           0~UINT_MA    none
+                   ationti     单位：秒，需同cpuskewpercent一起设     X
+                   me          置。
+
+                   spillsize   作业在DN上下盘的数据量，单位：             0~UINT_MA    abort
+                               MB。                          X
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                           3745
+GaussDB
+集中式版参考                                                                 5 工具参考
+
+
+                   异常阈          说明                        取值范围（0      支持的异
+                   值类型                                    表示取消设       常操作
+                                                          置）
+
+                   broadc       作业在DN上算子大表广播数据量，单         0~UINT_MA   abort
+                   astsize      位：MB。                     X
+
+
+              ●   -h [--help]
+                  显示命令帮助信息。
+              ●   -H
+                  指定用户环境中$GAUSSHOME信息。
+                  取值范围：字符串，最长为1023个字符。
+              ●   -f
+                  设置GaussDB控制组使用的CPU核数范围，范围必须是a-b或a的形式（a，b为数
+                  字）。其他控制组可以使用“--fixed”进行设置核数范围。
+              ●   --fixed
+                  设置控制组使用的核数范围比例占上一层级的百分比或者设置I/O资源。
+                  设置核数范围比例时--fixed设置核数范围与“-s”、“-g”、“-t”、“-b”一起
+                  使用。
+                  核数比例范围0-100，同一层级的核数比例总和小于或者等于100，0代表核数与
+                  上一层级相同，对于所有的控制组，CPU限额默认设置为0。“-f”和“--fixed”
+                  不能同时设置。设置“--fixed”之后，“-f”设置的范围自动失效。设置的比例以
+                  quota值在“-p”中进行显示。
+                  设置I/O资源配额时，与“-R”、“-r”、“-W”、“-w”一起使用。
+              ●   -g pct
+                  指定Workload Cgroups的资源占用“Class”Cgroups资源的百分比，需同时指定
+                  “-G groupname”参数；用于创建（“-c”）或更新（“-u”）Workload
+                  Cgroups。
+                  取值范围为1 ~ 99，默认Workload控制组CPU配额设置为20%，各Workload控制
+                  组配额之和应小于99%。
+              ●   -G name
+                  指定Workload Cgroups的名称，需同时指定“-S classname”参数来表示该
+                  group属于哪一个Class Cgroups；可以连同“-c”参数创建新的Cgroups、“-d”
+                  参数删除此Cgroups及“-u”更新此Cgroups的资源配额；需要注意，此名称不可
+                  是Timeshare Cgroups的默认名称，如“Low”、“Medium”、“High”或
+                  “Rush”。
+                  如果用户自己创建Workload控制组，指定名称时不能指定带“:”的名称。不能创
+                  建同名控制组。
+                  取值范围：字符串，最长为28个字节。
+              ●   -p
+                  显示Cgroups配置文件的信息。
+              ●   -P
+                  显示Cgroups树形结构信息。
+              ●   --penalty
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                       3746
+GaussDB
+集中式版参考                                                              5 工具参考
+
+                  对满足设定的异常阈值的作业执行降级动作，如果没有设定任何操作，则该操作
+                  将为默认操作。
+              ●   --recover
+                  仅用于回退Class控制组和Workload控制组的增删改操作，且只能回退一步。
+              ●   --revert
+                  恢复控制组为默认状态。
+              ●   -D mpoint
+                  指定的挂载点，默认的挂载点“/dev/cgroup/subsystem”。
+              ●   -m
+                  挂载cgroup。
+              ●   -M
+                  取消挂载cgroup。
+              ●   -U
+                  数据库用户名称。
+              ●   --refresh
+                  刷新控制组状态。
+              ●   -s pct
+                  指定Class Cgroups的资源占用“Top Class”Cgroups资源的百分比，需同时指定
+                  “-S classname”参数；用于创建“-c”或更新“-u”Class Cgroups。
+                  取值范围为1~99。默认Class控制组的CPU配额设置为20%。新创建的Class控制
+                  组的CPU配额以及默认的DefaultClass之和应小于100%。
+              ●   -S name
+                  指定Class group的名称；可以连同“-c”参数创建新的Cgroups、“-d”参数删
+                  除此Cgroups及“-u”更新此Cgroups的资源配额。创建子Class名称不能带
+                  “:”。
+                  取值范围：字符串，最长为31个字节。
+              ●   -t percent
+                  指定Top Cgroups（Root、Gaussdb:omm、Backend和Class Cgroups）占用资源
+                  的百分比，需同时指定“-T name”参数。若指定“-T Root”所在的Cgroups，
+                  其在Cgroups配置文件中显示的名称为“Root”，此数值代表的含义是
+                  blkio.weight值的百分比，最小值为10%，CPU资源配额如cpu.shares的数值不可
+                  修改；若指定“Gaussdb:omm” Cgroups，则表示占用整个系统CPU资源的百分
+                  比（可根据Root Cgroups的默认CPU配额1024得出该组的cpu.shares数值，此数
+                  值默认当前系统仅含有1套数据库环境），对于I/O资源配额为1000，不再变化。
+                  若指定“Class”或“Backend”Cgroups，则表示资源占用“Gaussdb”Cgroups
+                  资源的百分比。
+                  取值范围为1 ~ 99。默认Class控制组配额为60%，Backend控制组配额为40%。
+                  修改Class控制组配额，同时会自动更新Backend控制组配额，使两者之和保持
+                  100%。
+              ●   -T name
+                  指定Top Cgroups的名称。
+                  取值范围：字符串，最长为64个字节。
+              ●   -u
+                  更新Cgroups。
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                       3747
+GaussDB
+集中式版参考                                                                                          5 工具参考
+
+
+              ●   -V [--version]
+                  显示gs_cgroup工具的版本信息。
+
+示例
+              ●   使用普通用户或数据库管理员执行命令。
+                  a.   前置条件：需设置GAUSSHOME环境变量为数据库安装目录；且root用户已
+                       创建普通用户默认的控制组。
+                  b.   创建控制组及设置对应的资源配额，以便在数据库中运行作业时，指定到此
+                       控制组，使用此控制组管理的资源；通常数据库管理员为每个数据库用户创
+                       建Class组。
+                       i.    创建Class控制组和Workload控制组。
+                             gs_cgroup -c -S class1 -s 40
+
+                             创建当前用户新的Class Cgroups命名为“class1”，资源配额为总Class
+                             的40%。
+                             gs_cgroup -c -S class1 -G grp1 -g 20
+
+                             创建当前用户新的class1 Cgroups下属的Workload控制组，命名为
+                             “grp1”，资源配额为class1 Cgroups的20%。
+                       ii.   删除grp1控制组和Class控制组。
+                             gs_cgroup -d -S class1 -G grp1
+
+                             删除当前用户已建的“grp1”Cgroups。
+                             gs_cgroup -d -S class1
+
+                             删除当前用户已建的“class1”Cgroups。
+
+
+                                 须知
+
+                             如果删除Class控制组，则Workload控制组也被删除。
+
+                  c.   更新已创建控制组的资源配额。
+                       i.    更新动态资源配额。
+                             gs_cgroup -u -S class1 -G grp1 -g 30
+
+                             更新当前用户的class1 Cgroups下属grp1 Cgroups资源配额为class1
+                             Cgroups的30%。
+                       ii.   更新限制资源配额。
+                             gs_cgroup --fixed -u -S class1 -G grp1 -g 30
+
+                             更新当前用户的class1 Cgroups下属grp1 Cgroups限制使用CPU核数范围
+                             占上一级class1可用核数的30%。
+                  d.   更新Gaussdb的CPU核数范围。
+                       gs_cgroup -u -T Gaussdb -f 0-20
+
+                       更新Gaussdb进程使用的CPU核数为0-20。
+                             说明
+
+                             -f参数只适用于对Gaussdb设置核数范围。对于其他各控制组，如需设置核数范围，
+                             需要使用--fixed参数。
+                  e.   设置异常处理信息（class:wg组需存在）。
+                       i.    设置组class:wg下的作业阻塞到1200秒或执行2400秒时执行终止动作：
+                             gs_cgroup -S class -G wg -E "blocktime=1200,elapsedtime=2400" -a
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                           3748
+GaussDB
+集中式版参考                                                                                                      5 工具参考
+
+                       ii.    设置组class:wg下的作业下盘数据量达到256MB或大表广播数据量达到
+                              100MB时执行终止动作：
+                              gs_cgroup -S class -G wg -E "spillsize=256,broadcastsize=100" -a
+                       iii.   设置组Class下的作业在所有DN上CPU总时间到达100s时执行降级动
+                              作：
+                              gs_cgroup -S class -E "allcputime=100" --penalty
+                       iv.    设置组Class下的作业在所有DN上执行时间到达2400秒，倾斜率达到90
+                              时执行降级动作：
+                              gs_cgroup -S class -E "qualificationtime=2400,cpuskewpercent=90"
+
+
+
+                                   须知
+
+                              给控制组设置异常处理信息，需要确保对应的控制组已经创建。指定多
+                              个阈值时用“,”分隔，不指定任何动作时默认为“penalty”操作。
+
+                 f.    设置控制组使用的核数范围。
+                       设置组class:wg的核数范围占Class控制组的20%。
+                       gs_cgroup -S class -G wg -g 20 --fixed -u
+
+
+
+                              须知
+
+                       Class或Workload核数范围必须通过指定--fixed参数设置。
+
+                 g.    回退上一个步骤。
+                       gs_cgroup --recover
+
+                              说明
+
+                              --recover只支持对Class控制组和Workload控制组的增删改操作进行回退，且只支持
+                              回退一次操作。
+                 h.    查看已创建的控制组信息。
+                       i.     查看配置文件中控制组信息。
+                              gs_cgroup -p
+                              控制组配置信息。
+                              gs_cgroup -p
+
+                              Top Group information is listed:
+                              GID: 0 Type: Top Percent(%): 1000( 50) Name: Root                   Cores: 0-47
+                              GID: 1 Type: Top Percent(%): 833( 83) Name: Gaussdb:omm                 Cores: 0-20
+                              GID: 2 Type: Top Percent(%): 333( 40) Name: Backend                  Cores: 0-20
+                              GID: 3 Type: Top Percent(%): 499( 60) Name: Class                  Cores: 0-20
+
+                              Backend Group information is listed:
+                              GID: 4 Type: BAKWD Name: DefaultBackend TopGID: 2 Percent(%): 133(40) Cores:
+                              0-20
+                              GID: 5 Type: BAKWD Name: Vacuum        TopGID: 2 Percent(%): 66(20) Cores: 0-20
+                              GID: 6 Type: BAKWD Name: HaBackend      TopGID: 2 Percent(%): 133(40) Cores: 0-20
+
+                              Class Group information is listed:
+                              GID: 20 Type: CLASS Name: DefaultClass   TopGID: 3 Percent(%): 166(20) MaxLevel: 1
+                              RemPCT: 100 Cores: 0-20
+                              GID: 21 Type: CLASS Name: class1       TopGID: 3 Percent(%): 332(40) MaxLevel: 2
+                              RemPCT: 70 Cores: 0-20
+
+                              Workload Group information is listed:
+                              GID: 86 Type: DEFWD Name: grp1:2            ClsGID: 21 Percent(%): 99(30) WDLevel: 2
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                           3749
+GaussDB
+集中式版参考                                                                                    5 工具参考
+
+                       Quota(%): 30 Cores: 0-5
+
+                       Timeshare Group information is listed:
+                       GID: 724 Type: TSWD Name: Low              Rate: 1
+                       GID: 725 Type: TSWD Name: Medium             Rate: 2
+                       GID: 726 Type: TSWD Name: High             Rate: 4
+                       GID: 727 Type: TSWD Name: Rush             Rate: 8
+
+                       Group Exception information is listed:
+                       GID: 20 Type: EXCEPTION Class: DefaultClass
+                       PENALTY: QualificationTime=1800 CPUSkewPercent=30
+
+                       GID: 21 Type: EXCEPTION Class: class1
+                       PENALTY: AllCpuTime=100 QualificationTime=2400 CPUSkewPercent=90
+
+                       GID: 86 Type: EXCEPTION Group: class1:grp1:2
+                       ABORT: BlockTime=1200 ElapsedTime=2400
+                       上述示例查看到的控制组配置信息如表5-90所示。
+
+                       表 5-90 控制组配置信息
+                        GID        类型            名称             Percent（%）信息       特定信息
+
+                        0          Top控          Root           1000代表总的系统         -
+                                   制组                           资源为1000份。
+                                                                括号中的50代表I/O
+                                                                资源的50%。
+                                                                GaussDB不通过控
+                                                                制组对I/O资源做控
+                                                                制，因此下面其他
+                                                                控制组信息中仅涉
+                                                                及CPU配额情况。
+
+                        1                        Gaussdb        系统中只运行一套           -
+                                                 :omm           数据库程序，
+                                                                Gaussdb:omm控制
+                                                                组默认配额为833，
+                                                                数据库程序和非数
+                                                                据库程序的比值为
+                                                                （833:167=5:1）。
+
+                        2                        Backend        Backend和Class括     -
+                                                                号中的40和60，代
+                        3                        Class          表Backend占用         -
+                                                                Gaussdb:dbuser控
+                                                                制组40%的资源，
+                                                                Class占用
+                                                                Gaussdb:dbuser控
+                                                                制组60%的资源。
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                                           3750
+GaussDB
+集中式版参考                                                                   5 工具参考
+
+
+                       GID    类型       名称        Percent（%）信息      特定信息
+
+                       4      Backen   Default   括号中的40、20和        TopGID：代表
+                              d控制      Backend   40，分别代表           Top类型控制组
+                              组                  DefaultBackend占   中Backend组的
+                       5               Vacuum    用Backend控制组       GID，即2。
+                       6               HaBack    40%的资源，
+                                       end       Vacuum占用
+                                                 Backend控制组20%
+                                                 的资源，
+                                                 HaBackend占用
+                                                 Backend控制组40%
+                                                 的资源。
+
+                       20     Class控   Default   DefaultClass和     ● TopGID：代
+                              制组       Class     class1的20和40代表      表
+                                                 占Class控制组20%        DefaultClass
+                       21              class1    和40%的资源。因           和class1所属
+                                                 为当前只有两个             的上层控制
+                                                 Class组，所有它们         （Top控制组
+                                                 按照20:40的比例分         中的Class
+                                                 配Class控制组499的       组）的GID，
+                                                 系统配额，则分别            即3。
+                                                 为166和332。
+                                                                   ● MaxLevel：
+                                                                     Class组当前
+                                                                     含有的
+                                                                     Workload组
+                                                                     的最大层次，
+                                                                     DefaultClass
+                                                                     没有
+                                                                     Workload
+                                                                     Cgroup，其
+                                                                     数值为1。
+                                                                   ● RemPCT:代表
+                                                                     Class组分配
+                                                                     Workload组
+                                                                     后剩余的资源
+                                                                     百分比。如
+                                                                     class1中剩余
+                                                                     的百分比为
+                                                                     70。
+
+
+
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                               3751
+GaussDB
+集中式版参考                                                                                                  5 工具参考
+
+
+                              GID        类型          名称            Percent（%）信息                   特定信息
+
+                              86         Worklo      grp1:2        根据设置，其占                        ● ClsGID：代表
+                                         ad控制        （该名           class1的百分比为                      Workload控
+                                         组           称由            30，则为                            制组所属的上
+                                                     Workloa       332*30%=99。                      层控制组
+                                                     d                                              （class1控制
+                                                     Cgroup                                         组）的GID。
+                                                     Name和                                        ● WDLevel：代
+                                                     其在                                             表当前
+                                                     class中                                         Workload
+                                                     的层级                                            Cgroup在对
+                                                     组成，                                            应的Class组
+                                                     它是                                             所在的层次。
+                                                     class1的
+                                                     第一个
+                                                     Workloa
+                                                     d组，层
+                                                     级为2，
+                                                     每个
+                                                     Class组
+                                                     最多10
+                                                     层
+                                                     Workloa
+                                                     d
+                                                     Cgroup
+                                                     。）
+
+                              724        Timesh      Low           -                              Rate：代表
+                                         are控                                                     Timeshare中的
+                              725        制组          Medium        -                              分配比例，Low
+                              726                    High          -                              最少为1，Rush
+                                                                                                  最高为8。这四
+                              727                    Rush          -                              个Timeshare组
+                                                                                                  的资源配比为
+                                                                                                  Rush:High:Medi
+                                                                                                  um:Low=8:4:2:1
+
+
+                       ii.   查看操作系统中树形结构的控制组信息。
+                             gs_cgroup -P显示控制组树形结构信息，其中shares代表操作系统中CPU
+                             资源的动态资源配额“cpu.shares”的数值，cpus代表操作系统中
+                             CPUSET资源的动态资源限额“cpuset.cpus”的数值，指的是该控制组
+                             能够使用的核数范围。
+                             gs_cgroup -P
+                             Mount Information:
+                             cpu:/dev/cgroup/cpu
+                             cpuset:/dev/cgroup/cpuset
+                             cpuacct:/dev/cgroup/cpuacct
+
+                             Group Tree Information:
+                             - Gaussdb:wangrui (shares: 5120, cpus: 0-20, weight: 1000)
+                                  - Backend (shares: 4096, cpus: 0-20, weight: 400)
+                                       - Vacuum (shares: 2048, cpus: 0-20, weight: 200)
+                                       - DefaultBackend (shares: 4096, cpus: 0-20, weight: 400)
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                     3752
+GaussDB
+集中式版参考                                                                                                      5 工具参考
+
+                                         - HaBackend (shares: 4096, cpus: 0-20, weight: 400)
+                                   - Class (shares: 6144, cpus: 0-20, weight: 600)
+                                         - class1 (shares: 4096, cpus: 0-20, weight: 400)
+                                               - RemainWD:1 (shares: 1000, cpus: 0-20, weight: 100)
+                                                     - RemainWD:2 (shares: 7000, cpus: 0-20, weight: 700)
+                                                           - Timeshare (shares: 1024, cpus: 0-20, weight: 500)
+                                                                - Rush (shares: 8192, cpus: 0-20, weight: 800)
+                                                                - High (shares: 4096, cpus: 0-20, weight: 400)
+                                                                - Medium (shares: 2048, cpus: 0-20, weight: 200)
+                                                                - Low (shares: 1024, cpus: 0-20, weight: 100)
+                                                     - grp1:2 (shares: 3000, cpus: 0-5, weight: 300)
+                                               - TopWD:1 (shares: 9000, cpus: 0-20, weight: 900)
+                                         - DefaultClass (shares: 2048, cpus: 0-20, weight: 200)
+                                               - RemainWD:1 (shares: 1000, cpus: 0-20, weight: 100)
+                                                     - Timeshare (shares: 1024, cpus: 0-20, weight: 500)
+                                                           - Rush (shares: 8192, cpus: 0-20, weight: 800)
+                                                           - High (shares: 4096, cpus: 0-20, weight: 400)
+                                                           - Medium (shares: 2048, cpus: 0-20, weight: 200)
+                                                           - Low (shares: 1024, cpus: 0-20, weight: 100)
+                                               - TopWD:1 (shares: 9000, cpus: 0-20, weight: 900)
+
+
+5.5.4 gs_check 检查数据库状态
+                  说明
+
+                  系统内部工具，不支持单独调用。
+
+
+工具介绍
+              gs_check统一当前系统中存在的各种检查工具，帮助用户在数据库运行过程中，全量
+              检查数据库运行环境、操作系统环境、网络环境及数据库执行环境。此外，在重大操
+              作之前，对各类环境进行全面检查，可以有效保证操作执行成功。
+
+注意事项
+              ●   必须指定-i或-e参数，-i会检查指定的单项，-e会检查对应场景配置中的多项。
+              ●   黑名单检查项仅适用于R5升级到R6。
+              ●   MTU值不一致可能导致检查缓慢或进程停止响应，当巡检工具出现提示时，请修
+                  改各节点MTU值一致后再进行巡检。
+              ●   交换机不支持当前设置的MTU值时，即使MTU值一致也会出现通信问题引起进程
+                  停止响应，需要根据交换机调整MTU大小。
+
+命令格式
+              ●   单项检查。
+                  gs_check -i ITEM [...] [-U USER] [-L] [-l LOGFILE] [-o OUTPUTDIR] [--skip-root-items] [--set] [--
+                  routing] [--cloud-mode] [--time-out=SECS] [--max-thread=NUMBERS] [--server-ip=IP] [--client-ip=IP]
+                  [--fio-ip=IP] [--fio-disk-path=PATH]
+
+              ●   场景检查。
+                  gs_check -e SCENE_NAME [-U USER] [-L] [-l LOGFILE] [-o OUTPUTDIR] [--skip-root-items] [--set] [--
+                  time-out=SECS] [--routing] [--skip-items] [--cloud-mode]
+
+              ●   显示帮助信息。
+                  gs_check -? | --help
+
+              ●   显示版本号信息。
+                  gs_check -V | --version
+
+              ●   接收数据库管理员密码。
+                  单项检查：
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                                                        3753
+
