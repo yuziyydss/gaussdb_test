@@ -1,0 +1,116 @@
+# M模式SQL — DDL/DML/DCL逐条差异深化 — 结构化参考事实
+# 来源: gaussdb-rf-cent.pdf 4.4.2.7 (物理页3403-3498)
+document: "集中式版参考 / 4.4.2.7 MySQL兼容性M模式SQL DDL/DML/DCL"
+version: "V2.0-10.0.0"
+parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+extraction_date: "2026-09-14"
+extraction_method: pdftotext -layout 逐条差异精读
+verification_status: confirmed
+
+facts:
+  # === DDL: 索引与主键 ===
+  - id: m_sql_index_naming_scope
+    type: constraint
+    statement: "索引/约束名作用域：GaussDB同一SCHEMA下不可重复，MySQL同一表下不可重复。列级UNIQUE自动索引GaussDB以'表名_列名_key'命名，MySQL直接用列名。主键指定索引名后GaussDB用用户指定名，MySQL固定为PRIMARY。"
+    source_anchor: "4.4.2.7.4 表4-163"
+    status: confirmed
+    verification_method: 逐页精读（页3361）
+
+  - id: m_sql_index_prefix_limit
+    type: constraint
+    statement: "前缀索引限制：GaussDB前缀长度≤2676，多字节字符或多键索引可能超限报错。MySQL 5.7 ASC|DESC被解析但忽略（默认ASC），MySQL 8.0及GaussDB中解析且生效。主键索引不支持前缀键。"
+    source_anchor: "4.4.2.7.4 表4-163"
+    status: confirmed
+    verification_method: 逐页精读（页3361-3362）
+
+  - id: m_sql_index_algorithm_lock_noop
+    type: behavior_oracle
+    statement: "CREATE/DROP INDEX的algorithm_option和lock_option在GaussDB仅语法支持，创建时不报错但实际不起作用。"
+    source_anchor: "4.4.2.7.4 表4-163"
+    status: confirmed
+    verification_method: 逐页精读（页3362）
+
+  # === DDL: 自增列 ===
+  - id: m_sql_auto_increment_index_first
+    type: behavior_oracle
+    statement: "自增列索引：GaussDB建议自增列为索引第一个字段（否则警告），MySQL必须为第一个字段（否则报错）。含自增列的表ALTER TABLE EXCHANGE PARTITION等操作会报错。"
+    source_anchor: "4.4.2.7.4 表4-163"
+    status: confirmed
+    verification_method: 逐页精读（页3362）
+
+  - id: m_sql_auto_increment_null_behavior
+    type: behavior_oracle
+    statement: "自增列NULL行为：表定义自增列为非NOT NULL时，插入不指定值——GaussDB插入NULL不触发自增，MySQL插入NULL触发自增。MySQL 5.7 check字段不生效（check+auto_increment同时只有auto_increment生效），GaussDB报错。"
+    source_anchor: "4.4.2.7.4 表4-163"
+    status: confirmed
+    verification_method: 逐页精读（页3364）
+
+  # === DDL: 字符集与排序 ===
+  - id: m_sql_charset_schema_level
+    type: constraint
+    statement: "字符集限制：指定库级字符集时（除BINARY外）不支持创建与server_encoding不同的新库/模式。表级/列级字符集仅支持BINARY或与库级相同。MySQL支持指定与库级不同的字符集。重复指定字符集仅最后一个生效。"
+    source_anchor: "4.4.2.7.4 表4-163"
+    status: confirmed
+    verification_method: 逐页精读（页3364）
+
+  # === DDL: 表定义选项 ===
+  - id: m_sql_table_unsupported_options
+    type: constraint
+    statement: "CREATE TABLE不支持的选项：AVG_ROW_LENGTH、CHECKSUM、COMPRESSION、CONNECTION、DATA DIRECTORY、INDEX DIRECTORY、DELAY_KEY_WRITE、ENCRYPTION、INSERT_METHOD、KEY_BLOCK_SIZE、MAX_ROWS、MIN_ROWS、PACK_KEYS、PASSWORD、STATS_AUTO_RECALC、STATS_PERSISTENT、STATS_SAMPLE_PAGES。ENGINE和ROW_FORMAT不报错但不生效。"
+    source_anchor: "4.4.2.7.4 表4-163"
+    status: confirmed
+    verification_method: 逐页精读（页3364-3365）
+
+  - id: m_sql_alter_not_null_default
+    type: behavior_oracle
+    statement: "ALTER TABLE新增列差异：MySQL指定NOT NULL时将NULL值转为类型默认值插入，GaussDB检查NULL值。ALTER TABLE不支持DROP INDEX/DROP KEY/ORDER BY子项。"
+    source_anchor: "4.4.2.7.4 表4-163"
+    status: confirmed
+    verification_method: 逐页精读（页3365）
+
+  # === DML: 多表删除/更新 ===
+  - id: m_sql_multi_delete_concurrent
+    type: behavior_oracle
+    statement: "多表DELETE并发差异：元组被并发修改时GaussDB仅对涉及并发更新的目标表重新匹配（可能数据不一致），MySQL对所有目标表一致。设置m_format_dev_version='s2'后多表校验规则保持一致。"
+    source_anchor: "4.4.2.7.5 表4-164"
+    status: confirmed
+    verification_method: 逐页精读（页3385）
+
+  - id: m_sql_multi_update_concurrent
+    type: behavior_oracle
+    statement: "多表UPDATE并发差异：与DELETE相同——GaussDB仅对涉及并发更新的目标表元组重新匹配，MySQL对所有目标表一致。可能产生数据不一致。"
+    source_anchor: "4.4.2.7.5 表4-164"
+    status: confirmed
+    verification_method: 逐页精读（页3385）
+
+  # === DML: SELECT INTO ===
+  - id: m_sql_select_into_unique
+    type: syntax
+    statement: "SELECT INTO差异：GaussDB可SELECT INTO创建新表（MySQL不支持）。但不支持集合运算结果作为查询结果，不支持用户自定义变量赋值（MySQL支持）。"
+    source_anchor: "4.4.2.7.5 表4-164"
+    status: confirmed
+    verification_method: 逐页精读（页3386）
+
+  # === DML: REPLACE时间零值 ===
+  - id: m_sql_replace_time_zero
+    type: behavior_oracle
+    statement: "REPLACE时间零值差异：MySQL不受严格/宽松模式影响可插入0000-00-00 00:00:00。GaussDB宽松模式可插入，严格模式报错。REPLACE INTO test VALUES(f1,f2,f3)——MySQL成功插入零值，GaussDB严格模式报错。"
+    source_anchor: "4.4.2.7.5 表4-164"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3386-3387）
+
+  # === DML: LOAD DATA ===
+  - id: m_sql_load_data_strict_mode
+    type: behavior_oracle
+    statement: "LOAD DATA差异：GaussDB执行结果与MySQL严格模式一致（宽松模式未适配）。导入含非法字符时GaussDB报错invalid byte sequence，MySQL宽松模式截断后导入。SET sql_mode=''后LOAD DATA仍报错。"
+    source_anchor: "4.4.2.7.5 表4-164"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3387-3388）
+
+  # === DML: INSERT后续差异（继续看原文） ===
+  - id: m_sql_insert_auto_increment_mixed
+    type: behavior_oracle
+    statement: "INSERT自增混合差异：导入数据或Batch Insert中混合0/NULL/确定值时，若产生错误后续插入自增值不一定与MySQL完全一致。可用auto_increment_cache控制行为。"
+    source_anchor: "4.4.2.7.5 表4-163"
+    status: confirmed
+    verification_method: 逐页精读（页3363）
