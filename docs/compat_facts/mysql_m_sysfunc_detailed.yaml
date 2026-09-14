@@ -1,0 +1,263 @@
+# M模式系统函数 — 逐函数深化 — 结构化参考事实
+# 来源: gaussdb-rf-cent.pdf 4.4.2.2 (物理页3331-3379)
+# 方法: 逐函数逐差异提取，含SQL示例和输入输出对比
+document: "集中式版参考 / 4.4.2.2 MySQL兼容性M模式系统函数（深化版）"
+version: "V2.0-10.0.0"
+parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+extraction_date: "2026-09-14"
+extraction_method: pdftotext -layout 逐函数逐差异精读
+verification_status: confirmed
+
+facts:
+  # === 同名函数GUC控制（关键——影响测试预期） ===
+  - id: m_fn_conflict_funcs_detail
+    type: environment
+    statement: "enable_conflict_funcs控制5个同名函数切换为M行为：ceil、format、instr、position、row_number。需m_format_dev_version≥s2。不开启时保持原GaussDB行为。regexp_instr/regexp_like/regexp_replace/regexp_substr开启后反而报错不支持。"
+    source_anchor: "4.4.2.2.1 表4-141"
+    status: confirmed
+    verification_method: 逐页精读（页3332）
+
+  - id: m_fn_samename_funcs_detail
+    type: environment
+    statement: "enable_samename_funcs控制3个同名函数切换为M行为：stddev、round、current_user（无参调用）。需m_format_behavior_compat_options包含此选项。不开启时保持原GaussDB行为。"
+    source_anchor: "4.4.2.2.1 表4-142"
+    status: confirmed
+    verification_method: 逐页精读（页3332）
+
+  # === 公共差异（影响所有函数调用） ===
+  - id: m_fn_return_type_expr
+    type: behavior_oracle
+    statement: "返回值类型差异：入参为Var（表中列）和Const（常量）时返回类型与MySQL一致。入参为运算表达式或函数表达式时返回类型可能与MySQL有差异。CTAS/CREATE VIEW场景影响列类型定义。"
+    source_anchor: "4.4.2.2.1 公共差异"
+    status: confirmed
+    verification_method: 逐页精读（页3333）
+
+  - id: m_fn_limit_offset_row_execution
+    type: behavior_oracle
+    statement: "LIMIT+OFFSET场景：GaussDB逐行调用函数，存在报错时直接报错且中断执行。MySQL不逐行执行，不报错中断。导致带函数的LIMIT查询在存在错误数据时行为不一致。"
+    source_anchor: "4.4.2.2.1 公共差异"
+    status: confirmed
+    verification_method: 逐页精读（页3333）
+
+  - id: m_fn_null_param_behavior
+    type: behavior_oracle
+    statement: "NULL入参差异：GaussDB不校验NULL之外入参的合法性，直接返回NULL。MySQL校验非NULL入参，存在不合法入参时返回NULL并产生WARNING。"
+    source_anchor: "4.4.2.2.1 公共差异"
+    status: confirmed
+    verification_method: 逐页精读（页3333）
+
+  # === 流程控制函数 ===
+  - id: m_fn_if_implicit_conversion
+    type: behavior_oracle
+    statement: "IF()差异：第一个参数为TRUE且第三个参数有隐式类型转换错误（或FALSE且第二个参数有错误）时，MySQL忽略该错误返回另一个分支，GaussDB提示类型转换错误。"
+    source_anchor: "4.4.2.2.2 表4-143"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3333）
+
+  # === 日期时间函数（逐函数） ===
+  - id: m_fn_datetime_subquery_truncate
+    type: behavior_oracle
+    statement: "子查询算术截断：SELECT 1*(SELECT DATE_ADD('2020-10-20',interval int_var microsecond)) FROM t1返回截断值2020（仅年份），而SELECT (SELECT 1*DATE_ADD(...))返回完整值20201020000000。子查询在外层算术内时截断。"
+    source_anchor: "4.4.2.2.3 公共差异"
+    status: confirmed
+    verification_method: 逐页精读含3组SQL对比（页3334）
+
+  - id: m_fn_current_time_precision_wrap
+    type: behavior_oracle
+    statement: "CURRENT_TIME/CURRENT_TIMESTAMP精度：MySQL入参>255按255回绕（如257→1），GaussDB只支持[0,6]，其他值报错。SELECT CURRENT_TIME(257) MySQL等效CURRENT_TIME(1)，GaussDB报错。"
+    source_anchor: "4.4.2.2.3 表4-144"
+    status: confirmed
+    verification_method: 逐页精读（页3335）
+
+  - id: m_fn_extract_day_unit_diff
+    type: behavior_oracle
+    statement: "EXTRACT差异：unit=DAY_HOUR/DAY_MINUTE/DAY_SECOND/DAY_MICROSECOND且date为datetime时，GaussDB常量和表数据都返回DAY部分（如27101112400000）；MySQL仅表数据返回DAY部分（27101112400000），常量返回非DAY部分（101112400000）。"
+    source_anchor: "4.4.2.2.3 表4-144"
+    status: confirmed
+    verification_method: 逐页精读含4组SQL对比（页3337-3339）
+
+  - id: m_fn_period_add_overflow
+    type: behavior_oracle
+    statement: "PERIOD_ADD差异：MySQL 5.7入参/结果超uint32(4294967296)时整数回绕，GaussDB无此问题。负数period：MySQL 5.7解析为异常值，GaussDB报错。月份越界（如200013）：MySQL 5.7顺延到下年，GaussDB报错。与MySQL 8.0一致。"
+    source_anchor: "4.4.2.2.3 表4-144"
+    status: confirmed
+    verification_method: 逐页精读（页3390）
+
+  - id: m_fn_unix_timestamp_nested_type
+    type: behavior_oracle
+    statement: "UNIX_TIMESTAMP嵌套差异：内层节点返回定点/浮点/字符/时间类型（不含DATE）时，MySQL可能返回整型，GaussDB返回定点型。SELECT UNIX_TIMESTAMP(CAST(expr AS DECIMAL))场景有差异。"
+    source_anchor: "4.4.2.2.3 表4-144"
+    status: confirmed
+    verification_method: 逐页精读（页3392）
+
+  - id: m_fn_to_seconds_precision
+    type: behavior_oracle
+    statement: "TO_SECONDS差异：MySQL 5.7精度信息有误。开启精度传递(enable_precision_decimal)时GaussDB精度正常，与MySQL 8.0一致。"
+    source_anchor: "4.4.2.2.3 表4-144"
+    status: confirmed
+    verification_method: 逐页精读（页3392）
+
+  # === 字符串函数（逐函数） ===
+  - id: m_fn_char_length_sql_ascii
+    type: behavior_oracle
+    statement: "CHAR_LENGTH：SQL_ASCII字符集时返回字节数而非字符数。多字节字符在SQL_ASCII下行为与MySQL有较大差异。"
+    source_anchor: "4.4.2.2.4 表4-145"
+    status: confirmed
+    verification_method: 逐页精读（页3340）
+
+  - id: m_fn_lpad_max_length
+    type: behavior_oracle
+    statement: "LPAD/RPAD最大填充长度：MySQL默认1398101，GaussDB默认1048576。GBK字符集GaussDB为2097152。超过最大值时截断。"
+    source_anchor: "4.4.2.2.4 表4-145"
+    status: confirmed
+    verification_method: 逐页精读（页3341）
+
+  - id: m_fn_replace_null_third
+    type: behavior_oracle
+    statement: "REPLACE差异：第三入参为NULL且第二参数长度非0时，GaussDB返回NULL，MySQL返回第一参数。SELECT replace('1.23', binary(1.1), null) → GaussDB返回NULL，MySQL返回'1.23'。"
+    source_anchor: "4.4.2.2.4 表4-145"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3341）
+
+  - id: m_fn_md5_binary_padding
+    type: behavior_oracle
+    statement: "MD5差异：BINARY类型插入字符串长度小于目标长度时，GaussDB填充0x20MySQL填充0x00，导致MD5(BINARY)结果不一致。"
+    source_anchor: "4.4.2.2.4 表4-145"
+    status: confirmed
+    verification_method: 逐页精读（页3341）
+
+  - id: m_fn_random_bytes_openssl
+    type: environment
+    statement: "RANDOM_BYTES差异：GaussDB使用OPENSSL 3.x.x生成随机字符串，MySQL使用OPENSSL 1.x.x，性能可能存在劣化。"
+    source_anchor: "4.4.2.4 表4-145"
+    status: confirmed
+    verification_method: 逐页精读（页3341）
+
+  - id: m_fn_char_charset_error
+    type: behavior_oracle
+    statement: "CHAR差异：指定字符集转码失败时GaussDB报错，MySQL返回NULL+WARNING。参数0-31/127时MySQL返回不可见字符，GaussDB返回\\x01等十六进制。入参最多8192个（MySQL无限制）。"
+    source_anchor: "4.4.2.2.4 表4-145"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3343）
+
+  - id: m_fn_substring_binary_charset
+    type: behavior_oracle
+    statement: "SUBSTR/SUBSTRING差异：第一入参字符序为BINARY时，MySQL可能按内层函数的字符序处理，GaussDB始终按BINARY字符序处理，导致截取字节长度不同。"
+    source_anchor: "4.4.2.2.4 表4-145"
+    status: confirmed
+    verification_method: 逐页精读（页3343）
+
+  - id: m_fn_substring_index_negative
+    type: behavior_oracle
+    statement: "SUBSTRING_INDEX差异：第三入参负数时比较逻辑不同。正数时MySQL 5.7以int32存储有回绕（8.0修复），GaussDB以int64（与8.0一致）。超2^63-1也会回绕。"
+    source_anchor: "4.4.2.2.4 表4-145"
+    status: confirmed
+    verification_method: 逐页精读（页3343）
+
+  # === 聚合函数（逐函数，含GROUP_CONCAT复杂差异） ===
+  - id: m_fn_avg_int_overflow
+    type: behavior_oracle
+    statement: "AVG差异：BIT/BOOL/整数类型求和超BIGINT范围时GaussDB溢出整数翻转（MySQL不翻转）。TEXT/BLOB入参返回DOUBLE（与MySQL 8.0一致，MySQL 5.7返回MEDIUMTEXT）。"
+    source_anchor: "4.4.2.2.8 表4-149"
+    status: confirmed
+    verification_method: 逐页精读（页3354）
+
+  - id: m_fn_count_table_star
+    type: syntax
+    statement: "COUNT差异：GaussDB支持count(tablename.*)语法，MySQL不支持。SELECT count(t1.*) FROM t1在GaussDB合法，MySQL报语法错误。"
+    source_anchor: "4.4.2.2.8 表4-149"
+    status: confirmed
+    verification_method: 逐页精读（页3354）
+
+  - id: m_fn_group_concat_distinct_order
+    type: behavior_oracle
+    statement: "GROUP_CONCAT DISTINCT+ORDER BY差异：ORDER BY表达式不在DISTINCT中时结果不稳定。DISTINCT有重复数据时排序结果依赖底层DISTINCT结果。ORDER BY值相等的记录排序顺序不稳定。"
+    source_anchor: "4.4.2.2.8 表4-149"
+    status: confirmed
+    verification_method: 逐页精读（页3355）
+
+  - id: m_fn_group_concat_order_number
+    type: behavior_oracle
+    statement: "GROUP_CONCAT ORDER BY数字差异：GaussDB中ORDER BY 1不代表按第一列排序，只是常量表达式，相当于不排序。MySQL中ORDER BY 1按第一列排序。"
+    source_anchor: "4.4.2.2.8 表4-149"
+    status: confirmed
+    verification_method: 逐页精读（页3355）
+
+  - id: m_fn_group_concat_return_type
+    type: behavior_oracle
+    statement: "GROUP_CONCAT返回类型差异：GaussDB二进制返回BLOB，其他返回TEXT。MySQL按返回长度细分为longtext/tinytext/longblob/tinyblob。CTAS中列类型定义不同。"
+    source_anchor: "4.4.2.2.8 表4-149"
+    status: confirmed
+    verification_method: 逐页精读含CTAS示例（页3355-3356）
+
+  - id: m_fn_group_concat_max_len
+    type: constraint
+    statement: "GROUP_CONCAT最大长度：GaussDB group_concat_max_len最大1073741823，MySQL更大。超长截断。UTF8字符集最大字节数不同导致CTAS表结构差异。"
+    source_anchor: "4.4.2.2.8 表4-149"
+    status: confirmed
+    verification_method: 逐页精读（页3356）
+
+  - id: m_fn_group_concat_nullif
+    type: behavior_oracle
+    statement: "GROUP_CONCAT嵌套NULLIF差异：SELECT nullif(group_concat(1/7), 1/7) → GaussDB/MySQL8.0返回0.1429（精度不等），MySQL5.7返回NULL（精度相等）。"
+    source_anchor: "4.4.2.2.8 表4-149"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3356）
+
+  - id: m_fn_max_min_float_cast
+    type: behavior_oracle
+    statement: "MAX/MIN差异：float类型MAX结果与MySQL 5.7一致（1.2000000476837158）。MySQL8.0 CAST(expr AS FLOAT)场景与GaussDB有差异。非表字段参数返回类型与MySQL 5.7不一致。"
+    source_anchor: "4.4.2.2.8 表4-149"
+    status: confirmed
+    verification_method: 逐页精读含完整SQL对比（页3356-3358）
+
+  - id: m_fn_bit_and_nested_null
+    type: behavior_oracle
+    statement: "BIT_AND嵌套差异：入参NULL且被嵌套时，MySQL 5.7返回-1（acos(-1)=3.14），MySQL 8.0/GaussDB返回NULL（acos(NULL)=NULL）。"
+    source_anchor: "4.4.2.2.8 表4-149"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3354-3355）
+
+  - id: m_fn_max_distinct_over
+    type: behavior_oracle
+    statement: "MAX() OVER窗口中DISTINCT差异：SELECT MAX(DISTINCT salary) OVER(...) GaussDB报错不支持，MySQL 5.7返回结果。建议直接用MAX(salary) OVER(...)（DISTINCT不影响MAX结果）。"
+    source_anchor: "4.4.2.2.8 表4-149"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3316）
+
+  # === JSON函数 ===
+  - id: m_fn_json_escape_string
+    type: environment
+    statement: "JSON函数公共差异：输入含转义字符时默认与MySQL有差异。需开启enable_escape_string才兼容，但\\0和\\uxxx场景仍有差异。"
+    source_anchor: "4.4.2.2.9"
+    status: confirmed
+    verification_method: 逐页精读（页3310）
+
+  - id: m_fn_json_unquote_null_char
+    type: behavior_oracle
+    statement: "JSON_UNQUOTE差异：SELECT json_unquote('\"\\0\"') MySQL报Invalid JSON，GaussDB报invalid byte sequence。SELECT json_unquote('\"\\\\u4656\"') MySQL返回䙖字符，GaussDB返回字面文本u4656。"
+    source_anchor: "4.4.2.2.9 表4-150"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3311-3312）
+
+  - id: m_fn_json_pretty_collation
+    type: behavior_oracle
+    statement: "JSON_PRETTY字符序差异：MySQL固定utf8mb4_bin，GaussDB取决于collation_connection参数。SET collation_connection=gbk_bin后GaussDB返回gbk_bin，MySQL仍返回utf8mb4_bin。"
+    source_anchor: "4.4.2.2.9 表4-150"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3312）
+
+  - id: m_fn_json_storage_size
+    type: behavior_oracle
+    statement: "JSON_STORAGE_SIZE差异：GaussDB json类型内部存储方式与MySQL不同，返回值不一致。未适配部分更新功能，实时更新存储大小。CREATE TABLE+INSERT+UPDATE后JSON_STORAGE_SIZE值不同。"
+    source_anchor: "4.4.2.2.9 表4-150"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3312-3313）
+
+  # === 窗口函数 ===
+  - id: m_fn_window_json_combo
+    type: behavior_oracle
+    statement: "窗口函数+JSON组合差异：bit_or(col_json) OVER(PARTITION BY col_json2 ORDER BY col_json3)结果与MySQL不同。JSON的true/false在窗口函数中被隐式转换为整数时行为不一致。"
+    source_anchor: "4.4.2.2.8 表4-149"
+    status: confirmed
+    verification_method: 逐页精读含完整SQL对比（页3316-3318）
