@@ -1,0 +1,144 @@
+# Oracle 兼容性 — 系统函数完整兼容性 — 结构化参考事实
+# 来源: gaussdb-rf-cent.pdf 4.3.11 (物理页3206-3228)
+document: "集中式版参考 / 4.3.11 Oracle兼容性系统函数"
+version: "V2.0-10.0.0"
+parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+extraction_date: "2026-09-14"
+extraction_method: pdftotext -layout 逐页精读
+verification_status: confirmed
+
+facts:
+  # 函数分类总览
+  - id: ora_func_categories
+    type: environment
+    statement: "Oracle系统函数分类：数值（表4-91）、字符-返回字符（表4-92）、字符-返回数值（表4-93）、日期时间（表4-94）、通用比较（表4-95）、转换（表4-96）、大对象（表4-97）、层次（表4-98）、XML（表4-99）、JSON（表4-100）、编码解码（表4-101）、空值（表4-102）、环境标识符（表4-103）、聚合（表4-104）、分析（表4-105）。"
+    source_anchor: "4.3.11"
+    status: confirmed
+    verification_method: 逐页精读（页3207-3208）
+
+  # 不支持的函数类别
+  - id: ora_func_not_supported
+    type: constraint
+    statement: "Oracle函数中GaussDB不支持：字符集函数、Collation函数、集合函数、数据挖掘功能函数、对象引用函数、模型函数、OLAP函数、数据盒功能函数。"
+    source_anchor: "4.3.11"
+    status: confirmed
+    verification_method: 逐页精读（页3207）
+
+  # 数值函数关键差异
+  - id: ora_func_mod_diff
+    type: behavior_oracle
+    statement: "MOD函数差异：Oracle返回BINARY_DOUBLE/BINARY_FLOAT/NUMBER；GaussDB返回int2/int4/int8/numeric。第一个入参为数值时第二个须int/numeric或可转换类型。"
+    source_anchor: "4.3.11 表4-91"
+    status: confirmed
+    verification_method: 逐页精读（页3208）
+
+  - id: ora_func_round_diff
+    type: behavior_oracle
+    statement: "ROUND差异：float类型GaussDB精度低于Oracle。round(n,integer)返回numeric vs Oracle NUMBER。round(n)缺少float4返回类型。SELECT round(NULL,'q') Oracle返回null，GaussDB报错。"
+    source_anchor: "4.3.11 表4-91"
+    status: confirmed
+    verification_method: 逐页精读（页3209）
+
+  - id: ora_func_nanvl_diff
+    type: behavior_oracle
+    statement: "NANVL差异：GaussDB不支持直接声明或浮点数除0得到NaN。"
+    source_anchor: "4.3.11 表4-91"
+    status: confirmed
+    verification_method: 逐页精读（页3208）
+
+  - id: ora_func_remainder_diff
+    type: behavior_oracle
+    statement: "REMAINDER差异：返回类型不同。float4+numeric→float4，float4+float4→float4，float8+float8→float8，其他→numeric。Oracle统一返回number。"
+    source_anchor: "4.3.11 表4-91"
+    status: confirmed
+    verification_method: 逐页精读（页3208-3209）
+
+  # 字符函数关键差异
+  - id: ora_func_chr_diff
+    type: behavior_oracle
+    statement: "CHR差异：数字不符合字符集时JDBC下GaussDB报错Oracle返回乱码。输入0/256时Oracle返回ASCII 0字符，GaussDB在\\0处截断。"
+    source_anchor: "4.3.11 表4-92"
+    status: confirmed
+    verification_method: 逐页精读（页3210）
+
+  - id: ora_func_lower_date_diff
+    type: behavior_oracle
+    statement: "LOWER差异：输入时间类型时Oracle返回10-DEC-12格式，GaussDB返回2012-12-10 00:00:00格式（隐式转换差异）。"
+    source_anchor: "4.3.11 表4-92"
+    status: confirmed
+    verification_method: 逐页精读（页3210）
+
+  - id: ora_func_nls_sort_limit
+    type: constraint
+    statement: "NLS_LOWER/NLS_UPPER差异：Oracle的nlsparam可传多种参数不报错，GaussDB只支持nls_sort。返回类型Oracle为VARCHAR2/LOB，GaussDB为TEXT。"
+    source_anchor: "4.3.11 表4-92"
+    status: confirmed
+    verification_method: 逐页精读（页3211）
+
+  # 日期时间函数关键差异
+  - id: ora_func_current_date_diff
+    type: behavior_oracle
+    statement: "CURRENT_DATE差异：GaussDB不支持nls_date_format参数设置显示格式。mapping_date_to_datea开启时返回datea类型，关闭时返回date类型。"
+    source_anchor: "4.3.11 表4-94"
+    status: confirmed
+    verification_method: 逐页精读（页3213）
+
+  - id: ora_func_timestamp_precision
+    type: constraint
+    statement: "CURRENT_TIMESTAMP/LOCALTIMESTAMP/SYSTIMESTAMP/TO_TIMESTAMP差异：Oracle参数支持0-9位精度，GaussDB只支持0-6位（微秒级）。"
+    source_anchor: "4.3.11 表4-94"
+    status: confirmed
+    verification_method: 逐页精读（页3213-3214）
+
+  - id: ora_func_sysdate_diff
+    type: behavior_oracle
+    statement: "SYSDATE差异：返回类型不一致。GaussDB关闭mapping_date_to_datea时返回timestamp without time zone，开启时返回datea。Oracle返回date。"
+    source_anchor: "4.3.11 表4-94"
+    status: confirmed
+    verification_method: 逐页精读（页3214）
+
+  - id: ora_func_sessiontimezone_diff
+    type: behavior_oracle
+    statement: "SESSIONTIMEZONE差异：GaussDB赋值用set session time zone 8，Oracle用alter session set time_zone='+08:00'。默认值GaussDB为时区名（PRC），Oracle为偏移量（+08:00）。"
+    source_anchor: "4.3.11 表4-94"
+    status: confirmed
+    verification_method: 逐页精读（页3214）
+
+  - id: ora_func_interval_type_diff
+    type: constraint
+    statement: "NUMTODSINTERVAL/NUMTOYMINTERVAL/TO_DSINTERVAL差异：GaussDB不支持dsinterval/yminterval类型，暂时用interval兼容。"
+    source_anchor: "4.3.11 表4-94"
+    status: confirmed
+    verification_method: 逐页精读（页3213-3214）
+
+  # PL/SQL关键字差异
+  - id: ora_func_plsql_keywords_unsupported
+    type: constraint
+    statement: "Function/Procedure/匿名块不支持的关键字：ACCESSIBLE、PIPE ROW、PIPELINED、SQL_MACRO、RESTRICT_REF、INLINE。"
+    source_anchor: "4.3.11 表4-89"
+    status: confirmed
+    verification_method: 逐页精读（页3206）
+
+  # 环境和标识符函数
+  - id: ora_func_env_functions
+    type: environment
+    statement: "环境和标识符函数（表4-103）：SYS_CONTEXT、USERENV、UID、USER等。支持但有差异。"
+    source_anchor: "4.3.11 表4-103"
+    status: confirmed
+    verification_method: 逐页精读（页3216）
+
+  # 聚合函数
+  - id: ora_func_aggregate
+    type: environment
+    statement: "聚合函数（表4-104）：AVG、COUNT、MAX、MIN、SUM、LISTAGG等。大部分支持。"
+    source_anchor: "4.3.11 表4-104"
+    status: confirmed
+    verification_method: 逐页精读（页3216-3217）
+
+  # 分析函数
+  - id: ora_func_analytic
+    type: environment
+    statement: "分析函数（表4-105）：ROW_NUMBER、RANK、DENSE_RANK、LAG、LEAD、FIRST_VALUE、LAST_VALUE等。支持但有差异。"
+    source_anchor: "4.3.11 表4-105"
+    status: confirmed
+    verification_method: 逐页精读（页3217-3218）
