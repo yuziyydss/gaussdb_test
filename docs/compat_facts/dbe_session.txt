@@ -1,0 +1,322 @@
+GaussDB
+集中式版参考                                                                                       3 存储过程
+
+                 表 3-327 DBE_SCHEDULER.EVALUATE_CALENDAR_STRING 接口参数说明
+
+                  参数            类型                     入参/出        是否可         描述
+                                                       参           以为空
+
+                  calendar_s    text                   IN          否           定时任务日期字符
+                  tring                                                        串。
+
+                  start_date    timestamp with         IN          否           定时任务开始时间。
+                                time zone
+
+                  return_dat    timestamp with         IN          否           定时任务返回日期。
+                  e_after       time zone
+
+                  next_run_     timestamp with         OUT         否           定时任务返回下一个
+                  date          time zone                                      日期。
+
+
+
+
+                 示例：
+                 gaussdb=# CREATE OR REPLACE PROCEDURE pr1(calendar_str text) as
+                  DECLARE
+                     start_date       timestamp with time zone;
+                     return_date_after timestamp with time zone;
+                     next_run_date      timestamp with time zone;
+                  BEGIN
+                     start_date := '2003-2-1 10:30:00.111111+8'::timestamp with time zone;
+                     return_date_after := start_date;
+                     DBE_SCHEDULER.evaluate_calendar_string(
+                        calendar_str,
+                        start_date, return_date_after, next_run_date);
+                     DBE_OUTPUT.PRINT_LINE('next_run_date: ' || next_run_date);
+                     return_date_after := next_run_date;
+                  END;
+                  /
+                 CREATE PROCEDURE
+                 gaussdb=# CALL pr1('FREQ=hourly;INTERVAL=2;BYHOUR=6,10;BYMINUTE=0;BYSECOND=0');
+                 next_run_date: 2003-02-02 06:00:00+08
+                  pr1
+                 -----
+
+                 (1 row)
+
+
+
+
+3.12.2.18 DBE_SESSION
+
+接口介绍
+              高级功能包DBE_SESSION支持的接口请参见表3-328。DBE_SESSION作用范围是会话
+              级别。
+
+
+              表 3-328 DBE_SESSION
+
+               接口名称                                         描述
+
+               DBE_SESSION.SET_CONTEXT                      设置指定context下，某一属性
+                                                            （attribute）的值（value）。
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                                               2812
+GaussDB
+集中式版参考                                                                                     3 存储过程
+
+
+               接口名称                                                描述
+
+               DBE_SESSION.CLEAR_CONTEXT                           清除指定context下，某一属性
+                                                                   （attribute）的值（value）。
+
+               DBE_SESSION.SEARCH_CONTEXT                          查找指定context下，某一属性
+                                                                   （attribute）的值（value）。
+
+               DBE_SESSION.MODIFY_PACKAGE_ST                       用于修改当前会话的PL/SQL的状态。
+               ATE
+
+
+
+
+              ●   DBE_SESSION.SET_CONTEXT
+                  向指定namespace(context)下，设置某一属性（attribute）的值（value）。
+                  DBE_SESSION.SET_CONTEXT原型为：
+                  DBE_SESSION.SET_CONTEXT(
+                     namespace text,
+                     attribute text,
+                     value text
+                  )returns void;
+
+
+                  表 3-329 DBE_SESSION.SET_CONTEXT 接口参数说明
+
+                   参数             类        入参/        是否可       描述
+                                  型        出参         以为空
+
+                   names          TEX      IN         否         需要设置的context名称，当context不存在
+                   pace           T                             时，新建context，最长支持128个字节，超
+                                                                长时将会截断。
+
+                   attribut       TEX      IN         否         属性名称，最长支持1024个字节，超长时将
+                   e              T                             会截断。
+
+                   value          TEX      IN         否         要设置的值的名称，最长支持1024个字节，
+                                  T                             超长时将会截断。
+
+
+
+              ●   DBE_SESSION.CLEAR_CONTEXT
+                  清除指定namespace(context)下，某一属性(attribute)的值(value)。
+                  DBE_SESSION.CLEAR_CONTEXT原型为：
+                  DBE_SESSION.CLEAR_CONTEXT (
+                     namespace text,
+                     client_identifier text default null,
+                     attribute text default null
+                  )returns void ;
+
+
+                  表 3-330 DBE_SESSION.CLEAR_CONTEXT 接口参数说明
+
+                   参数                 类       入参/           是否可以     描述
+                                      型       出参            为空
+
+                   namespac           TE      IN            否        用户指定的context，最长支持128个
+                   e                  XT                             字节，超长时将会截断。
+
+
+文档版本 01 (2026-04-30)                      版权所有 © 华为云计算技术有限公司                                  2813
+GaussDB
+集中式版参考                                                                                        3 存储过程
+
+
+                   参数               类     入参/    是否可以         描述
+                                    型     出参     为空
+
+                   client_ide       TE    IN     是            客户端认证，默认值null，通常情况用
+                   ntifier          XT                        户无需手动设置。
+
+                   attribute        TE    IN     是            要清除的属性，默认值null，表示清除
+                                    XT                        指定context的所有的属性，最长支持
+                                                              1024个字节，超长时将会截断。
+                                                              说明
+                                                               为了保证前向兼容，参数值为字符串'null'
+                                                               时也会清除指定context的所有属性。
+
+
+
+              ●   DBE_SESSION.SEARCH_CONTEXT
+                  查找指定namespace(context)下，某一属性（attribute）的值（value）。
+                  DBE_SESSION.SEARCH_CONTEXT原型为：
+                  DBE_SESSION.SEARCH_CONTEXT (
+                     namespace text,
+                     attribute text
+                  )returns text;
+
+
+                  表 3-331 DBE_SESSION.SEARCH_CONTEXT 接口参数说明
+                   参数           类        入参/     是否可以       描述
+                                型        出参      为空
+
+                   namesp       TEX      IN      否          用户指定的context，最长支持128个字
+                   ace          T                           节，超长时将会截断。
+
+                   attribut     TEX      IN      否          要查找的属性，最长支持1024个字节，
+                   e            T                           超长时将会截断。
+
+
+
+
+                  示例：
+                  DECLARE
+                     a text;
+                  BEGIN
+                     DBE_SESSION.set_context('test', 'gaussdb', 'one'); --设置名为test的context下属性为gaussdb的值为
+                  one
+                     a := DBE_SESSION.search_context('test', 'gaussdb');
+                     DBE_OUTPUT.PRINT_LINE(a);
+                     DBE_SESSION.clear_context('test', 'test','gaussdb');
+                  END;
+                  /
+                  -- 预期结果为：
+                  one
+                  ANONYMOUS BLOCK EXECUTE
+
+              ●   DBE_SESSION.MODIFY_PACKAGE_STATE
+                  用于修改当前会话的PL/SQL的状态。
+                  DBE_SESSION.MODIFY_PACKAGE_STATE原型为：
+                  DBE_SESSION.MODIFY_PACKAGE_STATE (
+                     flags int);
+
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                          2814
+GaussDB
+集中式版参考                                                                                          3 存储过程
+
+                  表 3-332 DBE_SESSION.MODIFY_PACKAGE_STATE 接口参数说明
+
+                   参数       类      入参/        是否可以            描述
+                            型      出参         为空
+
+                   flag     INT    IN         否               对PL/SQL采取的操作的位标志。
+                   s                                          当flags=1时，执行完最顶层的PL/SQL代码
+                                                              后，会释放会话中当前运行的PL/SQL会话缓
+                                                              存。清除所有包的全局变量当前值，并关闭
+                                                              缓存的游标。在后续使用时，PL/SQL将重新
+                                                              实例化，并重新初始化包的全局变量。
+                                                              不支持其他位标志。
+
+
+
+
+                  示例：
+                  CALL dbe_session.modify_package_state(1);
+                   modify_package_state
+                  ----------------------
+
+                  (1 row)
+
+
+
+3.12.2.19 DBE_SQL
+
+数据类型介绍
+              ●   DBE_SQL.DESC_REC
+                  该类型是复合类型，用来存储DBE_SQL.SQL_DESCRIBE_COLUMNS接口中的描述
+                  信息。
+                  DBE_SQL.DESC_REC类型的原型为：
+                  CREATE TYPE DBE_SQL.DESC_REC AS (
+                     col_type        int,
+                     col_max_len        int,
+                     col_name          VARCHAR2(32),
+                     col_name_len        int,
+                     col_schema_name        VARCHAR2(32),
+                     col_schema_name_len int,
+                     col_precision    int,
+                     col_scale       int,
+                     col_charsetid     int,
+                     col_charsetform     int,
+                     col_null_ok      BOOLEAN
+                  );
+
+              ●   DBE_SQL.DESC_TAB
+                  该类型是DESC_REC的TABLE类型，通过TABLE OF语法实现。
+                  DBE_SQL.DESC_TAB类型的原型为：
+                  CREATE TYPE DBE_SQL.DESC_TAB AS TABLE OF DBE_SQL.DESC_REC INDEX BY INTEGER;
+
+              ●   DBE_SQL.DATE_TABLE
+                  该类型是DATE的TABLE类型，通过TABLE OF语法实现。
+                  DBE_SQL.DATE_TABLE类型的原型为：
+                  CREATE TYPE DBE_SQL.DATE_TABLE AS TABLE OF DATE INDEX BY INTEGER;
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                            2815
+GaussDB
+集中式版参考                                                                                      3 存储过程
+
+
+                       说明
+
+                       ● 在数据库初始化阶段，若GUC参数mapping_date_to_datea的值为on，则会将
+                         DBE_SQL.DATE_TABLE映射为DATEA的TABLE类型，若GUC参数
+                         mapping_date_to_datea的值为off，则会将DBE_SQL.DATE_TABLE映射为
+                         TIMESTAMP(0) WITHOUT TIME ZONE的TABLE类型。数据库初始化完成后，则GUC
+                         参数mapping_date_to_datea的值不再影响到DBE_SQL.DATE_TABLE的具体类型映
+                         射。
+                       ● 在数据库初始化阶段和使用阶段GUC参数mapping_date_to_datea的值不同，会导致部
+                         分DBE_SQL函数使用DATE_TABLE时出现类型不匹配的情况，因此建议保持数据库初始
+                         化阶段和使用阶段GUC参数mapping_date_to_datea的值相同。
+              ●   DBE_SQL.NUMBER_TABLE
+                  该类型是NUMBER的TABLE类型，通过TABLE OF语法实现。
+                  DBE_SQL.NUMBER_TABLE类型的原型为：
+                  CREATE TYPE DBE_SQL.NUMBER_TABLE AS TABLE OF NUMBER INDEX BY INTEGER;
+
+              ●   DBE_SQL.VARCHAR2_TABLE
+                  该类型是VARCHAR2的TABLE类型，通过TABLE OF语法实现。
+                  DBE_SQL.VARCHAR2_TABLE类型的原型为：
+                  CREATE TYPE DBE_SQL.VARCHAR2_TABLE AS TABLE OF VARCHAR2(32767) INDEX BY INTEGER;
+
+              ●   DBE_SQL.BLOB_TABLE
+                  该类型是BLOB的TABLE类型，通过TABLE OF语法实现。
+                  DBE_SQL.BLOB_TABLE类型的原型为：
+                  CREATE TYPE DBE_SQL.BLOB_TABLE AS TABLE OF BLOB INDEX BY INTEGER;
+
+
+接口介绍
+              高级功能包DBE_SQL支持的接口请参见表3-333。
+
+              表 3-333 DBE_SQL
+
+               接口名称                                              描述
+
+               DBE_SQL.REGISTER_CONTEXT                          打开一个游标。
+
+               DBE_SQL.SQL_UNREGISTER_CONTEXT                    关闭一个已打开的游标。
+
+               DBE_SQL.SQL_SET_SQL                               向游标传递一组SQL语句或匿名块。
+
+               DBE_SQL.SQL_RUN                                   执行给定游标中的SQL语句或匿名
+                                                                 块。
+
+               DBE_SQL.NEXT_ROW                                  读取游标一行数据。
+
+               DBE_SQL.SET_RESULT_TYPE                           动态定义一个列。
+
+               DBE_SQL.SET_RESULT_TYPE_CHAR                      动态定义一个CHAR类型的列。
+
+               DBE_SQL.SET_RESULT_TYPE_INT                       动态定义一个INT类型的列。
+
+               DBE_SQL.SET_RESULT_TYPE_LONG                      动态定义一个LONG类型的列。
+
+               DBE_SQL.SET_RESULT_TYPE_RAW                       动态定义一个RAW类型的列。
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                                                2816
+

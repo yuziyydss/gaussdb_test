@@ -1,0 +1,1513 @@
+GaussDB
+集中式版参考                                                                                                3 存储过程
+
+              SELECT DBE_RAW.CAST_FROM_RAW_TO_NVARCHAR2('12345678') INTO v_nvarchar2; -- \x124Vx
+              -- RAW类型COMPARE。
+              SELECT DBE_RAW.COMPARE('ABCD','AB') INTO v_numeric; -- 2
+              -- RAW类型CONCAT。
+              SELECT DBE_RAW.CONCAT('ABCD','AB') INTO v_raw; -- ABCDAB
+              -- RAW类型CONVERT。
+              SELECT DBE_RAW.CONVERT('E695B0', 'GBK','UTF8') INTO v_raw; -- CAFD
+              -- RAW类型COPIES。
+              SELECT DBE_RAW.COPIES('ABCD',2) INTO v_raw; -- ABCDABCD
+              -- RAW类型指定位置和长度进行覆盖。
+              SELECT DBE_RAW.OVERLAY('abcef', '12345678123456', 2, 5, '9966') INTO v_raw; -- 120ABCEF999956
+              -- RAW类型按字节翻转。
+              SELECT DBE_RAW.REVERSE('12345678') INTO v_raw; -- 78563412
+              -- RAW类型字节转换（无填充码）。
+              SELECT DBE_RAW.TRANSLATE('1122112233', '1133','55') INTO v_raw; -- 55225522
+              -- RAW类型字节转换（有填充码）。
+              SELECT DBE_RAW.TRANSLITERATE('1122112233', '55','1133','FFEE') INTO v_raw; -- 55225522FF
+              -- RAW类型两个字节间的所有字节。
+              SELECT DBE_RAW.XRANGE('00','03') INTO v_raw; -- 00010203
+              END;
+              /
+              ANONYMOUS BLOCK EXECUTE
+
+
+3.12.2.17 DBE_SCHEDULER
+
+接口介绍
+              高级功能包DBE_SCHEDULER支持通过调度（schedule）和程序（program）更加灵活
+              地创建定时任务。支持的接口请参见表3-296。
+
+              表 3-296 DBE_SCHEDULER
+
+               接口名称                                                    描述
+
+               DBE_SCHEDULER.CREATE_JOB                                创建定时任务。
+
+               DBE_SCHEDULER.DROP_JOB                                  删除定时任务。
+
+               DBE_SCHEDULER.DROP_SINGLE_JOB                           删除单个定时任务。
+
+               DBE_SCHEDULER.SET_ATTRIBUTE                             设置对象属性。
+
+               DBE_SCHEDULER.RUN_JOB                                   运行定时任务。
+
+               DBE_SCHEDULER.RUN_BACKEND_JOB                           后台运行定时任务。
+
+               DBE_SCHEDULER.RUN_FOREGROUND_JO                         前台运行定时任务。
+               B
+
+               DBE_SCHEDULER.STOP_JOB                                  停止定时任务。
+
+               DBE_SCHEDULER.STOP_SINGLE_JOB                           停止单个定时任务。
+
+               DBE_SCHEDULER.GENERATE_JOB_NAME                         生成定时任务名。
+
+               DBE_SCHEDULER.CREATE_PROGRAM                            创建程序。
+
+               DBE_SCHEDULER.DEFINE_PROGRAM_ARG                        定义程序参数。
+               UMENT
+
+               DBE_SCHEDULER.DROP_PROGRAM                              删除程序。
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                      2779
+GaussDB
+集中式版参考                                                                        3 存储过程
+
+
+               接口名称                                              描述
+
+               DBE_SCHEDULER.DROP_SINGLE_PROGRA                  删除单个程序。
+               M
+
+               DBE_SCHEDULER.SET_JOB_ARGUMENT_V                  设置定时任务参数值。
+               ALUE
+
+               DBE_SCHEDULER.CREATE_SCHEDULE                     创建调度。
+
+               DBE_SCHEDULER.DROP_SCHEDULE                       删除调度。
+
+               DBE_SCHEDULER.DROP_SINGLE_SCHEDU                  删除单个调度。
+               LE
+
+               DBE_SCHEDULER.CREATE_JOB_CLASS                    创建定时任务类。
+
+               DBE_SCHEDULER.DROP_JOB_CLASS                      删除定时任务类。
+
+               DBE_SCHEDULER.DROP_SINGLE_JOB_CLA                 删除单个定时任务类。
+               SS
+
+               DBE_SCHEDULER.GRANT_USER_AUTHORI                  赋予用户特殊权限。
+               ZATION
+
+               DBE_SCHEDULER.REVOKE_USER_AUTHOR                  撤销用户特殊权限。
+               IZATION
+
+               DBE_SCHEDULER.CREATE_CREDENTIAL                   创建证书。
+
+               DBE_SCHEDULER.DROP_CREDENTIAL                     销毁证书。
+
+               DBE_SCHEDULER.ENABLE                              启用对象。
+
+               DBE_SCHEDULER.ENABLE_SINGLE                       启动单个对象。
+
+               DBE_SCHEDULER.DISABLE                             停用对象。
+
+               DBE_SCHEDULER.DISABLE_SINGLE                      停用单个对象。
+
+               DBE_SCHEDULER.EVAL_CALENDAR_STRIN                 分析调度任务周期。
+               G
+
+               DBE_SCHEDULER.EVALUATE_CALENDAR_                  分析调度任务周期。
+               STRING
+
+
+
+              ●   DBE_SCHEDULER.CREATE_JOB
+                  创建一个定时任务。
+                  DBE_SCHEDULER.CREATE_JOB原型可以分为4种：
+                  -- 内联调度和程序的定时任务
+                  DBE_SCHEDULER.CREATE_JOB(
+                  job_name TEXT,
+                  job_type TEXT,
+                  job_action TEXT,
+                  number_of_arguments INTEGER        DEFAULT 0,
+                  start_date TIMESTAMP WITH TIME ZONE   DEFAULT NULL,
+                  repeat_interval TEXT         DEFAULT NULL,
+                  end_date TIMESTAMP WITH TIME ZONE     DEFAULT NULL,
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                            2780
+GaussDB
+集中式版参考                                                                     3 存储过程
+
+                 job_class TEXT       DEFAULT 'DEFAULT_JOB_CLASS',
+                 enabled BOOLEAN                 DEFAULT FALSE,
+                 auto_drop BOOLEAN                DEFAULT TRUE,
+                 comments TEXT                  DEFAULT NULL,
+                 credential_name TEXT            DEFAULT NULL,
+                 destination_name TEXT            DEFAULT NULL
+                 )
+
+                 -- 引用创建好的调度和程序的定时任务
+                 DBE_SCHEDULER.CREATE_JOB(
+                 job_name TEXT,
+                 program_name TEXT,
+                 schedule_name TEXT,
+                 job_class TEXT       DEFAULT 'DEFAULT_JOB_CLASS',
+                 enabled BOOLEAN                 DEFAULT FALSE,
+                 auto_drop BOOLEAN                DEFAULT TRUE,
+                 comments TEXT                  DEFAULT NULL,
+                 job_style TEXT               DEFAULT 'REGULAR',
+                 credential_name TEXT            DEFAULT NULL,
+                 destination_name TEXT            DEFAULT NULL
+                 )
+
+                 -- 引用创建好的程序，内联调度的定时任务
+                 DBE_SCHEDULER.CREATE_JOB(
+                 job_name text,
+                 program_name TEXT,
+                 start_date TIMESTAMP WITH TIME ZONE     DEFAULT NULL,
+                 repeat_interval TEXT           DEFAULT NULL,
+                 end_date TIMESTAMP WITH TIME ZONE       DEFAULT NULL,
+                 job_class TEXT       DEFAULT 'DEFAULT_JOB_CLASS',
+                 enabled BOOLEAN                 DEFAULT FALSE,
+                 auto_drop BOOLEAN                DEFAULT TRUE,
+                 comments TEXT                  DEFAULT NULL,
+                 job_style TEXT               DEFAULT 'REGULAR',
+                 credential_name TEXT            DEFAULT NULL,
+                 destination_name TEXT            DEFAULT NULL
+                 )
+
+                 -- 引用创建好的调度，内联程序的定时任务
+                 DBE_SCHEDULER.CREATE_JOB(
+                 job_name TEXT,
+                 schedule_name TEXT,
+                 job_type TEXT,
+                 job_action TEXT,
+                 number_of_arguments INTEGER         DEFAULT 0,
+                 job_class TEXT       DEFAULT 'DEFAULT_JOB_CLASS',
+                 enabled BOOLEAN                 DEFAULT FALSE,
+                 auto_drop BOOLEAN                DEFAULT TRUE,
+                 comments TEXT                  DEFAULT NULL,
+                 credential_name TEXT            DEFAULT NULL,
+                 destination_name TEXT           DEFAULT NULL
+                 )
+
+                       说明
+
+                       ● 利用DBE_SCHEDULER创建的定时任务不会与DBE_TASK中的定时任务相冲突。
+                       ● DBE_SCHEDULER创建的定时任务会生成对应的job_id，但是在使用过程中这个id并没
+                         有实际意义。
+                       ● 对于CREATE类型接口，不做入参类型合法性校验，创建成功不代表会执行成功，可通
+                         过系统表PG_JOB查询当前任务的执行状态。
+                       ● 普通用户因缺乏定时任务权限，首次调用该函数时会失败，需通过
+                         DBE_SCHEDULER.GRANT_USER_AUTHORIZATION授予定时任务权限。
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                         2781
+GaussDB
+集中式版参考                                                                        3 存储过程
+
+                 表 3-297 DBE_SCHEDULER.CREATE_JOB 接口参数说明
+                  参数           类型        入    是否   描述
+                                         参/   可以
+                                         出    为空
+                                         参
+
+                  job_name     text      IN   否    定时任务名称。非ilm特性调度场景下，
+                                                   无法创建前缀为"ilmadowind$_"和
+                                                   "ilmjob$_"的job。
+
+                  job_type     text      IN   否    定时任务内联程序类型，可用类型为：
+                                                   ● 'PLSQL_BLOCK'：匿名存储过程块。
+                                                   ● 'STORED_PROCEDURE'：保存的存储
+                                                     过程。
+                                                   ● 'EXTERNAL_SCRIPT'：外部脚本。
+
+                  job_action   text      IN   否    定时任务内联程序执行内容。
+
+                  number_o     integer   IN   否    定时任务内联程序参数个数。
+                  f_argume
+                  nts
+
+                  program_     text      IN   否    定时任务引用程序名称。
+                  name
+
+                  start_date   timesta   IN   是    定时任务内联调度起始时间。
+                               mp
+                               with
+                               time
+                               zone
+
+                  repeat_int   text      IN   是    定时任务内联调度任务周期，支持写法
+                  erval                            有：
+                                                   ● 'interval N second/minute/
+                                                     hour/day/week/month/year'
+                                                   ● 'FREQ=secondly/minutely/hourly/
+                                                     daily/weekly/monthly/yearly;
+                                                     INTERVAL=N'
+                                                   ● trunc(sysdate+N) + M/24（表示N天
+                                                     后的M小时会拉起调度）
+
+                  end_date     timesta   IN   是    定时任务内联调度失效时间。
+                               mp
+                               with
+                               time
+                               zone
+
+                  schedule_    text      IN   否    定时任务引用调度名称。
+                  name
+
+                  job_class    text      IN   否    定时任务类名。
+
+
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                                2782
+GaussDB
+集中式版参考                                                                                                3 存储过程
+
+
+                  参数              类型          入       是否        描述
+                                              参/      可以
+                                              出       为空
+                                              参
+
+                  enabled         boolea      IN      否         定时任务启用状态。
+                                  n
+
+                  auto_drop       boolea      IN      否         定时任务自动删除。
+                                  n
+
+                  comments        text        IN      是         备注。
+
+                  job_style       text        IN      否         定时任务行为模式，仅支持'REGULAR'。
+
+                  credential      text        IN      是         定时任务证书名。
+                  _name
+
+                  destinatio      text        IN      是         定时任务目标名。
+                  n_name
+
+
+
+
+                 示例：
+                 gaussdb=# CALL DBE_SCHEDULER.create_program('program1', 'STORED_PROCEDURE', 'select
+                 pg_sleep(1);', 3, false, 'test');
+                  create_program
+                 ----------------
+
+                 (1 row)
+
+                 gaussdb=# CALL DBE_SCHEDULER.create_schedule('schedule1', NULL, 'sysdate', NULL, 'test');
+                  create_schedule
+                 -----------------
+
+                 (1 row)
+
+                 gaussdb=# CALL DBE_SCHEDULER.create_job(job_name=>'job1', program_name=>'program1',
+                 schedule_name=>'schedule1');
+                  create_job
+                 ------------
+
+                 (1 row)
+
+                 gaussdb=# CALL DBE_SCHEDULER.drop_job('job1', true, false, 'STOP_ON_FIRST_ERROR');
+                  drop_job
+                 ----------
+
+                 (1 row)
+
+                 gaussdb=# CALL DBE_SCHEDULER.drop_schedule('schedule1');
+                  drop_schedule
+                 ---------------
+
+                 (1 row)
+
+                 gaussdb=# CALL DBE_SCHEDULER.drop_program('program1', false);
+                  drop_program
+                 --------------
+
+                 (1 row)
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                      2783
+GaussDB
+集中式版参考                                                                            3 存储过程
+
+
+                       说明
+
+                       创建'EXTERNAL_SCRIPT'类型的定时任务需要管理员赋予相关的权限和证书，且需要数据
+                       库启动用户对该外部脚本有读取权限才可以正常生效。
+
+              ●   DBE_SCHEDULER.DROP_JOB
+                  删除定时任务。
+                  DBE_SCHEDULER.DROP_JOB原型为：
+                  DBE_SCHEDULER.drop_job(
+                  job_name text,
+                  force boolean               default false,
+                  defer boolean               default false,
+                  commit_semantics text  default 'STOP_ON_FIRST_ERROR'
+                  )
+
+                       说明
+
+                       DBE_SCHEDULER.DROP_JOB可以指定一个或多个任务，也可以指定任务类进行定时任务
+                       删除。
+
+
+                  表 3-298 DBE_SCHEDULER.DROP_JOB 接口参数说明
+                   参数            类型          入     是否        描述
+                                             参/    可以
+                                             出     为空
+                                             参
+
+                   job_name      text        IN    否         定时任务或定时任务类名称，可以指定
+                                                             一个或多个，当指定多个定时任务时需
+                                                             要利用逗号隔开。
+
+                   force         boolea      IN    否         删除定时任务行为标记位：
+                                 n                           ● true：尝试先停止当前定时任务，再
+                                                               进行删除。
+                                                             ● false：如果定时任务正在运行会删除
+                                                               失败。
+
+                   defer         boolea      IN    否         删除定时任务行为标记位：
+                                 n                           ● true：允许定时任务完成后再进行删
+                                                               除。
+                                                             ● false：不允许定时任务继续执行，尝
+                                                               试进行删除。
+
+                   commit_s      text        IN    否         提交规则：
+                   emantics                                  ● 'STOP_ON_FIRST_ERROR'：在第一个
+                                                               报错之前的删除操作会提交。
+                                                             ● 'TRANSACTIONAL'：事务级提交，报
+                                                               错前的删除操作会回滚。
+                                                             ● 'ABSORB_ERRORS'：尝试越过报错，
+                                                               将成功的删除操作提交。
+
+
+
+                  示例：
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                2784
+GaussDB
+集中式版参考                                                                                                 3 存储过程
+
+                  gaussdb=# CALL DBE_SCHEDULER.create_program('program1', 'STORED_PROCEDURE', 'SELECT
+                  pg_sleep(1);', 3, false, 'test');
+                   create_program
+                  ----------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.create_schedule('schedule1', NULL, 'sysdate', NULL, 'test');
+                   create_schedule
+                  -----------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.create_job(job_name=>'job1', program_name=>'program1',
+                  schedule_name=>'schedule1');
+                   create_job
+                  ------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_job('job1', true, false, 'STOP_ON_FIRST_ERROR');
+                   drop_job
+                  ----------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_schedule('schedule1');
+                   drop_schedule
+                  ---------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_program('program1', false);
+                   drop_program
+                  --------------
+
+                  (1 row)
+
+                        说明
+
+                       commit_semantic中的'TRANSACTIONAL'选项必须在force为false的情况下才会生效。
+              ●   DBE_SCHEDULER.DROP_SINGLE_JOB
+                  删除一个定时任务。
+                  DBE_SCHEDULER.DROP_SINGLE_JOB原型为：
+                  DBE_SCHEDULER.drop_single_job(
+                  job_name text,
+                  force boolean               default false,
+                  defer boolean               default false
+                  )
+
+
+                  表 3-299 DBE_SCHEDULER.DROP_SINGLE_JOB 接口参数说明
+                   参数              类型          入       是否        描述
+                                               参/      可以
+                                               出       为空
+                                               参
+
+                   job_name        text        IN      否         定时任务或定时任务类名称。
+
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                      2785
+GaussDB
+集中式版参考                                                                                                    3 存储过程
+
+
+                   参数               类型          入       是否         描述
+                                                参/      可以
+                                                出       为空
+                                                参
+
+                   force            boolea      IN      否          删除定时任务行为标记位：
+                                    n                              ● true：尝试先停止当前定时任务，再
+                                                                     进行删除。
+                                                                   ● false：如果定时任务正在运行会删除
+                                                                     失败。
+
+                   defer            boolea      IN      否          删除定时任务行为标记位：
+                                    n                              ● true：允许定时任务完成后再进行删
+                                                                     除。
+                                                                   ● false：不允许定时任务继续执行，尝
+                                                                     试进行删除。
+
+
+
+                  示例：
+                  gaussdb=# CALL DBE_SCHEDULER.create_program('program1', 'STORED_PROCEDURE', 'SELECT
+                  pg_sleep(1);', 0, false, 'test');
+                   create_program
+                  ----------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.create_job('job1', 'program1', '2021-07-20', 'interval ''3 minute''',
+                  '2121-07-20', 'DEFAULT_JOB_CLASS', false, false,'test', 'style', NULL, NULL);
+                   create_job
+                  ------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_single_job('job1', false, false);
+                   drop_single_job
+                  -----------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_program('program1', false);
+                   drop_program
+                  --------------
+
+                  (1 row)
+
+              ●   DBE_SCHEDULER.SET_ATTRIBUTE
+                  修改定时任务属性。
+                  DBE_SCHEDULER.SET_ATTRIBUTE 5种原型为：
+                  DBE_SCHEDULER.set_attribute(
+                  name           text,
+                  attribute      text,
+                  value         boolean
+                  )
+
+                  DBE_SCHEDULER.set_attribute(
+                  name           text,
+                  attribute      text,
+                  value         text
+                  )
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                         2786
+GaussDB
+集中式版参考                                                                   3 存储过程
+
+
+                 DBE_SCHEDULER.set_attribute(
+                 name           text,
+                 attribute      text,
+                 value         datea
+                 )
+
+                 DBE_SCHEDULER.set_attribute(
+                 name           text,
+                 attribute      text,
+                 value         timestamp
+                 )
+
+                 DBE_SCHEDULER.set_attribute(
+                 name           text,
+                 attribute      text,
+                 value         timestamp with time zone
+                 )
+
+                 DBE_SCHEDULER.set_attribute(
+                 name text,
+                 attribute text,
+                 value text,
+                 value2 text                default NULL
+                 )
+
+                       说明
+
+                       ● name在这里可以指定任何DBE_SCHEDULER内部的对象。
+                       ● 必须将mapping_date_to_datea设置为on才能正常使用datea作为入参的
+                         DBE_SCHEDULER.set_attribute函数。
+
+
+                 表 3-300 DBE_SCHEDULER.SET_ATTRIBUTE 接口参数说明
+                  参数             类型         入      是否      描述
+                                            参/     可以
+                                            出      为空
+                                            参
+
+                  name           text       IN     否       对象名。
+
+                  attribute      text       IN     否       属性名。
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                       2787
+GaussDB
+集中式版参考                                                                                               3 存储过程
+
+
+                  参数             类型          入      是否        描述
+                                             参/     可以
+                                             出      为空
+                                             参
+
+                  value          boolea      IN     否         属性值，可选属性如下：
+                                 n/date/                      ● 定时任务相关：job_type、
+                                 timesta                        job_action、
+                                 mp/                            number_of_arguments、
+                                 timesta                        start_date、repeat_interval、
+                                 mp                             end_date、ob_class、enabled、
+                                 with                           auto_drop、comments、
+                                 time                           credential_name、
+                                 zone/                          destination_name、
+                                 text                           program_name、schedule_name和
+                                                                job_style。
+                                                              ● 程序相关：program_action、
+                                                                program_type、
+                                                                number_of_arguments和
+                                                                comments。
+                                                              ● 调度相关：start_date、
+                                                                repeat_interval、end_date和
+                                                                comments。
+
+                  value2         text        IN     是         额外属性值。保留参数位，目前尚不支
+                                                              持拥有额外属性值的目标属性。
+
+
+
+
+                 示例：
+                 gaussdb=# CALL DBE_SCHEDULER.create_program('program1', 'STORED_PROCEDURE', 'SELECT
+                 pg_sleep(1);', 3, false, 'test');
+                  create_program
+                 ----------------
+
+                 (1 row)
+
+                 gaussdb=# CALL DBE_SCHEDULER.set_attribute('program1', 'number_of_arguments', 0);
+                  set_attribute
+                 ---------------
+
+                 (1 row)
+
+                 gaussdb=# CALL DBE_SCHEDULER.set_attribute('program1', 'program_type', 'STORED_PROCEDURE');
+                  set_attribute
+                 ---------------
+
+                 (1 row)
+
+                 gaussdb=# CALL DBE_SCHEDULER.drop_program('program1', false);
+                  drop_program
+                 --------------
+
+                 (1 row)
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                  2788
+GaussDB
+集中式版参考                                                                                                 3 存储过程
+
+
+                        说明
+
+                       ● 不建议使用DBE_SCHEDULER.SET_ATTRIBUTE来将参数置空。
+                       ● 对象名不能通过DBE_SCHEDULER.SET_ATTRIBUTE来更改。
+              ●   DBE_SCHEDULER.RUN_JOB
+                  运行定时任务。
+                  DBE_SCHEDULER.RUN_JOB原型为
+                  DBE_SCHEDULER.run_job(
+                  job_name text,
+                  use_current_session boolean        default true
+                  )
+
+                        说明
+
+                       DBE_SCHEDULER.RUN_JOB主要用于立即运行定时作业，独立于定时任务本身的调度，甚
+                       至可以同时运行。
+
+
+                  表 3-301 DBE_SCHEDULER.RUN_JOB 接口参数说明
+                   参数              类型           入     是否            描述
+                                                参/    可以
+                                                出     为空
+                                                参
+
+                   job_name        text         IN    否             定时任务名称，可以指定一个或多个，
+                                                                    当指定多个定时任务时需要利用逗号隔
+                                                                    开。
+
+                   use_curre       boolea       IN    否             运行定时任务标志位：
+                   nt_session      n                                ● true：使用当前会话运行，主要用于
+                                                                      查看定时任务是否可以正常运行。
+                                                                    ● false：后台拉起定时任务，运行结果
+                                                                      会打印到日志中。
+
+
+
+                  示例：
+                  gaussdb=# SELECT DBE_SCHEDULER.create_job('job1','PLSQL_BLOCK','BEGIN INSERT INTO test1
+                  VALUES(12); end;',0,null,null,null,'DEFAULT_JOB_CLASS',false,false,null,null,null);
+                   create_job
+                  ------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.run_job('job1', false);
+                   run_job
+                  ---------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_job('job1', true, false, 'STOP_ON_FIRST_ERROR');
+                   drop_job
+                  ----------
+
+                  (1 row)
+
+                        说明
+
+                       use_current_session不能用于打印执行结果。
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                    2789
+GaussDB
+集中式版参考                                                                                                 3 存储过程
+
+
+              ●   DBE_SCHEDULER.RUN_BACKEND_JOB
+                  后台运行定时任务。
+                  DBE_SCHEDULER.RUN_BACKEND_JOB原型为：
+                  DBE_SCHEDULER.run_backend_job(
+                  job_name text
+                  )
+
+
+                  表 3-302 DBE_SCHEDULER.RUN_BACKEND_JOB 接口参数说明
+                   参数               类型           入参/        是否可以           描述
+                                                 出参         为空
+
+                   job_name         text         IN         否              定时任务名称。
+
+
+
+
+                  示例：
+                  gaussdb=# SELECT DBE_SCHEDULER.create_job('job1','PLSQL_BLOCK','BEGIN INSERT INTO test1
+                  VALUES(12); end;',0,null,null,null,'DEFAULT_JOB_CLASS',false,false,null,null,null);
+                   create_job
+                  ------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.run_backend_job('job1');
+                   run_backend_job
+                  -----------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_job('job1', true, false, 'STOP_ON_FIRST_ERROR');
+                   drop_job
+                  ----------
+
+                  (1 row)
+
+              ●   DBE_SCHEDULER.RUN_FOREGROUND_JOB
+                  当前会话运行定时任务。仅支持运行external类型任务。
+                  返回值：text
+                  DBE_SCHEDULER.RUN_FOREGROUND_JOB原型为：
+                  DBE_SCHEDULER.run_foreground_job(
+                  job_name text
+                  )return text
+
+
+                  表 3-303 DBE_SCHEDULER.RUN_FOREGROUND_JOB 接口参数说明
+                   参数               类型           入参/       是否可以            描述
+                                                 出参        为空
+
+                   job_name         text         IN        否               定时任务名称。
+
+
+
+
+                  示例：
+                  gaussdb=# CREATE USER test1 IDENTIFIED BY '*********';
+                  NOTICE: The encrypted password contains MD5 ciphertext, which is not secure.
+                  CREATE ROLE
+                  gaussdb=# SELECT DBE_SCHEDULER.create_credential('cre_1', 'test1', '*********');
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                   2790
+GaussDB
+集中式版参考                                                                                                 3 存储过程
+
+                   create_credential
+                  -------------------
+
+                  (1 row)
+
+                  gaussdb=# SELECT DBE_SCHEDULER.create_job(job_name=>'job1', job_type=>'EXTERNAL_SCRIPT',
+                  job_action=>'/usr/bin/pwd', enabled=>true, auto_drop=>false, credential_name => 'cre_1');
+                   create_job
+                  ------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.run_foreground_job('job1');
+                    run_foreground_job
+                  ---------------------------------
+                   Host key verification failed.\r+
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_job('job1', true, false, 'STOP_ON_FIRST_ERROR');
+                   drop_job
+                  ----------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_credential('cre_1', false);
+                   drop_credential
+                  -----------------
+
+                  (1 row)
+
+                  gaussdb=# DROP USER test1;
+                  DROP ROLE
+
+              ●   DBE_SCHEDULER.STOP_JOB
+                  终止定时任务。
+                  DBE_SCHEDULER.STOP_JOB原型为：
+                  DBE_SCHEDULER.stop_job(
+                  job_name text,
+                  force boolean                  default false,
+                  commit_semantics text              default 'STOP_ON_FIRST_ERROR'
+                  )
+
+
+                  表 3-304 DBE_SCHEDULER.STOP_JOB 接口参数说明
+                   参数                   类型       入     是否       描述
+                                                 参/    可以
+                                                 出     为空
+                                                 参
+
+                   job_name             text     IN    否        定时任务或定时任务类名称，可以指定
+                                                                一个或多个，当指定多个定时任务时需
+                                                                要利用逗号隔开。
+
+                   force                boolea   IN    否        删除定时任务行为标记位：
+                                        n                       ● true：调度器会发送终止信号立即结
+                                                                  束任务线程。
+                                                                ● false：调度器会尝试利用打断信号终
+                                                                  止定时任务线程。
+
+
+
+
+文档版本 01 (2026-04-30)                      版权所有 © 华为云计算技术有限公司                                              2791
+GaussDB
+集中式版参考                                                                                                 3 存储过程
+
+
+                   参数              类型          入      是否        描述
+                                               参/     可以
+                                               出      为空
+                                               参
+
+                   commit_s        text        IN     否         提交规则：
+                   emantics                                     ● 'STOP_ON_FIRST_ERROR'：在第一个
+                                                                  报错之前的打断操作会提交。
+                                                                ● 'ABSORB_ERRORS'：尝试越过报错，
+                                                                  将成功的打断操作提交。
+
+
+
+
+                  示例：
+                  gaussdb=# SELECT dbe_scheduler.create_job('job1','PLSQL_BLOCK','BEGIN INSERT INTO test1
+                  VALUES(12); end;',0,null,null,null,'DEFAULT_JOB_CLASS',false,false,null,null,null);
+                   create_job
+                  ------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.stop_job('job1', true, 'STOP_ON_FIRST_ERROR');
+                   stop_job
+                  ----------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_job('job1', true, false, 'STOP_ON_FIRST_ERROR');
+                   drop_job
+                  ----------
+
+                  (1 row)
+
+              ●   DBE_SCHEDULER.STOP_SINGLE_JOB
+                  终止单个定时任务。
+                  DBE_SCHEDULER.STOP_SINGLE_JOB原型为：
+                  DBE_SCHEDULER.stop_single_job(
+                  job_name text,
+                  force boolean               default false
+                  )
+
+
+                  表 3-305 DBE_SCHEDULER.STOP_SINGLE_JOB 接口参数说明
+
+                   参数              类型          入      是否        描述
+                                               参/     可以
+                                               出      为空
+                                               参
+
+                   job_name        text        IN     否         定时任务或定时任务类名称。
+
+                   force           boolea      IN     否         删除定时任务行为标记位：
+                                   n                            ● true：调度器会发送终止信号立即结
+                                                                  束任务线程。
+                                                                ● false：调度器会尝试利用打断信号终
+                                                                  止定时任务线程。
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                     2792
+GaussDB
+集中式版参考                                                                                                 3 存储过程
+
+                  示例：
+                  gaussdb=# SELECT dbe_scheduler.create_job('job1','PLSQL_BLOCK','BEGIN INSERT INTO test1
+                  VALUES(12); end;',0,null,null,null,'DEFAULT_JOB_CLASS',false,false,null,null,null);
+                   create_job
+                  ------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.stop_single_job('job1', true);
+                   stop_single_job
+                  -----------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_job('job1', true, false, 'STOP_ON_FIRST_ERROR');
+                   drop_job
+                  ----------
+
+                  (1 row)
+
+              ●   DBE_SCHEDULER.GENERATE_JOB_NAME
+                  生成定时任务名称。
+                  DBE_SCHEDULER.GENERATE_JOB_NAME原型为：
+                  DBE_SCHEDULER.generate_job_name(
+                  prefix text              default 'JOB$_'
+                  )return text
+
+
+                  表 3-306 DBE_SCHEDULER.GENERATE_JOB_NAME 接口参数说明
+
+                   参数              类型          入      是否        描述
+                                               参/     可以
+                                               出      为空
+                                               参
+
+                   prefix          text        IN     否         生成名称的前缀，默认为'JOB$_'，反复
+                                                                执行生成的定时任务名为：
+                                                                job$_1, job$_2, job$_3 ...。
+
+
+
+
+                  示例：
+                  gaussdb=# CALL DBE_SCHEDULER.generate_job_name();
+                   generate_job_name
+                  -------------------
+                   JOB$_1
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.generate_job_name();
+                   generate_job_name
+                  -------------------
+                   JOB$_2
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.generate_job_name('job');
+                   generate_job_name
+                  -------------------
+                   job3
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.generate_job_name('job');
+                   generate_job_name
+                  -------------------
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                     2793
+GaussDB
+集中式版参考                                                                                          3 存储过程
+
+                   job4
+                  (1 row)
+
+                        说明
+
+                       首次执行DBE_SCHEDULER.GENERATE_JOB_NAME会在public下创建一个临时序列用于保
+                       存当前名称的序号。由于普通用户没有在public下的CREATE权限，因此如果普通用户在当
+                       前数据库下第一次调用该函数，会失败，需要授权该普通用户在public下的CREATE权限，
+                       或者使用有该权限的用户调用该接口以创建临时序列。
+              ●   DBE_SCHEDULER.CREATE_PROGRAM
+                  创建程序。
+                  DBE_SCHEDULER.CREATE_PROGRAM原型为：
+                  DBE_SCHEDULER.create_program(
+                  program_name text,
+                  program_type text,
+                  program_action text,
+                  number_of_arguments integer      default 0,
+                  enabled boolean             default false,
+                  comments text               default NULL
+                  )
+
+
+                  表 3-307 DBE_SCHEDULER.CREATE_PROGRAM 接口参数说明
+                   参数                  类型          入参/          是否可      描述
+                                                   出参           以为空
+
+                   program_nam         text        IN           否        程序名称。
+                   e
+
+                   program_type        text        IN           否        程序类型，可用类型为：
+                                                                         ● 'PLSQL_BLOCK'：匿名存
+                                                                           储过程块。
+                                                                         ● 'STORED_PROCEDURE'：
+                                                                           保存的存储过程。
+                                                                         ● 'EXTERNAL_SCRIPT'：外
+                                                                           部脚本。
+
+                   program_actio       text        IN           否        程序操作。
+                   n
+
+                   number_of_ar        integer     IN           否        程序采用的参数数量。
+                   guments
+
+                   enabled             boolea      IN           否        程序启用状态。
+                                       n
+
+                   comments            text        IN           是        备注。
+
+
+
+                  示例：
+                  gaussdb=# CALL DBE_SCHEDULER.create_program('program1', 'STORED_PROCEDURE', 'SELECT
+                  pg_sleep(1);', 3, false, 'test');
+                   create_program
+                  ----------------
+
+                  (1 row)
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                  2794
+GaussDB
+集中式版参考                                                                                          3 存储过程
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_program('program1', false);
+                   drop_program
+                  --------------
+
+                  (1 row)
+
+              ●   DBE_SCHEDULER.DEFINE_PROGRAM_ARGUMENT
+                  定义程序参数。修正带默认值default_value字段的接口默认转换成小写行为，对
+                  字符大小写做出区分。
+                  DBE_SCHEDULER.DEFINE_PROGRAM_ARGUMENT原型为：
+                  DBE_SCHEDULER.define_program_argument(
+                  program_name text,
+                  argument_position integer,
+                  argument_name text            default NULL,
+                  argument_type text,
+                  out_argument boolean           default false
+                  )
+
+                  -- 带有默认值 --
+                  DBE_SCHEDULER.define_program_argument(
+                  program_name text,
+                  argument_position integer,
+                  argument_name text            default NULL,
+                  argument_type text,
+                  default_value text,
+                  out_argument boolean           default false
+                  )
+
+
+                  表 3-308 DBE_SCHEDULER.DEFINE_PROGRAM_ARGUMENT 接口参数说明
+                   参数             类型         入      是否           描述
+                                             参/     可以
+                                             出      为空
+                                             参
+
+                   program_       text       IN     否            程序名称。
+                   name
+
+                   argument       integer    IN     否            参数位置。
+                   _position
+
+                   argument       text       IN     否            参数名称。
+                   _name
+
+                   argument       text       IN     否            参数类型。
+                   _type
+
+                   default_va     text       IN     否            默认值。
+                   lue
+
+                   out_argu       boolea     IN     否            预留参数。
+                   ment           n
+
+
+
+                  示例：
+                  gaussdb=# CALL DBE_SCHEDULER.create_program('program1', 'STORED_PROCEDURE', 'SELECT
+                  pg_sleep(1);', 2, false, 'test');
+                  create_program
+                  ----------------
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                  2795
+GaussDB
+集中式版参考                                                                                                3 存储过程
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.define_program_argument('program1', 1, 'pa1', 'type1', false);
+                   define_program_argument
+                  -------------------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.define_program_argument('program1', 1, 'pa1', 'type1', 'value1',
+                  false);
+                   define_program_argument
+                  -------------------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_program('program1', false);
+                   drop_program
+                  --------------
+
+                  (1 row)
+
+              ●   DBE_SCHEDULER.DROP_PROGRAM
+                  删除程序。
+                  DBE_SCHEDULER.DROP_PROGRAM原型为：
+                  DBE_SCHEDULER.drop_program(
+                  program_name text,
+                  force boolean             default false
+                  )
+
+
+                  表 3-309 DBE_SCHEDULER.DROP_PROGRAM 接口参数说明
+
+                   参数              类型          入      是否         描述
+                                               参/     可以
+                                               出      为空
+                                               参
+
+                   program_        text        IN     否          程序名称。
+                   name
+
+                   force           boolea      IN     否          删除程序行为标记位：
+                                   n                             ● true：在删除程序之前，将禁用应用
+                                                                   该程序的所有作业。
+                                                                 ● false：该程序不能被任何作业引用，
+                                                                   否则会发送错误。
+
+
+
+
+                  示例：
+                  gaussdb=# CALL DBE_SCHEDULER.create_program('program1', 'STORED_PROCEDURE', 'SELECT
+                  pg_sleep(1);', 2, false, 'test');
+                  create_program
+                  ----------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_program('program1', false);
+                   drop_program
+                  --------------
+
+                  (1 row)
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                         2796
+GaussDB
+集中式版参考                                                                                          3 存储过程
+
+
+              ●   DBE_SCHEDULER.DROP_SINGLE_PROGRAM
+                  删除单个程序。
+                  DBE_SCHEDULER.DROP_SINGLE_PROGRAM原型为：
+                  DBE_SCHEDULER.drop_single_program(
+                  program_name text,
+                  force boolean               default false
+                  )
+
+
+                  表 3-310 DBE_SCHEDULER.DROP_SINGLE_PROGRAM 接口参数说明
+                   参数             类型          入      是否        描述
+                                              参/     可以
+                                              出      为空
+                                              参
+
+                   program_       text        IN     否         程序名称。
+                   name
+
+                   force          boolea      IN     否         删除程序行为标记位：
+                                  n                            ● true：在删除程序之前，将禁用应用
+                                                                 该程序的所有作业。
+                                                               ● false：该程序不能被任何作业引用，
+                                                                 否则会发送错误。
+
+
+
+
+                  示例：
+                  gaussdb=# CALL DBE_SCHEDULER.create_program('program1', 'STORED_PROCEDURE', 'SELECT
+                  pg_sleep(1);', 2, false, 'test');
+                  create_program
+                  ----------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_single_program('program1', false);
+                   drop_single_program
+                  ---------------------
+
+                  (1 row)
+
+              ●   DBE_SCHEDULER.SET_JOB_ARGUMENT_VALUE
+                  设置定时任务参数值。argument_value字段支持赋空入参。
+                  DBE_SCHEDULER.SET_JOB_ARGUMENT_VALUE原型为：
+                  DBE_SCHEDULER.set_job_argument_value(
+                  job_name text,
+                  argument_position integer,
+                  argument_value text
+                  )
+
+                  DBE_SCHEDULER.set_job_argument_value(
+                  job_name text,
+                  argument_name text,
+                  argument_value text
+                  )
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                 2797
+GaussDB
+集中式版参考                                                                                                 3 存储过程
+
+                  表 3-311 DBE_SCHEDULER.SET_JOB_ARGUMENT_VALUE 接口参数说明
+                   参数              类型           入      是否         描述
+                                                参/     可以
+                                                出      为空
+                                                参
+
+                   job_name        text         IN     否          定时任务名称。
+
+                   argument        integer      IN     否          参数位置。
+                   _position
+
+                   argument        text         IN     是          参数名称。
+                   _name
+
+                   argument        text         IN     是          参数值。
+                   _value
+
+
+
+
+                  示例：
+                  gaussdb=# CALL dbe_scheduler.create_job('job1','EXTERNAL_SCRIPT','BEGIN INSERT INTO test1
+                  VALUES(12); end;',2,null,null,null,'DEFAULT_JOB_CLASS',false,false,null,null,null);
+                   create_job
+                  ------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.set_job_argument_value('job1', 1, 'value1');
+                   set_job_argument_value
+                  ------------------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_job('job1', true, false, 'STOP_ON_FIRST_ERROR');
+                   drop_job
+                  ----------
+
+                  (1 row)
+
+              ●   DBE_SCHEDULER.CREATE_SCHEDULE
+                  创建调度。
+                  DBE_SCHEDULER.CREATE_SCHEDULE原型为：
+                  DBE_SCHEDULER.create_schedule(
+                  schedule_name text,
+                  start_date timestamp with time zone    default NULL,
+                  repeat_interval text,
+                  end_date timestamp with time zone       default NULL,
+                  comments text                   default NULL
+                  )
+
+
+                  表 3-312 DBE_SCHEDULER.CREATE_SCHEDULE 接口参数说明
+                   参数              类型           入      是否         描述
+                                                参/     可以
+                                                出      为空
+                                                参
+
+                   schedule_       text         IN     否          调度名称。
+                   name
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                      2798
+GaussDB
+集中式版参考                                                                                                  3 存储过程
+
+
+                  参数              类型           入      是否         描述
+                                               参/     可以
+                                               出      为空
+                                               参
+
+                  start_date      timesta      IN     是          调度开始时间。
+                                  mp
+                                  with
+                                  time
+                                  zone
+
+                  repeat_int      text         IN     否          调度重复频率。
+                  erval
+
+                  end_date        timesta      IN     是          调度结束时间。
+                                  mp
+                                  with
+                                  time
+                                  zone
+
+                  comments        text         IN     是          备注。
+
+
+
+
+                 示例：
+                 gaussdb=# CALL DBE_SCHEDULER.create_schedule('schedule1', sysdate, 'sysdate + 3 / (24 * 60 * 60)',
+                 null, 'test1');
+                  create_schedule
+                 -----------------
+
+                 (1 row)
+
+                 gaussdb=# CALL DBE_SCHEDULER.create_schedule('schedule2', sysdate, 'FREQ=DAILY; BYHOUR=6;',
+                 null, 'test1');
+                  create_schedule
+                 -----------------
+
+                 (1 row)
+
+                 gaussdb=# CALL DBE_SCHEDULER.create_schedule('schedule3', sysdate, 'FREQ=DAILY; BYHOUR=6;');
+                  create_schedule
+                 -----------------
+
+                 (1 row)
+
+                 gaussdb=# CALL DBE_SCHEDULER.drop_schedule('schedule1');
+                  drop_single_schedule
+                 ----------------------
+
+                 (1 row)
+
+                 gaussdb=# CALL DBE_SCHEDULER.drop_schedule('schedule2', false);
+                  drop_single_schedule
+                 ----------------------
+
+                 (1 row)
+
+                 gaussdb=# CALL DBE_SCHEDULER.drop_schedule('schedule3', true);
+                  drop_single_schedule
+                 ----------------------
+
+                 (1 row)
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                        2799
+GaussDB
+集中式版参考                                                                                                   3 存储过程
+
+
+              ●   DBE_SCHEDULER.DROP_SCHEDULE
+                  删除调度。
+                  DBE_SCHEDULER.DROP_SCHEDULE原型为：
+                  DBE_SCHEDULER.drop_schedule(
+                  schedule_name text,
+                  force boolean              default false
+                  )
+
+
+                  表 3-313 DBE_SCHEDULER.DROP_SCHEDULE 接口参数说明
+                   参数              类型           入      是否         描述
+                                                参/     可以
+                                                出      为空
+                                                参
+
+                   schedule_       text         IN     否          调度名称。
+                   name
+
+                   force           boolea       IN     否          删除调度行为标记位：
+                                   n                              ● true：在删除调度之前，将禁用使用
+                                                                    此调度的任何作业或窗口。
+                                                                  ● false：调度不能被任何作业或窗口引
+                                                                    用，否则会发生错误。
+
+
+
+                  示例：
+                  gaussdb=# CALL DBE_SCHEDULER.create_schedule('schedule1', sysdate, 'sysdate + 3 / (24 * 60 * 60)',
+                  null, 'test1');
+                   create_schedule
+                  -----------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.create_schedule('schedule2', sysdate, 'FREQ=DAILY; BYHOUR=6;',
+                  null, 'test1');
+                   create_schedule
+                  -----------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.create_schedule('schedule3', sysdate, 'FREQ=DAILY; BYHOUR=6;');
+                   create_schedule
+                  -----------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_schedule('schedule1');
+                   drop_single_schedule
+                  ----------------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_schedule('schedule2', false);
+                   drop_single_schedule
+                  ----------------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_schedule('schedule3', true);
+                   drop_single_schedule
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                        2800
+GaussDB
+集中式版参考                                                                                                   3 存储过程
+
+                  ----------------------
+
+                  (1 row)
+
+              ●   DBE_SCHEDULER.DROP_SINGLE_SCHEDULE
+                  删除单个调度。
+                  DBE_SCHEDULER.DROP_SINGLE_SCHEDULE函数原型为：
+                  DBE_SCHEDULER.drop_single_schedule(
+                  schedule_name text,
+                  force boolean               default false
+                  )
+
+
+                  表 3-314 DBE_SCHEDULER.DROP_SINGLE_SCHEDULE 接口参数说明
+                   参数                  类型       入      是否         描述
+                                                参/     可以
+                                                出      为空
+                                                参
+
+                   schedule_           text     IN     否          调度名称。
+                   name
+
+                   force               boolea   IN     否          删除调度行为标记位：
+                                       n                          ● true：在删除调度之前，将禁用使用
+                                                                    此调度的任何作业或窗口。
+                                                                  ● false：调度不能被任何作业或窗口引
+                                                                    用，否则会发生错误。
+
+
+
+                  示例：
+                  gaussdb=# CALL DBE_SCHEDULER.create_schedule('schedule1', sysdate, 'sysdate + 3 / (24 * 60 * 60)',
+                  null, 'test1');
+                   create_schedule
+                  -----------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.create_schedule('schedule2', sysdate, 'FREQ=DAILY; BYHOUR=6;',
+                  null, 'test1');
+                   create_schedule
+                  -----------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.create_schedule('schedule3', sysdate, 'FREQ=DAILY; BYHOUR=6;');
+                   create_schedule
+                  -----------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_single_schedule('schedule1');
+                   drop_single_schedule
+                  ----------------------
+
+                  (1 row)
+
+                  gaussdb=# CALL DBE_SCHEDULER.drop_single_schedule('schedule2', false);
+                   drop_single_schedule
+                  ----------------------
+
+                  (1 row)
+
+
+文档版本 01 (2026-04-30)                       版权所有 © 华为云计算技术有限公司                                                   2801
+

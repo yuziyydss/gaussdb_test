@@ -1,0 +1,95 @@
+# 存储过程 — DBE_TASK + DBE_SCHEDULER 完整接口 — 结构化参考事实
+document: "集中式版参考 / 3 存储过程 / 3.12.2 DBE_TASK + DBE_SCHEDULER"
+version: "V2.0-10.0.0"
+parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+extraction_date: "2026-09-14"
+extraction_method: pdftotext -layout 逐页精读
+verification_status: confirmed
+
+facts:
+  # DBE_TASK
+  - id: dbe_task_submit
+    type: syntax
+    statement: "DBE_TASK.SUBMIT(what IN TEXT, next_time IN TIMESTAMP DEFAULT sysdate, interval_time IN TEXT DEFAULT 'null', id OUT INTEGER) RETURN INTEGER：提交定时任务。作业号由系统自动生成。支持DDL（不支持DB相关）、DML、匿名块、存储过程调用或混合。"
+    source_anchor: "3.12.2 表3-428"
+    status: confirmed
+    verification_method: 逐页精读（页2971-2972）
+
+  - id: dbe_task_submit_call_method
+    type: behavior_oracle
+    statement: "SUBMIT可通过CALL或SELECT调用。CALL需填出参；SELECT可不填出参。存储过程中需用PERFORM调用。系统默认将当前数据库和用户名与定时任务绑定。"
+    source_anchor: "3.12.2 表3-428说明"
+    status: confirmed
+    verification_method: 逐页精读（页2972）
+
+  - id: dbe_task_submit_schema
+    type: constraint
+    statement: "提交的SQL如使用非PUBLIC schema，应指定表或函数的schema，或先执行SET current_schema=xxx。"
+    source_anchor: "3.12.2 表3-428说明"
+    status: confirmed
+    verification_method: 逐页精读（页2972）
+
+  - id: dbe_task_cancel
+    type: syntax
+    statement: "DBE_TASK.CANCEL(id IN INTEGER)：通过作业号删除定时任务。"
+    source_anchor: "3.12.2 表3-431"
+    status: confirmed
+    verification_method: 逐页精读（页2973）
+
+  - id: dbe_task_run
+    type: syntax
+    statement: "DBE_TASK.RUN(id IN INTEGER [, force IN BOOLEAN])：运行定时任务。force=TRUE时无视next_time强制运行。"
+    source_anchor: "3.12.2 表3-432"
+    status: confirmed
+    verification_method: 逐页精读（页2973-2974）
+
+  - id: dbe_task_finish
+    type: syntax
+    statement: "DBE_TASK.FINISH(id IN INTEGER, success IN BOOLEAN [, next_time IN TIMESTAMP])：禁用或启用定时任务。success=FALSE禁用。next_time设置下次运行时间。"
+    source_anchor: "3.12.2 表3-433"
+    status: confirmed
+    verification_method: 逐页精读（页2974）
+
+  - id: dbe_task_update
+    type: syntax
+    statement: "DBE_TASK.UPDATE(id IN INTEGER, what IN TEXT [, next_time IN TIMESTAMP [, interval_time IN TEXT]])：修改定时任务的内容、下次执行时间和执行间隔。"
+    source_anchor: "3.12.2 表3-434"
+    status: confirmed
+    verification_method: 逐页精读（页2974-2975）
+
+  # DBE_SCHEDULER
+  - id: dbe_scheduler_create_job
+    type: syntax
+    statement: "DBE_SCHEDULER.CREATE_JOB(job_name IN VARCHAR2, program_type IN VARCHAR2, program_action IN VARCHAR2, ...)：创建定时任务。支持存储过程/匿名块/外部命令。"
+    source_anchor: "3.12.2 表3-271"
+    status: confirmed
+    verification_method: 逐页精读（页2828-2829）
+
+  - id: dbe_scheduler_create_program
+    type: syntax
+    statement: "DBE_SCHEDULER.CREATE_PROGRAM(program_name IN VARCHAR2, program_type IN VARCHAR2, program_action IN VARCHAR2, ...)：创建程序（定义要执行的内容）。"
+    source_anchor: "3.12.2 表3-272"
+    status: confirmed
+    verification_method: 逐页精读（页2830）
+
+  - id: dbe_scheduler_create_schedule
+    type: syntax
+    statement: "DBE_SCHEDULER.CREATE_SCHEDULE(schedule_name IN VARCHAR2, start_date IN TIMESTAMP, repeat_interval IN VARCHAR2, ...)：创建调度（定义执行时间计划）。"
+    source_anchor: "3.12.2 表3-273"
+    status: confirmed
+    verification_method: 逐页精读（页2832）
+
+  - id: dbe_scheduler_vs_task
+    type: behavior_oracle
+    statement: "DBE_TASK适合简单定时任务（直接提交SQL）。DBE_SCHEDULER提供更复杂的调度：程序+调度+任务分离，支持证书、外部命令、依赖管理。"
+    source_anchor: "3.12.2 综合分析"
+    status: confirmed
+    verification_method: 综合接口定义分析
+
+  # 使用流程
+  - id: dbe_task_usage_pattern
+    type: behavior_oracle
+    statement: "DBE_TASK标准流程：1.SUBMIT提交任务（指定SQL/next_time/interval）→ 2.RUN可手动运行 → 3.UPDATE可修改 → 4.FINISH可禁用/启用 → 5.CANCEL删除任务。"
+    source_anchor: "3.12.2 综合分析"
+    status: confirmed
+    verification_method: 综合接口定义分析
