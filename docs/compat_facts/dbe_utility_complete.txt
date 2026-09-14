@@ -1,0 +1,1019 @@
+GaussDB
+集中式版参考                                                                3 存储过程
+
+
+              ●   JOB在定时执行过程中，需要在当前JOB所属的数据库主节点上实时更新该JOB的
+                  运行状态、最近执行开始时间、最近执行结束时间、下次开始时间和失败次数
+                  （如果JOB执行失败）等相关参数信息到PG_JOB系统表中，并同步到其他数据库
+                  主节点，保证JOB信息的一致性。如果其他数据库主节点存在节点故障，那么JOB
+                  所属数据库主节点会同步超时重发的操作，导致JOB执行时间变长，但数据库主节
+                  点间同步超时失败后，原数据库主节点上PG_JOB表中JOB的相关信息仍然能正常
+                  更新，且JOB能正常执行成功。当故障数据库主节点恢复正常后，可能出现该数据
+                  库主节点上PG_JOB表中当前JOB的执行时间、运行状态等参数与原数据库主节点
+                  上不一致的情况，需要原数据库主节点上再次执行该JOB后才能保证JOB信息的同
+                  步。
+              ●   对于并发同时有多个JOB到达执行时间的场景，由于会为每个JOB创建一个线程来
+                  执行JOB，并且系统内部启动每个线程的时间会有延迟，因此会导致同时并发执行
+                  的JOB的开始时间有延迟，每个JOB的延迟时间在0.1ms左右。
+
+3.12.2.22 DBE_UTILITY
+
+接口介绍
+              高级功能包DBE_UTILITY支持的所有接口请参见表3-438。
+
+              表 3-438 DBE_UTILITY
+
+               接口名称                             描述
+
+               DBE_UTILITY.FORMAT_ERROR_BACK    输出存储过程异常的调用堆栈。
+               TRACE
+
+               DBE_UTILITY.FORMAT_ERROR_STACK   输出存储过程异常的具体信息。
+
+               DBE_UTILITY.FORMAT_CALL_STACK    输出存储过程的调用堆栈。
+
+               DBE_UTILITY.GET_TIME             输出当前时间，一般用于做差得到执行
+                                                时长。
+
+               DBE_UTILITY.CANONICALIZE         用于给表名字符串做规范。
+
+               DBE_UTILITY.COMMA_TO_TABLE       将用逗号隔开的名字列表的字符串转换
+                                                为PL/SQL表名称列表。
+
+               DBE_UTILITY.DB_VERSION           返回数据库的版本号和兼容性版本号。
+
+               DBE_UTILITY.EXEC_DDL_STATEMENT   用于执行用户输入的DDL语句。
+
+               DBE_UTILITY.EXPAND_SQL_TEXT_PR   用于展开SQL查询的视图。
+               OC
+
+               DBE_UTILITY.GET_CPU_TIME         返回当前CPU处理时间的测量值。
+
+               DBE_UTILITY.GET_ENDIANNESS       用于获取数据库所在平台字节序的大小
+                                                端信息。
+
+               DBE_UTILITY.GET_HASH_VALUE       返回一个给定字符串的哈希值。
+
+               DBE_UTILITY.GET_SQL_HASH         输出一个给定字符串的哈希值，该存储
+                                                过程在不打开proc_outparam_override
+                                                时使用。
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                         2932
+GaussDB
+集中式版参考                                                                            3 存储过程
+
+
+               接口名称                                      描述
+
+               DBE_UTILITY.IS_BIT_SET                    用于检查参数n是否存在于r。
+
+               DBE_UTILITY.IS_CLUSTER_DATABASE           用于判断当前数据库是否在数据库集群
+                                                         模式下运行。
+
+               DBE_UTILITY.NAME_RESOLVE                  解析给定的对象名称，包括同义词翻译
+                                                         和必要的授权检查。
+
+               DBE_UTILITY.NAME_TOKENIZE                 用于解析a [. b [. c ]][@ dblink ]形式的
+                                                         名字。
+
+               DBE_UTILITY.OLD_CURRENT_SCHEM             返回当前用户环境下的数据库模式名
+               A                                         称。
+
+               DBE_UTILITY.OLD_CURRENT_USER              返回当前用户的名称。
+
+               DBE_UTILITY.TABLE_TO_COMMA                将PL/SQL中的表名转换为用逗号隔开的
+                                                         名字列表的字符串。
+
+               DBE_UTILITY.GET_SQL_HASH_FUNC             功能同DBE_UTILITY.GET_SQL_HASH，
+                                                         该函数在打开proc_outparam_override
+                                                         时使用。
+
+
+
+
+                  说明
+
+                  该包除了以上接口，其他内部接口请参见DBE_UTILITY。
+              ●   DBE_UTILITY.FORMAT_ERROR_BACKTRACE
+                  存储过程FORMAT_ERROR_BACKTRACE返回在执行过程中出现错误时，出现错误
+                  位置的调用堆栈。DBE_UTILITY.FORMAT_ERROR_BACKTRACE函数原型为：
+                  DBE_UTILITY.FORMAT_ERROR_BACKTRACE()
+                  RETURN TEXT;
+
+              ●   DBE_UTILITY.FORMAT_ERROR_STACK
+                  存储过程FORMAT_ERROR_STACK返回在执行过程中出现错误时，出现错误位置
+                  的具体信息。DBE_UTILITY.FORMAT_ERROR_STACK函数原型为：
+                  DBE_UTILITY.FORMAT_ERROR_STACK()
+                  RETURN TEXT;
+
+              ●   DBE_UTILITY.FORMAT_CALL_STACK
+                  存储过程FORMAT_CALL_STACK设置输出函数调用堆栈。
+                  DBE_UTILITY.FORMAT_CALL_STACK函数原型为：
+                  DBE_UTILITY.FORMAT_CALL_STACK()
+                  RETURN TEXT;
+
+              ●   DBE_UTILITY.GET_TIME
+                  存储过程GET_TIME设置输出时间，通常用于做差，单独的返回值没有意义。
+                  DBE_UTILITY.GET_TIME函数原型为：
+                  DBE_UTILITY.GET_TIME()
+                  RETURN BIGINT;
+
+              ●   DBE_UTILITY.CANONICALIZE
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                2933
+GaussDB
+集中式版参考                                                                      3 存储过程
+
+                  存储过程CANONICALIZE用于给表名字符串做规范。该过程处理单个保留字或关
+                  键字，并删除单个标识符的空白，以便“table”成为TABLE。
+                  DBE_UTILITY.CANONICALIZE函数原型为：
+                  DBE_UTILITY.CANONICALIZE(
+                     name     IN VARCHAR2,
+                     canon_name OUT VARCHAR2,
+                     canon_len IN BINARY_INTEGER DEFAULT 1024
+                  );
+
+
+                  表 3-439 DBE_UTILITY.CANONICALIZE 接口说明
+                   参数名称          类型                入参/     是否可   描述
+                                                   出参      以为空
+
+                   name          VARCHAR2          IN      否     待规范的字符串。
+
+                   canon_na      VARCHAR2          OUT     是     规范好的字符串。
+                   me
+
+                   canon_le      BINARY_INT        IN      是     要规范的字符串长度，默认值
+                   n             EGER                            为1024（以字节为单位）。
+                                                                 若此参数的值小于待规范的字
+                                                                 符串的实际长度（字节），则
+                                                                 会以字节为粒度截断字符串。
+
+
+              ●   DBE_UTILITY.COMMA_TO_TABLE
+                  存储过程COMMA_TO_TABLE将用逗号隔开的名字列表的字符串转换为PL/SQL表
+                  名称列表。DBE_UTILITY.COMMA_TO_TABLE函数原型为：
+                  DBE_UTILITY.COMMA_TO_TABLE (
+                     list IN VARCHAR2,
+                     tablen OUT BINARY_INTEGER,
+                     tab OUT VARCHAR2[]
+                  );
+
+
+                  表 3-440 DBE_UTILITY.COMMA_TO_TABLE 接口说明
+                   参数名        类型                  入参/    是否可以    描述
+                   称                              出参     为空
+
+                   list       VARCHAR2            IN     否       逗号隔开的名字列表字符串。
+
+                   tablen     BINARY_INTE         OUT    是       列表名字的个数。
+                              GER
+
+                   tab        VARCHAR2            OUT    是       转换后的表名称列表。
+
+
+              ●   DBE_UTILITY.DB_VERSION
+                  存储过程DB_VERSION返回数据库的版本号和兼容性版本号。
+                  DBE_UTILITY.DB_VERSION函数原型为：
+                  DBE_UTILITY.DB_VERSION (
+                     version OUT VARCHAR2
+                  );
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                         2934
+GaussDB
+集中式版参考                                                                     3 存储过程
+
+                  表 3-441 DBE_UTILITY.DB_VERSION 接口说明
+                   参数名        类型            入参/出       是否可以为   描述
+                   称                        参          空
+
+                   version    VARCHAR       OUT        否       输出参数，表示内部的数据库
+                              2                                软件版本信息，是一个字符
+                                                               串。
+
+
+              ●   DBE_UTILITY.EXEC_DDL_STATEMENT
+                  存储过程EXEC_DDL_STATEMENT用于执行用户输入的DDL语句。DBE_UTILITY.
+                  EXEC_DDL_STATEMENT函数原型为：
+                  DBE_UTILITY. EXEC_DDL_STATEMENT (
+                     parse_string IN TEXT
+                  );
+
+
+                  表 3-442 DBE_UTILITY.EXEC_DDL_STATEMENT 接口说明
+                   参数名称           类型       入参/出参       是否可以为   描述
+                                                       空
+
+                   parse_strin    TEXT     IN          是       需要执行的DDL语句。
+                   g
+
+
+              ●   DBE_UTILITY.EXPAND_SQL_TEXT_PROC
+                  存储过程EXPAND_SQL_TEXT_PROC用于展开SQL查询的视图，会递归展开视图中
+                  的视图对象，一直展开显示到表。DBE_UTILITY.EXPAND_SQL_TEXT_PROC函数
+                  原型为：
+                  DBE_UTILITY.EXPAND_SQL_TEXT_PROC (
+                     input_sql_text IN CLOB,
+                     output_sql_text OUT CLOB
+                  );
+
+
+                  表 3-443 DBE_UTILITY.EXPAND_SQL_TEXT_PROC 接口说明
+                   参数名称            类型           入参/出   是否可以    描述
+                                                参      为空
+
+                   input_sql_te    CLOB         IN     否       输入的SQL文本。
+                   xt
+
+                   output_sql_t    CLOB         OUT    否       输出展开视图的SQL文本。
+                   ext
+
+
+
+
+                       说明
+
+                       用户输入的input_sql_text参数中，SQL语句中的对象需要增加schema前缀，否则函数会上
+                       报无法找到对象的错误。若设置behavior_compat_options参数值为
+                       bind_procedure_searchpath，则无需强制指定schema前缀。
+              ●   DBE_UTILITY.GET_CPU_TIME
+                  存储过程GET_CPU_TIME返回当前CPU处理时间的测量值（以百分之一秒为单
+                  位）。DBE_UTILITY.GET_CPU_TIME函数原型为：
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                         2935
+GaussDB
+集中式版参考                                                                     3 存储过程
+
+                  DBE_UTILITY.GET_CPU_TIME()
+                  RETURN BIGINT;
+
+              ●   DBE_UTILITY.GET_ENDIANNESS
+                  存储过程GET_ENDIANNESS用于获取数据库所在平台字节序的大小端信息。
+                  DBE_UTILITY.GET_ENDIANNESS函数原型为：
+                  DBE_UTILITY.GET_ENDIANNESS
+                  RETURN INTEGER;
+
+              ●   DBE_UTILITY.GET_HASH_VALUE
+                  存储过程GET_HASH_VALUE返回一个给定字符串的hash值。
+                  DBE_UTILITY.GET_HASH_VALUE函数原型为：
+                  DBE_UTILITY.GET_HASH_VALUE(
+                    name      IN VARCHAR2(n),
+                    base    IN INTEGER,
+                    hash_size IN INTEGER)
+                  RETURN INTEGER;
+
+
+                  表 3-444 DBE_UTILITY.GET_HASH_VALUE 接口说明
+                   参数名        类型           入参/        是否可以为空     描述
+                   称                       出参
+
+                   name       VARCHA       IN         否          待哈希转换的字符串。
+                              R2
+
+                   base       INTEGER      IN         否          返回的哈希值的起始值。
+
+                   hash_si    INTEGER      IN         否          哈希映射到的哈希表的大小。
+                   ze
+
+
+              ●   DBE_UTILITY.GET_SQL_HASH
+                  存储过程GET_SQL_HASH通过MD5算法输出一个给定字符串的hash值。
+                  DBE_UTILITY.GET_SQL_HASH函数原型为：
+                  DBE_UTILITY.GET_SQL_HASH(
+                     name       IN VARCHAR2,
+                     hash     OUT RAW,
+                     last4bytes OUT BIGINT
+                  );
+
+
+                  表 3-445 DBE_UTILITY.GET_SQL_HASH 接口说明
+                   参数名称          类型             入参/出      是否可以   描述
+                                                参         为空
+
+                   name          VARCHAR        IN        否      待哈希转换的字符串。
+                                 2
+
+                   hash          RAW            OUT       否      完整的16进制MD5哈希值。
+
+                   last4bytes    BIGINT         OUT       否      MD5哈希值的最后四字节，
+                                                                 以无符号整数形式展现。
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                         2936
+GaussDB
+集中式版参考                                                                       3 存储过程
+
+
+                        说明
+
+                       设置behavior_compat_options参数值为非proc_outparam_override参数后，请调用
+                       DBE_UTILITY.GET_SQL_HASH函数，如调用DBE_UTILITY.GET_SQL_HASH_FUNC则会发生
+                       赋值不成功。
+              ●   DBE_UTILITY.IS_BIT_SET
+                  存储过程IS_BIT_SET用于检查参数n是否存在于r。DBE_UTILITY.IS_BIT_SET函数原
+                  型为：
+                  DBE_UTILITY.IS_BIT_SET (
+                    r IN RAW,
+                    n IN INTEGER)
+                  RETURN INTEGER;
+
+
+                  表 3-446 DBE_UTILITY.IS_BIT_SET 接口说明
+                   参数名         类型            入参/出   是否可以为空      描述
+                   称                         参
+
+                   r           RAW           IN     否           4字节加上实际的十六进制字
+                                                                符串。
+
+                   n           INTEGER       IN     否           用于在二进制中判断是否存在
+                                                                该数值。
+
+
+              ●   DBE_UTILITY.IS_CLUSTER_DATABASE
+                  存储过程IS_CLUSTER_DATABASE用于判断当前数据库是否在数据库集群模式下运
+                  行。DBE_UTILITY.IS_CLUSTER_DATABASE函数原型为：
+                  DBE_UTILITY.IS_CLUSTER_DATABASE
+                  RETURN BOOLEAN;
+
+              ●   DBE_UTILITY.NAME_RESOLVE
+                  存储过程NAME_RESOLVE解析给定的对象名称，包括同义词翻译和必要的授权检
+                  查。DBE_UTILITY.NAME_RESOLVE函数原型为：
+                  DBE_UTILITY.NAME_RESOLVE (
+                     name        IN VARCHAR2,
+                     context    IN INTEGER,
+                     schema       OUT VARCHAR2,
+                     part1     OUT VARCHAR2,
+                     part2     OUT VARCHAR2,
+                     dblink    OUT VARCHAR2,
+                     part1_type OUT INTEGER,
+                     object_number OUT OID
+                  );
+
+
+                  表 3-447 DBE_UTILITY.NAME_RESOLVE 接口说明
+                   参数名称            类型         入参/   是否可以   描述
+                                              出参    为空
+
+                   name            VARCH      IN    否      待解析对象名，结构为
+                                   AR2                     [[a.]b.]c[@d]。
+
+                   context         INTEGE     IN    否      返回的hash值的起始值。
+                                   R
+
+                   schema          VARCH      OUT   否      对象所在的模式。
+                                   AR2
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                           2937
+GaussDB
+集中式版参考                                                                         3 存储过程
+
+
+                   参数名称          类型        入参/    是否可以   描述
+                                           出参     为空
+
+                   part1         VARCH     OUT    否      名称的第一部分，该字段的类型由
+                                 AR2                     part1_type指定。
+
+                   part2         VARCH     OUT    是      如果该字段不为空，则为子程序名
+                                 AR2                     称。
+
+                   dblink        VARCH     OUT    是      数据库链接。
+                                 AR2
+
+                   part1_typ     INTEGE    OUT    否      part1的类型：
+                   e             R                       ● 5：synonym
+                                                         ● 7：procedure(top level)
+                                                         ● 8：function(top level)
+                                                         ● 9：package
+
+                   object_nu     OID       OUT    否      对象标识。object_number在A数
+                   mber                                  据库中类型为Number，表示对象
+                                                         标识，而GaussDB中对象标识类型
+                                                         为OID，并且不支持Number到OID
+                                                         的隐式转换。
+
+
+              ●   DBE_UTILITY.NAME_TOKENIZE
+                  存储过程NAME_TOKENIZE用于解析a [. b [. c ]][@ dblink ]形式的名字，如果名
+                  字带有双引号则去掉，否则变为大写字母。DBE_UTILITY.NAME_TOKENIZE函数
+                  原型为：
+                  DBE_UTILITY.NAME_TOKENIZE (
+                  name IN VARCHAR2,
+                  a     OUT VARCHAR2,
+                  b     OUT VARCHAR2,
+                  c     OUT VARCHAR2,
+                  dblink OUT VARCHAR2,
+                  nextpos OUT INTEGER
+                  );
+
+
+                  表 3-448 DBE_UTILITY.NAME_TOKENIZE 接口说明
+                   参数名         类型           入参/   是否可以为       描述
+                   称                        出参    空
+
+                   name        VARCHAR      IN    否           名字，由SQL标识符组成（比
+                               2                              如scott.foo@dblink）。
+
+                   a           VARCHAR      OUT   否           名字的第一个token。
+                               2
+
+                   b           VARCHAR      OUT   是           名字的第二个token。
+                               2
+
+                   c           VARCHAR      OUT   是           名字的第三个token。
+                               2
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                               2938
+GaussDB
+集中式版参考                                                                         3 存储过程
+
+
+                   参数名         类型           入参/         是否可以为      描述
+                   称                        出参          空
+
+                   dblink      VARCHAR      OUT         是          数据库链接。
+                               2
+
+                   nextpos     INTEGER      OUT         否          字符串经过解析后的下一个位
+                                                                   置。
+
+
+              ●   DBE_UTILITY.OLD_CURRENT_SCHEMA
+                  存储过程OLD_CURRENT_SCHEMA返回当前用户环境下的数据库模式名称。
+                  DBE_UTILITY.OLD_CURRENT_SCHEMA函数原型为：
+                  DBE_UTILITY.OLD_CURRENT_SCHEMA()
+                  RETURN VARCHAR;
+
+              ●   DBE_UTILITY.OLD_CURRENT_USER
+                  存储过程OLD_CURRENT_USER返回当前用户的名称。
+                  DBE_UTILITY.OLD_CURRENT_USER函数原型为：
+                  DBE_UTILITY.OLD_CURRENT_USER()
+                  RETURN TEXT;
+
+              ●   DBE_UTILITY.TABLE_TO_COMMA
+                  存储过程TABLE_TO_COMMA将PL/SQL中的表名转换为用逗号隔开的名字列表的
+                  字符串。DBE_UTILITY.TABLE_TO_COMMA函数原型为：
+                  DBE_UTILITY.TABLE_TO_COMMA (
+                     tab IN VARCHAR2[],
+                     tablen OUT BINARY_INTEGER,
+                     list OUT VARCHAR2
+                  );
+
+
+                  表 3-449 DBE_UTILITY.TABLE_TO_COMMA 接口说明
+                   参数名        类型                  入参/出      是否可以   描述
+                   称                              参         为空
+
+                   tab        VARCHAR2[           IN        否      包含表名的结构表数组。
+                              ]
+
+                   tablen     BINARY_INT          OUT       否      结构表中的表个数。
+                              EGER
+
+                   list       VARCHAR2            OUT       否      以逗号分隔表名的字符串。
+
+
+              ●   DBE_UTILITY.GET_SQL_HASH_FUNC
+                  函数GET_SQL_HASH_FUNC通过MD5算法输出一个给定字符串的hash值。
+                  DBE_UTILITY.GET_SQL_HASH_FUNC函数原型为：
+                  DBE_UTILITY.GET_SQL_HASH_FUNC(
+                    name       IN VARCHAR2,
+                    hash     OUT RAW,
+                    last4bytes OUT BIGINT
+                  )RETURN BIGINT;
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                             2939
+GaussDB
+集中式版参考                                                                                              3 存储过程
+
+                   表 3-450 DBE_UTILITY.GET_SQL_HASH_FUNC 接口说明
+                     参数名称             类型           入参/         是否可以为              描述
+                                                   出参          空
+
+                     name             VARCH        IN          否                  待哈希转换的字符串。
+                                      AR2
+
+                     hash             RAW          OUT         否                  完整的16进制MD5哈希值。
+
+                     last4bytes       BIGINT       OUT         否                  MD5哈希值的最后四字节，
+                                                                                  以无符号整数形式展现。
+
+
+
+
+                          说明
+
+                        设置set behavior_compat_options = 'proc_outparam_override' 参数后，请调用
+                        DBE_UTILITY.GET_SQL_HASH_FUNC函数，如调用DBE_UTILITY.GET_SQL_HASH则会报参
+                        数不匹配异常。
+
+
+示例
+              -- 示例1
+              create or replace procedure print_err() as
+              DECLARE
+                 a bool;
+              BEGIN
+                 a := not_exist;
+              exception
+                 when others then
+                    dbe_output.print_line('err_stack: ' || DBE_UTILITY.FORMAT_ERROR_STACK());
+              END;
+              /
+              CREATE PROCEDURE
+
+              call print_err();
+              -- 预期结果为：
+              err_stack: 50360452: column "not_exist" does not exist
+               print_err
+              -----------
+
+              (1 row)
+
+              -- 清理环境
+              drop procedure print_err;
+              DROP PROCEDURE
+
+              -- 示例2
+              create or replace procedure print_err() as
+              DECLARE
+                 a bool;
+              BEGIN
+                 a := not_exist;
+              exception
+                 when others then
+                    dbe_output.print_line('backtrace: ' || DBE_UTILITY.FORMAT_ERROR_BACKTRACE());
+              END;
+              /
+              CREATE PROCEDURE
+
+              call print_err();
+              -- 预期结果为：
+              backtrace: 50360452: PL/pgSQL function print_err() line 5 at assignment
+
+
+
+文档版本 01 (2026-04-30)                      版权所有 © 华为云计算技术有限公司                                           2940
+GaussDB
+集中式版参考                                                                        3 存储过程
+
+               print_err
+              -----------
+
+              (1 row)
+
+              -- 清理环境
+              drop procedure print_err;
+              DROP PROCEDURE
+
+              -- 示例3
+              create or replace procedure print_err() as
+              DECLARE
+                 a bool;
+              BEGIN
+                 a := not_exist;
+              exception
+                 when others then
+                    dbe_output.print_line('call_stack: ');
+                    dbe_output.print_line(DBE_UTILITY.FORMAT_CALL_STACK());
+              END;
+              /
+              CREATE PROCEDURE
+
+              call print_err();
+              -- 预期结果为：
+              call_stack:
+                   3 dbe_utility.format_call_stack()
+                   9 print_err()
+
+               print_err
+              -----------
+
+              (1 row)
+
+              -- 清理环境
+              drop procedure print_err;
+              DROP PROCEDURE
+
+              -- 示例4
+              CREATE OR REPLACE PROCEDURE test_get_time1()
+              AS
+              declare
+                 start_time bigint;
+                 end_time bigint;
+              BEGIN
+                 start_time:= dbe_utility.get_time ();
+                 pg_sleep(1);
+                 end_time:=dbe_utility.get_time ();
+                 dbe_output.print_line(end_time - start_time);
+              END;
+              /
+              CREATE PROCEDURE
+
+              call test_get_time1();
+              -- 预期结果为：
+              100
+               test_get_time1
+              ----------------
+
+              (1 row)
+
+              -- 清理环境
+              drop PROCEDURE test_get_time1;
+              DROP PROCEDURE
+
+              -- 示例5
+              -- 给表名字符串做规范
+              declare
+                 cname varchar2(50);
+
+
+
+文档版本 01 (2026-04-30)                      版权所有 © 华为云计算技术有限公司                     2941
+GaussDB
+集中式版参考                                                                  3 存储过程
+
+              begin
+                 dbe_utility.canonicalize('seg1', cname, 50);
+                 dbe_output.put_line(cname);
+              end;
+              /
+              -- 预期结果为：
+              SEG1
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 示例6
+              -- 将输入的字符串转换成一个表名的数组
+              DECLARE
+               tab_list VARCHAR2(100) := 't1,t2';
+               len BINARY_INTEGER;
+               tab varchar2[];
+              BEGIN
+               dbe_output.put_line('table list is: ' || tab_list);
+               dbe_utility.comma_to_table(tab_list, len, tab);
+              END;
+              /
+              -- 预期结果为：
+              table list is: t1,t2
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 示例7
+              -- 查看数据库的版本号和兼容性版本号
+              declare
+                 v_version varchar2;
+              begin
+                 dbe_utility.db_version(v_version);
+                 v_version:=left(v_version, 8);
+                 dbe_output.print_line('version:' || v_version);
+              end;
+              /
+              -- 预期结果为：
+              version:gaussdb
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 示例8
+              -- 查看当前CPU处理时间的测量值
+              DECLARE
+                 cputime NUMBER;
+              BEGIN
+                 cputime := dbe_utility.get_cpu_time();
+                 dbe_output.put_line('cpu time：' || cputime);
+              END;
+              /
+              -- 预期结果为（数值并非固定）：
+              cpu time：9851
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 示例9
+              -- 获取数据库所在平台字节序的大小端信息
+              BEGIN
+                 dbe_output.PUT_LINE(dbe_utility.GET_ENDIANNESS());
+              END;
+              /
+              -- 预期结果为：
+              2
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 示例10
+              -- 获取一个给定字符串的hash值
+              DECLARE
+                 result NUMBER(28);
+              BEGIN
+                 result := dbe_utility.get_hash_value('hello',10,10);
+                 dbe_output.put_line(result);
+              END;
+
+
+
+文档版本 01 (2026-04-30)                        版权所有 © 华为云计算技术有限公司             2942
+GaussDB
+集中式版参考                                                                                                  3 存储过程
+
+              /
+              -- 预期结果为：
+              15
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 示例11
+              -- 判断当前数据库是否为集群模式
+              DECLARE
+                 is_cluster BOOLEAN;
+              BEGIN
+                 is_cluster := dbe_utility.IS_CLUSTER_DATABASE();
+                 dbe_output.put_line('CLUSTER DATABASE: ' || CASE WHEN is_cluster THEN 'TRUE' ELSE 'FALSE' END);
+              END;
+              /
+              -- 预期结果为：
+              CLUSTER DATABASE: FALSE
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 示例12
+              -- 获取当前用户环境下的数据库模式名称
+              DECLARE
+                 schm varchar2(100);
+              BEGIN
+                 schm := dbe_utility.old_current_schema();
+                 dbe_output.put_line('current schema: ' || schm);
+              END;
+              /
+              -- 预期结果为（结果为当前数据库的模式名，并非固定）：
+              current schema: public
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 示例13
+              -- 获取当前用户名称
+              select dbe_utility.old_current_user() from sys_dummy;
+              -- 预期结果为（结果为当前数据库的用户名，并非固定）：
+               old_current_user
+              ------------------
+               test
+              (1 row)
+
+              -- 示例14
+              DECLARE
+                 ddl_str VARCHAR2(255);
+              BEGIN
+                 dbe_output.print_line('start to test exec_ddl_statement create table.');
+                 ddl_str := 'CREATE TABLE test_ddl (COL1 INT)';
+                 dbe_utility.exec_ddl_statement(ddl_str);
+              END;
+              /
+              -- 预期结果为：
+              start to test exec_ddl_statement create table.
+              ANONYMOUS BLOCK EXECUTE
+
+              select * from test_ddl;
+              -- 预期结果为：
+               col1
+              ------
+              (0 rows)
+
+              -- 清理环境
+              drop table test_ddl;
+              DROP TABLE
+
+              -- 示例15
+              create table t1 (c1 int primary key, c2 int);
+              NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "t1_pkey" for table "t1"
+              CREATE TABLE
+              insert into t1 values(1,1),(2,1),(3,2),(4,2),(5,3),(6,3);
+              INSERT 0 6
+
+
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                                                    2943
+GaussDB
+集中式版参考                                                                                                 3 存储过程
+
+              create view v1 as select * from t1 where c1 > 1;
+              CREATE VIEW
+              create view v2 as select c1 from v1 where c2 > 1;
+              CREATE VIEW
+              create view v3 as select * from v2 where c1 > 2;
+              CREATE VIEW
+
+              declare
+                 in_sql clob := 'select * from public.v3';
+                 out_sql clob;
+              begin
+                 dbe_output.print_line('start to test expand_sql_text_proc v3 expend sql text.');
+                 dbe_utility.expand_sql_text_proc(in_sql, out_sql);
+                 dbe_output.print_line(out_sql);
+              end;
+              /
+              -- 预期结果为：
+              start to test expand_sql_text_proc v3 expend sql text.
+              SELECT c1 FROM (SELECT v2.c1 FROM (SELECT v1.c1 FROM (SELECT t1.c1, t1.c2 FROM public.t1 WHERE
+              t1.c1 > 1) v1 WHERE v1.c2 > 1) v2 WHERE v2.c1 > 2) v3
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 清理环境
+              drop table t1 cascade;
+              -- 预期结果为：
+              NOTICE: drop cascades to 3 other objects
+              DETAIL: drop cascades to view v1
+              drop cascades to view v2
+              drop cascades to view v3
+              DROP TABLE
+
+              -- 示例16
+              declare
+                 name varchar2;
+                 hash raw;
+                 last4bytes bigint;
+              BEGIN
+                 name := '';
+                 -- return correctly (D41D8CD98F00B204E9800998ECF8427E, 2118318316)
+                 dbe_utility.get_sql_hash(name,hash,last4bytes);
+                 raise notice '%',hash;
+                 raise notice '%',last4bytes;
+              END;
+              /
+              -- 预期结果为：
+              NOTICE: D41D8CD98F00B204E9800998ECF8427E
+              NOTICE: 2118318316
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 示例17
+              declare
+                 bitchar raw(8);
+              begin
+                 bitchar := '2111111f';
+                 dbe_output.print('test '|| bitchar ||' bit is_bit_set value from 1 to 32 bit: ');
+                 for i in reverse 32 .. 1 loop
+                    dbe_output.print(dbe_utility.is_bit_set(bitchar, i));
+                 end loop;
+                 dbe_output.print_line('.');
+              end;
+              /
+              -- 预期结果为：
+              test 2111111F bit is_bit_set value from 1 to 32 bit: 00100001000100010001000100011111.
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 示例18
+              create or REPLACE PROCEDURE p_test_pk ( -- for print result
+                 name in varchar2,
+                 type in integer
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                                2944
+GaussDB
+集中式版参考                                                                                                     3 存储过程
+
+              )
+              as
+                 schema varchar2;
+                 part1 varchar2;
+                 part2 varchar2;
+                 dblink varchar2;
+                 part1_type integer;
+                 object_number integer;
+              begin
+                 dbe_utility.name_resolve(name,type,schema,part1,part2,dblink,part1_type,object_number);
+                 raise notice 'schema: % -- part1: % -- part2: % -- dblink: % -- part1_type: %',
+              schema,part1,part2,dblink,part1_type;
+              end;
+              /
+              CREATE PROCEDURE
+
+              declare begin p_test_pk('a.b.c@aa',3); end;
+              /
+              -- 预期结果为：
+              NOTICE: schema: a -- part1: b -- part2: c -- dblink: aa -- part1_type: 0
+              CONTEXT: SQL statement "CALL p_test_pk('a.b.c@aa',3)"
+              PL/pgSQL function inline_code_block line 1 at PERFORM
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 示例19
+              DECLARE
+                 name varchar;
+                 a varchar;
+                 b varchar;
+                 c varchar;
+                 dblink varchar;
+                 nextpos INTEGER;
+              BEGIN
+                 name := '我.w#sdfsdf.CD';
+                 DBE_UTILITY.NAME_TOKENIZE(name, a, b, c, dblink, nextpos);
+                 RAISE INFO E'dbe_utility.name_tokenize parse error: name:%\na:%\nb:%\nc:%\ndblink:%',
+                 name, a, b, c, dblink;
+                 IF nextpos <> OCTET_LENGTH(name) THEN
+                    RAISE INFO E'dbe_utility.name_tokenize length error: name:%\nlength of name:%\nnextpos:%',
+                    name, OCTET_LENGTH(name), nextpos;
+                 END IF;
+              END;
+              /
+              -- 预期结果为：
+              INFO: dbe_utility.name_tokenize parse error: name:我.w#sdfsdf.CD
+              a:我
+              b:W#SDFSDF
+              c:CD
+              dblink:<NULL>
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 示例20
+              DECLARE
+              list varchar2(50) := 'aabb,ccdd,eeff,gghh';
+              len_list integer;
+              tab varchar2[];
+              get_list varchar2(50);
+              len_tab integer;
+              BEGIN
+              dbe_output.print_line('参数列表：' || list);
+              dbe_utility.comma_to_table(list,len_list,tab);
+              dbe_output.print_line('参数长度：' || len_list);
+              FOR i IN 1 .. len_list LOOP
+                  dbe_output.print_line('列表名称 ' || i || ' : ' || tab(i));
+              END LOOP;
+              dbe_output.print_line('调用table_to_comma：');
+              dbe_utility.table_to_comma(tab,len_tab,get_list );
+              dbe_output.print_line('输出结果：' || get_list );
+              dbe_output.print_line('数组长度：' || len_tab);
+
+
+
+文档版本 01 (2026-04-30)                       版权所有 © 华为云计算技术有限公司                                                    2945
+GaussDB
+集中式版参考                                                                               3 存储过程
+
+              END;
+              /
+              -- 预期结果为：
+              参数列表：aabb,ccdd,eeff,gghh
+              参数长度：4
+              列表名称 1 : aabb
+              列表名称 2 : ccdd
+              列表名称 3 : eeff
+              列表名称 4 : gghh
+              调用table_to_comma：
+              输出结果：aabb,ccdd,eeff,gghh
+              数组长度：4
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 示例21
+              declare
+                 name varchar2;
+                 hash raw;
+                 last4bytes bigint;
+              BEGIN
+                 name := 'hello world';
+                 -- return correctly(5EB63BBBE01EEED093CB22BB8F5ACDC3, 3285015183)
+                 dbe_utility.get_sql_hash_func(name,hash,last4bytes);
+                 raise notice '%',hash;
+                 raise notice '%',last4bytes;
+              END;
+              /
+              -- 预期结果为：
+              NOTICE: 3285015183
+              NOTICE: <NULL>
+              ANONYMOUS BLOCK EXECUTE
+
+
+3.12.2.23 DBE_XMLDOM
+
+接口介绍
+              高级功能包DBE_XMLDOM用于访问XMLType对象，实现DOM（Document Object
+              Model），用于访问HTML和XML DOCUMENTS API。高级功能包DBE_XMLDOM支持
+              的所有类型请参见表3-451，DBE_XMLDOM支持的所有接口请参见表3-452。
+
+                   说明
+
+                  当在数据库的字符集设置为SQL_ASCII的情况下使用DBE_XMLDOM高级包，传入超出ASCII范围
+                  的字符时，会产生报错信息。
+
+
+              表 3-451 DBE_XMLDOM 数据类型说明
+
+               类型名称                                            描述
+
+               DOMATTR                                         实现DOM Attribute接口。
+
+               DOMDOCUMENT                                     实现DOM Document接口。
+
+               DOMELEMENT                                      实现DOM Element接口。
+
+               DOMNAMEDNODEMAP                                 实现DOM Named Node Map接口。
+
+               DOMNODELIST                                     实现DOM Node List接口。
+
+               DOMNODE                                         实现DOM Node接口。
+
+               DOMTEXT                                         实现DOM Text接口。
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                  2946
+
