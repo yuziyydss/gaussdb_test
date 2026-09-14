@@ -16,6 +16,77 @@
 - 离线内网任务队列：支持 SHA-256 对账、任务认领、断点续跑、失败恢复和与 AI 厂商无关的任务文件。
 - Web/API：浏览 V1 factor、manifest、覆盖报告和生成 SQL。
 - 生成缺口诊断：在因子详情展开“为什么未完整”，区分条件取值、规则覆盖、生成异常和待校准Oracle；总览、API和Markdown同口径，见[诊断说明](docs/GENERATION_DIAGNOSTICS.md)。
+---
+
+## 项目最终状态（2026-09-14）
+
+### 规模
+
+| 指标 | 数值 |
+|---|---|
+| PDF覆盖 | 5,686页 全部大部 |
+| 结构化facts | 936条（67个YAML文件） |
+| 因子包 | 317个（224 general + 93 M兼容） |
+| manifest | 841份 |
+| 候选SQL | 5,273条 |
+| M包source extraction | 93/93 完成 |
+| Value gaps | 25条（18合法阻断 + 7需结构性设计） |
+
+### 结构化知识库
+
+| 类别 | Facts数 | 深度 |
+|---|---|---|
+| Oracle高级包（22个） | 170 | 接口签名+参数+行为示例 |
+| Oracle PL/SQL语法 | 19 | 操作符/类型/控制/SQL/触发器 |
+| Oracle系统函数 | 22 | 逐函数差异+SQL示例 |
+| Oracle系统视图 | 17 | ALL→DB/DBA→ADM映射 |
+| Oracle查询/JDBC/DDL | 22 | 含PRIOR/条件/驱动差异 |
+| M模式数据类型 | 21 | 数值/日期/字符串/二进制 |
+| M模式操作符 | 25 | 比较/逻辑/正则/索引走行 |
+| M模式系统函数 | 35 | 逐函数差异+SQL示例 |
+| M模式JSON/加密/转换 | 14 | CAST/COALESCE/JSON |
+| M模式SQL DDL/DML | 14 | 逐语句差异 |
+| M模式DCL/权限 | 11 | SET/GRANT/权限类型 |
+| behavior_compat SQL | 26 | 设置前后完整对比 |
+| MySQL B模式 | 18 | 完整兼容性 |
+| 运行参数 | 116 | 6大类全覆盖 |
+| 系统表/视图 | 78 | 核心目录+DBE_PERF |
+| 存储过程 | 54 | 游标/基本/控制/动态/高级包 |
+
+### 可执行验证脚本
+
+| 脚本 | 测试数 | 用途 |
+|---|---|---|
+| `docs/minimal_validation_script.sql` | 10 | 核心链路验证（5分钟） |
+| `docs/extended_validation_script.sql` | 100 | 全面功能验证（30分钟） |
+
+```bash
+gsql -d <dbname> -p <port> -f docs/minimal_validation_script.sql
+gsql -d <dbname> -p <port> -f docs/extended_validation_script.sql
+```
+
+### 关键文档
+
+| 文档 | 内容 |
+|---|---|
+| [EXECUTION_VALIDATION_PLAN.md](docs/EXECUTION_VALIDATION_PLAN.md) | 三阶段实机验证方案 |
+| [PROJECT_DELIVERY_REPORT_20260914.md](docs/PROJECT_DELIVERY_REPORT_20260914.md) | 完整交付报告 |
+| [FACT_INTEGRATION_PLAN.md](docs/FACT_INTEGRATION_PLAN.md) | Facts接入计划 |
+| [VALUE_GAP_DISPOSITION_20260911.md](docs/VALUE_GAP_DISPOSITION_20260911.md) | 缺口处置记录 |
+
+### 已知限制
+
+- **数据库执行: 0条** — 所有结论均为静态
+- 25条value gaps中18条为合法阻断（文档冲突/环境资产/语义设计）
+- 深化不均匀：高级包/操作符/数据类型较深，部分子节为概要级
+- 实机验证需单独授权和验收
+
+### 下一步
+
+1. **执行验证脚本** — 等有GaussDB环境后立即可用
+2. **修复发现的问题** — 验证后根据结果改进
+3. **Facts接入** — 按 FACT_INTEGRATION_PLAN.md 三步计划
+
 
 首批五个 PDF 校准因子是 CREATE VIEW、CREATE INDEX、ALTER TABLE、SELECT 和
 INSERT。仓库随后按独立批次加入代表性 DDL、DML、DCL 与 TCL 因子；当前数量、
