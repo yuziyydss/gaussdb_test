@@ -1,0 +1,1673 @@
+GaussDB
+集中式版参考                                                                      3 存储过程
+
+
+                    DROP FUNCTION TEST_FUNC_OVERLOAD (param_a IN NUMBER,
+                      param_b VARCHAR2,
+                      param_c IN TEXT,
+                      param_d IN DATE,
+                      param_e OUT RAW,
+                      param_f INOUT INTEGER
+                    );
+
+                    DROP PROCEDURE PRINT_DESCRIBE (obj_name IN VARCHAR2);
+
+
+
+3.12.2.5 DBE_FILE
+              DBE_FILE包为存储过程提供了读取和写入操作系统文本文件的功能。
+
+
+注意事项
+              ●     DBE_FILE要求通过DBE_FILE.FOPEN打开的文件必须使用数据库字符集编码，若
+                    打开的文件未按预期字符集编码，在使用DBE_FILE.READ_LINE读取时会发生编码
+                    校验错误；DBE_FILE要求通过DBE_FILE.FOPEN_NCHAR打开的文件必须使用
+                    UTF8字符集编码，若打开的文件未按预期的字符集编码，在使用
+                    DBE_FILE.READ_LINE_NCHAR读取时会发生编码校验错误。
+              ●     使用DBE_OUTPUT.PUT_LINE打印DBE_FILE.READ_LINE_NCHAR接口结果时，需
+                    确保UTF8字符集编码能够转换为当前数据库字符集编码，满足该条件后以正常输
+                    出。DBE_OUTPUT.PRINT_LINE不支持该功能。
+              ●     DBE_FILE要求客户端字符集编码必须与数据库字符集编码保持一致。
+              ●     当数据库字符集为ASCII编码，客户端字符集为支持中文的编码，且在客户端调用
+                    DBE_FILE.WRITE_NCHAR或DBE_FILE.WRITE_LINE_NCHAR接口写入中文内容
+                    时，若输入内容为UTF8编码格式，可能无法保证写入的内容按UTF8格式编码。这
+                    可能会导致后续使用DBE_FILE.READ_LINE_NCHAR时报错。
+
+
+数据类型介绍
+              DBE_FILE.FILE_TYPE
+
+              DBE_FILE.FILE_TYPE类型定义了DBE_FILE包中文件的表示方式，该类型包含的字段为
+              DBE_FILE包的私有字段，禁止直接修改DBE_FILE.FILE_TYPE类型对象的字段值。
+
+              DBE_FILE.FILE_TYPE原型为：
+              CREATE TYPE DBE_FILE.FILE_TYPE AS(
+                 id INTEGER,
+                 datatype INTEGER,
+                 byte_mode BOOLEAN
+              );
+
+
+              表 3-160 DBE_FILE.FILE_TYPE 字段说明
+
+               参数                     描述
+
+               id                     文件句柄。
+
+               datatype               表明文件是CHAR文件、NCHAR文件或二进制文件。目前支持
+                                      CHAR文件和NCHAR文件。CHAR文件返回1，NCHAR文件返
+                                      回2。
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                       2685
+GaussDB
+集中式版参考                                                       3 存储过程
+
+
+               参数                 描述
+
+               byte_mode          表明文件是以二进制模式（TRUE）或文本模式（FALSE）打
+                                  开。
+
+
+
+
+接口介绍
+              高级功能包DBE_FILE支持的接口请参见表3-161。
+
+
+              表 3-161 DBE_FILE
+
+               接口名称                描述
+
+               DBE_FILE.OPEN/      根据指定的目录和文件名打开文件，返回对应的文件句柄或
+               DBE_FILE.FOPEN      封装了句柄的DBE_FILE.FILE_TYPE类型对象。
+
+               DBE_FILE.IS_CLOS    检测指定文件句柄是否关闭。
+               E
+
+               DBE_FILE.IS_OPEN    检测指定文件句柄是否打开。
+
+               DBE_FILE.READ_LI    从一个打开的文件中读取一行指定长度的数据。
+               NE
+
+               DBE_FILE.WRITE      将数据写入到一个打开文件的缓冲区中。
+
+               DBE_FILE.NEW_LI     将一个或多个行结束符写入到一个打开文件的缓冲区中。
+               NE
+
+               DBE_FILE.WRITE_L    将数据写入到一个打开文件的缓冲区中，并自动追加一个行
+               INE                 结束符。
+
+               DBE_FILE.FORMAT     将数据按指定格式写入到一个打开文件的缓冲区中。
+               _WRITE
+
+               DBE_FILE.GET_RA     从一个打开的文件中读取指定字节数的RAW类型数据。
+               W
+
+               DBE_FILE.PUT_RA     将RAW类型数据写入到一个打开文件的缓冲区中。
+               W
+
+               DBE_FILE.FLUSH      将缓存区中的数据写入到物理文件中。
+
+               DBE_FILE.CLOSE      关闭一个打开的文件句柄。
+
+               DBE_FILE.CLOSE_A    关闭一个会话中所有已打开的文件句柄。
+               LL
+
+               DBE_FILE.REMOVE     根据指定目录和文件名删除一个磁盘文件，操作需具备充分
+                                   权限。
+
+               DBE_FILE.RENAME     重命名一个磁盘文件，功能类似于UNIX的mv命令。
+
+               DBE_FILE.COPY       复制一个连续区域的内容到一个新创建的文件中，若未指定
+                                   start_line和end_line则复制整个文件。
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司            2686
+GaussDB
+集中式版参考                                                           3 存储过程
+
+
+               接口名称                    描述
+
+               DBE_FILE.GET_ATT        读取并返回一个磁盘文件的属性。
+               R
+
+               DBE_FILE.SEEK           根据用户指定的字节数向前或者向后调整文件指针的位置。
+
+               DBE_FILE.GET_PO         以字节为单位返回文件当前的偏移量。
+               S
+
+               DBE_FILE.FOPEN_         以NCHAR模式根据指定的目录和文件名打开一个文件。
+               NCHAR
+
+               DBE_FILE.WRITE_         将NVARCHAR2类型的数据写入到一个打开的NCHAR模式文
+               NCHAR                   件缓冲区中。
+
+               DBE_FILE.WRITE_L        将NVARCHAR2类型的数据写入到一个打开的NCHAR模式文
+               INE_NCHAR               件缓冲区中，并自动追加一个行结束符。
+
+               DBE_FILE.FORMAT         将NVARCHAR2类型的数据按指定格式写入到一个打开的
+               _WRITE_NCHAR            NCHAR模式文件缓冲区中，允许格式化的
+                                       DBE_FILE.WRITE_NCHAR接口。
+
+               DBE_FILE.READ_LI        从一个打开的NCHAR模式文件中读取一行指定长度的数据。
+               NE_NCHAR
+
+
+
+
+              ●   DBE_FILE.OPEN/DBE_FILE.FOPEN
+                  函数DBE_FILE.OPEN用于打开一个文件，可以指定文件每行的最大字节数，同一
+                  个会话内最多可以同时打开50个文件。该函数返回一个INTEGER类型的文件句
+                  柄。函数DBE_FILE.FOPEN功能和DBE_FILE.OPEN类似，但返回一个
+                  DBE_FILE.FILE_TYPE类型的对象。
+                  DBE_FILE.OPEN和DBE_FILE.FOPEN原型为：
+                  DBE_FILE.OPEN(
+                    dir       IN TEXT,
+                    file_name    IN TEXT,
+                    open_mode      IN TEXT,
+                    max_line_size IN INTEGER DEFAULT 1024)
+                  RETURN INTEGER;
+
+                  DBE_FILE.FOPEN(
+                    dir       IN TEXT,
+                    file_name    IN TEXT,
+                    open_mode      IN TEXT,
+                    max_line_size IN INTEGER DEFAULT 1024)
+                  RETURN DBE_FILE.FILE_TYPE;
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                2687
+GaussDB
+集中式版参考                                                                          3 存储过程
+
+                  表 3-162 DBE_FILE.OPEN/DBE_FILE.FOPEN 接口参数说明
+                   参数                  类    入     是   描述
+                                       型    参/    否
+                                            出     可
+                                            参     以
+                                                  为
+                                                  空
+
+                   dir                 TE   IN    否   文件的目录位置，该字符串表示一个目录对象
+                                       XT             名。
+                                                      说明
+                                                       ● 文件目录的位置，需要添加到系统表
+                                                         PG_DIRECTORY中，如果传入的路径和
+                                                         PG_DIRECTORY中的路径不匹配，会报路径不存
+                                                         在的错误。
+                                                       ● 在打开GUC参数safe_data_path时，用户仅能通
+                                                         过高级包读写safe_data_path指定文件路径下的
+                                                         文件。
+
+                   file_name           TE   IN    否   文件名，包含扩展（文件类型），不包含路径
+                                       XT             名。如果文件名中包含路径，在OPEN中会被
+                                                      忽略，在Unix系统中，文件名不能以/.结尾。
+
+                   open_mode           TE   IN    否   指定文件的打开模式，包含：
+                                       XT             ● r：read text。
+                                                      ● w：write text。
+                                                      ● a：append text。
+                                                      ● rb：read byte。
+                                                      ● wb：write byte。
+                                                      ● ab：append byte。
+                                                      说明
+                                                       对于写操作，会检测写入文件类型，如果为elf类型
+                                                       文件，会报错退出。
+
+                   max_line_siz        IN   IN    是   每行的最大字节数，包含换行符在内，最小值
+                   e                   TE             是1，最大值是32767。如果没有指定或指定该
+                                       GE             参数为空，则使用默认值1024。
+                                       R
+
+
+              ●   DBE_FILE.IS_CLOSE
+                  函数DBE_FILE.IS_CLOSE用于检测指定的文件句柄是否已经关闭，返回布尔值。异
+                  常情况为INVALID_FILEHANDLE。
+                  DBE_FILE.IS_CLOSE原型为：
+                  DBE_FILE.IS_CLOSE(
+                    file IN INTEGER)
+                  RETURN BOOLEAN;
+
+                  DBE_FILE.IS_CLOSE(
+                    file IN DBE_FILE.FILE_TYPE)
+                  RETURN BOOLEAN;
+
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                           2688
+GaussDB
+集中式版参考                                                                       3 存储过程
+
+                  表 3-163 DBE_FILE.IS_CLOSE 接口参数说明
+                   参数        类型               入    是否   描述
+                                              参/   可以
+                                              出参   为空
+
+                   file      INTEGER或         IN   是    待检测的文件句柄或
+                             DBE_FILE.FI                DBE_FILE.FILE_TYPE类型的对象，为空
+                             LE_TYPE                    时DBE_FILE.IS_CLOSE接口返回空。
+
+
+              ●   DBE_FILE.IS_OPEN
+                  函数DBE_FILE.IS_OPEN用于检测指定的文件句柄是否已经打开，返回布尔值。异
+                  常情况为INVALID_FILEHANDLE。
+                  DBE_FILE.IS_OPEN原型为：
+                  DBE_FILE.IS_OPEN(
+                    file IN INTEGER)
+                  RETURN BOOLEAN;
+
+                  DBE_FILE.IS_OPEN(
+                    file IN DBE_FILE.FILE_TYPE)
+                  RETURN BOOLEAN;
+
+
+                  表 3-164 DBE_FILE.IS_OPEN 接口参数说明
+                   参数         类型             入参/   是否   描述
+                                             出参    可以
+                                                   为空
+
+                   file       INTEGER        IN    是    待检测的文件句柄或
+                              或                         DBE_FILE.FILE_TYPE类型的对象，为空
+                              DBE_FILE.                 时DBE_FILE.IS_OPEN接口返回false。
+                              FILE_TYP
+                              E
+
+
+              ●   DBE_FILE.READ_LINE
+                  函数DBE_FILE.READ_LINE从一个打开的文件读取数据，并把读取的结果存放到
+                  buffer中。读取的时候会读取到行尾，但不包含行终结符，或者读取到文件末尾，
+                  或者读取到len参数指定的大小。读取的长度不能超过OPEN的时候指定的
+                  max_line_size。
+                  DBE_FILE.READ_LINE原型为：
+                  DBE_FILE.READ_LINE(
+                    file IN INTEGER,
+                    buffer OUT TEXT,
+                    len IN INTEGER DEFAULT NULL)
+                  RETURN TEXT;
+
+                  DBE_FILE.READ_LINE(
+                    file IN DBE_FILE.FILE_TYPE,
+                    buffer OUT TEXT,
+                    len IN INTEGER DEFAULT NULL)
+                  RETURN TEXT;
+
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                        2689
+GaussDB
+集中式版参考                                                                            3 存储过程
+
+                  表 3-165 DBE_FILE.READ_LINE 接口参数说明
+
+                   参数        类型              入        是否    描述
+                                             参/       可以
+                                             出参       为空
+
+                   file      INTEGER         IN       否     通过OPEN打开的文件句柄或者FOPEN打开
+                             或                              的DBE_FILE.FILE_TYPE类型的对象，文件
+                             DBE_FILE                       必须以读模式打开，否则会抛出
+                             .FILE_TYP                      INVALID_OPERATION的异常。
+                             E
+
+                   buffe     TEXT            OUT      否     接收数据的buffer。
+                   r
+
+                   len       INTEGER         IN       是     从文件中读取的字节数，默认值为NULL。
+                                                            如果是NULL，会使用max_line_size来指定
+                                                            大小。
+
+
+              ●   DBE_FILE.WRITE
+                  函数DBE_FILE.WRITE用于向文件对应的缓冲区中写入buffer中的数据，文件必须
+                  以写模式打开，这个操作不会写入行终结符。
+                  DBE_FILE.WRITE原型为：
+                  DBE_FILE.WRITE(
+                    file IN INTEGER,
+                    buffer IN TEXT)
+                  RETURN BOOLEAN;
+
+                  DBE_FILE.WRITE(
+                    file IN DBE_FILE.FILE_TYPE,
+                    buffer IN TEXT)
+                  RETURN VOID;
+
+
+                  表 3-166 DBE_FILE.WRITE 接口参数说明
+
+                   参       类型           入         是否       描述
+                   数                    参/        可以
+                                        出         为空
+                                        参
+
+                   file    INTEGER      IN        否        通过OPEN打开的文件句柄或者FOPEN打开的
+                           或                               DBE_FILE.FILE_TYPE类型的对象，要写入的文
+                           DBE_FILE                        件必须以写模式打开，这个操作不会写入行终
+                           .FILE_TYP                       结符。
+                           E
+
+                   buf TEXT             IN        是        写入文件的文本数据。每行的累计写入长度不
+                   fer                                     能大于或等于OPEN或FOPEN时指定或默认的
+                                                           max_line_size，否则会在刷新到文件时报错，
+                                                           该参数为空时接口会直接返回。
+                                                           说明
+                                                            对于写操作，会检测写入文件类型，如果为elf类型
+                                                            文件，会报错退出。
+
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                             2690
+GaussDB
+集中式版参考                                                                     3 存储过程
+
+
+              ●   DBE_FILE.NEW_LINE
+                  函数DBE_FILE.NEW_LINE用于向文件对应的缓冲区中写入一个或者多个行终结
+                  符，行终结符和平台相关。
+                  DBE_FILE.NEW_LINE原型为：
+                  DBE_FILE.NEW_LINE(
+                    file   IN INTEGER,
+                    line_nums IN INTEGER DEFAULT 1)
+                  RETURN BOOLEAN;
+
+                  DBE_FILE.NEW_LINE(
+                    file   IN DBE_FILE.FILE_TYPE,
+                    line_nums IN INTEGER DEFAULT 1)
+                  RETURN VOID;
+
+
+                  表 3-167 DBE_FILE.NEW_LINE 接口参数说明
+                   参数        类型           入       是否   描述
+                                          参/      可以
+                                          出       为空
+                                          参
+
+                   file      INTEGER      IN      否    通过OPEN打开的文件句柄或者FOPEN打
+                             或                         开的DBE_FILE.FILE_TYPE类型的对象。
+                             DBE_FILE
+                             .FILE_TYP
+                             E
+
+                   line_n    INTEGER      IN      是    写入到文件中的行终结符的数量，默认值
+                   ums                                 为1，指定为空时不写入行终结符。
+
+
+              ●   DBE_FILE.WRITE_LINE
+                  函数DBE_FILE.WRITE_LINE用于向文件对应的缓冲区中写入buffer中的数据，文件
+                  必须以写模式打开，这个操作会自动追加行终结符。
+                  DBE_FILE.WRITE_LINE原型为：
+                  DBE_FILE.WRITE_LINE(
+                    file IN INTEGER,
+                    buffer IN TEXT,
+                    flush IN BOOLEAN DEFAULT FALSE)
+                  RETURN BOOLEAN;
+
+                  DBE_FILE.WRITE_LINE(
+                    file IN DBE_FILE.FILE_TYPE,
+                    buffer IN TEXT,
+                    flush IN BOOLEAN DEFAULT FALSE)
+                  RETURN VOID;
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                         2691
+GaussDB
+集中式版参考                                                                 3 存储过程
+
+                  表 3-168 DBE_FILE.WRITE_LINE 接口参数说明
+                   参     类型          入      是否可   描述
+                   数                 参/     以为空
+                                     出
+                                     参
+
+                   fil   INTEGER     IN     否     通过OPEN打开的文件句柄或者FOPEN打开的
+                   e     或                        DBE_FILE.FILE_TYPE类型的对象。
+                         DBE_FILE
+                         .FILE_TYP
+                         E
+
+                   buf TEXT          IN     是     要写入文件的文本数据，每行的长度（包含换
+                   fe                             行符）不能大于OPEN或FOPEN时指定或默认
+                   r                              的max_line_size，否则会在刷新到文件时报
+                                                  错。
+                                                  说明
+                                                   对于写操作，会检测写入文件类型，如果为elf类型
+                                                   文件，会报错退出。
+
+                   fl    BOOLEA      IN     是     在WRITE_LINE后是否要将文件对应缓冲区中
+                   us    N                        的数据刷到磁盘，默认值或者该参数为空时为
+                   h                              false。
+
+
+              ●   DBE_FILE.FORMAT_WRITE
+                  函数DBE_FILE.FORMAT_WRITE将格式化数据写入到一个打开文件对应的缓冲区
+                  中，是允许格式化的DBE_FILE.WRITE接口。
+                  DBE_FILE.FORMAT_WRITE原型为：
+                  DBE_FILE.FORMAT_WRITE(
+                    file IN INTEGER,
+                    format IN TEXT,
+                    arg1 IN TEXT DEFAULT NULL,
+                    ...
+                    arg6 IN TEXT DEFAULT NULL)
+                  RETURN BOOLEAN;
+
+                  DBE_FILE.FORMAT_WRITE(
+                    file IN DBE_FILE.FILE_TYPE,
+                    format IN TEXT,
+                    arg1 IN TEXT DEFAULT NULL,
+                    ...
+                    arg6 IN TEXT DEFAULT NULL)
+                  RETURN VOID;
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                   2692
+GaussDB
+集中式版参考                                                                         3 存储过程
+
+                  表 3-169 DBE_FILE.FORMAT_WRITE 接口参数说明
+                   参数        类型             入        是否    描述
+                                            参/       可以
+                                            出        为空
+                                            参
+
+                   file      INTEGER        IN       否     通过OPEN打开的文件句柄或者FOPEN打
+                             或                             开的DBE_FILE.FILE_TYPE类型的对象。
+                             DBE_FILE.
+                             FILE_TYP
+                             E
+
+                   format    text           IN       是     格式化的字符串，包含文本和格式符\n
+                                                           和%s。若指定为空时，则不写入任何数
+                                                           据。
+
+                   [arg1.    text           IN       是     1到6个可选的参数串，参数和格式化字符
+                   . .arg6                                 的位置是一一对应的，如果存在格式化字
+                   ]                                       符而没有提供参数或者参数为空，会使用
+                                                           空串来替代%s。
+
+
+              ●   DBE_FILE.GET_RAW
+                  函数DBE_FILE.GET_RAW从一个打开的文件读取RAW类型数据，并把读取的结果
+                  存放到buffer中，从r中返回。
+                  DBE_FILE.GET_RAW原型为：
+                  DBE_FILE.GET_RAW(
+                    file IN INTEGER,
+                    r    OUT RAW,
+                    length IN INTEGER DEFAULT NULL)
+                  RETURN RAW;
+
+                  DBE_FILE.GET_RAW(
+                    file IN DBE_FILE.FILE_TYPE,
+                    r    OUT RAW,
+                    length IN INTEGER DEFAULT NULL)
+                  RETURN BOOLEAN;
+
+
+                  表 3-170 DBE_FILE.GET_RAW 接口参数说明
+                   参      类型           入         是否       描述
+                   数                   参/        可以
+                                       出参        为空
+
+                   file   INTEGER      IN        否        通过OPEN打开的文件句柄或者FOPEN打开
+                          或                               的DBE_FILE.FILE_TYPE类型的对象。
+                          DBE_FILE
+                          .FILE_TYP
+                          E
+
+                   r      RAW          OUT       否        接收RAW类型数据的buffer。
+
+                   len    INTEGER      IN        是        从文件中读取的字节数，默认值为NULL，
+                   gth                                    如果是NULL，会使用RAW类型最大长度来
+                                                          指定大小。
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                             2693
+GaussDB
+集中式版参考                                                                          3 存储过程
+
+
+              ●   DBE_FILE.PUT_RAW
+                  函数DBE_FILE.PUT_RAW用于向文件对应的缓冲区中写入RAW类型数据。
+                  DBE_FILE.PUT_RAW原型为：
+                  DBE_FILE.PUT_RAW (
+                    file IN INTEGER,
+                    r    IN RAW,
+                    flush IN BOOLEAN DEFAULT FALSE)
+                  RETURN BOOLEAN;
+
+                  DBE_FILE.PUT_RAW (
+                    file IN DBE_FILE.FILE_TYPE,
+                    r    IN RAW,
+                    flush IN BOOLEAN DEFAULT FALSE)
+                  RETURN VOID;
+
+
+                  表 3-171 DBE_FILE.PUT_RAW 接口参数说明
+
+                   参      类型             入        是否      描述
+                   数                     参/       可以
+                                         出参       为空
+
+                   file   INTEGER        IN       否       通过OPEN打开的文件句柄或者FOPEN打开
+                          或                               的DBE_FILE.FILE_TYPE类型的对象。
+                          DBE_FILE.
+                          FILE_TYP
+                          E
+
+                   r      RAW            IN       否       写入文件的RAW类型数据。
+                                                          说明
+                                                           对于写操作，会检测写入文件类型，如果为elf类
+                                                           型文件，会报错退出。
+
+                   flu    BOOLEA         IN       是       在PUT_RAW后是否要刷到磁盘，不指定或指
+                   sh     N                               定为空时采用FALSE。
+
+
+              ●   DBE_FILE.FLUSH
+                  函数DBE_FILE.FLUSH将缓冲区中的数据写入到物理文件中，缓存中的数据必须要
+                  有一个行终结符。该函数可以将缓冲区的数据及时写入到对应的物理文件中。
+                  DBE_FILE.FLUSH原型为：
+                  DBE_FILE.FLUSH(
+                    file IN INTEGER)
+                  RETURN VOID;
+
+                  DBE_FILE.FLUSH(
+                    file IN DBE_FILE.FILE_TYPE)
+                  RETURN VOID;
+
+
+                  表 3-172 DBE_FILE.FLUSH 接口参数说明
+
+                   参       类型              入参/        是否可   描述
+                   数                       出参         以为空
+
+                   file    INTEGER         IN         否     通过OPEN打开的文件句柄或者FOPEN打
+                           或                                开的DBE_FILE.FILE_TYPE类型的对象。
+                           DBE_FILE.
+                           FILE_TYPE
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                           2694
+GaussDB
+集中式版参考                                                                     3 存储过程
+
+
+
+              ●   DBE_FILE.CLOSE
+                  函数DBE_FILE.CLOSE用于关闭一个打开的文件句柄，当调用这个函数的时候，如
+                  果还有等待写入的缓存的数据，可能会收到异常信息，正常关闭返回TRUE。
+                  DBE_FILE.CLOSE原型为：
+                  DBE_FILE.CLOSE(
+                    file IN INTEGER)
+                  RETURN BOOLEAN;
+
+                  DBE_FILE.CLOSE(
+                    file IN DBE_FILE.FILE_TYPE)
+                  RETURN BOOLEAN;
+
+
+                  表 3-173 DBE_FILE.CLOSE 接口参数说明
+                   参      类型               入      是否   描述
+                   数                       参/     可以
+                                           出      为空
+                                           参
+
+                   file   INTEGER或         IN     否    通过OPEN打开的文件句柄或者FOPEN打开
+                          DBE_FILE.F                   的DBE_FILE.FILE_TYPE类型的对象。
+                          ILE_TYPE
+
+
+              ●   DBE_FILE.CLOSE_ALL
+                  函数DBE_FILE.CLOSE_ALL关闭一个会话中打开的所有的文件句柄，可用于紧急的
+                  清理操作。
+                  DBE_FILE.CLOSE_ALL原型为：
+                  DBE_FILE.CLOSE_ALL()
+                  RETURN VOID;
+
+              ●   DBE_FILE.REMOVE
+                  函数DBE_FILE.REMOVE删除一个磁盘文件。拥有相应权限的用户才可执行此函
+                  数。
+                  DBE_FILE.REMOVE原型为：
+                  DBE_FILE.REMOVE(
+                    dir    IN TEXT,
+                    file_name IN TEXT)
+                  RETURN VOID;
+
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                     2695
+GaussDB
+集中式版参考                                                                               3 存储过程
+
+                  表 3-174 DBE_FILE.REMOVE 接口参数说明
+                   参数           类型      入参/      是否           描述
+                                        出参       可以
+                                                 为空
+
+                   dir          TEXT    IN       否            文件的目录位置，该字符串是一个目录对
+                                                              象名。
+                                                              说明
+                                                               ● 文件目录的位置，需要添加到系统表
+                                                                 PG_DIRECTORY中，如果传入的路径和
+                                                                 PG_DIRECTORY中的路径不匹配，会报路径
+                                                                 不存在的错误。
+                                                               ● 在打开GUC参数safe_data_path时，用户只
+                                                                 能通过高级包操作safe_data_path指定文件
+                                                                 路径下的文件。
+
+                   file_nam     TEXT    IN       否            文件名。
+                   e
+
+
+              ●   DBE_FILE.RENAME
+                  函数DBE_FILE.RENAME重命名一个磁盘文件，类似Unix的mv指令。
+                  DBE_FILE.RENAME原型为：
+                  DBE_FILE.RENAME(
+                    src_dir     IN TEXT,
+                    src_file_name IN TEXT,
+                    dest_dir     IN TEXT,
+                    dest_file_name IN TEXT,
+                    overwrite     IN BOOLEAN DEFAULT FALSE)
+                  RETURN VOID;
+
+
+                  表 3-175 DBE_FILE.RENAME 接口参数说明
+                   参数            类型       入      是否       描述
+                                          参/     可以
+                                          出      为空
+                                          参
+
+                   src_dir       TEXT     IN     否        源文件的目录位置（大小写敏感）。
+                                                          说明
+                                                              ● 文件目录的位置，需要添加到系统表
+                                                                PG_DIRECTORY中，如果传入的路径和
+                                                                PG_DIRECTORY中的路径不匹配，会报路径
+                                                                不存在的错误。
+                                                              ● 在打开GUC参数safe_data_path时，用户只
+                                                                能通过高级包操作safe_data_path指定文件
+                                                                路径下的文件。
+
+                   src_file_n    TEXT     IN     否        要进行命名的源文件。
+                   ame
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                   2696
+GaussDB
+集中式版参考                                                                               3 存储过程
+
+
+                   参数            类型        入      是否         描述
+                                           参/     可以
+                                           出      为空
+                                           参
+
+                   dest_dir      TEXT      IN     否          目的目录位置（大小写敏感）。
+                                                             说明
+                                                              ● 文件目录的位置，需要添加到系统表
+                                                                PG_DIRECTORY中，如果传入的路径和
+                                                                PG_DIRECTORY中的路径不匹配，会报路径
+                                                                不存在的错误。
+                                                              ● 在打开GUC参数safe_data_path时，用户只
+                                                                能通过高级包操作safe_data_path指定文件
+                                                                路径下的文件。
+
+                   dest_file_    TEXT      IN     否          新的文件名。
+                   name
+
+                   overwrite     BOO       IN     是          是否重写，参数指定为空或者不指定时表示
+                                 LEAN                        不重写。在不重写的情况下，如果目的目录
+                                                             下已存在同名文件会报错。
+
+
+              ●   DBE_FILE.COPY
+                  函数DBE_FILE.COPY复制一个连续区域的内容到一个新创建的文件中，如果忽略
+                  了start_line和end_line会复制整个文件。
+                  DBE_FILE.COPY原型为：
+                  DBE_FILE.COPY(
+                    src_dir     IN TEXT,
+                    src_file_name IN TEXT,
+                    dest_dir     IN TEXT,
+                    dest_file_name IN TEXT,
+                    start_line   IN INTEGER DEFAULT 1,
+                    end_line      IN INTEGER DEFAULT NULL)
+                  RETURN VOID;
+
+
+                  表 3-176 DBE_FILE.COPY 接口参数说明
+
+                   参数           类型      入       是否       描述
+                                        参/      可以
+                                        出       为空
+                                        参
+
+                   src_dir      TEX     IN      否        源文件所在的目录。
+                                T                        说明
+                                                             ● 文件目录的位置，需要添加到系统表
+                                                               PG_DIRECTORY中，如果传入的路径和
+                                                               PG_DIRECTORY中的路径不匹配，会报路径不
+                                                               存在的错误。
+                                                             ● 在打开GUC参数safe_data_path时，用户只能通
+                                                               过高级包操作safe_data_path指定文件路径下的
+                                                               文件。
+
+                   src_file_    TEX     IN      否        要复制的源文件名。
+                   name         T
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                   2697
+GaussDB
+集中式版参考                                                                      3 存储过程
+
+
+                   参数           类型     入      是否   描述
+                                       参/     可以
+                                       出      为空
+                                       参
+
+                   dest_dir     TEX    IN     否    目的文件所在的目录。
+                                T                  说明
+                                                    ● 文件目录的位置，需要添加到系统表
+                                                      PG_DIRECTORY中，如果传入的路径和
+                                                      PG_DIRECTORY中的路径不匹配，会报路径不
+                                                      存在的错误。
+                                                    ● 在打开GUC参数safe_data_path时，用户只能通
+                                                      过高级包操作safe_data_path指定文件路径下的
+                                                      文件。
+
+                   dest_file    TEX    IN     否    目的文件名。
+                   _name        T                  说明
+                                                    对于写操作，会检测写入文件类型，如果为elf类型
+                                                    文件，会报错退出。
+
+                   start_lin    TEX    IN     否    复制开始的行号，默认为1。
+                   e            T
+
+                   end_line     TEX    IN     是    复制结束的行号，默认为NULL，如果是
+                                T                  NULL，则指定到文件尾。
+
+
+              ●   DBE_FILE.GET_ATTR
+                  函数DBE_FILE.GET_ATTR读取并返回一个磁盘文件的属性。
+                  DBE_FILE.GET_ATTR原型为：
+                  DBE_FILE.GET_ATTR(
+                    location IN TEXT,
+                    filename IN TEXT,
+                    fexists   OUT BOOLEAN,
+                    file_length OUT BIGINT,
+                    block_size OUT INTEGER)
+                  RETURN RECORD;
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                          2698
+GaussDB
+集中式版参考                                                                           3 存储过程
+
+                  表 3-177 DBE_FILE.GET_ATTR 接口参数说明
+                   参数          类型      入      是      描述
+                                       参/     否
+                                       出      可
+                                       参      以
+                                              为
+                                              空
+
+                   location    TEX     IN     否      文件所在的目录。
+                               T                     说明
+                                                       ● 文件目录的位置，需要添加到系统表
+                                                         PG_DIRECTORY中，如果传入的路径和
+                                                         PG_DIRECTORY中的路径不匹配，会报路径不存在
+                                                         的错误。
+                                                       ● 在打开GUC参数safe_data_path时，用户只能通过
+                                                         高级包操作safe_data_path指定文件路径下的文
+                                                         件。
+
+                   filenam     TEX     IN     否      文件名。
+                   e           T
+
+                   fexists     BO      OU     否      文件是否存在。
+                               OLE     T
+                               AN
+
+                   file_len    BIGI    OU     否      文件的字节长度，如果文件不存在返回NULL。
+                   gth         NT      T
+
+                   block_si    INT     OU     否      文件系统的块大小（单位字节），如果文件不存
+                   ze          EGE     T             在返回NULL。
+
+
+              ●   DBE_FILE.SEEK
+                  函数DBE_FILE.SEEK根据用户指定的字节数向前或者向后调整文件指针的位置。
+                  DBE_FILE.SEEK原型为：
+                  DBE_FILE.SEEK(
+                    file       IN INTEGER,
+                    absolute_start IN BIGINT DEFAULT NULL,
+                    relative_start IN BIGINT DEFAULT NULL)
+                  RETURN VOID;
+
+                  DBE_FILE.SEEK(
+                    file       IN DBE_FILE.FILE_TYPE,
+                    absolute_start IN BIGINT DEFAULT NULL,
+                    relative_start IN BIGINT DEFAULT NULL)
+                  RETURN VOID;
+
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                             2699
+GaussDB
+集中式版参考                                                                               3 存储过程
+
+                  表 3-178 DBE_FILE.SEEK 接口参数说明
+                   参数          类型             入         是否       描述
+                                              参/        可以
+                                              出参        为空
+
+                   file        INTEGER        IN        否        通过OPEN打开的文件句柄或者FOPEN
+                               或                                 打开的DBE_FILE.FILE_TYPE类型的对
+                               DBE_FILE.                         象。
+                               FILE_TYP
+                               E
+
+                   absolut     BIGINT         IN        是        文件偏移的绝对位置，默认值为NULL。
+                   e_start
+
+                   relative    BIGINT         IN        是        文件偏移的相对位置。如果值是正数，
+                   _start                                        向前偏移；如果是负数，向后偏移；默
+                                                                 认值为NULL。如果和absolute_start参
+                                                                 数同时指定，以absolute_start参数为
+                                                                 准。
+
+
+              ●   DBE_FILE.GET_POS
+                  函数DBE_FILE.GET_POS以字节为单位返回文件当前的偏移量。
+                  DBE_FILE.FGETPOS原型为：
+                  DBE_FILE.GET_POS(
+                    file IN INTEGER)
+                  RETURN BIGINT;
+
+                  DBE_FILE.GET_POS(
+                    file IN DBE_FILE.FILE_TYPE)
+                  RETURN BIGINT;
+
+
+                  表 3-179 DBE_FILE.GET_POS 接口参数说明
+                   参      类型             入         是否       描述
+                   数                     参/        可以
+                                         出参        为空
+
+                   fil    INTEGER        IN        否        通过OPEN打开的文件句柄或者FOPEN打开的
+                   e      或                                 DBE_FILE.FILE_TYPE类型的对象。
+                          DBE_FILE.
+                          FILE_TYPE
+
+
+              ●   DBE_FILE.FOPEN_NCHAR
+                  函数DBE_FILE.FOPEN_NCHAR用来打开一个文件，可以指定文件每行的最大字节
+                  数，一个会话内最多可以同时打开50个文件。该函数返回一个封装了文件句柄的
+                  DBE_FILE.FILE_TYPE类型对象。该函数以国家字符集模式打开文件以进行输入或
+                  输出。
+                  DBE_FILE.FOPEN_NCHAR原型为：
+                  DBE_FILE.FOPEN_NCHAR(
+                    dir       IN TEXT,
+                    file_name    IN TEXT,
+                    open_mode      IN TEXT,
+                    max_line_size IN INTEGER DEFAULT 1024)
+                  RETURN DBE_FILE.FILE_TYPE;
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                2700
+GaussDB
+集中式版参考                                                                          3 存储过程
+
+                  表 3-180 DBE_FILE.FOPEN_NCHAR 接口参数说明
+                   参数            类型        入      是   描述
+                                           参/     否
+                                           出      可
+                                           参      以
+                                                  为
+                                                  空
+
+                   dir           TEXT      IN     否   文件的目录位置，该字符串是一个目录对象
+                                                      名。
+                                                      说明
+                                                       ● 文件目录的位置，需要添加到系统表
+                                                         PG_DIRECTORY中，如果传入的路径和
+                                                         PG_DIRECTORY中的路径不匹配，会报路径不存
+                                                         在的错误。
+                                                       ● 在打开GUC参数safe_data_path时，用户只能通
+                                                         过高级包读写safe_data_path指定文件路径下的
+                                                         文件。
+
+                   file_nam      TEXT      IN     否   文件名，包含扩展（文件类型），不包括路径
+                   e                                  名。如果文件名中包含路径，在
+                                                      FOPEN_NCHAR中会被忽略，在Unix系统中，
+                                                      文件名不能以/.结尾。
+
+                   open_m        TEXT      IN     否   指定文件的打开模式，包含：
+                   ode                                ● r：read text。
+                                                      ● w：write text。
+                                                      ● a：append text。
+                                                      ● rb：read byte。
+                                                      ● wb：write byte。
+                                                      ● ab：append byte。
+                                                      说明
+                                                       对于写操作，会检测写入文件类型，如果为elf类型
+                                                       文件，会报错退出。
+
+                   max_line      INTE      IN     是   每行的最大字节数，包含换行符（最小值是1，
+                   _size         GER                  最大值是32767）。如果没有指定或指定该参
+                                                      数为空，会使用默认值1024。
+
+
+              ●   DBE_FILE.WRITE_NCHAR
+                  函数DBE_FILE.WRITE_NCHAR用于向文件的缓冲区中写入buffer中的数据，文件
+                  必须以国家字符集模式和写模式打开，这个操作不会写入行终结符。文本字符串
+                  将以UTF8字符集格式写入。
+                  DBE_FILE.WRITE_NCHAR原型为：
+                  DBE_FILE.WRITE_NCHAR(
+                    file IN DBE_FILE.FILE_TYPE,
+                    buffer IN NVARCHAR2)
+                  RETURN VOID;
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                             2701
+GaussDB
+集中式版参考                                                                            3 存储过程
+
+                  表 3-181 DBE_FILE.WRITE_NCHAR 接口参数说明
+
+                   参     类型            入          是否   描述
+                   数                   参/         可以
+                                       出参         为空
+
+                   fil   DBE_FILE      IN         否    通过FOPEN_NCHAR打开的
+                   e     .FILE_TYP                     DBE_FILE.FILE_TYPE类型的对象，要写入的文
+                         E                             件必须以写模式打开，这个操作不会写入行终
+                                                       结符。
+
+                   buf NVARCH          IN         是    写入文件的文本数据。每行的累计写入长度不
+                   fer AR2                             能大于或等于FOPEN_NCHAR时指定或默认的
+                                                       max_line_size，否则会在刷新到文件时报错。
+                                                       说明
+                                                        对于写操作，会检测写入文件类型，如果为elf类型
+                                                        文件，会报错退出。
+
+
+
+              ●   DBE_FILE.WRITE_LINE_NCHAR
+                  函数DBE_FILE.WRITE_LINE_NCHAR用于向文件的缓冲区中写入buffer中的数据，
+                  文件必须以国家字符集模式和写模式打开，这个操作会自动追加行终结符。文本
+                  字符串将以UTF8字符集格式写入。
+                  DBE_FILE.WRITE_LINE_NCHAR原型为：
+                  DBE_FILE.WRITE_LINE_NCHAR(
+                    file IN DBE_FILE.FILE_TYPE,
+                    buffer IN NVARCHAR2)
+                  RETURN VOID;
+
+
+                  表 3-182 DBE_FILE.WRITE_LINE_NCHAR 接口参数说明
+
+                   参     类型             入         是否   描述
+                   数                    参/        可以
+                                        出         为空
+                                        参
+
+                   fil   DBE_FILE       IN        否    通过FOPEN_NCHAR打开的
+                   e     .FILE_TYP                     DBE_FILE.FILE_TYPE类型的对象。
+                         E
+
+                   buf NVARCH           IN        是    要写入文件的文本数据，每行的长度（包含换
+                   fer AR2                             行符）不能大于FOPEN_NCHAR时指定或默认
+                                                       的max_line_size，否则会在刷新到文件时报
+                                                       错。
+                                                       说明
+                                                        对于写操作，会检测写入文件类型，如果为elf类型
+                                                        文件，会报错退出。
+
+
+
+              ●   DBE_FILE.FORMAT_WRITE_NCHAR
+                  函数DBE_FILE.FORMAT_WRITE_NCHAR将格式化数据写入到一个打开的文件的
+                  缓冲区中，是允许格式化的DBE_FILE.WRITE_NCHAR接口。
+                  DBE_FILE.FORMAT_WRITE_NCHAR原型为：
+                  DBE_FILE.FORMAT_WRITE_NCHAR(
+                    file IN DBE_FILE.FILE_TYPE,
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                              2702
+GaussDB
+集中式版参考                                                                          3 存储过程
+
+                    format IN NVARCHAR2,
+                    arg1 IN NVARCHAR2 DEFAULT NULL,
+                    ...
+                    arg5 IN NVARCHAR2 DEFAULT NULL)
+                  RETURN VOID;
+
+
+                  表 3-183 DBE_FILE.FORMAT_WRITE_NCHAR 接口参数说明
+
+                   参数         类型            入        是否可   描述
+                                            参/       以为空
+                                            出参
+
+                   file       DBE_FILE      IN       否     通过FOPEN_NCHAR打开的
+                              .FILE_TYP                    DBE_FILE.FILE_TYPE类型的对象。
+                              E
+
+                   format     NVARCH        IN       是     格式化的字符串，包含文本和格式符\n
+                              AR2                          和%s。
+
+                   [arg1. .   NVARCH        IN       是     1到5个可选的参数串，参数和格式化字
+                   .arg5]     AR2                          符的位置是一一对应的，如果存在格式
+                                                           化字符而没有提供参数，会使用空串来
+                                                           替代%s。
+
+
+              ●   DBE_FILE.READ_LINE_NCHAR
+                  函数DBE_FILE.READ_LINE_NCHAR从一个打开的文件读取数据，并把读取的结果
+                  存放到buffer中。读取的时候会读取到行尾，但不包含行终结符，或者读取到文件
+                  末尾，或者读取到len参数指定的大小。读取的长度不能超过FOPEN_NCHAR的时
+                  候指定的max_line_size。
+                  DBE_FILE.READ_LINE_NCHAR原型为：
+                  DBE_FILE.READ_LINE_NCHAR(
+                    file IN DBE_FILE.FILE_TYPE,
+                    buffer OUT NVARCHAR2,
+                    len IN INTEGER DEFAULT NULL)
+                  RETURN NVARCHAR2;
+
+
+                  表 3-184 DBE_FILE.READ_LINE_NCHAR 接口参数说明
+
+                   参      类型           入         是否可     描述
+                   数                   参/        以为空
+                                       出参
+
+                   file   DBE_FILE.    IN        否       通过FOPEN_NCHAR打开的
+                          FILE_TYPE                      DBE_FILE.FILE_TYPE类型的对象，文件必
+                                                         须以读模式打开，否则会抛出
+                                                         INVALID_OPERATION的异常。
+
+                   buf    NVARCHA      OUT       否       接收数据的buffer。
+                   fer    R2
+
+                   len    INTEGER      IN        是       从文件中读取的字节数，默认值为NULL。
+                                                         如果是NULL，会使用max_line_size来指定
+                                                         大小。
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                2703
+GaussDB
+集中式版参考                                                                                     3 存储过程
+
+
+示例
+              -- 系统管理员向PG_DIRECTORY系统表中加入目录/tmp/。
+              CREATE OR REPLACE DIRECTORY dir AS '/tmp/';
+              -- 执行结果。
+              CREATE DIRECTORY
+              -- 使用DBE_FILE高级包。
+              DECLARE
+                 f INTEGER;
+                 buffer VARCHAR2;
+                 raw_buffer RAW;
+
+                f1 DBE_FILE.FILE_TYPE;
+                f2 DBE_FILE.FILE_TYPE;
+
+                fexists BOOLEAN;
+                file_length BIGINT;
+                block_size INTEGER;
+                pos BIGINT;
+
+                nvarchar_buffer nvarchar2;
+                f_nchar DBE_FILE.FILE_TYPE;
+              BEGIN
+                -- 打开文件。
+                f := DBE_FILE.OPEN('dir', 'sample.txt', 'w');
+
+                IF DBE_FILE.IS_OPEN(f) = true THEN
+                   DBE_OUTPUT.PRINT_LINE('file opened');
+                END IF;
+
+                -- 关闭文件。
+                DBE_FILE.CLOSE(f);
+
+                IF DBE_FILE.IS_CLOSE(f) = true THEN
+                   DBE_OUTPUT.PRINT_LINE('file closed');
+                END IF;
+
+                f := DBE_FILE.OPEN('dir', 'sample.txt', 'w');
+
+                -- 写文件。
+                DBE_FILE.WRITE(f, 'A');
+                DBE_FILE.NEW_LINE(f);
+                DBE_FILE.WRITE(f, 'B');
+                DBE_FILE.WRITE(f, 'C');
+                DBE_FILE.NEW_LINE(f, 2);
+                DBE_FILE.WRITE_LINE(f, 'ABC');
+                DBE_FILE.FORMAT_WRITE(f, '[1 -> %s, 2 -> %s]\n', 'GaussDB', 'DBE_FILE');
+                DBE_FILE.PUT_RAW(f, '414243');
+                DBE_FILE.NEW_LINE(f);
+                DBE_FILE.CLOSE(f);
+
+                -- 新建sample_copy.txt并复制sample.txt的内容。
+                DBE_FILE.COPY('dir', 'sample.txt', 'dir', 'sample_copy.txt');
+
+                -- 以读模式打开文件。
+                f := DBE_FILE.OPEN('dir', 'sample_copy.txt', 'r');
+                -- 读文件。
+                DBE_FILE.READ_LINE(f, buffer); -- A
+                DBE_OUTPUT.PRINT_LINE(buffer);
+                DBE_FILE.READ_LINE(f, buffer); -- BC
+                DBE_OUTPUT.PRINT_LINE(buffer);
+                DBE_FILE.READ_LINE(f, buffer);
+                DBE_FILE.READ_LINE(f, buffer); -- ABC
+                DBE_OUTPUT.PRINT_LINE(buffer);
+                DBE_FILE.READ_LINE(f, buffer); -- [1 -> GaussDB, 2 -> DBE_FILE]
+                DBE_OUTPUT.PRINT_LINE(buffer);
+                DBE_FILE.READ_LINE(f, buffer); -- RAW 414243 --> ABC
+                DBE_OUTPUT.PRINT_LINE(buffer);
+
+                -- 关闭文件。
+
+
+文档版本 01 (2026-04-30)                      版权所有 © 华为云计算技术有限公司                                  2704
+GaussDB
+集中式版参考                                                                                      3 存储过程
+
+                DBE_FILE.CLOSE(f);
+
+                f1 := DBE_FILE.FOPEN('dir', 'sample1.txt', 'w');
+                f2 := DBE_FILE.FOPEN('dir', 'sample2.txt', 'w');
+                DBE_FILE.CLOSE_ALL();
+
+                IF DBE_FILE.IS_CLOSE(f1) = true and DBE_FILE.IS_CLOSE(f2) = true THEN
+                   DBE_OUTPUT.PRINT_LINE('f1 and f2 all closed');
+                END IF;
+
+                -- 删除文件。
+                DBE_FILE.REMOVE('dir', 'sample1.txt');
+                DBE_FILE.REMOVE('dir', 'sample2.txt');
+                DBE_FILE.REMOVE('dir', 'sample_copy.txt');
+
+                -- 打开文件，清理sample.txt里的数据。
+                f := DBE_FILE.OPEN('dir', 'sample.txt', 'w');
+                DBE_FILE.WRITE_LINE(f, 'ABC');
+                DBE_FILE.CLOSE(f);
+
+                f := DBE_FILE.OPEN('dir', 'sample.txt', 'r');
+                -- GET_RAW。
+                DBE_FILE.GET_RAW(f, raw_buffer); -- 4142430A 0A是换行符
+                DBE_OUTPUT.PRINT_LINE(raw_buffer);
+                DBE_FILE.CLOSE(f);
+
+                -- 获取文件属性。
+                DBE_FILE.GET_ATTR('dir', 'sample.txt', fexists, file_length, block_size);
+
+                IF fexists = true THEN
+                   DBE_OUTPUT.PRINT_LINE('file length: ' || file_length);
+                END IF;
+
+                -- 修改文件名。
+                DBE_FILE.RENAME('dir', 'sample.txt', 'dir', 'sample_rename.txt', true);
+                f1 := DBE_FILE.FOPEN('dir', 'sample_rename.txt', 'r');
+                DBE_FILE.SEEK(f1, 1, null);
+                pos := DBE_FILE.GET_POS(f1);
+                DBE_OUTPUT.PRINT_LINE('position is: ' || pos);
+                DBE_FILE.READ_LINE(f1, buffer); -- BC
+                DBE_OUTPUT.PRINT_LINE(buffer);
+                DBE_FILE.CLOSE(f1);
+
+                -- FLUSH。
+                f1 := DBE_FILE.FOPEN('dir', 'sample_rename.txt', 'w');
+                DBE_FILE.WRITE_LINE(f1, 'ABCEFG');
+                DBE_FILE.FLUSH(f1);
+
+                f2 := DBE_FILE.FOPEN('dir', 'sample_rename.txt', 'r');
+                DBE_FILE.READ_LINE(f2, buffer); -- ABCEFG
+                DBE_OUTPUT.PRINT_LINE(buffer);
+                DBE_FILE.CLOSE(f1);
+                DBE_FILE.CLOSE(f2);
+                DBE_FILE.REMOVE('dir', 'sample_rename.txt');
+
+                -- NCHAR函数。
+                f_nchar := DBE_FILE.FOPEN_NCHAR('dir', 'sample_nchar.txt', 'w');
+                DBE_FILE.WRITE_NCHAR(f_nchar, 'ABCDE');
+                DBE_FILE.WRITE_LINE_NCHAR(f_nchar, 'ABCDE');
+                DBE_FILE.FORMAT_WRITE_NCHAR(f_nchar, '%s, %s', 'hello', 'world');
+                DBE_FILE.CLOSE(f_nchar);
+                f_nchar := DBE_FILE.FOPEN_NCHAR('dir', 'sample_nchar.txt', 'r');
+                DBE_FILE.READ_LINE_NCHAR(f_nchar, nvarchar_buffer); -- ABCDEABCDE
+                DBE_OUTPUT.PRINT_LINE(nvarchar_buffer);
+                DBE_FILE.READ_LINE_NCHAR(f_nchar, nvarchar_buffer); -- hello, world
+                DBE_OUTPUT.PRINT_LINE(nvarchar_buffer);
+                DBE_FILE.CLOSE(f_nchar);
+                DBE_FILE.REMOVE('dir', 'sample_nchar.txt');
+              END;
+
+
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                                    2705
+GaussDB
+集中式版参考                                                               3 存储过程
+
+              /
+
+              -- 执行结果。
+              file opened
+              file closed
+              A
+              BC
+              ABC
+              [1 -> GaussDB, 2 -> DBE_FILE]
+              ABC
+              f1 and f2 all closed
+              4142430A
+              file length: 4
+              position is: 1
+              BC
+              ABCEFG
+              ABCDEABCDE
+              hello, world
+              ANONYMOUS BLOCK EXECUTE
+
+
+3.12.2.6 DBE_HEAT_MAP
+
+接口介绍
+              DBE_HEAT_MAP根据输入的参数，返回目标数据块中行的最后修改时间等信息，用于
+              直观浏览每一行被判定为冷、热行的依据。该接口属于运维类接口，不做可见性判
+              断，即传入的ctid为已删除的行时，该接口依然会返回当前行在页面上最新的状态。
+              DBE_HEAT_MAP支持的接口请参见表3-185。跨页透明压缩不支持此高级包，跨页透
+              明压缩表查询结果中行的最后修改时间为空。
+
+              表 3-185 DBE_HEAT_MAP
+
+                  接口名称                        描述
+
+                  DBE_HEAT_MAP.RO             根据对象所属Schema、数据对象名称、数据对象分区名
+                  W_HEAT_MAP                  及ctid获取行的最后修改时间等信息。
+
+
+
+
+              ●     DBE_HEAT_MAP.ROW_HEAT_MAP
+                    根据对象所属Schema、数据对象名称、数据对象分区名及ctid获取行的最后修改
+                    时间等信息。
+                    DBE_HEAT_MAP.ROW_HEAT_MAP原型为：
+                    DBE_HEAT_MAP.ROW_HEAT_MAP(
+                    OWNER        IN VARCHAR2,
+                    SEGMENT_NAME IN VARCHAR2,
+                    PARTITION_NAME IN VARCHAR2     DEFAULT NULL,
+                    CTID       IN TEXT,
+                    V_DEBUG       IN BOOL     DEFAULT FALSE);
+
+
+                    表 3-186 DBE_HEAT_MAP.ROW_HEAT_MAP 接口参数说明
+
+                     参数              描述
+
+                     OWNER           数据对象所属Schema。
+
+                     SEGMENT_        数据对象名称。
+                     NAME
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                2706
+GaussDB
+集中式版参考                                                                                                                3 存储过程
+
+
+                  参数                   描述
+
+                  PARTITION            数据对象分区名，可选参数，默认为 NULL。
+                  _NAME
+
+                  CTID                 目标行的ctid，即block_id或row_id。
+
+                  V_DEBUG              debug调试，增加日志打印。
+
+
+
+
+                 表 3-187 DBE_HEAT_MAP.ROW_HEAT_MAP 输出参数
+                  参数                   描述
+
+                  OWNER                数据对象的所有者。
+
+                  SEGMENT_             数据对象名称。
+                  NAME
+
+                  PARTITION            数据对象分区名称，可选参数。
+                  _NAME
+
+                  TABLESPAC            数据所属的表空间名称。
+                  E_NAME
+
+                  FILE_ID              行所属的绝对文件id。
+
+                  RELATIVE_F           行所属的相对文件id（GaussDB中无此逻辑，因此取值同上）。
+                  NO
+
+                  CTID                 行的ctid，即block_id或row_id。
+
+                  WRITETIME            行的最后修改时间。
+
+
+
+
+                 示例：
+                 gaussdb=# ALTER DATABASE set ilm = on;
+                 gaussdb=# CREATE SCHEMA HEAT_MAP_DATA;
+                 gaussdb=# SET current_schema=HEAT_MAP_DATA;
+
+                 gaussdb=# CREATE TABLESPACE example1 RELATIVE LOCATION 'tablespace1';
+                 gaussdb=# CREATE TABLE HEAT_MAP_DATA.heat_map_table(id INT, value TEXT) TABLESPACE
+                 example1;
+                 gaussdb=# INSERT INTO HEAT_MAP_DATA.heat_map_table VALUES (1, 'test_data_row_1');
+
+                 gaussdb=# SELECT * FROM DBE_HEAT_MAP.ROW_HEAT_MAP(
+                    owner         => 'heat_map_data',
+                    segment_name => 'heat_map_table',
+                    partition_name => NULL,
+                    ctid        => '(0,1)');
+                     owner      | segment_name | partition_name | tablespace_name | file_id | relative_fno | ctid |
+                 writetime
+                 ---------------+----------------+----------------+-----------------+---------+--------------+-------+-----------
+                  heat_map_data | heat_map_table |                   | example1         | 17291 |        17291 | (0,1) |
+                 (1 row)
+
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                                                    2707
+GaussDB
+集中式版参考                                                                     3 存储过程
+
+
+3.12.2.7 DBE_ILM
+
+接口介绍
+              服务于ILM策略实施，实现ILM策略的评估以及压缩Job的停用接口。DBE_ILM支持的
+              接口请参见表3-188。
+
+
+              表 3-188 DBE_ILM
+
+               接口名称                         描述
+
+               DBE_ILM.EXECUTE_ILM          根据参数执行对指定的数据和ILM策略进行评估，评估
+                                            通过则会生成对应的压缩Job。
+
+               DBE_ILM.STOP_ILM             根据参数停止正在执行的压缩Job。
+
+
+
+
+              ●    DBE_ILM.EXECUTE_ILM
+                   根据参数执行对指定的数据和ILM策略进行评估，评估通过则会生成对应的压缩
+                   Job。
+                   DBE_ILM.EXECUTE_ILM原型为：
+                   DBE_ILM.EXECUTE_ILM(
+                   OWNER        IN VARCHAR2,
+                   OBJECT_NAME IN VARCHAR2,
+                   TASK_ID     OUT NUMBER,
+                   SUBOBJECT_NAME IN VARCHAR2 DEFAULT NULL,
+                   POLICY_NAME IN VARCHAR2 DEFAULT 'ALL POLICIES',
+                   EXECUTION_MODE IN NUMBER DEFAULT 2
+                   TURBO_FORCE IN BOOLEAN DEFAULT FALSE,
+                   TURBO_BLKSTART IN INTEGER DEFAULT -1,
+                   TURBO_BLKEND IN INTEGER DEFAULT -1)
+
+
+                   表 3-189 DBE_ILM.EXECUTE_ILM 接口参数说明
+
+                    参数             描述
+
+                    OWNER          对象所属Schema。
+
+                    OBJECT_NA      对象名称。
+                    ME
+
+                    TASK_ID        输出生成ADO task的描述符id。
+
+                    SUBOBJECT      数据子对象名称。
+                    _NAME
+
+                    POLICY_NA      策略名称，通过查询GS_ADM_ILMOBJECTS视图可知，默认
+                    ME             DBE_ILM.ILM_ALL_POLICIES代表该对象上所有策略。
+                                   DBE_ILM.ILM_ALL_POLICIES默认值为'ALL POLICIES'，不支持小
+                                   写。
+
+                    EXECUTION      执行模式，暂不涉及在线模式（ILM_EXECUTION_ONLINE）或
+                    _MODE          离线模式（ILM_EXECUTION_OFFLINE）。
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                         2708
+GaussDB
+集中式版参考                                                                          3 存储过程
+
+
+                   参数             描述
+
+                   TURBO_FO       是否开启忽略冷热管理的强制压缩，仅对跨页透明压缩生效。
+                   RCE            TRUE表示开启，FALSE表示关闭。
+
+                   TURBO_BL       强制压缩开始的block number，仅对跨页透明压缩生效。
+                   KSTART
+
+                   TURBO_BL       强制压缩结束的block number，仅对跨页透明压缩生效。
+                   KEND
+
+
+
+
+                        说明
+
+                       ● DBE_ILM.EXECUTE_ILM依据当前数据库名及表名，生成类似“数据库名_表名_分区名_
+                         数字”格式的JOBNAME命名规则，然后通过DBE_SCHEDULER.Create_job创建对应名
+                         称的任务；当表名包含特殊字符时，调用该接口将报错：Invalid program name。
+                       ● 当DBE_ILM.EXECUTE_ILM与DBE_ILM.STOP_ILM并发时，有较低概率会导致任务
+                         FAILED，gs_adm_ilmresults视图中comments字段内容显示“tuple concurrently
+                         updated”。
+                       ● 业务进行压缩操作时（无论是自动调度还是手动调度），应尽可能避免对压缩中的相关
+                         表进行DDL操作。特别是在一段长事务中执行DDL，可能会引发死锁或锁等待问题。若
+                         确有必要进行DDL操作，建议使用DBE_ILM.STOP_ILM接口将相关表的压缩任务停止，
+                         确认停止后再进行DDL操作。
+                       ● 执行DBE_ILM.EXECUTE_ILM需要拥有PUBLIC权限及CREATE JOB权限，可通过
+                         dbe_scheduler.grant_user_authorization进行赋权，非SYSADMIN用户执行需要表的
+                         owner权限。
+                       ● 若要压缩二级分区，SUBOBJECT_NAME字段不可传入其一级分区名称，需传入具体的
+                         二级分区名称（或者传入NULL，即压缩所有子二级分区）。
+                       ● 事务内调用此接口，需要等待事务结束、或者COMMIT后，压缩动作才能生效。多个
+                         不同事务内调用DBE_ILM.EXECUTE_ILM接口，先执行的事务若一直不提交，后执行的
+                         事务可能存在锁超时风险。
+                       ● TURBO_FORCE参数的不同取值，对gs_adm_ilmresults视图有不同影响：
+                         ●   当指定为FALSE时：由于gs_adm_ilmresults视图中的statistics字段统计内容本身
+                             对跨页透明压缩无意义，因此跨页透明压缩对象在该字段中显示为默认值。
+                         ●   当指定为TRUE时：当前压缩任务独立于ILM原有的任务划分机制运行，不对该对
+                             象进行statistics统计，因此gs_adm_ilmresults视图中的statistics字段显示为空。
+              ●   DBE_ILM.STOP_ILM
+                  根据参数停止正在执行的ILM策略。
+                  DBE_ILM.STOP_ILM原型为：
+                  DBE_ILM.STOP_ILM(
+                  TASK_ID        IN NUMBER DEFAULT -1,
+                  P_DROP_RUNNING_JOBS IN BOOLEAN DEFAULT FALSE,
+                  P_JOBNAME         IN VARCHAR2 DEFAULT NULL)
+
+
+                  表 3-190 DBE_ILM.STOP_ILM 接口参数说明
+
+                   参数                 描述
+
+                   TASK_ID            指定待停止ADO task的描述符id。
+
+                   P_DROP_RUNN        是否停止正在执行中的任务，true为强制停止，false为不停
+                   ING_JOBS           止正在执行的任务。
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                                    2709
+GaussDB
+集中式版参考                                                                                              3 存储过程
+
+
+                    参数                    描述
+
+                    P_JOBNAME             标识待停止的特定JobName，通过
+                                          GS_MY_ILMEVALUATIONDETAILS视图可以查询。
+
+
+
+
+                         说明
+
+                       当并发量较大时，执行DBE_ILM.STOP_ILM可能会提示资源繁忙，稍后重试即可。提示内
+                       容为“Resources are busy, please try again later”。
+
+
+示例
+              gaussdb=# ALTER DATABASE set ilm = on;
+              gaussdb=# CREATE Schema ILM_DATA;
+              gaussdb=# SET current_schema=ILM_DATA;
+              BEGIN
+                 DBE_ILM_ADMIN.DISABLE_ILM();
+                 DBE_ILM_ADMIN.CUSTOMIZE_ILM(1, 15);
+                 DBE_ILM_ADMIN.CUSTOMIZE_ILM(2, 30);
+                 DBE_ILM_ADMIN.CUSTOMIZE_ILM(11, 1);
+                 DBE_ILM_ADMIN.CUSTOMIZE_ILM(12, 10);
+                 DBE_ILM_ADMIN.CUSTOMIZE_ILM(13, 1024);
+                 DBE_ILM_ADMIN.CUSTOMIZE_ILM(14, 240);
+                 DBE_ILM_ADMIN.ENABLE_ILM();
+              END;
+              /
+              -- 1.1.2 prepare test data
+              gaussdb=# CREATE SEQUENCE ILM_DATA.ORDER_TABLE_SE_ORDER_ID MINVALUE 1;
+              gaussdb=# CREATE OR REPLACE PROCEDURE ILM_DATA.ORDER_TABLE_CREATE_DATA(NUM INTEGER) IS
+              BEGIN
+                 FOR X IN 1..NUM
+                    LOOP
+                       INSERT INTO ORDER_TABLE VALUES(ORDER_TABLE_SE_ORDER_ID.nextval, '零食大礼包A', NOW());
+                    END LOOP;
+                 COMMIT;
+              END;
+              /
+              -- 1.1.3 normal procedure
+              -- 1.1.3.1 evaluate successed - all policy
+              gaussdb=# CREATE TABLE ILM_DATA.ORDER_TABLE (ORDER_ID INT, GOODS_NAME TEXT, CREATE_TIME
+              TIMESTAMP)
+                 WITH (STORAGE_TYPE=ASTORE) ILM ADD POLICY ROW STORE COMPRESS ADVANCED ROW AFTER 1
+              DAYS OF NO MODIFICATION;
+              BEGIN
+                 ILM_DATA.ORDER_TABLE_CREATE_DATA(5);
+                 PERFORM PG_SLEEP(2);
+              END;
+              /
+
+              gaussdb=# SELECT ORDER_ID, DBE_COMPRESSION.GET_COMPRESSION_TYPE('ilm_data', 'order_table',
+              ctid::text, NULL) FROM ILM_DATA.ORDER_TABLE;
+               order_id | get_compression_type
+              ----------+----------------------
+                     1|                1
+                     2|                1
+                     3|                1
+                     4|                1
+                     5|                1
+              (5 rows)
+
+              gaussdb=# SELECT ORDER_ID, DBE_HEAT_MAP.ROW_HEAT_MAP('ilm_data','order_table', NULL, ctid::text)
+              FROM ILM_DATA.ORDER_TABLE;
+               order_id |              row_heat_map
+              ----------+-----------------------------------------------
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                   2710
+GaussDB
+集中式版参考                                                                                           3 存储过程
+
+                   1 | (ilm_data,order_table,,,16799,16799,"(0,1)",)
+                   2 | (ilm_data,order_table,,,16799,16799,"(0,2)",)
+                   3 | (ilm_data,order_table,,,16799,16799,"(0,3)",)
+                   4 | (ilm_data,order_table,,,16799,16799,"(0,4)",)
+                   5 | (ilm_data,order_table,,,16799,16799,"(0,5)",)
+              (5 rows)
+
+              DECLARE
+                v_taskid number;
+              BEGIN
+                DBE_ILM.EXECUTE_ILM(OWNER             => 'ilm_data',
+                              OBJECT_NAME => 'order_table',
+                              TASK_ID       => v_taskid,
+                              SUBOBJECT_NAME => NULL,
+                              POLICY_NAME => 'ALL POLICIES',
+                              EXECUTION_MODE => 2);
+                RAISE INFO 'Task ID is:%', v_taskid;
+              END;
+              /
+              INFO: Task ID is:1
+
+              gaussdb=# SELECT ORDER_ID, DBE_COMPRESSION.GET_COMPRESSION_TYPE('ilm_data', 'order_table',
+              ctid::text, NULL) FROM ILM_DATA.ORDER_TABLE;
+               order_id | get_compression_type
+              ----------+----------------------
+                     1|                1
+                     2|                1
+                     3|                1
+                     4|                1
+                     5|                1
+              (5 rows)
+
+              gaussdb=# CALL DBE_ILM.STOP_ILM(-1, true, NULL);
+               stop_ilm
+              ----------
+
+              (1 row)
+
+
+3.12.2.8 DBE_ILM_ADMIN
+
+接口介绍
+              服务于ILM策略实施，实现ADO的后台调度以及各个限流参数的控制。
+              DBE_ILM_ADMIN支持的接口请参见表3-191。
+
+              表 3-191 DBE_ILM_ADMIN
+
+               接口名称                                               描述
+
+               DBE_ILM_ADMIN.CUSTOMIZE_IL                         根据输入参数定制ILM策略属性。
+               M
+
+               DBE_ILM_ADMIN.DISABLE_ILM                          关闭后台调度。
+
+               DBE_ILM_ADMIN.ENABLE_ILM                           开启后台调度。
+
+               DBE_ILM_ADMIN.CREATE_ILM_DB                        创建库级压缩策略。
+               _POLICY
+
+               DBE_ILM_ADMIN.DELETE_ILM_DB                        删除库级压缩策略。
+               _POLICY
+
+
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                                                2711
+

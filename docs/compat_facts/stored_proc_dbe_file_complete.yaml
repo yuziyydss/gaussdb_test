@@ -1,0 +1,91 @@
+# 存储过程 — DBE_FILE 完整接口 — 结构化参考事实
+# 来源: gaussdb-rf-cent.pdf 3.12.2 (物理页2734-2760)
+document: "集中式版参考 / 3 存储过程 / 3.12.2 DBE_FILE"
+version: "V2.0-10.0.0"
+parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+extraction_date: "2026-09-14"
+extraction_method: pdftotext -layout 逐页精读
+verification_status: confirmed
+
+facts:
+  # 类型定义
+  - id: dbe_file_file_type
+    type: syntax
+    statement: "DBE_FILE.FILE_TYPE：定义DBE_FILE包中文件的表示方式。包含私有字段，禁止直接修改字段值。"
+    source_anchor: "3.12.2 表3-160"
+    status: confirmed
+    verification_method: 逐页精读（页2734）
+
+  # 编码要求
+  - id: dbe_file_encoding_requirements
+    type: constraint
+    statement: "FOPEN打开的文件必须使用数据库字符集编码。FOPEN_NCHAR打开的文件必须使用UTF-8编码。编码不符时READ_LINE/READ_LINE_NCHAR会报编码校验错误。"
+    source_anchor: "3.12.2 说明"
+    status: confirmed
+    verification_method: 逐页精读（页2734）
+
+  # 核心接口
+  - id: dbe_file_fopen
+    type: syntax
+    statement: "DBE_FILE.FOPEN(dir IN VARCHAR2, file_name IN VARCHAR2, open_mode IN VARCHAR2 [, max_line_size IN INTEGER]) RETURN DBE_FILE.FILE_TYPE：打开文件。open_mode：'r'读/'w'写/'a'追加。max_line_size默认1024。"
+    source_anchor: "3.12.2 表3-161"
+    status: confirmed
+    verification_method: 逐页精读（页2735）
+
+  - id: dbe_file_is_open
+    type: syntax
+    statement: "DBE_FILE.IS_OPEN(file IN DBE_FILE.FILE_TYPE) RETURN BOOLEAN：检测指定文件句柄是否打开。"
+    source_anchor: "3.12.2 表3-162"
+    status: confirmed
+    verification_method: 逐页精读（页2736）
+
+  - id: dbe_file_is_close
+    type: syntax
+    statement: "DBE_FILE.IS_CLOSE(file IN DBE_FILE.FILE_TYPE) RETURN BOOLEAN：检测指定文件句柄是否关闭。"
+    source_anchor: "3.12.2"
+    status: confirmed
+    verification_method: 逐页精读（页2736）
+
+  - id: dbe_file_read_line
+    type: syntax
+    statement: "DBE_FILE.READ_LINE(file IN DBE_FILE.FILE_TYPE, buffer OUT VARCHAR2 [, len IN INTEGER [, no_exception IN BOOLEAN]])：从打开文件读取一行指定长度数据。len默认1024。no_exception=TRUE时无数据不报异常。"
+    source_anchor: "3.12.2 表3-163"
+    status: confirmed
+    verification_method: 逐页精读（页2736-2737）
+
+  - id: dbe_file_write
+    type: syntax
+    statement: "DBE_FILE.WRITE(file IN DBE_FILE.FILE_TYPE, buffer IN VARCHAR2)：将数据写入打开文件的缓冲区。末尾不加换行符。"
+    source_anchor: "3.12.2 表3-164"
+    status: confirmed
+    verification_method: 逐页精读（页2737）
+
+  - id: dbe_file_new_line
+    type: syntax
+    statement: "DBE_FILE.NEW_LINE(file IN DBE_FILE.FILE_TYPE [, lines IN INTEGER])：将一个或多个行结束符写入文件缓冲区。lines默认1。"
+    source_anchor: "3.12.2"
+    status: confirmed
+    verification_method: 逐页精读（页2737）
+
+  - id: dbe_file_close
+    type: syntax
+    statement: "DBE_FILE.CLOSE(file IN OUT DBE_FILE.FILE_TYPE)：关闭打开的文件。必须在操作完成后调用以释放资源。"
+    source_anchor: "3.12.2"
+    status: confirmed
+    verification_method: 逐页精读（页2738）
+
+  # 使用流程
+  - id: dbe_file_usage_pattern
+    type: behavior_oracle
+    statement: "DBE_FILE标准流程：1.FOPEN打开文件 → 2.READ_LINE读取 / WRITE写入 → 3.CLOSE关闭文件。写操作需先WRITE再NEW_LINE（或用WRITE_LINE一步完成）。"
+    source_anchor: "3.12.2"
+    status: confirmed
+    verification_method: 综合接口定义分析
+
+  # NCHAR限制
+  - id: dbe_file_nchar_output_limitation
+    type: constraint
+    statement: "使用DBE_OUTPUT.PUT_LINE打印READ_LINE_NCHAR结果时需确保UTF8编码能转换成数据库编码。WRITE_NCHAR写入中文后READ_LINE_NCHAR可能报错。"
+    source_anchor: "3.12.2 说明"
+    status: confirmed
+    verification_method: 逐页精读（页2734）

@@ -1,0 +1,122 @@
+# 存储过程 — DBE_SQL 核心接口 — 结构化参考事实
+# 来源: gaussdb-rf-cent.pdf 3.12.2 (物理页2865-2900)
+document: "集中式版参考 / 3 存储过程 / 3.12.2 DBE_SQL"
+version: "V2.0-10.0.0"
+parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+extraction_date: "2026-09-14"
+extraction_method: pdftotext -layout 逐页精读
+verification_status: confirmed
+
+facts:
+  # 类型定义
+  - id: dbe_sql_number_table
+    type: syntax
+    statement: "DBE_SQL.NUMBER_TABLE：TABLE OF NUMBER INDEX BY INTEGER。用于批量数值绑定。"
+    source_anchor: "3.12.2 DBE_SQL类型"
+    status: confirmed
+    verification_method: 逐页精读（页2865）
+
+  - id: dbe_sql_varchar2_table
+    type: syntax
+    statement: "DBE_SQL.VARCHAR2_TABLE：TABLE OF VARCHAR2(32767) INDEX BY INTEGER。用于批量字符串绑定。"
+    source_anchor: "3.12.2 DBE_SQL类型"
+    status: confirmed
+    verification_method: 逐页精读（页2865）
+
+  # 核心生命周期接口
+  - id: dbe_sql_register_context
+    type: syntax
+    statement: "DBE_SQL.REGISTER_CONTEXT() RETURN INTEGER：打开一个游标，返回游标ID。是DBE_SQL操作的起始步骤。"
+    source_anchor: "3.12.2 表3-334"
+    status: confirmed
+    verification_method: 逐页精读（页2867）
+
+  - id: dbe_sql_unregister_context
+    type: syntax
+    statement: "DBE_SQL.SQL_UNREGISTER_CONTEXT(context_id IN INTEGER) RETURN BOOLEAN：关闭一个已打开的游标。必须在存储过程结束时调用以释放内存。建议在异常处理中包含此接口。"
+    source_anchor: "3.12.2 表3-334"
+    status: confirmed
+    verification_method: 逐页精读（页2867-2868）
+
+  - id: dbe_sql_set_sql
+    type: syntax
+    statement: "DBE_SQL.SQL_SET_SQL(context_id IN INTEGER, query_string IN TEXT, language_flag IN INTEGER) RETURN BOOLEAN：向游标传递SQL语句。language_flag=1为非兼容版本，2为兼容A版本。"
+    source_anchor: "3.12.2 表3-335"
+    status: confirmed
+    verification_method: 逐页精读（页2868）
+
+  - id: dbe_sql_run
+    type: syntax
+    statement: "DBE_SQL.SQL_RUN(context_id IN INTEGER) RETURN INTEGER：执行游标中的SQL语句。返回值含义取决于语句类型（SELECT返回行数等）。"
+    source_anchor: "3.12.2 表3-336"
+    status: confirmed
+    verification_method: 逐页精读（页2868-2869）
+
+  - id: dbe_sql_next_row
+    type: syntax
+    statement: "DBE_SQL.NEXT_ROW(context_id IN INTEGER) RETURN INTEGER：读取游标下一行数据。返回0表示无更多行。每次调用获取新行直到数据读取完毕。"
+    source_anchor: "3.12.2 表3-337"
+    status: confirmed
+    verification_method: 逐页精读（页2869）
+
+  # 动态列定义
+  - id: dbe_sql_set_result_type
+    type: syntax
+    statement: "DBE_SQL.SET_RESULT_TYPE(context_id IN INTEGER, pos IN INTEGER, column_type IN ANYELEMENT, column_size IN INTEGER) RETURN INTEGER：动态定义一个列。pos为列位置（从1开始）。column_type指定列类型。column_size指定列大小。"
+    source_anchor: "3.12.2 表3-338"
+    status: confirmed
+    verification_method: 逐页精读（页2870）
+
+  # 结果获取
+  - id: dbe_sql_get_result
+    type: syntax
+    statement: "DBE_SQL.GET_RESULT(context_id IN INTEGER, pos IN INTEGER, column_type IN ANYELEMENT) RETURN ANYELEMENT：读取已动态定义的列值。返回值类型由column_type决定。"
+    source_anchor: "3.12.2 表3-339"
+    status: confirmed
+    verification_method: 逐页精读（页2871）
+
+  # 辅助接口
+  - id: dbe_sql_is_active
+    type: syntax
+    statement: "DBE_SQL.IS_ACTIVE(context_id IN INTEGER) RETURN BOOLEAN：检查游标是否已打开。"
+    source_anchor: "3.12.2"
+    status: confirmed
+    verification_method: 逐页精读（页2873）
+
+  - id: dbe_sql_last_row_count
+    type: syntax
+    statement: "DBE_SQL.LAST_ROW_COUNT RETURN INTEGER：返回获取行数的累积计数。"
+    source_anchor: "3.12.2"
+    status: confirmed
+    verification_method: 逐页精读（页2873）
+
+  - id: dbe_sql_run_and_next
+    type: syntax
+    statement: "DBE_SQL.RUN_AND_NEXT(context_id IN INTEGER) RETURN INTEGER：在游标上执行动态定义操作并获取第一行。相当于SQL_RUN + NEXT_ROW组合。"
+    source_anchor: "3.12.2"
+    status: confirmed
+    verification_method: 逐页精读（页2873）
+
+  # 绑定变量
+  - id: dbe_sql_bind_variable
+    type: syntax
+    statement: "DBE_SQL.SQL_BIND_VARIABLE(context_id IN INTEGER, query_string IN TEXT, value IN ANYELEMENT) RETURN INTEGER：根据语句中的占位符绑定一个值。"
+    source_anchor: "3.12.2"
+    status: confirmed
+    verification_method: 逐页精读（页2874）
+
+  # 列描述
+  - id: dbe_sql_describe_columns
+    type: syntax
+    statement: "DBE_SQL.SQL_DESCRIBE_COLUMNS(context_id IN INTEGER, col_cnt OUT INTEGER, desc_t OUT DBE_SQL.DESC_TAB)：描述游标读取的列信息。返回列数和列描述数组。"
+    source_anchor: "3.12.2"
+    status: confirmed
+    verification_method: 逐页精读（页2875）
+
+  # 完整使用流程
+  - id: dbe_sql_usage_pattern
+    type: behavior_oracle
+    statement: "DBE_SQL标准使用流程：1.REGISTER_CONTEXT打开游标 → 2.SQL_SET_SQL设置SQL → 3.SQL_BIND_VARIABLE绑定变量(可选) → 4.SET_RESULT_TYPE定义列 → 5.SQL_RUN执行 → 6.NEXT_ROW逐行读取 → 7.GET_RESULT获取列值 → 8.SQL_UNREGISTER_CONTEXT关闭游标。"
+    source_anchor: "3.12.2"
+    status: confirmed
+    verification_method: 综合接口定义分析（页2865-2875）

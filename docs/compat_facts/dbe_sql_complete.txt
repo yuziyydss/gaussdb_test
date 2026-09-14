@@ -1,0 +1,2308 @@
+GaussDB
+集中式版参考                                                                                      3 存储过程
+
+
+                       说明
+
+                       ● 在数据库初始化阶段，若GUC参数mapping_date_to_datea的值为on，则会将
+                         DBE_SQL.DATE_TABLE映射为DATEA的TABLE类型，若GUC参数
+                         mapping_date_to_datea的值为off，则会将DBE_SQL.DATE_TABLE映射为
+                         TIMESTAMP(0) WITHOUT TIME ZONE的TABLE类型。数据库初始化完成后，则GUC
+                         参数mapping_date_to_datea的值不再影响到DBE_SQL.DATE_TABLE的具体类型映
+                         射。
+                       ● 在数据库初始化阶段和使用阶段GUC参数mapping_date_to_datea的值不同，会导致部
+                         分DBE_SQL函数使用DATE_TABLE时出现类型不匹配的情况，因此建议保持数据库初始
+                         化阶段和使用阶段GUC参数mapping_date_to_datea的值相同。
+              ●   DBE_SQL.NUMBER_TABLE
+                  该类型是NUMBER的TABLE类型，通过TABLE OF语法实现。
+                  DBE_SQL.NUMBER_TABLE类型的原型为：
+                  CREATE TYPE DBE_SQL.NUMBER_TABLE AS TABLE OF NUMBER INDEX BY INTEGER;
+
+              ●   DBE_SQL.VARCHAR2_TABLE
+                  该类型是VARCHAR2的TABLE类型，通过TABLE OF语法实现。
+                  DBE_SQL.VARCHAR2_TABLE类型的原型为：
+                  CREATE TYPE DBE_SQL.VARCHAR2_TABLE AS TABLE OF VARCHAR2(32767) INDEX BY INTEGER;
+
+              ●   DBE_SQL.BLOB_TABLE
+                  该类型是BLOB的TABLE类型，通过TABLE OF语法实现。
+                  DBE_SQL.BLOB_TABLE类型的原型为：
+                  CREATE TYPE DBE_SQL.BLOB_TABLE AS TABLE OF BLOB INDEX BY INTEGER;
+
+
+接口介绍
+              高级功能包DBE_SQL支持的接口请参见表3-333。
+
+              表 3-333 DBE_SQL
+
+               接口名称                                              描述
+
+               DBE_SQL.REGISTER_CONTEXT                          打开一个游标。
+
+               DBE_SQL.SQL_UNREGISTER_CONTEXT                    关闭一个已打开的游标。
+
+               DBE_SQL.SQL_SET_SQL                               向游标传递一组SQL语句或匿名块。
+
+               DBE_SQL.SQL_RUN                                   执行给定游标中的SQL语句或匿名
+                                                                 块。
+
+               DBE_SQL.NEXT_ROW                                  读取游标一行数据。
+
+               DBE_SQL.SET_RESULT_TYPE                           动态定义一个列。
+
+               DBE_SQL.SET_RESULT_TYPE_CHAR                      动态定义一个CHAR类型的列。
+
+               DBE_SQL.SET_RESULT_TYPE_INT                       动态定义一个INT类型的列。
+
+               DBE_SQL.SET_RESULT_TYPE_LONG                      动态定义一个LONG类型的列。
+
+               DBE_SQL.SET_RESULT_TYPE_RAW                       动态定义一个RAW类型的列。
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                                                2816
+GaussDB
+集中式版参考                                                         3 存储过程
+
+
+               接口名称                               描述
+
+               DBE_SQL.SET_RESULT_TYPE_BYTEA      动态定义一个BYTEA类型的列。
+
+               DBE_SQL.SET_RESULT_TYPE_TEXT       动态定义一个TEXT类型的列。
+
+               DBE_SQL.SET_RESULT_TYPE_UNKNOWN    动态定义一个未知列（类型不识别
+                                                  时使用此接口）。
+
+               DBE_SQL.GET_RESULT                 读取一个已动态定义的列值。
+
+               DBE_SQL.GET_RESULT_CHAR            读取一个已动态定义的列值（指定
+                                                  CHAR类型）。
+
+               DBE_SQL.GET_RESULT_INT             读取一个已动态定义的列值（指定
+                                                  INT类型）。
+
+               DBE_SQL.GET_RESULT_LONG            读取一个已动态定义的列值（指定
+                                                  LONG类型）。
+
+               DBE_SQL.GET_RESULT_RAW             读取一个已动态定义的列值（指定
+                                                  RAW类型）。
+
+               DBE_SQL.GET_RESULT_BYTEA           读取一个已动态定义的列值（指定
+                                                  BYTEA类型）。
+
+               DBE_SQL.GET_RESULT_TEXT            读取一个已动态定义的列值（指定
+                                                  TEXT类型）。
+
+               DBE_SQL.GET_RESULT_UNKNOWN         读取一个已动态定义的列值（类型
+                                                  不识别时使用此接口）。
+
+               DBE_SQL.DBE_SQL_GET_RESULT_CHAR    读取一个已动态定义的列值（指定
+                                                  CHAR类型）。
+
+               DBE_SQL.DBE_SQL_GET_RESULT_LONG    读取一个已动态定义的列值（指定
+                                                  LONG类型）。
+
+               DBE_SQL.DBE_SQL_GET_RESULT_LONG2   读取一个已动态定义的列值（指定
+                                                  LONG类型）。
+
+               DBE_SQL.DBE_SQL_GET_RESULT_RAW     读取一个已动态定义的列值（指定
+                                                  RAW类型）。
+
+               DBE_SQL.IS_ACTIVE                  检查游标是否已打开。
+
+               DBE_SQL.LAST_ROW_COUNT             返回获取行数的累积计数。
+
+               DBE_SQL.RUN_AND_NEXT               在游标上执行一组动态定义操作
+                                                  后，读取游标数据。
+
+               DBE_SQL.SQL_BIND_VARIABLE          根据语句中的变量，绑定一个值到
+                                                  该变量。
+
+               DBE_SQL.SQL_BIND_ARRAY             根据语句中的变量，绑定一组值到
+                                                  该变量。
+
+               DBE_SQL.SET_RESULT_TYPE_INTS       动态定义一个INT数组类型的列。
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                     2817
+GaussDB
+集中式版参考                                                          3 存储过程
+
+
+               接口名称                               描述
+
+               DBE_SQL.SET_RESULT_TYPE_TEXTS      动态定义一个TEXT数组类型的列。
+
+               DBE_SQL.SET_RESULT_TYPE_RAWS       动态定义一个RAW数组类型的列。
+
+               DBE_SQL.SET_RESULT_TYPE_BYTEAS     动态定义一个BYTEA数组类型的列。
+
+               DBE_SQL.SET_RESULT_TYPE_CHARS      动态定义一个CHAR数组类型的列。
+
+               DBE_SQL.SET_RESULTS_TYPE           动态定义一个数组类型的列。
+
+               DBE_SQL.GET_RESULTS_INT            读取一个已动态定义的列值（指定
+                                                  INT数组类型）。
+
+               DBE_SQL.GET_RESULTS_TEXT           读取一个已动态定义的列值（指定
+                                                  TEXT数组类型）。
+
+               DBE_SQL.GET_RESULTS_RAW            读取一个已动态定义的列值（指定
+                                                  RAW数组类型）。
+
+               DBE_SQL.GET_RESULTS_BYTEA          读取一个已动态定义的列值（指定
+                                                  BYTEA数组类型）。
+
+               DBE_SQL.GET_RESULTS_CHAR           读取一个已动态定义的列值（指定
+                                                  CHAR数组类型）。
+
+               DBE_SQL.GET_RESULTS                读取一个已动态定义的列值。
+
+               DBE_SQL.SQL_DESCRIBE_COLUMNS       描述游标读取的列信息。
+
+               DBE_SQL.DESCRIBE_COLUMNS           描述游标读取的列信息。
+
+               DBE_SQL.BIND_VARIABLE              绑定参数接口。
+
+               DBE_SQL.SQL_SET_RESULTS_TYPE_C     动态定义一个数组类型的列。
+
+               DBE_SQL.SQL_GET_VALUES_C           读取一个已动态定义的列值。
+
+               DBE_SQL.GET_VARIABLE_RESULT        读取一个SQL语句执行后的返回值。
+
+               DBE_SQL.GET_VARIABLE_RESULT_CHAR   读取一个SQL语句执行后的返回值
+                                                  （指定CHAR类型）。
+
+               DBE_SQL.GET_VARIABLE_RESULT_RAW    读取一个SQL语句执行后的返回值
+                                                  （指定RAW类型）。
+
+               DBE_SQL.GET_VARIABLE_RESULT_TEXT   读取一个SQL语句执行后的返回值
+                                                  （指定TEXT类型）。
+
+               DBE_SQL.GET_VARIABLE_RESULT_INT    读取一个SQL语句执行后的返回值
+                                                  （指定INT类型）。
+
+               DBE_SQL.GET_ARRAY_RESULT_TEXT      读取一个SQL语句执行后的返回值
+                                                  （指定TEXT数组类型）。
+
+               DBE_SQL.GET_ARRAY_RESULT_RAW       读取一个SQL语句执行后的返回值
+                                                  （指定RAW数组类型）。
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                   2818
+GaussDB
+集中式版参考                                                                     3 存储过程
+
+
+               接口名称                                          描述
+
+               DBE_SQL.GET_ARRAY_RESULT_CHAR                 读取一个SQL语句执行后的返回值
+                                                             （指定CHAR数组类型）。
+
+               DBE_SQL.GET_ARRAY_RESULT_INT                  读取一个SQL语句执行后的返回值
+                                                             （指定INT数组类型）。
+
+               DBE_SQL.SQL_SET_TABLEOF_RESULTS_TY            动态定义一个TABLEOF类型的列。
+               PE_C
+
+               DBE_SQL.SQL_GET_TABLEOF_VALUES_C              读取一个已动态定义的TABLEOF类
+                                                             型的列值。
+
+
+
+
+                  说明
+
+                  ● 建议使用DBE_SQL.SET_RESULT_TYPE及DBE_SQL.GET_RESULT定义参数列。
+                  ● 当结果集大小超过GUC参数work_mem的设置值时，将触发结果集的临时磁盘存储，但临时
+                    磁盘存储最大阈值不超过512MB。
+              ●   DBE_SQL.REGISTER_CONTEXT
+                  该函数用来打开一个游标，是后续DBE_SQL各项操作的前提。该函数不传入任何
+                  参数，内部自动递增生成游标ID，并作为返回值返回给integer定义的变量。
+                       说明
+
+                       DBE_SQL打开的游标是会话级的变量，不支持跨会话调用打开的游标（如自治事务），如
+                       果调用跨会话的游标行为不可预知。
+                  DBE_SQL.REGISTER_CONTEXT原型为：
+                  DBE_SQL.REGISTER_CONTEXT(
+                  )
+                  RETURN INTEGER;
+
+              ●   DBE_SQL.SQL_UNREGISTER_CONTEXT
+                  该函数用来关闭一个游标，是DBE_SQL各项操作的结束步骤。如果在存储过程结
+                  束时未调用该函数，游标占用的内存将不会被释放。因此，关闭游标至关重要。
+                  由于异常情况可能导致存储过程提前退出，从而未能关闭游标，建议在存储过程
+                  的异常处理中包含此接口。
+                  DBE_SQL.SQL_UNREGISTER_CONTEXT原型为：
+                  DBE_SQL.SQL_UNREGISTER_CONTEXT(
+                    context_id IN INTEGER
+                  )
+                  RETURN INTEGER;
+
+
+                  表 3-334 DBE_SQL.SQL_UNREGISTER_CONTEXT 接口说明
+
+                   参数名称                       类型       入参/   是否   描述
+                                                       出参    可以
+                                                             为空
+
+                   context_id                 INTEGE   IN    否    将要关闭的游标id号。
+                                              R
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                           2819
+GaussDB
+集中式版参考                                                                       3 存储过程
+
+
+              ●   DBE_SQL.SQL_SET_SQL
+                  该函数用来解析给定游标的SQL语句或匿名块。目前语句参数仅可通过text类型传
+                  递，长度不大于1G。
+                  DBE_SQL.SQL_SET_SQL原型为：
+                  DBE_SQL.SQL_SET_SQL(
+                    context_id IN INTEGER,
+                    query_string IN TEXT,
+                    language_flag IN INTEGER
+                  )
+                  RETURN BOOLEAN;
+
+
+                  表 3-335 DBE_SQL.SQL_SET_SQL 接口说明
+                   参数名称           类型           入参/   是否可    描述
+                                               出参    以为空
+
+                   context_id     INTEG        IN    否      执行查询语句解析的游标id。
+                                  ER
+
+                   query_stri     TEXT         IN    否      执行解析的查询语句。
+                   ng
+
+                   language_f INTEG            IN    否      版本语言号。指定不同版本的行为，1
+                   lag        ER                            为非兼容版本，2为兼容A版本。
+
+
+              ●   DBE_SQL.SQL_RUN
+                  该函数用于执行指定的游标。它接收一个游标id，并执行给定游标中的SQL语句或
+                  匿名块。
+                  DBE_SQL.SQL_RUN原型为：
+                  DBE_SQL.SQL_RUN(
+                    context_id IN INTEGER,
+                  )
+                  RETURN INTEGER;
+
+
+                  表 3-336 DBE_SQL.SQL_RUN 接口说明
+                   参数名          类型        入参/        是否可以    描述
+                   称                      出参         为空
+
+                   context      INTEG     IN         否       执行查询语句解析的游标id。
+                   _id          ER
+
+
+              ●   DBE_SQL.NEXT_ROW
+                  该函数返回符合查询条件的数据行数，每次调用该函数时，都会获取一个新的行
+                  数的集合，直到数据读取完毕获取不到新行为止。
+                  DBE_SQL.NEXT_ROW原型为：
+                  DBE_SQL.NEXT_ROW(
+                    context_id IN INTEGER,
+                  )
+                  RETURN INTEGER;
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                         2820
+GaussDB
+集中式版参考                                                                    3 存储过程
+
+                  表 3-337 DBE_SQL.NEXT_ROW 接口说明
+                   参数名         类型         入参/出        是否可   描述
+                   称                      参           以为空
+
+                   context     INTEGE     IN          否     执行的游标id。
+                   _id         R
+
+
+              ●   DBE_SQL.SET_RESULT_TYPE
+                  该函数用来定义从指定游标返回的列。该接口只能应用于SELECT定义的游标。定
+                  义的列通过查询列表中的相对位置进行标识，传入变量的数据类型决定了该列被
+                  定义的类型。
+                  DBE_SQL.SET_RESULT_TYPE原型为：
+                  DBE_SQL.SET_RESULT_TYPE(
+                    context_id IN INTEGER,
+                    pos      IN INTEGER,
+                    column_ref IN ANYELEMENT,
+                    maxsize IN INTEGER default 1024
+                  )
+                  RETURN INTEGER;
+
+
+                  表 3-338 DBE_SQL.SET_RESULT_TYPE 接口说明
+                   参数名称         类型             入参/    是否可   描述
+                                               出参     以为空
+
+                   context_i    INTEGER        IN     否     执行的游标id。
+                   d
+
+                   pos          INTEGER        IN     否     查询列在返回结果中的相对位置，起
+                                                            始为1。
+
+                   column_r     ANYELE         IN     否     任意类型的变量，可根据变量类型选
+                   ef           MENT                        择适当的接口动态定义列。
+
+                   maxsize      INTEGER        IN     是     定义的列返回类型长度。
+
+
+              ●   DBE_SQL.SET_RESULT_TYPE_CHAR
+                  该函数用来定义从指定游标返回的CHAR类型的列。该接口只能应用于SELECT定
+                  义的游标。定义的列通过查询列表中的相对位置来标识，传入变量的数据类型决
+                  定了该列被定义的类型。
+                  DBE_SQL.SET_RESULT_TYPE_CHAR原型为：
+                  DBE_SQL.SET_RESULT_TYPE_CHAR(
+                    context_id IN INTEGER,
+                    pos       IN INTEGER,
+                    column_ref IN TEXT,
+                    column_size IN INTEGER
+                  )
+                  RETURN INTEGER;
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                       2821
+GaussDB
+集中式版参考                                                                     3 存储过程
+
+                  表 3-339 DBE_SQL.SET_RESULT_TYPE_CHAR 接口说明
+                   参数名称          类型            入参/   是否可   描述
+                                               出参    以为空
+
+                   context_id    INTEGE        IN    否     执行的游标id。
+                                 R
+
+                   pos           INTEGE        IN    否     动态定义列在查询中的位置。
+                                 R
+
+                   column_re     TEXT          IN    否     需要定义的某类型的参数变量。
+                   f
+
+                   column_si     INTEGE        IN    否     动态定义列长度。
+                   ze            R
+
+
+              ●   DBE_SQL.SET_RESULT_TYPE_INT
+                  该函数用来定义从指定游标返回的INT类型的列。该接口只能应用于SELECT定义
+                  的游标。定义的列通过查询列表中的相对位置来标识，传入变量的数据类型决定
+                  了该列被定义的类型。
+                  DBE_SQL.SET_RESULT_TYPE_INT原型为：
+                  DBE_SQL.SET_RESULT_TYPE_INT(
+                    context_id IN INTEGER,
+                    pos      IN INTEGER
+                  )
+                  RETURN INTEGER;
+
+
+                  表 3-340 DBE_SQL.SET_RESULT_TYPE_INT 接口说明
+                   参数名称         类型        入参/出       是否可以为空     描述
+                                          参
+
+                   context_     INTEG     IN         否          执行的游标id。
+                   id           ER
+
+                   pos          INTEG     IN         否          动态定义列在查询中的位置。
+                                ER
+
+
+              ●   DBE_SQL.SET_RESULT_TYPE_LONG
+                  该函数用来定义从指定游标返回的长列类型（非数据类型long）的列。该接口只
+                  能应用于SELECT定义的游标。定义的列通过查询列表中的相对位置来标识，传入
+                  变量的数据类型决定了该列被定义的类型。长列的大小限制为1G。
+                  DBE_SQL.SET_RESULT_TYPE_LONG原型为：
+                  DBE_SQL.SET_RESULT_TYPE_LONG(
+                    context_id IN INTEGER,
+                    pos      IN INTEGER
+                  )
+                  RETURN INTEGER;
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                         2822
+GaussDB
+集中式版参考                                                                  3 存储过程
+
+                  表 3-341 DBE_SQL.SET_RESULT_TYPE_LONG 接口说明
+                   参数名称        类型         入参/      是否可以   描述
+                                          出参       为空
+
+                   context_i   INTEGE     IN       否      执行的游标id。
+                   d           R
+
+                   pos         INTEGE     IN       否      动态定义列在查询中的位置。
+                               R
+
+
+              ●   DBE_SQL.SET_RESULT_TYPE_RAW
+                  该函数用来定义从指定游标返回的RAW类型的列。该接口只能应用于SELECT定义
+                  的游标。定义的列通过查询列表中的相对位置来标识，传入变量的数据类型决定
+                  了该列被定义的类型。
+                  DBE_SQL.SET_RESULT_TYPE_RAW原型为：
+                  DBE_SQL.SET_RESULT_TYPE_RAW(
+                    context_id IN INTEGER,
+                    pos       IN INTEGER,
+                    column_ref IN RAW,
+                    column_size IN INTEGER
+                  )
+                  RETURN INTEGER;
+
+
+                  表 3-342 DBE_SQL.SET_RESULT_TYPE_RAW 接口说明
+                   参数名         类型         入参/      是否可    描述
+                   称                      出参       以为空
+
+                   context_    INTEGE     IN       否      执行的游标id。
+                   id          R
+
+                   pos         INTEGE     IN       否      动态定义列在查询中的位置。
+                               R
+
+                   column      RAW        IN       否      RAW类型的参数变量。
+                   _ref
+
+                   column      INTEGE     IN       否      列的长度。
+                   _size       R
+
+
+              ●   DBE_SQL.SET_RESULT_TYPE_BYTEA
+                  该函数用来定义从指定游标返回的BYTEA类型的列。该接口只能应用于SELECT定
+                  义的游标。定义的列通过查询列表中的相对位置来标识，传入变量的数据类型决
+                  定了该列被定义的类型。
+                  DBE_SQL.SET_RESULT_TYPE_BYTEA原型为：
+                  DBE_SQL.SET_RESULT_TYPE_BYTEA(
+                    context_id IN INTEGER,
+                    pos       IN INTEGER,
+                    column_ref IN BYTEA,
+                    column_size IN INTEGER
+                  )
+                  RETURN INTEGER;
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                      2823
+GaussDB
+集中式版参考                                                                     3 存储过程
+
+                  表 3-343 DBE_SQL.SET_RESULT_TYPE_BYTEA 接口说明
+                   参数名称          类型           入参/    是否可   描述
+                                              出参     以为空
+
+                   context_id    INTEG        IN     否     执行的游标id。
+                                 ER
+
+                   pos           INTEG        IN     否     动态定义列在查询中的位置。
+                                 ER
+
+                   column_r      BYTEA        IN     否     BYTEA类型的参数变量。
+                   ef
+
+                   column_si     INTEG        IN     否     列的长度。
+                   ze            ER
+
+
+              ●   DBE_SQL.SET_RESULT_TYPE_TEXT
+                  该函数用来定义从指定游标返回的TEXT类型的列。该接口只能应用于SELECT定义
+                  的游标。定义的列通过查询列表中的相对位置来标识，传入变量的数据类型决定
+                  了该列被定义的类型。
+                  DBE_SQL.SET_RESULT_TYPE_TEXT原型为：
+                  DBE_SQL.SET_RESULT_TYPE_TEXT(
+                    context_id IN INTEGER,
+                    pos      IN INTEGER,
+                    maxsize IN INTEGER
+                  )
+                  RETURN INTEGER;
+
+
+                  表 3-344 DBE_SQL.SET_RESULT_TYPE_TEXT 接口说明
+                   参数名          类型       入参/出       是否可    描述
+                   称                     参          以为空
+
+                   context      INTEG    IN         否      执行的游标id。
+                   _id          ER
+
+                   pos          INTEG    IN         否      动态定义列在查询中的位置。
+                                ER
+
+                   maxsize      INTEG    IN         否      定义的TEXT类型的最大长度。
+                                ER
+
+
+              ●   DBE_SQL.SET_RESULT_TYPE_UNKNOWN
+                  该函数用来处理从给定游标返回的未知数据类型的列，该接口仅在数据类型无法
+                  识别时用于报错并退出。
+                  DBE_SQL.SET_RESULT_TYPE_UNKNOWN原型为：
+                  DBE_SQL.SET_RESULT_TYPE_UNKNOWN(
+                    context_id IN INTEGER,
+                    pos      IN INTEGER,
+                    col_type IN TEXT
+                  )
+                  RETURN INTEGER;
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                       2824
+GaussDB
+集中式版参考                                                                         3 存储过程
+
+                  表 3-345 DBE_SQL.SET_RESULT_TYPE_UNKNOWN 接口说明
+                   参数名称          类型        入参/          是否可   描述
+                                           出参           以为空
+
+                   context_i     INTEG     IN           否     执行的游标id。
+                   d             ER
+
+                   pos           INTEG     IN           否     动态定义列在查询中的位置。
+                                 ER
+
+                   col_type      TEXT      IN           否     动态定义的参数。
+
+
+              ●   DBE_SQL.GET_RESULT
+                  该函数用来返回指定游标在给定位置的元素值。该接口访问的是由
+                  DBE_SQL.NEXT_ROW获取的数据。
+                  DBE_SQL.GET_RESULT原型为：
+                  DBE_SQL.GET_RESULT(
+                    context_id IN INTEGER,
+                    pos       IN INTEGER,
+                    column_value INOUT ANYELEMENT
+                  )
+                  RETURN ANYELEMENT;
+
+
+                  表 3-346 DBE_SQL.GET_RESULT 接口说明
+                   参数名称            类型              入参/出       是否可   描述
+                                                   参          以为空
+
+                   context_id      INTEGER         IN         否     执行的游标id。
+
+                   pos             INTEGER         IN         否     查询列在返回结果中的相对位
+                                                                    置，起始为1。
+
+                   column_val      ANYELE          INOUT      否     指定列的查询结果返回值。
+                   ue              MENT
+
+
+              ●   DBE_SQL.GET_RESULT_CHAR
+                  该函数用来返回指定游标在给定位置的CHAR类型的值，该接口访问的是由
+                  DBE_SQL.NEXT_ROW获取的数据。
+                  DBE_SQL.GET_RESULT_CHAR原型为：
+                  DBE_SQL.GET_RESULT_CHAR(
+                     context_id IN INTEGER,
+                     pos         IN INTEGER,
+                     tr        INOUT CHAR，
+                     err        INOUT NUMERIC,
+                     actual_length INOUT INTEGER
+                  );
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                            2825
+GaussDB
+集中式版参考                                                                 3 存储过程
+
+                  表 3-347 DBE_SQL.GET_RESULT_CHAR 接口说明
+                   参数名称         类型           入参/     是否可   描述
+                                             出参      以为空
+
+                   context_i    INTEG        IN      否     执行的游标id。
+                   d            ER
+
+                   pos          INTEG        IN      否     查询列在返回结果中的相对位置，起
+                                ER                         始为1。
+
+                   tr           CHAR         INOUT   否     返回值。
+
+                   err          NUME         INOUT   否     错误号。传出参数，须传入变量做参
+                                RIC                        数。目前未实现，固定传出-1。
+
+                   actual_le    INTEG        INOUT   否     返回值的实际长度。
+                   ngth         ER
+
+
+              ●   DBE_SQL.GET_RESULT_CHAR存储过程的重载为：
+                  DBE_SQL.GET_RESULT_CHAR(
+                     context_id IN INTEGER,
+                     pos      IN INTEGER,
+                     tr     INOUT CHAR
+                  );
+
+
+                  表 3-348 DBE_SQL.GET_RESULT_CHAR 重载接口说明
+                   参数名称          类型           入参/    是否可   描述
+                                              出参     以为空
+
+                   context_id    INTEGE       IN     否     执行的游标id。
+                                 R
+
+                   pos           INTEGE       IN     否     动态定义列在查询中的位置。
+                                 R
+
+                   tr            CHAR         INOU   否     返回值。
+                                              T
+
+
+              ●   DBE_SQL.GET_RESULT_INT
+                  该函数用来返回指定游标在给定位置的INT类型的值。该接口访问的是由
+                  DBE_SQL.NEXT_ROW获取的数据。
+                  DBE_SQL.GET_RESULT_INT原型为：
+                  DBE_SQL.GET_RESULT_INT(
+                    context_id IN INTEGER,
+                    pos      IN INTEGER
+                  )
+                  RETURN INTEGER;
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                     2826
+GaussDB
+集中式版参考                                                                       3 存储过程
+
+                  表 3-349 DBE_SQL.GET_RESULT_INT 接口说明
+
+                   参数名         类型        入参/        是否可     描述
+                   称                     出参         以为空
+
+                   context     INTEG     IN         否       执行的游标id。
+                   _id         ER
+
+                   pos         INTEG     IN         否       动态定义列在查询中的位置。
+                               ER
+
+
+              ●   DBE_SQL.GET_RESULT_LONG
+                  该函数用来返回指定游标在给定位置的长列（非long/bigint整型）类型的值。该
+                  接口访问的是由DBE_SQL.NEXT_ROW获取的数据。
+                  DBE_SQL.GET_RESULT_LONG原型为：
+                  DBE_SQL.GET_RESULT_LONG(
+                    context_id IN INTEGER,
+                    pos      IN INTEGER,
+                    lgth     IN INTEGER,
+                    off_set IN INTEGER,
+                    vl      INOUT TEXT，
+                    vl_length INOUT INTEGER
+                  )
+                  RETURN RECORD;
+
+
+                  表 3-350 DBE_SQL.GET_RESULT_LONG 接口说明
+
+                   参数名称         类型            入参/       是否可以     描述
+                                              出参        为空
+
+                   context_i    INTEGE        IN        否        执行的游标id。
+                   d            R
+
+                   pos          INTEGE        IN        否        动态定义列在查询中的位置。
+                                R
+
+                   lgth         INTEGE        IN        否        返回值的长度。
+                                R
+
+                   off_set      INTEGE        IN        否        返回值的起始位置。
+                                R
+
+                   vl           TEXT          INOUT     否        返回值。
+
+                   vl_length    INTEGE        INOUT     否        实际返回值的长度。
+                                R
+
+
+              ●   DBE_SQL.GET_RESULT_RAW
+                  该函数用来返回指定游标在给定位置的RAW类型的值。该接口访问的是由
+                  DBE_SQL.NEXT_ROW获取的数据。
+                  DBE_SQL.GET_RESULT_RAW原型为：
+                  DBE_SQL.GET_RESULT_RAW(
+                    context_id IN INTEGER,
+                    pos         IN INTEGER,
+                    tr        INOUT RAW，
+                    err        INOUT NUMERIC,
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                           2827
+GaussDB
+集中式版参考                                                                      3 存储过程
+
+                        actual_length INOUT INTEGER
+                  );
+
+
+                  表 3-351 DBE_SQL.GET_RESULT_RAW 接口说明
+
+                       参数名称         类型         入参/    是否可   描述
+                                               出参     以为空
+
+                       context_i    INTEG      IN     否     执行的游标id。
+                       d            ER
+
+                       pos          INTEG      IN     否     动态定义列在查询中的位置。
+                                    ER
+
+                       tr           RAW        INO    否     返回的列值。
+                                               UT
+
+                       err          NUME       INO    否     错误号。传出参数，须传入变量做参
+                                    RIC        UT           数。目前未实现，固定传出-1。
+
+                       actual_le    INTEG      INO    否     返回值的实际长度，不能长于此值，否
+                       ngth         ER         UT           则截断。
+
+
+              ●   DBE_SQL.GET_RESULT_RAW重载为：
+                  DBE_SQL.GET_RESULT_RAW(
+                     context_id IN INTEGER,
+                     pos      IN INTEGER,
+                     tr     INOUT RAW
+                  );
+
+
+                  表 3-352 DBE_SQL.GET_RESULT_RAW 重载接口说明
+
+                       参数名         类型          入参/    是否    描述
+                       称                       出参     可以
+                                                      为空
+
+                       context_    INTEGE      IN     否     执行的游标id。
+                       id          R
+
+                       pos         INTEGE      IN     否     动态定义列在查询中的位置。
+                                   R
+
+                       tr          RAW         INOU   否     返回的列值。
+                                               T
+
+
+              ●   DBE_SQL.GET_RESULT_BYTEA
+                  该函数用来返回指定游标在给定位置的BYTEA类型的值。该接口访问的是由
+                  DBE_SQL.NEXT_ROW获取的数据。
+                  DBE_SQL.GET_RESULT_BYTEA原型为：
+                  DBE_SQL.GET_RESULT_BYTEA(
+                    context_id IN INTEGER,
+                    pos      IN INTEGER
+                  )
+                  RETURN BYTEA;
+
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                     2828
+GaussDB
+集中式版参考                                                                    3 存储过程
+
+                  表 3-353 DBE_SQL.GET_RESULT_BYTEA 接口说明
+
+                   参数名         类型       入参/       是否可以        描述
+                   称                    出参        为空
+
+                   context     INTE     IN        否           执行的游标id。
+                   _id         GER
+
+                   pos         INTE     IN        否           动态定义列在查询中的位置。
+                               GER
+
+
+              ●   DBE_SQL.GET_RESULT_TEXT
+                  该函数用来返回指定游标在给定位置的TEXT类型的值。该接口访问的是由
+                  DBE_SQL.NEXT_ROW获取的数据。
+                  DBE_SQL.GET_RESULT_TEXT原型为：
+                  DBE_SQL.GET_RESULT_TEXT(
+                    context_id IN INTEGER,
+                    pos      IN INTEGER
+                  )
+                  RETURN TEXT;
+
+
+                  表 3-354 DBE_SQL.GET_RESULT_TEXT 接口说明
+
+                   参数名称         类型           入参/出       是否可   描述
+                                             参          以为空
+
+                   context_i    INTEG        IN         否     执行的游标id。
+                   d            ER
+
+                   pos          INTEG        IN         否     动态定义列在查询中的位置。
+                                ER
+
+
+              ●   DBE_SQL.GET_RESULT_UNKNOWN
+                  该函数用来返回指定游标在给定位置的未知类型的值。该接口为类型不支持时的
+                  报错处理接口。
+                  DBE_SQL.GET_RESULT_UNKNOWN原型为：
+                  DBE_SQL.GET_RESULT_UNKNOWN(
+                    context_id IN INTEGER,
+                    pos      IN INTEGER,
+                    col_type IN TEXT
+                  )
+                  RETURN TEXT;
+
+
+                  表 3-355 DBE_SQL.GET_RESULT_UNKNOWN 接口说明
+
+                   参数名         类型        入参/        是否可以为      描述
+                   称                     出参         空
+
+                   contex      INTEGE    IN         否          执行的游标id。
+                   t_id        R
+
+                   pos         INTEGE    IN         否          动态定义列在查询中的位置。
+                               R
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                         2829
+GaussDB
+集中式版参考                                                                         3 存储过程
+
+
+                   参数名        类型        入参/        是否可以为       描述
+                   称                    出参         空
+
+                   col_ty     TEXT      IN         否           返回的参数类型。
+                   pe
+
+
+              ●   DBE_SQL.DBE_SQL_GET_RESULT_CHAR
+                  该函数用来返回指定游标在给定位置的CHAR类型的值。该接口访问的是由
+                  DBE_SQL.NEXT_ROW获取的数据。和DBE_SQL.GET_RESULT_CHAR的区别是，
+                  该函数不设置返回值长度，返回整个字符串。
+                  DBE_SQL.DBE_SQL_GET_RESULT_CHAR原型为：
+                  DBE_SQL.DBE_SQL_GET_RESULT_CHAR(
+                    context_id IN INTEGER,
+                    pos      IN INTEGER
+                  )
+                  RETURN CHARACTER;
+
+
+                  表 3-356 DBE_SQL.DBE_SQL_GET_RESULT_CHAR 接口说明
+                   参数名称         类型           入参/       是否可以    描述
+                                             出参        为空
+
+                   context_     INTEGER      IN        否       执行的游标id。
+                   id
+
+                   pos          INTEGER      IN        否       动态定义列在查询中的位置。
+
+
+              ●   DBE_SQL.DBE_SQL_GET_RESULT_LONG
+                  该函数用来返回指定游标在给定位置的长列（非long/bigint整型）类型的值。该
+                  接口访问的是由DBE_SQL.NEXT_ROW获取的数据。和
+                  DBE_SQL.GET_RESULT_LONG的区别在于，该函数不设置返回值长度，返回整个
+                  BIGINT值。
+                  DBE_SQL.DBE_SQL_GET_RESULT_LONG原型为：
+                  DBE_SQL.DBE_SQL_GET_RESULT_LONG(
+                    context_id IN INTEGER,
+                    pos      IN INTEGER
+                  )
+                  RETURN BIGINT;
+
+
+                  表 3-357 DBE_SQL.DBE_SQL_GET_RESULT_LONG 接口说明
+                   参数名称            类型             入参/出     是否可以     描述
+                                                  参        为空
+
+                   context_id      INTEGER        IN       否        执行的游标id。
+
+                   pos             INTEGER        IN       否        动态定义列在查询中的位
+                                                                    置。
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                           2830
+GaussDB
+集中式版参考                                                                        3 存储过程
+
+
+                         说明
+
+                        由于该函数的返回类型和DBE_SQL.SET_RESULT_TYPE_LONG、
+                        DBE_SQL.GET_RESULT_LONG不一致，请使用DBE_SQL.DBE_SQL_GET_RESULT_LONG2
+                        代替。
+              ●   DBE_SQL.DBE_SQL_GET_RESULT_LONG2
+                  该函数用来返回指定游标在给定位置的长列（非long/bigint整型）类型的值。该
+                  接口访问的是由DBE_SQL.NEXT_ROW获取的数据。和
+                  DBE_SQL.GET_RESULT_LONG的区别在于，该函数不设置返回值长度，返回整列
+                  的值。
+                  DBE_SQL.DBE_SQL_GET_RESULT_LONG2原型为：
+                  DBE_SQL.DBE_SQL_GET_RESULT_LONG2(
+                    context_id IN INTEGER,
+                    pos      IN INTEGER
+                  )
+                  RETURN TEXT;
+
+
+                  表 3-358 DBE_SQL.DBE_SQL_GET_RESULT_LONG2 接口说明
+                   参数名称           类型           入参/出   是否可以       描述
+                                               参      为空
+
+                   context_id     INTEGER      IN     否          执行的游标id。
+
+                   pos            INTEGER      IN     否          动态定义列在查询中的位
+                                                                 置。
+
+
+              ●   DBE_SQL.DBE_SQL_GET_RESULT_RAW
+                  该函数用来返回指定游标在给定位置的RAW类型的值。该接口访问的是由
+                  DBE_SQL.NEXT_ROW获取的数据。和函数DBE_SQL.GET_RESULT_RAW的区别在
+                  于，该函数不设置返回值长度，返回整个字符串。
+                  DBE_SQL.DBE_SQL_GET_RESULT_RAW原型为：
+                  DBE_SQL.GET_RESULT_RAW(
+                    context_id IN INTEGER,
+                    pos      IN INTEGER,
+                    tr     INOUT RAW
+                  )
+                  RETURN RAW;
+
+
+                  表 3-359 DBE_SQL.GET_RESULT_RAW 接口说明
+                   参数名称           类型          入参/出    是否可以     描述
+                                              参       为空
+
+                   context_id     INTEGER     IN      否        执行的游标id。
+
+                   pos            INTEGER     IN      否        动态定义列在查询中的位
+                                                               置。
+
+                   tr             RAW         INOUT   否        返回的列值。
+
+
+              ●   DBE_SQL.IS_ACTIVE
+                  该函数用来返回游标的当前状态。游标处于打开、解析、执行、定义时为true；
+                  关闭后为false；未知时报错；其余默认为关闭。
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                              2831
+GaussDB
+集中式版参考                                                                            3 存储过程
+
+                  DBE_SQL.IS_ACTIVE原型为：
+                  DBE_SQL.IS_ACTIVE(
+                    context_id  IN INTEGER
+                  )
+                  RETURN BOOLEAN;
+
+
+                  表 3-360 DBE_SQL.IS_ACTIVE 接口说明
+                   参数名           类型            入参/           是否可以     描述
+                   称                           出参            为空
+
+                   context       INTEGE        IN            否        被查询的游标id。
+                   _id           R
+
+
+              ●   DBE_SQL.LAST_ROW_COUNT
+                  该函数用于返回最近一次NEXT_ROW执行后获取的数据行数的累积计数。
+                  DBE_SQL.LAST_ROW_COUNT原型为：
+                  DBE_SQL.LAST_ROW_COUNT(
+                  )
+                  RETURN INTEGER;
+
+              ●   DBE_SQL.RUN_AND_NEXT
+                  该函数的功能等同于在调用SQL_RUN后接着调用NEXT_ROW。
+                  DBE_SQL.RUN_AND_NEXT原型为：
+                  DBE_SQL.RUN_AND_NEXT(
+                    context_id IN INTEGER
+                  )
+                  RETURNS INTEGER;
+
+
+                  表 3-361 DBE_SQL.RUN_AND_NEXT 接口说明
+                   参数名          类型           入参/         是否可以       描述
+                   称                         出参          为空
+
+                   context      INTEG        IN          否          执行查询语句解析的游标id。
+                   _id          ER
+
+
+              ●   DBE_SQL.SQL_BIND_VARIABLE
+                  该函数用于将一个参数绑定到SQL语句，当执行该SQL语句时，将根据该绑定的值
+                  来执行。
+                  DBE_SQL.SQL_BIND_VARIABLE原型为：
+                  DBE_SQL.SQL_BIND_VARIABLE(
+                    context_id   IN int,
+                    query_string IN text,
+                    language_flag IN anyelement,
+                    out_value_size IN int default null
+                  )
+                  RETURNS void;
+
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                            2832
+GaussDB
+集中式版参考                                                                            3 存储过程
+
+                  表 3-362 DBE_SQL.SQL_BIND_VARIABLE 接口说明
+
+                   参数名称            类型                入参/出       是否可   描述
+                                                     参          以为空
+
+                   context_i       INT               IN         否     被查询的游标id。
+                   d
+
+                   query_stri      TEXT              IN         否     绑定的变量名。
+                   ng
+
+                   language        ANYELE            IN         否     绑定的值。
+                   _flag           MENT
+
+                   out_value       INT               IN         是     返回值的大小，默认值为NULL。
+                   _size                                              在兼容A模式下，仅当value参数
+                                                                      值类型为VARCHAR或CHAR时，
+                                                                      参数的行为与A数据库一致。
+
+
+              ●   DBE_SQL.SQL_BIND_ARRAY
+                  该函数用于将一组参数绑定到SQL语句，当执行该SQL语句时，会将根据该绑定的
+                  数组来执行。
+                  DBE_SQL.SQL_BIND_ARRAY原型为：
+                  DBE_SQL.SQL_BIND_ARRAY(
+                    context_id IN int,
+                    query_string IN text,
+                    value      IN anyarray
+                  )
+                  RETURNS void;
+                  DBE_SQL.SQL_BIND_ARRAY(
+                    context_id IN int,
+                    query_string IN text,
+                    value      IN anyarray,
+                    lower_index IN int,
+                    higher_index IN int
+                  )
+                  RETURNS void;
+
+                  DBE_SQL.SQL_BIND_ARRAY(
+                    context_id IN int,
+                    query_string IN text,
+                    value      IN anyindexbytable
+                  )
+                  RETURNS void;
+                  DBE_SQL.SQL_BIND_ARRAY(
+                    context_id IN int,
+                    query_string IN text,
+                    value      IN anyindexbytable,
+                    lower_index IN int,
+                    higher_index IN int
+                  )
+                  RETURNS void;
+
+
+                  表 3-363 DBE_SQL.SQL_BIND_ARRAY 接口说明
+
+                   参数名称            类型                     入参/   是否可   描述
+                                                          出参    以为空
+
+                   context_i       INT                    IN    否     被查询的游标id。
+                   d
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                             2833
+GaussDB
+集中式版参考                                                                        3 存储过程
+
+
+                   参数名称          类型               入参/   是否可      描述
+                                                  出参    以为空
+
+                   query_stri    TEXT             IN    否        绑定的变量名。
+                   ng
+
+                   value         ANYINDEXB        IN    否        绑定的数组。
+                                 YTABLE
+
+                   lower_ind     INT              IN    否        绑定数组的最小下标。
+                   ex
+
+                   higher_in     INT              IN    否        绑定数组的最大下标。
+                   dex
+
+
+
+
+                         说明
+
+                       DBE_SQL.SQL_BIND_ARRAY不支持用户自定义的table类型，请使用数据类型介绍中提供
+                       的table类型。
+              ●   DBE_SQL.SET_RESULT_TYPE_INTS
+                  该函数用于定义从指定游标返回的INT数组类型的列。该接口只能应用于SELECT
+                  定义的游标。定义的列通过查询列表中的相对位置来标识，传入变量的数据类型
+                  决定了该列被定义的类型。
+                  DBE_SQL.SET_RESULT_TYPE_INTS原型为：
+                  DBE_SQL.SET_RESULT_TYPE_INTS(
+                    context_id IN int,
+                    pos      IN int,
+                    column_ref IN anyarray,
+                    cnt     IN int,
+                    lower_bnd IN int
+                  )
+                  RETURNS integer;
+
+
+                  表 3-364 DBE_SQL.SET_RESULT_TYPE_INTS 接口说明
+
+                   参数名          类型        入参/      是否可      描述
+                   称                      出参       以为空
+
+                   context      INT       IN       否        被查询的游标id。
+                   _id
+
+                   pos          INT       IN       否        动态定义列在查询中的位置。
+
+                   column       ANYAR     IN       否        标记返回的数组类型。
+                   _ref         RAY
+
+                   cnt          INT       IN       否        标记一次获取多少个值。
+
+                   lower_b      INT       IN       否        标记返回数组时的开始下标。
+                   nd
+
+
+              ●   DBE_SQL.SET_RESULT_TYPE_TEXTS
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                         2834
+GaussDB
+集中式版参考                                                                  3 存储过程
+
+                  该函数用来定义从指定游标返回的TEXT数组类型的列。该接口只能应用于SELECT
+                  定义的游标。定义的列通过查询列表中的相对位置来标识，传入变量的数据类型
+                  决定了该列被定义的类型。
+                  DBE_SQL.SET_RESULT_TYPE_TEXTS原型为：
+                  DBE_SQL.SET_RESULT_TYPE_TEXTS(
+                    context_id IN int,
+                    pos      IN int,
+                    column_ref IN anyarray,
+                    cnt     IN int,
+                    lower_bnd IN int,
+                    maxsize IN int
+                  )
+                  RETURNS integer;
+
+
+                  表 3-365 DBE_SQL.SET_RESULT_TYPE_TEXTS 接口说明
+
+                   参数名          类型         入参/     是否可以   描述
+                   称                       出参      为空
+
+                   context      INT        IN      否      被查询的游标id。
+                   _id
+
+                   pos          INT        IN      否      动态定义列在查询中的位置。
+
+                   column       ANYAR      IN      否      标记返回的数组类型。
+                   _ref         RAY
+
+                   cnt          INT        IN      否      标记一次获取多少个值。
+
+                   lower_b      INT        IN      否      标记返回数组时的开始下标。
+                   nd
+
+                   maxsize      INT        IN      否      定义的TEXT类型的最大长度。
+
+
+              ●   DBE_SQL.SET_RESULT_TYPE_RAWS
+                  该函数用来定义从指定游标返回的RAW数组类型的列。该接口只能应用于SELECT
+                  定义的游标。定义的列通过查询列表中的相对位置来标识，传入变量的数据类型
+                  决定了该列被定义的类型。
+                  DBE_SQL.SET_RESULT_TYPE_RAWS原型为：
+                  DBE_SQL.set_result_type_raws(
+                    context_id IN int,
+                    pos       IN int,
+                    column_ref IN anyarray,
+                    cnt      IN int,
+                    lower_bnd IN int,
+                    column_size IN int
+                  )
+                  RETURNS integer;
+
+
+                  表 3-366 DBE_SQL.SET_RESULT_TYPE_RAWS 接口说明
+
+                   参数名          类型          入参/    是否可    描述
+                   称                        出参     以为空
+
+                   context_     INT         IN     否      被查询的游标id。
+                   id
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                    2835
+GaussDB
+集中式版参考                                                                    3 存储过程
+
+
+                   参数名          类型          入参/     是否可   描述
+                   称                        出参      以为空
+
+                   pos          INT         IN      否     动态定义列在查询中的位置。
+
+                   column_      ANYAR       IN      否     标记返回的数组类型。
+                   ref          RAY
+
+                   cnt          INT         IN      否     标记一次获取多少个值。
+
+                   lower_b      INT         IN      否     标记返回数组时的开始下标。
+                   nd
+
+                   column_      INT         IN      否     列的长度。
+                   size
+
+
+              ●   DBE_SQL.SET_RESULT_TYPE_BYTEAS
+                  该函数用来定义从指定游标返回的BYTEA数组类型的列。该接口只能应用于
+                  SELECT定义的游标。定义的列通过查询列表中的相对位置来标识，传入变量的数
+                  据类型决定了该列被定义的类型。
+                  DBE_SQL.SET_RESULT_TYPE_BYTEAS原型为：
+                  DBE_SQL.set_result_type_byteas(
+                    context_id IN int,
+                    pos       IN int,
+                    column_ref IN anyarray,
+                    cnt      IN int,
+                    lower_bnd IN int,
+                    column_size IN int
+                  )
+                  RETURNS integer;
+
+
+                  表 3-367 DBE_SQL.SET_RESULT_TYPE_BYTEAS 接口说明
+                   参数名          类型          入参/     是否可   描述
+                   称                        出参      以为空
+
+                   context_     INT         IN      否     被查询的游标id。
+                   id
+
+                   pos          INT         IN      否     动态定义列在查询中的位置。
+
+                   column       ANYAR       IN      否     标记返回的数组类型。
+                   _ref         RAY
+
+                   cnt          INT         IN      否     标记一次获取多少个值。
+
+                   lower_b      INT         IN      否     标记返回数组时的开始下标。
+                   nd
+
+                   column       INT         IN      否     列的长度。
+                   _size
+
+
+              ●   DBE_SQL.SET_RESULT_TYPE_CHARS
+                  该函数用来定义从指定游标返回的CHAR数组类型的列。该接口只能应用于
+                  SELECT定义的游标。定义的列通过查询列表中的相对位置来标识，传入变量的数
+                  据类型决定了该列被定义的类型。
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                     2836
+GaussDB
+集中式版参考                                                                         3 存储过程
+
+                  DBE_SQL.SET_RESULT_TYPE_CHARS原型为：
+                  DBE_SQL.SET_RESULT_TYPE_CHARS(
+                    context_id IN int,
+                    pos       IN int,
+                    column_ref IN anyarray,
+                    cnt      IN int,
+                    lower_bnd IN int,
+                    column_size IN int
+                  )
+                  RETURNS integer;
+
+
+                  表 3-368 DBE_SQL.SET_RESULT_TYPE_CHARS 接口说明
+                   参数名称          类型          入参/           是否可   描述
+                                             出参            以为空
+
+                   context_i     INT         IN            否     被查询的游标id。
+                   d
+
+                   pos           INT         IN            否     动态定义列在查询中的位置。
+
+                   column_       ANYAR       IN            否     标记返回的数组类型。
+                   ref           RAY
+
+                   cnt           INT         IN            否     标记一次获取多少个值。
+
+                   lower_b       INT         IN            否     标记返回数组时的开始下标。
+                   nd
+
+                   column_       INT         IN            否     列的长度。
+                   size
+
+
+              ●   DBE_SQL.SET_RESULTS_TYPE
+                  该函数用来定义从指定游标返回的列。该接口只能应用于SELECT定义的游标。定
+                  义的列通过查询列表中的相对位置来标识，传入变量的数据类型决定了该列被定
+                  义的类型。
+                  DBE_SQL.SET_RESULTS_TYPE原型为：
+                  DBE_SQL.SET_RESULTS_TYPE(
+                     context_id IN int,
+                     pos       IN int,
+                     column_ref IN anyarray,
+                     cnt      IN int,
+                     lower_bnd IN int,
+                     maxsize IN int DEFAULT 1024
+                  ) returns void;
+
+                  DBE_SQL.SET_RESULTS_TYPE(
+                     context_id IN int,
+                     pos      IN int,
+                     column_ref IN dbe_sql.number_table,
+                     cnt     IN int,
+                     lower_bnd IN int,
+                     maxsize IN int DEFAULT 1024
+                  );
+
+                  DBE_SQL.SET_RESULTS_TYPE(
+                    context_id IN int,
+                    pos      IN int,
+                    column_ref IN dbe_sql.varchar2_table,
+                    cnt     IN int,
+                    lower_bnd IN int,
+                    maxsize IN int DEFAULT 32767
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                         2837
+GaussDB
+集中式版参考                                                                       3 存储过程
+
+                  );
+
+                  DBE_SQL.SET_RESULTS_TYPE(
+                     context_id IN int,
+                     pos      IN int,
+                     column_ref IN dbe_sql.date_table,
+                     cnt     IN int,
+                     lower_bnd IN int,
+                     maxsize IN int DEFAULT 1024
+                  );
+
+                  DBE_SQL.SET_RESULTS_TYPE(
+                     context_id IN int,
+                     pos      IN int,
+                     column_ref IN dbe_sql.blob_table,
+                     cnt     IN int,
+                     lower_bnd IN int,
+                     maxsize IN int DEFAULT 32767
+                  );
+
+
+                  表 3-369 DBE_SQL.SET_RESULTS_TYPE 接口说明
+                       参数名称       类型                入参/   是否可以   描述
+                                                    出参    为空
+
+                       context_   INT               IN    否      被查询的游标id。
+                       id
+
+                       pos        INT               IN    否      动态定义列在查询中的位置。
+
+                       column_    DBE_SQL.BL        IN    否      标记返回的数组类型。
+                       ref        OB_TABLE
+
+                       cnt        INT               IN    否      标记一次获取多少个值。
+
+                       lower_b    INT               IN    否      标记返回数组时的开始下标。
+                       nd
+
+                       maxsize    INT               IN    是      定义的类型的最大长度。
+
+
+
+
+                             说明
+
+                         DBE_SQL.SET_RESULTS_TYPE不支持用户自定义的table类型，请使用数据类型介绍中提供
+                         的table类型。
+              ●   DBE_SQL.GET_RESULTS_INT
+                  该函数用来返回指定游标在给定位置的INT数组类型的值。该接口访问的是由
+                  DBE_SQL.NEXT_ROW获取的数据。
+                  DBE_SQL.GET_RESULTS_INT原型为：
+                  DBE_SQL.GET_RESULTS_INT(
+                     context_id IN int,
+                     pos       IN int,
+                     column_value INOUT anyarray
+                  );
+
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                      2838
+GaussDB
+集中式版参考                                                                       3 存储过程
+
+                  表 3-370 DBE_SQL.GET_RESULTS_INT 接口说明
+
+                   参数名称          类型           入参/         是否可    描述
+                                              出参          以为空
+
+                   context_i     INT          IN          否      被查询的游标id。
+                   d
+
+                   pos           INT          IN          否      动态定义列在查询中的位置。
+
+                   column_       ANYARR       INOUT       否      返回值。
+                   value         AY
+
+
+              ●   DBE_SQL.GET_RESULTS_TEXT
+                  该函数用来返回指定游标在给定位置的TEXT数组类型的值。该接口访问的是由
+                  DBE_SQL.NEXT_ROW获取的数据。
+                  DBE_SQL.GET_RESULTS_TEXT原型为：
+                  DBE_SQL.GET_RESULTS_TEXT(
+                     context_id IN int,
+                     pos       IN int,
+                     column_value INOUT anyarray
+                  );
+
+
+                  表 3-371 DBE_SQL.GET_RESULTS_TEXT 接口说明
+
+                   参数名称          类型          入参/      是否可       描述
+                                             出参       以为空
+
+                   context_i     INT         IN       否         被查询的游标id。
+                   d
+
+                   pos           INT         IN       否         动态定义列在查询中的位置。
+
+                   column_v      ANYAR       INOU     否         返回值。
+                   alue          RAY         T
+
+
+              ●   DBE_SQL.GET_RESULTS_RAW
+                  该函数用来返回指定游标在给定位置的RAW数组类型的值。该接口访问的是由
+                  DBE_SQL.NEXT_ROW获取的数据。
+                  DBE_SQL.GET_RESULTS_RAW原型为：
+                  DBE_SQL.GET_RESULTS_RAW(
+                     context_id IN int,
+                     pos       IN int,
+                     column_value INOUT anyarray
+                  );
+
+
+                  表 3-372 DBE_SQL.GET_RESULTS_RAW 接口说明
+
+                   参数名称          类型          入参/      是否可       描述
+                                             出参       以为空
+
+                   context_i     INT         IN       否         被查询的游标id。
+                   d
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                           2839
+GaussDB
+集中式版参考                                                                         3 存储过程
+
+
+                   参数名称          类型          入参/      是否可     描述
+                                             出参       以为空
+
+                   pos           INT         IN       否       动态定义列在查询中的位置。
+
+                   column_v      ANYAR       INOU     否       返回值。
+                   alue          RAY         T
+
+
+              ●   DBE_SQL.GET_RESULTS_BYTEA
+                  该函数用来返回指定游标在给定位置的BYTEA数组类型的值。该接口访问的是由
+                  DBE_SQL.NEXT_ROW获取的数据。
+                  DBE_SQL.GET_RESULTS_BYTEA原型为：
+                  DBE_SQL.GET_RESULTS_BYTEA(
+                     context_id IN int,
+                     pos       IN int,
+                     column_value INOUT anyarray
+                  );
+
+
+                  表 3-373 DBE_SQL.GET_RESULTS_BYTEA 接口说明
+
+                   参数名称          类型            入参/        是否可以为    描述
+                                               出参         空
+
+                   context_i     INT           IN         否        被查询的游标id。
+                   d
+
+                   pos           INT           IN         否        动态定义列在查询中的位置。
+
+                   column_v      ANYARR        INOU       否        返回值。
+                   alue          AY            T
+
+
+              ●   DBE_SQL.GET_RESULTS_CHAR
+                  该函数用来返回指定游标在给定位置的CHAR数组类型的值。该接口访问的是由
+                  DBE_SQL.NEXT_ROW获取的数据。
+                  DBE_SQL.GET_RESULTS_CHAR原型为：
+                  DBE_SQL.GET_RESULTS_CHAR(
+                     context_id IN int,
+                     pos       IN int,
+                     column_value INOUT anyarray
+                  );
+
+
+                  表 3-374 DBE_SQL.GET_RESULTS_CHAR 接口说明
+
+                   参数名称           类型           入参/    是否可以     描述
+                                               出参     为空
+
+                   context_id     INT          IN     否        被查询的游标id。
+
+                   pos            INT          IN     否        动态定义列在查询中的位置。
+
+                   column_va      ANYARR       INOU   否        返回值。
+                   lue            AY           T
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                            2840
+GaussDB
+集中式版参考                                                                           3 存储过程
+
+
+              ●   DBE_SQL.GET_RESULTS
+                  该函数用来返回指定游标在给定位置的数组类型的值。该接口访问的是由
+                  DBE_SQL.NEXT_ROW获取的数据。
+                         说明
+
+                       由于DBE_SQL.GET_RESULTS的底层机制是通过数组实现的，当使用不同的数组获取同一列
+                       的返回值时，内部索引的不连续性会导致数组中填充NULL值，以确保数组索引的连续性。
+                       这将导致返回结果数组的长度和A数据库中的不一致。
+                  DBE_SQL.GET_RESULTS原型为：
+                  DBE_SQL.GET_RESULTS(
+                     context_id IN int,
+                     pos       IN int,
+                     column_value INOUT anyarray
+                  );
+
+                  DBE_SQL.GET_RESULTS(
+                     context_id IN int,
+                     pos       IN int,
+                     column_value INOUT dbe_sql.varchar2_table
+                  );
+
+                  DBE_SQL.GET_RESULTS(
+                     context_id IN int,
+                     pos       IN int,
+                     column_value INOUT dbe_sql.number_table
+                  );
+
+                  DBE_SQL.GET_RESULTS(
+                     context_id IN int,
+                     pos       IN int,
+                     column_value INOUT dbe_sql.date_table
+                  );
+
+                  DBE_SQL.GET_RESULTS(
+                     context_id IN int,
+                     pos       IN int,
+                     column_value INOUT dbe_sql.blob_table
+                  );
+
+
+                  表 3-375 DBE_SQL.GET_RESULTS 接口说明
+                   参数名称             类型              入        是   描述
+                                                    参/       否
+                                                    出        可
+                                                    参        以
+                                                             为
+                                                             空
+
+                   context_id       INT             IN       否   被查询的游标ID。
+
+                   pos              INT             IN       否   动态定义列在查询中的位置。
+
+                   column_val       ANYARRA         IN       否   返回值。
+                   ue               Y               O
+                                                    UT
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                             2841
+GaussDB
+集中式版参考                                                                           3 存储过程
+
+
+                        说明
+
+                       DBE_SQL.GET_RESULTS不支持用户自定义的table类型，请使用数据类型介绍中提供的
+                       table类型。
+              ●   DBE_SQL.SQL_DESCRIBE_COLUMNS
+                  该函数用来描述列信息，该接口只能应用于SELECT定义的游标。
+                  DBE_SQL.SQL_DESCRIBE_COLUMNS原型为：
+                  DBE_SQL.SQL_DESCRIBE_COLUMNS(
+                    context_id IN int,
+                    col_cnt INOUT int,
+                    desc_t    INOUT dbe_sql.desc_tab
+                  )RETURNS record ;
+
+
+                  表 3-376 DBE_SQL.SQL_DESCRIBE_COLUMNS 接口说明
+                   参数名         类型                      入参/出     是否可以为    描述
+                   称                                   参        空
+
+                   context     INT                     IN       否        被查询的游标id。
+                   _id
+
+                   col_cnt     INT                     INOUT    否        返回的列的数量。
+
+                   desc_t      DBE_SQL.DESC            INOUT    否        返回的列的描述信息。
+                               _TAB
+
+
+              ●   DBE_SQL.DESCRIBE_COLUMNS
+                  该函数用来描述列信息。该接口为兼容接口，只能应用于SELECT定义的游标。
+                  DBE_SQL.DESCRIBE_COLUMNS原型为：
+                  DBE_SQL.DESCRIBE_COLUMNS(
+                    context_id IN int,
+                    col_cnt OUT int,
+                    desc_t    OUT dbe_sql.desc_tab
+                  )
+
+
+                  表 3-377 DBE_SQL.DESCRIBE_COLUMNS 接口说明
+                   参数名         类型               入参/出        是否可以    描述
+                   称                            参           为空
+
+                   context     INT              IN          否       被查询的游标id。
+                   _id
+
+                   col_cnt     INT              OUT         否       返回的列的数量。
+
+                   desc_t      DBE_SQL.D        OUT         否       返回的列的描述信息。
+                               ESC_TAB
+
+
+              ●   DBE_SQL.BIND_VARIABLE
+                  该函数是绑定参数接口。建议使用DBE_SQL.SQL_BIND_VARIABLE。
+              ●   DBE_SQL.SQL_SET_RESULTS_TYPE_C
+                  该函数动态定义一个数组类型的列，不建议用户使用。
+                  DBE_SQL.SQL_SET_RESULTS_TYPE_C原型为：
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                              2842
+GaussDB
+集中式版参考                                                                         3 存储过程
+
+                  DBE_SQL.sql_set_results_type_c(
+                     context_id IN int,
+                     pos       IN int,
+                     column_ref IN anyarray,
+                     cnt      IN int,
+                     lower_bnd IN int,
+                     col_type IN anyelement,
+                     maxsize IN int
+                  )return integer;
+
+
+                  表 3-378 DBE_SQL.SQL_SET_RESULTS_TYPE_C 接口说明
+
+                   参数名称          类型                 入参/    是否可   描述
+                                                    出参     以为空
+
+                   context_i     INT                IN     否     被查询的游标id。
+                   d
+
+                   pos           INT                IN     否     动态定义列在查询中的位置。
+
+                   column_       ANYARRA            IN     否     标记返回的数组类型。
+                   ref           Y
+
+                   cnt           INT                IN     否     标记一次获取多少个值。
+
+                   lower_bn      INT                IN     否     标记返回数组时的开始下标。
+                   d
+
+                   col_type      ANYELEM            IN     否     标记返回的数组类型对应的变量类
+                                 ENT                             型。
+
+                   maxsize       INT                IN     否     定义的类型的最大长度。
+
+
+              ●   DBE_SQL.SQL_GET_VALUES_C
+                  该函数读取一个已动态定义的列值。不建议用户使用。
+                  DBE_SQL.SQL_GET_VALUES_C原型为：
+                  DBE_SQL.sql_get_values_c(
+                     context_id IN int,
+                     pos        IN int,
+                     results_type INOUT anyarray,
+                     result_type IN anyelement
+                  )return anyarray;
+
+
+                  表 3-379 DBE_SQL.SQL_GET_VALUES_C 接口说明
+
+                   参数名称          类型                 入参/    是否可   描述
+                                                    出参     以为空
+
+                   context_      INT                IN     否     被查询的游标id。
+                   id
+
+                   pos           INT                IN     否     参数位置信息。
+
+                   results_t     ANYARRA            INOU   否     获取的结果。
+                   ype           Y                  T
+
+                   result_ty     ANYELEM            IN     否     获取的结果类型。
+                   pe            ENT
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                         2843
+GaussDB
+集中式版参考                                                                            3 存储过程
+
+
+
+              ●   DBE_SQL.GET_VARIABLE_RESULT
+                  该函数用来返回绑定的OUT参数的值，可以用于获取存储过程中的OUT参数。
+                  DBE_SQL.GET_VARIABLE_RESULT原型为：
+                  DBE_SQL.get_variable_result(
+                     context_id IN int,
+                     pos       IN VARCHAR2,
+                     column_value INOUT anyelement
+                  );
+
+
+                  表 3-380 DBE_SQL.GET_VARIABLE_RESULT 接口说明
+                   参数名称           类型              入参/    是否可以         描述
+                                                  出参     为空
+
+                   context_i      INT             IN     否            被查询的游标id。
+                   d
+
+                   pos            VARCHAR         IN     否            绑定的参数名。
+                                  2
+
+                   column_v       ANYELEM         INOU   否            返回值。
+                   alue           ENT             T
+
+
+              ●   DBE_SQL.GET_VARIABLE_RESULT_CHAR
+                  该函数用于返回绑定的CHAR类型的OUT参数的值，可以用于获取存储过程中的
+                  OUT参数。
+                  DBE_SQL.GET_VARIABLE_RESULT_CHAR原型为：
+                  DBE_SQL.get_variable_result_char(
+                    context_id IN int,
+                    pos      IN VARCHAR2
+                  )
+                  RETURNS char
+
+
+                  表 3-381 DBE_SQL.GET_VARIABLE_RESULT_CHAR 接口说明
+                   参数名称          类型             入参/      是否可       描述
+                                                出参       以为空
+
+                   context_i     INT            IN       否         被查询的游标id。
+                   d
+
+                   pos           VARCHA         IN       否         绑定的参数名。
+                                 R2
+
+
+              ●   DBE_SQL.GET_VARIABLE_RESULT_RAW
+                  该函数用于返回绑定的RAW类型的OUT参数的值，可以用于获取存储过程中的
+                  OUT参数。
+                  DBE_SQL.GET_VARIABLE_RESULT_RAW原型为：
+                  CREATE OR REPLACE FUNCTION DBE_SQL.get_variable_result_raw(
+                    context_id IN int,
+                    pos      IN VARCHAR2,
+                    value     INOUT anyelement
+                  )
+                  RETURNS anyelement
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                             2844
+GaussDB
+集中式版参考                                                                           3 存储过程
+
+                  表 3-382 DBE_SQL.GET_VARIABLE_RESULT_RAW 接口说明
+
+                   参数名          类型             入参/出     是否可        描述
+                   称                           参        以为空
+
+                   context      INT            IN       否          被查询的游标id。
+                   _id
+
+                   pos          VARCHA         IN       否          绑定的参数名。
+                                R2
+
+                   value        ANYELE         INOUT    否          返回值。
+                                MENT
+
+
+              ●   DBE_SQL.GET_VARIABLE_RESULT_TEXT
+                  该函数用于返回绑定的TEXT类型的OUT参数的值，可以用于获取存储过程中的
+                  OUT参数。
+                  DBE_SQL.GET_VARIABLE_RESULT_TEXT原型为：
+                  CREATE OR REPLACE FUNCTION DBE_SQL.get_variable_result_text(
+                    context_id IN int,
+                    pos      IN VARCHAR2
+                  )
+                  RETURNS text
+
+
+                  表 3-383 DBE_SQL.GET_VARIABLE_RESULT_TEXT 接口说明
+
+                   参数名           类型           入参/      是否可        描述
+                   称                          出参       以为空
+
+                   context_      INT          IN       否          被查询的游标id。
+                   id
+
+                   pos           VARCH        IN       否          绑定的参数名。
+                                 AR2
+
+
+              ●   DBE_SQL.GET_VARIABLE_RESULT_INT
+                  该函数用于返回绑定的INT类型的OUT参数的值，可以用于获取存储过程中的
+                  OUT参数。
+                  DBE_SQL.GET_VARIABLE_RESULT_INT原型为：
+                  DBE_SQL.get_variable_result_int(
+                    context_id IN int,
+                    pos      IN VARCHAR2,
+                    value     INOUT anyelement
+                  )
+                  RETURNS anyelement
+
+
+                  表 3-384 DBE_SQL.GET_VARIABLE_RESULT_INT 接口说明
+
+                   参数名称          类型              入参/     是否可        描述
+                                                 出参      以为空
+
+                   context_      INT             IN      否          被查询的游标id。
+                   id
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                           2845
+GaussDB
+集中式版参考                                                                  3 存储过程
+
+
+                   参数名称         类型             入参/    是否可   描述
+                                               出参     以为空
+
+                   pos          VARCHAR        IN     否     绑定的参数名。
+                                2
+
+                   value        ANYELEM        INOU   否     返回值。
+                                ENT            T
+
+
+              ●   DBE_SQL.GET_ARRAY_RESULT_TEXT
+                  该函数用于返回绑定的TEXT数组类型的OUT参数的值，可以用于获取存储过程中
+                  的OUT参数。
+                  DBE_SQL.GET_ARRAY_RESULT_TEXT原型为：
+                  DBE_SQL.get_array_result_text(
+                    context_id IN int,
+                    pos       IN VARCHAR2,
+                    column_value INOUT anyarray
+                  )
+
+
+                  表 3-385 DBE_SQL.GET_ARRAY_RESULT_TEXT 接口说明
+
+                   参数名称           类型          入参/出    是否可   描述
+                                              参       以为空
+
+                   context_id     INT         IN      否     被查询的游标id。
+
+                   pos            VARCH       IN      否     绑定的参数名。
+                                  AR2
+
+                   column_v       ANYARR      INOUT   否     返回值。
+                   alue           AY
+
+
+              ●   DBE_SQL.GET_ARRAY_RESULT_RAW
+                  该函数用于返回绑定的RAW数组类型的OUT参数的值，可以用于获取存储过程中
+                  的OUT参数。
+                  DBE_SQL.GET_ARRAY_RESULT_RAW原型为：
+                  DBE_SQL.get_array_result_raw(
+                    context_id IN int,
+                    pos       IN VARCHAR2,
+                    column_value INOUT anyarray
+                  )
+
+
+                  表 3-386 DBE_SQL.GET_ARRAY_RESULT_RAW 接口说明
+
+                   参数名称           类型          入参/     是否可   描述
+                                              出参      以为空
+
+                   context_id     INT         IN      否     被查询的游标id。
+
+                   pos            VARCH       IN      否     绑定的参数名。
+                                  AR2
+
+                   column_v       ANYAR       INOUT   否     返回值。
+                   alue           RAY
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                     2846
+GaussDB
+集中式版参考                                                                           3 存储过程
+
+
+
+              ●   DBE_SQL.GET_ARRAY_RESULT_CHAR
+                  该函数用于返回绑定的CHAR数组类型的OUT参数的值，可以用于获取存储过程中
+                  的OUT参数。
+                  DBE_SQL.GET_ARRAY_RESULT_CHAR原型为：
+                  DBE_SQL.get_array_result_char(
+                    context_id IN int,
+                    pos       IN VARCHAR2,
+                    column_value INOUT anyarray
+                  )
+
+
+                  表 3-387 DBE_SQL.GET_ARRAY_RESULT_CHAR 接口说明
+                   参数名称         类型          入参/出        是否可     描述
+                                            参           以为空
+
+                   context_     INT         IN          否       被查询的游标id。
+                   id
+
+                   pos          VARCH       IN          否       绑定的参数名。
+                                AR2
+
+                   column_      ANYARR      INOUT       否       返回值。
+                   value        AY
+
+
+              ●   DBE_SQL.GET_ARRAY_RESULT_INT
+                  该函数用于返回绑定的INT数组类型的OUT参数的值，可以用于获取存储过程中的
+                  OUT参数。
+                  DBE_SQL.GET_ARRAY_RESULT_INT原型为：
+                  DBE_SQL.get_array_result_int(
+                    context_id IN int,
+                    pos       IN VARCHAR2,
+                    column_value INOUT anyarray
+                  )
+
+
+                  表 3-388 DBE_SQL.GET_ARRAY_RESULT_INT 接口说明
+                   参数名称           类型               入参/出     是否可以     描述
+                                                   参        为空
+
+                   context_id     INT              IN       否        被查询的游标id。
+
+                   pos            VARCHAR          IN       否        绑定的参数名。
+                                  2
+
+                   column_v       ANYARRA          INOUT    否        返回值。
+                   alue           Y
+
+
+              ●   DBE_SQL.SQL_SET_TABLEOF_RESULTS_TYPE_C
+                  该函数动态定义一个tableof类型的列。不建议用户使用。
+                  DBE_SQL.SQL_SET_TABLEOF_RESULTS_TYPE_C原型为：
+                  DBE_SQL.SQL_SET_TABLEOF_RESULTS_TYPE_C(
+                    context_id IN int,
+                    pos      IN int,
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                            2847
+GaussDB
+集中式版参考                                                                              3 存储过程
+
+                     column_ref IN anyindexbytable,
+                     cnt      IN int,
+                     lower_bnd IN int,
+                     col_type IN anyelement,
+                     maxsize IN int
+                  )return integer;
+
+
+                  表 3-389 DBE_SQL.SQL_SET_TABLEOF_RESULTS_TYPE_C 接口说明
+
+                   参数名称          类型                   入参/     是否可以    描述
+                                                      出参      为空
+
+                   context_i     INT                  IN      否       被查询的游标id。
+                   d
+
+                   pos           INT                  IN      否       动态定义列在查询中的位
+                                                                      置。
+
+                   column_       ANYINDEXB            IN      否       标记返回的数组类型。
+                   ref           YTABLE
+
+                   cnt           INT                  IN      否       标记一次获取多少个值。
+
+                   lower_b       INT                  IN      否       标记返回数组时的开始下
+                   nd                                                 标。
+
+                   col_type      ANYELEMEN            IN      否       标记返回的数组类型对应的
+                                 T                                    变量类型。
+
+                   maxsize       INT                  IN      否       定义的类型的最大长度。
+
+
+              ●   DBE_SQL.SQL_GET_TABLEOF_VALUES_C
+                  该函数读取一个已动态定义的tableof类型的列值。不建议用户使用。
+                  DBE_SQL.SQL_GET_TABLEOF_VALUES_C原型为：
+                  DBE_SQL.SQL_GET_TABLEOF_VALUES_C(
+                     context_id IN int,
+                     pos        IN int,
+                     results_type INOUT anyindexbytable,
+                     result_type IN anyelement
+                  )return anyindexbytable;
+
+
+                  表 3-390 DBE_SQL.SQL_GET_TABLEOF_VALUES_C 接口说明
+
+                   参数名称          类型                   入参/出        是否可以为空   描述
+                                                      参
+
+                   context_i     INT                  IN          否        被查询的游标id。
+                   d
+
+                   pos           INT                  IN          否        参数位置信息。
+
+                   results_t     ANYINDEXB            INOUT       否        获取的结果。
+                   ype           YTABLE
+
+                   result_ty     ANYELEME             IN          否        获取的结果类型。
+                   pe            NT
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                              2848
+GaussDB
+集中式版参考                                                                                  3 存储过程
+
+
+示例
+              -- 示例1
+              -- 创建表并插入数据
+              CREATE TABLE test_desc_cols(
+                 id NUMBER,
+                 name VARCHAR2(50)
+              );
+              INSERT INTO test_desc_cols(id, name) VALUES (1, 'xiaoming');
+              INSERT INTO test_desc_cols(id, name) VALUES (2, 'xiaohong');
+              INSERT INTO test_desc_cols(id, name) VALUES (3, 'xiaolan');
+
+              DECLARE
+              context_id INTEGER;
+              col_cnt   INTEGER;
+              v_id int;
+              v_name varchar2;
+              execute_ret INTEGER;
+              BEGIN
+              -- 打开游标
+              context_id := DBE_SQL.REGISTER_CONTEXT();
+              -- 编译游标
+              DBE_SQL.SQL_SET_SQL(context_id, 'SELECT * FROM test_desc_cols', 2);
+              -- 设置列返回值的类型
+              DBE_SQL.SET_RESULT_TYPE(context_id, 1, v_id);
+              DBE_SQL.SET_RESULT_TYPE(context_id, 2, v_name);
+              execute_ret := DBE_SQL.SQL_RUN(context_id);
+              loop
+              exit when (DBE_SQL.NEXT_ROW(context_id) <= 0);
+              --获取值
+              DBE_SQL.GET_RESULT(context_id, 1, v_id);
+              DBE_SQL.GET_RESULT(context_id, 2, v_name);
+              --输出结果
+              dbe_output.print_line('id:'|| v_id || ' name:' || v_name);
+              end loop;
+              DBE_SQL.SQL_UNREGISTER_CONTEXT(context_id);
+              END;
+              /
+              -- 预期结果为：
+              id:1 name:xiaoming
+              id:2 name:xiaohong
+              id:3 name:xiaolan
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 清理环境
+              drop table if exists test_desc_cols;
+              DROP TABLE
+
+              -- 示例2
+              CREATE OR REPLACE PROCEDURE test_square(n NUMBER, square OUT NUMBER) IS
+              BEGIN
+                square := n * n;
+              END;
+              /
+              CREATE PROCEDURE
+
+              DECLARE
+              cur NUMBER;
+              query varchar(2000);
+              ret integer;
+              n NUMBER;
+              square Integer;
+              BEGIN
+                n := 2;
+                cur := DBE_SQL.REGISTER_CONTEXT();
+                query := 'BEGIN test_square(:n_bnd, :square_bnd); END;';
+                DBE_SQL.SQL_SET_SQL(cur, query, 2);
+                DBE_SQL.SQL_BIND_VARIABLE(cur, 'n_bnd', n);
+                DBE_SQL.SQL_BIND_VARIABLE(cur, 'square_bnd', square);
+                ret := DBE_SQL.SQL_RUN(cur);
+
+
+文档版本 01 (2026-04-30)                      版权所有 © 华为云计算技术有限公司                               2849
+GaussDB
+集中式版参考                                                                              3 存储过程
+
+                DBE_SQL.GET_VARIABLE_RESULT(cur, 'square_bnd', square);
+                DBE_OUTPUT.PRINT_LINE('square = ' || square);
+                DBE_SQL.SQL_UNREGISTER_CONTEXT(cur);
+              END;
+              /
+              -- 预期结果为：
+              square = 4
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 清理环境
+              drop PROCEDURE test_square;
+              DROP PROCEDURE
+
+              -- 示例3
+              -- DESCRIBE_COLUMNS、RUN_AND_NEXT和LAST_ROW_COUNT接口示例
+              -- 创建表并插入数据
+              CREATE TABLE test_desc_cols(
+                 id NUMBER,
+                 name VARCHAR2(50)
+              );
+              INSERT INTO test_desc_cols(id, name) VALUES (1, 'xiaoming');
+              INSERT INTO test_desc_cols(id, name) VALUES (2, 'xiaohong');
+              INSERT INTO test_desc_cols(id, name) VALUES (3, 'xiaolan');
+
+              -- 创建列描述信息打印存储过程
+              CREATE OR REPLACE PROCEDURE print_rec(
+                 rec in DBE_SQL.DESC_REC
+              )package AS
+              BEGIN
+                 raise INFO 'col_type     = %', rec.col_type;
+                 raise INFO 'col_name      = %', rec.col_name;
+                 raise INFO 'col_name_len   = %', rec.col_name_len;
+              END;
+              /
+              CREATE PROCEDURE
+
+              -- 进行功能验证
+              DECLARE
+              context_id INTEGER;
+              col_cnt    INTEGER;
+              rec_tab    DBE_SQL.DESC_TAB;
+              execute_ret INTEGER;
+              nextrow_ret INTEGER;
+              last_row_count INTEGER;
+              BEGIN
+              -- 打开游标
+              context_id := DBE_SQL.REGISTER_CONTEXT();
+              -- 编译游标
+              DBE_SQL.SQL_SET_SQL(context_id, 'SELECT * FROM test_desc_cols', 2);
+              -- 进行列描述和信息打印
+              DBE_SQL.DESCRIBE_COLUMNS(context_id, col_cnt, rec_tab);
+              FOR var IN 1..col_cnt LOOP
+                 print_rec(rec_tab(var));
+              END LOOP;
+              -- 执行并获取一行数据
+              execute_ret := DBE_SQL.RUN_AND_NEXT(context_id);
+              -- 获取一行数据
+              nextrow_ret := DBE_SQL.NEXT_ROW(context_id);
+              -- 得到目前已经获取的数据行数
+              last_row_count := DBE_SQL.LAST_ROW_COUNT;
+              DBE_OUTPUT.PRINT_LINE('last_row_count = '|| last_row_count);
+              DBE_SQL.SQL_UNREGISTER_CONTEXT(context_id);
+              END;
+              /
+              -- 预期结果为：
+              INFO: col_type          = 1700
+              CONTEXT: SQL statement "CALL print_rec(rec_tab[var])"
+              PL/pgSQL function inline_code_block line 16 at PERFORM
+              INFO: col_name           = id
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                              2850
+GaussDB
+集中式版参考                                                                                                       3 存储过程
+
+              CONTEXT: SQL statement "CALL print_rec(rec_tab[var])"
+              PL/pgSQL function inline_code_block line 16 at PERFORM
+              INFO: col_name_len       = 2
+              CONTEXT: SQL statement "CALL print_rec(rec_tab[var])"
+              PL/pgSQL function inline_code_block line 16 at PERFORM
+              INFO: col_type         = 1043
+              CONTEXT: SQL statement "CALL print_rec(rec_tab[var])"
+              PL/pgSQL function inline_code_block line 16 at PERFORM
+              INFO: col_name          = name
+              CONTEXT: SQL statement "CALL print_rec(rec_tab[var])"
+              PL/pgSQL function inline_code_block line 16 at PERFORM
+              INFO: col_name_len       = 4
+              CONTEXT: SQL statement "CALL print_rec(rec_tab[var])"
+              PL/pgSQL function inline_code_block line 16 at PERFORM
+              last_row_count = 2
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 清理环境
+              drop table test_desc_cols;
+              DROP TABLE
+
+              -- 示例4
+              DROP TABLE if exists dbe_sql_tab;
+              create table dbe_sql_tab(a char(30), b int, c text, d raw, e bytea, f text, g bool);
+              insert into dbe_sql_tab values('aaa', 10, 'abcdefghijklmn', HEXTORAW('DEADBEEF'), 'a', 'abcdefghijklmn',
+              true);
+
+              DECLARE
+              cursorid int;
+              execute_ret int;
+              query varchar(2000);
+              err numeric;
+              v_char char(30);
+              v_int int;
+              v_long text;
+              v_long_len int;
+              v_raw raw;
+              v_raw_len int;
+              v_bytea bytea;
+              v_text text;
+              BEGIN
+              query := 'select * from dbe_sql_tab';
+              cursorid := DBE_SQL.register_context();
+              DBE_SQL.sql_set_sql(cursorid, query, 1);
+              DBE_SQL.SET_RESULT_TYPE_CHAR(cursorid, 1, v_char, 30);
+              DBE_SQL.SET_RESULT_TYPE_INT(cursorid, 2);
+              DBE_SQL.SET_RESULT_TYPE_LONG(cursorid, 3);
+              DBE_SQL.SET_RESULT_TYPE_RAW(cursorid, 4, v_raw, 68);
+              DBE_SQL.SET_RESULT_TYPE_BYTEA(cursorid, 5, v_bytea, 68);
+              DBE_SQL.SET_RESULT_TYPE_TEXT(cursorid, 6, 1024);
+              execute_ret := DBE_SQL.sql_run(cursorid);
+              loop
+              exit when (DBE_SQL.next_row(cursorid) <= 0);
+              DBE_SQL.GET_RESULT_CHAR(cursorid, 1, v_char);
+              v_int := DBE_SQL.GET_RESULT_INT(cursorid, 2);
+              DBE_SQL.GET_RESULT_LONG(cursorid, 3, 3, 3, v_long, v_long_len);
+              DBE_SQL.GET_RESULT_RAW(cursorid, 4, v_raw, err, v_raw_len);
+              v_bytea := DBE_SQL.GET_RESULT_BYTEA(cursorid, 5);
+              v_text := DBE_SQL.GET_RESULT_TEXT(cursorid, 6);
+              dbe_output.print_line('a:'|| v_char);
+              dbe_output.print_line('b:'|| v_int);
+              dbe_output.print_line('c:'|| v_long);
+              dbe_output.print_line('d:'|| v_raw);
+              raise info 'e:%', v_bytea;
+              dbe_output.print_line('f:'|| v_text);
+              end loop;
+              DBE_SQL.sql_unregister_context(cursorid);
+              END;
+              /
+
+
+
+文档版本 01 (2026-04-30)                       版权所有 © 华为云计算技术有限公司                                                       2851
+
