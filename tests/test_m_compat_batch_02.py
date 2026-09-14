@@ -93,7 +93,11 @@ class MCompatBatch02Tests(unittest.TestCase):
             self.assertEqual(hashlib.sha256(src.read_bytes()).hexdigest(),f.source.artifact_sha256)
             self.assertEqual(f.status,'needs_review')
             ledger=self.registry.source_ledgers[f.source_ledger_ref]
-            self.assertTrue(any(u.status=='unmapped' for u in ledger.units))
+            # m_drop_view已完成source extraction；其余仍保留unmapped账本。
+            if fid == 'm_drop_view':
+                self.assertFalse(any(u.status=='unmapped' for u in ledger.units))
+            else:
+                self.assertTrue(any(u.status=='unmapped' for u in ledger.units))
             lines=[n for u in ledger.units for n in range(u.line_start,u.line_end+1)]
             lines += [i.line for i in ledger.ignored_lines]
             self.assertEqual(sorted(lines),list(range(1,len(src.read_text().splitlines())+1)))
