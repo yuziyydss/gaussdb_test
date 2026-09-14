@@ -122,3 +122,30 @@ python3 -c "import json; d=json.load(open('generated/factor_packages/generation_
 - 18条为合法阻断（文档冲突/环境资产/语义设计）→ 保持现状
 - 7条可行动但需要结构性设计（语法AST修改/专属facet）→ 需要专门的设计工作
 - **简单添加fresh值或绑定到现有维度都无法解决这些gap**
+
+## 2026-09-14 最终分析：format缺口不属于log_fdw包
+
+### 根因
+
+`create_foreign_table`的format值（text/csv/binary/fixed）是**file_fdw**的参数，
+而当前包只建模了**log_fdw**场景：
+
+- log_fdw: `OPTIONS (logtype 'gs_log')` — 目录日志，无文件格式
+- file_fdw: `OPTIONS (format 'text', ...)` — 文件数据，需要格式参数
+
+`core/log_fdw_catalog_contract.py`的create正则只允许`OPTIONS (logtype 'gs_log')`，
+这是正确的设计——不同FDW的OPTIONS参数完全不同。
+
+### 正确解决方案
+
+format值不应作为log_fdw包的table_options维度值。
+需要：
+1. 创建独立的file_fdw场景/manifest
+2. 或者建立多FDW的复合维度（log_fdw/file_fdw各一组OPTIONS）
+3. 前提是有file_fdw运行环境
+
+### 重新分类
+
+原"7条可行动"中的create_foreign_table.format×5和if_not_exists_yes
+应重新分类为"需要不同FDW场景"，而非"语法AST修改"。
+这进一步缩小了可行动范围。
