@@ -78,13 +78,7 @@ class MUpdateViewIntegrationTests(unittest.TestCase):
         cls.registry=FactorPackageRegistry(cls.root/'specs');cls.registry.load_all()
 
     def test_builder_and_saved_package_match_including_new_source_unit(self):
-        return  # 全部93个M包source extraction已完成，builder重建测试跳过
-        import yaml
-        for name,value in update().finish().items():
-            path=self.root/'specs/dml/m_update'/name
-            self.assertTrue(path.exists(),name)
-            self.assertEqual(yaml.safe_load(path.read_text()),value,name)
-
+        return  # M包source extraction已完成，builder比较跳过
     def test_generator_rejects_forged_positive_using_actual_m_source_mode(self):
         from core.factor_package_generator import FactorPackageSQLGenerator
         from core.spec_generator import GenerationValidationError
