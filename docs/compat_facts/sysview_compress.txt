@@ -1,0 +1,577 @@
+GaussDB
+集中式版参考                                                             8 系统表和系统视图
+
+
+               名称                          类型                描述
+
+               spacelimit                  bigint            用户的表空间限制。
+
+               childcount                  integer           子用户的个数。
+
+               childlist                   text              子用户列表。
+
+
+
+
+8.3.3 OLTP 表压缩
+
+8.3.3.1 GS_ADM_ILMDATAMOVEMENTPOLICIES
+              GS_ADM_ILMDATAMOVEMENTPOLICIES视图反映ILM策略的数据移动概要信息，包
+              含策略名称、动作类型、条件等。需要有系统管理员权限才可以访问此系统视图。
+
+              表 8-199 GS_ADM_ILMDATAMOVEMENTPOLICIES 字段
+               名称                类型                  描述
+
+               policy_name       character           ADO策略名称，系统自动生成，规则为：p+策
+                                 varying(128)        略ID。
+
+               action_type       character           动作类型，当前版本仅支持压缩。
+                                 varying(11)
+
+               scope             character           作用域，当前版本仅支持行。
+                                 varying(7)
+
+               compression_le    character           压缩级别，动作类型为压缩时存在。
+               vel               varying(30)
+
+               tier_tablespace   character           目标空间，动作类型为迁移时存在。当前版本
+                                 varying(128)        值为null。
+
+               tier_status       character           迁移目标空间是否是只读。当前版本值为null。
+                                 varying(9)
+
+               condition_type    character           条件类型，当前版本仅支持最后修改时间。
+                                 varying(22)
+
+               condition_days    numeric             条件天数。
+
+               custom_functio    character           自定义函数名称。当前版本值为null。
+               n                 varying(128)
+
+               policy_subtype    character           策略子类型。当前版本值为null。
+                                 varying(10)
+
+               action_clause     clob                策略执行时可以自动执行的文本。当前版本值
+                                                     为null。
+
+               tier_to           character           迁移动作的目的地类型。当前版本值为null。
+                                 varying(10)
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                       5038
+GaussDB
+集中式版参考                                                               8 系统表和系统视图
+
+
+8.3.3.2 GS_ADM_ILMOBJECTS
+              GS_ADM_ILMOBJECTS视图反映所有存在ILM策略应用的数据对象与相应策略的概要
+              信息，包含策略名称、数据对象名称、策略的来源、策略的启用删除状态。需要有系
+              统管理员权限才可以访问此系统视图。
+
+              表 8-200 GS_ADM_ILMOBJECTS 字段
+               名称                  类型             描述
+
+               policy_name         character      ADO策略名称，系统自动生成，规则为：p+策
+                                   varying(128)   略ID。
+
+               object_owner        character      数据对象所在Schema名称。
+                                   varying(128)
+
+               object_name         character      数据对象名称。
+                                   varying(128)
+
+               subobject_name      character      数据对象分区名称或二级分区名称。
+                                   varying(128)
+
+               object_type         character      数据对象类型：
+                                   varying(24)    ● TABLE：表。
+                                                  ● TABLE PARTITION：分区。
+                                                  ● TABLE SUBPARTITION：二级分区。
+                                                  ● INDEX：普通索引。
+                                                  ● GLOBAL PARTITIONED INDEX：全局索
+                                                    引。
+                                                  ● INDEX PARTITION：索引分区。
+
+               inherited_from      character      当前策略是继承哪一个对象上的策略，取值范
+                                   varying(20)    围：
+                                                  ● TABLE：表。
+                                                  ● TABLE PARTITION：分区。
+                                                  ● TABLE SUBPARTITION：二级分区。
+                                                  ● INDEX：普通索引。
+                                                  ● POLICY NOT INHERITED：不继承。
+
+               tbs_inherited_fro   character      当前策略是继承哪一个TS上的策略。当前版本
+               m                   varying(30)    值为null。
+
+               enabled             character      该策略对当前对象是否开启。
+                                   varying(7)
+
+               deleted             character      标识该对象上的ILM策略被删除，实际操作结
+                                   varying(7)     果是删除分区或者是删除分区上的策略，该条
+                                                  记录都会被删除（ILMOBJ）。
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                           5039
+GaussDB
+集中式版参考                                                                8 系统表和系统视图
+
+
+8.3.3.3 GS_ADM_ILMPOLICIES
+              GS_ADM_ILMPOLICIES视图反映ILM策略的概要信息，包含策略名称、类型、启用禁
+              用状态、删除状态。需要有系统管理员权限才可以访问此系统视图。
+
+              表 8-201 GS_ADM_ILMPOLICIES 字段
+               名称               类型                      描述
+
+               policy_name      character               ADO策略名称，系统自动生成，规则为：
+                                varying(128)            p+策略ID。
+
+               policy_type      character               策略类型。
+                                varying(13)
+
+               tablespace       character               表空间名称。当前版本值为null。
+                                varying(30)
+
+               enabled          character varying(6)    策略是否开启。
+
+               deleted          character varying(7)    策略是否被删除。
+
+
+
+
+8.3.3.4 GS_ADM_ILMEVALUATIONDETAILS
+              GS_ADM_ILMEVALUATIONDETAILS视图描述ADO任务的评估详情信息，包含Task
+              ID，策略信息、对象信息、评估结果以及ADO JOB名称。默认只有系统管理员权限才
+              可以访问此系统视图。
+
+              表 8-202 GS_ADM_ILMEVALUATIONDETAILS 字段
+               名称                    类型                描述
+
+               task_id               bigint            ADO Task的ID。
+
+               policy_name           character         ADO策略名称，系统自动生成，规则为：p
+                                     varying(128)      +策略ID。
+
+               object_owner          character         数据对象所在Schema名称。
+                                     varying(128)
+
+               object_name           character         数据对象名称。
+                                     varying(128)
+
+               subobject_name        character         数据对象分区名称或二级分区名称。
+                                     varying(128)
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                        5040
+GaussDB
+集中式版参考                                                                 8 系统表和系统视图
+
+
+               名称                   类型              描述
+
+               object_type          character       数据对象类型：
+                                    varying(24)     ● TABLE：表。
+                                                    ● TABLE PARTITION：分区。
+                                                    ● TABLE SUBPARTITION：二级分区。
+                                                    ● INDEX：普通索引。
+                                                    ● GLOBAL PARTITIONED INDEX：全局索
+                                                      引。
+                                                    ● INDEX PARTITION：索引分区。
+
+               selected_for_execu   character       评估结果：
+               tion                 varying(42)     ● SELECTED FOR EXECUTION：评估通过。
+                                                    ● PRECONDITION NOT SATISFIED：评估
+                                                      不通过。
+                                                    ● JOB ALREADY EXISTS：任务已存在。
+
+               job_name             character       执行具体ADO Job的任务名称，当评估结果
+                                    varying(128)    为评估通过时，此处有值。
+
+               comments             character       预留字段。
+                                    varying(4000)
+
+
+
+
+8.3.3.5 GS_ADM_ILMPARAMETERS
+              GS_ADM_ILMPARAMETERS视图描述ILM调度与执行的相关环境参数，该参数可通过
+              DBE_ILM_ADMIN.CUSTOMIZE_ILM接口进行修改。默认只有系统管理员权限才可以
+              访问此系统视图。
+
+              表 8-203 GS_ADM_ILMPARAMETERS 字段
+               名称            类型              描述
+
+               name          character       ADO相关的环境参数，通过
+                             varying(128)    DBE_ILM_ADMIN.CUSTOMIZE_ILM接口进行修改。
+
+               value         numeric         参数取值。
+
+
+
+
+8.3.3.6 GS_ADM_ILMRESULTS
+              GS_ADM_ILMRESULTS视图反映ADO JOB的执行详情信息，包含Task ID，JOB名称、
+              JOB状态、JOB时间信息等。默认只有系统管理员权限才可以访问此系统视图，普通用
+              户需要授权才可以访问。
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                            5041
+GaussDB
+集中式版参考                                                         8 系统表和系统视图
+
+              表 8-204 GS_ADM_ILMRESULTS 字段
+               名称             类型             描述
+
+               task_id        bigint         ADO Task的ID。
+
+               job_name       character      ADO Job的任务名称。
+                              varying(128)
+
+               job_state      character      ADO Job的状态。
+                              varying(35)
+
+               start_time     timestamp      JOB开始被调度的时间。
+                              with time
+                              zone
+
+               completion_t   timestamp      完成时间。
+               ime            with time
+                              zone
+
+               comments       character      JOB失败后此处记录失败原因。
+                              varying(4000
+                              )
+
+               statistics     clob           统计信息。
+
+
+
+
+8.3.3.7 GS_ADM_ILMTASKS
+              GS_ADM_ILMTASKS视图反映ADO Task的概要信息，包含Task ID，Task Owner，状
+              态以及时间信息。默认只有系统管理员权限才可以访问此系统视图，普通用户需要授
+              权才可以访问。
+
+              表 8-205 GS_ADM_ILMTASKS 字段
+               名称             类型             描述
+
+               task_id        bigint         ADO Task的ID。
+
+               task_owner     character      ADO Task发起的用户，仅ADM视图存在此列
+                              varying(128)
+
+               state          character      状态：
+                              varying(9)     ● INACTIVE：非活动。
+                                             ● ACTIVE：活动。
+                                             ● COMPLETED：完成。
+                                             ● UNKNOWN：评估中。
+
+               creation_tim   timestamp      创建时间。
+               e              with time
+                              zone
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                    5042
+GaussDB
+集中式版参考                                                                8 系统表和系统视图
+
+
+               名称              类型             描述
+
+               start_time      timestamp      变成活动状态的时间。
+                               with time
+                               zone
+
+               completion_t    timestamp      完成时间。
+               ime             with time
+                               zone
+
+
+
+
+8.3.3.8 GS_MY_ILMEVALUATIONDETAILS
+              GS_MY_ILMEVALUATIONDETAILS视图描述ADO Task的评估详情信息，包含Task
+              ID，策略信息、对象信息、评估结果以及ADO JOB名称。
+
+              表 8-206 GS_MY_ILMEVALUATIONDETAILS 字段
+               名称              类型             描述
+
+               task_id         bigint         ADO Task的ID。
+
+               policy_name     character      ADO策略名称，系统自动生成，规则为：p+策略
+                               varying(128)   ID。
+
+               object_owne     character      数据对象所在Schema名称。
+               r               varying(128)
+
+               object_name     character      数据对象名称。
+                               varying(128)
+
+               subobject_n     character      数据对象分区名称或二级分区名称。
+               ame             varying(128)
+
+               object_type     character      数据对象类型：
+                               varying(24)    ● TABLE：表。
+                                              ● TABLE PARTITION：分区。
+                                              ● TABLE SUBPARTITION：二级分区。
+                                              ● INDEX：普通索引。
+                                              ● GLOBAL PARTITIONED INDEX：全局索引。
+                                              ● INDEX PARTITION：索引分区。
+
+               selected_for_   character      评估结果：
+               execution       varying(42)    ● SELECTED FOR EXECUTION：评估通过。
+                                              ● PRECONDITION NOT SATISFIED：评估不通
+                                                过。
+                                              ● JOB ALREADY EXISTS：任务已存在。
+
+               job_name        character      执行具体ADO Job的任务名称，当评估结果为评估
+                               varying(128)   通过时，此处有值。
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                             5043
+GaussDB
+集中式版参考                                                         8 系统表和系统视图
+
+
+               名称             类型             描述
+
+               comments       character      预留字段。
+                              varying(4000
+                              )
+
+
+
+
+8.3.3.9 GS_MY_ILMRESULTS
+              GS_MY_ILMRESULTS视图反映ADO JOB的执行详情信息，包含Task ID，JOB名称、
+              JOB状态、JOB时间信息等。
+
+
+              表 8-207 GS_MY_ILMRESULTS 字段
+
+               名称             类型             描述
+
+               task_id        bigint         ADO Task的ID。
+
+               job_name       character      ADO Job的任务名称。
+                              varying(128)
+
+               job_state      character      ADO Job的状态。
+                              varying(35)
+
+               start_time     timestamp      JOB开始被调度的时间。
+                              with time
+                              zone
+
+               completion_t   timestamp      完成时间。
+               ime            with time
+                              zone
+
+               comments       character      JOB失败后此处记录失败原因。
+                              varying(4000
+                              )
+
+               statistics     clob           统计信息。
+
+
+
+
+8.3.3.10 GS_MY_ILMTASKS
+              GS_MY_ILMTASKS视图反映ADO Task的概要信息，包含Task ID，Task Owner，状态
+              以及时间信息。
+
+
+              表 8-208 GS_MY_ILMTASKS 字段
+
+               名称             类型             描述
+
+               task_id        bigint         ADO Task的ID。
+
+               task_owner     character      ADO Task发起的用户，仅ADM视图存在此列。
+                              varying(128)
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                     5044
+GaussDB
+集中式版参考                                                               8 系统表和系统视图
+
+
+               名称                类型                描述
+
+               state             character         状态：
+                                 varying(9)        ● INACTIVE：非活动。
+                                                   ● ACTIVE：活动。
+                                                   ● COMPLETED：完成。
+                                                   ● UNKNOWN：评估中。
+
+               creation_tim      timestamp         创建时间。
+               e                 with time
+                                 zone
+
+               start_time        timestamp         变成活动状态的时间。
+                                 with time
+                                 zone
+
+               completion_t      timestamp         完成时间。
+               ime               with time
+                                 zone
+
+
+
+
+8.3.3.11 GS_MY_ILMDATAMOVEMENTPOLICIES
+              GS_MY_ILMDATAMOVEMENTPOLICIES视图反映ILM策略的数据移动概要信息，包含
+              策略名称、动作类型、条件等。
+
+              表 8-209 GS_MY_ILMDATAMOVEMENTPOLICIES 字段
+               名称                     类型                 描述
+
+               policy_name            character          ADO策略名称，系统自动生成，规则为：p
+                                      varying(128)       +策略ID。
+
+               action_type            character          动作类型，当前版本仅支持压缩。
+                                      varying(11)
+
+               scope                  character          作用域，当前版本仅支持行。
+                                      varying(7)
+
+               compression_leve       character          压缩级别，动作类型为压缩时存在。
+               l                      varying(30)
+
+               tier_tablespace        character          目标空间，动作类型为迁移时存在。当前
+                                      varying(128)       版本值为null。
+
+               tier_status            character          迁移目标空间是否是只读。当前版本值为
+                                      varying(9)         null。
+
+               condition_type         character          条件类型，当前版本仅支持最后修改时
+                                      varying(22)        间。
+
+               condition_days         numeric            条件天数。
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                       5045
+GaussDB
+集中式版参考                                                              8 系统表和系统视图
+
+
+               名称                类型               描述
+
+               custom_function   character        自定义函数名称。当前版本值为null。
+                                 varying(128)
+
+               policy_subtype    character        策略子类型。当前版本值为null。
+                                 varying(10)
+
+               action_clause     clob             策略执行时可以自动执行的文本。当前版
+                                                  本值为null。
+
+               tier_to           character        迁移动作的目的地类型。当前版本值为
+                                 varying(10)      null。
+
+
+
+
+8.3.3.12 GS_MY_ILMOBJECTS
+              GS_MY_ILMOBJECTS视图反映所有存在ILM策略应用的数据对象与相应策略的概要信
+              息，包含策略名称、数据对象名称、策略的来源、策略的启用删除状态。
+
+              表 8-210 GS_MY_ILMOBJECTS 字段
+               名称                类型             描述
+
+               policy_name       character      ADO策略名称，系统自动生成，规则为：p+策
+                                 varying(128)   略ID。
+
+               object_owner      character      数据对象所在Schema名称。
+                                 varying(128)
+
+               object_name       character      数据对象名称。
+                                 varying(128)
+
+               subobject_name    character      数据对象分区名称或二级分区名称。
+                                 varying(128)
+
+               object_type       character      数据对象类型：
+                                 varying(24)    ● TABLE：表。
+                                                ● TABLE PARTITION：分区。
+                                                ● TABLE SUBPARTITION：二级分区。
+                                                ● INDEX：普通索引。
+                                                ● GLOBAL PARTITIONED INDEX：全局索
+                                                  引。
+                                                ● INDEX PARTITION：索引分区。
+
+
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                              5046
+GaussDB
+集中式版参考                                                              8 系统表和系统视图
+
+
+               名称                  类型            描述
+
+               inherited_from      character     当前策略是继承哪一个对象上的策略，取值范
+                                   varying(20)   围：
+                                                 ● TABLE：表。
+                                                 ● TABLE PARTITION：分区。
+                                                 ● TABLE SUBPARTITION：二级分区。
+                                                 ● INDEX：普通索引。
+                                                 ● POLICY NOT INHERITED：不继承。
+
+               tbs_inherited_fro   character     当前策略是继承哪一个TS上的策略。当前版本
+               m                   varying(30)   值为null。
+
+               enabled             character     该策略对当前对象是否开启。
+                                   varying(7)
+
+               deleted             character     标识该对象上的ILM策略被删除，实际操作结
+                                   varying(7)    果是删除分区或者是删除分区上的策略，该条
+                                                 记录都会被删除（ILMOBJ）。
+
+
+
+
+8.3.3.13 GS_MY_ILMPOLICIES
+              GS_MY_ILMPOLICIES视图反映ILM策略的概要信息，包含策略名称、类型、启用禁用
+              状态、删除状态。
+
+              表 8-211 GS_MY_ILMPOLICIES 字段
+               名称               类型                描述
+
+               policy_name      character         ADO策略名称，系统自动生成，规则为：p
+                                varying(128)      +策略ID。
+
+               policy_type      character         策略类型。
+                                varying(13)
+
+               tablespace       character         表空间名称，当该策略制定在表空间上时此
+                                varying(30)       处有值。当前版本值为null。
+
+               enabled          character         策略是否开启。
+                                varying(6)
+
+               deleted          character         策略是否被删除。
+                                varying(7)
+
+
+
+
+8.3.4 通信
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                          5047
+
