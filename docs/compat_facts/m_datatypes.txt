@@ -1,0 +1,2782 @@
+GaussDB
+集中式版参考                                                          4 兼容性说明
+
+              由于GaussDB数据库与MySQL数据库在底层框架实现上存在差异，GaussDB数据库与
+              MySQL数据库仍存在部分差异。
+
+
+Database 和 Schema 设计
+              MySQL的数据对象包括DATABASE、TABLE、INDEX、VIEW、TRIGGER、PROC等，
+              MySQL的对象层次跟GaussDB的对应关系是从上至下且一对多包含关系。如图4-1所
+              示：
+
+              图 4-1 MySQL 和 GaussDB 中 Database 和 Schema 之间的差异
+
+
+
+
+              ●   在MySQL中Database和Schema是同义词；而在GaussDB中，一个Database 下可
+                  以有多个Schema。在该特性中，每个MySQL中的Database都被映射到GaussDB
+                  的一个Schema。
+              ●   在MySQL中，INDEX从属于一个TABLE，但在GaussDB中，INDEX从属于一个
+                  Schema。这个差异导致INDEX名在GaussDB中要求在Schema内唯一，但在
+                  MySQL中仅要在在一个表内唯一。这个差异将作为当前约束予以保留。
+
+4.4.2 MySQL 兼容性 M-Compatibility 模式
+
+4.4.2.1 数据类型
+
+4.4.2.1.1 数据类型兼容性概述
+              GaussDB数据库的数据类型大部分功能场景与MySQL一致，但存在部分差异。
+
+              除特别说明外，GaussDB中的数据类型精度、标度、位数大小等默认不支持用浮点型
+              数值定义，建议使用合法的整型数值定义。
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                     3243
+GaussDB
+集中式版参考                                                                                       4 兼容性说明
+
+
+4.4.2.1.2 数值数据类型
+
+              表 4-131 整数类型
+               数据类型                    与MySQL的差异
+
+               BOOL                    输出格式：GaussDB中SELECT TRUE/FALSE输出结果为t/f，
+                                       MySQL为1/0。
+               BOOLEAN
+                                       MySQL：BOOL/BOOLEAN类型实际映射为TINYINT类型。
+
+               TINYINT[(M)]            具体差异请参见表格下方的示例内容。
+               [UNSIGNED]
+               [ZEROFILL]
+
+               SMALLINT[(M)]
+               [UNSIGNED]
+               [ZEROFILL]
+
+               MEDIUMINT[(M)           具体差异请参见表格下方的示例内容。
+               ] [UNSIGNED]
+               [ZEROFILL]
+
+               INT[(M)]                具体差异请参见表格下方的示例内容。
+               [UNSIGNED]
+               [ZEROFILL]
+
+               INTEGER[(M)]
+               [UNSIGNED]
+               [ZEROFILL]
+
+               BIGINT[(M)]
+               [UNSIGNED]
+               [ZEROFILL]
+
+
+
+              差异：开启精度开关参数（m_format_behavior_compat_options包含
+              'enable_precision_decimal'选项）时，在UNION的CREATE TABLE AS场景中，
+              GaussDB对于直接输入的整型会取其最大长度（INT为11，BIGINT为20）来计算列的
+              长度，MySQL会根据整型的实际长度来计算列的长度。
+              -- GaussDB
+              m_db=# set m_format_behavior_compat_options= 'enable_precision_decimal';
+              SET
+              m_db=# CREATE TABLE test_int AS SELECT 1234567 UNION ALL SELECT '456789';
+              INSERT 0 2
+              m_db=# DESC test_int;
+                Field | Type        | Null | Key | Default | Extra
+              ----------+-------------+------+-----+---------+-------
+               ?column? | varchar(11) | YES |        |       |
+              (1 row)
+
+              m_db=# DROP TABLE test_int;
+              DROP TABLE
+              m_db=# CREATE TABLE test_int AS SELECT 1234567890 UNION ALL SELECT '456789';
+              INSERT 0 2
+              m_db=# DESC test_int;
+                Field | Type        | Null | Key | Default | Extra
+              ----------+-------------+------+-----+---------+-------
+               ?column? | varchar(20) | YES |        |       |
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                          3244
+GaussDB
+集中式版参考                                                                                       4 兼容性说明
+
+              (1 row)
+
+              m_db=# DROP TABLE test_int;
+              DROP TABLE
+
+              -- MySQL
+              mysql> CREATE TABLE test_int AS SELECT 1234567 UNION ALL SELECT '456789';
+              Query OK, 2 rows affected (0.02 sec)
+              Records: 2 Duplicates: 0 Warnings: 0
+
+              mysql> DESC test_int;
+              +---------+------------+------+-----+---------+-------+
+              | Field | Type       | Null | Key | Default | Extra |
+              +---------+------------+------+-----+---------+-------+
+              | 1234567 | varchar(7) | NO |        |       |     |
+              +---------+------------+------+-----+---------+-------+
+              1 row in set (0.00 sec)
+
+              mysql> DROP TABLE test_int;
+              Query OK, 0 rows affected (0.01 sec)
+
+              mysql> CREATE TABLE test_int AS SELECT 1234567890 UNION ALL SELECT '456789';
+              Query OK, 2 rows affected (0.02 sec)
+              Records: 2 Duplicates: 0 Warnings: 0
+
+              mysql> DESC test_int;
+              +------------+-------------+------+-----+---------+-------+
+              | Field    | Type       | Null | Key | Default | Extra |
+              +------------+-------------+------+-----+---------+-------+
+              | 1234567890 | varchar(10) | NO |          |      |      |
+              +------------+-------------+------+-----+---------+-------+
+              1 row in set (0.00 sec)
+
+              mysql> DROP TABLE test_int;
+              Query OK, 0 rows affected (0.00 sec)
+
+
+              表 4-132 任意精度类型
+               数据类型                         与MySQL的差异
+
+               DECIMAL[(M[,D])              -
+               ] [ZEROFILL]
+
+               NUMERIC[(M[,D]
+               )] [ZEROFILL]
+
+               DEC[(M[,D])]
+               [ZEROFILL]
+
+               FIXED[(M[,D])]
+               [ZEROFILL]
+
+
+
+
+文档版本 01 (2026-04-30)                       版权所有 © 华为云计算技术有限公司                                    3245
+GaussDB
+集中式版参考                                                                    4 兼容性说明
+
+              表 4-133 浮点类型
+               数据类型              与MySQL的差异
+
+               FLOAT[(M,D)]      ● 驱动中FLOAT类型和DOUBLE类型带精度标度场景，数据输
+               [ZEROFILL]          入超过范围时不支持报错。
+               FLOAT(p)          ● GUC参数extra_float_digits设置为0时，FLOAT4类型不带标
+               [ZEROFILL]          度的值和MySQL5.7保持一致；设置为其他值时，可能会跟
+                                   MySQL5.7不一致。
+               DOUBLE[(M,D)]
+               [ZEROFILL]
+
+               DOUBLE
+               PRECISION[(M,D)
+               ] [ZEROFILL]
+
+               REAL[(M,D)]
+               [ZEROFILL]
+
+
+
+
+4.4.2.1.3 日期与时间数据类型
+
+              表 4-134 日期与时间数据类型
+               数据类型              与MySQL的差异
+
+               DATE              无差异。
+
+               DATETIME[(fsp)]   具体差异请参见表格下方说明中的内容。
+
+               TIMESTAMP[(fsp)   GaussDB支持timestamp数据类型，与MySQL相比规格上存在
+               ]                 如下差异：
+                                 ● MySQL支持设置explicit_defaults_for_timestamp ，当
+                                   explicit_defaults_for_timestamp设置为off时，对
+                                   TIMESTAMP字段的默认值、插入NULL等处理为非标准行
+                                   为。MySQL 5.7下，explicit_defaults_for_timestamp默认
+                                   值为off；MySQL 8.0下，explicit_defaults_for_timestamp
+                                   默认值为on。GaussDB不支持设置
+                                   explicit_defaults_for_timestamp，行为与MySQL设置
+                                   explicit_defaults_for_timestamp为on时的行为相同。
+                                   explicit_defaults_for_timestamp相关说明参见表格下方内
+                                   容。
+                                 ● 其余差异请参见表格下方说明中的内容。
+
+               TIME[(fsp)]       GaussDB支持time数据类型，与MySQL相比规格上存在如下差
+                                 异：
+                                 ● 当时间类型的时、分、秒、纳秒为0时，GaussDB和MySQL
+                                   可能存在符号位不同的情况。
+                                 ● 其余差异请参见表格下方说明中的内容。
+
+
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                              3246
+GaussDB
+集中式版参考                                                                    4 兼容性说明
+
+
+               数据类型                与MySQL的差异
+
+               YEAR[(4)]           GaussDB支持year数据类型，与MySQL相比规格上存在如下差
+                                   异：
+                                   MySQL 5.7中year列默认显示为year(4)。GaussDB与MySQL
+                                   8.0一致，只显示year。
+
+
+
+                  说明
+
+                 ● 当指定DATETIME、TIME、TIMESTAMP数据类型的精度超过其支持的最大精度时，
+                   GaussDB会将精度截断成支持的最大精度，MySQL则会报错。
+                 ● 当TIME数据类型为带负号的零时间数值（如：'-00:00:00' ）作为结果输出显示时，GaussDB
+                   不会显示其负号，MySQL则会显示其负号。
+                 ● MySQL中当explicit_defaults_for_timestamp为off时，对TIMESTAMP类型的字段的处理逻辑
+                   如下：
+                      ●    未显式指定NULL/NOT NULL属性的字段，将自动添加NOT NULL属性。向此类字段插
+                           入NULL值时，会将NULL值替换为当前时间戳。
+                      ●    如果未给表中的第一个TIMESTAMP类型的字段指定NULL属性，会自动给该字段添加
+                           DEFAULT CURRENT_TIMESTAMP和ON UPDATE CURRENT_TIMESTAMP属性。
+                      ●    如果未给表中的第二个及之后的TIMESTAMP类型的字段指定NULL属性，会自动给该字
+                           段添加DEFAULT '0000-00-00 00:00:00'属性。
+                 ● MySQL中当explicit_defaults_for_timestamp为on时，对TIMESTAMP类型的字段的处理逻辑
+                   如下：
+                      ●    向TIMESTAMP类型的字段插入NULL值时，不会将NULL值替换为当前时间戳。
+                      ●    未显式指定NULL/NOT NULL属性的字段，将自动添加NULL属性。
+                      ●    向指定了NOT NULL属性的字段插入NULL值时，严格模式下报错，宽松模式下将插入
+                           '0000-00-00 00:00:00'。
+                      ●    不会为任何TIMESTAMP类型的字段自动添加DEFAULT CURRENT_TIMESTAMP和ON
+                           UPDATE CURRENT_TIMESTAMP属性。
+
+4.4.2.1.4 字符串数据类型
+
+              表 4-135 字符串数据类型
+               数据类型                与MySQL的差异
+
+               CHAR(M)             具体差异请参见表格下方说明中的内容。
+
+               VARCHAR(M)          具体差异请参见表格下方说明中的内容。
+
+               TINYTEXT            具体差异请参见表格下方说明中的内容。
+
+               TEXT                具体差异请参见表格下方说明中的内容。
+
+               MEDIUMTEXT          具体差异请参见表格下方说明中的内容。
+
+               LONGTEXT            输入格式：
+                                   ● GaussDB最大支持1GB-512字节长度，MySQL最大支持
+                                     4GB-1字节长度。
+                                   ● 其余差异请参见表格下方说明中的内容。
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                            3247
+GaussDB
+集中式版参考                                                                4 兼容性说明
+
+
+                    说明
+
+                  ● 对于无法转义的二进制或十六进制字符串，MySQL会输出空字符串，GaussDB输出为十六进
+                    制结果。
+                  ● 对于TINYTEXT、TEXT、MEDIUMTEXT、LONGTEXT类型：
+                      ●     MySQL 5.7不允许设置默认值，GaussDB及MySQL 8.0允许设置默认值。
+                      ●     主键：MySQL中创建主键时必须指定前缀长度，GaussDB创建主键时不支持指定前缀
+                            长度。
+                      ●     索引：MySQL中不支持除前缀索引外其他索引方法，GaussDB支持。
+                      ●     外键：MySQL中不支持作为外键的参考列/被参考列，GaussDB支持。
+
+              示例：
+              -- GaussDB
+              m_db=# CREATE TABLE test_text(a text);
+              CREATE TABLE
+
+              m_db=# INSERT INTO test_text VALUES(0x1);
+              INSERT 0 1
+
+              m_db=# INSERT INTO test_text VALUES(0x111111);
+              INSERT 0 1
+
+              m_db=# INSERT INTO test_text VALUES(0x61);
+              INSERT 0 1
+
+              m_db=# SELECT * FROM test_text;
+                   a
+              --------------
+               \x01
+               \x11\x11\x11
+               a
+              (3 rows)
+
+              m_db=# DROP TABLE test_text;
+              DROP TABLE
+
+              -- MySQL 5.7
+              mysql> CREATE TABLE test_text(a text);
+              Query OK, 0 rows affected (0.01 sec)
+
+              mysql> INSERT INTO test_text VALUES(0x1);
+              Query OK, 1 row affected (0.01 sec)
+
+              mysql> INSERT INTO test_text VALUES(0x111111);
+              Query OK, 1 row affected (0.00 sec)
+
+              mysql> INSERT INTO test_text VALUES(0x61);
+              Query OK, 1 row affected (0.00 sec)
+
+              mysql> SELECT * FROM test_text;
+              +------+
+              |a |
+              +------+
+              |   |
+              | |
+              |a |
+              +------+
+              3 rows in set (0.00 sec)
+
+              mysql> DROP TABLE test_text;
+              Query OK, 0 rows affected (0.01 sec)
+
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                3248
+GaussDB
+集中式版参考                                                       4 兼容性说明
+
+
+4.4.2.1.5 二进制数据类型
+
+              表 4-136 二进制数据类型
+               数据类型           与MySQL的差异
+
+               BINARY[(M)]    ● 输入格式：
+                                – 输入二进制或十六进制字符串，GaussDB输出为十六进
+                                  制，MySQL中根据ASCII码表转义，无法转义的输出为
+                                  空。
+                                – 插入字符串长度小于目标长度时，GaussDB填充符是
+                                  0x20，MySQL是0x00。
+                              ● 字符集：默认字符集为数据库初始化字符集，MySQL默认
+                                类型字符集为BINARY字符集。
+                              ● 输出格式：
+                                – JDBC协议输出时BINARY类型的末尾空格显示为空格，
+                                  MySQL末尾空格显示为\x00。
+                                – 宽松模式下，BINARY类型面对输入超过n的字节数的字
+                                  符输入(例如中文字符)，会将超限的整个字符截断。
+                                  MySQL中会将超限的整个字符的前几位满足n范围内的
+                                  字节信息保留，但输出时字符信息显示乱码。
+                              其余差异请参见表格下方说明中的内容。
+                              说明
+                               GaussDB中，由于BINARY类型填充符与MySQL的差异，在操作符比较
+                               计算，字符串相关系统函数计算，索引匹配，数据导入导出等场景下与
+                               MySQL的表现会存在差异。
+
+               VARBINARY(M)   ● 字符集：默认字符集为数据库初始化字符集，MySQL默认
+                                类型字符集为BINARY字符集。
+                              ● 输出格式：JDBC协议输出时BINARY类型的末尾空格显示为
+                                空格，MySQL末尾空格显示为\x00。
+                              其余差异请参见表格下方说明中的内容。
+
+               TINYBLOB       具体差异请参见表格下方说明中的内容。
+
+               BLOB           具体差异请参见表格下方说明中的内容。
+
+               MEDIUMBLOB     具体差异请参见表格下方说明中的内容。
+
+               LONGBLOB       具体差异请参见表格下方说明中的内容。
+
+               BIT[(M)]       输出格式：
+                              ● GaussDB中所有输出按照二进制字符串形式输出。MySQL
+                                中根据ASCII码表转义，无法转义的输出为空。
+                              ● 在MySQL 8.0以上版本，默认会开头补0，GaussDB不会补
+                                0。
+                              其余差异请参见表格下方说明中的内容。
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                  3249
+GaussDB
+集中式版参考                                                             4 兼容性说明
+
+
+                    说明
+
+                  ● 对于无法转义的二进制或十六进制字符串，MySQL 5.7会输出无法显示的字符串， MySQL
+                    8.0输出格式为0x形式的十六进制结果，GaussDB输出格式为多个\x的十六进制结果。
+                  ● 对于TINYBLOB、BLOB、MEDIUMBLOB、LONGBLOB类型：
+                      ●     MySQL中不允许设置默认值，GaussDB中创建表列时语法上允许设置默认值。
+                      ●     主键：MySQL中不支持主键，GaussDB支持。
+                      ●     索引：MySQL中不支持除前缀索引外其他索引方法，GaussDB支持。
+                      ●     外键：MySQL中不支持作为外键的参考列/被参考列，GaussDB支持。
+
+              示例：
+              -- GaussDB
+              m_db=# CREATE TABLE test_blob(a blob);
+              CREATE TABLE
+
+              m_db=# INSERT INTO test_blob VALUES(0x1);
+              INSERT 0 1
+
+              m_db=# INSERT INTO test_blob VALUES(0x111111);
+              INSERT 0 1
+
+              m_db=# INSERT INTO test_blob VALUES(0x61);
+              INSERT 0 1
+
+              m_db=# SELECT * FROM test_blob;
+                   a
+              --------------
+               \x01
+               \x11\x11\x11
+               a
+              (3 rows)
+
+              m_db=# DROP TABLE test_blob;
+              DROP TABLE
+
+              -- MySQL 5.7
+              mysql> CREATE TABLE test_blob(a blob);
+              Query OK, 0 rows affected (0.02 sec)
+
+              mysql> INSERT INTO test_blob VALUES(0x1);
+              Query OK, 1 row affected (0.00 sec)
+
+              mysql> INSERT INTO test_blob VALUES(0x111111);
+              Query OK, 1 row affected (0.00 sec)
+
+              mysql> INSERT INTO test_blob VALUES(0x61);
+              Query OK, 1 row affected (0.01 sec)
+
+              mysql> SELECT * FROM test_blob;
+              +------+
+              |a |
+              +------+
+              |   |
+              | |
+              |a |
+              +------+
+              3 rows in set (0.00 sec)
+
+              mysql> DROP TABLE test_blob;
+              Query OK, 0 rows affected (0.00 sec)
+
+              -- MySQL 8.0
+              mysql> CREATE TABLE test_blob(a blob);
+              Query OK, 0 rows affected (0.08 sec)
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司             3250
+GaussDB
+集中式版参考                                                                         4 兼容性说明
+
+              mysql> INSERT INTO test_blob VALUES(0x1);
+              Query OK, 1 row affected (0.01 sec)
+
+              mysql> INSERT INTO test_blob VALUES(0x111111);
+              Query OK, 1 row affected (0.01 sec)
+
+              mysql> INSERT INTO test_blob VALUES(0x61);
+              Query OK, 1 row affected (0.01 sec)
+
+              mysql> SELECT * FROM test_blob;
+              +------------+
+              |a        |
+              +------------+
+              | 0x01      |
+              | 0x111111 |
+              | 0x61      |
+              +------------+
+              3 rows in set (0.00 sec)
+
+              mysql> DROP TABLE test_blob;
+              Query OK, 0 rows affected (0.04 sec)
+
+              在操作符比较、系统函数计算、索引匹配以及数据导入导出等场景下，BINARY类型在
+              GaussDB中的表现与在MySQL中存在差异。主要表现如下：
+              -- GaussDB
+              m_db=# CREATE TABLE test(a BINARY(10));
+              CREATE TABLE
+              m_db=# INSERT INTO test VALUES(0x8000);
+              INSERT 0 1
+              m_db=# SELECT hex(a) FROM test;
+                     hex
+              ----------------------
+               80002020202020202020
+              (1 row)
+
+              m_db=# SELECT * FROM test WHERE hex(a) = 80000000000000000000;
+               a
+              ---
+              (0 rows)
+              m_db=# DROP TABLE test;
+              DROP TABLE
+
+              -- MySQL
+              mysql> CREATE TABLE test(a BINARY(10));
+              Query OK, 0 rows affected (0.01 sec)
+
+              mysql> INSERT INTO test VALUES(0x8000);
+              Query OK, 1 row affected (0.00 sec)
+
+              mysql> SELECT hex(a) FROM test;
+              +----------------------+
+              | hex(a)            |
+              +----------------------+
+              | 80000000000000000000 |
+              +----------------------+
+              1 row in set (0.00 sec)
+
+              mysql> SELECT * FROM test WHERE hex(a) = 80000000000000000000;
+              +------------+
+              |a        |
+              +------------+
+              |▒          |
+              +------------+
+              1 row in set (0.00 sec)
+
+              mysql> DROP TABLE test;
+              Query OK, 0 rows affected (0.00 sec)
+
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                         3251
+GaussDB
+集中式版参考                                                                4 兼容性说明
+
+
+4.4.2.1.6 JSON 类型
+
+              表 4-137 JSON 数据类型
+               数据类型          与MySQL的差异
+
+               JSON          GaussDB支持JSON数据类型与MySQL相比，规格存在如下差
+                             异：
+                             ● 取值范围：
+                               在MySQL中，JSON数据类型的最大长度为4GB，但在
+                               GaussDB中，JSON数据类型的最大长度小于1GB，对象的
+                               键值对个数最大值和数组的元素个数最大值也小于
+                               MySQL。
+                             ● 字符集、字符序差异：
+                                  – 在MySQL中，使用CHARSET函数单独查询JSON类型的
+                                    列，返回的字符集是BINARY，但GaussDB中返回utf8。
+                                    其他使用的场景都使用utf8，与MySQL相同。
+                                  – 在MySQL中，使用collation函数单独查询JSON类型的
+                                    列，返回的字符序是BINARY，但GaussDB中返回
+                                    utf8mb4_bin。其他使用的场景都使用utf8mb4_bin，与
+                                    MySQL相同。
+                                  – 在MySQL中，使用COLLATE显式指定JSON类型的字符
+                                    序时，JSON类型会转成字符串类型，在操作符比较时按
+                                    指定的字符序生效，且通过CREATE TABLE AS SELECT建
+                                    表时字段类型会变为LONGTEXT；但在GaussDB中不会
+                                    改变JSON类型，指定的字符序在操作符比较时不生效，
+                                    且建表时字段类型仍保持为JSON。
+                             ● 使用ORDER BY在非标量JSON类型行为上的差异：
+                               在MySQL中，使用ORDER BY对非标量JSON类型排序的行
+                               为不做规定，会存在不支持对非标量JSON类型排序的告
+                               警。
+                                  在GaussDB中，支持对非标量的JSON进行排序，并按照一
+                                  定的排序规则进行排序：
+                                  – 首先比较JSON数据的类型，OPAQUE > TIMESTAMP =
+                                    DATETIME > TIME > DATE > BOOL > 数组 > 对象 > 字
+                                    符串类型 > DOUBLE = UINT = INT = DECIMAL >
+                                    NULL，结果相等则比较内容。
+                                  – 标量之间比较值的大小，OPAQUE先进行类型之间的比
+                                    较，TYPE_STRING > TYPE_VAR_STRING > TYPE_BLOB
+                                    > TYPE_BIT > TYPE_VARCHAR > TYPE_YEAR，类型相同
+                                    时依次比较每个字节的大小。
+                                  – 数组之间依次比较元素的大小，当其中一个数组的元素
+                                    比较完成之后，则元素个数多的大。对象之间比较长
+                                    度，长度相等则依次比较每个键值对，先比较键key，再
+                                    比较值value。
+
+
+
+
+文档版本 01 (2026-04-30)        版权所有 © 华为云计算技术有限公司                              3252
+GaussDB
+集中式版参考                                                                                                            4 兼容性说明
+
+
+                  说明
+
+                 ● 在GaussDB中，BLOB、TINYBLOB、MEDIUMBLOB、LONGBLOB、BINARY、
+                   VARBINARY、BIT以及YEAR类型转换为JSON类型，结果与MySQL不同。
+                   示例：
+                   -- GaussDB
+                   m_db=# CREATE TABLE test_blob (c1 BLOB, c2 TINYBLOB, c3 MEDIUMBLOB, c4 LONGBLOB, c5
+                   BINARY(32), c6 VARBINARY(100), c7 BIT(64), c8 YEAR);
+                   CREATE TABLE
+                   m_db=# INSERT INTO test_blob VALUES('[1, "json"]', 'true', 'abc', '{"jsnid": 1, "tag": "ab"}', '[1,
+                   "json"]', '{"jsnid": 1, "tag": "ab"}', '20', '2020');
+                   INSERT 0 1
+                   m_db=# SELECT CAST(c1 AS JSON), CAST(c2 AS JSON), CAST(c3 AS JSON), CAST(c4 AS JSON),
+                   CAST(c5 AS JSON), CAST(c6 AS JSON), CAST(c7 AS JSON), CAST(c8 AS JSON) FROM test_blob;
+                        CAST        | CAST | CAST |                CAST             |             CAST               |
+                   CAST               | CAST | CAST
+                   -----------------+--------+-------+-----------------------------------+--------------------------------------
+                   +-----------------------------------+------+--------
+                    "[1, \"json\"]" | "true" | "abc" | "{\"jsnid\": 1, \"tag\": \"ab\"}" | "[1, \"json\"]                 "|
+                   "{\"jsnid\": 1, \"tag\": \"ab\"}" | "20" | "2020"
+                   (1 row)
+
+                   -- MySQL
+                   mysql> CREATE TABLE test_blob (c1 BLOB, c2 TINYBLOB, c3 MEDIUMBLOB, c4 LONGBLOB, c5
+                   BINARY(32), c6 VARBINARY(100), c7 BIT(64), c8 YEAR);
+                   Query OK, 0 rows affected (0.02 sec)
+                   mysql> INSERT INTO test_blob VALUES('[1, "json"]', 'true', 'abc', '{"jsnid": 1, "tag": "ab"}', '[1,
+                   "json"]', '{"jsnid": 1, "tag": "ab"}', '20', '2020');
+                   Query OK, 1 row affected (0.00 sec)
+                   mysql> SELECT CAST(c1 AS JSON), CAST(c2 AS JSON), CAST(c3 AS JSON), CAST(c4 AS JSON),
+                   CAST(c5 AS JSON), CAST(c6 AS JSON), CAST(c7 AS JSON), CAST(c8 AS JSON) FROM test_blob;
+                   +-----------------------------------+---------------------------+-----------------------
+                   +-------------------------------------------------------
+                   +---------------------------------------------------------------
+                   +------------------------------------------------------+------------------------------+--------------------------
+                   +
+                   | CAST(c1 AS JSON)                   | CAST(c2 AS JSON)            | CAST(c3 AS JSON)         | CAST(c4 AS
+                   JSON)                                | CAST(c5 AS JSON)                                         | CAST(c6 AS
+                   JSON)                               | CAST(c7 AS JSON)               | CAST(c8 AS JSON)            |
+                   +-----------------------------------+---------------------------+-----------------------
+                   +-------------------------------------------------------
+                   +---------------------------------------------------------------
+                   +------------------------------------------------------+------------------------------+--------------------------
+                   +
+                   | "base64:type252:WzEsICJqc29uIl0=" | "base64:type249:dHJ1ZQ==" | "base64:type250:YWJj" |
+                   "base64:type251:eyJqc25pZCI6IDEsICJ0YWciOiAiYWIifQ==" |
+                   "base64:type254:WzEsICJqc29uIl0AAAAAAAAAAAAAAAAAAAAAAAAAAAA=" |
+                   "base64:type15:eyJqc25pZCI6IDEsICJ0YWciOiAiYWIifQ==" | "base64:type16:AAAAAAAAMjA=" |
+                   "base64:type13:MjAyMA==" |
+                   +-----------------------------------+---------------------------+-----------------------
+                   +-------------------------------------------------------
+                   +---------------------------------------------------------------
+                   +------------------------------------------------------+------------------------------+--------------------------
+                   +
+                   1 row in set (0.00 sec)
+                 ● 如果在当前版本内执行了::JSON强制类型转换，其实际转换的JSON类型与GUC参数
+                   m_format_behavior_compat_options兼容性选项是否设置了cast_as_new_json有关。
+
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                                     3253
+GaussDB
+集中式版参考                                                                                                           4 兼容性说明
+
+
+4.4.2.1.7 数据类型支持的属性
+
+              表 4-138 数据类型支持的属性
+
+               MySQL数据库                                                 GaussDB数据库
+
+               NULL                                                     支持
+
+               NOT NULL                                                 支持
+
+               DEFAULT                                                  支持
+
+               ON UPDATE                                                支持
+
+               PRIMARY KEY                                              支持
+
+               AUTO_INCREMENT                                           支持
+
+               CHARACTER SET name                                       支持
+
+               COLLATE name                                             支持
+
+               ZEROFILL                                                 支持
+
+
+
+
+              差异点：
+              建表时对VARBINARY类型的字段设置默认值，在使用DESC等方式查询表结构时与
+              MySQL存在差异，GaussDB显示为转换成十六进制后的值，而MySQL显示为原始值。
+              示例：
+              -- GaussDB
+              m_db=# CREATE TABLE test_int(
+                   int_col INT
+              );
+
+              m_db=# CREATE TABLE test_varbinary(
+                    varbinary_col VARBINARY(20) default 'gauss'
+              ) AS SELECT * FROM test_int;
+
+              m_db=# SHOW CREATE TABLE test_varbinary;
+                  Table       |                       Create Table
+              ----------------+---------------------------------------------------------------------------
+               test_varbinary | SET search_path = public;                                           +
+                           | CREATE TABLE test_varbinary (                                        +
+                           |    varbinary_col varbinary(20) DEFAULT X'6761757373',                         +
+                           |    int_col integer                                           +
+                           |)                                                         +
+                           | CHARACTER SET = "UTF8" COLLATE = "utf8mb4_general_ci"                           +
+                           | WITH (orientation=row, compression=no, storage_type=USTORE, segment=off);
+              (1 row)
+
+              m_db=# DROP TABLE test_int, test_varbinary;
+
+              -- MySQL
+              mysql> CREATE TABLE test_int(
+                   int_col INT
+              );
+
+              mysql> CREATE TABLE test_varbinary(
+                    varbinary_col VARBINARY(20) default 'gauss'
+              ) AS SELECT * FROM test_int;
+
+
+
+文档版本 01 (2026-04-30)                      版权所有 © 华为云计算技术有限公司                                                         3254
+GaussDB
+集中式版参考                                                                                                                   4 兼容性说明
+
+              mysql> SHOW CREATE TABLE test_varbinary;
+              +----------------
+              +--------------------------------------------------------------------------------------------------------------------+
+              | Table         | Create
+              Table                                                                                                                 |
+              +----------------
+              +--------------------------------------------------------------------------------------------------------------------+
+              | test_varbinary | CREATE TABLE `test_varbinary` (
+                `varbinary_col` varbinary(20) DEFAULT 'gauss',
+                `int_vol` int(11) DEFAULT NULL
+              ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 |
+              +----------------
+              +--------------------------------------------------------------------------------------------------------------------+
+              1 row in set (0.00 sec)
+
+              mysql> DROP TABLE test_int, test_varbinary;
+
+
+4.4.2.1.8 数据类型转换
+              不同的数据类型之间支持转换。有如下场景涉及到数据类型转换：
+
+              ●     操作符（比较操作符、运算操作符等）的操作数的数据类型不一致。常见于查询
+                    条件或者关联条件中的比较运算。
+              ●     函数调用时实参和形参的数据类型不一致。
+              ●     DML语句要更新（包括INSERT、UPDATE、MERGE、REPLACE等）的目标列，数
+                    据的类型和列的定义类型不一致。
+              ●     显式的类型转换：CAST(expr AS datatype)，将expr表达式类型转换为datatype
+                    类型。
+              ●     集合运算（UNION、EXCEPT）确定最终投影列的目标数据类型后，各个SELECT
+                    查询的投影列的类型和目标数据类型不一致。
+              ●     其他表达式计算场景，根据不同表达式的数据类型，来决定用于比较或者最终结
+                    果的目标数据类型。
+              ●     普通的字符串类型当字符序为BINARY时，将转换成对应的二进制类型（TEXT转换
+                    成BLOB，VARCHAR转换成VARBINARY等）。
+              数据类型转换主要存在以下几类差异点：
+
+              ●     隐式类型转换差异点
+              ●     UNION，CASE和相关构造差异点
+              ●     双冒号转换差异点
+              ●     decimal类型差异点
+              ●     字符串数据类型转double类型差异点
+
+隐式类型转换差异点
+              ●     GaussDB中统一平铺成小类型到小类型的转换规则，MySQL中使用小类型转大类
+                    型，大类型转小类型的转换规则。
+
+              ●     WHERE条件子句中只有字符串的场景，GaussDB和MySQL行为存在差异。在GUC
+                    参数m_format_behavior_compat_options未设置compat_bool_cond选项时，
+                    GaussDB中't'、'true'、'y'、'yes'、'on'、'1'以及其大写版本会被识别为TRUE，能
+                    得到查询结果，'f'、'false'、'n'、'no'、'off'、'0'以及其大写版本会被识别为
+                    FALSE，无法得到查询结果，其他字符串转换为BOOL的规则同MySQL5.7，字符
+                    串转换为整数后非0为TRUE，否则为FALSE。在GUC参数
+                    m_format_behavior_compat_options设置compat_bool_cond选项时，字符串转
+
+文档版本 01 (2026-04-30)                         版权所有 © 华为云计算技术有限公司                                                                     3255
+GaussDB
+集中式版参考                                                              4 兼容性说明
+
+                  换为BOOL的规则同MySQL8.0，字符串转换为浮点数后非0为TRUE，否则为
+                  FALSE。
+                  示例：
+                  -- GaussDB
+                  m_db=# SET m_format_behavior_compat_options='';
+                  SET
+
+                  m_db=# CREATE TABLE test_where(a int);
+                  CREATE TABLE
+
+                  m_db=# INSERT INTO test_where VALUES(1);
+                  INSERT 0 1
+
+                  m_db=# SELECT * FROM test_where WHERE 't';
+                   a
+                  ---
+                   1
+                  (1 row)
+
+                  m_db=# SELECT * FROM test_where WHERE '1';
+                   a
+                  ---
+                   1
+                  (1 row)
+
+                  m_db=# SELECT * FROM test_where WHERE 'f';
+                   a
+                  ---
+                  (0 rows)
+
+                  m_db=# SELECT * FROM test_where WHERE '0';
+                   a
+                  ---
+                  (0 rows)
+
+                  m_db=# DROP TABLE test_where;
+                  DROP TABLE
+
+                  -- MySQL
+                  mysql> CREATE TABLE test_where(a int);
+                  Query OK, 0 rows affected (0.02 sec)
+
+                  mysql> INSERT INTO test_where VALUES(1);
+                  Query OK, 1 row affected (0.00 sec)
+
+                  mysql> SELECT * FROM test_where WHERE 't';
+                  Empty set, 1 warning (0.00 sec)
+
+                  mysql> SELECT * FROM test_where WHERE '1';
+                  +------+
+                  |a |
+                  +------+
+                  | 1|
+                  +------+
+                  1 row in set (0.00 sec)
+
+                  mysql> SELECT * FROM test_where WHERE 'f';
+                  Empty set, 1 warning (0.00 sec)
+
+                  mysql> SELECT * FROM test_where WHERE '0';
+                  Empty set (0.00 sec)
+
+                  mysql> DROP TABLE test_where;
+                  Query OK, 0 rows affected (0.01 sec)
+              ●   对于表字段为VARCHAR类型，隐式转换为数值数据类型的场景，MySQL在字符串
+                  转换失败的部分比字符串完整长度少2的情况下（如：“AA”没有字符被转换成
+                  功，长度差为2-0=2；“4XY”的第一个字符转换成功，长度差为3-1=2），根据
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                3256
+GaussDB
+集中式版参考                                                                                              4 兼容性说明
+
+                 调用场景的不同，不会产生告警或报错。此时MySQL在长度差不等于2的情况
+                 下，仍然会产生告警或报错。GaussDB中对应场景字符串转换失败时会始终产生
+                 告警或报错。
+                 示例：
+                 -- GaussDB
+                 m_db=# CREATE TABLE t1(a INT PRIMARY KEY, b VARCHAR(10));
+                 NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "t1_pkey" for table "t1"
+                 CREATE TABLE
+
+                 m_db=# INSERT INTO t1 VALUES(1, 'A');
+                 INSERT 0 1
+
+                 m_db=# INSERT INTO t1 VALUES(2, 'BB');
+                 INSERT 0 1
+
+                 m_db=# INSERT INTO t1 VALUES(3, 'CCC');
+                 INSERT 0 1
+
+                 m_db=# SELECT a+b FROM t1 ORDER BY a;
+                 WARNING: The double value 'A' is incorrect.
+                 WARNING: The double value 'BB' is incorrect.
+                 WARNING: The double value 'CCC' is incorrect.
+                  ?column?
+                 ----------
+                       1
+                       2
+                       3
+                 (3 rows)
+
+                 m_db=# TRUNCATE TABLE t1;
+                 TRUNCATE TABLE
+
+                 m_db=# INSERT INTO t1 VALUES(1, 'A');
+                 INSERT 0 1
+
+                 m_db=# INSERT INTO t1 VALUES(1, 'X') ON DUPLICATE KEY UPDATE b=values(a)+values(b);
+                 ERROR: The double value 'X' is incorrect.
+                 CONTEXT: referenced column: b
+
+                 m_db=# INSERT INTO t1 VALUES(1, 'YY') ON DUPLICATE KEY UPDATE b=values(a)+values(b);
+                 ERROR: The double value 'YY' is incorrect.
+                 CONTEXT: referenced column: b
+
+                 m_db=# INSERT INTO t1 VALUES(1, 'ZZZ') ON DUPLICATE KEY UPDATE b=values(a)+values(b);
+                 ERROR: The double value 'ZZZ' is incorrect.
+                 CONTEXT: referenced column: b
+
+                 m_db=# DROP TABLE t1;
+                 DROP TABLE
+
+                 -- MySQL
+                 mysql> CREATE TABLE t1(a INT PRIMARY KEY, b VARCHAR(10));
+                 Query OK, 0 rows affected (0.00 sec)
+
+                 mysql> INSERT INTO t1 VALUES(1, 'A');
+                 Query OK, 1 row affected (0.00 sec)
+
+                 mysql> INSERT INTO t1 VALUES(2, 'BB');
+                 Query OK, 1 row affected (0.00 sec)
+
+                 mysql> INSERT INTO t1 VALUES(3, 'CCC');
+                 Query OK, 1 row affected (0.00 sec)
+
+                 mysql> SELECT a+b FROM t1 ORDER BY a;
+                 +------+
+                 | a+b |
+                 +------+
+                 | 1|
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                   3257
+GaussDB
+集中式版参考                                                                                          4 兼容性说明
+
+                  | 2|
+                  | 3|
+                  +------+
+                  3 rows in set, 2 warnings (0.00 sec)
+
+                  mysql> SHOW WARNINGS;
+                  +---------+------+-----------------------------------------+
+                  | Level | Code | Message                              |
+                  +---------+------+-----------------------------------------+
+                  | Warning | 1292 | Truncated incorrect DOUBLE value: 'A' |
+                  | Warning | 1292 | Truncated incorrect DOUBLE value: 'CCC' |
+                  +---------+------+-----------------------------------------+
+                  2 rows in set (0.00 sec)
+
+                  mysql> TRUNCATE TABLE t1;
+                  Query OK, 0 rows affected (0.01 sec)
+
+                  mysql> INSERT INTO t1 VALUES(1, 'A');
+                  Query OK, 1 row affected (0.00 sec)
+
+                  mysql> INSERT INTO t1 VALUES(1, 'X') ON DUPLICATE KEY UPDATE b=values(a)+values(b);
+                  ERROR 1292 (22007): Truncated incorrect DOUBLE value: 'X'
+
+                  mysql> INSERT INTO t1 VALUES(1, 'YY') ON DUPLICATE KEY UPDATE b=values(a)+values(b);
+                  Query OK, 2 rows affected, 2 warnings (0.00 sec)
+
+                  mysql> INSERT INTO t1 VALUES(1, 'ZZZ') ON DUPLICATE KEY UPDATE b=values(a)+values(b);
+                  ERROR 1292 (22007): Truncated incorrect DOUBLE value: 'ZZZ'
+
+                  mysql> DROP TABLE t1;
+                  Query OK, 0 rows affected (0.00 sec)
+              ●   在开启精度传递的场景下，对于类型为带标度的FLOAT或DOUBLE的表达式，在
+                  转换为BLOB、TINYBLOB、MEDIUMBLOB、LONGBLOB、TEXT、TINYTEXT、
+                  MEDIUMTEXT、LONGTEXT、CHAR、VARCHAR、BINARY、VARBINARY、JSON
+                  类型时，GaussDB和MySQL行为存在差异。GaussDB中，相同类型的不同表达
+                  式，转换行为相同。而MySQL中，相同类型的不同表达式，转换行为不同。
+                  示例：
+                  -- GaussDB，类型为double(20, 3)的不同表达式，转成成字符串结果相同。
+                  m_db=# SET m_format_behavior_compat_options='enable_precision_decimal';
+                  SET
+                  m_db=# CREATE TABLE t_text(a TEXT);
+                  CREATE TABLE
+                  m_db=# CREATE TABLE t_double(a DOUBLE(20,3));
+                  CREATE TABLE
+                  m_db=# INSERT INTO t_double VALUES(-20081231235959.680);
+                  INSERT 0 1
+                  m_db=# SELECT -TIMESTAMP '2008-12-31 23:59:59.678' UNION ALL SELECT a FROM t_text;
+                       ?column?
+                  ---------------------
+                   -20081231235959.680
+                  (1 row)
+
+                  m_db=# SELECT a FROM t_double UNION ALL SELECT a FROM t_text;
+                          a
+                  ---------------------
+                   -20081231235959.680
+                  (1 row)
+
+                  m_db=# DROP TABLE t_text, t_double;
+                  DROP TABLE
+
+                  -- MySQL，类型为double(20, 3)的不同表达式，转成成字符串结果不同。
+                  mysql> CREATE TABLE t_text(a TEXT);
+                  Query OK, 0 rows affected (0.02 sec)
+
+                  mysql> CREATE TABLE t_double(a DOUBLE(20,3));
+                  Query OK, 0 rows affected (0.02 sec)
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                 3258
+GaussDB
+集中式版参考                                                                                          4 兼容性说明
+
+
+                  mysql> INSERT INTO t_double VALUES(-20081231235959.680);
+                  Query OK, 1 row affected (0.00 sec)
+
+                  mysql> SELECT -TIMESTAMP '2008-12-31 23:59:59.678' UNION ALL SELECT a FROM t_text;
+                  +--------------------------------------+
+                  | -TIMESTAMP '2008-12-31 23:59:59.678' |
+                  +--------------------------------------+
+                  | -20081231235959.68                    |
+                  +--------------------------------------+
+                  1 row in set (0.00 sec)
+
+                  mysql> SELECT a FROM t_double UNION ALL SELECT a FROM t_text;
+                  +---------------------+
+                  |a               |
+                  +---------------------+
+                  | -20081231235959.680 |
+                  +---------------------+
+                  1 row in set (0.00 sec)
+
+                  mysql> DROP TABLE t_text, t_double;
+                  Query OK, 0 rows affected (0.02 sec)
+
+
+UNION，CASE 和相关构造差异点
+              ●   YEAR类型参与UNION操作时，最终推导类型可能为其大类型UNSIGNED INT4，
+                  BOOL类型参与UNION操作时，最终推导类型可能为其大类型INT4。
+              ●   POLYGON + NULL、POINT + NULL、POLYGON + POINT组合在MySQL中均返
+                  回GEOMETRY类型，GaussDB中未涉及，暂时当做报错处理。
+              ●   JSON和二进制类型（BINARY、VARBINARY、TINYBLOB、BLOB、
+                  MEDIUMBLOB、LONGBLOB、BIT）的UNION和UNION ALL组合，MySQL中返
+                  回LONGBLOB类型，GaussDB中返回JSON类型，同时支持二进制类型
+                  （BINARY、VARBINARY、TINYBLOB、BLOB、MEDIUMBLOB、LONGBLOB、
+                  BIT）到JSON的隐式类型转换。整数类型（BOOL、TINYINT、SMALLINT、
+                  MEDIUMINT、INT、BIGINT、TINYINT UNSIGNED、SMALLINT UNSIGNED、
+                  MEDIUMINT UNSIGNED、INT UNSIGNED、BIGINT UNSIGNED)、定点类型
+                  （DECIMAL）、浮点类型（FLOAT、DOUBLE）以及时间类型（TIMESTAMP、
+                  DATETIME、TIME、DATE）不支持直接转换成JSON类型，如果这些类型与多种
+                  类型UNION并且结果类型推导为JSON时，会报不支持类型转换。
+              ●   未设置m_format_behavior_compat_options为enable_precision_decimal时，常
+                  量类型和其他类型做类型聚合的时候，输出类型的精度为其他类型的精度。如
+                  “SELECT "helloworld" UNION SELECT p FROM t;”的结果的精度为属性p的精
+                  度。
+              ●   未设置m_format_behavior_compat_options为enable_precision_decimal时，定
+                  点常量和不带精度约束的类型（非字符串类型如int、bool、year等，聚合结果类
+                  型为定点类型）聚合时，精度约束会按照定点数默认精度31输出。
+              ●   merge rule差异：
+                  MySQL 5.7中存在部分不合理的类型推导，如BIT类型和整型/YEAR类型推导会得
+                  出VARBINARY类型，UNSIGNED类型和非UNSIGNED类型推导会得到带
+                  UNSIGNED的类型等，同时CASE WHEN和UNION的聚合结果也存在差异，类型
+                  推导结果太小时存在数据溢出风险。在MySQL 8.0版本修复了上述相关的问题，
+                  因此merge rule聚合规则以8.0为准。
+              ●   MySQL中BINARY和CHAR填充字符不相同，BINARY填充'\0'，CHAR填充空格，
+                  GaussDB中BINARY和CHAR都是填充空格。
+              ●   CASE WHEN嵌套带有ZEROFILL属性的字段时，不补充前缀零。MySQL中会进行
+                  填充前缀零。
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                               3259
+GaussDB
+集中式版参考                                                                                           4 兼容性说明
+
+
+              ●   GaussDB在函数嵌套CASE WHEN场景中，由于GaussDB的CASE WHEN不是函数
+                  实现，和MySQL的架构不一致，外层函数无法修改CASE WHEN中内层函数的返
+                  回值类型，会导致结果与MySQL不一致。
+                  示例：
+                  -- GaussDB
+                  m_db=# SELECT dayname('2024-12-13');
+                   dayname
+                  ---------
+                   Friday
+                  (1 row)
+
+                  -- 等价于SELECT bit_and('Friday');
+                  m_db=# SELECT bit_and(CASE WHEN TRUE THEN dayname('2024-12-13') END) AS res;
+                   res
+                  -----
+                   0
+                  (1 row)
+
+                  -- MySQL
+                  mysql> SELECT bit_and(CASE WHEN TRUE THEN dayname('2024-12-13') END) AS res;
+                  +-----+
+                  | res |
+                  +-----+
+                  | 4|
+                  +-----+
+                  1 row in set (0.03 sec)
+              ●   UNION、CASE WHEN推导结果为浮点类型时，GaussDB浮点类型精度可能大于
+                  MySQL。
+                  -- GaussDB
+                  m_db=# SET m_format_behavior_compat_options = 'enable_precision_decimal';
+                  SET
+                  m_db=# CREATE TABLE tb1_1 AS SELECT -date '2008-12-31' res1
+                     UNION ALL SELECT -2237583678912
+                     UNION ALL SELECT 2147483648;
+                  INSERT 0 3
+                  m_db=# DESC tb1_1;
+                   Field | Type | Null | Key | Default | Extra
+                  -------+--------+------+-----+---------+-------
+                   res1 | double | YES |       |        |
+                  (1 row)
+                  m_db=# CREATE TABLE t1_casewhen(c16 FLOAT(10,3) UNSIGNED);
+                  CREATE TABLE
+                  m_db=# CREATE TABLE test AS
+                     SELECT
+                        CASE
+                           WHEN 1 < 2 THEN
+                              CASE
+                                 WHEN 3 < 4 THEN
+                                     (SELECT c16 FROM t1_casewhen)
+                                 ELSE
+                                     (SELECT c16 FROM t1_casewhen WHERE c16 < (SELECT c16 + 1 FROM t1_casewhen))
+                              END
+                           ELSE
+                              (SELECT c16 FROM t1_casewhen)
+                        END AS v16;
+                  INSERT 0 1
+                  m_db=# DESC test;
+                   Field |   Type      | Null | Key | Default | Extra
+                  -------+--------------+------+-----+---------+-------
+                   v16 | double(22,3) | YES |         |      |
+                  (1 row)
+                  m_db=# DROP TABLE test, t1_casewhen, tb1_1;
+                  DROP TABLE
+
+                  -- MySQL
+                  mysql> CREATE TABLE tb1_1 AS SELECT -date '2008-12-31' res1
+                     UNION ALL SELECT -2237583678912
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                   3260
+GaussDB
+集中式版参考                                                                                          4 兼容性说明
+
+                      UNION ALL SELECT 2147483648;
+                  Query OK, 3 rows affected, 1 warning (0.01 sec)
+                  Records: 3 Duplicates: 0 Warnings: 1
+                  mysql> DESC tb1_1;
+                  +-------+--------------+------+-----+---------+-------+
+                  | Field | Type       | Null | Key | Default | Extra |
+                  +-------+--------------+------+-----+---------+-------+
+                  | res1 | double(17,0) | NO |         |0     |     |
+                  +-------+--------------+------+-----+---------+-------+
+                  1 row in set (0.01 sec)
+                  mysql> CREATE TABLE t1_casewhen(c16 float(10, 3) unsigned);
+                  Query OK, 0 rows affected (0.02 sec)
+                  mysql> CREATE TABLE test AS
+                      SELECT
+                         CASE
+                            WHEN 1 < 2 THEN
+                               CASE
+                                  WHEN 3 < 4 THEN
+                                    (SELECT c16 FROM t1_casewhen)
+                                  ELSE
+                                    (SELECT c16 FROM t1_casewhen WHERE c16 < (SELECT c16 + 1 FROM t1_casewhen))
+                               END
+                            ELSE
+                               (SELECT c16 FROM t1_casewhen)
+                         END AS v16;
+                  Query OK, 1 row affected (0.02 sec)
+                  Records: 1 Duplicates: 0 Warnings: 0
+                  mysql> DESC test;
+                  +-------+--------------+------+-----+---------+-------+
+                  | Field | Type       | Null | Key | Default | Extra |
+                  +-------+--------------+------+-----+---------+-------+
+                  | v16 | double(10,3) | YES |        | NULL |        |
+                  +-------+--------------+------+-----+---------+-------+
+                  1 row in set (0.00 sec)
+                  mysql> DROP TABLE tb1_1, t1_casewhen, test;
+                  Query OK, 0 rows affected (0.01 sec)
+
+              ●   CASE WHEN中的条件为永假式时，该条件分支下的表达式有可能会被预计算，若
+                  该表达式存在潜在WARNING（如除零、溢出、无效类型转换等），会导致结果输
+                  出多WARNING。部分场景下WARNING可能被提升为ERROR，如：sql_mode设
+                  置严格模式时执行DML或DDL语句。
+                  -- DQL下报WARNING
+                  m_db=# SET m_format_behavior_compat_options = 'enable_precision_decimal';
+                  SET
+                  m_db=# SELECT CASE WHEN 1<2 THEN 1 ELSE avg(1/0) END AS res;
+                  WARNING: Division by zero.
+                     res
+                  ------------
+                   1.00000000
+                  (1 row)
+
+                  -- DDL下报ERROR
+                  m_db=# CREATE TABLE test_case AS SELECT CASE WHEN 1<2 THEN 1 ELSE avg(1/0) END AS res;
+                  ERROR: Division by zero.
+
+              ●   在精度传递场景下，使用CASE WHEN语句时，会进行类型转换和精度重新计算，
+                  导致最终的输出结果与CASE子句对比会出现末尾多零场景或末尾少零场景：
+                  –    末尾多零场景：CASE节点会根据CASE子句的精度计算CASE节点精度，当
+                       THEN子句的精度比CASE节点的精度小时，会在CASE节点末尾补零。
+                  –    末尾少零场景：多层CASE WHEN嵌套时，内层CASE执行类型转换之后，只
+                       保留内层CASE的精度，外层CASE无法得到THEN子句的精度信息，因此外层
+                       CASE会根据内层CASE的精度计算的精度进行类型转换。当外层CASE类型转
+                       换时内层CASE精度比THEN子句少，会出现末尾少零场景。
+                  示例：
+                  –    末尾多零少零场景。
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                  3261
+GaussDB
+集中式版参考                                                                                             4 兼容性说明
+
+                       -- 末尾多零场景。
+                       m_db=# SELECT 15.6 AS result;
+                        result
+                       --------
+                          15.6
+                       (1 row)
+
+                       m_db=# SELECT CASE WHEN 1 < 2 THEN 15.6 ELSE 23.578 END AS result;
+                        result
+                       --------
+                        15.600
+                       (1 row)
+
+                       m_db=# SELECT greatest(12, 3.4, 15.6) AS result;
+                        result
+                       --------
+                          15.6
+                       (1 row)
+
+                       m_db=# SELECT CASE WHEN 1 < 2 THEN greatest(12, 3.4, 15.6) ELSE greatest(123.4, 23.578,
+                       36) END AS result;
+                        result
+                       --------
+                        15.600
+                       (1 row)
+
+                       -- 末尾少零场景。
+                       m_db=# CREATE TABLE t1 AS SELECT (false/-timestamp '2008-12-31 23:59:59.678') AS result;
+                       INSERT 0 1
+                       m_db=# DESC t1;
+                        Field | Type        | Null | Key | Default | Extra
+                       --------+-------------+------+-----+---------+-------
+                        result | double(8,7) | YES |       |     |
+                       (1 row)
+                       m_db=# SELECT (false/-timestamp '2008-12-31 23:59:59.678') AS result;
+                          result
+                       ------------
+                        -0.0000000
+                       (1 row)
+
+                       m_db=# CREATE TABLE t2 AS SELECT (CASE WHEN 1<2 THEN false/-timestamp '2008-12-31
+                       23:59:59.678' ELSE 0016.11e3/'22.2' END) AS result;
+                       INSERT 0 1
+                       m_db=# DESC t2;
+                        Field | Type | Null | Key | Default | Extra
+                       --------+--------+------+-----+---------+-------
+                        result | double | YES |     |      |
+                       (1 row)
+                       m_db=# SELECT (CASE WHEN 1<2 THEN false/-timestamp '2008-12-31 23:59:59.678' ELSE
+                       0016.11e3/'22.2' END) AS result;
+                        result
+                       --------
+                           -0
+                       (1 row)
+
+                       m_db=# CREATE TABLE t3 AS SELECT (CASE WHEN 1+1=2 THEN CASE WHEN 1<2 THEN false/-
+                       timestamp '2008-12-31 23:59:59.678' ELSE 0016.11e3/'22.2' END ELSE 'test' END) AS result;
+                       INSERT 0 1
+                       m_db=# DESC t3;
+                        Field | Type        | Null | Key | Default | Extra
+                       --------+-------------+------+-----+---------+-------
+                        result | varchar(23) | YES |       |     |
+                       (1 row)
+                       m_db=# SELECT (CASE WHEN 1+1=2 THEN CASE WHEN 1<2 THEN false/-timestamp
+                       '2008-12-31 23:59:59.678' ELSE 0016.11e3/'22.2' END ELSE 'test' END) AS result;
+                        result
+                       --------
+                        -0
+                       (1 row)
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                     3262
+GaussDB
+集中式版参考                                                                                         4 兼容性说明
+
+
+                       m_db=# DROP TABLE t1, t2, t3;
+                       DROP TABLE
+                 –     在开启精度传递的场景下，使用集合运算（UNION、EXCEPT），如果参与集
+                       合运算的查询语句，其查询的字段为函数、表达式而不是直接使用表中的字
+                       段，且查询的结果数据类型为INT/INT UNSIGNED，则最后返回的数据类型
+                       存在差异。在MySQL中，返回的数据类型为BIGINT/BIGINT UNSIGNED；在
+                       GaussDB中，返回的数据类型为INT/INT UNSIGNED。
+                       -- GaussDB执行结果。
+                       m_db=# SET
+                       m_format_behavior_compat_options='select_column_name,enable_precision_decimal';
+                       SET
+                       m_db=# DROP TABLE IF EXISTS t1,t2,ctas1,ctas2;
+                       DROP TABLE
+                       m_db=# CREATE TABLE t1(a INT, b INT);
+                       CREATE TABLE
+                       m_db=# CREATE TABLE t2(c INT UNSIGNED, d INT UNSIGNED);
+                       CREATE TABLE
+                       m_db=# CREATE TABLE ctas1 AS (SELECT a, ABS(a) FROM t1) UNION (SELECT b, ABS(b) FROM
+                       t1);
+                       INSERT 0 0
+                       m_db=# DESC ctas1;
+                        Field | Type        | Null | Key | Default | Extra
+                       --------+-------------+------+-----+---------+-------
+                        a     | integer(11) | YES |      |     |
+                        ABS(a) | integer(11) | YES |        |     |
+                       (2 rows)
+
+                       m_db=# CREATE TABLE ctas2 AS (SELECT c, ABS(c) FROM t2) UNION (SELECT d, ABS(d) FROM
+                       t2);
+                       INSERT 0 0
+                       m_db=# DESC ctas2;
+                        Field |       Type         | Null | Key | Default | Extra
+                       --------+----------------------+------+-----+---------+-------
+                        c     | integer(11) unsigned | YES |       |       |
+                        ABS(c) | integer(11) unsigned | YES |         |      |
+                       (2 rows)
+
+                       m_db=# DROP TABLE IF EXISTS t1,t2,ctas1,ctas2;
+                       DROP TABLE
+
+                       -- MySQL执行结果。
+                       mysql> DROP TABLE IF EXISTS t1,t2,ctas1,ctas2;
+                       Query OK, 0 rows affected, 4 warnings (0.00 sec)
+
+                       mysql> CREATE TABLE t1(a INT, b INT);
+                       Query OK, 0 rows affected (0.05 sec)
+
+                       mysql> CREATE TABLE t2(c INT UNSIGNED, d INT UNSIGNED);
+                       Query OK, 0 rows affected (0.03 sec)
+
+                       mysql> CREATE TABLE ctas1 AS (SELECT a, ABS(a) FROM t1) UNION (SELECT b, ABS(b) FROM
+                       t1);
+                       Query OK, 0 rows affected (0.03 sec)
+                       Records: 0 Duplicates: 0 Warnings: 0
+
+                       mysql> DESC ctas1;
+                       +--------+------------+------+-----+---------+-------+
+                       | Field | Type      | Null | Key | Default | Extra |
+                       +--------+------------+------+-----+---------+-------+
+                       |a     | int(11) | YES |       | NULL |        |
+                       | ABS(a) | bigint(20) | YES |      | NULL |        |
+                       +--------+------------+------+-----+---------+-------+
+                       2 rows in set (0.01 sec)
+
+                       mysql> CREATE TABLE ctas2 AS (SELECT c, ABS(c) FROM t2) UNION (SELECT d, ABS(d) FROM
+                       t2);
+                       Query OK, 0 rows affected (0.05 sec)
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                              3263
+GaussDB
+集中式版参考                                                                                           4 兼容性说明
+
+                       Records: 0 Duplicates: 0 Warnings: 0
+
+                       mysql> DESC ctas2;
+                       +--------+---------------------+------+-----+---------+-------+
+                       | Field | Type             | Null | Key | Default | Extra |
+                       +--------+---------------------+------+-----+---------+-------+
+                       |c     | int(11) unsigned | YES |         | NULL |        |
+                       | ABS(c) | bigint(20) unsigned | YES |       | NULL |        |
+                       +--------+---------------------+------+-----+---------+-------+
+                       2 rows in set (0.00 sec)
+
+                       mysql> DROP TABLE IF EXISTS t1,t2,ctas1,ctas2;
+                       Query OK, 0 rows affected (0.07 sec)
+                 –     在开启精度传递的场景下，使用UNION连接，若两边存在MEDIUMINT
+                       UNSIGNED数据类型，GaussDB返回的精度可能要大于MySQL的精度。
+                       -- GaussDB执行结果。
+                       m_db=# SET m_format_behavior_compat_options='enable_precision_decimal';
+                       SET
+                       m_db=# DROP TABLE IF EXISTS t1;
+                       DROP TABLE
+                       m_db=# CREATE TABLE t1(a mediumint unsigned);
+                       CREATE TABLE
+                       m_db=# DROP TABLE IF EXISTS t2;
+                       DROP TABLE
+                       m_db=# CREATE TABLE t2 AS SELECT -000000.001 UNION SELECT a FROM t1;
+                       INSERT 0 1
+                       m_db=# DESC t2;
+                         Field |     Type      | Null | Key | Default | Extra
+                       ----------+---------------+------+-----+---------+-------
+                        ?column? | decimal(12,3) | YES |         |      |
+                       (1 row)
+                       m_db=# DROP TABLE IF EXISTS t1,t2;
+                       DROP TABLE
+
+                       -- MySQL执行结果。
+                       mysql> DROP TABLE IF EXISTS t1;
+                       Query OK, 0 rows affected, 1 warning (0.01 sec)
+
+                       mysql> CREATE TABLE t1(a mediumint unsigned);
+                       Query OK, 0 rows affected (0.08 sec)
+
+                       mysql> DROP TABLE IF EXISTS t2;
+                       Query OK, 0 rows affected (0.04 sec)
+
+                       mysql> CREATE TABLE t2 AS SELECT -000000.001 UNION SELECT a FROM t1;
+                       Query OK, 1 row affected (0.10 sec)
+                       Records: 1 Duplicates: 0 Warnings: 0
+
+                       mysql> DESC t2;
+                       +-------------+---------------+------+-----+---------+-------+
+                       | Field     | Type        | Null | Key | Default | Extra |
+                       +-------------+---------------+------+-----+---------+-------+
+                       | -000000.001 | decimal(11,3) | YES |       | NULL |         |
+                       +-------------+---------------+------+-----+---------+-------+
+                       1 row in set (0.01 sec)
+
+                       mysql> DROP TABLE IF EXISTS t1,t2;
+                       Query OK, 0 rows affected (0.08 sec)
+                 –     在开启精度传递的场景下，CASE WHEN被嵌套场景的结果与MySQL保持差
+                       异。MySQL的类型可以透过多层直接转换，而GaussDB结果精度是逐层确定
+                       并且逐层转换的，因此可能导致结果小数位或进位和MySQL不一致。
+                       -- GaussDB:
+                       m_db=# SET m_format_behavior_compat_options='enable_precision_decimal';
+                       SET
+                       m_db=# SELECT (CASE WHEN 1+1=3 THEN 'test' ELSE CASE WHEN 1>2 THEN '-1.5'%06.6600e1
+                       ELSE -TIME '10:10:10.456'%2.2 END END) RES;
+                             res
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                            3264
+GaussDB
+集中式版参考                                                                                             4 兼容性说明
+
+                       ---------------------
+                        -1.8559999999974321
+                       (1 row)
+
+                       -- MySQL:
+                       mysql> SELECT (CASE WHEN 1+1=3 THEN 'test' ELSE CASE WHEN 1>2 THEN '-1.5'%06.6600e1
+                       ELSE -TIME '10:10:10.456'%2.2 END END) RES;
+                       +--------+
+                       | res |
+                       +--------+
+                       | -1.856 |
+                       +--------+
+                       1 row in set (0.00 sec)
+                 –     对于需要int类型的运算符（如 ~，&，|，<<，>>）嵌套CASE WHEN语句，
+                       若CASE WHEN语句返回的是varchar类型，则实际情况可以会发生截断（根
+                       据原表数据分析是否会发生截断），GaussDB会报出相应错误（SELECT查询
+                       warning告警，CREATE建表error报错），MySQL不会报错。若GaussDB想要
+                       完成CREATE TABLE建表操作，可以通过设置sql_mode关闭严格模式。
+                       -- GaussDB:
+                       m_db=# CREATE TABLE t_base(num_var numeric(20, 10), time_var time(6));
+                       CREATE TABLE
+                       m_db=# INSERT INTO t_base VALUES('-2514.1441000000','12:10:10.125000'),
+                       ('-417.2147000000',' 11:30:25.258000');
+                       INSERT 0 2
+                       m_db=# SELECT (~(CASE WHEN false THEN time_var ELSE num_var END)) AS res2 FROM
+                       t_base;
+                       WARNING: The INTEGER value '-2514.1441000000' is incorrect.
+                       CONTEXT: referenced column: res2
+                       WARNING: The INTEGER value '-417.2147000000' is incorrect.
+                       CONTEXT: referenced column: res2
+                        res2
+                       ------
+                        2513
+                        416
+                       (2 rows)
+                       m_db=# CREATE TABLE t1 AS SELECT (~(CASE WHEN false THEN time_var ELSE num_var END))
+                       AS res2 FROM t_base;
+                       ERROR: The INTEGER value '-2514.1441000000' is incorrect.
+                       CONTEXT: referenced column: res2
+                       m_db=# SET sql_mode="";
+                       SET
+                       m_db=# CREATE TABLE t1 AS SELECT (~(CASE WHEN false THEN time_var ELSE num_var END))
+                       AS res2 FROM t_base;
+                       WARNING: The INTEGER value '-2514.1441000000' is incorrect.
+                       CONTEXT: referenced column: res2
+                       WARNING: The INTEGER value '-417.2147000000' is incorrect.
+                       CONTEXT: referenced column: res2
+                       INSERT 0 2
+                       m_db=# DESC t1;
+                        Field |      Type        | Null | Key | Default | Extra
+                       -------+---------------------+------+-----+---------+-------
+                        res2 | bigint(21) unsigned | YES |        |      |
+                       (1 row)
+                       m_db=# DROP TABLE IF EXISTS t_base,t1;
+                       DROP TABLE
+
+                       -- MySQL:
+                       mysql> CREATE TABLE t_base(num_var numeric(20, 10), time_var time(6));
+                       Query OK, 0 rows affected (0.01 sec)
+                       mysql> INSERT INTO t_base VALUES('-2514.1441000000','12:10:10.125000'),('-417.2147000000','
+                       11:30:25.258000');
+                       Query OK, 2 rows affected (0.00 sec)
+                       Records: 2 Duplicates: 0 Warnings: 0
+                       mysql> SELECT (~(CASE WHEN false THEN time_var ELSE num_var END)) AS res2 FROM t_base;
+                       +------+
+                       | res2 |
+                       +------+
+                       | 2513 |
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                     3265
+GaussDB
+集中式版参考                                                                                         4 兼容性说明
+
+                       | 416 |
+                       +------+
+                       2 rows in set (0.00 sec)
+                       mysql> CREATE TABLE t1 AS SELECT (~(CASE WHEN false THEN time_var ELSE num_var END))
+                       AS res2 FROM t_base;
+                       Query OK, 2 rows affected (0.01 sec)
+                       Records: 2 Duplicates: 0 Warnings: 0
+                       mysql> DESC t1;
+                       +-------+---------------------+------+-----+---------+-------+
+                       | Field | Type            | Null | Key | Default | Extra |
+                       +-------+---------------------+------+-----+---------+-------+
+                       | res2 | bigint(21) unsigned | YES |       | NULL |        |
+                       +-------+---------------------+------+-----+---------+-------+
+                       1 row in set (0.00 sec)
+                       mysql> DROP TABLE IF EXISTS t_base,t1;
+                       Query OK, 0 rows affected (0.04 sec)
+                 –     在开启精度传递的场景下，对于CREATE VIEW AS SELECT CASE WHEN语句
+                       和SELECT CASE WHEN语句嵌套常量（包括常量计算、函数嵌套常量等）的
+                       情况，GaussDB在该情况下值保持一致，MySQL在SELECT CASE WHEN语句
+                       中可能会丢失部分精度。
+                       -- GaussDB：
+                       m_db=# CREATE OR REPLACE VIEW test_view AS
+                       m_db-# SELECT (CASE WHEN 1<2 THEN 3.33/4.46 ELSE 003.3630/002.2600 END) c1,(CASE
+                       WHEN 1>2 THEN IFNULL(null,3.363/2.2) ELSE NULLIF(3.33/4.46,3.363/2.2) END) c2;
+                       CREATE VIEW
+                       m_db=# SELECT * FROM test_view;
+                           c1     | c2
+                       ------------+-----------
+                        0.74663677 | 0.7466368
+                       (1 row)
+                       m_db=# SELECT (CASE WHEN 1<2 THEN 3.33/4.46 ELSE 003.3630/002.2600 END) c1,(CASE
+                       WHEN 1>2 THEN IFNULL(null,3.363/2.2) ELSE NULLIF(3.33/4.46,3.363/2.2) END) c2;
+                           c1     | c2
+                       ------------+-----------
+                        0.74663677 | 0.7466368
+                       (1 row)
+                       m_db=# DROP TABLE IF EXISTS test_view;
+                       DROP TABLE
+
+                       -- MySQL：
+                       mysql> CREATE OR REPLACE VIEW test_view AS
+                           -> SELECT (CASE WHEN 1<2 THEN 3.33/4.46 ELSE 003.3630/002.2600 END) c1,(CASE WHEN
+                       1>2 THEN IFNULL(null,3.363/2.2) ELSE NULLIF(3.33/4.46,3.363/2.2) END) c2;
+                       Query OK, 0 rows affected (0.00 sec)
+                       mysql> SELECT * FROM test_view;
+                       +------------+-----------+
+                       | c1       | c2      |
+                       +------------+-----------+
+                       | 0.74663677 | 0.7466368 |
+                       +------------+-----------+
+                       1 row in set (0.00 sec)
+                       mysql> SELECT (CASE WHEN 1<2 THEN 3.33/4.46 ELSE 003.3630/002.2600 END) c1,(CASE
+                       WHEN 1>2 THEN IFNULL(null,3.363/2.2) ELSE NULLIF(3.33/4.46,3.363/2.2) END) c2;
+                       +----------+----------+
+                       | c1     | c2     |
+                       +----------+----------+
+                       | 0.746637 | 0.746637 |
+                       +----------+----------+
+                       1 row in set (0.00 sec)
+                       mysql> DROP TABLE IF EXISTS test_view;
+                       Query OK, 0 rows affected (0.02 sec)
+                 –     在开启精度传递的场景下，GaussDB数据库支持UNION/CASE WHEN语句建
+                       表，但是由于架构不同，GaussDB数据库无法保证创建的表的所有类型与
+                       MySQL完全相同。MySQL返回字符串、整型、二进制相关类型的场景，以及
+                       部分函数、操作符运算结果为上述类型的场景，与GaussDB存在不一致。
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                 3266
+GaussDB
+集中式版参考                                                                                            4 兼容性说明
+
+                       -- GaussDB:
+                       m_db=# CREATE TABLE IF NOT EXISTS testcase(id int, col_text1 tinytext, col_text2 text,
+                       col_blob1 tinyblob, col_blob2 blob, col_blob3 mediumblob, col_blob4 longblob);
+                       CREATE TABLE
+                       m_db=# CREATE TABLE t1 AS SELECT id,(CASE WHEN id=2 THEN col_text1 ELSE 'test' END)
+                       f35, (CASE WHEN id=2 THEN col_text2 ELSE 'test' END) f36,(CASE WHEN id=2 THEN col_blob1
+                       ELSE 'test' END) f41, (CASE WHEN id=2 THEN col_blob2 ELSE 'test' END) f42, (CASE WHEN
+                       id=2 THEN col_blob3 ELSE 'test' END) f43, (CASE WHEN id=2 THEN col_blob4 ELSE 'test' END)
+                       f44 FROM testcase;
+                       INSERT 0 0
+                       m_db=# DESC t1;
+                       Field |    Type       | Null | Key | Default | Extra
+                       -------+----------------+------+-----+---------+-------
+                       id | integer(11) | YES |            |          |
+                       f35 | varchar(255) | YES |             |          |
+                       f36 | mediumtext           | YES |       |          |
+                       f41 | varbinary(255) | YES |             |          |
+                       f42 | blob           | YES |      |          |
+                       f43 | mediumblob            | YES |        |          |
+                       f44 | longblob          | YES |      |          |
+                       (7 rows)
+                       m_db=# DROP TABLE t1;
+                       DROP TABLE
+                       m_db=# DROP TABLE testcase;
+                       DROP TABLE
+
+                       m_db=# CREATE TABLE IF NOT EXISTS testtext1(col10 text);
+                       CREATE TABLE
+                       m_db=# CREATE TABLE IF NOT EXISTS testtext2(col10 text);
+                       CREATE TABLE
+                       m_db=# CREATE TABLE testtext AS (SELECT * FROM testtext1) UNION (SELECT * FROM
+                       testtext2);
+                       CREATE TABLE
+                       m_db=# DESC testtext;
+                        Field | Type | Null | Key | Default | Extra
+                       -------+------+------+-----+---------+-------
+                        col10 | text | YES |    |      |
+                       (1 row)
+                       m_db=# DROP TABLE testtext;
+                       DROP TABLE
+                       m_db=# DROP TABLE testtext1;
+                       DROP TABLE
+                       m_db=# DROP TABLE testtext2;
+                       DROP TABLE
+
+                       m_db=# CREATE TABLE testchar AS SELECT (SELECT lcase(-6873.4354)) a, (SELECT
+                       sec_to_time(-485769.567)) b UNION ALL SELECT (SELECT bin(-58768923.21321)), (SELECT
+                       asin(-0.7237465));
+                       INSERT 0 2
+                       m_db=# DESC testchar;
+                        Field | Type       | Null | Key | Default | Extra
+                       -------+-------------+------+-----+---------+-------
+                        a    | text      | YES |     |      |
+                        b    | varchar(23) | YES |      |      |
+                       (2 rows)
+                       m_db=# DROP TABLE testchar;
+                       DROP TABLE
+
+                       m_db=# CREATE TABLE test_func(col_text char(29));
+                       CREATE TABLE
+                       m_db=# CREATE TABLE test1 AS SELECT * FROM ( SELECT
+                           GREATEST(2.22, col_text) f1, LEAST(2.22, col_text) f2,
+                           ADDDATE(col_text, INTERVAL '1.28.16.31' HOUR_MICROSECOND) f3,
+                           SUBDATE(col_text, INTERVAL '39.49.15' MINUTE_MICROSECOND) f4,
+                           DATE_SUB(col_text, INTERVAL '45' MICROSECOND) f5,
+                           DATE_ADD(col_text, INTERVAL '12.00.00.00.001' DAY_MICROSECOND) f6,
+                           ADDTIME(col_text, '8:20:20.3554') f7,
+                           SUBTIME(col_text, '8:20:20.3554') f8 FROM test_func) t1
+                       UNION ALL
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                      3267
+GaussDB
+集中式版参考                                                                                                 4 兼容性说明
+
+                             SELECT * FROM ( SELECT
+                             GREATEST(2.22, col_text) f1, LEAST(2.22, col_text) f2,
+                             ADDDATE(col_text, INTERVAL '1.28.16.31' HOUR_MICROSECOND) f3,
+                             SUBDATE(col_text, INTERVAL '39.49.15' MINUTE_MICROSECOND) f4,
+                             DATE_SUB(col_text, INTERVAL '45' MICROSECOND) f5,
+                             DATE_ADD(col_text, INTERVAL '12.00.00.00.001' DAY_MICROSECOND) f6,
+                             ADDTIME(col_text, '8:20:20.3554') f7,
+                             SUBTIME(col_text, '8:20:20.3554') f8 FROM test_func) t2;
+                       INSERT 0 0
+                       m_db=# DESC test1;
+                        Field | Type       | Null | Key | Default | Extra
+                       -------+-------------+------+-----+---------+-------
+                        f1 | double        | YES |    |       |
+                        f2 | double        | YES |    |       |
+                        f3 | varchar(29) | YES |        |       |
+                        f4 | varchar(29) | YES |        |       |
+                        f5 | varchar(29) | YES |        |       |
+                        f6 | varchar(29) | YES |        |       |
+                        f7 | varchar(29) | YES |        |       |
+                        f8 | varchar(29) | YES |        |       |
+                       (8 rows)
+                       m_db=# DROP TABLE test1;
+                       DROP TABLE
+                       m_db=# DROP TABLE test_func;
+                       DROP TABLE
+
+                       m_db=# CREATE TABLE IF NOT EXISTS tb_4(id int,name varchar(20),col_int1 tinyint(50),
+                       col_int2 smallint(100), col_int3 mediumint(200));
+                       CREATE TABLE
+                       m_db=# DESC tb_4;
+                         Field |       Type     | Null | Key | Default | Extra
+                       ----------+----------------+------+-----+---------+-------
+                        id     | integer       | YES |       |        |
+                        name       | varchar(20) | YES |         |         |
+                        col_int1 | tinyint(50) | YES |         |         |
+                        col_int2 | smallint(100) | YES |         |         |
+                        col_int3 | mediumint(200) | YES |            |       |
+                       (5 rows)
+                       m_db=# DROP TABLE IF EXISTS t1;
+                       DROP TABLE
+                       m_db=# CREATE TABLE IF NOT EXISTS t1 AS SELECT * FROM (SELECT DISTINCT name, id,
+                       (CASE WHEN name='计算机' THEN col_int1 WHEN name='数据库' THEN col_int2 ELSE col_int3
+                       END) c12 FROM tb_4);
+                       INSERT 0 0
+                       m_db=# DESC t1;
+                        Field | Type       | Null | Key | Default | Extra
+                       -------+-------------+------+-----+---------+-------
+                        name | varchar(20) | YES |           |         |
+                        id | integer(11) | YES |         |       |
+                        c12 | bigint(200) | YES |          |       |
+                       (3 rows)
+                       m_db=# DROP TABLE t1;
+                       m_db=# DROP TABLE tb_4;
+
+                       m_db=# CREATE TABLE IF NOT EXISTS tb_5(id int,name varchar(20),
+                             col_char1 char(20), col_char2 varchar(20), col_text1 tinytext, col_text2 text, col_text3
+                       mediumtext, col_text4 longtext,
+                             col_binary1 binary(20), col_binary2 varbinary(20), col_blob1 tinyblob, col_blob2 blob,
+                       col_blob3 mediumblob, col_blob4 longblob,
+                             col_time1 date, col_time2 time, col_time3 datetime, col_time4 timestamp, col_time5 year,
+                             col_set2 set('1991-02-12 08:26:59','1997-06-18 22:29:36','1998-04-08 21:30:00','1982-06-28
+                       19:35:39'),
+                             col_enum2 enum('1991-02-12 08:26:59','1997-06-18 22:29:36','1998-04-08
+                       21:30:00','1982-06-28 19:35:39'));
+                       CREATE TABLE
+                       m_db=# CREATE TABLE IF NOT EXISTS tb_6(id int,name varchar(20),
+                             col_char1 char(20), col_char2 varchar(20), col_text1 tinytext, col_text2 text, col_text3
+                       mediumtext, col_text4 longtext,
+                             col_binary1 binary(20), col_binary2 varbinary(20), col_blob1 tinyblob, col_blob2 blob,
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                         3268
+GaussDB
+集中式版参考                                                                                                  4 兼容性说明
+
+                       col_blob3 mediumblob, col_blob4 longblob,
+                             col_time1 date, col_time2 time, col_time3 datetime, col_time4 timestamp, col_time5 year,
+                             col_set2 set('1991-02-12 08:26:59','1997-06-18 22:29:36','1998-04-08 21:30:00','1982-06-28
+                       19:35:39'),
+                             col_enum2 enum('1991-02-12 08:26:59','1997-06-18 22:29:36','1998-04-08
+                       21:30:00','1982-06-28 19:35:39'));
+                       CREATE TABLE
+                       m_db=# CREATE TABLE t1 AS SELECT * FROM (SELECT DISTINCT id, col_char1 + interval '120'
+                       MICROSECOND c1, col_char2 - interval '7' HOUR c2 from tb_6
+                       UNION DISTINCT
+                             SELECT DISTINCT id, col_char1 + interval '120' MICROSECOND c1, col_char2 - interval '7'
+                       HOUR c2 from tb_5) temp_1;
+                       INSERT 0 0
+                       m_db=# DESC t1;
+                        Field | Type       | Null | Key | Default | Extra
+                       -------+-------------+------+-----+---------+-------
+                        id | integer(11) | YES |       |      |
+                        c1 | text        | YES |     |      |
+                        c2 | text        | YES |     |      |
+                       m_db=# DROP TABLE t1;
+                       m_db=# DROP TABLE tb_5;
+                       m_db=# DROP TABLE tb_6;
+
+                       -- MySQL:
+                       mysql> CREATE TABLE IF NOT EXISTS testcase(id int, col_text1 tinytext, col_text2 text, col_blob1
+                       tinyblob, col_blob2 blob, col_blob3 mediumblob, col_blob4 longblob);
+                       Query OK, 0 rows affected (0.01 sec)
+                       mysql> CREATE TABLE t1 AS SELECT id,(CASE WHEN id=2 THEN col_text1 ELSE 'test' END) f35,
+                       (CASE WHEN id=2 THEN col_text2 ELSE 'test' END) f36,(CASE WHEN id=2 THEN col_blob1 ELSE
+                       'test' END) f41, (CASE WHEN id=2 THEN col_blob2 ELSE 'test' END) f42, (CASE WHEN id=2
+                       THEN col_blob3 else 'test' END) f43, (CASE WHEN id=2 THEN col_blob4 ELSE 'test' END) f44
+                       FROM testcase;
+                       Query OK, 0 rows affected (0.00 sec)
+                       Records: 0 Duplicates: 0 Warnings: 0
+
+                       mysql> DESC t1;
+                       +-------+----------+------+-----+---------+-------+
+                       | Field | Type    | Null | Key | Default | Extra |
+                       +-------+----------+------+-----+---------+-------+
+                       | id | int     | YES |      | NULL |        |
+                       | f35 | longtext | YES |       | NULL |        |
+                       | f36 | longtext | YES |       | NULL |        |
+                       | f41 | longblob | YES |        | NULL |         |
+                       | f42 | longblob | YES |        | NULL |         |
+                       | f43 | longblob | YES |        | NULL |         |
+                       | f44 | longblob | YES |        | NULL |         |
+                       +-------+----------+------+-----+---------+-------+
+                       7 rows in set (0.00 sec)
+
+                       mysql> DROP TABLE t1;
+                       Query OK, 0 rows affected (0.02 sec)
+                       mysql> DROP TABLE testcase;
+                       Query OK, 0 rows affected (0.02 sec)
+
+                       mysql> CREATE TABLE IF NOT EXISTS testtext1(col10 text);
+                       Query OK, 0 rows affected (0.01 sec)
+                       mysql> CREATE TABLE IF NOT EXISTS testtext2(col10 text);
+                       Query OK, 0 rows affected (0.02 sec)
+                       mysql> CREATE TABLE testtext AS (SELECT * FROM testtext1) UNION (SELECT * FROM
+                       testtext2);
+                       Query OK, 0 rows affected (0.02 sec)
+                       Records: 0 Duplicates: 0 Warnings: 0
+
+                       mysql> DESC testtext;
+                       +-------+------------+------+-----+---------+-------+
+                       | Field | Type     | Null | Key | Default | Extra |
+                       +-------+------------+------+-----+---------+-------+
+                       | col10 | mediumtext | YES |       | NULL |         |
+                       +-------+------------+------+-----+---------+-------+
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                         3269
+GaussDB
+集中式版参考                                                                                           4 兼容性说明
+
+                       1 row in set (0.00 sec)
+
+                       mysql> DROP TABLE testtext;
+                       Query OK, 0 rows affected (0.02 sec)
+                       mysql> DROP TABLE testtext1;
+                       Query OK, 0 rows affected (0.02 sec)
+                       mysql> DROP TABLE testtext2;
+                       Query OK, 0 rows affected (0.02 sec)
+
+                       mysql> SET sql_mode='';
+                       Query OK, 0 rows affected, 1 warning (0.01 sec)
+
+                       mysql> CREATE TABLE testchar AS SELECT (SELECT lcase(-6873.4354)) a, (SELECT
+                       sec_to_time(-485769.567)) b UNION ALL SELECT (SELECT bin(-58768923.21321)), (SELECT
+                       asin(-0.7237465));
+                       Query OK, 2 rows affected, 1 warning (0.02 sec)
+                       Records: 2 Duplicates: 0 Warnings: 1
+
+                       mysql> DESC testchar;
+                       +-------+-------------+------+-----+---------+-------+
+                       | Field | Type      | Null | Key | Default | Extra |
+                       +-------+-------------+------+-----+---------+-------+
+                       |a     | varchar(21) | YES |     | NULL |        |
+                       |b     | varchar(53) | YES |     | NULL |        |
+                       +-------+-------------+------+-----+---------+-------+
+                       2 rows in set (0.00 sec)
+
+                       mysql> DROP TABLE testchar;
+                       Query OK, 0 rows affected (0.02 sec)
+
+                       mysql> CREATE TABLE test_func(col_text char(29));
+                       Query OK, 0 rows affected (0.02 sec)
+                       mysql> CREATE TABLE test1 AS SELECT * FROM ( SELECT
+                         -> GREATEST(2.22, col_text) f1, LEAST(2.22, col_text) f2,
+                         -> ADDDATE(col_text, INTERVAL '1.28.16.31' HOUR_MICROSECOND) f3,
+                         -> SUBDATE(col_text, INTERVAL '39.49.15' MINUTE_MICROSECOND) f4,
+                         -> DATE_SUB(col_text, INTERVAL '45' MICROSECOND) f5,
+                         -> DATE_ADD(col_text, INTERVAL '12.00.00.00.001' DAY_MICROSECOND) f6,
+                         -> ADDTIME(col_text, '8:20:20.3554') f7,
+                         -> SUBTIME(col_text, '8:20:20.3554') f8 FROM test_func) t1
+                         -> UNION ALL
+                         -> SELECT * FROM ( SELECT
+                         -> GREATEST(2.22, col_text) f1, LEAST(2.22, col_text) f2,
+                         -> ADDDATE(col_text, INTERVAL '1.28.16.31' HOUR_MICROSECOND) f3,
+                         -> SUBDATE(col_text, INTERVAL '39.49.15' MINUTE_MICROSECOND) f4,
+                         -> DATE_SUB(col_text, INTERVAL '45' MICROSECOND) f5,
+                         -> DATE_ADD(col_text, INTERVAL '12.00.00.00.001' DAY_MICROSECOND) f6,
+                         -> ADDTIME(col_text, '8:20:20.3554') f7,
+                         -> SUBTIME(col_text, '8:20:20.3554') f8 FROM test_func) t2;
+                         -> SUBTIME(col_text, '8:20:20.3554') f8 FROM test_func) t1
+                         -> UNION ALL
+                         -> SELECT * FROM ( SELECT
+                         -> GREATEST(2.22, col_text) f1, LEAST(2.22, col_text) f2,
+                         -> ADDDATE(col_text, INTERVAL '1.28.16.31' HOUR_MICROSECOND) f3,
+                         -> SUBDATE(col_text, INTERVAL '39.49.15' MINUTE_MICROSECOND) f4,
+                         -> DATE_SUB(col_text, INTERVAL '45' MICROSECOND) f5,
+                         -> DATE_ADD(col_text, INTERVAL '12.00.00.00.001' DAY_MICROSECOND) f6,
+                         -> ADDTIME(col_text, '8:20:20.3554') f7,
+                         -> SUBTIME(col_text, '8:20:20.3554') f8 FROM test_func) t2;
+                       Query OK, 0 rows affected (0.02 sec)
+                       Records: 0 Duplicates: 0 Warnings: 0
+
+                       mysql> DESC test1;
+                       +-------+------------+------+-----+---------+-------+
+                       | Field | Type     | Null | Key | Default | Extra |
+                       +-------+------------+------+-----+---------+-------+
+                       | f1 | binary(23) | YES |       | NULL |          |
+                       | f2 | binary(23) | YES |       | NULL |          |
+                       | f3 | char(29) | YES |        | NULL |         |
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                    3270
+GaussDB
+集中式版参考                                                                                                 4 兼容性说明
+
+                       | f4 | char(29) | YES |        | NULL |        |
+                       | f5 | char(29) | YES |        | NULL |        |
+                       | f6 | char(29) | YES |        | NULL |        |
+                       | f7 | char(29) | YES |        | NULL |        |
+                       | f8 | char(29) | YES |        | NULL |        |
+                       +-------+------------+------+-----+---------+-------+
+                       8 rows in set (0.01 sec)
+
+                       mysql> DROP TABLE test1;
+                       Query OK, 0 rows affected (0.02 sec)
+                       mysql> DROP TABLE test_func;
+                       Query OK, 0 rows affected (0.02 sec)
+
+                       mysql> CREATE TABLE IF NOT EXISTS tb_4(id int,name varchar(20),col_int1 tinyint(50), col_int2
+                       smallint(100), col_int3 mediumint(200));
+                       Query OK, 0 rows affected (0.03 sec)
+                       mysql> CREATE TABLE t1 AS SELECT * FROM (SELECT DISTINCT name, id,
+                           -> (CASE WHEN name='计算机' THEN col_int1 WHEN name='数据库' THEN col_int2 ELSE
+                       col_int3 END) c12 FROM tb_4
+                           -> UNION DISTINCT
+                           -> SELECT DISTINCT name, id,
+                           -> (CASE WHEN name='计算机' THEN col_int1 WHEN name='数据库' THEN col_int2 ELSE
+                       col_int3 END) c12 FROM tb_2)temp1;
+                       Query OK, 12 rows affected (0.04 sec)
+                       Records: 12 Duplicates: 0 Warnings: 0
+                       mysql> DESC t1;
+                       +-------+----------------+------+-----+---------+-------+
+                       | Field | Type         | Null | Key | Default | Extra |
+                       +-------+----------------+------+-----+---------+-------+
+                       | name | varchar(20) | YES |           | NULL |         |
+                       | id | int(11)        | YES |     | NULL |        |
+                       | c12 | mediumint(200) | YES |           | NULL |         |
+                       +-------+----------------+------+-----+---------+-------+
+                       3 rows in set (0.00 sec)
+                       mysql> DROP TABLE t1;
+                       Query OK, 0 rows affected (0.02 sec)
+                       mysql> DROP TABLE tb_4;
+                       Query OK, 0 rows affected (0.02 sec)
+
+                       mysql> CREATE TABLE IF NOT EXISTS tb_5(id int,name varchar(20),
+                          -> col_char1 char(20), col_char2 varchar(20), col_text1 tinytext, col_text2 text, col_text3
+                       mediumtext, col_text4 longtext,
+                          -> col_binary1 binary(20), col_binary2 varbinary(20), col_blob1 tinyblob, col_blob2 blob,
+                       col_blob3 mediumblob, col_blob4 longblob,
+                          -> col_time1 date, col_time2 time, col_time3 datetime, col_time4 timestamp, col_time5 year,
+                          -> col_set2 set('1991-02-12 08:26:59','1997-06-18 22:29:36','1998-04-08 21:30:00','1982-06-28
+                       19:35:39'),
+                          -> col_enum2 enum('1991-02-12 08:26:59','1997-06-18 22:29:36','1998-04-08
+                       21:30:00','1982-06-28 19:35:39'));
+                       Query OK, 0 rows affected (0.00 sec)
+                       mysql> CREATE TABLE IF NOT EXISTS tb_6(id int,name varchar(20),
+                          -> col_char1 char(20), col_char2 varchar(20), col_text1 tinytext, col_text2 text, col_text3
+                       mediumtext, col_text4 longtext,
+                          -> col_binary1 binary(20), col_binary2 varbinary(20), col_blob1 tinyblob, col_blob2 blob,
+                       col_blob3 mediumblob, col_blob4 longblob,
+                          -> col_time1 date, col_time2 time, col_time3 datetime, col_time4 timestamp, col_time5 year,
+                          -> col_set2 set('1991-02-12 08:26:59','1997-06-18 22:29:36','1998-04-08 21:30:00','1982-06-28
+                       19:35:39'),
+                          -> col_enum2 enum('1991-02-12 08:26:59','1997-06-18 22:29:36','1998-04-08
+                       21:30:00','1982-06-28 19:35:39'));
+                       Query OK, 0 rows affected (0.00 sec)
+                       mysql> CREATE TABLE t1 AS SELECT * FROM (SELECT DISTINCT id, col_char1 + interval '120'
+                       MICROSECOND c1, col_char2 - interval '7' HOUR c2 from tb_6
+                          -> UNION DISTINCT
+                          -> SELECT DISTINCT id, col_char1 + interval '120' MICROSECOND c1, col_char2 - interval '7'
+                       HOUR c2 from tb_5) temp_1;
+                       Query OK, 0 rows affected (0.00 sec)
+                       Records: 0 Duplicates: 0 Warnings: 0
+                       mysql> DESC t1;
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                        3271
+GaussDB
+集中式版参考                                                                                         4 兼容性说明
+
+                       +-------+----------+------+-----+---------+-------+
+                       | Field | Type   | Null | Key | Default | Extra |
+                       +-------+----------+------+-----+---------+-------+
+                       | id | int(11) | YES |      | NULL |        |
+                       | c1 | char(29) | YES |       | NULL |        |
+                       | c2 | char(29) | YES |       | NULL |        |
+                       +-------+----------+------+-----+---------+-------+
+                       3 rows in set (0.00 sec)
+                       mysql> DROP TABLE t1;
+                       Query OK, 0 rows affected (0.02 sec)
+                       mysql> DROP TABLE tb_5;
+                       Query OK, 0 rows affected (0.02 sec)
+                       mysql> DROP TABLE tb_6;
+                       Query OK, 0 rows affected (0.02 sec)
+                 –     在开启精度传递的场景下，使用集合运算（UNION、EXCEPT）时，如果参与
+                       集合运算的查询语句涉及到非表字段的整型或布尔型，结果精度可能与
+                       MySQL存在差异，进而导致结果类型为字符串或二进制类型且查询语句中包
+                       含浮点型时，查询结果与MySQL存在精度和标度差异。
+                       -- GaussDB:
+                       m_db=# CREATE TABLE base_t1(col_float float(6,4));
+                       CREATE TABLE
+                       m_db=# INSERT INTO base_t1 VALUES(-11.1100);
+                       INSERT 0 1
+                       m_db=# CREATE TABLE t1 AS SELECT '1' UNION SELECT 1 UNION ALL SELECT col_float FROM
+                       base_t1;
+                       INSERT 0 2
+                       m_db=# DESC t1;
+                         Field | Type        | Null | Key | Default | Extra
+                       ----------+-------------+------+-----+---------+-------
+                        ?column? | varchar(11) | YES |        |       |
+                       (1 row)
+
+                       m_db=# SELECT * FROM t1;
+                         ?column?
+                       -------------
+                        1
+                        -11.1099997
+                       (2 rows)
+
+                       m_db=# DROP TABLE base_t1;
+                       DROP TABLE
+                       m_db=# DROP TABLE t1;
+                       DROP TABLE
+
+                       -- MySQL
+                       mysql> CREATE TABLE base_t1(col_float float(6,4));
+                       Query OK, 0 rows affected (0.01 sec)
+                       mysql> INSERT INTO base_t1 VALUES(-11.1100);
+                       Query OK, 1 row affected (0.00 sec)
+                       mysql> CREATE TABLE t1 AS SELECT '1' UNION SELECT 1 UNION ALL SELECT col_float FROM
+                       base_t1;
+                       Query OK, 2 rows affected (0.01 sec)
+                       Records: 2 Duplicates: 0 Warnings: 0
+                       mysql> DESC t1;
+                       +-------+-------------+------+-----+---------+-------+
+                       | Field | Type      | Null | Key | Default | Extra |
+                       +-------+-------------+------+-----+---------+-------+
+                       |1     | varchar(20) | YES |     | NULL |        |
+                       +-------+-------------+------+-----+---------+-------+
+                       1 row in set (0.01 sec)
+
+                       mysql> SELECT * FROM t1;
+                       +---------------------+
+                       |1               |
+                       +---------------------+
+                       |1               |
+                       | -11.109999656677246 |
+                       +---------------------+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                              3272
+GaussDB
+集中式版参考                                                                                                    4 兼容性说明
+
+                       2 rows in set (0.01 sec)
+
+                       mysql> DROP TABLE base_t1;
+                       Query OK, 0 rows affected (0.02 sec)
+                       mysql> DROP TABLE t1;
+                       Query OK, 0 rows affected (0.02 sec)
+                 –     在开启精度传递的场景下，当字符类型或JSON类型与包含FLOAT类型的除法
+                       表达式（例如：col_float/3）参与UNION集合运算时，查询结果与MySQL存
+                       在精度差异。
+                       -- GaussDB:
+                       m_db=# CREATE TABLE t1(col_float float(6,4));
+                       CREATE TABLE
+                       m_db=# INSERT INTO t1 VALUES(-11.1234);
+                       INSERT 0 1
+                       m_db=# CREATE TABLE t2(c1 json, c2 varchar(11), c3 text, c4 binary(11), c5 blob, c6 set('a','b'));
+                       CREATE TABLE
+
+                       m_db=# SELECT c1 FROM t2 UNION SELECT col_float/3 FROM t1;
+                           c1
+                       -------------
+                        -3.70779991
+                       (1 row)
+                       m_db=# SELECT c2 FROM t2 UNION SELECT col_float/3 FROM t1;
+                           c2
+                       -------------
+                        -3.70779991
+                       (1 row)
+                       m_db=# SELECT c3 FROM t2 UNION SELECT col_float/3 FROM t1;
+                           c3
+                       -------------
+                        -3.70779991
+                       (1 row)
+                       m_db=# SELECT c4 FROM t2 UNION SELECT col_float/3 FROM t1;
+                           c4
+                       -------------
+                        -3.70779991
+                       (1 row)
+                       m_db=# SELECT c5 FROM t2 UNION SELECT col_float/3 FROM t1;
+                           c5
+                       -------------
+                        -3.70779991
+                       (1 row)
+                       m_db=# SELECT c6 FROM t2 UNION SELECT col_float/3 FROM t1;
+                           c6
+                       ------------
+                        -3.7077999
+                       (1 row)
+
+                       m_db=# DROP TABLE t1;
+                       DROP TABLE
+                       m_db=# DROP TABLE t2;
+                       DROP TABLE
+
+                       -- MySQL：
+                       mysql> CREATE TABLE t1(col_float float(6,4));
+                       Query OK, 0 rows affected (0.02 sec)
+                       mysql> INSERT INTO t1 VALUES(-11.1234);
+                       Query OK, 1 row affected (0.01 sec)
+                       mysql> CREATE TABLE t2(c1 json, c2 varchar(11), c3 text, c4 binary(11), c5 blob, c6 set('a','b'));
+                       Query OK, 0 rows affected (0.02 sec)
+
+                       mysql> SELECT c1 FROM t2 UNION SELECT col_float/3 FROM t1;
+                       +---------------------+
+                       | c1              |
+                       +---------------------+
+                       | -3.7077999114990234 |
+                       +---------------------+
+                       1 row in set (0.01 sec)
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                            3273
+GaussDB
+集中式版参考                                                                                             4 兼容性说明
+
+                       mysql> SELECT c2 FROM t2 UNION SELECT col_float/3 FROM t1;
+                       +---------------------+
+                       | c2              |
+                       +---------------------+
+                       | -3.7077999114990234 |
+                       +---------------------+
+                       1 row in set (0.00 sec)
+                       mysql> SELECT c3 FROM t2 UNION SELECT col_float/3 FROM t1;
+                       +---------------------+
+                       | c3              |
+                       +---------------------+
+                       | -3.7077999114990234 |
+                       +---------------------+
+                       1 row in set (0.00 sec)
+                       mysql> SELECT c4 FROM t2 UNION SELECT col_float/3 FROM t1;
+                       +-------------------------------------------------------+
+                       | c4                                         |
+                       +-------------------------------------------------------+
+                       | -3.7077999114990234                                 |
+                       +-------------------------------------------------------+
+                       1 row in set (0.00 sec)
+                       mysql> SELECT c5 FROM t2 UNION SELECT col_float/3 FROM t1;
+                       +---------------------+
+                       | c5              |
+                       +---------------------+
+                       | -3.7077999114990234 |
+                       +---------------------+
+                       1 row in set (0.00 sec)
+                       mysql> SELECT c6 FROM t2 UNION SELECT col_float/3 FROM t1;
+                       +---------------------+
+                       | c6              |
+                       +---------------------+
+                       | -3.7077999114990234 |
+                       +---------------------+
+                       1 row in set (0.00 sec)
+
+                       mysql> DROP TABLE t1;
+                       Query OK, 0 rows affected (0.02 sec)
+                       mysql> DROP TABLE t2;
+                       Query OK, 0 rows affected (0.02 sec)
+                 –     在开启精度传递的场景下，对于CREATE TABLE AS SELECT A % (CASE
+                       WHEN)语句，如果A是DECIMAL类型，CASE WHEN结果为日期类型
+                       （DATE、TIME、DATETIME），两者进行取模运算（%）得到的精度保持差
+                       异。GaussDB得到的精度跟decimal类型与日期类型直接取模运算得到的精度
+                       保持一致。
+                       -- GaussDB：(decimal % date类型case)与(numeric%date)， 精度一致，都是decimal(24,10)。
+                       m_db=# SET m_format_behavior_compat_options = 'enable_precision_decimal';
+                       SET
+                       m_db=# DROP TABLE IF EXISTS t1, t2;
+                       DROP TABLE
+                       m_db=# CREATE TABLE t1 (num_var numeric(20, 10), date_var date, time_var time(6), dt_var
+                       datetime(6));
+                       CREATE TABLE
+                       m_db=# CREATE TABLE t2 AS SELECT num_var % (CASE WHEN true THEN dt_var ELSE dt_var
+                       END) AS res1 FROM t1;
+                       INSERT 0 0
+                       m_db=# DESC t2;
+                        Field |    Type      | Null | Key | Default | Extra
+                       -------+----------------+------+-----+---------+-------
+                        res1 | decimal(24,10) | YES |        |     |
+                       (1 row)
+
+                       m_db=# DROP TABLE IF EXISTS t1, t2;
+                       DROP TABLE
+                       m_db=# CREATE TABLE t1 (num_var numeric(20, 10), date_var date, time_var time(6), dt_var
+                       datetime(6));
+                       CREATE TABLE
+                       m_db=# CREATE TABLE t2 AS SELECT num_var % dt_var AS res1 FROM t1;
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                     3274
+GaussDB
+集中式版参考                                                                                              4 兼容性说明
+
+                       INSERT 0 0
+                       m_db=# DESC t2;
+                        Field |    Type      | Null | Key | Default | Extra
+                       -------+----------------+------+-----+---------+-------
+                        res1 | decimal(24,10) | YES |        |     |
+                       (1 row)
+                       m_db=# DROP TABLE IF EXISTS t1, t2;
+                       DROP TABLE
+
+                       -- MySQL 5.7，精度存在差异。(decimal % date类型case)精度为decimal(65,10)，(numeric%date)
+                       精度为decimal(24,10)。
+                       mysql> DROP TABLE IF EXISTS t1, t2;
+                       Query OK, 0 rows affected (0.02 sec)
+
+                       mysql> CREATE TABLE t1 (num_var numeric(20, 10), date_var date, time_var time(6), dt_var
+                       datetime(6));
+                       Query OK, 0 rows affected (0.02 sec)
+
+                       mysql> CREATE TABLE t2 AS SELECT num_var % (CASE WHEN true THEN dt_var ELSE dt_var
+                       END) AS res1 FROM t1;
+                       Query OK, 0 rows affected (0.02 sec)
+                       Records: 0 Duplicates: 0 Warnings: 0
+
+                       mysql> DESC t2;
+                       +-------+----------------+------+-----+---------+-------+
+                       | Field | Type        | Null | Key | Default | Extra |
+                       +-------+----------------+------+-----+---------+-------+
+                       | res1 | decimal(65,10) | YES |       | NULL |         |
+                       +-------+----------------+------+-----+---------+-------+
+                       1 row in set (0.00 sec)
+
+                       mysql> DROP TABLE IF EXISTS t1, t2;
+                       Query OK, 0 rows affected (0.02 sec)
+
+                       mysql> CREATE TABLE t1 (num_var numeric(20, 10), date_var date, time_var time(6), dt_var
+                       datetime(6));
+                       Query OK, 0 rows affected (0.02 sec)
+
+                       mysql> CREATE TABLE t2 AS SELECT num_var % dt_var AS res1 FROM t1;
+                       Query OK, 0 rows affected (0.02 sec)
+                       Records: 0 Duplicates: 0 Warnings: 0
+
+                       mysql> DESC t2;
+                       +-------+----------------+------+-----+---------+-------+
+                       | Field | Type        | Null | Key | Default | Extra |
+                       +-------+----------------+------+-----+---------+-------+
+                       | res1 | decimal(24,10) | YES |       | NULL |         |
+                       +-------+----------------+------+-----+---------+-------+
+                       1 row in set (0.00 sec)
+
+                       -- MySQL 8.0，(decimal % date类型case)和(numeric%date)精度都为decimal(20,10)。
+                       mysql> DROP TABLE IF EXISTS t1, t2;
+                       Query OK, 0 rows affected (0.02 sec)
+
+                       mysql> CREATE TABLE t1 (num_var numeric(20, 10), date_var date, time_var time(6), dt_var
+                       datetime(6));
+                       Query OK, 0 rows affected (0.02 sec)
+
+                       mysql> CREATE TABLE t2 AS SELECT num_var % (CASE WHEN true THEN dt_var ELSE dt_var
+                       END) AS res1 FROM t1;
+                       Query OK, 0 rows affected (0.02 sec)
+                       Records: 0 Duplicates: 0 Warnings: 0
+
+                       mysql> DESC t2;
+                       +-------+----------------+------+-----+---------+-------+
+                       | Field | Type        | Null | Key | Default | Extra |
+                       +-------+----------------+------+-----+---------+-------+
+                       | res1 | decimal(20,10) | YES |       | NULL |         |
+                       +-------+----------------+------+-----+---------+-------+
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                    3275
+GaussDB
+集中式版参考                                                                                              4 兼容性说明
+
+                       1 row in set (0.00 sec)
+
+                       mysql> DROP TABLE IF EXISTS t1, t2;
+                       Query OK, 0 rows affected (0.02 sec)
+
+                       mysql> CREATE TABLE t1 (num_var numeric(20, 10), date_var date, time_var time(6), dt_var
+                       datetime(6));
+
+                       Query OK, 0 rows affected (0.02 sec)
+
+                       mysql> CREATE TABLE t2 AS SELECT num_var % dt_var AS res1 FROM t1;
+                       Query OK, 0 rows affected (0.02 sec)
+                       Records: 0 Duplicates: 0 Warnings: 0
+
+                       mysql> DESC t2;
+                       +-------+----------------+------+-----+---------+-------+
+                       | Field | Type        | Null | Key | Default | Extra |
+                       +-------+----------------+------+-----+---------+-------+
+                       | res1 | decimal(20,10) | YES |       | NULL |         |
+                       +-------+----------------+------+-----+---------+-------+
+                       1 row in set (0.00 sec)
+
+                       mysql> DROP TABLE IF EXISTS t1, t2;
+                       Query OK, 0 rows affected (0.02 sec)
+                 –     在开启精度传递的场景下，使用UNION，如果参与集合运算的查询语句，其
+                       查询的字段为常量，且查询的结果数据类型为INT/DECIMAL，则最后返回的
+                       精度存在差异。在MySQL 5.7中，返回的精度与UNION左右两侧的顺序有
+                       关；在MySQL 8.0中修复了这个问题，返回的精度与UNION左右两侧的顺序
+                       无关；在GaussDB中，返回的精度与UNION左右两侧的顺序无关，与MySQL
+                       8.0一致，与MySQL 5.7不一致。
+                       -- GaussDB:
+                       m_db=# CREATE TABLE t1 AS (SELECT -23.45 c2) UNION ALL (SELECT -45.678 c2);
+                       INSERT 0 2
+                       m_db=# DESC t1;
+                       Field |   Type      | Null | Key | Default | Extra
+                       -------+--------------+------+-----+---------+-------
+                       c2 | decimal(5,3) | YES |         |     |
+                       (1 row)
+                       m_db=# CREATE TABLE t2 AS (SELECT -45.678 c2) UNION ALL (SELECT -23.45 c2);
+                       INSERT 0 2
+                       m_db=# DESC t2;
+                       Field |   Type      | Null | Key | Default | Extra
+                       -------+--------------+------+-----+---------+-------
+                       c2 | decimal(5,3) | YES |         |     |
+                       (1 row)
+                       m_db=# DROP TABLE IF EXISTS t1, t2;
+                       DROP TABLE
+
+                       -- MySQL 5.7:
+                       mysql> CREATE TABLE t1 AS (SELECT -23.45 c2) UNION ALL (SELECT -45.678 c2);
+                       Query OK, 2 rows affected (2.28 sec)
+                       Records: 2 Duplicates: 0 Warnings: 0
+                       mysql> DESC t1;
+                       +-------+--------------+------+-----+---------+-------+
+                       | Field | Type       | Null | Key | Default | Extra |
+                       +-------+--------------+------+-----+---------+-------+
+                       | c2 | decimal(6,3) | NO |          | 0.000 |      |
+                       +-------+--------------+------+-----+---------+-------+
+                       1 row in set (0.00 sec)
+                       mysql> CREATE TABLE t2 AS (SELECT -45.678 c2) UNION ALL (SELECT -23.45 c2);
+                       Query OK, 2 rows affected (2.22 sec)
+                       Records: 2 Duplicates: 0 Warnings: 0
+                       mysql> DESC t2;
+                       +-------+--------------+------+-----+---------+-------+
+                       | Field | Type       | Null | Key | Default | Extra |
+                       +-------+--------------+------+-----+---------+-------+
+                       | c2 | decimal(5,3) | NO |          | 0.000 |      |
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                    3276
+GaussDB
+集中式版参考                                                                                          4 兼容性说明
+
+                       +-------+--------------+------+-----+---------+-------+
+                       1 row in set (0.00 sec)
+                       mysql> DROP TABLE IF EXISTS t1, t2;
+                       Query OK, 0 rows affected (0.02 sec)
+
+                       -- MySQL 8.0:
+                       mysql> CREATE TABLE t1 AS (SELECT -23.45 c2) UNION ALL (SELECT -45.678 c2);
+                       Query OK, 2 rows affected (0.02 sec)
+                       Records: 2 Duplicates: 0 Warnings: 0
+                       mysql> DESC t1;
+                       +-------+--------------+------+-----+---------+-------+
+                       | Field | Type       | Null | Key | Default | Extra |
+                       +-------+--------------+------+-----+---------+-------+
+                       | c2 | decimal(5,3) | NO |          | 0.000 |      |
+                       +-------+--------------+------+-----+---------+-------+
+                       1 row in set (0.03 sec)
+                       mysql> CREATE TABLE t2 AS (SELECT -45.678 c2) UNION ALL (SELECT -23.45 c2);
+                       Query OK, 2 rows affected (0.03 sec)
+                       Records: 2 Duplicates: 0 Warnings: 0
+                       mysql> DESC t2;
+                       +-------+--------------+------+-----+---------+-------+
+                       | Field | Type       | Null | Key | Default | Extra |
+                       +-------+--------------+------+-----+---------+-------+
+                       | c2 | decimal(5,3) | NO |          | 0.000 |      |
+                       +-------+--------------+------+-----+---------+-------+
+                       1 row in set (0.02 sec)
+                       mysql> DROP TABLE IF EXISTS t1, t2;
+                       Query OK, 0 rows affected (0.02 sec)
+                 –     在开启精度传递的场景下使用UNION，当查询包含返回值类型为字符串类型
+                       的函数时，由于执行过程中GaussDB函数的返回值类型与MySQL存在差异，
+                       得到的精度结果与MySQL会存在不一致的情况。
+                       -- GaussDB：
+                       m_db=# SET m_format_behavior_compat_options= 'enable_precision_decimal';
+                       SET
+                       m_db=# SELECT (245.8888888888888888888888888888888 /
+                       35431354.2222222222222222222222222222222) UNION ALL SELECT REVERSE('1234');
+                                                  ?column?
+                       ----------------------------------------------------------------------------
+                        0.000006939867083450895037135156636594575799891927401779776357428364833370
+                        4321
+                       (2 rows)
+
+                       m_db=# SELECT (245.8888888888888888888888888888888 /
+                       35431354.2222222222222222222222222222222) UNION ALL SELECT
+                       REVERSE('1234')::VARCHAR(255);
+                                               ?column?
+                       ---------------------------------------------------------------------
+                        0.00000693986708345089503713515663659457579989192740177977635742836
+                        4321
+                       (2 rows)
+
+                       -- MySQL：
+                       mysql> SELECT (245.8888888888888888888888888888888 /
+                       35431354.2222222222222222222222222222222) UNION ALL SELECT REVERSE('1234');
+                       +----------------------------------------------------------------------------------+
+                       | (245.8888888888888888888888888888888 / 35431354.2222222222222222222222222222222) |
+                       +----------------------------------------------------------------------------------+
+                       | 0.00000693986708345089503713515663659457579989192740177977635742836                |
+                       | 4321                                                              |
+                       +----------------------------------------------------------------------------------+
+                       2 rows in set (0.00 sec)
+                 –     在开启精度传递的场景下，如果存在字符、SET、ENUM等类型与常量bit、
+                       二进制类型进行UNION、UNION ALL或CASE WHEN时，GaussDB执行后的
+                       推导类型与MySQL存在差异。GaussDB在常量是否指定字符序时，UNION、
+                       UNION ALL或CASE WHEN后推导的结果类型都是一致的。MySQL在常量是
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                              3277
+GaussDB
+集中式版参考                                                                                                        4 兼容性说明
+
+                       否指定字符序时，UNION、UNION ALL或CASE WHEN后推导的结果类型是
+                       不一致的。
+                       -- GaussDB：
+                       m_db=# DROP TABLE IF EXISTS base_tb1_1;
+                       DROP TABLE
+                       m_db=# CREATE TABLE IF NOT EXISTS base_tb1_1 (id int,
+                          col_char1 char(5), col_char2 varchar(20), col_text1 tinytext, col_text2 text, col_text3
+                       mediumtext, col_text4 longtext,
+                          col_set1 set('1.11','2.22','3.33','4.16','5.22'), col_enum1 enum('1.11','2.22','3.33','4.58','4.44'),
+                          col_set2 set('1991-02-12 08:26:59','1997-06-18 21:30:00','1991-02-12 09:30:00','1983-09-10
+                       10:17:08'),
+                          col_enum2 enum('1991-02-12 08:26:59','1997-06-18 22:29:36','1997-04-08
+                       21:30:00','1982-06-28 19:35:39'));
+                       CREATE TABLE
+                       m_db=# INSERT INTO base_tb1_1 VALUES
+                          (1,'111','222','3333', '444', '555','6666','2.22','3.33','1991-02-12 08:26:59','1997-06-18 22:29:36');
+                       INSERT 0 1
+
+                       -- 不指定字符序。
+                       m_db=# DROP TABLE IF EXISTS tb11_1;
+                       DROP TABLE
+                       m_db=# CREATE TABLE tb11_1 AS SELECT col_char1, col_char2, col_text1, col_text2, col_text3,
+                       col_text4,col_set1, col_enum1, col_set2, col_enum2 from base_tb1_1
+                           UNION ALL SELECT b'101',b'101',b'101',b'101',b'101',b'101',b'101',b'101',b'101',b'101';
+                       INSERT 0 2
+                       m_db=# DESC tb11_1;
+                          Field |     Type      | Null | Key | Default | Extra
+                       -----------+----------------+------+-----+---------+-------
+                        col_char1 | varbinary(20) | YES |           |           |
+                        col_char2 | varbinary(80) | YES |           |           |
+                        col_text1 | blob          | YES |     |           |
+                        col_text2 | mediumblob          | YES |       |           |
+                        col_text3 | longblob         | YES |    |           |
+                        col_text4 | longblob         | YES |    |           |
+                        col_set1 | varbinary(96) | YES |          |           |
+                        col_enum1 | varbinary(16) | YES |               |           |
+                        col_set2 | varbinary(316) | YES |           |           |
+                        col_enum2 | varbinary(76) | YES |               |           |
+                       (10 rows)
+                       m_db=# DROP TABLE IF EXISTS tb11_2;
+                       DROP TABLE
+                       m_db=# CREATE TABLE tb11_2 AS SELECT (CASE WHEN ln(id) > 1 THEN b'101' ELSE col_char1
+                       END) res42 FROM base_tb1_1;
+                       INSERT 0 1
+                       m_db=# DESC tb11_2;
+                        Field |   Type      | Null | Key | Default | Extra
+                       -------+--------------+------+-----+---------+-------
+                        res42 | varbinary(5) | YES |        |         |
+                       (1 row)
+
+                       -- 指定字符序。
+                       m_db=# DROP TABLE IF EXISTS tb11_1;
+                       DROP TABLE
+                       m_db=# CREATE TABLE tb11_1 AS SELECT col_char1, col_char2, col_text1, col_text2, col_text3,
+                       col_text4,col_set1, col_enum1, col_set2, col_enum2 from base_tb1_1
+                          UNION ALL SELECT b'101' collate "binary",b'101' collate "binary",b'101' collate
+                       "binary",b'101' collate "binary",b'101' collate "binary",b'101' collate "binary",b'101' collate
+                       "binary",b'101' collate "binary",b'101' collate "binary",b'101' collate "binary";
+                       INSERT 0 2
+                       m_db=# DESC tb11_1;
+                         Field | Type | Null | Key | Default | Extra
+                       -----------+------------+------+-----+---------+-------
+                        col_char1 | varbinary | YES |        |       |
+                        col_char2 | varbinary | YES |        |       |
+                        col_text1 | blob       | YES |   |       |
+                        col_text2 | mediumblob | YES |         |       |
+                        col_text3 | longblob | YES |        |       |
+                        col_text4 | longblob | YES |        |       |
+                        col_set1 | varbinary | YES |       |       |
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                                3278
+GaussDB
+集中式版参考                                                                                                        4 兼容性说明
+
+                        col_enum1 | varbinary | YES |          |      |
+                        col_set2 | varbinary | YES |         |     |
+                        col_enum2 | varbinary | YES |          |      |
+                       (10 rows)
+                       m_db=# DROP TABLE IF EXISTS tb11_2;
+                       DROP TABLE
+                       m_db=# CREATE TABLE tb11_2 AS SELECT (CASE WHEN ln(id) > 1 THEN b'101' collate 'binary'
+                       ELSE col_char1 END) res42 FROM base_tb1_1;
+                       INSERT 0 1
+                       m_db=# DESC tb11_2;
+                        Field |   Type      | Null | Key | Default | Extra
+                       -------+--------------+------+-----+---------+-------
+                        res42 | varbinary(5) | YES |       |     |
+                       (1 row)
+
+                       -- 删除表。
+                       m_db=# DROP TABLE IF EXISTS base_tb1_1;
+                       DROP TABLE
+                       m_db=# DROP TABLE IF EXISTS tb11_1;
+                       DROP TABLE
+                       m_db=# DROP TABLE IF EXISTS tb11_2;
+                       DROP TABLE
+
+                       -- MySQL：
+                       mysql> DROP TABLE IF EXISTS base_tb1_1;
+                       Query OK, 0 rows affected, 1 warning (0.00 sec)
+                       mysql> CREATE TABLE IF NOT EXISTS base_tb1_1 (id int,
+                          col_char1 char(5), col_char2 varchar(20), col_text1 tinytext, col_text2 text, col_text3
+                       mediumtext, col_text4 longtext,
+                          col_set1 set('1.11','2.22','3.33','4.16','5.22'), col_enum1 enum('1.11','2.22','3.33','4.58','4.44'),
+                          col_set2 set('1991-02-12 08:26:59','1997-06-18 21:30:00','1991-02-12 09:30:00','1983-09-10
+                       10:17:08'),
+                          col_enum2 enum('1991-02-12 08:26:59','1997-06-18 22:29:36','1997-04-08
+                       21:30:00','1982-06-28 19:35:39'));
+                       Query OK, 0 rows affected (0.00 sec)
+                       mysql> INSERT INTO base_tb1_1 VALUES
+                          (1,'111','222','3333', '444', '555','6666','2.22','3.33','1991-02-12 08:26:59','1997-06-18 22:29:36');
+                       Query OK, 1 row affected (0.00 sec)
+
+                       -- 不指定字符序。
+                       mysql> DROP TABLE IF EXISTS tb11_1;
+                       Query OK, 0 rows affected, 1 warning (0.00 sec)
+                       mysql> CREATE TABLE tb11_1 AS select col_char1, col_char2, col_text1, col_text2, col_text3,
+                       col_text4,col_set1, col_enum1, col_set2, col_enum2 from base_tb1_1
+                           UNION ALL SELECT b'101',b'101',b'101',b'101',b'101',b'101',b'101',b'101',b'101',b'101';
+                       Query OK, 2 rows affected (0.00 sec)
+                       Records: 2 Duplicates: 0 Warnings: 0
+                       mysql> DESC tb11_1;
+                       +-----------+-------------+------+-----+---------+-------+
+                       | Field   | Type       | Null | Key | Default | Extra |
+                       +-----------+-------------+------+-----+---------+-------+
+                       | col_char1 | varchar(5) | YES |        | NULL |          |
+                       | col_char2 | varchar(20) | YES |        | NULL |           |
+                       | col_text1 | tinytext | YES |       | NULL |         |
+                       | col_text2 | text      | YES |    | NULL |         |
+                       | col_text3 | mediumtext | YES |          | NULL |            |
+                       | col_text4 | longtext | YES |        | NULL |          |
+                       | col_set1 | varchar(24) | YES |        | NULL |          |
+                       | col_enum1 | varchar(4) | YES |           | NULL |            |
+                       | col_set2 | varchar(79) | YES |        | NULL |          |
+                       | col_enum2 | varchar(19) | YES |           | NULL |             |
+                       +-----------+-------------+------+-----+---------+-------+
+                       10 rows in set (0.00 sec)
+                       mysql> DROP TABLE IF EXISTS tb11_2;
+                       Query OK, 0 rows affected (0.01 sec)
+                       mysql> CREATE TABLE tb11_2 AS SELECT (CASE WHEN ln(id) > 1 THEN b'101' ELSE col_char1
+                       END) res42 FROM base_tb1_1;
+                       Query OK, 1 row affected (0.01 sec)
+                       Records: 1 Duplicates: 0 Warnings: 0
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                                3279
+GaussDB
+集中式版参考                                                                                                       4 兼容性说明
+
+                         mysql> DESC tb11_2;
+                         +-------+------------+------+-----+---------+-------+
+                         | Field | Type     | Null | Key | Default | Extra |
+                         +-------+------------+------+-----+---------+-------+
+                         | res42 | varchar(5) | YES |      | NULL |       |
+                         +-------+------------+------+-----+---------+-------+
+                         1 row in set (0.00 sec)
+
+                         -- 指定字符序。
+                         mysql> DROP TABLE IF EXISTS tb11_1;
+                         Query OK, 0 rows affected (0.00 sec)
+                         mysql> CREATE TABLE tb11_1 AS select col_char1, col_char2, col_text1, col_text2, col_text3,
+                         col_text4,col_set1, col_enum1, col_set2, col_enum2 from base_tb1_1
+                             UNION ALL select b'101' collate "binary",b'101' collate "binary",b'101' collate "binary",b'101'
+                         collate "binary",b'101' collate "binary",b'101' collate "binary",b'101' collate "binary",b'101'
+                         collate "binary",b'101' collate "binary",b'101' collate "binary";
+                         Query OK, 2 rows affected (0.01 sec)
+                         Records: 2 Duplicates: 0 Warnings: 0
+                         mysql> DESC tb11_1;
+                         +-----------+---------------+------+-----+---------+-------+
+                         | Field    | Type        | Null | Key | Default | Extra |
+                         +-----------+---------------+------+-----+---------+-------+
+                         | col_char1 | varbinary(5) | YES |          | NULL |          |
+                         | col_char2 | varbinary(20) | YES |          | NULL |           |
+                         | col_text1 | tinyblob       | YES |     | NULL |         |
+                         | col_text2 | blob         | YES |     | NULL |         |
+                         | col_text3 | mediumblob | YES |              | NULL |            |
+                         | col_text4 | longblob        | YES |     | NULL |          |
+                         | col_set1 | varbinary(24) | YES |          | NULL |          |
+                         | col_enum1 | varbinary(4) | YES |             | NULL |            |
+                         | col_set2 | varbinary(79) | YES |          | NULL |          |
+                         | col_enum2 | varbinary(19) | YES |             | NULL |             |
+                         +-----------+---------------+------+-----+---------+-------+
+                         10 rows in set (0.00 sec)
+                         mysql> DROP TABLE IF EXISTS tb11_2;
+                         Query OK, 0 rows affected (0.01 sec)
+                         mysql> CREATE TABLE tb11_2 AS SELECT (CASE WHEN ln(id) > 1 THEN b'101' collate 'binary'
+                         ELSE col_char1 END) res42 FROM base_tb1_1;
+                         Query OK, 1 row affected (0.01 sec)
+                         Records: 1 Duplicates: 0 Warnings: 0
+                         mysql> DESC tb11_2;
+                         +-------+--------------+------+-----+---------+-------+
+                         | Field | Type       | Null | Key | Default | Extra |
+                         +-------+--------------+------+-----+---------+-------+
+                         | res42 | varbinary(5) | YES |       | NULL |         |
+                         +-------+--------------+------+-----+---------+-------+
+                         1 row in set (0.00 sec)
+
+                         -- 删除表。
+                         mysql> DROP TABLE IF EXISTS base_tb1_1;
+                         Query OK, 0 rows affected, 1 warning (0.00 sec)
+                         mysql> DROP TABLE IF EXISTS tb11_1;
+                         Query OK, 0 rows affected (0.00 sec)
+                         mysql> DROP TABLE IF EXISTS tb11_2;
+                         Query OK, 0 rows affected (0.00 sec)
+
+
+双冒号转换差异点
+              GaussDB中使用双冒号将函数入参转换为期望类型可能导致结果超出预期；MySQL中
+              无双冒号功能。
+
+              示例：
+              m_db=# SELECT POW("12"::VARBINARY,"12"::VARBINARY);
+              ERROR: The value is out of range, and an overflow occurred.
+              CONTEXT: referenced column: pow
+
+              varbinary col
+              m_db=# CREATE TABLE test_varbinary (
+
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                                                            3280
+GaussDB
+集中式版参考                                                                             4 兼容性说明
+
+                    A VARBINARY(10)
+              );
+              m_db=# INSERT INTO test_varbinary VALUES ('12');
+              m_db=# SELECT POW(A, A) FROM test_varbinary;
+                   pow
+              ---------------
+               8916100448256
+              (1 row)
+
+
+decimal 类型差异点
+              在CREATE TABLE ... AS (SELECT ...)语句中，使用decimal数据类型，若含有前缀0，
+              GaussDB数据库下忽略前缀0，长度计算不包括0，在MySQL 5.7下，长度计算加上前
+              缀0的数量，在MySQL 8.0下，无论存在多少个前缀0，长度计算只加上1。
+              -- GaussDB
+              m_db=# CREATE TABLE test AS SELECT 004.01 col1;
+              INSERT 0 1
+              m_db=# DESC test;
+               Field |   Type      | Null | Key | Default | Extra
+              -------+--------------+------+-----+---------+-------
+               col1 | decimal(3,2) | YES |        |     |
+              (1 row)
+
+              -- MySQL 5.7
+              mysql> CREATE TABLE test AS SELECT 004.01 col1;
+              Query OK, 1 row affected (0.02 sec)
+              Records: 1 Duplicates: 0 Warnings: 0
+
+              mysql> DESC test;
+              +-------+--------------+------+-----+---------+-------+
+              | Field | Type       | Null | Key | Default | Extra |
+              +-------+--------------+------+-----+---------+-------+
+              | col1 | decimal(5,2) | NO |        | 0.00 |       |
+              +-------+--------------+------+-----+---------+-------+
+              1 row in set (0.00 sec)
+
+              -- MySQL 8.0
+              mysql> CREATE TABLE test AS SELECT 004.01 col1;
+              Query OK, 1 row affected (0.23 sec)
+              Records: 1 Duplicates: 0 Warnings: 0
+              mysql> DESC test;
+              +-------+--------------+------+-----+---------+-------+
+              | Field | Type       | Null | Key | Default | Extra |
+              +-------+--------------+------+-----+---------+-------+
+              | col1 | decimal(4,2) | NO |        | 0.00 |       |
+              +-------+--------------+------+-----+---------+-------+
+              1 row in set (0.01 sec)
+
+
+字符串数据类型转 double 类型差异点
+              GaussDB支持以“0x”开头输入的字符串作为16进制数据进行处理，Mysql数据库会
+              将“0x”开头的16进制数据字符串当作0处理。
+              -- 查询条件为常量时，以'0x'开头的字符串数据转double类型场景。
+              -- GaussDB
+              m_db=# CREATE TABLE t0(c1 double);
+              CREATE TABLE
+              m_db=# INSERT INTO t0(c1) VALUES(-405);
+              INSERT 0 1
+              m_db=# SELECT ALL t0.c1 AS ref1 FROM t0 WHERE '0x4P+[c';
+              WARNING: invalid input syntax for type double precision: "0x4P+[c"
+              LINE 1: SELECT ALL t0.c1 AS ref1 FROM t0 WHERE '0x4P+[c';
+                                              ^
+               ref1
+              ------
+               -405
+              (1 row)
+
+
+文档版本 01 (2026-04-30)                       版权所有 © 华为云计算技术有限公司                          3281
+GaussDB
+集中式版参考                                                                           4 兼容性说明
+
+              m_db=# DROP TABLE t0;
+              DROP TABLE
+
+              --Mysql
+              mysql> CREATE TABLE t0(c1 double);
+              Query OK, 0 rows affected (0.02 sec)
+              mysql> INSERT INTO t0(c1) VALUES(-405);
+              Query OK, 1 row affected (0.01 sec)
+              mysql> SELECT ALL t0.c1 AS ref1 FROM t0 WHERE '0x4P+[c';
+              Empty set, 1 warning (0.00 sec)
+              mysql> DROP TABLE t0;
+              Query OK, 0 rows affected (0.00 sec)
+
+              -- 字段类型为double类型，插入'0x'开头的字符串数据转double类型场景。
+              -- GaussDB
+              m_db=# SET sql_mode='';
+              SET
+              m_db=# CREATE TABLE t1(c0 double);
+              CREATE TABLE
+              m_db=# INSERT INTO t1 VALUES('0x4');
+              INSERT 0 1
+              m_db=# SELECT * FROM t1;
+               c0
+              ----
+                4
+              (1 row)
+              m_db=# DROP TABLE t1;
+              DROP TABLE
+
+              --Mysql
+              mysql> SET sql_mode='';
+              Query OK, 0 rows affected (0.00 sec)
+              mysql> CREATE TABLE t1(c0 double);
+              Query OK, 0 rows affected (0.03 sec)
+              mysql> INSERT INTO t1 VALUES('0x4');
+              Query OK, 1 row affected, 1 warning (0.01 sec)
+              mysql> SELECT * FROM t1;
+              +------+
+              | c0 |
+              +------+
+              | 0|
+              +------+
+              1 row in set (0.00 sec)
+              mysql> DROP TABLE t1;
+              Query OK, 0 rows affected (0.00 sec)
+
+
+4.4.2.2 系统函数
+
+4.4.2.2.1 系统函数兼容性概述
+              GaussDB数据库兼容绝大多数MySQL的系统函数，但存在部分差异。建议使用M-
+              Compatibility兼容模式下支持的系统函数，避免使用原GaussDB的系统函数。
+
+              当前存在原GaussDB的系统函数和MySQL系统函数同名，但是M-Compatibility兼容模
+              式下尚未支持这些函数的情况；表4-139中的函数会提示用户在M-Compatibility兼容
+              模式下不支持，表4-140中的函数仍然保持原GaussDB系统函数的行为。同名函数会与
+              MySQL的行为产生较大差异，因此建议用户尽量避免使用这些同名函数，只使用M-
+              Compatibility兼容模式下支持的系统函数。
+
+              表 4-139 M-Compatibility 兼容模式下提示不支持的同名函数
+
+               isEmpty              overlaps             point           -   -
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                           3282
+
