@@ -59,7 +59,13 @@ class MCopyCheckpointDropOwnedTests(unittest.TestCase):
         from scripts.build_m_compat_batch_05 import BUILDERS
         for key in ('copy','checkpoint','drop_owned'):
             p=BUILDERS[key]()
-            if p.id in ('m_drop_audit_policy','m_drop_database','m_drop_owned','m_drop_schema','m_drop_sequence','m_rename_table','m_rollback_to_savepoint','m_deallocate','m_do','m_drop_user','m_drop_view','m_drop_role','m_grant','m_checkpoint','m_drop_prepare','m_create_function','m_analyze','m_copy','m_alter_table','m_create_table','m_create_table_partition'):
+            if p.id in ('m_drop_audit_policy','m_drop_database','m_drop_owned','m_drop_schema','m_drop_sequence',
+'m_rename_table','m_rollback_to_savepoint','m_deallocate','m_do','m_drop_user',
+'m_drop_view','m_drop_role','m_grant','m_create_function','m_analyze','m_copy',
+'m_alter_table','m_create_table','m_create_table_partition','m_checkpoint','m_drop_prepare',
+'m_autohint_purge','m_prepare','m_reset','m_drop_extension','m_drop_group',
+'m_rollback','m_autohint','m_comment','m_drop_table','m_use',
+'m_alter_resource_label','m_alter_schema','m_create_database','m_set_role','m_alter_database'):
                 continue
             # m_copy已进入人工演进阶段（新增source completion facts），
             # 不再回退到batch_05一次性builder的输出。

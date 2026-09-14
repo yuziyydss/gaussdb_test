@@ -94,7 +94,7 @@ class MCompatBatch02Tests(unittest.TestCase):
             self.assertEqual(f.status,'needs_review')
             ledger=self.registry.source_ledgers[f.source_ledger_ref]
             # 已完成source extraction的包不再有unmapped；其余保留。
-            completed = {'m_drop_view','m_drop_database','m_drop_schema','m_rename_table','m_rollback_to_savepoint','m_drop_owned'}
+            completed = {'m_drop_view','m_drop_database','m_drop_schema','m_rename_table','m_rollback_to_savepoint','m_drop_owned','m_rollback','m_use','m_create_database','m_drop_table'}
             if fid in completed:
                 self.assertFalse(any(u.status=='unmapped' for u in ledger.units))
             else:
