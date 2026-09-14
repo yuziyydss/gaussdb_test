@@ -1,0 +1,3052 @@
+GaussDB
+集中式版参考                                                                           4 兼容性说明
+
+              m_db=# DROP TABLE t0;
+              DROP TABLE
+
+              --Mysql
+              mysql> CREATE TABLE t0(c1 double);
+              Query OK, 0 rows affected (0.02 sec)
+              mysql> INSERT INTO t0(c1) VALUES(-405);
+              Query OK, 1 row affected (0.01 sec)
+              mysql> SELECT ALL t0.c1 AS ref1 FROM t0 WHERE '0x4P+[c';
+              Empty set, 1 warning (0.00 sec)
+              mysql> DROP TABLE t0;
+              Query OK, 0 rows affected (0.00 sec)
+
+              -- 字段类型为double类型，插入'0x'开头的字符串数据转double类型场景。
+              -- GaussDB
+              m_db=# SET sql_mode='';
+              SET
+              m_db=# CREATE TABLE t1(c0 double);
+              CREATE TABLE
+              m_db=# INSERT INTO t1 VALUES('0x4');
+              INSERT 0 1
+              m_db=# SELECT * FROM t1;
+               c0
+              ----
+                4
+              (1 row)
+              m_db=# DROP TABLE t1;
+              DROP TABLE
+
+              --Mysql
+              mysql> SET sql_mode='';
+              Query OK, 0 rows affected (0.00 sec)
+              mysql> CREATE TABLE t1(c0 double);
+              Query OK, 0 rows affected (0.03 sec)
+              mysql> INSERT INTO t1 VALUES('0x4');
+              Query OK, 1 row affected, 1 warning (0.01 sec)
+              mysql> SELECT * FROM t1;
+              +------+
+              | c0 |
+              +------+
+              | 0|
+              +------+
+              1 row in set (0.00 sec)
+              mysql> DROP TABLE t1;
+              Query OK, 0 rows affected (0.00 sec)
+
+
+4.4.2.2 系统函数
+
+4.4.2.2.1 系统函数兼容性概述
+              GaussDB数据库兼容绝大多数MySQL的系统函数，但存在部分差异。建议使用M-
+              Compatibility兼容模式下支持的系统函数，避免使用原GaussDB的系统函数。
+
+              当前存在原GaussDB的系统函数和MySQL系统函数同名，但是M-Compatibility兼容模
+              式下尚未支持这些函数的情况；表4-139中的函数会提示用户在M-Compatibility兼容
+              模式下不支持，表4-140中的函数仍然保持原GaussDB系统函数的行为。同名函数会与
+              MySQL的行为产生较大差异，因此建议用户尽量避免使用这些同名函数，只使用M-
+              Compatibility兼容模式下支持的系统函数。
+
+              表 4-139 M-Compatibility 兼容模式下提示不支持的同名函数
+
+               isEmpty              overlaps             point           -   -
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                           3282
+GaussDB
+集中式版参考                                                                           4 兼容性说明
+
+              表 4-140 M-Compatibility 兼容模式下保持原 GaussDB 系统函数行为的同名函数
+               ceil          decode          encode          format          instr
+
+               position      round           stddev          row_number      regexp_instr
+
+               regexp_like   regexp_replac   regexp_substr   current_user    -
+                             e                               函数（不指定
+                                                             参数方式调
+                                                             用，即直接调
+                                                             用“SELECT
+                                                             current_user;
+                                                             ”）
+
+
+
+
+              在参数m_format_dev_version值为s2或以上版本并且参数
+              m_format_behavior_compat_options值包含enable_conflict_funcs的情况下，表
+              4-141中同名函数的行为会修改为M-Compatibility兼容模式下的函数行为。
+
+              表 4-141 M-Compatibility 兼容模式下受 GUC 参数
+              m_format_behavior_compat_options 的 enable_conflict_funcs 值控制的同名函数
+               ceil          format          instr           position        row_number
+
+
+
+
+              在参数m_format_behavior_compat_options值包含enable_samename_funcs的情况
+              下，表4-142中同名函数的行为会修改为M-Compatibility兼容模式下的函数行为。
+
+              表 4-142 M-Compatibility 兼容模式下受 GUC 参数
+              m_format_behavior_compat_options 的 enable_samename_funcs 值控制的同名函数
+               stddev        round           current_user    -               -
+                                             函数（不指定
+                                             参数方式调
+                                             用，即直接调
+                                             用“SELECT
+                                             current_user;
+                                             ”）
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                                      3283
+GaussDB
+集中式版参考                                                                       4 兼容性说明
+
+
+                      说明
+
+                  ● 函数regexp_instr、regexp_like、regexp_replace、regexp_substr在参数
+                    m_format_dev_version值为's2'或以上版本并且参数m_format_behavior_compat_options值
+                    包含'enable_conflict_funcs'的情况下使用会报错，并提示M-Compatibility兼容模式数据库
+                    不支持；其他行为和字符处理函数和操作符中的同名函数保持一致。
+                  ● M-Compatibility模式下，系统函数存在以下公共差异：
+                      ●    系统函数的返回值类型仅考虑入参node类型为Var（表中数据）和Const（常量输入）
+                           类型时的情况与MySQL保持一致，其他情况（如入参为运算表达式、函数表达式等）
+                           可能返回值的类型与MySQL有差异。
+                      ●    系统函数在涉及LIMIT与OFFSET同时使用的查表场景下，由于GaussDB和MySQL的执
+                           行层机制不同，GaussDB会逐行调用函数，此行为会导致在存在报错的情况下会直接报
+                           错且中断执行，但MySQL不会逐行执行故不会报错中断，从而造成返回结果存在不一
+                           致。
+                      ●    系统函数的调用不推荐使用pg_catalog.func_name()形式的调用，当被调用函数存在语
+                           法形式的入参时（如SELECT substr('demo' from 1 for 2)），函数的调用可能存在错
+                           误。
+                      ●    对于支持多个入参的系统函数，当入参存在NULL时，GaussDB不会对入参进行校验，
+                           直接返回NULL；MySQL会对NULL之外的入参进行校验，当存在不合法的入参时，函
+                           数返回NULL并产生WARNING。
+
+4.4.2.2.2 流程控制函数
+
+              表 4-143 流程控制函数列表
+               函数名                与MySQL的差异
+
+               IF()               当第一个参数为TRUE且第三个参数表达式中存在隐式类型转换
+                                  错误，或者第一个参数为FALSE且第二个参数表达式中存在隐
+                                  式类型转换错误时，MySQL会忽略该错误，GaussDB会提示类
+                                  型转换错误。
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                                3284
+GaussDB
+集中式版参考                                                              4 兼容性说明
+
+
+               函数名        与MySQL的差异
+
+               IFNULL()   ● 在MySQL 5.7和MySQL 8.0中，函数返回值类型存在差异。
+                            鉴于MySQL 8.0更合理，因此GaussDB函数返回值类型兼容
+                            MySQL 8.0。
+                          ● 当第一个参数不为NULL且第二个参数表达式中存在隐式类
+                            型转换错误时，MySQL会忽略该错误，GaussDB会提示类
+                            型转换错误。
+                          ● 当入参类型为float类型时，GaussDB结果值的精度与
+                            MySQL 8.0行为保持一致，例如：
+                            m_db=# CREATE TABLE t1(c1 float);
+                            CREATE TABLE
+                            m_db=# INSERT INTO t1 VALUES(2.123);
+                            INSERT 0 1
+
+                            -- GaussDB的行为。
+                            m_db=# SELECT ifnull(c1, c1) FROM t1;
+                             ifnull
+                            --------
+                              2.123
+                            (1 row)
+
+                            -- MySQL 5.7的行为。
+                            mysql> SELECT ifnull(c1, c1) FROM t1;
+                            +-------------------+
+                            | ifnull(c1, c1) |
+                            +-------------------+
+                            | 2.122999906539917 |
+                            +-------------------+
+                            1 row in set (0.00 sec)
+
+                            -- MySQL 8.0的行为。
+                            mysql> SELECT ifnull(c1, c1) FROM t1;
+                            +----------------+
+                            | ifnull(c1, c1) |
+                            +----------------+
+                            |        2.123 |
+                            +----------------+
+                            1 row in set (0.00 sec)
+
+
+
+
+文档版本 01 (2026-04-30)      版权所有 © 华为云计算技术有限公司                            3285
+GaussDB
+集中式版参考                                                                                             4 兼容性说明
+
+
+               函数名                    与MySQL的差异
+
+               NULLIF()               ● 在MySQL 5.7和MySQL 8.0中，函数返回值类型存在差异。
+                                        鉴于MySQL 8.0更合理，因此GaussDB函数返回值类型兼容
+                                        MySQL 8.0。
+                                      ● 当入参类型为float类型时，GaussDB结果值的精度与
+                                        MySQL 8.0行为保持一致，例如：
+                                          m_db=# CREATE TABLE t1(c1 float);
+                                          CREATE TABLE
+                                          m_db=# INSERT INTO t1 VALUES(2.123);
+                                          INSERT 0 1
+
+                                          -- GaussDB的行为。
+                                          m_db=# SELECT nullif(c1, 1) FROM t1;
+                                           nullif
+                                          --------
+                                            2.123
+                                          (1 row)
+
+                                          -- MySQL 5.7的行为。
+                                          mysql> SELECT nullif(c1, 1) SELECT t1;
+                                          +-------------------+
+                                          | nullif(c1, 1)   |
+                                          +-------------------+
+                                          | 2.122999906539917 |
+                                          +-------------------+
+                                          1 row in set (0.00 sec)
+
+                                          -- MySQL 8.0的行为。
+                                          mysql> SELECT nullif(c1, 1) SELECT t1;
+                                          +---------------+
+                                          | nullif(c1, 1) |
+                                          +---------------+
+                                          |       2.123 |
+                                          +---------------+
+                                          1 row in set (0.00 sec)
+
+
+
+
+4.4.2.2.3 日期和时间函数
+              以下为GaussDB数据库M-Compatibility兼容性日期时间函数公共差异说明。
+              ●   当SELECT子查询中包含且仅包含时间函数，且函数入参包含表中的列时，使用算
+                  数运算符（如+、-、*、/、取反等）对结果进行运算时，会截断日期与时间函数返
+                  回值后再进行算数运算。
+                  m_db=# CREATE TABLE t1(int_var int);
+                  CREATE TABLE
+                  m_db=# INSERT INTO t1 VALUES(100);
+                  INSERT 0 1
+                  m_db=# SELECT (SELECT (1 * DATE_ADD('2020-10-20', interval int_var microsecond))) AS a FROM t1;
+                  -- 不进行截断处理。
+                        a
+                  ----------------
+                   20201020000000
+                  (1 row)
+
+                  m_db=# SELECT (1 * (SELECT DATE_ADD('2020-10-20', interval int_var microsecond))) AS a FROM t1;
+                  -- 进行截断处理。
+                    a
+                  ------
+                   2020
+                  (1 row)
+
+                  m_db=# SELECT 1 * a FROM (SELECT (SELECT 1 * DATE_ADD('2020-10-20', interval int_var
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                     3286
+GaussDB
+集中式版参考                                                                                          4 兼容性说明
+
+                 microsecond)) AS a FROM t1) AS t2; -- 不进行截断处理。
+                     1*a
+                 ----------------
+                  20201020000000
+                 (1 row)
+
+                 m_db=# SELECT 1 * a FROM (SELECT (SELECT DATE_ADD('2020-10-20', interval int_var microsecond))
+                 AS a FROM t1) AS t2; -- 进行截断处理。
+                  1*a
+                 -------
+                   2020
+                 (1 row)
+
+
+              表 4-144 日期和时间函数列表
+               函数名                   与MySQL的差异
+
+               ADDDATE()             -
+
+               ADDTIME()             -
+
+               CONVERT_TZ()          -
+
+               CURDATE()             -
+
+               CURRENT_DATE()        -
+               /CURRENT_DATE
+
+               CURRENT_TIME()        MySQL入参整型值会按照一字节最大值255整数回绕（例：
+               /CURRENT_TIME         SELECT CURRENT_TIME(257) == SELECT
+                                     CURRENT_TIME(1)）。
+               CURRENT_TIMES
+               TAMP()/               GaussDB只支持[0,6]合法值，其他值报错。
+               CURRENT_TIMES
+               TAMP
+
+               CURTIME()
+
+               LOCALTIME()/
+               LOCALTIME
+
+               LOCALTIMESTAM
+               P/
+               LOCALTIMESTAM
+               P()
+
+               NOW()
+
+               SYSDATE()
+
+               UTC_TIME()
+
+               UTC_TIMESTAM
+               P()
+
+               DATE()                -
+
+               DATE_ADD()            -
+
+               DATE_FORMAT()         -
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                    3287
+GaussDB
+集中式版参考                                             4 兼容性说明
+
+
+               函数名            与MySQL的差异
+
+               DATE_SUB()     -
+
+               DATEDIFF()     -
+
+               DAY()          -
+
+               DAYNAME()      -
+
+               DAYOFMONTH()   -
+
+               DAYOFWEEK()    -
+
+               DAYOFYEAR()    -
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司       3288
+GaussDB
+集中式版参考                                                                                          4 兼容性说明
+
+
+               函数名         与MySQL的差异
+
+               EXTRACT()   当EXTRACT(unit FROM date)中date入参的类型为datetime类
+                           型并且unit入参的取值为DAY_HOUR、DAY_MINUTE、
+                           DAY_SECOND、DAY_MICROSECOND时，GaussDB的结果都
+                           会返回DAY的部分，MySQL的结果只有在date入参为表数据时
+                           会返回DAY的部分，例如：
+                           -- GaussDB的行为：
+                           m_db=# DROP TABLE IF EXISTS t_datetime;
+                           DROP TABLE
+
+                           m_db=# CREATE TABLE t_datetime(c1 datetime(6));
+                           CREATE TABLE
+
+                           m_db=# INSERT INTO t_datetime VALUES('2023-01-27 10:11:12.400000');
+                           INSERT 0 1
+
+                           -- date入参为表数据时，结果会返回DAY的部分。
+                           m_db=# SELECT EXTRACT(DAY_MICROSECOND FROM c1) FROM t_datetime;
+                              extract
+                           ----------------
+                            27101112400000
+                           (1 row)
+
+                           -- date入参为常量数据时，结果也会返回DAY的部分。
+                           m_db=# SELECT EXTRACT(DAY_MICROSECOND FROM cast('2023-01-27
+                           10:11:12.400000' as datetime(6)));
+                              extract
+                           ----------------
+                            27101112400000
+                           (1 row)
+
+                           m_db=# DROP TABLE IF EXISTS t_datetime;
+                           DROP TABLE
+
+                           -- MySQL的行为：
+                           mysql> DROP TABLE IF EXISTS t_datetime;
+                           Query OK, 0 rows affected (0.04 sec)
+
+                           mysql> CREATE TABLE t_datetime(c1 datetime(6));
+                           Query OK, 0 rows affected (0.05 sec)
+
+                           mysql> INSERT INTO t_datetime VALUES('2023-01-27 10:11:12.400000');
+                           Query OK, 1 row affected (0.00 sec)
+
+                           -- date入参为表数据时，结果会返回DAY的部分。
+                           mysql> SELECT EXTRACT(DAY_MICROSECOND FROM c1) FROM t_datetime;
+                           +----------------------------------+
+                           | EXTRACT(DAY_MICROSECOND FROM c1) |
+                           +----------------------------------+
+                           |              27101112400000 |
+                           +----------------------------------+
+                           1 row in set (0.01 sec)
+
+                           -- date入参为常量数据时，结果不会返回DAY的部分。
+                           mysql> SELECT EXTRACT(DAY_MICROSECOND FROM cast('2023-01-27
+                           10:11:12.400000' as datetime(6)));
+                           +---------------------------------------------------------------------------------+
+                           | EXTRACT(DAY_MICROSECOND FROM cast('2023-01-27 10:11:12.400000' as
+                           datetime(6))) |
+                           +---------------------------------------------------------------------------------+
+                           |                                                     101112400000 |
+                           +---------------------------------------------------------------------------------+
+                           1 row in set (0.00 sec)
+
+                           mysql> DROP TABLE IF EXISTS t_datetime;
+                           Query OK, 0 rows affected (0.04 sec)
+
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                                                              3289
+GaussDB
+集中式版参考                                                       4 兼容性说明
+
+
+               函数名             与MySQL的差异
+
+               FROM_DAYS()     -
+
+               FROM_UNIXTIM    -
+               E()
+
+               GET_FORMAT()    -
+
+               HOUR()          -
+
+               LAST_DAY()      -
+
+               MAKEDATE()      -
+
+               MAKETIME()      -
+
+               MICROSECOND()   -
+
+               MINUTE()        -
+
+               MONTH()         -
+
+               MONTHNAME()     -
+
+               PERIOD_ADD()    MySQL 8.0修复了以下问题，在以下场景中，该函数的行为与
+                               MySQL 8.0版本保持一致，与MySQL 5.7版本存在差异：
+                               ● 整数溢出处理的行为：
+                                 MySQL在5.7版本，此函数入参和结果的最大值都为
+                                 2^32=4294967296，在入参或结果的period对应的月份累
+                                 加值以及month_number超过uint32范围时存在整数回绕问
+                                 题。GaussDB不存在该问题。
+                               ● 负数period的表现：
+                                 MySQL在5.7版本，会将负数年份解析为异常值而不是报
+                                 错。GaussDB入参或结果（如100年1月减去10000月）出现
+                                 负数时报错。
+                               ● period月份越界的表现：
+                                 MySQL在5.7版本中，若月份大于12或等于0，例如
+                                 200013、199900，会将其顺延到之后的年份，或者将0月
+                                 作为上一年12月处理。GaussDB会对越界月份进行报错。
+
+               PERIOD_DIFF()   -
+
+               QUARTER()       -
+
+               SEC_TO_TIME()   -
+
+               SECOND()        -
+
+               STR_TO_DATE()   -
+
+               SUBDATE()       -
+
+               SUBTIME()       -
+
+               TIME()          -
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                 3290
+GaussDB
+集中式版参考                                                      4 兼容性说明
+
+
+               函数名              与MySQL的差异
+
+               TIME_FORMAT()    -
+
+               TIME_TO_SEC()    -
+
+               TIMEDIFF()       -
+
+               TIMESTAMP()      -
+
+               TIMESTAMPADD(    -
+               )
+
+               TIMESTAMPDIFF(   -
+               )
+
+               TO_DAYS()        -
+
+               TO_SECONDS()     在MySQL 5.7版本中，此函数的精度信息有误。
+                                开启精度传递参数下，GaussDB精度信息正常，和MySQL 8.0
+                                版本保持一致。
+
+               UNIX_TIMESTAM    MySQL会根据入参是否存在小数位，决定返回定点型还是整
+               P()              型。当前GaussDB在内层嵌套操作符或函数时，返回的类型与
+                                MySQL可能存在不同。当内层节点返回定点、浮点、字符型、
+                                时间类型（不包括DATE类型）时，MySQL可能返回整型，
+                                GaussDB会返回定点型。
+
+               UTC_DATE()       -
+
+               WEEK()           -
+
+               WEEKDAY()        -
+
+               WEEKOFYEAR()     -
+
+               YEAR()           -
+
+               YEARWEEK()       -
+
+
+
+
+4.4.2.2.4 字符串函数
+              当GaussDB使用的字符编码是SQL_ASCII时，服务器会根据ASCII标准对字节值0~127
+              进行解释，而字节值128~255则当作无法解析的字符。如果该函数的输入输出包含了
+              任何非ASCII数据，数据库将无法帮助用户转换或者校验非ASCII字符，从而与MySQL
+              的行为产生较大差异。
+
+              表 4-145 字符串函数列表
+               函数名              与MySQL的差异
+
+               ASCII()          -
+
+               BIT_LENGTH()     -
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司              3291
+GaussDB
+集中式版参考                                                                             4 兼容性说明
+
+
+               函数名             与MySQL的差异
+
+               CHAR_LENGTH()   如果数据库字符集是SQL_ASCII，该函数会返回字节数而非字符
+                               数。
+               CHARACTER_LEN
+               GTH()
+
+               CONCAT()        -
+
+               CONCAT_WS()     -
+
+               HEX()           -
+
+               LENGTH()        -
+
+               LPAD()          MySQL默认最大填充长度为1398101，GaussDB默认最大长度
+                               为1048576。在不同字符集下，最大填充长度会有差异，例如
+               RPAD()          字符集为GBK时，GaussDB默认最大长度为2097152。
+
+               MD5()           当BINARY类型插入字符串长度小于目标长度时，GaussDB填充
+                               符和MySQL不同；因此导致入参为BINARY类型时，函数结果和
+                               MySQL不一致。
+
+               RANDOM_BYTE     GaussDB与MySQL都使用OPENSSL生成随机字符串。GaussDB
+               S()             使用OPENSSL3.x.x生成随机字符串，与使用OPENSSL1.x.x版本
+                               的MySQL相比性能可能存在劣化。
+
+               REPEAT()        -
+
+               REPLACE()       当第三个入参为null，且第二个入参的字符串长度不为0时，
+                               GaussDB返回NULL，MySQL可能返回第一个参数的字符。例
+                               如：
+                               -- GaussDB的行为：
+                               m_db=# select replace('1.23', binary(1.1), null);
+                                replace
+                               ---------
+
+                               (1 row)
+
+                               -- MySQL的行为：
+                               mysql> select replace('1.23', binary(1.1), null);
+                               +------------------------------------+
+                               | replace('1.23', binary(1.1), null) |
+                               +------------------------------------+
+                               | 1.23                        |
+                               +------------------------------------+
+                               1 row in set (0.00 sec)
+
+               SHA()/SHA1()    -
+
+               SHA2()          -
+
+               SPACE()         -
+
+               STRCMP()        -
+
+               FIND_IN_SET()   -
+
+               LCASE()         -
+
+               LEFT()          -
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                                      3292
+GaussDB
+集中式版参考                                                        4 兼容性说明
+
+
+               函数名             与MySQL的差异
+
+               LOWER()         -
+
+               LTRIM()         -
+
+               REVERSE()       -
+
+               RIGHT()         -
+
+               RTRIM()         -
+
+               SOUNDEX()       -
+
+               SUBSTR()        第一个入参节点返回的字符序为BINARY时，MySQL可能依旧以
+                               不同的字符序逻辑处理（取决于内层嵌套的函数），而
+               SUBSTRING()     GaussDB以BINARY字符序进行函数处理，导致截取的字节长度
+                               不同。
+
+               SUBSTRING_IND   ● 在第三个入参为负数时，MySQL与GaussDB的比较逻辑不
+               EX()              同，会导致结果可能存在差异。
+                               ● 当第三个入参为正数时，由于MySQL 5.7以int32位存储，会
+                                 存在回绕问题导致结果不正确。MySQL 8.0修复了该问题以
+                                 int64为存储，GaussDB以8.0为准。当入参值超过2^63 -1
+                                 时，也会发生回绕，可能导致第三个参数获取为负数，结果
+                                 存在差异。
+
+               TRIM()          -
+
+               UCASE()         -
+
+               UPPER()         -
+
+               UNHEX()         -
+
+               FIELD()         -
+
+               COMPRESS()      -
+
+               UNCOMPRESS()    -
+
+               UNCOMPRESS_L    -
+               ENGTH()
+
+               EXPORT_SET()    -
+
+               POSITION()      -
+
+               LOCATE()        -
+
+               CHAR()          ● CHAR函数指定字符集时，若转码失败，GaussDB产生报
+                                 错，MySQL提示WARNING并返回NULL。
+                               ● MySQL在参数为ASCII表中第0~31个和127个码值时，返回
+                                 结果不可见，GaussDB会以\x01、\x02等16进制返回。
+                               ● MySQL中CHAR函数入参个数无限制，GaussDB函数的入参
+                                 不超过8192个。
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                  3293
+GaussDB
+集中式版参考                                                     4 兼容性说明
+
+
+               函数名             与MySQL的差异
+
+               ELT()           MySQL中ELT函数入参个数无限制，GaussDB函数的入参不超过
+                               8192个。
+
+               FORMAT()        -
+
+               BIN()           -
+
+               OCT()           -
+
+               MAKE_SET()      MySQL 5.7版本，当MAKE_SET函数选中的第一个参数为整型、
+                               浮点型或定点型且返回结果中存在非ASCII字符，显示结果可能
+                               为乱码；GaussDB显示结果正常，和MySQL 8.0版本保持一
+                               致。
+
+               TO_BASE64()     -
+
+               FROM_BASE64()   -
+
+               ORD()           -
+
+               MID()           -
+
+               QUOTE()         ● 当入参字符串中含“\0”时，GaussDB中由于字符集不支持
+                                 导致无法输入。由转义字符导致的本函数与MySQL的差异，
+                                 与本函数无关。
+                               ● GaussDB最大支持1GB数据传输，str入参长度最大支持
+                                 536870908字节，函数返回结果字符串最大支持1GB。
+                               ● 入参为固定长度BINARY类型时，对于未填充字符：MySQL
+                                 默认补充空字符“\0”，GaussDB默认补充空格。
+
+               INSERT()        -
+
+               INSTR()         -
+
+               OCTET_LENGTH(   -
+               )
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                 3294
+GaussDB
+集中式版参考                                                                                4 兼容性说明
+
+
+4.4.2.2.5 强制转换函数
+
+              表 4-146 类型转换函数列表
+               函数名        与MySQL的差异
+
+               CAST()     ● 由于函数执行机制不同，flags无法传递给内层函数，在cast
+                            函数嵌套其他函数（如greatest、least等）时，内层函数返
+                            回小于1的值，结果与MySQL不一致。
+                            --GaussDB:
+                            m_db=# SELECT cast(least(1.23, 1.23, 0.23400) AS date);
+                            WARNING: Incorrect datetime value: '0.23400'
+                            CONTEXT: referenced column: cast
+                             cast
+                            ------
+                            (1 row)
+
+                            --MySQL 5.7:
+                            mysql> SELECT cast(least(1.23, 1.23, 0.23400) AS date);
+                            +------------------------------------------+
+                            | cast(least(1.23, 1.23, 0.23400) as date) |
+                            +------------------------------------------+
+                            | 0000-00-00                           |
+                            +------------------------------------------+
+                            1 row in set (0.00 sec)
+
+                          ● GaussDB支持使用CAST(expr AS FLOAT[(p)])或CAST(expr
+                            AS DOUBLE)将表达式转换为浮点类型，MySQL 5.7版本不
+                            支持此转换。
+                          ● 使用CAST(expr AS FLOAT[(p)])函数时，若参数p满足0 ≤ p
+                            < 24，函数返回值类型为FLOAT，但该函数在CREATE
+                            TABLE/VIEW [AS] SELECT语句中使用时，最终创建的表/视
+                            图对应字段类型会变为DOUBLE，此行为与MySQL 8.0版本
+                            存在不一致。
+                          ● 对于CAST嵌套子查询场景，如果子查询语句返回的是
+                            FLOAT类型，GaussDB返回的是准确的数值，MySQL 5.7版
+                            本返回失真数值，BINARY函数使用CAST实现，同理。
+                            --GaussDB
+                            m_db=# CREATE TABLE sub_query_table(myfloat float);
+                            CREATE TABLE
+
+                            m_db=# INSERT INTO sub_query_table(myfloat) VALUES (1.23);
+                            INSERT 0 1
+
+                            m_db=# SELECT binary(SELECT myfloat FROM sub_query_table) FROM
+                            sub_query_table;
+                             binary
+                            --------
+                             1.23
+                            (1 row)
+
+                            m_db=# SELECT cast((SELECT myfloat FROM sub_query_table) AS char);
+                             cast
+                            ------
+                             1.23
+                            (1 row)
+
+                            --MySQL 5.7
+                            mysql> CREATE TABLE sub_query_table(myfloat float);
+                            Query OK, 0 rows affected (0.02 sec)
+
+                            mysql> INSERT INTO sub_query_table(myfloat) VALUES (1.23);
+
+
+
+
+文档版本 01 (2026-04-30)      版权所有 © 华为云计算技术有限公司                                                3295
+GaussDB
+集中式版参考                                                                             4 兼容性说明
+
+
+               函数名     与MySQL的差异
+                         Query OK, 1 row affected (0.00 sec)
+
+                         mysql> SELECT binary(SELECT myfloat FROM sub_query_table) FROM
+                         sub_query_table;
+                         +-----------------------------------------------+
+                         | binary(SELECT myfloat FROM sub_query_table) |
+                         +-----------------------------------------------+
+                         | 1.2300000190734863                            |
+                         +-----------------------------------------------+
+                         1 row in set (0.00 sec)
+
+                         mysql> SELECT cast((SELECT myfloat FROM sub_query_table) AS char);
+                         +------------------------------------------------------+
+                         | cast((SELECT myfloat FROM sub_query_table) AS char) |
+                         +------------------------------------------------------+
+                         | 1.2300000190734863                                 |
+                         +------------------------------------------------------+
+                         1 row in set (0.00 sec)
+
+                       ● GaussDB在JSON数据类型显式转换后运用于精度计算时，
+                         与MySQL 5.7不一致，与MySQL 8.0一致，计算时精度与使
+                         用JSON类型表中数据精度保持一致。
+                         示例：
+                         --GaussDB
+                         test=# SET
+                         m_format_behavior_compat_options='enable_precision_decimal';
+                         SET
+
+                         test=# DROP TABLE tt01;
+                         DROP TABLE
+
+                         test=# CREATE TABLE tt01 AS SELECT -cast('98.7654321' AS json) AS c1;
+                         INSERT 0 1
+
+                         test=# DESC tt01;
+                          Field | Type | Null | Key | Default | Extra
+                         -------+--------+------+-----+---------+-------
+                          c1 | double | YES |       |      |
+                         (1 row)
+
+                         test=# SELECT * FROM tt01;
+                             c1
+                         -------------
+                          -98.7654321
+                         (1 row)
+
+                         --MySQL 5.7
+                         mysql> SELECT version();
+                         +------------------+
+                         | version()       |
+                         +------------------+
+                         | 5.7.44-debug-log |
+                         +------------------+
+                         1 row in set (0.00 sec)
+
+                         mysql> DROP TABLE tt01;
+                         Query OK, 0 rows affected (0.02 sec)
+
+                         mysql> CREATE TABLE tt01 AS SELECT -cast('98.7654321' AS json) AS c1;
+                         Query OK, 1 row affected (0.03 sec)
+                         Records: 1 Duplicates: 0 Warnings: 0
+
+                         mysql> DESC tt01;
+                         +-------+--------------+------+-----+---------+-------+
+                         | Field | Type       | Null | Key | Default | Extra |
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                                   3296
+GaussDB
+集中式版参考                                                                                 4 兼容性说明
+
+
+               函数名         与MySQL的差异
+                             +-------+--------------+------+-----+---------+-------+
+                             | c1 | double(17,0) | YES |       | NULL |        |
+                             +-------+--------------+------+-----+---------+-------+
+                             1 row in set (0.00 sec)
+
+                             mysql> SELECT * FROM tt01;
+                             +------+
+                             | c1 |
+                             +------+
+                             | -99 |
+                             +------+
+                             1 row in set (0.00 sec)
+
+                             --MySQL 8.0
+                             mysql> SELECT version();
+                             +--------------+
+                             | version() |
+                             +--------------+
+                             | 8.0.36-debug |
+                             +--------------+
+                             1 row in set (0.00 sec)
+
+                             mysql> DROP TABLE tt01;
+                             Query OK, 0 rows affected (0.05 sec)
+
+                             mysql> CREATE TABLE tt01 AS SELECT -cast('98.7654321' AS json) AS c1;
+                             Query OK, 1 row affected (0.12 sec)
+                             Records: 1 Duplicates: 0 Warnings: 0
+
+                             mysql> DESC tt01;
+                             +-------+--------+------+-----+---------+-------+
+                             | Field | Type | Null | Key | Default | Extra |
+                             +-------+--------+------+-----+---------+-------+
+                             | c1 | double | YES |      | NULL |        |
+                             +-------+--------+------+-----+---------+-------+
+                             1 row in set (0.01 sec)
+
+                             mysql> SELECT * FROM tt01;
+                             +-------------+
+                             | c1       |
+                             +-------------+
+                             | -98.7654321 |
+                             +-------------+
+                             1 row in set (0.00 sec)
+
+               CONVERT()   ● GaussDB支持使用CONVERT(expr, FLOAT[(p)])或
+                             CONVERT(expr, DOUBLE)将表达式转换为浮点类型，
+                             MySQL 5.7版本不支持此转换。
+                           ● 使用CONVERT(expr, FLOAT[(p)])函数时，若参数p满足0 ≤
+                             p < 24，函数返回值类型为FLOAT，但该函数在CREATE
+                             TABLE/VIEW [AS] SELECT语句中使用时，最终创建的表/视
+                             图对应字段类型会变为DOUBLE，此行为与MySQL 8.0版本
+                             存在不一致。
+
+
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                                                  3297
+GaussDB
+集中式版参考                                                                4 兼容性说明
+
+
+4.4.2.2.6 加密函数
+
+              表 4-147 加密函数列表
+
+               函数名             与MySQL的差异
+
+               AES_DECRYPT()   ● ecb为不安全加密模式，GaussDB不支持，默认为cbc模式。
+               AES_ENCRYPT()   ● GaussDB中，当指定数据库使用的字符编码是SQL_ASCII
+                                 时，服务器把字节值0~127根据ASCII标准解释，而字节值
+                                 128~255则当作无法解析的字符；如果该函数的输入输出包
+                                 含了任何非ASCII数据，数据库将无法帮助用户转换或者校
+                                 验非ASCII字符。
+                               ● GUC参数block_encryption_mode的取值会影响函数使用，
+                                 该参数不支持设置数字。
+
+               PASSWORD()      ● MySQL中可以通过GUC参数old_passwords控制生成密码的
+                                 哈希方式：
+                                   – old_passwords的默认值为0。
+                                   – old_passwords为0：表示使用MySQL 4.1 native
+                                     hashing加密。
+                                   – old_passwords为2：表示使用SHA-256 hashing加密。
+                               ● GaussDB中没有实现GUC参数old_passwords，password函
+                                 数的行为只与默认（即old_passwords为0）的行为保持一
+                                 致。
+                               ● 当BINARY类型插入字符串长度小于目标长度时，GaussDB
+                                 填充符和MySQL不同；因此入参为BINARY类型时，函数结
+                                 果和MySQL不一致。
+
+
+
+
+4.4.2.2.7 比较函数
+
+              表 4-148 比较函数列表
+
+               函数名             与MySQL的差异
+
+               COALESCE()      union distinct场景下，返回值精度与MySQL不完全一致。
+                               当第一个不为NULL的参数的后续参数表达式中存在隐式类型转
+                               换错误时，MySQL会忽略该错误，GaussDB会提示类型转换错
+                               误。当参数为MIN函数、MAX函数时，返回值类型与MySQL不
+                               一致。
+
+               INTERVAL()      -
+
+               GREATEST()      ● 当函数传入的参数存在数据类型不一致的情况时，函数的返
+                                 回值类型与MySQL存在差异。
+               LEAST()
+                               ● 当该函数入参含有NULL且在WHERE关键字之后调用，返回
+                                 结果与MySQL 5.7不一致，此处为MySQL 5.7存在的问题，
+                                 MySQL 8.0修复了该问题，目前GaussDB和MySQL 8.0保持
+                                 一致。
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                           3298
+GaussDB
+集中式版参考                                                                     4 兼容性说明
+
+
+               函数名        与MySQL的差异
+
+               ISNULL()   ● 函数返回值类型在MySQL 5.7和MySQL 8.0中存在差异，结
+                            合MySQL 8.0的行为更为合理，因此函数返回值类型兼容
+                            MySQL 8.0。
+                          ● 内层嵌套部分聚合函数时，部分场景返回结果MySQL 5.7和
+                            MySQL 8.0中存在差异，结合MySQL 8.0的行为更为合理，
+                            因此函数返回值兼容MySQL 8.0。
+                            m_db=# SELECT isnull(avg(1.23));
+                            ?column?
+                            ----------
+                            f
+                            (1 row)
+
+                            m_db=# SELECT isnull(group_concat(1.23));
+                            ?column?
+                            ----------
+                            f
+                            (1 row)
+
+                            m_db=# SELECT isnull(max('1.23'));
+                            ?column?
+                            ----------
+                            f
+                            (1 row)
+
+                            m_db=# SELECT isnull(min(1/2));
+                            ?column?
+                            ----------
+                            f
+                            (1 row)
+
+                            m_db=# SELECT isnull(std(3.14159 * 1.2345));
+                            ?column?
+                            ----------
+                            f
+                            (1 row)
+
+                            m_db=# SELECT isnull(sum('0.23400'));
+                            ?column?
+                            ----------
+                            f
+                            (1 row)
+
+
+
+
+文档版本 01 (2026-04-30)      版权所有 © 华为云计算技术有限公司                                   3299
+GaussDB
+集中式版参考                                                          4 兼容性说明
+
+
+4.4.2.2.8 聚合函数
+
+              表 4-149 聚合函数列表
+               函数名         与MySQL的差异
+
+               AVG()       ● GaussDB中当expr中的列为BIT、BOOL、整数类型，且所有
+                             行的和超过BIGINT的范围时，会发生溢出导致整数翻转。
+                           ● GaussDB在AVG函数入参为TEXT/BLOB类型时行为存在差
+                             异：
+                               – MySQL 5.7中，AVG(TEXT/BLOB)返回值类型为
+                                 MEDIUMTEXT类型；MySQL 8.0中，AVG(TEXT/BLOB)
+                                 返回值类型为DOUBLE类型。
+                               – 在GaussDB中，AVG(TEXT/BLOB)返回值类型与MySQL
+                                 8.0版本保持一致。
+
+               BIT_AND()   BIT_AND函数入参为NULL且被其他函数嵌套时行为有差异：
+                           在MySQL 5.7中，结果为-1；在MySQL 8.0中，结果为NULL；
+                           在GaussDB中，此函数嵌套的表现与MySQL 8.0版本保持一
+                           致。
+                           -- GaussDB：
+                           m_db=# SELECT acos(bit_and(null));
+                            acos
+                           ------
+
+                           (1 row)
+                           -- MySQL 5.7：
+                           mysql> SELECT acos(bit_and(null));
+                           +---------------------+
+                           | acos(bit_and(null)) |
+                           +---------------------+
+                           | 3.141592653589793 |
+                           +---------------------+
+                           1 row in set (0.03 sec)
+
+                           -- MySQL 8.0
+                           mysql> SELECT acos(bit_and(null));
+                           +---------------------+
+                           | acos(bit_and(null)) |
+                           +---------------------+
+                           |            NULL |
+                           +---------------------+
+                           1 row in set (0.01 sec)
+
+               BIT_OR()    -
+
+               BIT_XOR()   -
+
+               COUNT()     GaussDB支持count(tablename.*)语法，MySQL不支持。
+
+
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                        3300
+GaussDB
+集中式版参考                                                                                   4 兼容性说明
+
+
+               函数名           与MySQL的差异
+
+               GROUP_CONCA   ● GaussDB中当GROUP_CONCAT函数中同时存在DISTINCT
+               T()             和ORDER BY关键字时，支持ORDER BY后面的表达式不在
+                               DISTINCT后面的表达式之中，但存在以下约束：
+                               – 当ORDER BY后面的表达式不在DISTINCT后面的表达式
+                                 之中，DISTINCT表达式存在重复数据时，ORDER BY结
+                                 果与底层DISTINCT结果有关，DISTINCT结果不同会导致
+                                 拼接的结果不稳定。
+                               – 当ORDER BY后面的表达式不在DISTINCT后面的表达式
+                                 之中时，对于ORDER BY表达式中值相等的两条记录，排
+                                 序顺序不稳定，排序顺序不同会导致拼接的结果不稳
+                                 定。
+                             ● GaussDB中GROUP_CONCAT(... ORDER BY 数字)不代表按
+                               照第几个参数的顺序，数字只是一个常量表达式，相当于不
+                               排序。
+                             ● GROUP_CONCAT返回类型为二进制类型时，只返回BLOB
+                               类型，其他情况返回TEXT类型。MySQL根据返回长度还会
+                               返回longtext/tinytext/longblob/tinyblob类型。
+                             ● GaussDB中使用参数group_concat_max_len限制
+                               GROUP_CONCAT最大返回长度，超长截断，目前能返回的
+                               最大长度是1073741823，小于MySQL。
+                             ● 默认UTF8字符集下，由于GaussDB的UTF8字符集的最大字
+                               节数与MySQL的UTF8字符集最大字节数不同。会导致创建
+                               的表结构与MySQL存在差异。
+                               -- GaussDB：
+                               m_db=# SET
+                               m_format_behavior_compat_options='enable_precision_decimal';
+                               SET
+                               m_db=# CREATE TABLE t1 AS SELECT * FROM (SELECT CASE WHEN 1 < 2
+                               THEN group_concat(1.23, 3.24) ELSE 12.34 END v1) c1;
+                               INSERT 0 1
+                               m_db=# DESC t1;
+                                Field |   Type      | Null | Key | Default | Extra
+                               -------+--------------+------+-----+---------+-------
+                                v1 | varchar(256) | YES |          |     |
+                               (1 row)
+                               -- MySQL 5.7：
+                               mysql> CREATE TABLE t1 AS SELECT * FROM (SELECT CASE WHEN 1 < 2
+                               THEN group_concat(1.23, 3.24) ELSE 12.34 END v1) c1;
+                               Query OK, 1 row affected (0.01 sec)
+                               Records: 1 Duplicates: 0 Warnings: 0
+
+                               mysql> DESC t1;
+                               +-------+--------------+------+-----+---------+-------+
+                               | Field | Type       | Null | Key | Default | Extra |
+                               +-------+--------------+------+-----+---------+-------+
+                               | v1 | varchar(341) | YES |         | NULL |       |
+                               +-------+--------------+------+-----+---------+-------+
+                               1 row in set (0.00 sec)
+
+                             ● GROUP_CONCAT函数作为NULLIF函数的入参，嵌套场景
+                               行为有差异：在MySQL 5.7中，NULLIF入参嵌套
+                               GROUP_CONCAT与非嵌套GROUP_CONCAT的数值会判断
+                               为相等，返回NULL；在MySQL 8.0中，因精度差异会判断
+                               为不等；在GaussDB中，此函数嵌套的表现与MySQL 8.0版
+                               本保持一致。
+
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                                              3301
+GaussDB
+集中式版参考                                                                   4 兼容性说明
+
+
+               函数名     与MySQL的差异
+                         -- GaussDB：
+                         m_db=# SELECT nullif(group_concat(1/7), 1/7);
+                          nullif
+                         --------
+                          0.1429
+                         (1 row)
+                         -- MySQL 5.7：
+                         mysql> SELECT nullif(group_concat(1/7), 1/7);
+                         +--------------------------------+
+                         | nullif(group_concat(1/7), 1/7) |
+                         +--------------------------------+
+                         | NULL                       |
+                         +--------------------------------+
+                         1 row in set (0.00 sec)
+                         -- MySQL 8.0：
+                         mysql> SELECT nullif(group_concat(1/7), 1/7);
+                         +--------------------------------+
+                         | nullif(group_concat(1/7), 1/7) |
+                         +--------------------------------+
+                         | 0.1429                    |
+                         +--------------------------------+
+                         1 row in set (0.00 sec)
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                    3302
+GaussDB
+集中式版参考                                                                            4 兼容性说明
+
+
+               函数名     与MySQL的差异
+
+               MAX()   ● 当参数为非表字段时，MAX函数、MIN函数返回值类型和
+                         MySQL 5.7不一致。
+               MIN()
+                       ● 开启精度传递时，MAX函数、MIN函数嵌套time、date、
+                         datetime、timestamp类型的时间间隔运算，返回值及返回
+                         类型与MySQL 8.0保持一致。
+                       ● 开启精度传递时，MAX函数、MIN函数和INTERVAL的时间
+                         间隔运算，返回值及返回类型与MySQL 8.0保持一致。
+                       ● 当参数为float类型时，MAX函数、MIN函数的返回值结果
+                         与MySQL 5.7一致。MySQL5.7和MySQL8.0有行为差异，导
+                         致MAX函数、MIN函数嵌套CAST(expr AS FLOAT[(p)])时
+                         的返回结果与MySQL8.0有差异。
+                         -- GaussDB：
+                         m_db=# CREATE TABLE t1(c1 float);
+                         CREATE TABLE
+
+                         m_db=# INSERT INTO t1 VALUES(1.2);
+                         INSERT 0 1
+
+                         m_db=# SELECT MAX(c1) FROM t1;
+                               max
+                         --------------------
+                          1.2000000476837158
+                         (1 row)
+
+                         m_db=# SELECT MAX(CAST(1.2 AS FLOAT));
+                               max
+                         --------------------
+                          1.2000000476837158
+                         (1 row)
+
+                         m_db=# DROP TABLE t1;
+                         DROP TABLE
+
+                         -- MySQL 5.7：
+                         mysql> CREATE TABLE t1(c1 float);
+                         Query OK, 0 rows affected (0.02 sec)
+
+                         mysql> INSERT INTO t1 VALUES(1.2);
+                         Query OK, 1 row affected (0.00 sec)
+
+                         mysql> SELECT MAX(c1) FROM t1;
+                         +--------------------+
+                         | MAX(c1)            |
+                         +--------------------+
+                         | 1.2000000476837158 |
+                         +--------------------+
+                         1 row in set (0.00 sec)
+                         -- MySQL5.7不支持CAST(expr AS FLOAT[(p)])表达式
+                         mysql> SELECT MAX(CAST(1.2 AS FLOAT));
+                         ERROR 1064 (42000): You have an error in your SQL syntax; check the
+                         manual that corresponds to your MySQL server version for the right
+                         syntax to use near 'FLOAT))' at line 1
+
+                         mysql> DROP TABLE t1;
+                         Query OK, 0 rows affected (0.01 sec)
+
+                         -- MySQL 8.0：
+                         mysql> CREATE TABLE t1(c1 float);
+                         Query OK, 0 rows affected (0.03 sec)
+
+                         mysql> INSERT INTO t1 VALUES(1.2);
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                                      3303
+GaussDB
+集中式版参考                                                                      4 兼容性说明
+
+
+               函数名             与MySQL的差异
+                                   Query OK, 1 row affected (0.00 sec)
+
+                                   mysql> SELECT MAX(c1) FROM t1;
+                                   +---------+
+                                   | MAX(c1) |
+                                   +---------+
+                                   |   1.2 |
+                                   +---------+
+                                   1 row in set (0.00 sec)
+
+                                   mysql> SELECT MAX(CAST(1.2 AS FLOAT));
+                                   +-------------------------+
+                                   | MAX(CAST(1.2 AS FLOAT)) |
+                                   +-------------------------+
+                                   |                1.2 |
+                                   +-------------------------+
+                                   1 row in set (0.00 sec)
+
+                                   mysql> DROP TABLE t1;
+                                   Query OK, 0 rows affected (0.01 sec)
+
+               SUM()           GaussDB中当expr中的列为BIT、BOOL、整数类型，且所有行
+                               的和超过BIGINT的范围时，会发生溢出导致整数翻转。
+
+               STD()           -
+
+               STDDEV()        -
+
+               STDDEV_POP()    -
+
+               STDDEV_SAMP()   -
+
+               VAR_POP()       -
+
+               VARIANCE()      -
+
+               VAR_SAMP()      -
+
+               JSON_ARRAYAG    当函数入参numeric类型时，GaussDB数据结果精度与numeric
+               G()             类型的精度保持一致，末尾会进行自动补充0，MySQL不会对
+                               末尾进行补充0。
+
+               JSON_OBJECTAG   ● 当key值相同时，去重逻辑与MySQL有差异。GaussDB是使
+               G()               用第一个value作为结果输出，MySQL使用最后一个value作
+                                 为结果。
+                               ● 当函数入参numeric类型时，GaussDB数据结果精度与
+                                 numeric 类型的精度保持一致，末尾会进行自动补充0，
+                                 MySQL不会对末尾进行补充0。
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                               3304
+GaussDB
+集中式版参考                                                                             4 兼容性说明
+
+
+               函数名     与MySQL的差异
+
+               聚合函数    ● GaussDB中指定DISTINCT且SQL语句包含GROUP BY子句
+                         时，不对结果进行排序，MySQL会进行排序。
+                       ● ORDER BY语句中包含聚合函数时GaussDB不报错，MySQL
+                         会报错。
+                       ● 在未开启精度传递（没有设置
+                         m_format_behavior_compat_options =
+                         'enable_precision_decimal'）的情况下，当聚合函数以其他
+                         函数、操作符或SELECT子句等表达式作为入参时（如
+                         SELECT sum(abs(n)) FROM t），聚合函数将获取不到入参
+                         表达式传递的精度信息，导致函数的结果精度与MySQL有
+                         差异。
+                       ● 聚合函数的结果与数据输入顺序相关，不同的数据输入顺序
+                         会导致结果存在差异。
+                         – 例如与ORDER BY同时使用时，改变了聚合函数的执行顺
+                           序，会导致结果与MySQL不一致。
+                           --准备基表：
+                           CREATE TABLE test_n(col_unumeric1 decimal(4,3) unsigned,
+                           col_znumeric2 decimal(3,2) unsigned zerofill, col_znumeric3
+                           decimal(5,3) unsigned zerofill);
+                           Query OK, 0 rows affected (0.01 sec)
+
+                           INSERT INTO test_n VALUES(1.010, 2.02, 3.303),(1.190, 2.29, 3.339),
+                           (1.180, 2.28, 3.338);
+                           Query OK, 3 rows affected (0.00 sec)
+                           Records: 3 Duplicates: 0 Warnings: 0
+
+                           CREATE TABLE test_n_2(col_unumeric1 decimal(4,3) unsigned,
+                           col_znumeric2 decimal(3,2) unsigned zerofill, col_znumeric3
+                           decimal(5,3) unsigned zerofill);
+                           Query OK, 0 rows affected (0.02 sec)
+
+                           INSERT INTO test_n_2 VALUES(1.180, 2.28, 3.338),(1.190, 2.29, 3.339),
+                           (1.010, 2.02, 3.303);
+                           Query OK, 3 rows affected (0.00 sec)
+                           Records: 3 Duplicates: 0 Warnings: 0
+
+                           CREATE TABLE IF NOT EXISTS fun_op_case_tb_1 (id int, name
+                           varchar(20), col_unumeric1 NUMERIC(4,3) unsigned, col_znumeric2
+                           DECIMAL(3,2) zerofill,col_znumeric3 DEC(5,3) zerofill);
+                           CREATE TABLE
+
+                           INSERT INTO fun_op_case_tb_1 (id, name, col_unumeric1,
+                           col_znumeric2, col_znumeric3) VALUES
+                           (1, '计算机', 1.11, 2.12, 3.133),
+                           (2, '计算机', 2.11, 2.22, 3.233),
+                           (3, '计算机', 3.11, 2.32, 3.333),
+                           (4, '计算机', 1.41, 2.42, 3.343),
+                           (5, '计算机', 1.51, 2.52, 3.353),
+                           (6, '计算机', 1.61, 2.26, 3.363),
+                           (7, '计算机', 1.17, 2.27, 3.337),
+                           (8, '计算机', 1.18, 2.28, 3.338),
+                           (9, '计算机', 1.19, 2.29, 3.339),
+                           (10, '计算机', 1.01, 2.02, 3.303),
+                           (1,'软件', 1.11, 2.12, 3.133),
+                           (2,'软件', 2.11, 2.22, 3.233),
+                           (3,'软件', 3.11, 2.32, 3.333),
+                           (4,'软件', 1.41, 2.42, 3.343),
+                           (5,'软件', 1.51, 2.52, 3.353),
+                           (6,'软件', 1.61, 2.26, 3.363),
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                                    3305
+GaussDB
+集中式版参考                                                                        4 兼容性说明
+
+
+               函数名     与MySQL的差异
+                          (7,'软件', 1.17, 2.27, 3.337),
+                          (8,'软件', 1.18, 2.28, 3.338),
+                          (9,'软件', 1.19, 2.29, 3.339),
+                          (10,'软件', 1.01, 2.02, 3.303),
+                          (1, '数据库', 1.11, 2.12, 3.133),
+                          (2, '数据库', 2.11, 2.22, 3.233),
+                          (3, '数据库', 3.11, 2.32, 3.333),
+                          (4, '数据库', 1.41, 2.42, 3.343),
+                          (5, '数据库', 1.51, 2.52, 3.353),
+                          (6, '数据库', 1.61, 2.26, 3.363),
+                          (7, '数据库', 1.17, 2.27, 3.337),
+                          (8, '数据库', 1.18, 2.28, 3.338),
+                          (9, '数据库', 1.19, 2.29, 3.339),
+                          (10, '数据库', 1.01, 2.02, 3.303);
+                          INSERT 0 30
+                          --GaussDB：
+                          m_db=# SELECT * FROM test_n;
+                           col_unumeric1 | col_znumeric2 | col_znumeric3
+                          ---------------+---------------+---------------
+                                 1.010 |        2.02 |      03.303
+                                 1.190 |        2.29 |      03.339
+                                 1.180 |        2.28 |      03.338
+                          m_db=# SELECT * FROM test_n_2;
+                           col_unumeric1 | col_znumeric2 | col_znumeric3
+                          ---------------+---------------+---------------
+                                 1.180 |        2.28 |      03.338
+                                 1.190 |        2.29 |      03.339
+                                 1.010 |        2.02 |      03.303
+                          m_db=# SELECT std(col_unumeric1*(col_znumeric2 | col_znumeric3))
+                          FROM test_n_2 ;
+                                 std
+                          ---------------------
+                           0.24779023386727736
+                          (1 row)
+                          m_db=# SELECT std(col_unumeric1*(col_znumeric2 | col_znumeric3))
+                          FROM test_n ;
+                                 std
+                          ---------------------
+                           0.24779023386727742
+                          (1 row)
+
+                          m_db=# SELECT std(col_unumeric1*(col_znumeric2 | col_znumeric3))
+                          FROM fun_op_case_tb_1 GROUP BY name ORDER BY name;
+                                std
+                          --------------------
+                           1.8167446160646796
+                           1.8167446160646794
+                           1.8167446160646796
+                          (3 rows)
+
+                          --MySQL:
+                          mysql> SELECT * FROM test_n;
+                          +---------------+---------------+---------------+
+                          | col_unumeric1 | col_znumeric2 | col_znumeric3 |
+                          +---------------+---------------+---------------+
+                          |      1.010 |        2.02 |       03.303 |
+                          |      1.190 |        2.29 |       03.339 |
+                          |      1.180 |        2.28 |       03.338 |
+                          +---------------+---------------+---------------+
+                          3 rows in set (0.00 sec)
+                          mysql> SELECT *FROM test_n_2;
+                          +---------------+---------------+---------------+
+                          | col_unumeric1 | col_znumeric2 | col_znumeric3 |
+                          +---------------+---------------+---------------+
+                          |      1.180 |        2.28 |       03.338 |
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                              3306
+GaussDB
+集中式版参考                                                                         4 兼容性说明
+
+
+               函数名     与MySQL的差异
+                          |      1.190 |         2.29 |       03.339 |
+                          |      1.010 |         2.02 |       03.303 |
+                          +---------------+---------------+---------------+
+                          3 rows in set (0.00 sec)
+                          mysql> SELECT std(col_unumeric1*(col_znumeric2 | col_znumeric3))
+                          FROM test_n_2 ;
+                          +----------------------------------------------------+
+                          | std(col_unumeric1*(col_znumeric2 | col_znumeric3)) |
+                          +----------------------------------------------------+
+                          |                         0.24779023386727736 |
+                          +----------------------------------------------------+
+                          1 row in set (0.00 sec)
+                          mysql> SELECT std(col_unumeric1*(col_znumeric2 | col_znumeric3))
+                          FROM test_n;
+                          +----------------------------------------------------+
+                          | std(col_unumeric1*(col_znumeric2 | col_znumeric3)) |
+                          +----------------------------------------------------+
+                          |                         0.24779023386727742 |
+                          +----------------------------------------------------+
+                          1 row in set (0.00 sec)
+
+                          mysql> SELECT std(col_unumeric1*(col_znumeric2 | col_znumeric3))
+                          FROM fun_op_case_tb_1 GROUP BY name ORDER BY name;
+                          +----------------------------------------------------+
+                          | std(col_unumeric1*(col_znumeric2 | col_znumeric3)) |
+                          +----------------------------------------------------+
+                          |                         1.8167446160646794 |
+                          |                         1.8167446160646794 |
+                          |                         1.8167446160646794 |
+                          +----------------------------------------------------+
+                          3 rows in set (0.00 sec)
+
+                          --删除基表：
+                          DROP TABLE test_n;
+                          DROP TABLE
+                          DROP TABLE test_n_2;
+                          DROP TABLE
+                          DROP TABLE fun_op_case_tb_1;
+                          DROP TABLE
+                         – 例如与WITH ROLLUP同时使用时，改变了聚合函数的执
+                           行顺序，会导致结果与MySQL不一致。
+                          --基表准备：
+                          CREATE TABLE IF NOT EXISTS t1 (name VARCHAR(20), c1 INT(100),
+                          c2 FLOAT(7,5));
+                          INSERT INTO t1 VALUES
+                          ('计算机', 666,-55.155),
+                          ('计算机', 789,-15.593),
+                          ('计算机', 928,-53.963),
+                          ('计算机', 666,-54.555),
+                          ('计算机', 666,-55.555),
+                          ('数据库', 666,-55.155),
+                          ('数据库', 789,-15.593),
+                          ('数据库', 928,-53.963),
+                          ('数据库', 666,-54.555),
+                          ('数据库', 666,-55.555);
+
+                          --GaussDB：
+                          m_db=# SELECT name, std(c1/c2) c5 FROM t1 GROUP BY name WITH
+                          rollup;
+                            name |         c5
+                          --------+--------------------
+                           数据库 | 15.02396266299967
+                           计算机 | 15.023962662999669
+                                | 15.02396266299967
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                               3307
+GaussDB
+集中式版参考                                                                             4 兼容性说明
+
+
+               函数名     与MySQL的差异
+                             (3 rows)
+
+                             --MySQL
+                             mysql> SELECT name, std(c1/c2) c5 FROM t1 GROUP BY name WITH
+                             rollup;
+                             +-----------+--------------------+
+                             | name      | c5             |
+                             +-----------+--------------------+
+                             | 数据库 | 15.023962662999669 |
+                             | 计算机 | 15.023962662999669 |
+                             | NULL      | 15.02396266299967 |
+                             +-----------+--------------------+
+                             3 rows in set (0.00 sec)
+
+                             --删除基表：
+                             DROP TABLE t1;
+                             DROP TABLE
+
+                       ● 聚合函数与GROUP BY同时存在的场景下，存在中间结果为
+                         DECIMAL数据类型参与运算时，MySQL存在数据失真问
+                         题，GaussDB保留完整精度的数据。
+                         --基表准备：
+                         CREATE TABLE IF NOT EXISTS fun_op_case_tb_1 (id int,name
+                         varchar(20),col_znumeric2 DECIMAL(3,2) zerofill,col_znumeric3 DEC(5,3)
+                         zerofill, col_bit1 BIT(3), col_time2 time);
+
+                         INSERT INTO fun_op_case_tb_1 VALUES
+                         (1, '计算机', 0.01, 3.130, b'101', '08:30:23.01'),
+                         (2, '计算机', 1.20, 30.990, b'101', '08:30:23.01'),
+                         (3, '计算机', 1.33, 43.500, b'101', '08:30:23.01'),
+                         (4, '计算机', 2.24, 30.990, b'101', '08:30:23.01'),
+                         (5, '计算机', 1.25, 43.600, b'101', '08:30:23.01'),
+                         (6,'计算机',2.20,'20.900',b'101','08:30:23.01'),
+                         (7,'计算机',2.20,'20.900',b'101','08:30:23.01'),
+                         (8,'计算机',2.20,'20.900',b'101','08:30:23.01'),
+                         (9,'计算机',2.29,'22.780',b'101','08:30:23.01'),
+                         (10,'计算机',2.02,'20.900',b'101','08:30:23.01');
+
+                         --GaussDB：
+                         m_db=# SET m_format_behavior_compat_options=
+                         'enable_precision_decimal';
+                         m_db=# SELECT avg(col_znumeric3/col_znumeric2) FROM
+                         fun_op_case_tb_1 WHERE id<=10 GROUP BY name;
+                              avg
+                         ----------------
+                          46.90407212526
+                         (1 row)
+                         m_db=# SELECT sum(col_bit1/col_time2) FROM fun_op_case_tb_1 WHERE
+                         id<=10 GROUP BY name;
+                           sum
+                         --------
+                          0.0006
+                         (1 rows)
+
+                         --MySQL：
+                         mysql> SELECT avg(col_znumeric3/col_znumeric2) FROM
+                         fun_op_case_tb_1 WHERE id<=10 GROUP BY name;
+                         +----------------------------------+
+                         | avg(col_znumeric3/col_znumeric2) |
+                         +----------------------------------+
+                         |              46.90407213000 |
+                         +----------------------------------+
+                         1 row in set (0.00 sec)
+                         mysql> SELECT sum(col_bit1/col_time2) FROM fun_op_case_tb_1 WHERE
+                         id<=10 GROUP BY name;
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                                   3308
+GaussDB
+集中式版参考                                                                                        4 兼容性说明
+
+
+               函数名     与MySQL的差异
+                         +-------------------------+
+                         | sum(col_bit1/col_time2) |
+                         +-------------------------+
+                         |             0.0010 |
+                         +-------------------------+
+                         1 row in set (0.00 sec)
+                         --删除基表：
+                         DROP TABLE fun_op_case_tb_1;
+                         DROP TABLE
+
+                       ● 聚合函数在MySQL 8.0返回FLOAT类型的场景下，GaussDB
+                         返回DOUBLE类型，例如MAX函数、MIN函数。
+                       ● MAX函数、MIN函数，入参为FLOAT(p)类型或者FLOAT类
+                         型的表字段，与GROUP BY同时存在的场景下，GaussDB返
+                         回的结果与MySQL 5.7结果不一致。
+                         m_db=# CREATE TABLE t_float(col_float1 float, col_float2 float(6));
+                         m_db=# INSERT INTO t_float VALUES(1.23, 1.23),(1.456, 1.456),(-1.234,
+                         -1.234);
+
+                         --GaussDB
+                         m_db=# SELECT min(col_float1), max(col_float1), min(col_float2),
+                         max(col_float2) FROM t_float;
+                                min         |     max         |       min        |      max
+                         ---------------------+--------------------+---------------------+--------------------
+                          -1.2339999675750732 | 1.4559999704360962 | -1.2339999675750732 |
+                         1.4559999704360962
+                         (1 row)
+
+                         m_db=# SELECT min(col_float1), max(col_float1), min(col_float2),
+                         max(col_float2) FROM t_float GROUP BY col_float1;
+                                min         |      max         |      min         |       max
+                         ---------------------+---------------------+---------------------
+                         +---------------------
+                           1.4559999704360962 | 1.4559999704360962 | 1.4559999704360962 |
+                         1.4559999704360962
+                           1.2300000190734863 | 1.2300000190734863 | 1.2300000190734863 |
+                         1.2300000190734863
+                          -1.2339999675750732 | -1.2339999675750732 | -1.2339999675750732 |
+                         -1.2339999675750732
+                         (3 rows)
+
+                         --MYSQL
+                         mysql> SELECT min(col_float1), max(col_float1), min(col_float2),
+                         max(col_float2) FROM t_float;
+                         +---------------------+--------------------+---------------------
+                         +--------------------+
+                         | min(col_float1)      | max(col_float1) | min(col_float2)        |
+                         max(col_float2) |
+                         +---------------------+--------------------+---------------------
+                         +--------------------+
+                         | -1.2339999675750732 | 1.4559999704360962 | -1.2339999675750732 |
+                         1.4559999704360962 |
+                         +---------------------+--------------------+---------------------
+                         +--------------------+
+                         1 row in set (0.00 sec)
+
+                         mysql> SELECT min(col_float1), max(col_float1), min(col_float2),
+                         max(col_float2) FROM t_float GROUP BY col_float1;
+                         +-----------------+-----------------+-----------------+-----------------+
+                         | min(col_float1) | max(col_float1) | min(col_float2) | max(col_float2) |
+                         +-----------------+-----------------+-----------------+-----------------+
+                         |       -1.234 |        -1.234 |        -1.234 |         -1.234 |
+                         |         1.23 |         1.23 |         1.23 |          1.23 |
+                         |        1.456 |         1.456 |         1.456 |         1.456 |
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                                                3309
+GaussDB
+集中式版参考                                                                                            4 兼容性说明
+
+
+               函数名         与MySQL的差异
+                             +-----------------+-----------------+-----------------+-----------------+
+                             3 rows in set (0.00 sec)
+
+                           ● GaussDB聚合函数的功能对标MySQL5.7，聚合函数在
+                             MySQL5.7和MySQL8.0有行为差异，导致GaussDB的聚合
+                             函数与over子句同时使用与MySQL8.0存在差异。例如：
+                             -- MySQL5.7
+                             mysql> SELECT bit_xor(cast('sdfa' as binary(65)));
+                             +-------------------------------------+
+                             | bit_xor(cast('sdfa' as binary(65))) |
+                             +-------------------------------------+
+                             |                           0|
+                             +-------------------------------------+
+                             1 row in set, 1 warning (0.00 sec)
+
+                             -- MySQL8.0
+                             mysql> SELECT bit_xor(cast('sdfa' as binary(65)));
+                             +-------------------------------------------------------------------------------------
+                             -------------------------------------------------+
+                             | bit_xor(cast('sdfa' as
+                             binary(65)))
+                                  |
+                             +-------------------------------------------------------------------------------------
+                             -------------------------------------------------+
+                             |
+                             0x73646661000000000000000000000000000000000000000000000000000
+                             0000000000000000000000000000000000000000000000000000000000000
+                             0000000000 |
+                             +-------------------------------------------------------------------------------------
+                             -------------------------------------------------+
+                             1 row in set (0.00 sec)
+
+                             -- MySQL8.0聚合函数与over子句连用。
+                             mysql> SELECT bit_xor(cast('sdfa' as binary(65))) over();
+                             +-------------------------------------------------------------------------------------
+                             -------------------------------------------------+
+                             | bit_xor(cast('sdfa' as binary(65)))
+                             over()                                                                         |
+                             +-------------------------------------------------------------------------------------
+                             -------------------------------------------------+
+                             |
+                             0x73646661000000000000000000000000000000000000000000000000000
+                             0000000000000000000000000000000000000000000000000000000000000
+                             0000000000 |
+                             +-------------------------------------------------------------------------------------
+                             -------------------------------------------------+
+                             1 row in set (0.00 sec)
+
+                             -- GaussDB聚合函数与over子句连用。
+                             m_db=# SELECT bit_xor(cast('sdfa' as binary(65))) over();
+                              bit_xor
+                             ---------
+                              0
+                             (1 row)
+
+
+
+
+4.4.2.2.9 JSON 函数
+              JSON函数差异说明：对于JSON函数和其他字符入参函数，如果输入中包含转义字
+              符，默认情况下会与MySQL有一定差异。如果需要实现与MySQL的兼容，需要开启转
+              义符开关（在GUC参数m_format_behavior_compat_options中添加
+              enable_escape_string配置选项），但在\0和\uxxxx的场景与MySQL依然存在差异。
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                                                                 3310
+GaussDB
+集中式版参考                                               4 兼容性说明
+
+              表 4-150 JSON 函数列表
+               函数名              与MySQL的差异
+
+               JSON_APPEND()    -
+
+               JSON_ARRAY()     -
+
+               JSON_ARRAY_APP   -
+               END()
+
+               JSON_ARRAY_INS   -
+               ERT()
+
+               JSON_CONTAINS(   -
+               )
+
+               JSON_CONTAINS    -
+               _PATH()
+
+               JSON_DEPTH()     -
+
+               JSON_EXTRACT()   -
+
+               JSON_INSERT()    -
+
+               JSON_KEYS()      -
+
+               JSON_LENGTH()    -
+
+               JSON_MERGE()     -
+
+               JSON_MERGE_PA    -
+               TCH()
+
+               JSON_MERGE_PR    -
+               ESERVE()
+
+               JSON_OBJECT()    -
+
+               JSON_QUOTE()     -
+
+               JSON_REMOVE()    -
+
+               JSON_REPLACE()   -
+
+               JSON_SEARCH()    -
+
+               JSON_SET()       -
+
+               JSON_TYPE()      -
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司       3311
+GaussDB
+集中式版参考                                                                                          4 兼容性说明
+
+
+               函数名             与MySQL的差异
+
+               JSON_UNQUOTE(   在转义字符中\0和\uxxxx的场景与MySQL有差异：
+               )               SELECT json_unquote('"\0"');
+
+                               mysql> SELECT json_unquote('"\0"');
+                               ERROR 3141 (22032): Invalid JSON text in argument 1 to function
+                               json_unquote: "Missing a closing quotation mark in string." at position 1.
+
+                               m_db=# SELECT json_unquote('"\0"');
+                               ERROR: invalid byte sequence for encoding "UTF8": 0x00
+                               SELECT json_unquote('"\\u4656"');
+
+                               mysql> SELECT json_unquote('"\\u4656"');
+                               +---------------------------+
+                               | json_unquote('"\\u4656"') |
+                               +---------------------------+
+                               |䙖                     |
+                               +---------------------------+
+                               1 row in set (0.00 sec)
+
+                               m_db=# SELECT json_unquote('"\\u4656"');
+                               json_unquote
+                               --------------
+                               u4656
+                               (1 row)
+
+               JSON_VALID()    -
+
+               JSON_PRETTY()   函数返回值的字符序与MySQL的存在差异。MySQL中固定为
+                               utf8mb4_bin，GaussDB中取决于GUC参数
+                               collation_connection的取值。
+                               -- GaussDB
+                               m_db=# SET collation_connection=gbk_bin;
+                               SET
+                               m_db=# SELECT COLLATION(JSON_PRETTY('{"1": "2"}'));
+                                collation
+                               -----------
+                                gbk_bin
+                               (1 row)
+
+                               -- MySQL
+                               mysql> SET collation_connection=gbk_bin;
+                               Query OK, 0 rows affected (0.00 sec)
+                               mysql> SELECT COLLATION(JSON_PRETTY('{"1": "2"}'));
+                               +--------------------------------------+
+                               | COLLATION(JSON_PRETTY('{"1": "2"}')) |
+                               +--------------------------------------+
+                               | utf8mb4_bin                       |
+                               +--------------------------------------+
+                               1 row in set (0.00 sec)
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                                                           3312
+GaussDB
+集中式版参考                                                                                             4 兼容性说明
+
+
+               函数名             与MySQL的差异
+
+               JSON_STORAGE_   ● 由于GaussDB的json类型内部存储方式与MySQL的存在差
+               SIZE()            异，该函数返回的值与MySQL存在不一致。
+                               ● 由于GaussDB的json类型未适配部分更新功能，会实时更新
+                                 json类型的存储大小。
+                                 -- GaussDB
+                                 m_db=# CREATE TABLE jtable (jcol JSON);
+                                 CREATE TABLE                        ^
+                                 m_db=# INSERT INTO jtable VALUES ('{"a": 1000, "b": "wxyz", "c": "[1, 3,
+                                 5, 7]"}');
+                                 INSERT 0 1
+                                 m_db=# SELECT jcol, JSON_STORAGE_SIZE(jcol) AS Size FROM jtable;
+                                 jcol                  | Size
+                                 -----------------------------------------------+------
+                                 {"a": 1000, "b": "wxyz", "c": "[1, 3, 5, 7]"} | 83
+                                 (1 row)
+                                 ^
+                                 m_db=# UPDATE jtable SET jcol =JSON_SET(jcol, "$.b", "a");
+                                 UPDATE 1
+                                 m_db=# SELECT jcol,JSON_STORAGE_SIZE(jcol) AS Size from jtable;
+                                 jcol                | Size
+                                 --------------------------------------------+------
+                                 {"a": 1000, "b": "a", "c": "[1, 3, 5, 7]"} | 80
+                                 (1 row)
+
+                                 -- MySQL
+                                 mysql> CREATE TABLE jtable (jcol JSON);
+                                 Query OK, 0 rows affected (0.42 sec)
+
+                                 mysql> INSERT INTO jtable VALUES
+                                 ->   ('{"a": 1000, "b": "wxyz", "c": "[1, 3, 5, 7]"}');
+                                 Query OK, 1 row affected (0.04 sec)
+
+                                 mysql> SELECT
+                                 ->     jcol,
+                                 ->     JSON_STORAGE_SIZE(jcol) AS Size,
+                                 ->     JSON_STORAGE_FREE(jcol) AS Free
+                                 -> FROM jtable;
+                                 +-----------------------------------------------+------+------+
+                                 | jcol                                | Size | Free |
+                                 +-----------------------------------------------+------+------+
+                                 | {"a": 1000, "b": "wxyz", "c": "[1, 3, 5, 7]"} | 47 | 0 |
+                                 +-----------------------------------------------+------+------+
+                                 1 row in set (0.00 sec)
+                                 mysql> UPDATE jtable SET jcol =
+                                 ->     JSON_SET(jcol, "$.b", "a");
+                                 Query OK, 1 row affected (0.04 sec)
+                                 Rows matched: 1 Changed: 1 Warnings: 0
+
+                                 mysql> SELECT
+                                 ->     jcol,
+                                 ->     JSON_STORAGE_SIZE(jcol) AS Size,
+                                 ->     JSON_STORAGE_FREE(jcol) AS Free
+                                 -> FROM jtable;
+                                 +--------------------------------------------+------+------+
+                                 | jcol                              | Size | Free |
+                                 +--------------------------------------------+------+------+
+                                 | {"a": 1000, "b": "a", "c": "[1, 3, 5, 7]"} | 47 | 3 |
+                                 +--------------------------------------------+------+------+
+                                 1 row in set (0.00 sec)
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                                                      3313
+GaussDB
+集中式版参考                                                         4 兼容性说明
+
+
+4.4.2.2.10 窗口函数
+
+              表 4-151 窗口函数列表
+               函数名            与MySQL的差异
+
+               LAG()          ● 偏移量N的取值范围不同：
+                                MySQL中，N只允许是在范围[0, 263-1]整数值。
+               LEAD()
+                                  GaussDB中，N只允许是在范围[0, 231-1]整数值。
+                              ● 偏移量N的取值形式不同：
+                                  – MySQL中，取值形式如下：
+                                   – 常量字面量的无符号整数。
+                                   – prepare语句中使用?声明的标记参数。
+                                   – 用户自定义的变量。
+                                   – 存储过程中的局部变量。
+                                  – GaussDB中，取值形式如下：
+                                   – 常量字面量的无符号整数。
+                                   – 不支持在prepare语句中使用?声明的标记参数
+                                     （prepare语句当前有差异）。
+                                   – 用户自定义的变量。
+                                   – 不支持使用存储过程中的局部变量（PLSQL当前不支
+                                     持）。
+                              ● 该函数作为子查询结合CREATE TABLE AS使用时，单独执行
+                                该函数的子查询语句没有报错或告警时：
+                                  – GaussDB在严格模式和宽松模式下，CREATE TABLE AS
+                                    语句执行成功，建表成功。
+                                  – MySQL在严格模式下，CREATE TABLE AS语句执行可能
+                                    报错，建表失败。
+
+               ROW_NUMBER()   -
+
+               RANK()         -
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                    3314
+GaussDB
+集中式版参考                                                                                      4 兼容性说明
+
+
+               函数名     与MySQL的差异
+
+               MIN()   GaussDB中MIN()函数不支持DISTINCT与OVER子句同时使
+                       用，MySQL支持，如下示例：
+                       DROP TABLE IF EXISTS m_test;
+                       CREATE TABLE m_test(age INT, salary INT);
+                       INSERT INTO m_test VALUES(1, NULL), (1, 1), (1, 2), (1, 2), (2, NULL), (2,
+                       NULL);
+
+                       -- GaussDB行为：
+                       m_db=# SELECT MIN(DISTINCT salary) OVER(PARTITION BY age ORDER by
+                       salary ROWS CURRENT ROW) FROM m_test;
+                       ERROR:
+                       GAUSS-10875: DISTINCT is not implemented for window functions
+                       SQLSTATE: 0A000
+                       LINE 1: SELECT MIN(DISTINCT salary) OVER(PARTITION BY age ORDER by s...
+                       ^
+                       CONTEXT: referenced column: min
+
+                       -- MySQL 8.0行为：
+                       mysql> SELECT MIN(DISTINCT salary) OVER(PARTITION BY age ORDER by
+                       salary ROWS CURRENT ROW) FROM m_test;
+                       +------------------------------------------------------------------------------+
+                       | MIN(DISTINCT salary) OVER(PARTITION BY age ORDER by salary ROWS
+                       CURRENT ROW) |
+                       +------------------------------------------------------------------------------+
+                       |                                                         NULL |
+                       |                                                           1|
+                       |                                                           2|
+                       |                                                           2|
+                       |                                                         NULL |
+                       |                                                         NULL |
+                       +------------------------------------------------------------------------------+
+                       6 rows in set (0.00 sec)
+                       由于是否使用DISTINCT在MIN()函数中不影响结果，建议直接
+                       使用：
+                       SELECT MIN(salary) OVER(PARTITION BY age ORDER by salary ROWS
+                       CURRENT ROW) FROM m_test;
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                                             3315
+GaussDB
+集中式版参考                                                                                              4 兼容性说明
+
+
+               函数名              与MySQL的差异
+
+               MAX()            GaussDB中MAX()函数不支持DISTINCT与OVER子句同时使
+                                用，MySQL支持，如下示例：
+                                DROP TABLE IF EXISTS m_test;
+                                CREATE TABLE m_test(age INT, salary INT);
+                                INSERT INTO m_test VALUES(1, NULL), (1, 1), (1, 2), (1, 2), (2, NULL), (2,
+                                NULL);
+
+                                -- GaussDB行为：
+                                m_db=# SELECT MAX(DISTINCT salary) OVER(PARTITION BY age ORDER by
+                                salary ROWS CURRENT ROW) FROM m_test;
+                                ERROR:
+                                GAUSS-10875: DISTINCT is not implemented for window functions
+                                SQLSTATE: 0A000
+                                LINE 1: SELECT MAX(DISTINCT salary) OVER(PARTITION BY age ORDER by s...
+                                ^
+                                CONTEXT: referenced column: max
+
+                                -- MySQL 8.0行为：
+                                mysql> SELECT MAX(DISTINCT salary) OVER(PARTITION BY age ORDER by
+                                salary ROWS CURRENT ROW) FROM m_test;
+                                +------------------------------------------------------------------------------+
+                                | MAX(DISTINCT salary) OVER(PARTITION BY age ORDER by salary ROWS
+                                CURRENT ROW) |
+                                +------------------------------------------------------------------------------+
+                                |                                                         NULL |
+                                |                                                           1|
+                                |                                                           2|
+                                |                                                           2|
+                                |                                                         NULL |
+                                |                                                         NULL |
+                                +------------------------------------------------------------------------------+
+                                6 rows in set (0.00 sec)
+                                由于是否使用DISTINCT在MAX()函数中不影响结果，建议直接
+                                使用：
+                                SELECT MAX(salary) OVER(PARTITION BY age ORDER by salary ROWS
+                                CURRENT ROW) FROM m_test;
+
+               DENSE_RANK()     -
+
+               FIRST_VALUE()    -
+
+               LAST_VALUE()     -
+
+               PERCENT_RANK()   -
+
+               NTILE()          -
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                                                             3316
+GaussDB
+集中式版参考                                                                      4 兼容性说明
+
+
+               函数名     与MySQL的差异
+
+               窗口函数    ● 窗口函数兼容MySQL 8.0，与部分兼容MySQL 5.7特性组合
+                         使用时，可能产生复合行为：
+                         – 例如组合JSON使用时：
+                          – GaussDB行为：
+                            -- 预置表数据
+                            m_db=# CREATE TABLE t1(name varchar(20), col_json1 json,
+                            col_json2 json, col_json3 json);
+                            m_db=# CREATE TABLE t2(name varchar(20), col_json1 json,
+                            col_json2 json, col_json3 json);
+                            m_db=# INSERT INTO t1 VALUES('1','false','false','false'),
+                            ('1','false','false','false');
+                            m_db=# INSERT INTO t1 VALUES('2','true','true','true'),
+                            ('2','true','true','true');
+                            m_db=# INSERT INTO t2 VALUES('3','true','true','true'),
+                            ('3','true','true','true');
+                            m_db=# INSERT INTO t2 VALUES('4','false','false','false'),
+                            ('4','false','false','false');
+                            -- JSON自身行为
+                            m_db=# SELECT name,bit_or(col_json1) AS rs FROM (SELECT *
+                            FROM t1 UNION ALL SELECT * FROM t2)tmp GROUP BY name
+                            ORDER BY name;
+                             name | rs
+                            ------+----
+                             1 |0
+                             2 |0
+                             3 |0
+                             4 |0
+                            (4 rows)
+
+                            m_db=# SELECT name,cast(col_json1 AS unsigned) AS rs FROM
+                            (SELECT * FROM t1 UNION ALL SELECT * FROM t2)tmp ORDER BY
+                            name;
+                            WARNING: The INTEGER value 'true' is incorrect.
+                            CONTEXT: referenced column: rs
+                            WARNING: The INTEGER value 'true' is incorrect.
+                            CONTEXT: referenced column: rs
+                            WARNING: The INTEGER value 'false' is incorrect.
+                            CONTEXT: referenced column: rs
+                            WARNING: The INTEGER value 'false' is incorrect.
+                            CONTEXT: referenced column: rs
+                            WARNING: The INTEGER value 'true' is incorrect.
+                            CONTEXT: referenced column: rs
+                            WARNING: The INTEGER value 'true' is incorrect.
+                            CONTEXT: referenced column: rs
+                            WARNING: The INTEGER value 'false' is incorrect.
+                            CONTEXT: referenced column: rs
+                            WARNING: The INTEGER value 'false' is incorrect.
+                            CONTEXT: referenced column: rs
+                             name | rs
+                            ------+----
+                             1 |0
+                             1 |0
+                             2 |0
+                             2 |0
+                             3 |0
+                             3 |0
+                             4 |0
+                             4 |0
+                            (8 rows)
+
+                            -- 窗口函数组合JSON
+                            m_db=# SELECT name,bit_or(col_json1) OVER(PARTITION BY
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                                3317
+GaussDB
+集中式版参考                                                                         4 兼容性说明
+
+
+               函数名     与MySQL的差异
+                            col_json2 ORDER BY col_json3) AS rs FROM (SELECT * FROM t1
+                            UNION ALL SELECT * FROM t2)tmp GROUP BY name ORDER BY
+                            name;
+                             name | rs
+                            ------+----
+                             1 |0
+                             2 |0
+                             3 |0
+                             4 |0
+                            (4 rows)
+
+                            m_db=# SELECT name, ROW_NUMBER() OVER(PARTITION BY
+                            col_json2 ORDER BY col_json3) AS rs FROM (SELECT * FROM t1
+                            UNION ALL SELECT * FROM t2)tmmp GROUP BY name ORDER BY
+                            name;
+                             name | rs
+                            ------+----
+                             1 |1
+                             2 |2
+                             3 |2
+                             4 |1
+                            (4 rows)
+                          – MySQL行为：
+                            -- 预置表数据
+                            mysql> CREATE TABLE t1(name varchar(20), col_json1 json,
+                            col_json2 json, col_json3 json);
+                            mysql> CREATE TABLE t2(name varchar(20), col_json1 json,
+                            col_json2 json, col_json3 json);
+                            mysql> INSERT INTO t1 VALUES('1','false','false','false'),
+                            ('1','false','false','false');
+                            mysql> INSERT INTO t1 VALUES('2','true','true','true'),
+                            ('2','true','true','true');
+                            mysql> INSERT INTO t2 VALUES('3','true','true','true'),
+                            ('3','true','true','true');
+                            mysql> INSERT INTO t2 VALUES('4','false','false','false'),
+                            ('4','false','false','false');
+
+                            -- JSON自身行为
+                            -- MySQL 5.7
+                            mysql> SELECT name,bit_or(col_json1) AS rs FROM (SELECT *
+                            FROM t1 UNION ALL SELECT * FROM t2)tmp GROUP BY name
+                            ORDER BY name;
+                            +------+----+
+                            | name | rs |
+                            +------+----+
+                            |1 | 0|
+                            |2 | 0|
+                            |3 | 0|
+                            |4 | 0|
+                            +------+----+
+                            4 rows in set (0.00 sec)
+
+                            mysql> SELECT name,cast(col_json1 AS unsigned) AS rs FROM
+                            (SELECT * FROM t1 UNION ALL SELECT * FROM t2)tmp ORDER BY
+                            name;
+                            +------+------+
+                            | name | rs |
+                            +------+------+
+                            |1 | 0|
+                            |1 | 0|
+                            |2 | 0|
+                            |2 | 0|
+                            |3 | 0|
+                            |3 | 0|
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                                3318
+GaussDB
+集中式版参考                                                                            4 兼容性说明
+
+
+               函数名     与MySQL的差异
+                            |4 | 0|
+                            |4 | 0|
+                            +------+------+
+                            8 rows in set, 8 warnings (0.00 sec)
+
+                            mysql> SHOW warnings;
+                            +---------+------+--------------------------------------------+
+                            | Level | Code | Message                                |
+                            +---------+------+--------------------------------------------+
+                            | Warning | 1292 | Truncated incorrect INTEGER value: 'true' |
+                            | Warning | 1292 | Truncated incorrect INTEGER value: 'true' |
+                            | Warning | 1292 | Truncated incorrect INTEGER value: 'false' |
+                            | Warning | 1292 | Truncated incorrect INTEGER value: 'false' |
+                            | Warning | 1292 | Truncated incorrect INTEGER value: 'true' |
+                            | Warning | 1292 | Truncated incorrect INTEGER value: 'true' |
+                            | Warning | 1292 | Truncated incorrect INTEGER value: 'false' |
+                            | Warning | 1292 | Truncated incorrect INTEGER value: 'false' |
+                            +---------+------+--------------------------------------------+
+                            8 rows in set (0.00 sec)
+
+                            -- MySQL 8.0
+                            mysql> SELECT name,bit_or(col_json1) AS rs FROM (SELECT *
+                            FROM t1 UNION ALL SELECT * FROM t2)tmp GROUP BY name
+                            ORDER BY name;
+                            +------+----+
+                            | name | rs |
+                            +------+----+
+                            |1 | 1|
+                            |2 | 0|
+                            |3 | 1|
+                            |4 | 0|
+                            +------+----+
+                            4 rows in set (0.01 sec)
+
+                            mysql> SELECT name,cast(col_json1 AS unsigned) AS rs FROM
+                            (SELECT * FROM t1 UNION ALL SELECT * FROM t2)tmp ORDER BY
+                            name;
+                            +------+------+
+                            | name | rs |
+                            +------+------+
+                            |1 | 1|
+                            |1 | 1|
+                            |2 | 0|
+                            |2 | 0|
+                            |3 | 1|
+                            |3 | 1|
+                            |4 | 0|
+                            |4 | 0|
+                            +------+------+
+                            8 rows in set (0.00 sec)
+
+                            -- 窗口函数组合JSON仅支持兼容MySQL 8.0
+                            mysql> SELECT name,bit_or(col_json1) OVER(PARTITION BY
+                            col_json2 ORDER BY col_json3) AS rs FROM (SELECT * FROM t1
+                            UNION ALL SELECT * FROM t2)tmp GROUP BY name ORDER BY
+                            name;
+                            +------+----+
+                            | name | rs |
+                            +------+----+
+                            |1 | 1|
+                            |2 | 0|
+                            |3 | 1|
+                            |4 | 0|
+                            +------+----+
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                                     3319
+GaussDB
+集中式版参考                                                                                      4 兼容性说明
+
+
+               函数名     与MySQL的差异
+                                 4 rows in set (0.00 sec)
+
+                                 mysql> SELECT name, ROW_NUMBER() OVER(PARTITION BY
+                                 col_json2 ORDER BY col_json3) AS rs FROM (SELECT * FROM t1
+                                 UNION ALL SELECT * FROM t2)tmpmp GROUP BY name ORDER
+                                 BY name;
+                                 +------+----+
+                                 | name | rs |
+                                 +------+----+
+                                 |1 | 1|
+                                 |2 | 1|
+                                 |3 | 2|
+                                 |4 | 2|
+                                 +------+----+
+                                 4 rows in set (0.01 sec)
+
+                       ● AVG、MAX、MIN、BIT_AND、BIT_OR、BIT_XOR等窗口
+                         函数，结合CREATE TABLE AS语法操作创建表，创建出的表
+                         的字段类型与MySQL 8.0不一致。
+                         -- 窗口MIN函数仅支持兼容MySQL 8.0，对INT类型类型数据进行CREATE
+                         TABLE AS语法操作的结果存在差异。
+                         -- GaussDB
+                         m_db=# CREATE TABLE t_int(col_int int(100));
+                         m_db=# CREATE TABLE test AS SELECT min(col_int) OVER(ORDER BY
+                         col_int) FROM t_int;
+                         m_db=# DESC test;
+                          Field | Type       | Null | Key | Default | Extra
+                         -------+-------------+------+-----+---------+-------
+                          min | bigint(100) | YES |         |     |
+                         (1 row)
+
+                         -- MySQL 8.0
+                         mysql> CREATE TABLE t_int(col_int int(100));
+                         Query OK, 0 rows affected, 1 warning (0.06 sec)
+                         mysql> CREATE TABLE test AS SELECT min(col_int) OVER(ORDER BY
+                         col_int) FROM t_int;
+                         Query OK, 0 rows affected (0.07 sec)
+                         Records: 0 Duplicates: 0 Warnings: 0
+                         mysql> DESC test;
+                         +-------------------------------------+--------+------+-----+---------+-------+
+                         | Field                        | Type | Null | Key | Default | Extra |
+                         +-------------------------------------+--------+------+-----+---------+-------+
+                         | min(col_int) over(order by col_int) | bigint | YES |       | NULL |        |
+                         +-------------------------------------+--------+------+-----+---------+-------+
+                         1 row in set (0.00 sec)
+
+                       ● ORDER BY子句排序时，对于NULL值的排序不同：
+                         – MySQL中，NULL值默认升序排在前面。
+                         – GaussDB中，NULL值默认升序排在后面。
+                         说明
+                          在GaussDB中，可通过指定NULLS FIRST或NULLS LAST进行排序，
+                          排序结果与MySQL的排序结果保持一致。
+                       ● OVER子句中的ORDER BY子句与PARTITION BY子句中使用
+                         列别名：
+                         – MySQL不支持使用列别名。
+                         – GaussDB支持使用列别名。
+                       ● 当入参为表达式（如1 / col1）形式时，结果的精度存在差
+                         异：
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                                              3320
+GaussDB
+集中式版参考                                                                                   4 兼容性说明
+
+
+               函数名     与MySQL的差异
+
+                         – MySQL会先计算表达式的结果并对表达式结果进行四舍
+                           五入，导致最终结果精度下降。
+                         – GaussDB不会对表达式的结果进行四舍五入。
+                       ● 二进制字符串显示存在差异：
+                         – MySQL中，将二进制字符串编码为16进制后的编码值进
+                           行显示（例如'-4'会显示成编码后的0x2D34）。
+                         – GaussDB中，显示原字符串的值（例如'-4'会保持显示
+                           '-4'）。
+                       ● 当MAX函数、MIN函数入参为FLOAT类型表字段，被用于
+                         CREATE TABLE AS语法创建表时，创建出的表的字段类型以
+                         及精度结果与MySQL 8.0不一致。
+                         m_db=# CREATE TABLE t_float (id int, col_float1 FLOAT4(6,4), col_float2
+                         FLOAT(7), col_float3 DOUBLE(8,5), col_ufloat1 FLOAT4(6,4) unsigned);
+
+                         m_db=# CREATE TABLE t_tmp AS SELECT min(col_float1) OVER(ORDER
+                         BY id) AS col_float1, min(col_float2) OVER(PARTITION BY id) AS
+                         col_float2, min(col_float3) OVER(PARTITION BY id) AS col_float3 ,
+                         min(col_ufloat1) OVER(PARTITION BY id) AS col_ufloat1 FROM t_float;
+
+                         -- GaussDB
+                         m_db=# DESC t_tmp;
+                            Field | Type         | Null | Key | Default | Extra
+                         -------------+-------------+------+-----+---------+-------
+                          col_float1 | double(21,4) | YES |       |       |
+                          col_float2 | double       | YES |     |     |
+                          col_float3 | double(22,5) | YES |       |       |
+                          col_ufloat1 | double(21,4) | YES |        |       |
+                         (4 rows)
+
+                         --MySQL
+                         mysql> DESC t_tmp;
+                         +-------------+-------------+------+-----+---------+-------+
+                         | Field     | Type       | Null | Key | Default | Extra |
+                         +-------------+-------------+------+-----+---------+-------+
+                         | col_float1 | float(6,4) | YES |       | NULL |        |
+                         | col_float2 | float       | YES |   | NULL |         |
+                         | col_float3 | double(8,5) | YES |         | NULL |         |
+                         | col_ufloat1 | float(6,4) | YES |       | NULL |         |
+                         +-------------+-------------+------+-----+---------+-------+
+                         4 rows in set (0.01 sec)
+
+                       ● GaussDB中，当包含LAG、LEAD、FIRST_VALUE或
+                         LAST_VALUE函数的表达式，在进行UNION操作后，再结合
+                         CREATE TABLE AS语法进行创建表，那么创建的表的字段类
+                         型以及精度结果与MySQL 8.0存在不一致。
+                         -- GaussDB
+                         m_db=# CREATE TABLE t_test(id int, col_int1 json, col_text1 tinyint);
+                         CREATE TABLE
+                         m_db=# CREATE TABLE t_tmp AS SELECT lead(col_int1,2)
+                         OVER(PARTITION BY id) AS col_int1 FROM t_test;
+                         INSERT 0 0
+                         m_db=# DESC t_tmp;
+                           Field | Type | Null | Key | Default | Extra
+                         ----------+------+------+-----+---------+-------
+                          col_int1 | json | YES |    |      |
+                         (1 row)
+
+                         m_db=# DROP TABLE t_tmp;
+                         DROP TABLE
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                                        3321
+GaussDB
+集中式版参考                                                                             4 兼容性说明
+
+
+               函数名     与MySQL的差异
+                         m_db=# CREATE TABLE t_tmp AS SELECT last_value(col_text1)
+                         OVER(PARTITION BY id) AS col_text1 FROM t_test;
+                         INSERT 0 0
+
+                         m_db=# DESC t_tmp;
+                            Field | Type | Null | Key | Default | Extra
+                         -----------+------------+------+-----+---------+-------
+                          col_text1 | integer(4) | YES |     |      |
+                         (1 row)
+                         m_db=# DROP TABLE t_tmp;
+                         DROP TABLE
+                         m_db=# CREATE TABLE t_tmp AS SELECT lead(col_int1,2)
+                         OVER(PARTITION BY id) AS col_int1 FROM t_test UNION ALL SELECT
+                         lead(col_int1,2) OVER(PARTITION BY id) AS col_int1 FROM t_test;
+                         INSERT 0 0
+                         m_db=# DESC t_tmp;
+                           Field | Type | Null | Key | Default | Extra
+                         ----------+----------+------+-----+---------+-------
+                          col_int1 | longtext | YES |     |      |
+                         (1 row)
+
+                         m_db=# DROP TABLE t_tmp;
+                         DROP TABLE
+                         m_db=# CREATE TABLE t_tmp AS SELECT last_value(col_text1)
+                         OVER(PARTITION BY id) AS col_text1 FROM t_test UNION ALL SELECT
+                         last_value(col_text1) OVER(PARTITION BY id) AS col_text1 FROM t_test;
+                         INSERT 0 0
+                         m_db=# DESC t_tmp;
+                           Field | Type         | Null | Key | Default | Extra
+                         -----------+-------------+------+-----+---------+-------
+                          col_text1 | integer(11) | YES |      |      |
+                         (1 row)
+
+
+                         --MySQL 8.0
+                         mysql> DESC t_tmp;
+                         +----------+------+------+-----+---------+-------+
+                         | Field | Type | Null | Key | Default | Extra |
+                         +----------+------+------+-----+---------+-------+
+                         | col_int1 | json | YES |   | NULL |        |
+                         +----------+------+------+-----+---------+-------+
+                         1 row in set (0.01 sec)
+
+                         mysql> DROP TABLE t_tmp;
+                         Query OK, 0 rows affected (0.03 sec)
+
+                         mysql> CREATE TABLE t_tmp AS SELECT last_value(col_text1)
+                         OVER(PARTITION BY id) AS col_text1 FROM t_test;
+                         Query OK, 0 rows affected (0.08 sec)
+                         Records: 0 Duplicates: 0 Warnings: 0
+
+                         mysql> DESC t_tmp;
+                         +-----------+------+------+-----+---------+-------+
+                         | Field   | Type | Null | Key | Default | Extra |
+                         +-----------+------+------+-----+---------+-------+
+                         | col_text1 | int | YES |   | NULL |         |
+                         +-----------+------+------+-----+---------+-------+
+                         1 row in set (0.00 sec)
+
+                         mysql> CREATE TABLE t_test(id int, col_int1 json, col_text1 tinyint);
+                         mysql> CREATE TABLE t_tmp AS SELECT lead(col_int1,2) OVER(PARTITION
+                         BY id) AS col_int1 FROM t_test UNION ALL SELECT lead(col_int1,2)
+                         OVER(PARTITION BY id) AS col_int1 FROM t_test;
+                         mysql> DESC t_tmp;
+                         +----------+------+------+-----+---------+-------+
+                         | Field | Type | Null | Key | Default | Extra |
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                                   3322
+GaussDB
+集中式版参考                                                                                        4 兼容性说明
+
+
+               函数名     与MySQL的差异
+                         +----------+------+------+-----+---------+-------+
+                         | col_int1 | json | YES |   | NULL |        |
+                         +----------+------+------+-----+---------+-------+
+                         1 row in set (0.01 sec)
+
+                         mysql> DROP TABLE t_tmp;
+                         Query OK, 0 rows affected (0.03 sec)
+
+                         mysql> CREATE TABLE t_tmp AS SELECT last_value(col_text1)
+                         OVER(PARTITION BY id) AS col_text1 FROM t_test UNION ALL SELECT
+                         last_value(col_text1) OVER(PARTITION BY id) AS col_text1 FROM t_test;
+                         Query OK, 0 rows affected (0.07 sec)
+                         Records: 0 Duplicates: 0 Warnings: 0
+
+                         mysql> DESC t_tmp;
+                         +-----------+---------+------+-----+---------+-------+
+                         | Field   | Type | Null | Key | Default | Extra |
+                         +-----------+---------+------+-----+---------+-------+
+                         | col_text1 | tinyint | YES |   | NULL |        |
+                         +-----------+---------+------+-----+---------+-------+
+                         1 row in set (0.00 sec)
+
+                       ● 使用CREATE TABLE AS语法创建表，指定DESC查看表结构
+                         时，存在以下差异：
+                         – AVG、MAX、MIN、BIT_AND、BIT_OR、BIT_XOR窗口
+                           函数，表字段类型与精度显示存在不一致的场景。
+                           GaussDB返回类型同MySQL5.7非窗口函数返回类型。
+                         – MAX、MIN、LAG、LEAD、FIRST_VALUE、
+                           LAST_VALUE函数，在MySQL 8.0返回FLOAT类型的场景
+                           下，GaussDB返回DOUBLE类型。
+                         – MySQL中：
+                             – 表中的列类型（Type）为BIGINT类型或INT类型时不
+                               显示宽度。
+                             – 表中的列类型（Type）的宽度为0时，显示宽度，如
+                               binary(0)。
+                         – GaussDB中：
+                             – 表中的列类型（Type）为BIGINT类型或INTEGER类型
+                               时会显示宽度。
+                             – 表中的列类型（Type）的宽度为0时，不显示宽度，
+                               如binary(0)只显示成binary。
+                             – 表结构中标识NULL和Default值的列，功能暂未实
+                               现。
+                       ● 窗口函数的执行结果依赖于表数据的顺序，在一些场景下
+                         （如指定GROUP BY、WHERE或HAVING的场景），
+                         GaussDB与MySQL的表数据顺序有差异，会影响窗口函数
+                         的执行结果。
+                         – GaussDB的行为：
+                             m_db=# CREATE TABLE t1(id int,name varchar(20),age int);
+                             CREATE TABLE
+                             m_db=# INSERT INTO t1(id, name,age) VALUES (1, 'zwt',90), (2,
+                             'dda',85), (3, 'aab',90), (4, 'aac',78), (5, 'aad',85), (6, 'aae',92), (7,
+                             'aaf',78);
+                             INSERT 0 7
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                                                 3323
+GaussDB
+集中式版参考                                                                                     4 兼容性说明
+
+
+               函数名     与MySQL的差异
+                          m_db=# INSERT INTO t1(id, name,age) VALUES (1, 'zwt',90), (2,
+                          'dda',85), (3, 'aab',90), (4, 'aac',78), (5, 'aad',85), (6, 'aae',92), (7,
+                          'aaf',78);
+                          INSERT 0 7
+
+                          -- 表数据的顺序与MySQL有差异导致last_value的取值结果有差异。
+                          m_db=# SELECT age, last_value(age) over() FROM t1 WHERE id > 0
+                          GROUP BY age HAVING age > 10;
+                           age | last_value
+                          -----+------------
+                            78 |       85
+                            90 |       85
+                            92 |       85
+                            85 |       85
+                          (4 rows)
+
+                          m_db=# DROP TABLE IF EXISTS t1;
+                          DROP TABLE
+                         – MySQL的行为：
+                          mysql> CREATE TABLE t1(id int,name varchar(20),age int);
+
+                          Query OK, 0 rows affected (0.12 sec)
+
+                          mysql> INSERT INTO t1(id, name,age) VALUES (1, 'zwt',90), (2,
+                          'dda',85), (3, 'aab',90), (4, 'aac',78), (5, 'aad',85), (6, 'aae',92), (7,
+                          'aaf',78);
+                          Query OK, 7 rows affected (0.01 sec)
+                          Records: 7 Duplicates: 0 Warnings: 0
+
+                          mysql> INSERT INTO t1(id, name,age) VALUES (1, 'zwt',90), (2,
+                          'dda',85), (3, 'aab',90), (4, 'aac',78), (5, 'aad',85), (6, 'aae',92), (7,
+                          'aaf',78);
+                          Query OK, 7 rows affected (0.01 sec)
+                          Records: 7 Duplicates: 0 Warnings: 0
+
+                          -- 表数据的顺序与GaussDB有差异导致last_value的取值结果有差异。
+                          mysql> SELECT age, last_value(age) over() FROM t1 WHERE id > 0
+                          GROUP BY age HAVING age > 10;
+                          +------+------------------------+
+                          | age | last_value(age) over() |
+                          +------+------------------------+
+                          | 90 |                 92 |
+                          | 85 |                 92 |
+                          | 78 |                 92 |
+                          | 92 |                 92 |
+                          +------+------------------------+
+                          4 rows in set (0.00 sec)
+
+                          mysql> DROP TABLE IF EXISTS t1;
+                          Query OK, 0 rows affected (0.10 sec)
+                          说明
+                           针对expr PRECEDING和expr FOLLOWING场景存在如下约束：
+                            ● expr的值仅支持为非负数。
+                            ● 仅支持在指定为ROWS场景时使用，不支持在指定为RANGE
+                              场景使用。
+
+
+
+
+文档版本 01 (2026-04-30)   版权所有 © 华为云计算技术有限公司                                                              3324
+GaussDB
+集中式版参考                                                                                 4 兼容性说明
+
+
+4.4.2.2.11 数字操作函数
+
+              表 4-152 数字操作函数列表
+
+               函数名         与MySQL的差异
+
+               ABS()       -
+
+               ACOS()      -
+
+               ASIN()      -
+
+               ATAN()      -
+
+               ATAN2()     -
+
+               CEILING()   部分场景下函数的返回类型与MySQL不一致，进而导致
+                           CREATE TABLE AS生成的表字段与MySQL不一致。
+               CEIL()
+                           ● 入参为BIGINT类型或BIGINT UNSIGNED类型，入参值大于
+               FLOOR()       等于20位时（包括符号位），GaussDB返回整型，MySQL
+                             5.7返回DECIMAL。例如：
+                               SET m_format_behavior_compat_options='enable_precision_decimal';
+                               CREATE TABLE tt AS SELECT ceiling(-9223372036854775808);
+                               DESC tt;
+                               MySQL表字段返回类型为：DECIMAL(16,0)。
+                               GaussDB表字段返回类型为：BIGINT(17)。
+                           ● 入参为NUMERIC类型时，返回类型可能与MySQL不一致。
+                             当参数为常量、表字段时返回类型和MySQL 5.7保持一致。
+                             对于其他类型的入参如嵌套情况，结果会有差异，GaussDB
+                             返回NUMERIC类型，MySQL可能返回整型等其它类型。例
+                             如：
+                               SET m_format_behavior_compat_options='enable_precision_decimal';
+                               CREATE TABLE t AS SELECT ceiling(abs(5.5));
+                               DESC t;
+                               MySQL表字段返回类型为：INT(4)。
+                               GaussDB表字段返回类型为：DECIMAL(3,0)。
+
+               COS()       -
+
+               DEGREES()   -
+
+               EXP()       -
+
+               LN()        -
+
+               LOG()       -
+
+               LOG10()     -
+
+               LOG2()      -
+
+               PI()        精度传递开关关闭的情况下，也即
+                           m_format_behavior_compat_options中的
+                           enable_precision_decimal未设置时，PI函数的返回值精度与
+                           MySQL的有差异：MySQL中PI函数的结果仅保留四舍五入之后
+                           的小数后6位，而GaussDB的结果会保留四舍五入之后的小数
+                           后15位。
+
+
+文档版本 01 (2026-04-30)       版权所有 © 华为云计算技术有限公司                                                     3325
+GaussDB
+集中式版参考                                                                                4 兼容性说明
+
+
+               函数名           与MySQL的差异
+
+               POW()         -
+
+               POWER()       -
+
+               RAND()        -
+
+               SIGN()        -
+
+               SIN()         -
+
+               SQRT()        -
+
+               TAN()         -
+
+               TRUNCATE()    -
+
+               CEIL()        -
+
+               CRC32()       当BINARY类型插入字符串长度小于目标长度时，GaussDB填充
+                             符和MySQL不同；因此入参为BINARY类型时，函数结果和
+                             MySQL不一致。
+
+               CONV()        -
+
+               COT()         -
+
+               RADIANS()     -
+
+               MOD()         精度传递开关打开的情况下，也即GUC参数
+                             m_format_behavior_compat_options开启了
+                             enable_precision_decimal选项时，PBE场景下，MOD函数返
+                             回值类型与MySQL的有差异：当第一个和第二个入参分别为
+                             BIGINT和DATETIME时，MySQL中返回值类型为NUMERIC，
+                             GaussDB返回值类型是BIGINT。
+
+               BIT_COUNT()   -
+
+               ROUND()       ROUND(X[,D])中的参数D，不为常量输入类型时，在精度传递
+                             开关关闭的情况下，即GUC参数
+                             m_format_behavior_compat_options值中不包含
+                             enable_precision_decimal时，ROUND函数的返回值精度可能
+                             与MySQL存在差异：
+                             ● GaussDB根据D的数值决定返回值的精度
+                             ● MySQL返回值的精度与参数X的精度一致。
+                             例如：
+                             SET m_format_behavior_compat_options='enable_samename_funcs';
+                             DROP TABLE td, tx;
+                             CREATE TABLE td(a int);
+                             CREATE TABLE tx(b decimal(10, 5));
+                             INSERT INTO td VALUES(4);
+                             INSERT INTO tx VALUES(123.4567);
+                             SELECT round(b, a) FROM tx, td;
+                             -- MySQL的返回结果为：123.45700
+                             -- GaussDB的返回结果为：123.4567
+                             DROP TABLE td, tx;
+
+
+
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                                              3326
+GaussDB
+集中式版参考                                                4 兼容性说明
+
+
+4.4.2.2.12 网络地址函数
+
+              表 4-153 网络地址函数列表
+               函数名               与MySQL的差异
+
+               INET_ATON()       -
+
+               INET_NTOA()       -
+
+               INET6_ATON()      -
+
+               INET6_NTOA()      -
+
+               IS_IPV6()         -
+
+               IS_IPV4()         -
+
+               IS_IPV4_MAPPED(   -
+               )
+
+               IS_IPV4_COMPA     -
+               T()
+
+
+
+
+4.4.2.2.13 其他函数
+
+              表 4-154 其他函数列表
+               函数名               与MySQL的差异
+
+               DATABASE()        -
+
+               UUID()            -
+
+               UUID_SHORT()      -
+
+
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司       3327
+GaussDB
+集中式版参考                                                                                4 兼容性说明
+
+
+               函数名           与MySQL的差异
+
+               ANY_VALUE()   ● 作为分组的第一条数据是不确定的，与底层算子相关。例如
+                               同一条sql语句，GaussDB返回5和4，MySQL返回5和2。
+                               CREATE TABLE t1(a INT, b INT);
+                               INSERT INTO t1 VALUES(1, 5);
+                               INSERT INTO t1 VALUES(2, 4);
+                               INSERT INTO t1 VALUES(2, 2);
+                               CREATE TABLE t2(a INT, b INT);
+                               INSERT INTO t2 VALUES(2, 7);
+                               INSERT INTO t2 VALUES(3, 9);
+                               m_db=# SELECT ANY_VALUE(t1.b) FROM t1 LEFT JOIN t2 ON t1.a=t1.b
+                               GROUP BY t1.a;
+                                 any_value
+                               -----------
+                                      5
+                                      4
+                               (2 rows)
+                               mysql> SELECT ANY_VALUE(t1.b) FROM t1 LEFT JOIN t2 ON t1.a=t1.b
+                               GROUP BY t1.a;
+                               +-----------------+
+                               | ANY_VALUE(t1.b) |
+                               +-----------------+
+                               |           5|
+                               |           2|
+                               +-----------------+
+                               2 rows in set (0.04 sec)
+                               DROP TABLE t1;
+                               DROP TABLE t2;
+
+                             ● 与DISTINCT关键字一起使用的情况下，ORDER BY中排序的
+                               列没有包括在SELECT语句所检索的结果集的列中时，
+                               GaussDB目前不支持使用ANY_VALUE函数避免报错。
+                               CREATE TABLE t1(a INT, b INT);
+                               INSERT INTO t1 VALUES(1, 2);
+                               INSERT INTO t1 VALUES(1, 3);
+                               m_db=# SELECT DISTINCT a FROM t1 ORDER BY ANY_VALUE(b);
+                               ERROR: For SELECT DISTINCT, ORDER BY expressions must appear in
+                               select list.
+                               LINE 1: SELECT DISTINCT a FROM t1 ORDER BY ANY_VALUE(b);
+                                                          ^
+                               mysql> SELECT DISTINCT a FROM t1 ORDER BY ANY_VALUE(b);
+                               +------+
+                               |a |
+                               +------+
+                               | 1|
+                               +------+
+                               1 row in set (0.00 sec)
+                               DROP TABLE t1;
+
+                             ● ANY_VALUE函数入参为NULL、字符串类型时，返回值类型
+                               与MySQL存在差异。例如：
+                               – 入参为NULL时，GaussDB返回值类型为BIGINT，
+                                 MySQL返回值类型为binary。
+                               – 入参为VARCHAR类型时，GaussDB返回值类型为
+                                 VARCHAR类型，MySQL返回值类型可能是VARCHAR类
+                                 型，也可能是TEXT类型。
+
+
+
+
+文档版本 01 (2026-04-30)         版权所有 © 华为云计算技术有限公司                                                  3328
+GaussDB
+集中式版参考                                                               4 兼容性说明
+
+
+               函数名               与MySQL的差异
+
+               SLEEP()           ● 调用SLEEP函数的过程中，若使用Ctrl+C提前结束调用，
+                                   GaussDB只显示Cancel request sent信息，与MySQL显示不
+                                   一致。
+                                 ● 除上述情况外，当SLEEP函数在其他SQL语句中被调用时，
+                                   使用Ctrl+C提前结束语句，若操作恰好被SLEEP函数内部获
+                                   取，则不会报错，若被系统中其他函数获取则报错，与
+                                   MySQL表现不一致。
+                                 ● 若在SLEEP函数执行的过程中，其所在的进程被相关命令结
+                                   束（如：SELECT PG_TERMINATE_BACKEND(xxx);），
+                                   GaussDB目前行为为报错处理，与MySQL不一致。
+
+               COLLATION()       GaussDB仅支持utf8、utf8mb4、gbk、gb18030和latin1字符
+                                 集下的字符序。
+
+               CHARSET()         -
+
+               FOUND_ROWS()      -
+
+               ROW_COUNT()       ● GaussDB没有SIGNAL语句，MySQL支持SIGNAL语句。
+                                 ● GaussDB中，因为不存在连接参数CLIENT_FOUND_ROWS
+                                   （设置之后返回匹配行数而不是影响行数），不受此参数的
+                                   影响，统一返回影响行数，MySQL受此参数影响。
+                                 ● GaussDB中INSERT ON DUPLICATE KEY UPDATE中触发冲
+                                   突的场景，返回受影响行数与MySQL存在差异，具体请参
+                                   见DDL章节“INSERT ... ON DUPLICATE KEY UPDATE语
+                                   法”的差异说明。
+
+               SYSTEM_USER()     MySQL的配置文件中配置skip-name-resolve时，不会将
+                                 127.0.0.1或::1解析为localhost，GaussDB没有相关参数，始终
+                                 将127.0.0.1和::1解析为localhost。
+
+               USER()            同SYSTEM_USER()。
+
+               CURRENT_USER()    因为MySQL和GaussDB权限系统存在差异，GaussDB中返回的
+                                 鉴权信息中不存在IP信息而MySQL存在。
+
+               DEFAULT()         GaussDB支持使用列别名，MySQL不支持。
+
+               BENCHMARK()       ● 因为MySQL和GaussDB执行层框架存在差异，所以MySQL
+                                   和GaussDB使该函数评估同一个表达式的执行时间不具有可
+                                   比性。该函数仅用于评估GaussDB不同表达式的执行效率对
+                                   比。
+                                 ● 执行时间较长时，当在客户端输入Ctrl+C时，MySQL返回0
+                                   后结束任务，GaussDB统一显示Cancel request sent后结束
+                                   任务。
+
+               LAST_INSERT_ID(   -
+               )
+
+               CONNECTION_I      -
+               D()
+
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                       3329
+GaussDB
+集中式版参考                                                      4 兼容性说明
+
+
+
+
+4.4.2.3 操作符
+              GaussDB数据库兼容绝大多数MySQL的操作符，但存在部分差异。如未列出，操作符
+              行为默认为GaussDB原生行为，目前存在MySQL不支持但是GaussDB支持的语句，在
+              GaussDB数据库下，这类语句通常为系统内部使用，因此不建议使用。
+
+操作符差异
+              ●   ORDER BY排序对NULL值处理的差异。MySQL在排序时会将NULL值排序在前
+                  面；GaussDB默认将NULL值默认排在最后面。GaussDB可以通过NULLS FIRST和
+                  NULLS LAST设置NULL值排序顺序。
+              ●   有ORDER BY时，除上述特殊场景外，GaussDB输出顺序与MySQL一致。没有
+                  ORDER BY时，GaussDB不保证结果顺序与MySQL一致。
+              ●   使用MySQL操作符时需要用括号表达式严格确保表达式的结合性，否则执行报
+                  错。例如：SELECT 1 regexp ('12345' regexp '123');。
+                  GaussDB数据库中操作符不用括号严格表达的结合性也能成功执行。
+              ●   NULL值显示不同。MySQL会将NULL显示为“NULL”；GaussDB将NULL值显示
+                  为空值。
+                  MySQL输出结果：
+                  mysql> SELECT NULL;
+                  +------+
+                  | NULL |
+                  +------+
+                  | NULL |
+                  +------+
+                  1 row in set (0.00 sec)
+                  GaussDB输出结果：
+                  m_db=# SELECT NULL;
+                   ?column?
+                  ----------
+
+                  (1 row)
+
+              ●   操作符执行后，列名显示不一致。MySQL会将NULL显示为“NULL”；GaussDB
+                  将NULL值显示为空值。
+              ●   字符串转double遇到非法字符串时，告警信息不一致。MySQL在常量非法字符串
+                  报错，字段非法字符串不报错；GaussDB在常量非法字符串和字段非法字符串都
+                  报错。
+              ●   比较操作符返回结果显示不同。MySQL返回1/0；GaussDB返回t/f。
+              ●   当使用比较操作符，对包含NULL值的整型列、时间日期列，与不可转换类型的常
+                  量或绑定参数进行比较时，返回结果不同（如date类型与非法日期字符串
+                  “1970”、“2023”比较）。MySQL返回NULL；GaussDB返回f。
+                  MySQL输出结果：
+                  MySQL > CREATE TABLE test1(t_int int);
+                  Query OK, 0 rows affected (0.01 sec)
+                  MySQL > INSERT INTO test1 VALUES(NULL);
+                  Query OK, 1 row affected (0.00 sec)
+                  MySQL > SELECT t_int = 1.1 FROM test1;
+                  +-------------+
+                  | t_int = 1.1 |
+                  +-------------+
+                  |       NULL |
+                  +-------------+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司       3330
+
