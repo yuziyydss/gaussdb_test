@@ -1,0 +1,197 @@
+# M模式 — 操作符完整兼容性 — 结构化参考事实
+# 来源: gaussdb-rf-cent.pdf 4.4.2.3 (物理页3379-3397)
+document: "集中式版参考 / 4.4.2.3 MySQL兼容性M模式操作符"
+version: "V2.0-10.0.0"
+parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+extraction_date: "2026-09-14"
+extraction_method: pdftotext -layout 逐页精读
+verification_status: confirmed
+
+facts:
+  # 核心行为差异
+  - id: m_op_null_order
+    type: behavior_oracle
+    statement: "ORDER BY NULL排序：MySQL将NULL排在最前，GaussDB默认排在最后。可通过NULLS FIRST/NULLS LAST调整。有ORDER BY时其余排序一致；无ORDER BY时不保证顺序。"
+    source_anchor: "4.4.2.3 操作符差异"
+    status: confirmed
+    verification_method: 逐页精读（页3379）
+
+  - id: m_op_null_display
+    type: behavior_oracle
+    statement: "NULL显示：MySQL显示'NULL'文本，GaussDB显示空值。"
+    source_anchor: "4.4.2.3 操作符差异"
+    status: confirmed
+    verification_method: 逐页精读（页3379-3380）
+
+  - id: m_op_parenthesis_requirement
+    type: constraint
+    statement: "MySQL操作符需括号严格确保结合性否则报错，GaussDB不用括号也能执行。如SELECT 1 regexp ('12345' regexp '123')。"
+    source_anchor: "4.4.2.3 操作符差异"
+    status: confirmed
+    verification_method: 逐页精读（页3379）
+
+  - id: m_op_compare_return
+    type: behavior_oracle
+    statement: "比较操作符返回：MySQL返回1/0，GaussDB返回t/f。"
+    source_anchor: "4.4.2.3 操作符差异"
+    status: confirmed
+    verification_method: 逐页精读（页3380）
+
+  - id: m_op_null_compare_unconvertible
+    type: behavior_oracle
+    statement: "NULL值列与不可转换类型常量比较：MySQL返回NULL，GaussDB返回f。如NULL整型列与1.1比较、date列与'1970'比较。"
+    source_anchor: "4.4.2.3 操作符差异"
+    status: confirmed
+    verification_method: 逐页精读（页3380-3381）
+
+  - id: m_op_string_to_double_error
+    type: behavior_oracle
+    statement: "字符串转double非法：MySQL常量报错字段不报错，GaussDB常量和字段都报错。"
+    source_anchor: "4.4.2.3 操作符差异"
+    status: confirmed
+    verification_method: 逐页精读（页3380）
+
+  # <>和<=>
+  - id: m_op_neq_index
+    type: constraint
+    statement: "<>操作符：MySQL支持索引，GaussDB不支持索引。<=>操作符：MySQL支持索引，GaussDB不支持索引/hash连接/合并连接。"
+    source_anchor: "4.4.2.3 表4-155"
+    status: confirmed
+    verification_method: 逐页精读（页3381）
+
+  # 行表达式
+  - id: m_op_row_expression
+    type: behavior_oracle
+    statement: "行表达式差异：MySQL不支持<=>行比较、行与NULL比较、IS NULL/ISNULL行操作。GaussDB支持</<=/=/>=/><>行与NULL比较、IS NULL行操作。MySQL不支持ROW(单列)，GaussDB支持。"
+    source_anchor: "4.4.2.3 表4-155"
+    status: confirmed
+    verification_method: 逐页精读（页3382）
+
+  # 注释操作符
+  - id: m_op_double_dash
+    type: behavior_oracle
+    statement: "--注释差异：m_format_behavior_compat_options不含forbid_none_space_comment时GaussDB表示注释（MySQL为两次取反），设置后一致。"
+    source_anchor: "4.4.2.3 表4-155"
+    status: confirmed
+    verification_method: 逐页精读（页3383）
+
+  - id: m_op_hash_comment
+    type: constraint
+    statement: "#注释：MySQL支持#注释，GaussDB不支持。/**/注释：GaussDB中语句不支持。"
+    source_anchor: "4.4.2.3 表4-155"
+    status: confirmed
+    verification_method: 逐页精读（页3385/3389）
+
+  - id: m_op_double_exclamation
+    type: behavior_oracle
+    statement: "!!差异：MySQL中!!含义同!（取非）。GaussDB中!与!之间有空格为连续取非，无空格为阶乘。阶乘与取非混用时需空格分隔。"
+    source_anchor: "4.4.2.3 表4-155"
+    status: confirmed
+    verification_method: 逐页精读（页3383）
+
+  # REGEXP
+  - id: m_op_regexp_diff
+    type: behavior_oracle
+    statement: "REGEXP差异：GaussDB支持\\d/\\w/\\s元字符（MySQL不支持视为普通字符）。GaussDB用\\转义（MySQL用\\\\）。GaussDB支持非贪婪模式（??/*?/+?/{n}?），MySQL 5.7不支持报错。BINARY字符集下TEXT/BLOB转BYTEA后REGEXP无法匹配。"
+    source_anchor: "4.4.2.3 表4-155"
+    status: confirmed
+    verification_method: 逐页精读（页3383）
+
+  # LIKE
+  - id: m_op_like_operand
+    type: constraint
+    statement: "LIKE操作数：MySQL左操作数仅位/算术/括号表达式，右操作数仅单目运算（不含NOT）/括号。GaussDB左右可为任意表达式。"
+    source_anchor: "4.4.2.3 表4-155"
+    status: confirmed
+    verification_method: 逐页精读（页3384）
+
+  # BETWEEN AND
+  - id: m_op_between_associativity
+    type: behavior_oracle
+    statement: "BETWEEN AND嵌套：MySQL从右到左结合，GaussDB从左到右。设置between_and_independent_compare时GaussDB独立比较。MySQL的BETWEEN可能与(>=AND<=)不等价，GaussDB优先保证等价。"
+    source_anchor: "4.4.2.3 表4-155"
+    status: confirmed
+    verification_method: 逐页精读（页3385）
+
+  # IN
+  - id: m_op_in_float_precision
+    type: behavior_oracle
+    statement: "IN操作符float精度：开启精度传递时GaussDB按精度和标度比较（返回t），MySQL读内存失真值（返回0）。"
+    source_anchor: "4.4.2.3 表4-155"
+    status: confirmed
+    verification_method: 逐页精读（页3386-3387）
+
+  - id: m_op_in_multi_column
+    type: behavior_oracle
+    statement: "IN多列(col IN (col1,col2,...))：MySQL结果可能与单列OR结果不一致（不自洽）。GaussDB保证一致性。"
+    source_anchor: "4.4.2.3 表4-155"
+    status: confirmed
+    verification_method: 逐页精读（页3387）
+
+  # 逻辑操作符执行机制
+  - id: m_op_logic_execution
+    type: behavior_oracle
+    statement: "AND/OR/XOR/|/&/</>/<=/>=/!=执行机制：MySQL先执行左操作数判断是否为空再决定执行右操作数。GaussDB执行左右操作数后再判断。左操作数为空且右操作数报错时MySQL不报错，GaussDB报错。"
+    source_anchor: "4.4.2.3 表4-155"
+    status: confirmed
+    verification_method: 逐页精读（页3390-3391）
+
+  # 取负
+  - id: m_op_negative_type
+    type: behavior_oracle
+    statement: "取负(-)结果类型：CREATE TABLE t AS SELECT - -1时MySQL返回decimal(2,0)，GaussDB返回integer(1)。精度传递时负号精度差异。"
+    source_anchor: "4.4.2.3 表4-155"
+    status: confirmed
+    verification_method: 逐页精读（页3390）
+
+  # XOR
+  - id: m_op_xor_overflow
+    type: behavior_oracle
+    statement: "XOR差异：GaussDB有常数优化，SELECT 1 xor null xor pow(200,2000000)报溢出错误。MySQL返回NULL。"
+    source_anchor: "4.4.2.3 表4-155"
+    status: confirmed
+    verification_method: 逐页精读（页3389）
+
+  # IS NULL优先级
+  - id: m_op_is_null_priority
+    type: constraint
+    statement: "IS NULL/IS NOT NULL优先级：MySQL小于逻辑运算符，GaussDB大于逻辑运算符。"
+    source_anchor: "4.4.2.3 表4-155"
+    status: confirmed
+    verification_method: 逐页精读（页3390）
+
+  # 索引差异
+  - id: m_op_index_types
+    type: constraint
+    statement: "GaussDB仅支持UBTree和B-tree索引。LIKE模糊匹配时EXPLAIN显示索引列对应字符序的最小/最大字符权重编码。"
+    source_anchor: "4.4.2.3 索引差异"
+    status: confirmed
+    verification_method: 逐页精读（页3392）
+
+  - id: m_op_index_prefix_length
+    type: constraint
+    statement: "前缀索引长度：单字节字符集GaussDB最长2676字节，MySQL最长3072字节。超长建议创建非前缀索引。"
+    source_anchor: "4.4.2.3 索引差异说明"
+    status: confirmed
+    verification_method: 逐页精读（页3392）
+
+  - id: m_op_index_type_cast
+    type: behavior_oracle
+    statement: "索引字段与常量类型不匹配时不走索引。可用CAST将常量转换为字段类型实现索引：SELECT * FROM t WHERE _int > cast(2.0 AS signed)。"
+    source_anchor: "4.4.2.3 索引差异说明"
+    status: confirmed
+    verification_method: 逐页精读（页3392）
+
+  - id: m_op_index_bit_type
+    type: constraint
+    statement: "BIT类型索引字段与任何常量类型比较均不走索引（MySQL走索引）。SET/ENUM类型与任何常量类型比较均不走索引。"
+    source_anchor: "4.4.2.3 表4-157"
+    status: confirmed
+    verification_method: 逐页精读（页3392-3393）
+
+  - id: m_op_index_time_type
+    type: behavior_oracle
+    statement: "TIME类型索引字段与TIME/日期/字符串/二进制/浮点常量（可转TIME）比较走索引。YEAR类型PBE绑定参数场景无法利用索引。"
+    source_anchor: "4.4.2.3 表4-157"
+    status: confirmed
+    verification_method: 逐页精读（页3393）
