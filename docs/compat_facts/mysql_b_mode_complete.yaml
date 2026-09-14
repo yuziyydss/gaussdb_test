@@ -1,0 +1,141 @@
+# MySQL B模式 — 完整兼容性深化 — 结构化参考事实
+# 来源: gaussdb-rf-cent.pdf 4.4.3 (物理页3498-3574)
+document: "集中式版参考 / 4.4.3 MySQL兼容性B模式"
+version: "V2.0-10.0.0"
+parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+extraction_date: "2026-09-14"
+extraction_method: pdftotext -layout 逐页精读
+verification_status: confirmed
+
+facts:
+  # === 整数类型核心差异 ===
+  - id: b_int_input_truncation
+    type: behavior_oracle
+    statement: "整数输入差异：MySQL对'asbd'/'12dd'/'12 12'等截断或返回0并WARNING（严格模式插表失败）。GaussDB直接截断无提示插表成功（'12@3'→12）。全部截断（'@123'）或空串返回0插表成功。"
+    source_anchor: "4.4.3.1.1 输入格式"
+    status: confirmed
+    verification_method: 逐页精读（页3449）
+
+  - id: b_int_operator_no_promotion
+    type: behavior_oracle
+    statement: "+-*/操作符差异：GaussDB INT/INTEGER/SMALLINT/BIGINT运算返回类型本身，不向上提升，超范围报错。MySQL提升到BIGINT计算。SELECT 2147483647+1在GaussDB报int4 overflow，MySQL返回2147483648。"
+    source_anchor: "4.4.3.1.1 操作符"
+    status: confirmed
+    verification_method: 逐页精读（页3450）
+
+  - id: b_int_xor_operator
+    type: behavior_oracle
+    statement: "^操作符差异：GaussDB中^表示指数运算（2^3=8），异或需用#替换（2#3=1）。MySQL中^表示异或（2^3=1）。|、&、~在类型BIT位中计算，MySQL提升类型计算。"
+    source_anchor: "4.4.3.1.1 操作符"
+    status: confirmed
+    verification_method: 逐页精读（页3450）
+
+  - id: b_int_negative_cast
+    type: behavior_oracle
+    statement: "负数显式转换差异：GaussDB宽松模式结果为0，严格模式报错。MySQL按二进制最高位替换计算，如(-1)::uint4=4294967295。"
+    source_anchor: "4.4.3.1.1 负数显式类型转换"
+    status: confirmed
+    verification_method: 逐页精读（页3450）
+
+  - id: b_int_display_width
+    type: behavior_oracle
+    statement: "INT(M)精度差异：MySQL控制格式化输出，GaussDB仅语法支持不支持功能。不指定ZEROFILL时宽度信息在DESC中不显示。INSERT字符字段GaussDB统一补齐0。JOIN USING有符号类型宽度信息失效。greatest/least/ifnull/case when在类型宽度一致时GaussDB补0，MySQL不补。"
+    source_anchor: "4.4.3.1.1 显示宽度"
+    status: confirmed
+    verification_method: 逐页精读（页3450）
+
+  - id: b_int_aggregate_variance
+    type: behavior_oracle
+    statement: "聚合函数差异：variance在GaussDB表示样本方差，MySQL表示总体方差。stddev在GaussDB表示样本标准差，MySQL表示总体标准差。结果不同。"
+    source_anchor: "4.4.3.1.1 聚集函数"
+    status: confirmed
+    verification_method: 逐页精读（页3450）
+
+  - id: b_int_mediumint_mapping
+    type: constraint
+    statement: "MEDIUMINT存储差异：MySQL 3字节（-8388608~8388607/0~16777215）。GaussDB映射为INT 4字节（-2147483648~2147483647/0~4294967295）。范围不同。"
+    source_anchor: "4.4.3.1.1 表4-170"
+    status: confirmed
+    verification_method: 逐页精读（页3450-3451）
+
+  - id: b_bool_values_detail
+    type: syntax
+    statement: "BOOL真值：TRUE/'t'/'true'/'y'/'yes'/'1'/TRUE/true/'on'及所有非0数值。假值：FALSE/'f'/'false'/'n'/'no'/'0'/0/FALSE/false/'off'。MySQL映射为TINYINT。"
+    source_anchor: "4.4.3.1.1 表4-170"
+    status: confirmed
+    verification_method: 逐页精读（页3450）
+
+  # === 任意精度/浮点类型 ===
+  - id: b_decimal_fixed_unsupported
+    type: constraint
+    statement: "FIXED[(M,D)]不支持。DECIMAL/NUMERIC/DEC支持但^表示指数（异或用#）。精度标度不支持浮点型数值输入。全部截断字符串不报错，部分截断报错。"
+    source_anchor: "4.4.3.1.1 表4-171"
+    status: confirmed
+    verification_method: 逐页精读（页3451）
+
+  - id: b_float_partition_limit
+    type: constraint
+    statement: "FLOAT分区限制：FLOAT数据类型不支持KEY键值分区策略分区表。非法入参一律报ERROR（不在宽松模式下报WARNING）。精度M标度D不支持浮点输入。"
+    source_anchor: "4.4.3.1.1 表4-172"
+    status: confirmed
+    verification_method: 逐页精读（页3451-3452）
+
+  # === 类型转换规则 ===
+  - id: b_type_conversion_rules
+    type: environment
+    statement: "类型转换规则差异：GaussDB和MySQL在数据类型转换规则上有很大差异。GaussDB按操作符/类型优先级确定目标类型，MySQL有独立规则。推荐各表达式使用相同类型或提前CAST转换规避差异。"
+    source_anchor: "4.4.3.1 数据类型转换"
+    status: confirmed
+    verification_method: 逐页精读（页3474-3475）
+
+  # === 系统函数 ===
+  - id: b_func_native_behavior
+    type: environment
+    statement: "B模式系统函数默认为GaussDB原生行为（不同于M模式的MySQL兼容行为）。绝大部分函数返回值精度与MySQL不一致（尾零位数），因部分数据类型精度丢失。"
+    source_anchor: "4.4.3.2.1"
+    status: confirmed
+    verification_method: 逐页精读（页3475）
+
+  - id: b_func_if_bool_only
+    type: behavior_oracle
+    statement: "IF()差异：B模式中expr1仅支持bool类型，非bool不能转换则报错。expr2/expr3类型不同且无隐式转换函数则报错。NUMERIC/STRING/TIME类型GaussDB输出TEXT，MySQL输出VARCHAR。"
+    source_anchor: "4.4.3.2.2 表4-179"
+    status: confirmed
+    verification_method: 逐页精读（页3476）
+
+  - id: b_func_ifnull_type
+    type: behavior_oracle
+    statement: "IFNULL()差异：两入参类型不同且无隐式转换则报错。NUMERIC/STRING/TREE范畴GaussDB输出TEXT，MySQL输出VARCHAR。float4+bigint返回double，MySQL返回float。"
+    source_anchor: "4.4.3.2.2 表4-179"
+    status: confirmed
+    verification_method: 逐页精读（页3476）
+
+  - id: b_func_nullif_type_inference
+    type: behavior_oracle
+    statement: "NULLIF()差异：GaussDB类型推导遵循等值比较操作符逻辑——两参数不同类型但有等值操作符则返回左值类型，否则强制类型兼容再找。MySQL有自己的类型推导规则。"
+    source_anchor: "4.4.3.2.2 表4-179"
+    status: confirmed
+    verification_method: 逐页精读（页3477）
+
+  - id: b_func_isnull_boolean
+    type: behavior_oracle
+    statement: "ISNULL()差异：GaussDB返回BOOLEAN类型t或f，MySQL返回1或0。"
+    source_anchor: "4.4.3.2.2 表4-179"
+    status: confirmed
+    verification_method: 逐页精读（页3478）
+
+  # === 日期时间函数 ===
+  - id: b_func_datetime_range
+    type: environment
+    statement: "B模式日期范围：MySQL datetime支持'1000-01-01 00:00:00'到'9999-12-31 23:59:59'。GaussDB的date/datetime范围更大。纯数字入参统一转text处理，与MySQL有差异。"
+    source_anchor: "4.4.3.2"
+    status: confirmed
+    verification_method: 逐页精读（页3478-3479）
+
+  # === 驱动差异 ===
+  - id: b_driver_pbe_zero_char
+    type: behavior_oracle
+    statement: "驱动差异：PBE文本模式传参时，不含disable_zero_chars_conversion则\\0替换为空格（与MySQL有差异），包含则禁止转换（一致）。setAutoCommit(false)后语句失败需rollback才能继续（MySQL只回滚失败语句）。setBigDecimal/setObject的NUMERIC与整型/时间运算精度为NUMERIC最大精度（与MySQL8.0一致）。setTime保留毫秒（MySQL丢弃）。"
+    source_anchor: "4.4.2.8 驱动"
+    status: confirmed
+    verification_method: 逐页精读（页3449）
