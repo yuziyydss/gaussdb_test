@@ -1,0 +1,169 @@
+# Oracle系统函数 — 逐函数深化 — 结构化参考事实
+# 来源: gaussdb-rf-cent.pdf 4.3.11 (物理页3206-3228)
+document: "集中式版参考 / 4.3.11 Oracle兼容性系统函数（深化版）"
+version: "V2.0-10.0.0"
+parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+extraction_date: "2026-09-14"
+extraction_method: pdftotext -layout 逐函数逐差异精读
+verification_status: confirmed
+
+facts:
+  # === 数值函数 ===
+  - id: o_fn_mod_return_type
+    type: behavior_oracle
+    statement: "MOD差异：Oracle返回BINARY_DOUBLE/BINARY_FLOAT/NUMBER，GaussDB返回int2/int4/int8/numeric。第一入参为数值时第二参数须int/numeric或可转换类型。a_format_version=10c且dev_version=s6时text入参第二参数须int4范围。"
+    source_anchor: "4.3.11.1 表4-91"
+    status: confirmed
+    verification_method: 逐页精读（页3208）
+
+  - id: o_fn_mod_param_constraint
+    type: constraint
+    statement: "MOD参数约束：GaussDB第一入参为数值类型时第二参数必须为int/numeric或可转numeric类型。a_format_dev_version=s6时第一参数为可转numeric的text类型则第二参数须≤int4。"
+    source_anchor: "4.3.11.1 表4-91"
+    status: confirmed
+    verification_method: 逐页精读（页3208）
+
+  - id: o_fn_nanvl_nan
+    type: behavior_oracle
+    statement: "NANVL差异：GaussDB不支持直接声明NaN或浮点数除0得NaN。Oracle中SELECT NANVL(NaN,0)返回0，GaussDB无此场景。"
+    source_anchor: "4.3.11.1 表4-91"
+    status: confirmed
+    verification_method: 逐页精读（页3208）
+
+  - id: o_fn_remainder_return_type
+    type: behavior_oracle
+    statement: "REMAINDER返回类型差异：GaussDB float4+numeric→float4，float4+float4→float4，float8+float8→float8，其他→numeric。Oracle统一返回number。CTAS中列类型不同。"
+    source_anchor: "4.3.11.1 表4-91"
+    status: confirmed
+    verification_method: 逐页精读（页3208-3209）
+
+  - id: o_fn_round_float_precision
+    type: behavior_oracle
+    statement: "ROUND差异：float类型GaussDB精度低于Oracle。round(n,integer) Oracle返回NUMBER，GaussDB返回numeric。round(n) GaussDB只能返回float8/numeric，缺少float4。SELECT round(NULL,'q') Oracle返回null，GaussDB报错。"
+    source_anchor: "4.3.11.1 表4-91"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3209）
+
+  - id: o_fn_tanh_return_type
+    type: behavior_oracle
+    statement: "TANH差异：GaussDB float8入参返回float8，numeric入参返回numeric。Oracle统一返回number。"
+    source_anchor: "4.3.11.1 表4-91"
+    status: confirmed
+    verification_method: 逐页精读（页3210）
+
+  # === 字符函数 ===
+  - id: o_fn_chr_invalid_input
+    type: behavior_oracle
+    statement: "CHR差异：数字不符合字符集时JDBC下GaussDB报错，Oracle返回乱码。输入0/256时Oracle返回ASCII 0字符，GaussDB在\\0处截断。"
+    source_anchor: "4.3.11.1 表4-92"
+    status: confirmed
+    verification_method: 逐页精读（页3210）
+
+  - id: o_fn_lower_date_implicit
+    type: behavior_oracle
+    statement: "LOWER差异：输入时间类型时Oracle返回10-DEC-12格式，GaussDB返回2012-12-10 00:00:00格式（隐式转字符串后lower）。SELECT LOWER(TO_DATE('2012-12-10','YYYY-MM-DD'))。"
+    source_anchor: "4.3.11.1 表4-92"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3210）
+
+  - id: o_fn_ltrim_return_type
+    type: behavior_oracle
+    statement: "LTRIM差异：Oracle返回VARCHAR2/NVARCHAR2/LOB（与输入类型一致），GaussDB统一返回TEXT。"
+    source_anchor: "4.3.11.1 表4-92"
+    status: confirmed
+    verification_method: 逐页精读（页3210）
+
+  - id: o_fn_nchr_byte_length
+    type: behavior_oracle
+    statement: "NCHR差异：返回值字节长度与Oracle不一致。字节[0x80-0xFF]范围Oracle返回?或不输出或报错，GaussDB返回?。字符集限制导致结果不一致。"
+    source_anchor: "4.3.11.1 表4-92"
+    status: confirmed
+    verification_method: 逐页精读（页3211）
+
+  - id: o_fn_nls_lower_nlsparam
+    type: constraint
+    statement: "NLS_LOWER/NLS_UPPER差异：Oracle的nlsparam可传多种参数不报错，GaussDB只支持nls_sort。Oracle返回VARCHAR2/LOB，GaussDB返回TEXT。"
+    source_anchor: "4.3.11.1 表4-92"
+    status: confirmed
+    verification_method: 逐页精读（页3211）
+
+  # === 日期时间函数 ===
+  - id: o_fn_current_date_format
+    type: behavior_oracle
+    statement: "CURRENT_DATE差异：GaussDB不支持nls_date_format参数设置显示格式。mapping_date_to_datea开启时返回datea，关闭时返回date。"
+    source_anchor: "4.3.11.1 表4-94"
+    status: confirmed
+    verification_method: 逐页精读（页3213）
+
+  - id: o_fn_timestamp_precision_limit
+    type: constraint
+    statement: "CURRENT_TIMESTAMP/LOCALTIMESTAMP/SYSTIMESTAMP/TO_TIMESTAMP精度：Oracle支持0-9位，GaussDB只支持0-6位（微秒级）。微秒末位零不显示。"
+    source_anchor: "4.3.11.1 表4-94"
+    status: confirmed
+    verification_method: 逐页精读（页3213-3214）
+
+  - id: o_fn_dbtimezone_interface
+    type: constraint
+    statement: "DBTIMEZONE差异：GaussDB不支持自带tz的timestamp类型接口调用。"
+    source_anchor: "4.3.11.1 表4-94"
+    status: confirmed
+    verification_method: 逐页精读（页3213）
+
+  - id: o_fn_last_day_overload
+    type: behavior_oracle
+    statement: "LAST_DAY/MONTHS_BETWEEN/NEW_TIME差异：GaussDB存在datea和timestamp两个重载，输入字符字面量时优先选timestamp重载。Oracle只有date重载。结果可能不同。"
+    source_anchor: "4.3.11.1 表4-94"
+    status: confirmed
+    verification_method: 逐页精读（页3213-3214）
+
+  - id: o_fn_interval_type_substitution
+    type: constraint
+    statement: "NUMTODSINTERVAL/NUMTOYMINTERVAL/TO_DSINTERVAL差异：GaussDB不支持dsinterval/yminterval类型，暂时用interval兼容。类型系统有差异。"
+    source_anchor: "4.3.11.1 表4-94"
+    status: confirmed
+    verification_method: 逐页精读（页3213-3214）
+
+  - id: o_fn_sessiontimezone_syntax
+    type: behavior_oracle
+    statement: "SESSIONTIMEZONE差异：赋值语法GaussDB用SET SESSION TIME ZONE 8，Oracle用ALTER SESSION SET TIME_ZONE='+08:00'。默认值GaussDB为时区名（PRC），Oracle为偏移量（+08:00）。"
+    source_anchor: "4.3.11.1 表4-94"
+    status: confirmed
+    verification_method: 逐页精读（页3214）
+
+  - id: o_fn_sysdate_return_type
+    type: behavior_oracle
+    statement: "SYSDATE差异：返回类型GaussDB关闭mapping_date_to_datea时为timestamp without time zone，开启时为datea。Oracle返回date。CTAS/CREATE VIEW中列类型不同。"
+    source_anchor: "4.3.11.1 表4-94"
+    status: confirmed
+    verification_method: 逐页精读（页3214）
+
+  - id: o_fn_to_char_fmt5
+    type: behavior_oracle
+    statement: "TO_CHAR差异：fmt'5'未在Oracle文档中，GaussDB未适配。"
+    source_anchor: "4.3.11.1 表4-94"
+    status: confirmed
+    verification_method: 逐页精读（页3214）
+
+  # === PL/SQL关键字限制 ===
+  - id: o_fn_plsql_unsupported_keywords
+    type: constraint
+    statement: "PL/SQL不支持的Function/Procedure关键字：ACCESSIBLE、PIPE ROW、PIPELINED、SQL_MACRO、RESTRICT_REFERENCES、INLINE。DETERMINISTIC仅语法支持未实现功能。AGGREGATE不支持using implementation_type用法。"
+    source_anchor: "4.3.11 表4-89"
+    status: confirmed
+    verification_method: 逐页精读（页3206-3207）
+
+  # === 异常处理 ===
+  - id: o_fn_exception_init
+    type: constraint
+    statement: "EXCEPTION_INIT差异：GaussDB不支持与系统错误码绑定。"
+    source_anchor: "4.3.11 表4-90"
+    status: confirmed
+    verification_method: 逐页精读（页3207）
+
+  # === 不支持的函数类别 ===
+  - id: o_fn_unsupported_categories_detail
+    type: constraint
+    statement: "不支持类别明细：字符集函数（NLS_CHARSET_NAME等）、Collation函数（COLLATION等）、集合函数（SET/MULTISET等）、数据挖掘函数（PREDICTION等）、对象引用函数（REF/DEREF等）、模型函数（MODEL子句相关）、OLAP函数、数据盒函数。"
+    source_anchor: "4.3.11"
+    status: confirmed
+    verification_method: 逐页精读（页3207）
