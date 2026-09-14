@@ -1,0 +1,83 @@
+# Oracle — JDBC驱动/常见DDL子句/条件 — 结构化参考事实
+# 来源: gaussdb-rf-cent.pdf 4.3.7-4.3.8 (物理页3155-3178)
+document: "集中式版参考 / 4.3.7-4.3.8 Oracle兼容性JDBC/DDL子句/条件"
+version: "V2.0-10.0.0"
+parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+extraction_date: "2026-09-14"
+extraction_method: pdftotext -layout 逐页精读
+verification_status: confirmed
+
+facts:
+  # === JDBC Array接口 ===
+  - id: o_jdbc_array_constructor
+    type: constraint
+    statement: "JDBC Array构造差异：Oracle用ArrayDescriptor.createDescriptor，GaussDB用getDescriptor。Oracle的Array类名为ARRAY，GaussDB为GaussArray。类型名大小写敏感：Oracle通常大写，GaussDB小写。"
+    source_anchor: "4.3.7.1.1 表4-34"
+    status: confirmed
+    verification_method: 逐页精读含代码对比（页3156-3157）
+
+  - id: o_jdbc_array_size_limit
+    type: constraint
+    statement: "JDBC Array大小限制：Oracle中ArrayDescriptor构造时可指定maxSize（Long.MAX_VALUE）。GaussDB不支持指定maxSize参数，数组长度受1GB限制。"
+    source_anchor: "4.3.7.1.1"
+    status: confirmed
+    verification_method: 逐页精读（页3158）
+
+  # === JDBC Struct接口 ===
+  - id: o_jdbc_struct_constructor
+    type: constraint
+    statement: "JDBC Struct构造差异：Oracle用StructDescriptor.createDescriptor，GaussDB用getDescriptor。Oracle的Struct类名为STRUCT，GaussDB为GaussStruct。类型名大小写敏感。"
+    source_anchor: "4.3.7.1.2 表4-40"
+    status: confirmed
+    verification_method: 逐页精读含代码对比（页3119-3120）
+
+  - id: o_jdbc_struct_length_validation
+    type: behavior_oracle
+    statement: "JDBC Struct长度校验差异：字符类型attribute长度超限时Oracle在绑定入参时报错，GaussDB在构造/绑定时不对类型修饰符校验（由数据库执行时决定）。数组元素数量小于列数量时Oracle创建成功但执行时报错，GaussDB创建时就报错。"
+    source_anchor: "4.3.7.1.2 说明"
+    status: confirmed
+    verification_method: 逐页精读（页3120）
+
+  # === 常见DDL子句 ===
+  - id: o_ddl_allocate_extent
+    type: constraint
+    statement: "分配扩展子句（ALLOCATE EXTENT）：不支持。ALTER TABLE employees ALLOCATE EXTENT(SIZE 10M)在GaussDB中不支持。"
+    source_anchor: "4.3.8 表4-44"
+    status: confirmed
+    verification_method: 逐页精读（页3129）
+
+  - id: o_ddl_constraint_supported
+    type: syntax
+    statement: "约束子句（inline/out_of_line constraint和ref constraint）：支持。CREATE TABLE staff(ID INT NOT NULL, NAME char(8) NOT NULL)正常工作。"
+    source_anchor: "4.3.8 表4-44"
+    status: confirmed
+    verification_method: 逐页精读含SQL（页3129-3130）
+
+  - id: o_ddl_deallocate_unused
+    type: constraint
+    statement: "取消分配未使用子句（DEALLOCATE UNUSED [KEEP size_clause]）：不支持。"
+    source_anchor: "4.3.8 表4-44"
+    status: confirmed
+    verification_method: 逐页精读（页3130）
+
+  # === 条件子句差异（从上文截取） ===
+  - id: o_cond_any_some_all
+    type: behavior_oracle
+    statement: "ANY/SOME/ALL操作符差异：Oracle支持对list对象操作，GaussDB需将list转换为数组表达式后操作。"
+    source_anchor: "4.3.6 表4-33"
+    status: confirmed
+    verification_method: 逐页精读（页3155）
+
+  - o_cond_json_conditions:
+    type: constraint
+    statement: "SQL/JSON条件差异：不支持IS JSON和JSON_TEXTCONTAINS。JSONB_EQ等同JSON_EQUAL但不支持ERROR子句。JSONB_EXISTS等同JSON_EXISTS但不支持ERROR/EMPTY/PASSING子句。"
+    source_anchor: "4.3.6 表4-33"
+    status: confirmed
+    verification_method: 逐页精读（页3155-3156)
+
+  - id: o_cond_unsupported_types
+    type: constraint
+    statement: "不支持的条件类型：浮点条件、模型条件、多集合条件、XML条件、IS OF TYPE条件。"
+    source_anchor: "4.3.6 表4-33"
+    status: confirmed
+    verification_method: 逐页精读（页3155）
