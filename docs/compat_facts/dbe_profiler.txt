@@ -1,0 +1,663 @@
+GaussDB
+集中式版参考                                                                          3 存储过程
+
+              BEGIN
+               dbe_output.put_line('hello');
+               dbe_output.get_line(line, status);
+               dbe_output.put_line('-----------');
+               dbe_output.put_line(line);
+               dbe_output.put_line(status);
+              END;
+              /
+              -- 预期结果为：
+              -----------
+              hello
+              0
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 测试get_lines获取缓冲区多行内容，使用put_line输出。
+              DECLARE
+                 lines varchar[];
+                 linenum integer;
+              BEGIN
+                 dbe_output.put_line('line 1');
+                 dbe_output.put_line('line 2');
+                 dbe_output.put_line('line 3');
+                 linenum := 100;
+                 dbe_output.get_lines(lines, linenum);
+                 dbe_output.put_line('num: ' || linenum);
+                 FOR i IN 1 .. linenum LOOP
+                    dbe_output.put_line(lines[i]);
+                 END LOOP;
+              END;
+              /
+              -- 预期结果为：
+              num: 3
+              line 1
+              line 2
+              line 3
+              ANONYMOUS BLOCK EXECUTE
+
+                     说明
+
+                   当服务端的字符编码类型server_encoding不为UTF-8时，如果数据中存在字符编码属于合法的
+                   UTF8编码，DBE_OUTPUT.PUT_LINE函数和DBE_OUTPUT.PUT函数在处理该字符编码时会将其
+                   按照UTF8编码逻辑进行处理，将其先转换成server_encoding的编码格式后再进行后续操作，这
+                   样可能会导致函数返回值不符合预期或发生报错。当开启GUC参数enable_convert_illegal_char
+                   后（enable_convert_illegal_char值为on），DBE_OUTPUT.PUT_LINE函数和DBE_OUTPUT.PUT
+                   函数在处理此类编码的表现与参数关闭时保持一致，特殊字符不会以占位符形式输出。因此，不
+                   建议用户对含有特殊字符的数据使用DBE_OUTPUT.PUT_LINE函数和DBE_OUTPUT.PUT函数。
+
+
+3.12.2.14 DBE_PROFILER
+              plprofiler提供了一个接口，用于分析存储过程的应用程序，可以收集、存储以及删除
+              执行存储过程所涉及的相关数据。
+
+
+概述
+              在PL/SQL函数和存储过程中查找性能问题存在一定困难。在系统或扩展视图中，仅可
+              查看从客户端发送的查询。在调用存储过程的情况下，仅调用最外层的存储过程。
+              plprofiler扩展可用于快速识别最耗时的存储过程，再向下查看其中单个语句的耗时情
+              况。
+
+              DBE_PROFILER工具的原理为在执行DBE_PROFILER.PL_START_PLPROFILING后，系统
+              会初始化内存以准备记录数据，然后对后续执行的存储过程进行打桩，在关键点记录
+              详细信息，并将这些信息记录在内存中，等待事务提交之后将内存中的数据写入相关
+              系统表中，表信息请参见相关系统表介绍。
+
+文档版本 01 (2026-04-30)                      版权所有 © 华为云计算技术有限公司                         2757
+GaussDB
+集中式版参考                                                                                 3 存储过程
+
+              使用此工具，可以在会话中先创建存储过程及相关表信息，然后调用plprofiler接口对
+              存储过程进行profiling，再执行存储过程。此时存储过程分析数据已生成，可以通过
+              查询系统表去获取数据。
+
+              可以通过接口DBE_PROFILER.PL_CLEAR_PROFILING去删除某次或所有profiling后储
+              存在系统表里的数据。
+
+              在事务中执行DBE_PROFILER工具时须注意，在事务执行阶段，由于事务未提交，所以
+              内存中的数据不会写入系统表中，只有在执行commit后才会将数据写入系统表。同
+              理，执行rollback后，会将所有数据进行清理。
+
+权限介绍
+              普通用户访问DBE_PROFILER.PL_PROFILING_FUNCTIONS、
+              DBE_PROFILER.PL_PROFILING_DETAILS、
+              DBE_PROFILER.PL_PROFILING_CALLGRAPH、
+              DBE_PROFILER.PL_PROFILING_TRACKINFO系统表时，仅具有查询记录权限。
+
+接口介绍
+              高级功能包DBE_PROFILER支持的接口请参见表3-258。
+
+              表 3-258 DBE_PROFILER
+
+               接口名称                          描述
+
+               DBE_PROFILER.PL_STA           允许用户对目标存储过程进行profiling。
+               RT_PROFILING
+
+               DBE_PROFILER.PL_CLE           删除某次或所有profiling后储存在系统表里的数据。
+               AR_PROFILING
+
+
+
+
+              ●   DBE_PROFILER.PL_START_PROFILING
+                  允许用户对目标存储过程进行profiling。
+                  DBE_PROFILER.PL_START_PROFILING原型为：
+                  DBE_PROFILER.PL_START_PROFILING (run_id varchar2(64)) return void;
+
+
+                  表 3-259 DBE_PROFILER.PL_START_PROFILING 接口参数说明
+
+                   参数                 描述
+
+                   run_id             表示此次profiling的执行编号，系统会将用户的session_id和执
+                                      行编号拼接为形如sessionid_runid的字符串写入表中，作为本
+                                      次profiling的唯一标识。
+
+
+              ●   DBE_PROFILER.PL_CLEAR_PROFILING
+                  删除某次或所有profiling后储存在系统表里的数据。
+                  DBE_PROFILER.PL_CLEAR_PROFILING原型为：
+                  DBE_PROFILER.PL_CLEAR_PROFILING (run_id varchar2) return void;
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                   2758
+GaussDB
+集中式版参考                                                                3 存储过程
+
+                  表 3-260 DBE_PROFILER.PL_CLEAR_PROFILING 接口参数说明
+
+                    参数             描述
+
+                    run_id         非空值时，表示删除某次profiling数据的唯一标识；为空值
+                                   时，表示删除所有profiling后的数据。
+
+
+
+相关系统表介绍
+
+              表 3-261 总览
+
+               表名                           描述
+
+               DBE_PROFILER.PL_PROFILI      此次profiling涉及的存储过程。
+               NG_FUNCTIONS
+
+               DBE_PROFILER.PL_PROFILI      存储过程内每条语句的执行时间细节。
+               NG_DETAILS
+
+               DBE_PROFILER.PL_PROFILI      调用栈信息和对应每个存储过程执行的整体时间。
+               NG_CALLGRAPH
+
+               DBE_PROFILER.PL_PROFILI      存储过程每个阶段的执行时间。
+               NG_TRACKINFO
+
+
+
+
+              ●   DBE_PROFILER.PL_PROFILING_FUNCTIONS
+                  系统表信息参见表3-262。
+
+                  表 3-262 DBE_PROFILER.PL_PROFILING_FUNCTIONS
+
+                    列             类型                描述
+
+                    run_id        VARCHAR2(80)      由session_id和执行编号拼接而成的唯一
+                                  NOT NULL          标识。
+
+                    funcoid       BIGINT NOT NULL   存储过程id。
+
+                    schema        TEXT NOT NULL     模式名称。
+
+                    funcname      TEXT NOT NULL     存储过程的名称。
+
+                    total_occur   BIGINT            存储过程执行的总次数。
+
+                    init_time     BIGINT            存储过程执行开始前，变量赋值阶段的
+                                                    时间。
+
+                    end_time      BIGINT            存储过程执行结束后，处理返回值阶段
+                                                    的时间。
+
+                    total_time    BIGINT            存储过程执行的总时间，不包含
+                                                    init_time和end_time。
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                      2759
+GaussDB
+集中式版参考                                                                   3 存储过程
+
+
+              ●   DBE_PROFILER.PL_PROFILING_DETAILS
+                  系统表信息参见表3-263。
+
+                  表 3-263 DBE_PROFILER.PL_PROFILING_DETAILS
+                  列           类型            描述
+
+                  run_id      VARCHAR       由session_id和执行编号拼接而成的唯一标识。
+                              2(80) NOT
+                              NULL
+
+                  funcoid     BIGINT        存储过程id。
+                              NOT NULL
+
+                  line#       INTEGER       行号。
+                              NOT NULL
+
+                  source      TEXT          存储过程执行语句。
+
+                  cmd_ty      TEXT          语句类型，在EXECSQL和PERFORM语句时根据是否
+                  pe                        是函数调用语句在类型后添加_FUNCCALL后缀。如：
+                                            EXECSQL或EXECSQL_FUNCCALL、PERFORM或
+                                            PERFORM_FUNCCALL。
+
+                  total_oc    BIGINT        语句的执行次数。
+                  cur
+
+                  total_ti    BIGINT        语句的总执行时间，对于BODY类语句显示本身的执
+                  me                        行时间，不包含里层语句执行时间。BODY类语句如
+                                            下：BLOCK、IF、FORI、WHILE、LOOP、FORS、
+                                            FORC、FOREACH_A、DYNFORS和CASE。
+
+                  min_ti      BIGINT        语句的最短执行时间。
+                  me
+
+                  max_ti      BIGINT        语句的最长执行时间。
+                  me
+
+
+              ●   DBE_PROFILER.PL_PROFILING_CALLGRAPH
+                  系统表信息参见表3-264。
+
+                  表 3-264 DBE_PROFILER.PL_PROFILING_CALLGRAPH
+                  列                    类型                描述
+
+                  run_id               VARCHAR2(80)      由session_id和执行编号拼接而成的唯
+                                       NOT NULL          一标识。
+
+                  stack                TEXT[] NOT NULL   调用栈。
+
+                  self_time            BIGINT            存储过程执行时间。
+
+
+              ●   DBE_PROFILER.PL_PROFILING_TRACKINFO
+                  系统表信息参见表3-265。
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                        2760
+GaussDB
+集中式版参考                                                                        3 存储过程
+
+                  表 3-265 DBE_PROFILER.PL_PROFILING_TRACKINFO
+                    列                  类型                     描述
+
+                    run_id             VARCHAR2(80)           由session_id和执行编号拼接而成的
+                                       NOT NULL               唯一标识。
+
+                    funcoid            BIGINT NOT NULL        存储过程id。
+
+                    step_name          TEXT NOT NULL          执行阶段名称。
+
+                    loops_count        INTEGER                执行阶段的总次数。
+
+                    max_time           BIGINT                 执行阶段的最长执行时间。
+
+                    min_time           BIGINT                 执行阶段的最短执行时间。
+
+                    avg_time           BIGINT                 执行阶段的平均执行时间。
+
+                    total_time         BIGINT                 执行阶段的总执行时间。
+
+
+
+约束
+              ●   DBE_PROFILER.PL_START_PROFILING不支持在存储过程内使用，在存储过程内
+                  调用不生效。
+              ●   DBE_PROFILER.PL_START_PROFILING不支持事务失败记录统计信息到系统表。
+              ●   DBE_PROFILER.PL_START_PROFILING入参runid长度限制为64字节，超长将会报
+                  错。
+              ●   DBE_PROFILER.PL_START_PROFILING入参如果和profiler系统表内的runid重复将
+                  会报错。
+              ●   DBE_PROFILER不支持记录匿名块语句、PACKAGE的初始化语句和嵌套子程序内
+                  的语句。
+              ●   DBE_PROFILER不支持记录自治事务中语句。
+              ●   DBE_PROFILER最多可以记录嵌套层数不超过500层的存储过程，但是由于系统表
+                  DBE_PROFILER.PL_PROFILING_CALLGRAPH中stack列受索引长度最大值的影
+                  响，以及存储过程嵌套深度受GUC参数max_stack_depth的影响，实际最多可记
+                  录的存储过程嵌套层数会小于500层。
+
+示例
+              -- step1 创建表和存储过程。
+              gaussdb=# DROP TABLE IF EXISTS t1;
+              gaussdb=# CREATE TABLE t1 (i int);
+              gaussdb=# CREATE OR REPLACE PROCEDURE p1() AS
+                 sql_stmt varchar2(200);
+                 result number;
+              BEGIN
+                 for i in 1..1000 loop
+                   insert into t1 values(1);
+                 end loop;
+                 sql_stmt := 'select count(*) from t1';
+                 EXECUTE IMMEDIATE sql_stmt into result;
+              END;
+              /
+              gaussdb=# CREATE OR REPLACE PROCEDURE p2() AS
+              BEGIN
+                p1();
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                            2761
+GaussDB
+集中式版参考                                                                                                                       3 存储过程
+
+              END;
+              /
+              gaussdb=# CREATE OR REPLACE PROCEDURE p3() AS
+              BEGIN
+                p2();
+              END;
+              /
+
+              -- step2 调用plprofiler接口对存储过程进行profiling。
+              gaussdb=# SELECT dbe_profiler.pl_start_profiling('123');
+              gaussdb=# CALL p3();
+
+              -- step3 查询相关profiling信息。
+              -- 查询DBE_PROFILER.PL_PROFILING_FUNCTIONS表查看此次profiling涉及的存储过程。
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_functions ORDER BY run_id, funcoid;
+                run_id | funcoid | schema | funcname | total_occur | init_time | end_time | total_time
+              --------+---------+--------+----------+-------------+-----------+----------+------------
+                11_123 | 16736 | public | p1()             |       1|       8|       3|        31429
+                11_123 | 16737 | public | p2()             |       1|       9|       1|        32015
+                11_123 | 16738 | public | p3()             |       1|      20 |       2|        32597
+              (3 rows)
+              -- 查询DBE_PROFILER.PL_PROFILING_DETAILS表查看存储过程内每条语句的执行时间细节。
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_details WHERE funcoid = 16736 ORDER BY run_id,
+              funcoid, line#;
+                run_id | funcoid | line# |                    source              | cmd_type | total_occur | total_time | max_time |
+              min_time
+              --------+---------+-------+---------------------------------------------+------------+-------------+------------
+              +----------+----------
+                11_123 | 16736 |           1 | DECLARE                               |            |         0|       0|       0|       0
+                11_123 | 16736 |           2 | sql_stmt varchar2(200);                      |           |      0|        0|       0|      0
+                11_123 | 16736 |           3 | result number;                          |            |       0|        0|       0|       0
+                11_123 | 16736 |           4 | BEGIN                               |            |         0|        0|       0|      0
+                11_123 | 16736 |           5|     for i in 1..1000 loop                | FORI         |        1|      659 |     659 |    659
+                11_123 | 16736 |           6|       insert into t1 values(1);            | EXECSQL |            1000 |    29274 |      2282
+              |        23
+                11_123 | 16736 |           7|     end loop;                        |            |          0|       0|       0|      0
+                11_123 | 16736 |           8|     sql_stmt := 'select count(*) from t1'; | ASSIGN            |       1|       297 |     297
+              |       297
+                11_123 | 16736 |           9|     EXECUTE IMMEDIATE sql_stmt into result; | DYNEXECUTE |                       1|      1190
+              |      1190 |       1190
+                11_123 | 16736 | 10 | END                                          |            |          0|       0|       0|      0
+              (10 rows)
+              -- 查询DBE_PROFILER.PL_PROFILING_CALLGRAPH表查看调用栈信息和对应每个存储过程执行的整体时间
+              （total_time、self_time对应调用栈栈顶存储过程的总时间和自身执行时间）。
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_callgraph ORDER BY run_id, stack;
+                run_id |                               stack                             | self_time
+              --------+---------------------------------------------------------------------------+-----------
+                11_123 | {"public.p3() oid=16738"}                                                  |     582
+                11_123 | {"public.p3() oid=16738","public.p2() oid=16737"}                                  |     586
+                11_123 | {"public.p3() oid=16738","public.p2() oid=16737","public.p1() oid=16736"} |                     31429
+              (3 rows)
+              -- 查询DBE_PROFILER.PL_PROFILING_TRACKINFO表查看存储过程每个阶段的执行时间。
+              gaussdb=# SELECT step_name, loops_count FROM dbe_profiler.pl_profiling_trackinfo WHERE funcoid=16736;
+                 step_name | loops_count
+              --------------+-------------
+                cleanup        |         1
+                compile        |         1
+                exec_context |             1
+                exec_cursor |             1
+                execute        |         1
+                finsh        |         0
+                init       |          1
+                package          |        1
+                spictx       |         1
+              (9 rows)
+
+              -- step4 删除系统表数据。
+              gaussdb=# SELECT dbe_profiler.pl_clear_profiling('');
+              gaussdb=# SELECT step_name, loops_count FROM dbe_profiler.pl_profiling_trackinfo WHERE funcoid=16736;
+
+
+
+文档版本 01 (2026-04-30)                         版权所有 © 华为云计算技术有限公司                                                                       2762
+GaussDB
+集中式版参考                                                                                                                   3 存储过程
+
+               step_name | loops_count
+              -----------+-------------
+              (0 rows)
+              gaussdb=# DROP TABLE t1;
+
+              -- step5 profiling包含自治事务的存储过程。
+              -- 建表。
+              gaussdb=# CREATE TABLE t2(a int, b int);
+              -- 创建包含自治事务的存储过程。
+              gaussdb=# CREATE OR REPLACE PROCEDURE autonomous(a int, b int) AS
+              DECLARE
+                 num3 int := a;
+                 num4 int := b;
+                 PRAGMA AUTONOMOUS_TRANSACTION;
+              BEGIN
+                 insert into t2 values(num3, num4);
+                 dbe_output.print_line('just use call.');
+              END;
+              /
+              -- 创建调用自治事务存储过程的普通存储过程。
+              gaussdb=# CREATE OR REPLACE PROCEDURE autonomous_1(a int, b int) AS
+              DECLARE
+              BEGIN
+                 dbe_output.print_line('just no use call.');
+                 insert into t2 values(666, 666);
+                 autonomous(a,b);
+              END;
+              /
+              gaussdb=# SELECT dbe_profiler.pl_start_profiling ('100');
+              gaussdb=# CALL autonomous(11,22);
+              -- 查询表信息。
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_functions ORDER BY run_id, funcoid;
+               run_id | funcoid | schema | funcname | total_occur | init_time | end_time | total_time
+              --------+---------+--------+----------+-------------+-----------+----------+------------
+              (0 rows)
+
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_details ORDER BY run_id, funcoid, line#;
+               run_id | funcoid | line# | source | cmd_type | total_occur | total_time | max_time | min_time
+              --------+---------+-------+--------+----------+-------------+------------+----------+----------
+              (0 rows)
+
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_callgraph ORDER BY run_id, stack;
+               run_id | stack | self_time
+              --------+-------+-----------
+              (0 rows)
+
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_trackinfo ORDER BY run_id, funcoid;
+               run_id | funcoid | step_name | loops_count | max_time | min_time | avg_time | total_time
+              --------+---------+-----------+-------------+----------+----------+----------+------------
+              (0 rows)
+
+              gaussdb=# SELECT dbe_profiler.pl_start_profiling ('101');
+              gaussdb=# CALL autonomous_1(11,22);
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_functions ORDER BY run_id, funcoid;
+               run_id | funcoid | schema | funcname | total_occur | init_time | end_time | total_time
+              --------+---------+------------+----------------+-------------+-----------+----------+------------
+               11_101 | 16030 | dbe_output | print_line() |               1|       11 |     13 |       222
+               11_101 | 16765 | public        | autonomous_1() |            1|       19 |      1|      9004
+              (2 rows)
+
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_details ORDER BY run_id, funcoid, line#;
+               run_id | funcoid | line# |               source                 |    cmd_type      | total_occur | total_time |
+              max_time | min_time
+              --------+---------+-------+---------------------------------------------+------------------+-------------+------------
+              +----------+----------
+               11_101 | 16030 |       1|                                     |             |        0|         0|       0|       0
+               11_101 | 16030 |       2 | BEGIN                                 |             |         0|        0|       0|       0
+               11_101 | 16030 |       3|     PKG_UTIL.io_print(format, true);           | PERFORM_FUNCCALL |                1|
+              218 |     218 |     218
+
+
+
+文档版本 01 (2026-04-30)                        版权所有 © 华为云计算技术有限公司                                                                    2763
+GaussDB
+集中式版参考                                                                                                               3 存储过程
+
+                11_101 | 16030 |    4 | END;                             |               |       0|     0|     0|     0
+                11_101 | 16030 |    5|                                 |               |       0|     0|     0|     0
+                11_101 | 16765 |    1|                                 |               |       0|     0|     0|     0
+                11_101 | 16765 |    2 | DECLARE                              |               |     0|     0|     0|      0
+                11_101 | 16765 |    3 | BEGIN                              |               |      0|     0|     0|     0
+                11_101 | 16765 |    4 | dbe_output.print_line('just no use call.'); | PERFORM_FUNCCALL |         1|
+              797 |     797 |   797
+                11_101 | 16765 |    5 | insert into t2 values(666, 666);         | EXECSQL          |    1|     524 |
+              524 |     524
+                11_101 | 16765 |    6 | autonomous(a,b);                       | PERFORM_FUNCCALL |          1|     7669
+              |    7669 |   7669
+                11_101 | 16765 |    7 | END                              |               |       0|     0|     0|     0
+              (12 rows)
+
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_callgraph ORDER BY run_id, stack;
+               run_id |                           stack                            | self_time
+              --------+-------------------------------------------------------------------------+-----------
+               11_101 | {"public.autonomous_1() oid=16765"}                                       |    8782
+               11_101 | {"public.autonomous_1() oid=16765","dbe_output.print_line() oid=16030"} |              222
+              (2 rows)
+
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_trackinfo ORDER BY run_id, funcoid;
+               run_id | funcoid | step_name | loops_count | max_time | min_time | avg_time | total_time
+              --------+---------+--------------+-------------+----------+----------+----------+------------
+               11_101 | 16030 | cleanup           |       1|       1|       1|       1|        1
+               11_101 | 16030 | compile           |       1|      40 |     40 |      40 |       40
+               11_101 | 16030 | exec_context |              1|      3|       3|       3|         3
+               11_101 | 16030 | exec_cursor |              1|       2|       2|       2|        2
+               11_101 | 16030 | execute           |       1|     287 |     287 |     287 |       287
+               11_101 | 16030 | finsh           |       0|       0|       0|       0|        0
+               11_101 | 16030 | init          |        1|       0|       0|       0|        0
+               11_101 | 16030 | package             |     1|       2|       2|       2|        2
+               11_101 | 16030 | spictx          |       1|       1|       1|       1|        1
+               11_101 | 16765 | cleanup           |       1|       6|       6|       6|        6
+               11_101 | 16765 | compile           |       1|     284 |     284 |     284 |       284
+               11_101 | 16765 | exec_context |              1|      2|       2|       2|         2
+               11_101 | 16765 | exec_cursor |              1|       2|       2|       2|        2
+               11_101 | 16765 | execute           |       1|    9045 |     9045 |     9045 |      9045
+               11_101 | 16765 | finsh           |       0|       0|       0|       0|        0
+               11_101 | 16765 | init          |        1|       0|       0|       0|        0
+               11_101 | 16765 | package             |     1|       4|       4|       4|        4
+               11_101 | 16765 | spictx          |       1|       0|       0|       0|        0
+              (18 rows)
+
+              gaussdb=# SELECT dbe_profiler.pl_clear_profiling('');
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_functions;
+               run_id | funcoid | schema | funcname | total_occur | init_time | end_time | total_time
+              --------+---------+--------+----------+-------------+-----------+----------+------------
+              (0 rows)
+
+              gaussdb=# DROP TABLE t2;
+
+
+
+3.12.2.15 DBE_RANDOM
+
+接口介绍
+              高级功能包DBE_RANDOM支持的接口请参见表3-266。
+
+
+              表 3-266 DBE_RANDOM 接口参数说明
+
+               接口名称                      描述
+
+               DBE_RANDOM                设置一个随机数的种子。
+               .SET_SEED
+
+
+文档版本 01 (2026-04-30)                       版权所有 © 华为云计算技术有限公司                                                           2764
+GaussDB
+集中式版参考                                                            3 存储过程
+
+
+               接口名称              描述
+
+               DBE_RANDOM        生成一个大小介于指定的low及high之间的随机数。
+               .GET_VALUE
+
+
+
+
+              ●   DBE_RANDOM.SET_SEED
+                  存储过程SEED用于设置一个随机数的种子。
+                  DBE_RANDOM.SET_SEED原型为：
+                  DBE_RANDOM.SET_SEED (seed IN INTEGER);
+
+
+                  表 3-267 DBE_RANDOM.SET_SEED 接口参数说明
+                   参数                   描述
+
+                   seed                 用于产生一个随机数的种子。
+
+
+              ●   DBE_RANDOM.GET_VALUE
+                  函数GET_VALUE生成一个大小介于指定的low及high之间的随机数。
+                  DBE_RANDOM.GET_VALUE原型为：
+                  DBE_RANDOM.GET_VALUE(
+                  min IN NUMBER default 0,
+                  max IN NUMBER default 1)
+                  RETURN NUMBER;
+
+
+                  表 3-268 DBE_RANDOM.GET_VALUE 接口参数说明
+                   参数           描述
+
+                   min          指定随机数大小的下边界，生成的随机数大于或等于min。
+
+                   max          指定随机数大小的上边界，生成的随机数小于max。
+
+
+
+
+                         说明
+
+                       ● DBE_RANDOM.GET_VALUE要求参数类型是NUMERIC，对于左右边界的大小并没有要
+                         求。
+                       ● DBE_RANDOM实现的是伪随机，所以若使用的初值（种子）不变，那么伪随机数的数
+                         序也不变，使用时需要注意，建议不要在安全场景下使用DBE_RANDOM。
+                       ● 生成的随机数有效数字为15位。
+                  示例：
+                  -- 产生0到1之间的随机数。
+                  SELECT DBE_RANDOM.GET_VALUE(0,1);
+                     get_value
+                  ------------------
+                   .917468812743886
+                  (1 row)
+
+                  -- 对于指定范围内的整数，要加入参数min和max，并从结果中截取较小的数（最大值不能被作为可能的
+                  值）。所以对于0到99之间的整数，使用下面的代码。
+                  SELECT TRUNC(DBE_RANDOM.GET_VALUE(0,100));
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                 2765
+GaussDB
+集中式版参考                                                        3 存储过程
+
+                  trunc
+                 -------
+                    26
+                 (1 row)
+
+
+3.12.2.16 DBE_RAW
+              DBE_RAW包提供了用于操作RAW类型的接口。
+
+                  说明
+
+                 RAW类型的外部表现形式是十六进制，内部存储形式是二进制。例如一个RAW类型的数据
+                 11001011的表现形式为‘CB’，即在实际的类型转换中输入的是‘CB’。
+
+
+权限介绍
+              DBE_RAW模式属于系统目录，DBE_RAW模式除了系统管理员用户在初始化数据库时
+              拥有创建权限，模式及模式下的所有接口，所有用户仅具有使用权限。
+
+
+接口介绍
+              高级功能包DBE_RAW支持的接口请参见表3-269。
+
+              表 3-269 DBE_RAW
+
+               接口名称                   描述
+
+               DBE_RAW.CAST_FROM_BI   将INTEGER类型值转换为二进制表示形式（即RAW类
+               NARY_INTEGER_TO_RAW    型）。
+
+               DBE_RAW.CAST_FROM_R    将RAW类型值转换为INTEGER类型。
+               AW_TO_BINARY_INTEGER
+
+               DBE_RAW.GET_LENGTH     获取RAW类型值的长度。
+
+               DBE_RAW.CAST_FROM_V    将VARCHAR2类型值转换为RAW类型。
+               ARCHAR2_TO_RAW
+
+               DBE_RAW.CAST_TO_VARC   将RAW类型值转换为VARCHAR2类型。
+               HAR2
+
+               DBE_RAW.BIT_OR         返回RAW类型值按位或计算后的值。
+
+               DBE_RAW.SUBSTR         返回RAW类型值取子串后的值。
+
+               DBE_RAW.BIT_AND        返回RAW类型按位与计算后的值。
+
+               DBE_RAW.BIT_COMPLEM    返回RAW类型按位取反计算后的值。
+               ENT
+
+               DBE_RAW.BIT_XOR        返回RAW类型按位异或计算后的值。
+
+               DBE_RAW.CAST_FROM_BI   将BINARY_DOUBLE类型值转换为RAW类型。
+               NARY_DOUBLE_TO_RAW
+
+               DBE_RAW.CAST_FROM_R    将RAW类型值转换为BINARY_DOUBLE类型。
+               AW_TO_BINARY_DOUBLE
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                 2766
+

@@ -1,0 +1,1381 @@
+GaussDB
+集中式版参考                                                                3 存储过程
+
+
+
+
+3.12.2.12 DBE_OBFUSCATION_TOOLKIT
+
+接口介绍
+
+
+                  须知
+
+              由于DES算法、DES3算法和MD5哈希算法存在算法安全风险，请谨慎使用
+              DBE_OBFUSCATION_TOOLKIT进行加解密操作。
+
+              DBE_OBFUSCATION_TOOLKIT高级功能包是GaussDB提供的兼容性功能包，主要用于
+              支持DES、DES3、MD5哈希算法的接口，以保持与原有业务逻辑的兼容。
+              DBE_OBFUSCATION_TOOLKIT支持的接口请参见表3-241。
+
+              表 3-241 DBE_OBFUSCATION_TOOLKIT
+
+               接口名称                                描述
+
+               DBE_OBFUSCATION_TOOLKIT.            生成DES算法的密钥。
+               DESGETKEY
+
+               DBE_OBFUSCATION_TOOLKIT.            使用DES算法对数据进行加密。
+               DESENCRYPT
+
+               DBE_OBFUSCATION_TOOLKIT.            使用DES算法对数据进行解密。
+               DESDECRYPT
+
+               DBE_OBFUSCATION_TOOLKIT.            生成DES3算法的密钥。
+               DES3GETKEY
+
+               DBE_OBFUSCATION_TOOLKIT.            使用DES3算法对数据进行加密。
+               DES3ENCRYPT
+
+               DBE_OBFUSCATION_TOOLKIT.            使用DES3算法对数据进行解密。
+               DES3DECRYPT
+
+               DBE_OBFUSCATION_TOOLKIT.            计算数据的MD5哈希值。
+               MD5
+
+
+
+
+              ●   DBE_OBFUSCATION_TOOLKIT.DESGETKEY
+                  功能：生成DES算法的密钥。
+                  DBE_OBFUSCATION_TOOLKIT.DESGETKEY原型可以分为2种：
+                  --原型1：入参为VARCHAR2类型
+                  DBE_OBFUSCATION_TOOLKIT.DESGETKEY(
+                  seed_string IN VARCHAR2
+                  ) RETURN VARCHAR2;
+
+                  --原型2：入参为RAW类型
+                  DBE_OBFUSCATION_TOOLKIT.DESGETKEY(
+                  seed IN RAW
+                  ) RETURN RAW;
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                     2745
+GaussDB
+集中式版参考                                                                                           3 存储过程
+
+                  表 3-242 DBE_OBFUSCATION_TOOLKIT.DESGETKEY 接口参数说明
+
+                   参数          类型           是否可         描述
+                                            以为空
+
+                   seed_st     VARCHA       否           用于生成密钥的种子值，其长度至少为80字
+                   ring        R2                       节。
+
+                   seed        RAW          否
+
+
+
+
+                  示例：
+                  -- 生成随机密钥
+                  gaussdb=# SELECT
+                  rawtohex(dbe_raw.cast_from_varchar2_to_raw(dbe_obfuscation_toolkit.desgetkey(seed_string =>
+                  '00000000000000000000000000000000000000000000000000000000000000000000000000000000')));
+                  WARNING: The DES algorithm is an insecure algorithm, please use it with caution.
+                  CONTEXT: referenced column: rawtohex
+                      rawtohex
+                  ------------------
+                   A7F0B24CF66DAECF
+                  (1 row)
+
+                  gaussdb=# SELECT rawtohex(dbe_obfuscation_toolkit.desgetkey(seed =>
+                  dbe_raw.cast_from_varchar2_to_raw('00000000000000000000000000000000000000000000000000000
+                  000000000000000000000000000')));
+                  WARNING: The DES algorithm is an insecure algorithm, please use it with caution.
+                  CONTEXT: referenced column: rawtohex
+                      rawtohex
+                  ------------------
+                   8B91DB09B8D0DD83
+                  (1 row)
+
+                       说明
+
+                       DBE_OBFUSCATION_TOOLKIT.DESGETKEY生成的密钥为随机密钥。
+              ●   DBE_OBFUSCATION_TOOLKIT.DESENCRYPT
+                  功能：使用DES算法对数据进行加密。
+                  DBE_OBFUSCATION_TOOLKIT.DESENCRYPT原型可以分为2种：
+                  --原型1：入参为VARCHAR2类型
+                  DBE_OBFUSCATION_TOOLKIT.DESENCRYPT(
+                  input_string IN VARCHAR2,
+                  key_string IN VARCHAR2
+                  ) RETURN VARCHAR2;
+
+                  --原型2：入参为RAW类型
+                  DBE_OBFUSCATION_TOOLKIT.DESENCRYPT(
+                  input IN RAW,
+                  key IN RAW
+                  ) RETURN RAW;
+
+
+                  表 3-243 DBE_OBFUSCATION_TOOLKIT.DESENCRYPT 接口参数说明
+
+                   参数          类型          是否可以         描述
+                                           为空
+
+                   input_st    VARCH       否            待加密的数据，其长度必须为8字节的倍数。
+                   ring        AR2
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                  2746
+GaussDB
+集中式版参考                                                                                                 3 存储过程
+
+
+                   参数           类型            是否可以          描述
+                                              为空
+
+                   input        RAW           否
+
+                   key_stri     VARCH         否             加密密钥，其长度至少为8字节，超过8字节
+                   ng           AR2                         的数据不影响加密结果。
+
+                   key          RAW           否
+
+
+
+
+                  示例：
+                  gaussdb=# SELECT
+                  rawtohex(dbe_raw.cast_from_varchar2_to_raw(dbe_obfuscation_toolkit.desencrypt(input_string =>
+                  '12345678', key_string => '12345678')));
+                  WARNING: The DES algorithm is an insecure algorithm, please use it with caution.
+                  CONTEXT: referenced column: rawtohex
+                      rawtohex
+                  ------------------
+                   96D0028878D58C89
+                  (1 row)
+
+                  gaussdb=# SELECT rawtohex(dbe_obfuscation_toolkit.desencrypt(input =>
+                  dbe_raw.cast_from_varchar2_to_raw('12345678'), key =>
+                  dbe_raw.cast_from_varchar2_to_raw('12345678')));
+                  WARNING: The DES algorithm is an insecure algorithm, please use it with caution.
+                  CONTEXT: referenced column: rawtohex
+                      rawtohex
+                  ------------------
+                   96D0028878D58C89
+                  (1 row)
+
+              ●   DBE_OBFUSCATION_TOOLKIT.DESDECRYPT
+                  功能：使用DES算法对数据进行解密。
+                  DBE_OBFUSCATION_TOOLKIT.DESDECRYPT原型可以分为2种：
+                  --原型1：入参为VARCHAR2类型
+                  DBE_OBFUSCATION_TOOLKIT.DESDECRYPT(
+                  input_string IN VARCHAR2,
+                  key_string IN VARCHAR2
+                  ) RETURN VARCHAR2;
+
+                  --原型2：入参为RAW类型
+                  DBE_OBFUSCATION_TOOLKIT.DESDECRYPT(
+                  input IN RAW,
+                  key IN RAW
+                  ) RETURN RAW;
+
+
+                  表 3-244 DBE_OBFUSCATION_TOOLKIT.DESDECRYPT 接口参数说明
+
+                   参数           类型            是否可          描述
+                                              以为空
+
+                   input_st     VARCHA        否            待解密的数据，其长度必须为8字节的倍数。
+                   ring         R2
+
+                   input        RAW           否
+
+                   key_stri     VARCHA        否            解密密钥，其长度至少为8字节，超过8字节的
+                   ng           R2                         数据不影响解密结果。
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                     2747
+GaussDB
+集中式版参考                                                                                                 3 存储过程
+
+
+                   参数           类型            是否可          描述
+                                              以为空
+
+                   key          RAW           否
+
+
+
+                  示例：
+                  gaussdb=# SELECT
+                  rawtohex(dbe_raw.cast_from_varchar2_to_raw(dbe_obfuscation_toolkit.desdecrypt(input_string =>
+                  '12345678', key_string => '12345678')));
+                  WARNING: The DES algorithm is an insecure algorithm, please use it with caution.
+                  CONTEXT: referenced column: rawtohex
+                      rawtohex
+                  ------------------
+                   F5E8E9EB81F28B73
+                  (1 row)
+
+                  gaussdb=# SELECT rawtohex(dbe_obfuscation_toolkit.desdecrypt(input =>
+                  dbe_raw.cast_from_varchar2_to_raw('12345678'), key =>
+                  dbe_raw.cast_from_varchar2_to_raw('12345678')));
+                  WARNING: The DES algorithm is an insecure algorithm, please use it with caution.
+                  CONTEXT: referenced column: rawtohex
+                      rawtohex
+                  ------------------
+                   F5E8E9EB81F28B73
+                  (1 row)
+
+              ●   DBE_OBFUSCATION_TOOLKIT.DES3GETKEY
+                  功能：生成DES3算法的密钥。
+                  DBE_OBFUSCATION_TOOLKIT.DES3GETKEY原型可以分为2种：
+                  --原型1：入参为VARCHAR2类型
+                  DBE_OBFUSCATION_TOOLKIT.DES3GETKEY(
+                  which      IN INTEGER DEFAULT 0,
+                  seed_string IN VARCHAR2
+                  ) RETURN VARCHAR2;
+
+                  --原型2：入参为RAW类型
+                  DBE_OBFUSCATION_TOOLKIT.DES3GETKEY(
+                  which IN INTEGER DEFAULT 0,
+                  seed IN RAW
+                  ) RETURN RAW;
+
+
+                  表 3-245 DBE_OBFUSCATION_TOOLKIT.DES3GETKEY 接口参数说明
+                   参数           类型             是否可          描述
+                                               以为空
+
+                   which        INTEGER        否            密钥模式。
+                                                            取值范围：0或1
+                                                            ● 0：返回16字节的密钥（即两个密钥）。
+                                                            ● 1：返回24字节的密钥（即三个密钥）。
+                                                            默认值：0
+
+                   seed_st      VARCHA         否            用于生成密钥的种子值，其长度至少为80字
+                   ring         R2                          节。
+
+                   seed         RAW            否
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                     2748
+GaussDB
+集中式版参考                                                                                            3 存储过程
+
+                  示例：
+                  -- 生成随机密钥
+                  gaussdb=# SELECT
+                  rawtohex(dbe_raw.cast_from_varchar2_to_raw(dbe_obfuscation_toolkit.des3getkey(seed_string =>
+                  '00000000000000000000000000000000000000000000000000000000000000000000000000000000')));
+                  WARNING: The DES3 algorithm is an insecure algorithm, please use it with caution.
+                  CONTEXT: referenced column: rawtohex
+                            rawtohex
+                  ----------------------------------
+                   9A64E470BC16D4969E782F3F5A8491A6
+                  (1 row)
+
+                  gaussdb=# SELECT rawtohex(dbe_obfuscation_toolkit.des3getkey(which => 1, seed =>
+                  dbe_raw.cast_from_varchar2_to_raw('00000000000000000000000000000000000000000000000000000
+                  000000000000000000000000000')));
+                  WARNING: The DES3 algorithm is an insecure algorithm, please use it with caution.
+                  CONTEXT: referenced column: rawtohex
+                                   rawtohex
+                  --------------------------------------------------
+                   05978E7010EA1E23B0095D29F04351D2744F2D46037DDDBD
+                  (1 row)
+
+                        说明
+
+                       DBE_OBFUSCATION_TOOLKIT.DES3GETKEY生成的密钥为随机密钥。
+              ●   DBE_OBFUSCATION_TOOLKIT.DES3ENCRYPT
+                  功能：使用DES3算法对数据进行加密。
+                  DBE_OBFUSCATION_TOOLKIT.DES3ENCRYPT原型可以分为2种：
+                  --原型1：入参为VARCHAR2类型
+                  DBE_OBFUSCATION_TOOLKIT.DES3ENCRYPT(
+                  input_string IN VARCHAR2,
+                  key_string IN VARCHAR2,
+                  which       IN INTEGER DEFAIULT 0,
+                  iv_string IN VARCHAR2 DEFAULT NULL
+                  ) RETURN VARCHAR2;
+
+                  --原型2：入参为RAW类型
+                  DBE_OBFUSCATION_TOOLKIT.DES3ENCRYPT(
+                  input IN RAW,
+                  key IN RAW,
+                  which IN INTEGER DEFAIULT 0,
+                  iv IN RAW DEFAULT NULL
+                  ) RETURN RAW;
+
+
+                  表 3-246 DBE_OBFUSCATION_TOOLKIT.DES3ENCRYPT 接口参数说明
+                   参数          类型          是否可          描述
+                                           以为空
+
+                   input_st    VARCH       否            待加密的数据，其长度必须为8字节的倍数。
+                   ring        AR2
+
+                   input       RAW         否
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                   2749
+GaussDB
+集中式版参考                                                                                                3 存储过程
+
+
+                   参数           类型           是否可           描述
+                                             以为空
+
+                   key_stri     VARCH        否             加密密钥，其长度依赖which的取值。
+                   ng           AR2                        ● 当which取值为0时：加密密钥的长度至少
+                   key          RAW          否               为16字节，超过16字节的数据不影响加密
+                                                             结果。
+                                                           ● 当which取值为1时：加密密钥的长度至少
+                                                             为24字节，超过24字节的数据不影响加密
+                                                             结果。
+
+                   which        INTEGE       否             密钥模式。
+                                R                          取值范围：0或1
+                                                           ● 0：按照16字节的密钥模式（即两个密钥）
+                                                             进行加密。
+                                                           ● 1：按照24字节的密钥模式（即三个密钥）
+                                                             进行加密。
+                                                           默认值：0
+
+                   iv_strin     VARCH        是             初始化向量，当该参数取值不为NULL时，其
+                   g            AR2                        长度必须为8字节的倍数，超过8字节的数据不
+                                                           影响加密结果。
+                   iv           RAW          是
+                                                           默认值：NULL
+
+
+
+                  示例：
+                  gaussdb=# SELECT
+                  rawtohex(dbe_raw.cast_from_varchar2_to_raw(dbe_obfuscation_toolkit.des3encrypt(input_string =>
+                  '12345678', key_string => '1234567823456789', iv_string => '12345678')));
+                  WARNING: The DES3 algorithm is an insecure algorithm, please use it with caution.
+                  CONTEXT: referenced column: rawtohex
+                      rawtohex
+                  ------------------
+                   EFDD1DFBCEE3B0CA
+                  (1 row)
+
+                  gaussdb=# SELECT rawtohex(dbe_obfuscation_toolkit.des3encrypt(input =>
+                  dbe_raw.cast_from_varchar2_to_raw('12345678'), key =>
+                  dbe_raw.cast_from_varchar2_to_raw('1234567812345678876543210'), which => 1));
+                  WARNING: The DES3 algorithm is an insecure algorithm, please use it with caution.
+                  CONTEXT: referenced column: rawtohex
+                      rawtohex
+                  ------------------
+                   1A1546D3DEAEB8BE
+                  (1 row)
+
+              ●   DBE_OBFUSCATION_TOOLKIT.DES3DECRYPT
+                  功能：使用DES3算法对数据进行解密。
+                  DBE_OBFUSCATION_TOOLKIT.DES3DECRYPT原型可以分为2种：
+                  --原型1：入参为VARCHAR2类型
+                  DBE_OBFUSCATION_TOOLKIT.DES3DECRYPT(
+                  input_string IN VARCHAR2,
+                  key_string IN VARCHAR2,
+                  which       IN INTEGER DEFAIULT 0,
+                  iv_string IN VARCHAR2 DEFAULT NULL
+                  ) RETURN VARCHAR2;
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                     2750
+GaussDB
+集中式版参考                                                                                               3 存储过程
+
+
+                 --原型2：入参为RAW类型
+                 DBE_OBFUSCATION_TOOLKIT.DES3DECRYPT(
+                 input IN RAW,
+                 key IN RAW,
+                 which IN INTEGER DEFAIULT 0,
+                 iv IN RAW DEFAULT NULL
+                 ) RETURN RAW;
+
+
+                 表 3-247 DBE_OBFUSCATION_TOOLKIT.DES3DECRYPT 接口参数说明
+
+                  参数           类型           是否可           描述
+                                            以为空
+
+                  input_st     VARCHA       否             待解密的数据，其长度必须为8字节的倍数。
+                  ring         R2
+
+                  input        RAW          否
+
+                  key_stri     VARCHA       否             解密密钥，其长度依赖which的取值。
+                  ng           R2                         ● 当which取值为0时：解密密钥的长度至少
+                  key          RAW          否               为16字节，超过16字节的数据不影响解密
+                                                            结果。
+                                                          ● 当which取值为1时：解密密钥的长度至少
+                                                            为24字节，超过24字节的数据不影响解密
+                                                            结果。
+
+                  which        INTEGE       否             密钥模式。
+                               R                          取值范围：0或1
+                                                          ● 0：按照16字节的密钥模式（即两个密钥）
+                                                            进行解密。
+                                                          ● 1：按照24字节的密钥模式（即三个密钥）
+                                                            进行解密。
+                                                          默认值：0
+
+                  iv_strin     VARCHA       是             初始化向量，当该参数取值不为NULL时，其
+                  g            R2                         长度必须为8字节的倍数，超过8字节的数据
+                                                          不影响解密结果。
+                  iv           RAW          是
+                                                          默认值：NULL
+
+
+
+
+                 示例：
+                 gaussdb=# SELECT
+                 rawtohex(dbe_raw.cast_from_varchar2_to_raw(dbe_obfuscation_toolkit.des3decrypt(input_string =>
+                 '12345678', key_string => '1234567823456789', iv_string => '12345678')));
+                 WARNING: The DES3 algorithm is an insecure algorithm, please use it with caution.
+                 CONTEXT: referenced column: rawtohex
+                     rawtohex
+                 ------------------
+                  8C2ED115CCA35582
+                 (1 row)
+
+                 gaussdb=# SELECT rawtohex(dbe_obfuscation_toolkit.des3decrypt(input =>
+                 dbe_raw.cast_from_varchar2_to_raw('12345678'), key =>
+                 dbe_raw.cast_from_varchar2_to_raw('1234567812345678876543210'), which => 1, iv =>
+                 dbe_raw.cast_from_varchar2_to_raw('12345678')));
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                      2751
+GaussDB
+集中式版参考                                                                                                3 存储过程
+
+                  WARNING: The DES3 algorithm is an insecure algorithm, please use it with caution.
+                  CONTEXT: referenced column: rawtohex
+                      rawtohex
+                  ------------------
+                   A6FF1AA4A875B3E8
+                  (1 row)
+
+              ●   DBE_OBFUSCATION_TOOLKIT.MD5
+                  功能：计算数据的MD5哈希值。
+                  DBE_OBFUSCATION_TOOLKIT.MD5原型可以分为2种：
+                  --原型1：入参为VARCHAR2类型
+                  DBE_OBFUSCATION_TOOLKIT.MD5(
+                  input_string IN VARCHAR2
+                  ) RETURN VARCHAR2;
+
+                  --原型2：入参为RAW类型
+                  DBE_OBFUSCATION_TOOLKIT.MD5(
+                  input IN RAW
+                  ) RETURN RAW;
+
+
+                  表 3-248 DBE_OBFUSCATION_TOOLKIT.MD5 接口参数说明
+                   参数           类型            是否可以           描述
+                                              为空
+
+                   input_st     VARCHA        否              待进行哈希操作的数据。
+                   ring         R2
+
+                   input        RAW           否
+
+
+
+
+                  示例：
+                  gaussdb=# SELECT
+                  rawtohex(dbe_raw.cast_from_varchar2_to_raw(dbe_obfuscation_toolkit.md5(input_string =>
+                  '1234567890')));
+                  WARNING: The MD5 algorithm is an insecure algorithm, please use it with caution.
+                  CONTEXT: referenced column: rawtohex
+                            rawtohex
+                  ----------------------------------
+                   E807F1FCF82D132F9BB018CA6738A19F
+                  (1 row)
+
+                  gaussdb=# SELECT
+                  rawtohex(dbe_obfuscation_toolkit.md5(dbe_raw.cast_from_varchar2_to_raw('1234567890')));
+                  WARNING: The MD5 algorithm is an insecure algorithm, please use it with caution.
+                  CONTEXT: referenced column: rawtohex
+                            rawtohex
+                  ----------------------------------
+                   E807F1FCF82D132F9BB018CA6738A19F
+                  (1 row)
+
+
+3.12.2.13 DBE_OUTPUT
+                  说明
+
+                  当使用DBE_OUTPUT.PUT_LINE打印DBE_FILE.READ_LINE_NCHAR接口得到的结果时，需要确
+                  保UTF8字符集编码能够转换成当前数据库字符集编码，满足上述条件后可以正常输出结果。
+                  DBE_OUTPUT.PRINT_LINE不支持该功能。
+
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                    2752
+GaussDB
+集中式版参考                                                                      3 存储过程
+
+
+接口介绍
+              高级功能包DBE_OUTPUT支持的接口请参见表3-249。
+
+              表 3-249 DBE_OUTPUT
+               接口名称                         描述
+
+               DBE_OUTPUT.PRINT_            输出指定的文本，并添加换行符。
+               LINE
+
+               DBE_OUTPUT.PRINT             输出指定的文本，不添加换行符。
+
+               DBE_OUTPUT.SET_BU            设置输出缓冲区的大小，如果不指定则缓冲区最大能容纳
+               FFER_SIZE                    20000字节，如果指定小于等于2000字节，则缓冲区允许
+                                            容纳2000字节。
+
+               DBE_OUTPUT.DISABL            禁用PUT、PUT_LINE、NEW_LINE、GET_LINE和
+               E                            GET_LINES调用，并清空输出缓冲区。
+
+               DBE_OUTPUT.ENABL             开启缓冲区，允许对PUT、PUT_LINE、NEW_LINE、
+               E                            GET_LINE和GET_LINES的调用，设置缓冲区大小。
+
+               DBE_OUTPUT.GET_LI            从缓冲区中以换行符作为分界获取一行数据，获取的数据
+               NE                           将不会输出到客户端。
+
+               DBE_OUTPUT.GET_LI            以VARCHAR数组的形式获取缓冲区的指定行数的字符
+               NES                          串，被取出的内容将会在缓冲区中清除，不会输出到客户
+                                            端。
+
+               DBE_OUTPUT.NEW_LI            放置一行在缓冲区末尾，放置行尾标记，空出新的一行。
+               NE
+
+               DBE_OUTPUT.PUT               将输入字符串放入到缓冲区，末尾不加换行符，在匿名块
+                                            执行结束时会将以换行符结尾的行输出显示。
+
+               DBE_OUTPUT.PUT_LI            将输入字符串放入到缓冲区，并末尾添加换行符，在匿名
+               NE                           块执行结束时会将以换行符结尾的行输出显示。
+
+
+
+
+              ●   DBE_OUTPUT.PRINT_LINE
+                  存储过程PRINT_LINE输出指定的文本，并添加换行符。
+                  DBE_OUTPUT.PRINT_LINE原型为：
+                  DBE_OUTPUT.PRINT_LINE (
+                  format IN VARCHAR2);
+
+
+                  表 3-250 DBE_OUTPUT.PRINT_LINE 接口参数说明
+                   参数             描述
+
+                   format         输出的文本。
+
+
+              ●   DBE_OUTPUT.PRINT
+                  存储过程PRINT输出指定的文本，不添加换行符。
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                           2753
+GaussDB
+集中式版参考                                                             3 存储过程
+
+                  DBE_OUTPUT.PRINT原型为：
+                  DBE_OUTPUT.PRINT (
+                  format IN VARCHAR2);
+
+
+                  表 3-251 DBE_OUTPUT.PRINT 接口参数说明
+                   参数               描述
+
+                   format           输出的文本。
+
+
+              ●   DBE_OUTPUT.SET_BUFFER_SIZE
+                  存储过程SET_BUFFER_SIZE设置输出缓冲区的大小，如果不指定的话缓冲区最大
+                  只能容纳20000字节。
+                  DBE_OUTPUT.SET_BUFFER_SIZE原型为：
+                  DBE_OUTPUT.SET_BUFFER_SIZE (
+                  size IN INTEGER default 20000);
+
+
+                  表 3-252 DBE_OUTPUT.SET_BUFFER_SIZE 接口参数说明
+                   参数               描述
+
+                   size             设置输出缓冲区的大小。
+
+
+              ●   DBE_OUTPUT.DISABLE
+                  存储过程DISABLE禁用PUT、PUT_LINE、NEW_LINE、GET_LINE、GET_LINES调
+                  用，并清空输出缓冲区。
+                  DBE_OUTPUT.DISABLE原型为：
+                  DBE_OUTPUT.DISABLE;
+
+              ●   DBE_OUTPUT.ENABLE
+                  存储过程ENABLE开启缓冲区，允许对 PUT、PUT_LINE、NEW_LINE、GET_LINE
+                  和 GET_LINES 的调用，并设置缓冲区大小，如果未指定缓冲区大小则默认容纳
+                  20000字节。
+                  DBE_OUTPUT.ENABLE原型为：
+                  DBE_OUTPUT.ENABLE (
+                     buffer_size IN INTEGER DEFAULT 20000
+                  );
+
+
+                  表 3-253 DBE_OUTPUT.ENABLE 接口参数说明
+                   参数               描述
+
+                   buffer_size      缓冲区大小的上限，以字节为单位。将 buffer_size 设置为
+                                    NULL 表示使用默认值（20000字节）。
+
+
+              ●   DBE_OUTPUT.GET_LINE
+                  存储过程GET_LINE从缓冲区中以换行符作为分界获取一行数据，获取的数据将不
+                  会输出到客户端。
+                  DBE_OUTPUT.GET_LINE原型为：
+                  DBE_OUTPUT.GET_LINE (
+                    line OUT VARCHAR2,
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                 2754
+GaussDB
+集中式版参考                                                         3 存储过程
+
+                        status OUT INTEGER
+                  );
+
+
+                  表 3-254 DBE_OUTPUT.GET_LINE 接口参数说明
+
+                       参数              描述
+
+                       line            表示获取到的字符串。
+
+                       status          表示调用状态是否正常，如果获取到字符串则为0，否则为1。
+
+
+              ●   DBE_OUTPUT.GET_LINES
+                  存储过程GET_LINES以VARCHAR数组的形式获取缓冲区的指定行数的字符串，被
+                  取出的内容将会在缓冲区中清除，不会输出到客户端。
+                  DBE_OUTPUT.GET_LINES原型为：
+                  DBE_OUTPUT.GET_LINES (
+                     lines OUT VARCHAR[],
+                     numlines IN OUT INTEGER
+                  );
+
+
+                  表 3-255 DBE_OUTPUT.GET_LINES 接口参数说明
+
+                       参数              描述
+
+                       lines           输出从缓冲区读取的多行字符串数组。
+
+                       numlines        输入值为需要从缓冲区检索的行数。输出值为实际检索到的行
+                                       数，如果输出值小于输入值，则表明缓冲区中存在的行数小于输
+                                       入的行数。
+
+
+              ●   DBE_OUTPUT.NEW_LINE
+                  存储过程NEW_LINE放置一行在缓冲区末尾，放置行尾标记，空出新的一行。
+                  DBE_OUTPUT.NEW_LINE原型为：
+                  DBE_OUTPUT.NEW_LINE;
+
+              ●   DBE_OUTPUT.PUT
+                  存储过程PUT将输入字符串放入到缓冲区，末尾不加换行符，在匿名块执行结束
+                  时会将以换行符结尾的行输出显示。
+                  DBE_OUTPUT.PUT原型为：
+                  DBE_OUTPUT.PUT (
+                    item IN VARCHAR2);
+
+
+                  表 3-256 DBE_OUTPUT.PUT 接口参数说明
+
+                       参数              描述
+
+                       item            待放在缓存区的字符或字符串。
+
+
+              ●   DBE_OUTPUT.PUT_LINE
+                  存储过程PUT_LINE将输入字符串放入到缓冲区，并且末尾添加换行符，在匿名块
+                  执行结束时会将以换行符结尾的行输出显示。
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司         2755
+GaussDB
+集中式版参考                                                                                  3 存储过程
+
+                   DBE_OUTPUT.PUT_LINE原型为：
+                   DBE_OUTPUT.PUT_LINE (
+                     item IN VARCHAR2);
+
+
+                   表 3-257 DBE_OUTPUT.PUT_LINE 接口参数说明
+
+                    参数               描述
+
+                    item             待放在缓存区的字符或字符串。
+
+
+
+示例
+              BEGIN
+                 DBE_OUTPUT.SET_BUFFER_SIZE(50);
+                 DBE_OUTPUT.PRINT('hello, ');
+                 DBE_OUTPUT.PRINT_LINE('database!'); -- 输出hello, database!。
+              END;
+              /
+              -- 预期结果为：
+              hello, database!
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 测试disable禁用put、put_line、new_line、get_line、get_lines调用,测试put_line不输出。
+              BEGIN
+               dbe_output.disable();
+                   dbe_output.put_line('1');
+              END;
+              /
+              -- 预期结果为：
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 测试enable启用put、put_line、new_line、get_line、get_lines调用，测试put_line输出1。
+              BEGIN
+               dbe_output.enable();
+                   dbe_output.put_line('1');
+              END;
+              /
+              -- 预期结果为：
+              1
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 测试put，输入字符串a放入到缓冲区，末尾不加换行符，a不输出。
+              BEGIN
+               dbe_output.enable();
+               dbe_output.put('a');
+              END;
+              /
+              -- 预期结果为：
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 测试new_line,添加换行，输出a。
+              BEGIN
+               dbe_output.enable();
+               dbe_output.put('a');
+                   dbe_output.new_line;
+              END;
+              /
+              -- 预期结果为：
+              a
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 测试get_line获取缓冲区数据保存到变量，使用put_line输出。
+              DECLARE
+               line VARCHAR(32672);
+               status INTEGER := 0;
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                   2756
+GaussDB
+集中式版参考                                                                          3 存储过程
+
+              BEGIN
+               dbe_output.put_line('hello');
+               dbe_output.get_line(line, status);
+               dbe_output.put_line('-----------');
+               dbe_output.put_line(line);
+               dbe_output.put_line(status);
+              END;
+              /
+              -- 预期结果为：
+              -----------
+              hello
+              0
+              ANONYMOUS BLOCK EXECUTE
+
+              -- 测试get_lines获取缓冲区多行内容，使用put_line输出。
+              DECLARE
+                 lines varchar[];
+                 linenum integer;
+              BEGIN
+                 dbe_output.put_line('line 1');
+                 dbe_output.put_line('line 2');
+                 dbe_output.put_line('line 3');
+                 linenum := 100;
+                 dbe_output.get_lines(lines, linenum);
+                 dbe_output.put_line('num: ' || linenum);
+                 FOR i IN 1 .. linenum LOOP
+                    dbe_output.put_line(lines[i]);
+                 END LOOP;
+              END;
+              /
+              -- 预期结果为：
+              num: 3
+              line 1
+              line 2
+              line 3
+              ANONYMOUS BLOCK EXECUTE
+
+                     说明
+
+                   当服务端的字符编码类型server_encoding不为UTF-8时，如果数据中存在字符编码属于合法的
+                   UTF8编码，DBE_OUTPUT.PUT_LINE函数和DBE_OUTPUT.PUT函数在处理该字符编码时会将其
+                   按照UTF8编码逻辑进行处理，将其先转换成server_encoding的编码格式后再进行后续操作，这
+                   样可能会导致函数返回值不符合预期或发生报错。当开启GUC参数enable_convert_illegal_char
+                   后（enable_convert_illegal_char值为on），DBE_OUTPUT.PUT_LINE函数和DBE_OUTPUT.PUT
+                   函数在处理此类编码的表现与参数关闭时保持一致，特殊字符不会以占位符形式输出。因此，不
+                   建议用户对含有特殊字符的数据使用DBE_OUTPUT.PUT_LINE函数和DBE_OUTPUT.PUT函数。
+
+
+3.12.2.14 DBE_PROFILER
+              plprofiler提供了一个接口，用于分析存储过程的应用程序，可以收集、存储以及删除
+              执行存储过程所涉及的相关数据。
+
+
+概述
+              在PL/SQL函数和存储过程中查找性能问题存在一定困难。在系统或扩展视图中，仅可
+              查看从客户端发送的查询。在调用存储过程的情况下，仅调用最外层的存储过程。
+              plprofiler扩展可用于快速识别最耗时的存储过程，再向下查看其中单个语句的耗时情
+              况。
+
+              DBE_PROFILER工具的原理为在执行DBE_PROFILER.PL_START_PLPROFILING后，系统
+              会初始化内存以准备记录数据，然后对后续执行的存储过程进行打桩，在关键点记录
+              详细信息，并将这些信息记录在内存中，等待事务提交之后将内存中的数据写入相关
+              系统表中，表信息请参见相关系统表介绍。
+
+文档版本 01 (2026-04-30)                      版权所有 © 华为云计算技术有限公司                         2757
+GaussDB
+集中式版参考                                                                                 3 存储过程
+
+              使用此工具，可以在会话中先创建存储过程及相关表信息，然后调用plprofiler接口对
+              存储过程进行profiling，再执行存储过程。此时存储过程分析数据已生成，可以通过
+              查询系统表去获取数据。
+
+              可以通过接口DBE_PROFILER.PL_CLEAR_PROFILING去删除某次或所有profiling后储
+              存在系统表里的数据。
+
+              在事务中执行DBE_PROFILER工具时须注意，在事务执行阶段，由于事务未提交，所以
+              内存中的数据不会写入系统表中，只有在执行commit后才会将数据写入系统表。同
+              理，执行rollback后，会将所有数据进行清理。
+
+权限介绍
+              普通用户访问DBE_PROFILER.PL_PROFILING_FUNCTIONS、
+              DBE_PROFILER.PL_PROFILING_DETAILS、
+              DBE_PROFILER.PL_PROFILING_CALLGRAPH、
+              DBE_PROFILER.PL_PROFILING_TRACKINFO系统表时，仅具有查询记录权限。
+
+接口介绍
+              高级功能包DBE_PROFILER支持的接口请参见表3-258。
+
+              表 3-258 DBE_PROFILER
+
+               接口名称                          描述
+
+               DBE_PROFILER.PL_STA           允许用户对目标存储过程进行profiling。
+               RT_PROFILING
+
+               DBE_PROFILER.PL_CLE           删除某次或所有profiling后储存在系统表里的数据。
+               AR_PROFILING
+
+
+
+
+              ●   DBE_PROFILER.PL_START_PROFILING
+                  允许用户对目标存储过程进行profiling。
+                  DBE_PROFILER.PL_START_PROFILING原型为：
+                  DBE_PROFILER.PL_START_PROFILING (run_id varchar2(64)) return void;
+
+
+                  表 3-259 DBE_PROFILER.PL_START_PROFILING 接口参数说明
+
+                   参数                 描述
+
+                   run_id             表示此次profiling的执行编号，系统会将用户的session_id和执
+                                      行编号拼接为形如sessionid_runid的字符串写入表中，作为本
+                                      次profiling的唯一标识。
+
+
+              ●   DBE_PROFILER.PL_CLEAR_PROFILING
+                  删除某次或所有profiling后储存在系统表里的数据。
+                  DBE_PROFILER.PL_CLEAR_PROFILING原型为：
+                  DBE_PROFILER.PL_CLEAR_PROFILING (run_id varchar2) return void;
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                   2758
+GaussDB
+集中式版参考                                                                3 存储过程
+
+                  表 3-260 DBE_PROFILER.PL_CLEAR_PROFILING 接口参数说明
+
+                    参数             描述
+
+                    run_id         非空值时，表示删除某次profiling数据的唯一标识；为空值
+                                   时，表示删除所有profiling后的数据。
+
+
+
+相关系统表介绍
+
+              表 3-261 总览
+
+               表名                           描述
+
+               DBE_PROFILER.PL_PROFILI      此次profiling涉及的存储过程。
+               NG_FUNCTIONS
+
+               DBE_PROFILER.PL_PROFILI      存储过程内每条语句的执行时间细节。
+               NG_DETAILS
+
+               DBE_PROFILER.PL_PROFILI      调用栈信息和对应每个存储过程执行的整体时间。
+               NG_CALLGRAPH
+
+               DBE_PROFILER.PL_PROFILI      存储过程每个阶段的执行时间。
+               NG_TRACKINFO
+
+
+
+
+              ●   DBE_PROFILER.PL_PROFILING_FUNCTIONS
+                  系统表信息参见表3-262。
+
+                  表 3-262 DBE_PROFILER.PL_PROFILING_FUNCTIONS
+
+                    列             类型                描述
+
+                    run_id        VARCHAR2(80)      由session_id和执行编号拼接而成的唯一
+                                  NOT NULL          标识。
+
+                    funcoid       BIGINT NOT NULL   存储过程id。
+
+                    schema        TEXT NOT NULL     模式名称。
+
+                    funcname      TEXT NOT NULL     存储过程的名称。
+
+                    total_occur   BIGINT            存储过程执行的总次数。
+
+                    init_time     BIGINT            存储过程执行开始前，变量赋值阶段的
+                                                    时间。
+
+                    end_time      BIGINT            存储过程执行结束后，处理返回值阶段
+                                                    的时间。
+
+                    total_time    BIGINT            存储过程执行的总时间，不包含
+                                                    init_time和end_time。
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                      2759
+GaussDB
+集中式版参考                                                                   3 存储过程
+
+
+              ●   DBE_PROFILER.PL_PROFILING_DETAILS
+                  系统表信息参见表3-263。
+
+                  表 3-263 DBE_PROFILER.PL_PROFILING_DETAILS
+                  列           类型            描述
+
+                  run_id      VARCHAR       由session_id和执行编号拼接而成的唯一标识。
+                              2(80) NOT
+                              NULL
+
+                  funcoid     BIGINT        存储过程id。
+                              NOT NULL
+
+                  line#       INTEGER       行号。
+                              NOT NULL
+
+                  source      TEXT          存储过程执行语句。
+
+                  cmd_ty      TEXT          语句类型，在EXECSQL和PERFORM语句时根据是否
+                  pe                        是函数调用语句在类型后添加_FUNCCALL后缀。如：
+                                            EXECSQL或EXECSQL_FUNCCALL、PERFORM或
+                                            PERFORM_FUNCCALL。
+
+                  total_oc    BIGINT        语句的执行次数。
+                  cur
+
+                  total_ti    BIGINT        语句的总执行时间，对于BODY类语句显示本身的执
+                  me                        行时间，不包含里层语句执行时间。BODY类语句如
+                                            下：BLOCK、IF、FORI、WHILE、LOOP、FORS、
+                                            FORC、FOREACH_A、DYNFORS和CASE。
+
+                  min_ti      BIGINT        语句的最短执行时间。
+                  me
+
+                  max_ti      BIGINT        语句的最长执行时间。
+                  me
+
+
+              ●   DBE_PROFILER.PL_PROFILING_CALLGRAPH
+                  系统表信息参见表3-264。
+
+                  表 3-264 DBE_PROFILER.PL_PROFILING_CALLGRAPH
+                  列                    类型                描述
+
+                  run_id               VARCHAR2(80)      由session_id和执行编号拼接而成的唯
+                                       NOT NULL          一标识。
+
+                  stack                TEXT[] NOT NULL   调用栈。
+
+                  self_time            BIGINT            存储过程执行时间。
+
+
+              ●   DBE_PROFILER.PL_PROFILING_TRACKINFO
+                  系统表信息参见表3-265。
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                        2760
+GaussDB
+集中式版参考                                                                        3 存储过程
+
+                  表 3-265 DBE_PROFILER.PL_PROFILING_TRACKINFO
+                    列                  类型                     描述
+
+                    run_id             VARCHAR2(80)           由session_id和执行编号拼接而成的
+                                       NOT NULL               唯一标识。
+
+                    funcoid            BIGINT NOT NULL        存储过程id。
+
+                    step_name          TEXT NOT NULL          执行阶段名称。
+
+                    loops_count        INTEGER                执行阶段的总次数。
+
+                    max_time           BIGINT                 执行阶段的最长执行时间。
+
+                    min_time           BIGINT                 执行阶段的最短执行时间。
+
+                    avg_time           BIGINT                 执行阶段的平均执行时间。
+
+                    total_time         BIGINT                 执行阶段的总执行时间。
+
+
+
+约束
+              ●   DBE_PROFILER.PL_START_PROFILING不支持在存储过程内使用，在存储过程内
+                  调用不生效。
+              ●   DBE_PROFILER.PL_START_PROFILING不支持事务失败记录统计信息到系统表。
+              ●   DBE_PROFILER.PL_START_PROFILING入参runid长度限制为64字节，超长将会报
+                  错。
+              ●   DBE_PROFILER.PL_START_PROFILING入参如果和profiler系统表内的runid重复将
+                  会报错。
+              ●   DBE_PROFILER不支持记录匿名块语句、PACKAGE的初始化语句和嵌套子程序内
+                  的语句。
+              ●   DBE_PROFILER不支持记录自治事务中语句。
+              ●   DBE_PROFILER最多可以记录嵌套层数不超过500层的存储过程，但是由于系统表
+                  DBE_PROFILER.PL_PROFILING_CALLGRAPH中stack列受索引长度最大值的影
+                  响，以及存储过程嵌套深度受GUC参数max_stack_depth的影响，实际最多可记
+                  录的存储过程嵌套层数会小于500层。
+
+示例
+              -- step1 创建表和存储过程。
+              gaussdb=# DROP TABLE IF EXISTS t1;
+              gaussdb=# CREATE TABLE t1 (i int);
+              gaussdb=# CREATE OR REPLACE PROCEDURE p1() AS
+                 sql_stmt varchar2(200);
+                 result number;
+              BEGIN
+                 for i in 1..1000 loop
+                   insert into t1 values(1);
+                 end loop;
+                 sql_stmt := 'select count(*) from t1';
+                 EXECUTE IMMEDIATE sql_stmt into result;
+              END;
+              /
+              gaussdb=# CREATE OR REPLACE PROCEDURE p2() AS
+              BEGIN
+                p1();
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                            2761
+GaussDB
+集中式版参考                                                                                                                       3 存储过程
+
+              END;
+              /
+              gaussdb=# CREATE OR REPLACE PROCEDURE p3() AS
+              BEGIN
+                p2();
+              END;
+              /
+
+              -- step2 调用plprofiler接口对存储过程进行profiling。
+              gaussdb=# SELECT dbe_profiler.pl_start_profiling('123');
+              gaussdb=# CALL p3();
+
+              -- step3 查询相关profiling信息。
+              -- 查询DBE_PROFILER.PL_PROFILING_FUNCTIONS表查看此次profiling涉及的存储过程。
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_functions ORDER BY run_id, funcoid;
+                run_id | funcoid | schema | funcname | total_occur | init_time | end_time | total_time
+              --------+---------+--------+----------+-------------+-----------+----------+------------
+                11_123 | 16736 | public | p1()             |       1|       8|       3|        31429
+                11_123 | 16737 | public | p2()             |       1|       9|       1|        32015
+                11_123 | 16738 | public | p3()             |       1|      20 |       2|        32597
+              (3 rows)
+              -- 查询DBE_PROFILER.PL_PROFILING_DETAILS表查看存储过程内每条语句的执行时间细节。
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_details WHERE funcoid = 16736 ORDER BY run_id,
+              funcoid, line#;
+                run_id | funcoid | line# |                    source              | cmd_type | total_occur | total_time | max_time |
+              min_time
+              --------+---------+-------+---------------------------------------------+------------+-------------+------------
+              +----------+----------
+                11_123 | 16736 |           1 | DECLARE                               |            |         0|       0|       0|       0
+                11_123 | 16736 |           2 | sql_stmt varchar2(200);                      |           |      0|        0|       0|      0
+                11_123 | 16736 |           3 | result number;                          |            |       0|        0|       0|       0
+                11_123 | 16736 |           4 | BEGIN                               |            |         0|        0|       0|      0
+                11_123 | 16736 |           5|     for i in 1..1000 loop                | FORI         |        1|      659 |     659 |    659
+                11_123 | 16736 |           6|       insert into t1 values(1);            | EXECSQL |            1000 |    29274 |      2282
+              |        23
+                11_123 | 16736 |           7|     end loop;                        |            |          0|       0|       0|      0
+                11_123 | 16736 |           8|     sql_stmt := 'select count(*) from t1'; | ASSIGN            |       1|       297 |     297
+              |       297
+                11_123 | 16736 |           9|     EXECUTE IMMEDIATE sql_stmt into result; | DYNEXECUTE |                       1|      1190
+              |      1190 |       1190
+                11_123 | 16736 | 10 | END                                          |            |          0|       0|       0|      0
+              (10 rows)
+              -- 查询DBE_PROFILER.PL_PROFILING_CALLGRAPH表查看调用栈信息和对应每个存储过程执行的整体时间
+              （total_time、self_time对应调用栈栈顶存储过程的总时间和自身执行时间）。
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_callgraph ORDER BY run_id, stack;
+                run_id |                               stack                             | self_time
+              --------+---------------------------------------------------------------------------+-----------
+                11_123 | {"public.p3() oid=16738"}                                                  |     582
+                11_123 | {"public.p3() oid=16738","public.p2() oid=16737"}                                  |     586
+                11_123 | {"public.p3() oid=16738","public.p2() oid=16737","public.p1() oid=16736"} |                     31429
+              (3 rows)
+              -- 查询DBE_PROFILER.PL_PROFILING_TRACKINFO表查看存储过程每个阶段的执行时间。
+              gaussdb=# SELECT step_name, loops_count FROM dbe_profiler.pl_profiling_trackinfo WHERE funcoid=16736;
+                 step_name | loops_count
+              --------------+-------------
+                cleanup        |         1
+                compile        |         1
+                exec_context |             1
+                exec_cursor |             1
+                execute        |         1
+                finsh        |         0
+                init       |          1
+                package          |        1
+                spictx       |         1
+              (9 rows)
+
+              -- step4 删除系统表数据。
+              gaussdb=# SELECT dbe_profiler.pl_clear_profiling('');
+              gaussdb=# SELECT step_name, loops_count FROM dbe_profiler.pl_profiling_trackinfo WHERE funcoid=16736;
+
+
+
+文档版本 01 (2026-04-30)                         版权所有 © 华为云计算技术有限公司                                                                       2762
+GaussDB
+集中式版参考                                                                                                                   3 存储过程
+
+               step_name | loops_count
+              -----------+-------------
+              (0 rows)
+              gaussdb=# DROP TABLE t1;
+
+              -- step5 profiling包含自治事务的存储过程。
+              -- 建表。
+              gaussdb=# CREATE TABLE t2(a int, b int);
+              -- 创建包含自治事务的存储过程。
+              gaussdb=# CREATE OR REPLACE PROCEDURE autonomous(a int, b int) AS
+              DECLARE
+                 num3 int := a;
+                 num4 int := b;
+                 PRAGMA AUTONOMOUS_TRANSACTION;
+              BEGIN
+                 insert into t2 values(num3, num4);
+                 dbe_output.print_line('just use call.');
+              END;
+              /
+              -- 创建调用自治事务存储过程的普通存储过程。
+              gaussdb=# CREATE OR REPLACE PROCEDURE autonomous_1(a int, b int) AS
+              DECLARE
+              BEGIN
+                 dbe_output.print_line('just no use call.');
+                 insert into t2 values(666, 666);
+                 autonomous(a,b);
+              END;
+              /
+              gaussdb=# SELECT dbe_profiler.pl_start_profiling ('100');
+              gaussdb=# CALL autonomous(11,22);
+              -- 查询表信息。
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_functions ORDER BY run_id, funcoid;
+               run_id | funcoid | schema | funcname | total_occur | init_time | end_time | total_time
+              --------+---------+--------+----------+-------------+-----------+----------+------------
+              (0 rows)
+
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_details ORDER BY run_id, funcoid, line#;
+               run_id | funcoid | line# | source | cmd_type | total_occur | total_time | max_time | min_time
+              --------+---------+-------+--------+----------+-------------+------------+----------+----------
+              (0 rows)
+
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_callgraph ORDER BY run_id, stack;
+               run_id | stack | self_time
+              --------+-------+-----------
+              (0 rows)
+
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_trackinfo ORDER BY run_id, funcoid;
+               run_id | funcoid | step_name | loops_count | max_time | min_time | avg_time | total_time
+              --------+---------+-----------+-------------+----------+----------+----------+------------
+              (0 rows)
+
+              gaussdb=# SELECT dbe_profiler.pl_start_profiling ('101');
+              gaussdb=# CALL autonomous_1(11,22);
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_functions ORDER BY run_id, funcoid;
+               run_id | funcoid | schema | funcname | total_occur | init_time | end_time | total_time
+              --------+---------+------------+----------------+-------------+-----------+----------+------------
+               11_101 | 16030 | dbe_output | print_line() |               1|       11 |     13 |       222
+               11_101 | 16765 | public        | autonomous_1() |            1|       19 |      1|      9004
+              (2 rows)
+
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_details ORDER BY run_id, funcoid, line#;
+               run_id | funcoid | line# |               source                 |    cmd_type      | total_occur | total_time |
+              max_time | min_time
+              --------+---------+-------+---------------------------------------------+------------------+-------------+------------
+              +----------+----------
+               11_101 | 16030 |       1|                                     |             |        0|         0|       0|       0
+               11_101 | 16030 |       2 | BEGIN                                 |             |         0|        0|       0|       0
+               11_101 | 16030 |       3|     PKG_UTIL.io_print(format, true);           | PERFORM_FUNCCALL |                1|
+              218 |     218 |     218
+
+
+
+文档版本 01 (2026-04-30)                        版权所有 © 华为云计算技术有限公司                                                                    2763
+GaussDB
+集中式版参考                                                                                                               3 存储过程
+
+                11_101 | 16030 |    4 | END;                             |               |       0|     0|     0|     0
+                11_101 | 16030 |    5|                                 |               |       0|     0|     0|     0
+                11_101 | 16765 |    1|                                 |               |       0|     0|     0|     0
+                11_101 | 16765 |    2 | DECLARE                              |               |     0|     0|     0|      0
+                11_101 | 16765 |    3 | BEGIN                              |               |      0|     0|     0|     0
+                11_101 | 16765 |    4 | dbe_output.print_line('just no use call.'); | PERFORM_FUNCCALL |         1|
+              797 |     797 |   797
+                11_101 | 16765 |    5 | insert into t2 values(666, 666);         | EXECSQL          |    1|     524 |
+              524 |     524
+                11_101 | 16765 |    6 | autonomous(a,b);                       | PERFORM_FUNCCALL |          1|     7669
+              |    7669 |   7669
+                11_101 | 16765 |    7 | END                              |               |       0|     0|     0|     0
+              (12 rows)
+
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_callgraph ORDER BY run_id, stack;
+               run_id |                           stack                            | self_time
+              --------+-------------------------------------------------------------------------+-----------
+               11_101 | {"public.autonomous_1() oid=16765"}                                       |    8782
+               11_101 | {"public.autonomous_1() oid=16765","dbe_output.print_line() oid=16030"} |              222
+              (2 rows)
+
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_trackinfo ORDER BY run_id, funcoid;
+               run_id | funcoid | step_name | loops_count | max_time | min_time | avg_time | total_time
+              --------+---------+--------------+-------------+----------+----------+----------+------------
+               11_101 | 16030 | cleanup           |       1|       1|       1|       1|        1
+               11_101 | 16030 | compile           |       1|      40 |     40 |      40 |       40
+               11_101 | 16030 | exec_context |              1|      3|       3|       3|         3
+               11_101 | 16030 | exec_cursor |              1|       2|       2|       2|        2
+               11_101 | 16030 | execute           |       1|     287 |     287 |     287 |       287
+               11_101 | 16030 | finsh           |       0|       0|       0|       0|        0
+               11_101 | 16030 | init          |        1|       0|       0|       0|        0
+               11_101 | 16030 | package             |     1|       2|       2|       2|        2
+               11_101 | 16030 | spictx          |       1|       1|       1|       1|        1
+               11_101 | 16765 | cleanup           |       1|       6|       6|       6|        6
+               11_101 | 16765 | compile           |       1|     284 |     284 |     284 |       284
+               11_101 | 16765 | exec_context |              1|      2|       2|       2|         2
+               11_101 | 16765 | exec_cursor |              1|       2|       2|       2|        2
+               11_101 | 16765 | execute           |       1|    9045 |     9045 |     9045 |      9045
+               11_101 | 16765 | finsh           |       0|       0|       0|       0|        0
+               11_101 | 16765 | init          |        1|       0|       0|       0|        0
+               11_101 | 16765 | package             |     1|       4|       4|       4|        4
+               11_101 | 16765 | spictx          |       1|       0|       0|       0|        0
+              (18 rows)
+
+              gaussdb=# SELECT dbe_profiler.pl_clear_profiling('');
+              gaussdb=# SELECT * FROM dbe_profiler.pl_profiling_functions;
+               run_id | funcoid | schema | funcname | total_occur | init_time | end_time | total_time
+              --------+---------+--------+----------+-------------+-----------+----------+------------
+              (0 rows)
+
+              gaussdb=# DROP TABLE t2;
+
+
+
+3.12.2.15 DBE_RANDOM
+
+接口介绍
+              高级功能包DBE_RANDOM支持的接口请参见表3-266。
+
+
+              表 3-266 DBE_RANDOM 接口参数说明
+
+               接口名称                      描述
+
+               DBE_RANDOM                设置一个随机数的种子。
+               .SET_SEED
+
+
+文档版本 01 (2026-04-30)                       版权所有 © 华为云计算技术有限公司                                                           2764
+GaussDB
+集中式版参考                                                            3 存储过程
+
+
+               接口名称              描述
+
+               DBE_RANDOM        生成一个大小介于指定的low及high之间的随机数。
+               .GET_VALUE
+
+
+
+
+              ●   DBE_RANDOM.SET_SEED
+                  存储过程SEED用于设置一个随机数的种子。
+                  DBE_RANDOM.SET_SEED原型为：
+                  DBE_RANDOM.SET_SEED (seed IN INTEGER);
+
+
+                  表 3-267 DBE_RANDOM.SET_SEED 接口参数说明
+                   参数                   描述
+
+                   seed                 用于产生一个随机数的种子。
+
+
+              ●   DBE_RANDOM.GET_VALUE
+                  函数GET_VALUE生成一个大小介于指定的low及high之间的随机数。
+                  DBE_RANDOM.GET_VALUE原型为：
+                  DBE_RANDOM.GET_VALUE(
+                  min IN NUMBER default 0,
+                  max IN NUMBER default 1)
+                  RETURN NUMBER;
+
+
+                  表 3-268 DBE_RANDOM.GET_VALUE 接口参数说明
+                   参数           描述
+
+                   min          指定随机数大小的下边界，生成的随机数大于或等于min。
+
+                   max          指定随机数大小的上边界，生成的随机数小于max。
+
+
+
+
+                         说明
+
+                       ● DBE_RANDOM.GET_VALUE要求参数类型是NUMERIC，对于左右边界的大小并没有要
+                         求。
+                       ● DBE_RANDOM实现的是伪随机，所以若使用的初值（种子）不变，那么伪随机数的数
+                         序也不变，使用时需要注意，建议不要在安全场景下使用DBE_RANDOM。
+                       ● 生成的随机数有效数字为15位。
+                  示例：
+                  -- 产生0到1之间的随机数。
+                  SELECT DBE_RANDOM.GET_VALUE(0,1);
+                     get_value
+                  ------------------
+                   .917468812743886
+                  (1 row)
+
+                  -- 对于指定范围内的整数，要加入参数min和max，并从结果中截取较小的数（最大值不能被作为可能的
+                  值）。所以对于0到99之间的整数，使用下面的代码。
+                  SELECT TRUNC(DBE_RANDOM.GET_VALUE(0,100));
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                 2765
+
