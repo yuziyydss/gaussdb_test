@@ -1,0 +1,4123 @@
+GaussDB
+集中式版参考                                                                      3 存储过程
+
+
+               接口名称                     描述                   权限要求
+
+               DBE_STATS.ANALYZ         获取Unique SQL ID对应语   使用该接口时，用户的权限
+               E_SQLID                  句所有涉及的表，以及收集         需要满足以下其中一种情
+                                        对应表的统计信息。对于收         况：
+                                        集成功的表，如果含有多张         ● 用户是初始用户。
+                                        表，则返回多行记录。
+                                                             ● 用户拥有MONADMIN访
+                                                               问权限，同时拥有相应表
+                                                               与ANALYZE命令相同的权
+                                                               限。有关权限的详细信
+                                                               息，请参见ANALYZE |
+                                                               ANALYSE。
+
+               dbe_stats_tools.py       用于库级统计信息导出和导         ● 导出统计信息时，需依次
+                                        入。                     执行如下命令：
+                                                               DBE_STATS.CREATE_STAT
+                                                               _TABLE、
+                                                               DBE_STATS.EXPORT_DAT
+                                                               ABASE_STATS、\COPY
+                                                               TO、
+                                                               DBE_STATS.DROP_STAT_
+                                                               TABLE。执行命令时需要
+                                                               具备相应的接口或命令的
+                                                               权限，以及指定导出目录
+                                                               的读写权限。
+                                                             ● 导入统计信息时，需依次
+                                                               执行以下命令：
+                                                               DBE_STATS.CREATE_STAT
+                                                               _TABLE、
+                                                               DBE_STATS.EXPORT_DAT
+                                                               ABASE_STATS、\COPY
+                                                               FROM、
+                                                               DBE_STATS.DROP_STAT_
+                                                               TABLE。执行命令时需要
+                                                               具备相应接口或命令的权
+                                                               限，以及指定导出目录下
+                                                               文件的读取权限。
+
+
+
+
+              ●   DBE_STATS.LOCK_TABLE_STATS
+                  锁定一个表的统计信息。锁定后，该表的统计信息无法更新，该表下级的索引、
+                  分区和列也会同步被锁定。该接口无返回值。
+                  DBE_STATS.LOCK_TABLE_STATS原型为：
+                  DBE_STATS.LOCK_TABLE_STATS(
+                     ownname VARCHAR2,
+                     tabname VARCHAR2
+                  );
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                           2862
+GaussDB
+集中式版参考                                                                                                   3 存储过程
+
+                  表 3-392 DBE_STATS.LOCK_TABLE_STATS 接口参数说明
+                   参数             类型        是否        描述
+                                            允许
+                                            为空
+
+                   ownnam         varc      是         要锁定的表所属的schema名称，该参数为空时，
+                   e              har2                默认为当前schema。
+
+                   tabname        varc      否         要锁定的表的名称。
+                                  har2
+
+
+
+                        说明
+
+                       ● 可以通过查看表的reloptions中的stat_state状态获取该表的锁定状态。
+                       ● 当一个表处于锁定状态时，其统计信息无法更新。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                  示例：
+                  -- 建表。
+                  gaussdb=# CREATE SCHEMA dbe_stats_lock;
+                  CREATE SCHEMA
+                  gaussdb=# SET CURRENT_SCHEMA=dbe_stats_lock;
+                  SET
+                  gaussdb=# CREATE TABLE t1(a int,b int);
+                  CREATE TABLE
+
+                  -- 锁定表，查看其锁定状态。
+                  gaussdb=# CALL DBE_STATS.LOCK_TABLE_STATS(ownname=>'dbe_stats_lock',tabname=>'t1');
+                   lock_table_stats
+                  ------------------
+
+                  (1 row)
+                  gaussdb=# SELECT relname,instr(reloptions::text,'stat_state=locked',1,1) <> 0 AS exist_lock FROM
+                  PG_CLASS WHERE relname='t1' AND relnamespace = (SELECT oid FROM PG_NAMESPACE WHERE
+                  nspname='dbe_stats_lock');
+                   relname | exist_lock
+                  ---------+------------
+                   t1     |t
+                  (1 row)
+
+                  -- 锁定后analyze, 发生报错。
+                  gaussdb=# ANALYZE t1;
+                  ERROR: The statistics is locked, cannot be updated.
+
+                  -- 删除表、删除命名空间。
+                  gaussdb=# DROP TABLE t1;
+                  DROP TABLE
+                  gaussdb=# DROP SCHEMA dbe_stats_lock;
+                  DROP SCHEMA
+
+              ●   DBE_STATS.LOCK_PARTITION_STATS
+                  锁定一个分区的统计信息。锁定后，该分区的统计信息无法更新，该分区下级的
+                  索引、分区、列会同步锁定。该接口无返回值。
+                  DBE_STATS.LOCK_PARTITION_STATS原型为：
+                  DBE_STATS.LOCK_PARTITION_STATS(
+                     ownname   VARCHAR2,
+                     tabname  VARCHAR2,
+                     partname VARCHAR2
+                  );
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                        2863
+GaussDB
+集中式版参考                                                                                                   3 存储过程
+
+                 表 3-393 DBE_STATS.LOCK_PARTITION_STATS 接口参数说明
+                  参数             类型          是否         描述
+                                             允许
+                                             为空
+
+                  ownnam         varcha      是          要锁定的分区所属的schema名称，该参数为空
+                  e              r2                     时，默认为当前schema。
+
+                  tabname        varcha      否          要锁定的分区所属的表的名称。
+                                 r2
+
+                  partnam        varcha      否          要锁定的分区的名称。
+                  e              r2
+
+
+
+
+                       说明
+
+                       ● 可以通过查看该分区的reloptions中的stat_state状态获取该表的锁定状态。
+                       ● 当该分区或该表所属的表处于锁定状态时，其统计信息无法更新。
+                       ● 当ownname参数值设置为null时使用当前Schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                 示例：
+                 -- 建表。
+                 gaussdb=# CREATE SCHEMA dbe_stats_lock;
+                 CREATE SCHEMA
+                 gaussdb=# SET CURRENT_SCHEMA=dbe_stats_lock;
+                 SET
+                 gaussdb=# CREATE TABLE upart_table(a int, b int, c int) PARTITION BY RANGE(a)
+                  (
+                     PARTITION p1 VALUES LESS THAN(1200),
+                     PARTITION p2 VALUES LESS THAN(2400),
+                     PARTITION p3 VALUES LESS THAN(MAXVALUE)
+                  );
+                 CREATE TABLE
+
+                 -- 锁定一个分区，其他分区及表不受影响。
+                 gaussdb=# CALL
+                 DBE_STATS.LOCK_PARTITION_STATS(ownname=>'dbe_stats_lock',tabname=>'upart_table',partname=>'
+                 p1');
+                  lock_partition_stats
+                 ----------------------
+
+                 (1 row)
+
+                 gaussdb=# SELECT relname,instr(reloptions::text,'stat_state=locked',1,1) <> 0 AS exist_lock FROM
+                 PG_CLASS WHERE relname='upart_table';
+                   relname | exist_lock
+                 -------------+------------
+                  upart_table | f
+                 (1 row)
+
+                 gaussdb=# SELECT relname,instr(reloptions::text,'stat_state=locked',1,1) <> 0 AS exist_lock FROM
+                 PG_PARTITION WHERE parentid='upart_table'::REGCLASS ORDER BY 1;
+                   relname | exist_lock
+                 -------------+------------
+                  p1         |t
+                  p2         |f
+                  p3         |f
+                  upart_table | f
+                 (4 rows)
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                         2864
+GaussDB
+集中式版参考                                                                         3 存储过程
+
+                  -- 删除表、命名空间。
+                  gaussdb=# DROP TABLE upart_table;
+                  DROP TABLE
+                  gaussdb=# DROP SCHEMA dbe_stats_lock;
+                  DROP SCHEMA
+
+              ●   DBE_STATS.LOCK_COLUMN_STATS
+                  锁定一个列的统计信息。锁定后，该列的统计信息无法更新。该接口无返回值。
+                  DBE_STATS.LOCK_COLUMN_STATS原型为：
+                  DBE_STATS.LOCK_COLUMN_STATS(
+                     ownname   VARCHAR2,
+                     tabname  VARCHAR2,
+                     colname  VARCHAR2,
+                     partname VARCHAR2 DEFAULT NULL
+                  );
+
+
+                  表 3-394 DBE_STATS.LOCK_COLUMN_STATS 接口参数说明
+                   参数            类型         是否允         描述
+                                            许为空
+
+                   ownnam        varch      是           要锁定的列所属的schema的名称，该参数为空
+                   e             ar2                    时，默认为当前schema。
+
+                   tabname       varch      否           要锁定的列所属的表的名称。
+                                 ar2
+
+                   colname       varch      否           要锁定的列的名称。
+                                 ar2
+
+                   partnam       varch      是           要锁定的列所属的分区的名称，默认为空。
+                   e             ar2
+
+
+
+
+                        说明
+
+                       ● 当partname为空时，默认锁定该列表级统计信息。
+                       ● 若不存在该表的列级统计信息，则锁定可执行成功，但实际未生效。
+                       ● 可查看PG_STATISTIC、PG_STATISTIC_EXT中的stastate获取锁定状态。
+                       ● 锁定多列时，需先查询PG_STATISTIC_EXT中的staextname字段获取多列别名作为
+                         colname入参传入。
+                       ● 当某一列被锁定或其所属的表或分区被锁定时，其统计信息无法更新，该列被锁定的信
+                         息不会回显，需要在日志中通过DEBUG2级别的DBE_STATS的logging_module查看。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                  示例：
+                  -- 建表，收集统计信息。
+                  gaussdb=# CREATE SCHEMA dbe_stats_lock;
+                  CREATE SCHEMA
+                  gaussdb=# SET CURRENT_SCHEMA=dbe_stats_lock;
+                  SET
+                  gaussdb=# CREATE TABLE t1(a int,b int);
+                  CREATE TABLE
+                  gaussdb=# INSERT INTO t1 VALUES(generate_series(1,100),1);
+                  INSERT 0 100
+                  gaussdb=# ANALYZE t1;
+                  ANALYZE
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                           2865
+GaussDB
+集中式版参考                                                                                            3 存储过程
+
+
+                  -- 锁定列后，查看列的锁定状态。
+                  gaussdb=# CALL
+                  DBE_STATS.LOCK_COLUMN_STATS(ownname=>'dbe_stats_lock',tabname=>'t1',colname=>'a');
+                   lock_column_stats
+                  -------------------
+
+                  (1 row)
+
+                  gaussdb=# SELECT staattnum,stastate FROM PG_STATISTIC WHERE starelid='t1'::REGCLASS ORDER BY
+                  1,2;
+                   staattnum | stastate
+                  -----------+----------
+                         1|l
+                         2|u
+                  (2 rows)
+
+                  -- 删除表、命名空间。
+                  gaussdb=# DROP TABLE t1;
+                  DROP TABLE
+                  gaussdb=# DROP SCHEMA dbe_stats_lock;
+                  DROP SCHEMA
+
+              ●   DBE_STATS.LOCK_SCHEMA_STATS
+                  锁定一个指定schema下所有表的统计信息。该接口无返回值。
+                  DBE_STATS.LOCK_SCHEMA_STATS原型为：
+                  DBE_STATS.LOCK_SCHEMA_STATS(
+                     ownname VARCHAR2
+                  );
+
+
+                  表 3-395 DBE_STATS.LOCK_SCHEMA_STATS 接口参数说明
+                   参数             类型       是否允         描述
+                                           许为空
+
+                   ownname        varch    是           指定的schema名，该参数为空时，默认为当前
+                                  ar2                  schema。
+
+
+
+
+                        说明
+
+                       当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参数值
+                       设置为bind_procedure_searchpath。
+                  示例：
+                  -- 锁定schema的统计信息同锁定表的统计信息用法一致，此处仅展示接口调用方式，具体示例可参考
+                  DBE_STATS.LOCK_TABLE_STATS示例。
+                  gaussdb=# CALL DBE_STATS.LOCK_SCHEMA_STATS(ownname=>'dbe_stats_lock');
+                   lock_schema_stats
+                  -------------------
+
+                  (1 row)
+
+              ●   DBE_STATS.UNLOCK_TABLE_STATS
+                  解锁一个表的统计信息。解锁后，该表的统计信息可以更新。该表下级的索引、
+                  分区、列会同步解锁。该接口无返回值。
+                  DBE_STATS.UNLOCK_TABLE_STATS原型为：
+                  DBE_STATS.UNLOCK_TABLE_STATS(
+                     ownname VARCHAR2,
+                     tabname VARCHAR2
+                  );
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                   2866
+GaussDB
+集中式版参考                                                                                          3 存储过程
+
+                  表 3-396 DBE_STATS.UNLOCK_TABLE_STATS 接口参数说明
+                   参数           类型       是否允        描述
+                                         许为空
+
+                   ownnam       varc     是          要解锁的表所属的schema的名称，该参数为空
+                   e            har2                时，默认为当前schema。
+
+                   tabname      varc     否          要解锁的表的名称。
+                                har2
+
+
+
+
+                        说明
+
+                       ● 可以通过查看该表的reloptions中的stat_state状态获取该表的锁定状态。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                  示例：
+                  -- 解锁表的统计信息同锁定表的统计信息用法一致，此处仅展示接口调用方式，具体示例可参考
+                  DBE_STATS.LOCK_TABLE_STATS示例。
+                  gaussdb=# CALL DBE_STATS.UNLOCK_TABLE_STATS(ownname=>'dbe_stats_lock',tabname=>'t1');
+                   unlock_table_stats
+                  --------------------
+
+                  (1 row)
+
+              ●   DBE_STATS.UNLOCK_PARTITION_STATS
+                  解锁一个分区的统计信息。解锁后，该分区的统计信息可以更新。该分区下级的
+                  索引、分区、列会同步解锁。该接口无返回值。
+                  DBE_STATS.UNLOCK_PARTITION_STATS原型为：
+                  DBE_STATS.UNLOCK_PARTITION_STATS(
+                     ownname   VARCHAR2,
+                     tabname  VARCHAR2,
+                     partname VARCHAR2
+                  );
+
+
+                  表 3-397 DBE_STATS.UNLOCK_PARTITION_STATS 接口参数说明
+                   参数           类型        是否允       描述
+                                          许为空
+
+                   ownnam       varch     是         要解锁的分区所属的schema的名称，该参数为空
+                   e            ar2                 时，默认为当前schema。
+
+                   tabname      varch     否         要解锁的分区所属的表的名称。
+                                ar2
+
+                   partnam      varch     否         要解锁的分区的名称。
+                   e            ar2
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                2867
+GaussDB
+集中式版参考                                                                                          3 存储过程
+
+
+                        说明
+
+                       ● 可查看该分区的reloptions中stat_state状态获取该表的锁定状态。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                  示例：
+                  -- 解锁分区的统计信息同锁定分区的统计信息用法一致，此处仅展示接口调用方式，具体示例可参考
+                  DBE_STATS.LOCK_PARTITION_STATS示例。
+                  gaussdb=# CALL
+                  DBE_STATS.UNLOCK_PARTITION_STATS(ownname=>'dbe_stats_lock',tabname=>'upart_table',partname
+                  =>'p1');
+                   unlock_partition_stats
+                  ------------------------
+
+                  (1 row)
+
+              ●   DBE_STATS.UNLOCK_COLUMN_STATS
+                  解锁一个列的统计信息。解锁后，该列的统计信息可以更新。该接口无返回值。
+                  DBE_STATS.UNLOCK_COLUMN_STATS原型为：
+                  DBE_STATS.LOCK_COLUMN_STATS(
+                     ownname   VARCHAR2,
+                     tabname  VARCHAR2,
+                     colname  VARCHAR2,
+                     partname VARCHAR2 DEFAULT NULL
+                  );
+
+
+                  表 3-398 DBE_STATS.UNLOCK_COLUMN_STATS 接口参数说明
+
+                   参数           类型       是否       描述
+                                         允许
+                                         为空
+
+                   ownnam       varc     是        要解锁的列所属的schema的名称，该参数为空
+                   e            har2              时，默认为当前schema。
+
+                   tabname      varc     否        要解锁的列所属的表的名称。
+                                har2
+
+                   colname      varc     否        要解锁的列的名称。
+                                har2
+
+                   partnam      varc     是        要解锁的列所属的分区的名称，默认为空。
+                   e            har2
+
+
+
+
+                        说明
+
+                       ● 当partname为空时，默认解锁该列表级统计信息，以及解锁其级联分区列级统计信
+                         息。
+                       ● 可查看PG_STATISTIC、PG_STATISTIC_EXT中的stastate状态获取锁定状态。
+                       ● 解锁多列时，需先查询PG_STATISTIC_EXT中的staextname字段获取多列别名作为
+                         colname入参传入。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                  示例：
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                2868
+GaussDB
+集中式版参考                                                                                         3 存储过程
+
+                  -- 解锁列的统计信息同锁定列的统计信息用法一致，此处仅展示接口调用方式，具体示例可参考
+                  DBE_STATS.LOCK_COLUMN_STATS示例。
+                  gaussdb=# CALL
+                  DBE_STATS.UNLOCK_COLUMN_STATS(ownname=>'dbe_stats_lock',tabname=>'t1',colname=>'a');
+                   unlock_column_stats
+                  ---------------------
+
+                  (1 row)
+
+              ●   DBE_STATS.UNLOCK_SCHEMA_STATS
+                  锁定一个指定schema下所有表的统计信息。该接口无返回值。
+                  DBE_STATS.UNLOCK_SCHEMA_STATS原型为：
+                  DBE_STATS.UNLOCK_SCHEMA_STATS(
+                     ownname VARCHAR2
+                  );
+
+
+                  表 3-399 DBE_STATS.UNLOCK_SCHEMA_STATS 接口参数说明
+                   参数          类型      是否允许为            描述
+                                       空
+
+                   ownna       varc    是                指定的schema名，该参数为空时，默认为当
+                   me          har2                     前schema。
+
+
+
+
+                        说明
+
+                       当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参数值
+                       设置为bind_procedure_searchpath。
+                  示例：
+                  -- 解锁schema的统计信息同解锁表的统计信息用法一致，此处仅展示接口调用方式，具体示例可参考
+                  DBE_STATS.LOCK_TABLE_STATS示例。
+                  gaussdb=# CALL DBE_STATS.UNLOCK_SCHEMA_STATS(ownname=>'dbe_stats_lock');
+                   unlock_schema_stats
+                  ---------------------
+
+                  (1 row)
+
+              ●   DBE_STATS.RESTORE_TABLE_STATS
+                  将表的统计信息回退到指定的时间节点，选择该时间节点前最后一次收集的统计
+                  信息载入系统表，同时级联其下级未被锁定的分区、索引、列级统计信息。该接
+                  口无返回值。
+                  DBE_STATS.RESTORE_TABLE_STATS原型为：
+                  DBE_STATS.RESTORE_TABLE_STATS(
+                     ownname                VARCHAR2,
+                     tabname               VARCHAR2,
+                     as_of_timestamp         TIMESTAMPTZ,
+                     restore_cluster_index   BOOLEAN DEFAULT NULL,
+                     force               BOOLEAN DEFAULT FALSE,
+                     no_invalidate         BOOLEAN DEFAULT NULL
+                  );
+
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                 2869
+GaussDB
+集中式版参考                                                                                        3 存储过程
+
+                 表 3-400 DBE_STATS.RESTORE_TABLE_STATS 接口参数介绍
+
+                  参数              类型                  是否允          描述
+                                                      许为空
+
+                  ownname         VARCHAR2            是            要回退的表所属的schema名，该参
+                                                                   数为空时，默认为当前schema。
+
+                  tabname         VARCHAR2            否            要回退的表的名称。
+
+                  as_of_times     timestamp           否            要回退的目标时间节点。
+                  tamp            with time zone
+
+                  restore_clu     BOOLEAN             是            暂不支持。
+                  ster_index
+
+                  force           BOOLEAN             是            是否在统计信息被锁定时强行回退
+                                                                   的标志位，默认为false。
+
+                  no_invalida     BOOLEAN             是            暂不支持。
+                  te
+
+
+
+
+                       说明
+
+                       ● 调用该接口时，同时回退其下级分区、索引、列的统计信息，如果其下级的分区或列被
+                         锁定，则直接跳过。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                 示例：
+                 -- 建表，收集两次统计信息。
+                 gaussdb=# CREATE SCHEMA dbe_stats_restore;
+                 CREATE SCHEMA
+                 gaussdb=# SET CURRENT_SCHEMA=dbe_stats_restore;
+                 SET
+                 gaussdb=# CREATE TABLE t1(a int, b int);
+                 CREATE TABLE
+                 gaussdb=# INSERT INTO t1 VALUES(1,1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t1 VALUES(1,1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t1 VALUES(1,1);
+                 INSERT 0 1
+                 gaussdb=# ANALYZE t1;
+                 ANALYZE
+                 gaussdb=# INSERT INTO t1 VALUES(2,2);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t1 VALUES(2,2);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t1 VALUES(2,2);
+                 INSERT 0 1
+                 gaussdb=# ANALYZE t1;
+                 ANALYZE
+
+                 -- 查看历史表。
+                 gaussdb=# SELECT relname,reltuples FROM GS_TABLESTATS_HISTORY WHERE relname='t1' ORDER
+                 BY 1,2;
+                  relname | reltuples
+                 ---------+-----------
+                  t1     |      3
+                  t1     |      6
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                                               2870
+GaussDB
+集中式版参考                                                                                           3 存储过程
+
+                  (2 rows)
+
+                  -- 查看当前系统表中的统计信息。
+                  gaussdb=# SELECT relname,reltuples FROM PG_CLASS WHERE relname='t1' AND relnamespace =
+                  (SELECT oid FROM PG_NAMESPACE WHERE nspname='dbe_stats_restore');
+                   relname | reltuples
+                  ---------+-----------
+                   t1     |      6
+                  (1 row)
+
+                  -- 回退到最早的统计信息，查看系统表。
+                  gaussdb=# CALL
+                  DBE_STATS.RESTORE_TABLE_STATS(ownname=>'dbe_stats_restore',tabname=>'t1',as_of_timestamp=>(
+                  (SELECT MIN(reltimestamp) FROM GS_TABLESTATS_HISTORY WHERE relname='t1') + INTERVAL '1
+                  second'));
+                   restore_table_stats
+                  ---------------------
+
+                  (1 row)
+
+                  gaussdb=# SELECT relname,reltuples FROM PG_CLASS WHERE relname='t1' AND relnamespace =
+                  (SELECT oid FROM PG_NAMESPACE WHERE nspname='dbe_stats_restore');
+                   relname | reltuples
+                  ---------+-----------
+                   t1     |      3
+                  (1 row)
+
+                  -- 删除表、删除命名空间。
+                  gaussdb=# DROP TABLE t1;
+                  DROP TABLE
+                  gaussdb=# DROP SCHEMA dbe_stats_restore;
+                  DROP SCHEMA
+
+              ●   DBE_STATS.RESTORE_PARTITION_STATS
+                  将分区的统计信息回退到指定的时间节点，选择该时间节点前最后一次收集的统
+                  计信息载入系统表，同时级联其下级未被锁定的分区、索引、列级统计信息。该
+                  接口无返回值。
+                  DBE_STATS.RESTORE_PARTITION_STATS原型为：
+                  DBE_STATS.RESTORE_PARTITION_STATS(
+                     ownname            VARCHAR2,
+                     tabname           VARCHAR2,
+                     partname          VARCHAR2,
+                     as_of_timestamp     TIMESTAMPTZ,
+                     force           BOOLEAN DEFAULT FALSE,
+                     no_invalidate     BOOLEAN DEFAULT NULL
+                  );
+
+
+                  表 3-401 DBE_STATS.RESTORE_PARTITION_STATS 接口参数说明
+
+                   参数            类型                    是否允          描述
+                                                       许为空
+
+                   ownname       VARCHAR2              是            要回退的分区所属的schema名。
+
+                   tabname       VARCHAR2              否            要回退的分区所属的表名。
+
+                   partname      VARCHAR2              否            要回退的分区名。
+
+                   as_of_tim     timestamp with        否            要回退的目标时间节点。
+                   estamp        time zone
+
+                   force         BOOLEAN               是            是否在统计信息被锁定时强行回退
+                                                                    的标志位。
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                  2871
+GaussDB
+集中式版参考                                                                                           3 存储过程
+
+
+                   参数            类型                     是否允         描述
+                                                        许为空
+
+                   no_invalid    BOOLEAN                是           暂不支持。
+                   ate
+
+
+
+
+                        说明
+
+                       ● 调用该接口时，同时回退其下级分区、索引、列的统计信息。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                  示例：
+                  -- 回退分区的统计信息同回退表的统计信息用法一致，此处仅展示接口调用方式，具体示例请参见
+                  DBE_STATS.RESTORE_TABLE_STATS示例。
+                  gaussdb=# CALL
+                  DBE_STATS.RESTORE_PARTITION_STATS(ownname=>'dbe_stats_restore',tabname=>'t1',partname=>'p1'
+                  ,as_of_timestamp=>((SELECT MIN(reltimestamp) FROM GS_TABLESTATS_HISTORY WHERE
+                  relname='t1') + INTERVAL '1 second'));
+                   restore_partition_stats
+                  -------------------------
+
+                  (1 row)
+
+              ●   DBE_STATS.RESTORE_COLUMN_STATS
+                  将列的统计信息回退到指定的时间节点，选择该时间节点前最后一次收集的统计
+                  信息载入系统表。该接口无返回值。
+                  DBE_STATS.RESTORE_COLUMN_STATS原型为：
+                  RESTORE_COLUMN_STATS(
+                     ownname            VARCHAR2,
+                     tabname           VARCHAR2,
+                     colname           VARCHAR2,
+                     partname          VARCHAR2 DEFAULT NULL,
+                     as_of_timestamp     TIMESTAMPTZ,
+                     force           BOOLEAN DEFAULT FALSE,
+                     no_invalidate     BOOLEAN DEFAULT NULL
+                  );
+
+
+                  表 3-402 DBE_STATS.RESTORE_COLUMN_STATS 接口参数说明
+
+                   参数           类型                  是否允许为           描述
+                                                    空
+
+                   ownnam       VARCHAR2            是               要回退的列所属的schema名。
+                   e
+
+                   tabname      VARCHAR2            否               要回退的列所属的表名。
+
+                   colname      VARCHAR2            否               要回退的列名。
+
+                   partnam      VARCHAR2            是               要回退的列所属的分区名。
+                   e
+
+                   as_of_ti     timestamp           否               要回退的目标时间节点。
+                   mestamp      with time zone
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                 2872
+GaussDB
+集中式版参考                                                                                              3 存储过程
+
+
+                  参数            类型                   是否允许为           描述
+                                                     空
+
+                  force         BOOLEAN              是               是否在统计信息被锁定时强行回退
+                                                                     的标志位。
+
+                  no_invali     BOOLEAN              是               暂不支持。
+                  date
+
+
+
+
+                       说明
+
+                       ● 当partname为空时，默认回退该列表及统计信息。
+                       ● 回退多列时，需先查询PG_STATISTIC_EXT中的staextname字段获取多列别名作为
+                         colname入参传入。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                 示例：
+                 -- 建表，收集两次统计信息。
+                 gaussdb=# CREATE SCHEMA dbe_stats_restore;
+                 CREATE SCHEMA
+                 gaussdb=# SET CURRENT_SCHEMA=dbe_stats_restore;
+                 SET
+                 gaussdb=# CREATE TABLE t1(a int, b int);
+                 CREATE TABLE
+                 gaussdb=# INSERT INTO t1 VALUES(1,1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t1 VALUES(1,1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t1 VALUES(1,1);
+                 INSERT 0 1
+                 gaussdb=# ANALYZE t1;
+                 ANALYZE
+                 gaussdb=# INSERT INTO t1 VALUES(2,2);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t1 VALUES(2,2);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t1 VALUES(2,2);
+                 INSERT 0 1
+                 gaussdb=# ANALYZE t1;
+                 ANALYZE
+
+                 -- 查看历史表里的统计信息。
+                 gaussdb=# SELECT staattnum,stadistinct,stakind1,stanumbers1,stavalues1 FROM
+                 GS_STATISTIC_HISTORY WHERE starelid='t1'::REGCLASS ORDER BY statimestamp;
+                  staattnum | stadistinct | stakind1 | stanumbers1 | stavalues1
+                 -----------+-------------+----------+-------------+------------
+                        1 | -.333333 |         1 | {1}       | {1}
+                        2 | -.333333 |         1 | {1}       | {1}
+                        1 | -.333333 |         1 | {.5,.5}   | {1,2}
+                        2 | -.333333 |         1 | {.5,.5}   | {1,2}
+                 (4 rows)
+
+                 -- 查询当前系统表中的统计信息。
+                 gaussdb=# SELECT staattnum,stadistinct,stakind1,stanumbers1,stavalues1 FROM PG_STATISTIC
+                 WHERE starelid='t1'::REGCLASS ORDER BY 1;
+                  staattnum | stadistinct | stakind1 | stanumbers1 | stavalues1
+                 -----------+-------------+----------+-------------+------------
+                        1 | -.333333 |         1 | {.5,.5}   | {1,2}
+                        2 | -.333333 |         1 | {.5,.5}   | {1,2}
+                 (2 rows)
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                      2873
+GaussDB
+集中式版参考                                                                                               3 存储过程
+
+                  -- 回退到时间较早的时间节点，查询系统表中的统计信息。
+                  gaussdb=# CALL
+                  DBE_STATS.RESTORE_COLUMN_STATS(ownname=>'dbe_stats_restore',tabname=>'t1',colname=>'a',as_
+                  of_timestamp=>((SELECT MIN(reltimestamp) FROM GS_TABLESTATS_HISTORY WHERE relname='t1')
+                  + INTERVAL '1 second'));
+                   restore_column_stats
+                  ----------------------
+
+                  (1 row)
+
+                  gaussdb=# SELECT staattnum,stadistinct,stakind1,stanumbers1,stavalues1 FROM PG_STATISTIC
+                  WHERE starelid='t1'::REGCLASS ORDER BY 1;
+                   staattnum | stadistinct | stakind1 | stanumbers1 | stavalues1
+                  -----------+-------------+----------+-------------+------------
+                         1 | -.333333 |         1 | {1}       | {1}
+                         2 | -.333333 |         1 | {.5,.5}   | {1,2}
+                  (2 rows)
+
+                  -- 删除表、命名空间。
+                  gaussdb=# DROP TABLE t1;
+                  DROP TABLE
+                  gaussdb=# DROP SCHEMA dbe_stats_restore;
+                  DROP SCHEMA
+
+              ●   DBE_STATS.RESTORE_SCHEMA_STATS
+                  将指定schema下所有表的统计信息回退到指定时间节点。该接口无返回值。
+                  DBE_STATS.RESTORE_SCHEMA_STATS原型为：
+                  DBE_STATS.RESTORE_SCHEMA_STATS(
+                     ownname            VARCHAR2,
+                     as_of_timestamp     TIMESTAMPTZ,
+                     force           BOOLEAN DEFAULT FALSE,
+                     no_invalidate     BOOLEAN DEFAULT NULL
+                  );
+
+
+                  表 3-403 DBE_STATS.RESTORE_SCHEMA_STATS 接口参数说明
+                   参数             类型                    是否允许为           描述
+                                                        空
+
+                   ownnam         VARCHAR2              是               指定的schema名。
+                   e
+
+                   as_of_tim      timestamp with        否               要回退的目标时间节点。
+                   estamp         time zone
+
+                   force          BOOLEAN               是               是否在统计信息被锁定时强行回
+                                                                        退的标志位。
+
+                   no_invali      BOOLEAN               是               暂不支持。
+                   date
+
+
+
+
+                        说明
+
+                       当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参数值
+                       设置为bind_procedure_searchpath。
+                  示例：
+                  -- 回退schema的统计信息同回退表的统计信息用法一致。
+                  -- 建表，插数据，收集两次统计信息。
+                  gaussdb=# CREATE SCHEMA dbe_stats_restore;
+                  CREATE SCHEMA
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                      2874
+GaussDB
+集中式版参考                                                                                           3 存储过程
+
+                  gaussdb=# SET CURRENT_SCHEMA=dbe_stats_restore;
+                  SET
+                  gaussdb=# CREATE TABLE t1(a int, b int);
+                  CREATE TABLE
+                  gaussdb=# INSERT INTO t1 VALUES(1,1);
+                  INSERT 0 1
+                  gaussdb=# INSERT INTO t1 VALUES(1,1);
+                  INSERT 0 1
+                  gaussdb=# INSERT INTO t1 VALUES(1,1);
+                  INSERT 0 1
+                  gaussdb=# ANALYZE t1;
+                  ANALYZE
+                  gaussdb=# INSERT INTO t1 VALUES(2,2);
+                  INSERT 0 1
+                  gaussdb=# INSERT INTO t1 VALUES(2,2);
+                  INSERT 0 1
+                  gaussdb=# INSERT INTO t1 VALUES(2,2);
+                  INSERT 0 1
+                  gaussdb=# ANALYZE t1;
+                  ANALYZE
+
+                  -- 查看系统表。
+                  gaussdb=# SELECT relname,reltuples FROM GS_TABLESTATS_HISTORY WHERE relname='t1' ORDER
+                  BY 1,2;
+                   relname | reltuples
+                  ---------+-----------
+                   t1     |      3
+                   t1     |      6
+                  (2 rows
+
+                  gaussdb=# SELECT relname,reltuples FROM PG_CLASS WHERE relname='t1' AND relnamespace =
+                  (SELECT oid FROM PG_NAMESPACE WHERE nspname='dbe_stats_restore');
+                   relname | reltuples
+                  ---------+-----------
+                   t1     |      6
+                  (1 row)
+
+                  -- 回退。
+                  gaussdb=# CALL
+                  DBE_STATS.RESTORE_SCHEMA_STATS(ownname=>'dbe_stats_restore',as_of_timestamp=>((SELECT
+                  MIN(reltimestamp) FROM GS_TABLESTATS_HISTORY WHERE relname='t1') + INTERVAL '1 second'));
+                   restore_schema_stats
+                  ----------------------
+
+                  (1 row)
+
+                  -- 再次查看系统表。
+                  gaussdb=# SELECT relname,reltuples FROM PG_CLASS WHERE relname='t1' AND relnamespace =
+                  (SELECT oid FROM PG_NAMESPACE WHERE nspname='dbe_stats_restore');
+                   relname | reltuples
+                  ---------+-----------
+                   t1     |      3
+                  (1 row)
+
+                  -- 删除表、命名空间。
+                  gaussdb=# DROP TABLE t1;
+                  DROP TABLE
+                  gaussdb=# DROP SCHEMA dbe_stats_restore;
+                  DROP SCHEMA
+
+              ●   DBE_STATS.PURGE_STATS
+                  清除指定时间节点之前的所有历史统计信息。该接口无返回值。
+                  DBE_STATS.PURGE_STATS原型为：
+                  DBE_STATS.PURGE_STATS(
+                     before_timestamp  TIMESTAMPTZ
+                  );
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                 2875
+GaussDB
+集中式版参考                                                                                          3 存储过程
+
+                  表 3-404 DBE_STATS.PURGE_STATS 接口参数说明
+                   参数             类型                   是否允许为空              描述
+
+                   before_tim     timestamp            否                   指定要清除的时间节点。
+                   estamp         with time zone
+
+
+
+                  示例：
+                  -- 建表，收集两次统计信息。
+                  gaussdb=# CREATE SCHEMA dbe_stats_purge;
+                  CREATE SCHEMA
+                  gaussdb=# SET CURRENT_SCHEMA=dbe_stats_purge;
+                  SET
+                  gaussdb=# CREATE TABLE t1(a int, b int);
+                  CREATE TABLE
+                  gaussdb=# INSERT INTO t1 VALUES(1,1);
+                  INSERT 0 1
+                  gaussdb=# INSERT INTO t1 VALUES(1,1);
+                  INSERT 0 1
+                  gaussdb=# INSERT INTO t1 VALUES(1,1);
+                  INSERT 0 1
+                  gaussdb=# ANALYZE t1;
+                  ANALYZE
+                  gaussdb=# INSERT INTO t1 VALUES(2,2);
+                  INSERT 0 1
+                  gaussdb=# INSERT INTO t1 VALUES(2,2);
+                  INSERT 0 1
+                  gaussdb=# INSERT INTO t1 VALUES(2,2);
+                  INSERT 0 1
+                  gaussdb=# ANALYZE t1;
+                  ANALYZE
+
+                  -- 查看历史表。
+                  gaussdb=# SELECT relname,reltuples FROM GS_TABLESTATS_HISTORY WHERE relname='t1' ORDER
+                  BY 1,2;
+                   relname | reltuples
+                  ---------+-----------
+                   t1     |      3
+                   t1     |      6
+                  (2 rows)
+
+                  -- 清除时间较早的历史统计信息，查看历史表。
+                  gaussdb=# CALL DBE_STATS.PURGE_STATS(before_timestamp=>((SELECT MIN(reltimestamp) FROM
+                  GS_TABLESTATS_HISTORY WHERE relname='t1') + INTERVAL '1 second'));
+                   purge_stats
+                  -------------
+
+                  (1 row)
+
+                  gaussdb=# SELECT relname,reltuples FROM GS_TABLESTATS_HISTORY WHERE relname='t1';
+                   relname | reltuples
+                  ---------+-----------
+                   t1     |      6
+                  (1 row)
+
+                  -- 删除表、命名空间。
+                  gaussdb=# DROP TABLE t1;
+                  DROP TABLE
+                  gaussdb=# DROP SCHEMA dbe_stats_purge;
+                  DROP SCHEMA
+
+              ●   DBE_STATS.GET_STATS_HISTORY_RETENTION
+                  获得当前历史统计信息的保留时间，返回用
+                  DBE_STATS.ALTER_STATS_HISTORY_RETENTION接口设置的保留时间。该接口
+                  没有入参。
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                2876
+GaussDB
+集中式版参考                                                                         3 存储过程
+
+                  DBE_STATS.GET_STATS_HISTORY_RETENTION原型为：
+                  DBE_STATS.GET_STATS_HISTORY_RETENTION()
+                  returns NUMBER;
+                  示例：
+                  gaussdb=# CALL DBE_STATS.GET_STATS_HISTORY_RETENTION();
+                   get_stats_history_retention
+                  -----------------------------
+                                       31
+                  (1 row)
+
+              ●   DBE_STATS.GET_STATS_HISTORY_AVAILABILITY
+                  获得当前历史统计信息的最早可用时间，返回当前数据库下所有历史统计信息的
+                  最早时间。该接口没有入参。
+                  DBE_STATS.GET_STATS_HISTORY_AVAILABILITY原型为：
+                  DBE_STATS.GET_STATS_HISTORY_AVAILABILITY()
+                  returns TIMESTAMPTZ;
+                  示例：
+                  gaussdb=# ANALYZE;
+                  ANALYZE
+                  gaussdb=# CALL DBE_STATS.GET_STATS_HISTORY_AVAILABILITY();
+                   get_stats_history_availability
+                  --------------------------------
+                   2023-08-27 02:07:04.065217+08
+                  (1 row)
+
+                       说明
+
+                       ● 以上所有接口函数原型都具备同等数据类型和字段的C_FUNCTION函数原型，命名为
+                         DBE_STATS.XXXX_C_FUNCTION。
+                       ● DBE_STATS高级包接口仅对普通表有效。
+              ●   DBE_STATS.CREATE_STAT_TABLE
+                  创建用于保存用户统计信息的统计表。该接口无返回值。
+                  DBE_STATS.CREATE_STAT_TABLE原型为：
+                  DBE_STATS.CREATE_STAT_TABLE (
+                     ownname        VARCHAR2,
+                     stattab     VARCHAR2,
+                     tblspace     VARCHAR2 DEFAULT NULL,
+                     global_temporary BOOLEAN DEFAULT NULL
+                  );
+
+
+                  表 3-405 DBE_STATS.CREATE_STAT_TABLE 接口参数说明
+                   参数            类型         是否允         描述
+                                            许为空
+
+                   ownname       VARCH      否           指定创建的统计表所在的schema。如果设置
+                                 AR2                    为null，默认在当前所在的schema创建。
+
+                   stattab       VARCH      否           统计表的名称。
+                                 AR2
+
+                   tblspace      VARCH      是           指定创建的统计表所在的表空间。如果不指
+                                 AR2                    定，则使用默认表空间进行创建。
+
+                   global_te     BOOLE      是           暂不支持该参数。
+                   mporary       AN
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                            2877
+GaussDB
+集中式版参考                                                                                       3 存储过程
+
+
+                        说明
+
+                       ● 为了区分普通表和统计表，在创建统计表后，其reloptions中的字段statstable将不为空
+                         串。且考虑到统计表结构后续存在升级的可能，为了实现前向兼容，statstable将被赋
+                         予当前统计信息表的版本信息。
+                       ● 该表创建时会自动生成一个索引gs_stattab_oid_statid_type_nameinfo_index用于索引
+                         扫描，其中oid为该统计信息表的oid。如若被删除，则导入导出export、import接口不
+                         可用。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                  示例：
+                  -- 在dbe_stats_create_drop_schema下创建一个stattab统计表，并手动插入一条数据，可从新建的用户统
+                  计信息表中查询到此条数据。
+                  gaussdb=# CREATE SCHEMA dbe_stats_create_drop_schema;
+                  CREATE SCHEMA
+                  gaussdb=# SET CURRENT_SCHEMA = dbe_stats_create_drop_schema;
+                  SET
+                  gaussdb=# CALL DBE_STATS.CREATE_STAT_TABLE(ownname => 'dbe_stats_create_drop_schema',
+                  stattab => 'stat_tab');
+                   create_stat_table
+                  -------------------
+                  (1 row)
+                  gaussdb=# INSERT INTO stat_tab(statid, type, relname) VALUES('123', 't', 't1');
+                  INSERT 0 1
+                  gaussdb=# SELECT statid, type, relname FROM stat_tab;
+                   statid | type | relname
+                  --------+------+---------
+                   123 | t | t1
+                  (1 row)
+
+              ●   DBE_STATS.DROP_STAT_TABLE
+                  删除用户统计信息表。该接口无返回值。
+                  DBE_STATS.DROP_STAT_TABLE原型为：
+                  DBE_STATS.DROP_STAT_TABLE (
+                     ownname VARCHAR2,
+                     stattab VARCHAR2
+                  );
+
+
+                  表 3-406 DBE_STATS.DROP_STAT_TABLE 接口参数说明
+                   参数          类型               是否允许为         描述
+                                                空
+
+                   ownnam      VARCHAR2         否             统计表所在的schema。如果设置为
+                   e                                          null，则默认使用当前schema。
+
+                   stattab     VARCHAR2         否             统计表的名称。
+
+
+
+
+                        说明
+
+                       ● 对于statstable属性为空的普通表，无法使用此函数删除。
+                       ● 如果在用户统计信息表上创建了索引或者创建了其他依赖于该表的对象，那么在调用此
+                         函数时，会级联删除所有依赖于该表的对象。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                  示例：
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                                              2878
+GaussDB
+集中式版参考                                                                                          3 存储过程
+
+                  -- 删除用户统计信息表。将上述所建的用户统计信息表删除，删除新建的schema。
+                  gaussdb=# CALL DBE_STATS.DROP_STAT_TABLE(ownname => 'dbe_stats_create_drop_schema',
+                  stattab => 'stat_tab');
+                   drop_stat_table
+                  -----------------
+                  (1 row)
+                  gaussdb=# DROP SCHEMA dbe_stats_create_drop_schema CASCADE;
+                  DROP SCHEMA
+
+              ●   DBE_STATS.EXPORT_INDEX_STATS
+                  在系统表中查找指定索引的统计信息，并将结果存储在用户统计信息表中。该接
+                  口无返回值。
+                  DBE_STATS.EXPORT_INDEX_STATS原型为：
+                  DBE_STATS.EXPORT_INDEX_STATS (
+                  ownname VARCHAR2,
+                  indname VARCHAR2,
+                  partname VARCHAR2 DEFAULT NULL,
+                  stattab VARCHAR2,
+                  statid VARCHAR2 DEFAULT NULL,
+                  statown VARCHAR2 DEFAULT NULL
+                  );
+
+
+                  表 3-407 DBE_STATS.EXPORT_INDEX_STATS 接口参数说明
+                   参数          类型          是否允          描述
+                                           许为空
+
+                   ownna       VARCH       否            指定索引所在schema的名称，如果设置为
+                   me          AR2                      null，会默认使用当前的schema。
+
+                   indnam      VARCH       否            指定需要导出统计信息的索引名。
+                   e           AR2
+
+                   partna      VARCH       是            分区索引的名称。如果索引已分区但是
+                   me          AR2                      partname为null，则导出全局和分区索引统
+                                                        计信息。
+
+                   stattab     VARCH       否            指定存储统计信息用户表的表名。
+                               AR2
+
+                   statid      VARCH       是            指向stattab中统计信息的标识符（可选）。
+                               AR2
+
+                   statown     VARCH       是            指定存储统计信息用户表所在Schema的名
+                               AR2                      称，如果设置为null，会使用ownname参数
+                                                        的值。
+
+
+
+
+                        说明
+
+                       ● 导出索引的reltuples（numrows）、relpages（numlblks）和relallvisible
+                         （relallvisible）三类统计信息。
+                       ● 当ownname参数值设置为null时使用当前Schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                  示例：
+                  -- 建表，收集统计信息。
+                  gaussdb=# CREATE SCHEMA dbe_stats_export;
+                  CREATE SCHEMA
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                  2879
+GaussDB
+集中式版参考                                                                                               3 存储过程
+
+                 gaussdb=# SET CURRENT_SCHEMA = dbe_stats_export;
+                 SET
+                 gaussdb=# CREATE TABLE t2(a int, b int, c int) PARTITION BY RANGE(a) SUBPARTITION BY RANGE(b)
+                  (
+                     PARTITION p1 VALUES LESS THAN(200)
+                     (SUBPARTITION s1 VALUES LESS THAN (500),
+                      SUBPARTITION s2 VALUES LESS THAN (MAXVALUE)
+                     ),
+                     PARTITION p2 VALUES LESS THAN(500)
+                     (SUBPARTITION s3 VALUES LESS THAN (500),
+                      SUBPARTITION s4 VALUES LESS THAN (MAXVALUE)
+                     ),
+                     PARTITION p3 VALUES LESS THAN(MAXVALUE)
+                     ( SUBPARTITION s5 VALUES LESS THAN (500),
+                       SUBPARTITION s6 VALUES LESS THAN (MAXVALUE)
+                     )
+                  );
+                 CREATE TABLE
+                 gaussdb=# CREATE INDEX idx_t2_local_a ON t2(a) LOCAL
+                  (
+                      PARTITION p1_idx_a
+                      (
+                          SUBPARTITION s1_idx_a,
+                          SUBPARTITION s2_idx_a
+                      ),
+                      PARTITION p2_idx_a
+                      (
+                          SUBPARTITION s3_idx_a,
+                          SUBPARTITION s4_idx_a
+                      ),
+                      PARTITION p3_idx_a
+                      (
+                          SUBPARTITION s5_idx_a,
+                          SUBPARTITION s6_idx_a
+                      ));
+                 CREATE INDEX
+                 gaussdb=# INSERT INTO t2 VALUES (100, 300, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (100, 600, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (300, 300, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (300, 600, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (600, 400, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (600, 600, 1);
+                 INSERT 0 1
+                 gaussdb=# ANALYZE t2 WITH ALL;
+                 ANALYZE
+                 gaussdb=# ANALYZE t2((a,b)) WITH ALL;
+                 ANALYZE
+                 -- 建立用户统计信息表，作为统计信息导出的目标表。
+                 gaussdb=# CALL DBE_STATS.CREATE_STAT_TABLE('dbe_stats_export', 'export_table');
+                  create_stat_table
+                 -------------------
+                 (1 row)
+
+                 -- 导出索引统计信息，连同分区索引的统计信息一并导出。
+                 -- 查看当前的统计信息。
+                 gaussdb=# SELECT relpages,reltuples FROM PG_CLASS WHERE relname='idx_t2_local_a';
+                  relpages | reltuples
+                 ----------+-----------
+                       6|        6
+                 (1 row)
+                 gaussdb=# SELECT relname,relpages,reltuples FROM PG_PARTITION WHERE
+                 parentid='idx_t2_local_a'::REGCLASS ORDER BY oid;
+                  relname | relpages | reltuples
+                 ----------+----------+-----------
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                  2880
+GaussDB
+集中式版参考                                                                                          3 存储过程
+
+                   s1_idx_a |        1|       0
+                   s2_idx_a |        1|       0
+                   s3_idx_a |        1|       0
+                   s4_idx_a |        1|       0
+                   s5_idx_a |        1|       0
+                   s6_idx_a |        1|       0
+                  (6 rows)
+                  -- 导出统计信息，查看用户统计信息表中的数据。
+                  gaussdb=# CALL DBE_STATS.EXPORT_INDEX_STATS(ownname => 'dbe_stats_export', indname =>
+                  'idx_t2_local_a', partname=> null, stattab => 'export_table', statid => 'idx_s1');
+                   export_index_stats
+                  --------------------
+                  (1 row)
+                  gaussdb=# SELECT relname,partname,numrows,numblocks FROM export_table ORDER BY relname,
+                  partname desc;
+                     relname       | partname | numrows | numblocks
+                  ----------------+----------+---------+-----------
+                   idx_t2_local_a |         |    6|        6
+                   idx_t2_local_a | s6_idx_a |       0|       1
+                   idx_t2_local_a | s5_idx_a |       0|       1
+                   idx_t2_local_a | s4_idx_a |       0|       1
+                   idx_t2_local_a | s3_idx_a |       0|       1
+                   idx_t2_local_a | s2_idx_a |       0|       1
+                   idx_t2_local_a | s1_idx_a |       0|       1
+                  (7 rows)
+                  -- 删除表、命名空间。
+                  gaussdb=# DROP INDEX idx_t2_local_a;
+                  DROP INDEX
+                  gaussdb=# DROP TABLE t2;
+                  DROP TABLE
+                  gaussdb=# DROP TABLE export_table;
+                  DROP TABLE
+                  gaussdb=# DROP SCHEMA dbe_stats_export;
+                  DROP SCHEMA
+
+              ●   DBE_STATS.EXPORT_TABLE_STATS
+                  检索指定表的统计信息，并存储在用户统计信息表中。该接口无返回值。
+                  DBE_STATS.EXPORT_TABLE_STATS原型为：
+                  DBE_STATS.EXPORT_TABLE_STATS (
+                     ownname           VARCHAR2,
+                     tabname          VARCHAR2,
+                     partname         VARCHAR2 DEFAULT NULL,
+                     stattab        VARCHAR2,
+                     statid        VARCHAR2 DEFAULT NULL,
+                     cascade         BOOLEAN DEFAULT TRUE,
+                     statown         VARCHAR2 DEFAULT NULL,
+                     stat_category    VARCHAR2 DEFAULT NULL
+                  );
+
+
+                  表 3-408 DBE_STATS.EXPORT_TABLE_STATS 接口参数说明
+                   参数          类型           是否允许         描述
+                                            为空
+
+                   ownna       VARCH        否            指定schema的名称，如果设置为null，会默
+                   me          AR2                       认使用当前的schema。
+
+                   tabnam      VARCH        否            指定需要导出统计信息的表名。
+                   e           AR2
+
+                   partna      VARCH        是            表分区的名称。如果表已分区但是partname
+                   me          AR2                       为null，则导出全局和分区表统计信息。
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                               2881
+GaussDB
+集中式版参考                                                                                            3 存储过程
+
+
+                   参数          类型          是否允许          描述
+                                           为空
+
+                   stattab     VARCH       否             指定存储统计信息用户表的表名。
+                               AR2
+
+                   statid      VARCH       是             指向stattab中统计信息的标识符（可选）。
+                               AR2
+
+                   cascade     BOOLE       是             是否一并导出列、索引、多列和索引表达式的
+                               AN                        统计信息。默认为TRUE。
+
+                   statown     VARCH       是             指定存储统计信息用户表所在Schema的名
+                               AR2                       称，如果设置为null，会使用ownname参数
+                                                         的值。
+
+                   stat_cat    VARCH       是             暂不支持。
+                   egory       AR2
+
+
+
+
+                        说明
+
+                       ● 导出表的reltuples（numrows）、relpages（numblks）和relallvisible（relallvisible）
+                         三类统计信息。级联导出列级、索引级的统计信息参考EXPORT_INDEX_STATS和
+                         EXPORT_COLUMN_STATS接口的统计信息。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                  示例：
+                  -- 导出表的统计信息同导出索引统计信息用法一致，此处仅展示接口调用方式，具体示例可参考
+                  DBE_STATS.EXPORT_INDEX_STATS示例。
+                  gaussdb=# CALL DBE_STATS.EXPORT_TABLE_STATS(ownname => 'dbe_stats_export', tabname => 't2',
+                  partname =>null, stattab => 'export_table', statid => 't1_t', cascade => true);
+                   export_table_stats
+                  --------------------
+                  (1 row)
+
+              ●   DBE_STATS.EXPORT_COLUMN_STATS
+                  检索指定列（多列/表达式）的统计信息并存储在用户统计信息表中。该接口无返
+                  回值。
+                  DBE_STATS.EXPORT_COLUMN_STATS原型为：
+                  DBE_STATS.EXPORT_COLUMN_STATS (
+                     ownname VARCHAR2,
+                     tabname VARCHAR2,
+                     colname VARCHAR2,
+                     partname VARCHAR2 DEFAULT NULL,
+                     stattab VARCHAR2,
+                     statid VARCHAR2 DEFAULT NULL,
+                     statown VARCHAR2 DEFAULT NULL
+                  );
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                   2882
+GaussDB
+集中式版参考                                                                                             3 存储过程
+
+                 表 3-409 DBE_STATS.EXPORT_COLUMN_STATS 接口参数说明
+                  参数         类型         是否允         描述
+                                        许为空
+
+                  ownn       VARCH      否           指定schema的名称，如果设置为null，会默认使
+                  ame        AR2                    用当前的schema。
+
+                  tabna      VARCH      否           指定需要导出统计信息的列所属的表名（表达式对
+                  me         AR2                    应索引名）。
+
+                  colna      VARCH      否           列名或者多列名（tabname为索引时，colname为
+                  me         AR2                    表达式名）。
+
+                  partn      VARCH      是           分区的名称。如果表/索引已分区但是partname为
+                  ame        AR2                    null，则导出全局和分区列/多列/索引表达式统计
+                                                    信息。
+
+                  statta     VARCH      否           指定存储统计信息用户表的表名。
+                  b          AR2
+
+                  statid     VARCH      是           指向stattab中统计信息的标识符（可选）。
+                             AR2
+
+                  stato      VARCH      是           指定存储统计信息用户表所在Schema的名称，如
+                  wn         AR2                    果设置为null，会使用ownname参数的值。
+
+
+
+                       说明
+
+                       ● 导出列级的统计信息可查询PG_STATISTIC或者PG_STATISTIC_EXT。
+                       ● 导出多列统计信息时，需先查询PG_STATISTIC_EXT中的staextname字段获取多列别
+                         名作为colname入参传入。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                 示例：
+                 -- 建表，收集统计信息。
+                 gaussdb=# CREATE SCHEMA dbe_stats_export;
+                 CREATE SCHEMA
+                 gaussdb=# SET CURRENT_SCHEMA=dbe_stats_export;
+                 SET
+                 gaussdb=# CREATE TABLE IF NOT EXISTS t1 (a int, b int, c int);
+                 CREATE TABLE
+                 gaussdb=# CREATE INDEX idx_t1_expr on t1((a*a), (a+a), (a*b));
+                 CREATE INDEX
+                 gaussdb=# INSERT INTO t1 VALUES (100, 300, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t1 VALUES (150, 550, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t1 VALUES (250, 150, 1);
+                 INSERT 0 1
+                 gaussdb=# ANALYZE t1;
+                 ANALYZE
+                 gaussdb=# ANALYZE t1((a,b));
+                 ANALYZE
+                 -- 建立用户统计信息表。
+                 gaussdb=# CALL DBE_STATS.CREATE_STAT_TABLE('dbe_stats_export', 'export_table');
+                  create_stat_table
+                 -------------------
+                 (1 row)
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                2883
+GaussDB
+集中式版参考                                                                                                     3 存储过程
+
+
+                 -- 查看列级统计信息。
+                 gaussdb=# SELECT staattnum,stadistinct,stakind1,stanumbers1,stavalues1 FROM PG_STATISTIC
+                 WHERE starelid='t1'::REGCLASS ORDER BY 1;
+                  staattnum | stadistinct | stakind1 | stanumbers1 | stavalues1
+                 -----------+-------------+----------+-------------+---------------
+                         1|        -1 |     2|           | {100,150,250}
+                         2|        -1 |     2|           | {150,300,550}
+                         3 | -.333333 |        1 | {1}       | {1}
+                 (3 rows)
+                 -- 导出列级统计信息，查看用户统计信息表。
+                 gaussdb=# CALL DBE_STATS.EXPORT_COLUMN_STATS(ownname => 'dbe_stats_export', tabname =>
+                 't1', colname=> 'a', partname => null, stattab => 'export_table', statid => 't1_c');
+                  export_column_stats
+                 ---------------------
+                 (1 row)
+                 gaussdb=# SELECT relname,columnname,stadistinct,stakind1,stanumbers1,stavalues1 FROM
+                 export_table;
+                  relname | columnname | stadistinct | stakind1 | stanumbers1 | stavalues1
+                 ---------+------------+-------------+----------+-------------+---------------
+                  t1      |a        |      -1 |      2|            | {100,150,250}
+                 (1 row)
+
+                 -- 查看表达式统计信息。
+                 gaussdb=# SELECT staattnum,stadistinct,stakind1,stanumbers1,stavalues1 FROM PG_STATISTIC
+                 WHERE starelid='idx_t1_expr'::REGCLASS ORDER BY 1;
+                  staattnum | stadistinct | stakind1 | stanumbers1 |        stavalues1
+                 -----------+-------------+----------+-------------+---------------------
+                        1|         -1 |     2|           | {10000,22500,62500}
+                        2|         -1 |     2|           | {200,300,500}
+                        3|         -1 |     2|           | {30000,37500,82500}
+                 (3 rows)
+                 -- 导出表达式统计信息，查看用户统计信息表。
+                 gaussdb=# CALL DBE_STATS.EXPORT_COLUMN_STATS(ownname => 'dbe_stats_export', tabname =>
+                 'idx_t1_expr', colname => 'expr', stattab => 'export_table', statid => 't1_expr');
+                  export_column_stats
+                 ---------------------
+                 (1 row)
+                 gaussdb=# SELECT relname,columnname,stadistinct,stakind1,stanumbers1,stavalues1 FROM
+                 export_table where statid='t1_expr';
+                    relname | columnname | stadistinct | stakind1 | stanumbers1 |         stavalues1
+
+                 -------------+------------+-------------+----------+-------------+---------------------
+                  idx_t1_expr | expr       |       -1 |      2|           | {10000,22500,62500}
+                 (1 row)
+
+                 -- 导出多列统计信息。
+                 -- 查看多列统计信息。
+                 gaussdb=# SELECT stakey,staextname,stadistinct,stakind1,stanumbers1,stavalues1 FROM
+                 PG_STATISTIC_EXT WHERE starelid='t1'::REGCLASS;
+                  stakey |     staextname       | stadistinct | stakind1 | stanumbers1 | stavalues1
+                 --------+---------------------+-------------+----------+-------------+------------
+                  1 2 | extname_-1308656218 |                -1 |      8|          |
+                 (1 row)
+                 -- 导出，查看用户统计信息表。
+                 gaussdb=# CALL DBE_STATS.EXPORT_COLUMN_STATS(ownname => 'dbe_stats_export', tabname =>
+                 't1', colname=> 'extname_-1308656218', partname => null, stattab => 'export_table', statid => 't1_c');
+                  export_column_stats
+                 ---------------------
+                 (1 row)
+                 gaussdb=# SELECT relname,columnname,stadistinct,stakind1,stanumbers1,stavalues1 FROM
+                 export_table WHERE relname = 't1' ORDER BY 1,2;
+                  relname |      columnname         | stadistinct | stakind1 | stanumbers1 | stavalues1
+                 ---------+---------------------+-------------+----------+-------------+---------------
+                  t1      |a              |        -1 |      2|           | {100,150,250}
+                  t1      | extname_-1308656218 |             -1 |      8|          |
+                 (2 rows)
+                 -- 删除表、命名空间。
+                 gaussdb=# DROP TABLE t1;
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                                        2884
+GaussDB
+集中式版参考                                                                                          3 存储过程
+
+                  DROP TABLE
+                  gaussdb=# DROP TABLE export_table;
+                  DROP TABLE
+                  gaussdb=# DROP SCHEMA dbe_stats_export;
+                  DROP SCHEMA
+
+              ●   DBE_STATS.EXPORT_SCHEMA_STATS
+                  用于检索指定schema的统计信息，并存储在用户统计信息表中。该接口无返回
+                  值。
+                  DBE_STATS.EXPORT_SCHEMA_STATS原型为：
+                  DBE_STATS.EXPORT_SCHEMA_STATS (
+                     ownname        VARCHAR2,
+                     stattab      VARCHAR2,
+                     statid      VARCHAR2 DEFAULT NULL,
+                     statown       VARCHAR2 DEFAULT NULL,
+                     stat_category VARCHAR2 DEFAULT NULL
+                  );
+
+
+                  表 3-410 DBE_STATS.EXPORT_SCHEMA_STATS 接口参数说明
+                   参数             类型           是否允          描述
+                                               许为空
+
+                   ownname        VARCHA       否            指定schema的名称，如果设置为null，会
+                                  R2                        默认使用当前的schema。
+
+                   stattab        VARCHA       否            指定存储统计信息用户表的表名。
+                                  R2
+
+                   statid         VARCHA       是            指向stattab中统计信息的标识符（可
+                                  R2                        选）。
+
+                   statown        VARCHA       是            指定存储统计信息用户表所在Schema的名
+                                  R2                        称，如果设置为null，会使用ownname参
+                                                            数的值。
+
+                   stat_categ     VARCHA       是            暂不支持。
+                   ory            R2
+
+
+
+
+                       说明
+
+                       ● 导出当前用户在指定schema下所有具有权限的表的统计信息，对于无权限的表直接跳
+                         过，不报错。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                  示例：
+                  -- 导出schema的统计信息同导出表统计信息用法一致，此处仅展示接口调用方式，具体示例可参考
+                  DBE_STATS.EXPORT_TABLE_STATS示例。
+                  gaussdb=# CALL DBE_STATS.EXPORT_SCHEMA_STATS(ownname => 'dbe_stats_export', stattab =>
+                  'export_table', statid => 's1');
+                   export_schema_stats
+                  ---------------------
+                  (1 row)
+
+              ●   DBE_STATS.EXPORT_DATABASE_STATS
+                  用于检索指定database的统计信息，并存储在用户统计信息表中。该接口无返回
+                  值。
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                 2885
+GaussDB
+集中式版参考                                                                                            3 存储过程
+
+                  DBE_STATS.EXPORT_DATABASE_STATS原型：
+                  DBE_STATS.EXPORT_DATABASE_STATS (
+                     stattab      VARCHAR2,
+                     statid      VARCHAR2 DEFAULT NULL,
+                     statown       VARCHAR2 DEFAULT NULL,
+                     stat_category VARCHAR2 DEFAULT NULL
+                  );
+
+
+                  表 3-411 DBE_STATS.EXPORT_DATABASE_STATS 接口参数说明
+
+                   参数             类型            是否允         描述
+                                                许为空
+
+                   stattab        VARCHA        否           指定存储统计信息用户表的表名。
+                                  R2
+
+                   statid         VARCHA        是           指向stattab中统计信息的标识符（可
+                                  R2                        选）。
+
+                   statown        VARCHA        是           指定存储统计信息用户表所在Schema的名
+                                  R2                        称，如果设置为null，会使用当前
+                                                            Schema。
+
+                   stat_categ     VARCHA        是           暂不支持。
+                   ory            R2
+
+
+
+
+                        说明
+
+                       ● 导出当前用户在当前database下所有具有analyze权限用户表的统计信息，对于无权限
+                         的表直接跳过，不报错。
+                       ● 当statown参数值设置为null时使用当前Schema，需将behavior_compat_options参数
+                         值设置为bind_procedure_searchpath。
+                  示例：
+                  -- 导出database的统计信息同导出表统计信息用法一致，此处仅展示接口调用方式，具体示例可参考
+                  DBE_STATS.EXPORT_TABLE_STATS示例。
+                  gaussdb=# CALL DBE_STATS.EXPORT_DATABASE_STATS(statown => 'dbe_stats_export', stattab =>
+                  'export_table', statid => 's1');
+                   export_database_stats
+                  ---------------------
+                  (1 row)
+
+              ●   DBE_STATS.IMPORT_INDEX_STATS
+                  从stattab标识的用户统计信息表中检索指定索引的统计信息，并将其写回系统表
+                  中。该接口无返回值。
+                  DBE_STATS.IMPORT_INDEX_STATS原型为：
+                  DBE_STATS.IMPORT_INDEX_STATS (
+                     ownname        VARCHAR2,
+                     indname       VARCHAR2,
+                     partname      VARCHAR2 DEFAULT NULL,
+                     stattab     VARCHAR2,
+                     statid     VARCHAR2 DEFAULT NULL,
+                     statown      VARCHAR2 DEFAULT NULL,
+                     no_invalidate BOOLEAN DEFAULT NULL,
+                     force      BOOLEAN DEFAULT FALSE
+                  );
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                   2886
+GaussDB
+集中式版参考                                                                                            3 存储过程
+
+                 表 3-412 DBE_STATS.IMPORT_INDEX_STATS 接口参数说明
+
+                  参数           类型          是否允          描述
+                                           许为空
+
+                  ownnam       VARCH       否            指定schema的名称，如果设置为null，会默认
+                  e            AR2                      使用当前的schema。
+
+                  indname      VARCH       否            指定需要导入统计信息的索引名。
+                               AR2
+
+                  partnam      VARCH       是            索引分区的名称。如果索引已分区但是
+                  e            AR2                      partname为null，则导入全局和分区索引统计
+                                                        信息。
+
+                  stattab      VARCH       否            指定存储统计信息用户表的表名。
+                               AR2
+
+                  statid       VARCH       是            指向stattab中统计信息的标识符（可选）。
+                               AR2
+
+                  statown      VARCH       是            指定存储统计信息用户表所在Schema的名
+                               AR2                      称，如果设置为null，会使用ownname参数的
+                                                        值。
+
+                  no_invali    BOOLE       是            暂不支持。
+                  date         AN
+
+                  force        BOOLE       是            是否强制导入，忽略锁的状态，默认false。
+                               AN
+
+
+
+
+                        说明
+
+                       ● 导入索引的reltuples（numrows）、relpages（numlblks）和relallvisible
+                         （relallvisible）三类统计信息。
+                       ● 当ownname参数值设置为null时使用当前Schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                 示例：
+                 -- 建表，收集统计信息。
+                 gaussdb=# CREATE SCHEMA dbe_stats_import;
+                 CREATE SCHEMA
+                 gaussdb=# SET CURRENT_SCHEMA = dbe_stats_import;
+                 SET
+                 gaussdb=# CREATE TABLE t2(a int, b int, c int) PARTITION BY RANGE(a) SUBPARTITION BY RANGE(b)
+                  (
+                     PARTITION p1 VALUES LESS THAN(200)
+                     (SUBPARTITION s1 VALUES LESS THAN (500),
+                      SUBPARTITION s2 VALUES LESS THAN (MAXVALUE)
+                     ),
+                     PARTITION p2 VALUES LESS THAN(500)
+                     (SUBPARTITION s3 VALUES LESS THAN (500),
+                      SUBPARTITION s4 VALUES LESS THAN (MAXVALUE)
+                     ),
+                     PARTITION p3 VALUES LESS THAN(MAXVALUE)
+                     ( SUBPARTITION s5 VALUES LESS THAN (500),
+                       SUBPARTITION s6 VALUES LESS THAN (MAXVALUE)
+                     )
+                  );
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                  2887
+GaussDB
+集中式版参考                                                                                         3 存储过程
+
+                 CREATE TABLE
+                 gaussdb=# CREATE INDEX idx_t2_local_a ON t2(a) LOCAL
+                  (
+                     PARTITION p1_idx_a
+                     (
+                         SUBPARTITION s1_idx_a,
+                         SUBPARTITION s2_idx_a
+                     ),
+                     PARTITION p2_idx_a
+                     (
+                         SUBPARTITION s3_idx_a,
+                         SUBPARTITION s4_idx_a
+                     ),
+                     PARTITION p3_idx_a
+                     (
+                         SUBPARTITION s5_idx_a,
+                         SUBPARTITION s6_idx_a
+                     ));
+                 CREATE INDEX
+                 gaussdb=# INSERT INTO t2 VALUES (100, 300, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (100, 600, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (300, 300, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (300, 600, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (600, 400, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (600, 600, 1);
+                 INSERT 0 1
+                 gaussdb=# ANALYZE t2 WITH ALL;
+                 ANALYZE
+                 -- 创建用户统计信息表，先将数据导出。
+                 gaussdb=# CALL DBE_STATS.CREATE_STAT_TABLE('dbe_stats_import', 'export_table');
+                  create_stat_table
+                 -------------------
+                 (1 row)
+                 gaussdb=# CALL DBE_STATS.EXPORT_INDEX_STATS(ownname => 'dbe_stats_import', indname =>
+                 'idx_t2_local_a', partname=> null, stattab => 'export_table', statid => 'idx_s1');
+                  export_index_stats
+                 --------------------
+                 (1 row)
+                 gaussdb=# SELECT relname,partname,numrows,numblocks FROM export_table ORDER BY
+                 relname,partname desc;
+                    relname       | partname | numrows | numblocks
+                 ----------------+----------+---------+-----------
+                  idx_t2_local_a |         |    6|        6
+                  idx_t2_local_a | s6_idx_a |       0|       1
+                  idx_t2_local_a | s5_idx_a |       0|       1
+                  idx_t2_local_a | s4_idx_a |       0|       1
+                  idx_t2_local_a | s3_idx_a |       0|       1
+                  idx_t2_local_a | s2_idx_a |       0|       1
+                  idx_t2_local_a | s1_idx_a |       0|       1
+                 (7 rows)
+                 -- 再次插入数据，收集统计信息，查看统计信息。
+                 gaussdb=# INSERT INTO t2 VALUES (100, 300, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (100, 600, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (100, 600, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (300, 600, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (600, 400, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (600, 600, 1);
+                 INSERT 0 1
+                 gaussdb=# ANALYZE t2 WITH ALL;
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                                                2888
+GaussDB
+集中式版参考                                                                                          3 存储过程
+
+                  ANALYZE
+                  gaussdb=# SELECT relpages,reltuples FROM PG_CLASS WHERE relname='idx_t2_local_a';
+                   relpages | reltuples
+                  ----------+-----------
+                        6|        12
+                  (1 row)
+                  gaussdb=# SELECT relname,relpages,reltuples FROM PG_PARTITION WHERE
+                  parentid='idx_t2_local_a'::REGCLASS ORDER BY oid;
+                   relname | relpages | reltuples
+                  ----------+----------+-----------
+                   s1_idx_a |        1|      0
+                   s2_idx_a |        1|      0
+                   s3_idx_a |        1|      0
+                   s4_idx_a |        1|      0
+                   s5_idx_a |        1|      0
+                   s6_idx_a |        1|      0
+                  (6 rows)
+                  -- 将用户统计表中的统计信息导入统计信息系统表。
+                  gaussdb=# CALL DBE_STATS.IMPORT_INDEX_STATS(ownname => 'dbe_stats_import', indname =>
+                  'idx_t2_local_a', stattab => 'export_table', statid => 'idx_s1');
+                   import_index_stats
+                  --------------------
+                  (1 row)
+                  gaussdb=# SELECT relpages,reltuples FROM PG_CLASS WHERE relname='idx_t2_local_a';
+                   relpages | reltuples
+                  ----------+-----------
+                        6|         6
+                  (1 row)
+                  gaussdb=# SELECT relname,relpages,reltuples FROM PG_PARTITION WHERE
+                  parentid='idx_t2_local_a'::REGCLASS ORDER BY oid;
+                   relname | relpages | reltuples
+                  ----------+----------+-----------
+                   s1_idx_a |        1|      0
+                   s2_idx_a |        1|      0
+                   s3_idx_a |        1|      0
+                   s4_idx_a |        1|      0
+                   s5_idx_a |        1|      0
+                   s6_idx_a |        1|      0
+                  (6 rows)
+                  -- 删除表、命名空间。
+                  gaussdb=# DROP TABLE t2;
+                  DROP TABLE
+                  gaussdb=# DROP TABLE export_table;
+                  DROP TABLE
+                  gaussdb=# DROP SCHEMA dbe_stats_import;
+                  DROP SCHEMA
+
+              ●   DBE_STATS.IMPORT_TABLE_STATS
+                  从stattab标识的用户统计信息表中检索指定表的统计信息，并将其写回系统表
+                  中。该接口无返回值。
+                  DBE_STATS.IMPORT_TABLE_STATS原型为：
+                  DBE_STATS.IMPORT_TABLE_STATS (
+                     ownname        VARCHAR2,
+                     tabname       VARCHAR2,
+                     partname      VARCHAR2 DEFAULT NULL,
+                     stattab     VARCHAR2,
+                     statid     VARCHAR2 DEFAULT NULL,
+                     cascade      BOOLEAN DEFAULT TRUE,
+                     statown      VARCHAR2 DEFAULT NULL,
+                     no_invalidate BOOLEAN DEFAULT NULL,
+                     force      BOOLEAN DEFAULT FALSE,
+                     stat_category VARCHAR2 DEFAULT NULL
+                  );
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                2889
+GaussDB
+集中式版参考                                                                                                3 存储过程
+
+                  表 3-413 DBE_STATS.IMPORT_TABLE_STATS 接口参数说明
+                   参数           类型          是否允许           描述
+                                            为空
+
+                   ownna        varchar     否              指定schema的名称，如果设置为null，会默
+                   me           2                          认使用当前的schema。
+
+                   tabnam       varchar     否              指定需要导入统计信息的表名。
+                   e            2
+
+                   partna       varchar     是              表分区的名称。如果表已分区但是partname
+                   me           2                          为null，则导入全局和分区表统计信息。
+
+                   stattab      varchar     否              指定存储统计信息用户表的表名。
+                                2
+
+                   statid       varchar     是              指向stattab中统计信息的标识符（可选）。
+                                2
+
+                   cascade      boolea      是              是否一并导入列、索引、多列和索引表达式的
+                                n                          统计信息。默认为true。
+
+                   statow       varchar     是              指定存储统计信息用户表所在Schema的名
+                   n            2                          称，如果设置为null，会使用ownname参数
+                                                           的值。
+
+                   no_inva      boolea      是              暂不支持。
+                   lidate       n
+
+                   force        boolea      是              是否强制导入，忽略锁的状态，默认false。
+                                n
+
+                   stat_cat     varchar     是              暂不支持。
+                   egory        2
+
+
+
+
+                        说明
+
+                       ● 导入表的reltuples（numrows）、relpages（numblks）和relallvisible（relallvisible）
+                         三类统计信息。级联导入列级、索引级的统计信息参考IMPORT_INDEX_STATS和
+                         IMPORT_COLUMN_STATS接口的统计信息。
+                       ● 当ownname参数值设置为null时使用当前Schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                  示例：
+                  -- 导入表的统计信息同导入索引统计信息用法一致，此处仅展示接口调用方式，具体示例可参考
+                  DBE_STATS.IMPORT_INDEX_STATS示例。
+                  gaussdb=# CALL DBE_STATS.IMPORT_TABLE_STATS(ownname => 'dbe_stats_import', tabname => 't2',
+                  partname => 'p1', stattab => 'export_table', statid => 't1_t', cascade => true, force => false);
+                   import_table_stats
+                  --------------------
+                  (1 row)
+
+              ●   DBE_STATS.IMPORT_COLUMN_STATS
+                  从stattab标识的用户统计信息表中检索指定列（多列/表达式）的统计信息，并将
+                  其写回系统表中。该接口无返回值。
+                  DBE_STATS.IMPORT_COLUMN_STATS原型为：
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                      2890
+GaussDB
+集中式版参考                                                                         3 存储过程
+
+                 DBE_STATS.IMPORT_COLUMN_STATS (
+                    ownname        VARCHAR2,
+                    tabname       VARCHAR2,
+                    colname      VARCHAR2,
+                    partname      VARCHAR2 DEFAULT NULL,
+                    stattab     VARCHAR2,
+                    statid     VARCHAR2 DEFAULT NULL,
+                    statown      VARCHAR2 DEFAULT NULL,
+                    no_invalidate BOOLEAN DEFAULT NULL,
+                    force      BOOLEAN DEFAULT FALSE
+                 );
+
+
+                 表 3-414 DBE_STATS.IMPORT_COLUMN_STATS 接口参数说明
+
+                  参数          类型           是否允许            描述
+                                           为空
+
+                  ownna       VARCHA       否               指定schema的名称，如果设置为null，会默
+                  me          R2                           认使用当前的schema。
+
+                  tabnam      VARCHA       否               指定需要导入统计信息的列所属的表名（表
+                  e           R2                           达式对应索引名）。
+
+                  colnam      VARCHA       否               列名或者多列名（tabname为索引时，
+                  e           R2                           colname为表达式名）。
+
+                  partna      VARCHA       是               分区的名称。如果表/索引已分区但是
+                  me          R2                           partname为null，则导入全局和分区列/多
+                                                           列/索引表达式统计信息。
+
+                  stattab     VARCHA       否               指定存储统计信息用户表的表名。
+                              R2
+
+                  statid      VARCHA       是               指向stattab中统计信息的标识符（可选）。
+                              R2
+
+                  statown     VARCHA       是               指定存储统计信息用户表所在Schema的名
+                              R2                           称，如果设置为null，会使用ownname参数
+                                                           的值。
+
+                  no_inva     BOOLEA       是               暂不支持。
+                  lidate      N
+
+                  force       BOOLEA       是               是否强制导入，忽略锁的状态，默认false。
+                              N
+
+
+
+
+                       说明
+
+                       ● 导入列级的统计信息可查询PG_STATISTIC或者PG_STATISTIC_EXT。
+                       ● 导入多列时，需先查询PG_STATISTIC_EXT中的staextname字段获取多列别名作为
+                         colname入参传入。
+                       ● 当ownname参数值设置为null时使用当前Schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                 示例：
+                 -- 建表，收集统计信息。
+                 gaussdb=# CREATE SCHEMA dbe_stats_import;
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                              2891
+GaussDB
+集中式版参考                                                                                                     3 存储过程
+
+                 CREATE SCHEMA
+                 gaussdb=# SET CURRENT_SCHEMA = dbe_stats_import;
+                 SET
+                 gaussdb=# CREATE TABLE IF NOT EXISTS t1 (a int, b int, c int);
+                 CREATE TABLE
+                 gaussdb=# CREATE INDEX idx_t1_expr on t1((a*a), (a+a), (a*b));
+                 CREATE INDEX
+                 gaussdb=# INSERT INTO t1 VALUES (100, 300, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t1 VALUES (150, 550, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t1 VALUES (250, 150, 1);
+                 INSERT 0 1
+                 gaussdb=# ANALYZE t1;
+                 ANALYZE
+                 gaussdb=# ANALYZE t1((a,b));
+                 ANALYZE
+                 -- 建立用户统计信息表，先将单列、多列统计信息导出。
+                 gaussdb=# CALL DBE_STATS.CREATE_STAT_TABLE('dbe_stats_import', 'export_table');
+                  create_stat_table
+                 -------------------
+                 (1 row)
+                 gaussdb=# SELECT stakey,staextname,stadistinct,stakind1,stanumbers1,stavalues1 FROM
+                 PG_STATISTIC_EXT WHERE starelid='t1'::REGCLASS;
+                  stakey |     staextname       | stadistinct | stakind1 | stanumbers1 | stavalues1
+                 --------+---------------------+-------------+----------+-------------+------------
+                  1 2 | extname_-1308656218 |                -1 |        8|           |
+                 (1 row)
+                 gaussdb=# CALL DBE_STATS.EXPORT_COLUMN_STATS(ownname => 'dbe_stats_import', tabname =>
+                 't1', colname=> 'a', partname => null, stattab => 'export_table', statid => 't1_c');
+                  export_column_stats
+                 ---------------------
+                 (1 row)
+                 gaussdb=# CALL DBE_STATS.EXPORT_COLUMN_STATS(ownname => 'dbe_stats_import', tabname =>
+                 'idx_t1_expr', colname => 'expr', stattab => 'export_table', statid => 't1_expr');
+                  export_column_stats
+                 ---------------------
+                 (1 row)
+                 gaussdb=# CALL DBE_STATS.EXPORT_COLUMN_STATS(ownname => 'dbe_stats_import', tabname =>
+                 't1', colname=> 'extname_-1308656218', partname => null, stattab => 'export_table', statid => 't1_c');
+                  export_column_stats
+                 ---------------------
+                 (1 row)
+                 gaussdb=# SELECT relname,columnname,stadistinct,stakind1,stanumbers1,stavalues1 FROM
+                 export_table ORDER BY 1,2;
+                    relname |       columnname         | stadistinct | stakind1 | stanumbers1 |      stavalues1
+                 -------------+---------------------+-------------+----------+-------------+---------------------
+                  idx_t1_expr | expr               |       -1 |        2|         | {10000,22500,62500}
+                  t1        |a                |       -1 |       2|          | {100,150,250}
+                  t1        | extname_-1308656218 |               -1 |      8|           |
+                 (3 rows)
+                 -- 再次插入数据，收集统计信息，查看系统表。
+                 gaussdb=# INSERT INTO t1 VALUES (100, 300, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t1 VALUES (150, 550, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t1 VALUES (250, 150, 1);
+                 INSERT 0 1
+                 gaussdb=# ANALYZE t1;
+                 ANALYZE
+                 gaussdb=# ANALYZE t1((a,b));
+                 ANALYZE
+                 --查看import前列统计信息。
+                 gaussdb=# SELECT staattnum,stadistinct,stakind1,stanumbers1,stavalues1 FROM PG_STATISTIC
+                 WHERE starelid='t1'::REGCLASS ORDER BY 1;
+                  staattnum | stadistinct | stakind1 |          stanumbers1          | stavalues1
+                 -----------+-------------+----------+---------------------------+---------------
+                         1|       -.5 |     1 | {.333333,.333333,.333333} | {100,150,250}
+                         2|       -.5 |     1 | {.333333,.333333,.333333} | {150,300,550}
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                          2892
+GaussDB
+集中式版参考                                                                                                       3 存储过程
+
+                        3 | -.166667 |         1 | {1}                  | {1}
+                 (3 rows)
+                 --查看import前表达式统计信息。
+                 gaussdb=# SELECT staattnum,stadistinct,stakind1,stanumbers1,stavalues1 FROM PG_STATISTIC
+                 WHERE starelid='idx_t1_expr'::REGCLASS ORDER BY 1;
+                  staattnum | stadistinct | stakind1 |         stanumbers1         |   stavalues1
+                 -----------+-------------+----------+---------------------------+---------------------
+                        1|        -.5 |     1 | {.333333,.333333,.333333} | {10000,22500,62500}
+                        2|        -.5 |     1 | {.333333,.333333,.333333} | {200,300,500}
+                        3|        -.5 |     1 | {.333333,.333333,.333333} | {30000,37500,82500}
+                 (3 rows)
+                 --查看import前的多列统计信息。
+                 gaussdb=# SELECT stakey,staextname,stadistinct,stakind1,stanumbers1,stavalues1 FROM
+                 PG_STATISTIC_EXT WHERE starelid='t1'::REGCLASS;
+                  stakey |    staextname        | stadistinct | stakind1 | stanumbers1 | stavalues1
+                 --------+---------------------+-------------+----------+-------------+------------
+                  1 2 | extname_-1308656218 |               -.5 |      8|          |
+                 (1 row)
+
+                 -- 导入单列、多列统计信息，查看系统表。
+                 gaussdb=# CALL DBE_STATS.IMPORT_COLUMN_STATS(ownname => 'dbe_stats_import', tabname =>
+                 't1', colname=> 'a', partname => null, stattab => 'export_table', statid => 't1_c', force => false);
+                  import_column_stats
+                 ---------------------
+                 (1 row)
+                 gaussdb=# CALL DBE_STATS.IMPORT_COLUMN_STATS(ownname => 'dbe_stats_import', tabname =>
+                 'idx_t1_expr', colname=> 'expr', partname => null, stattab => 'export_table', statid => 't1_expr', force
+                 => false);
+                  import_column_stats
+                 ---------------------
+                 (1 row)
+                 gaussdb=# CALL DBE_STATS.IMPORT_COLUMN_STATS(ownname => 'dbe_stats_import', tabname =>
+                 't1', colname=> 'extname_-1308656218', partname => null, stattab => 'export_table', statid => 't1_c',
+                 force => false);
+                  import_column_stats
+                 ---------------------
+                 (1 row)
+
+                 --查看import后的列级统计信息。
+                 gaussdb=# SELECT staattnum,stadistinct,stakind1,stanumbers1,stavalues1 FROM PG_STATISTIC
+                 WHERE starelid='t1'::REGCLASS ORDER BY 1;
+                  staattnum | stadistinct | stakind1 |         stanumbers1         | stavalues1
+                 -----------+-------------+----------+---------------------------+---------------
+                        1|         -1 |      2|                      | {100,150,250}
+                        2|        -.5 |     1 | {.333333,.333333,.333333} | {150,300,550}
+                        3 | -.166667 |          1 | {1}                  | {1}
+                 (3 rows)
+                 --查看import后的表达式级统计信息。
+                 gaussdb=# SELECT staattnum,stadistinct,stakind1,stanumbers1,stavalues1 FROM PG_STATISTIC
+                 WHERE starelid='idx_t1_expr'::REGCLASS ORDER BY 1;
+                  staattnum | stadistinct | stakind1 |         stanumbers1         |   stavalues1
+                 -----------+-------------+----------+---------------------------+---------------------
+                        1|         -1 |      2|                      | {10000,22500,62500}
+                        2|        -.5 |     1 | {.333333,.333333,.333333} | {200,300,500}
+                        3|        -.5 |     1 | {.333333,.333333,.333333} | {30000,37500,82500}
+                 (3 rows)
+                 --查看import后的多列统计信息。
+                 gaussdb=# SELECT stakey,staextname,stadistinct,stakind1,stanumbers1,stavalues1 FROM
+                 PG_STATISTIC_EXT WHERE starelid='t1'::REGCLASS;
+                  stakey |    staextname        | stadistinct | stakind1 | stanumbers1 | stavalues1
+                 --------+---------------------+-------------+----------+-------------+------------
+                  1 2 | extname_-1308656218 |                -1 |       8|          |
+                 (1 row)
+                 -- 删除表、删除命名空间。
+                 gaussdb=# DROP TABLE t1;
+                 DROP TABLE
+                 gaussdb=# DROP TABLE export_table;
+                 DROP TABLE
+
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                             2893
+GaussDB
+集中式版参考                                                                                          3 存储过程
+
+                  gaussdb=# DROP SCHEMA dbe_stats_import;
+                  DROP SCHEMA
+
+              ●   DBE_STATS.IMPORT_SCHEMA_STATS
+                  从stattab标识的用户统计信息表中检索指定schema的统计信息，并将其写回系统
+                  表中。该接口无返回值。
+                  DBE_STATS.IMPORT_SCHEMA_STATS原型为：
+                  DBE_STATS.IMPORT_SCHEMA_STATS (
+                   ownname        VARCHAR2,
+                   stattab     VARCHAR2,
+                   statid     VARCHAR2 DEFAULT NULL,
+                   statown      VARCHAR2 DEFAULT NULL,
+                   no_invalidate BOOLEAN DEFAULT NULL,
+                   force      BOOLEAN DEFAULT FALSE,
+                   stat_category VARCHAR2 DEFAULT NULL);
+
+
+                  表 3-415 DBE_STATS.IMPORT_SCHEMA_STATS 接口参数说明
+                   参数             类型             是否允许         描述
+                                                 为空
+
+                   ownname        VARCHAR        否            指定schema的名称，如果设置为null，
+                                  2                           会默认使用当前的schema。
+
+                   stattab        VARCHAR        否            指定存储统计信息用户表的表名。
+                                  2
+
+                   statid         VARCHAR        是            指向stattab中统计信息的标识符（可
+                                  2                           选）。
+
+                   statown        VARCHAR        是            指定存储统计信息用户表所在Schema
+                                  2                           的名称，如果设置为null，会使用
+                                                              ownname参数的值。
+
+                   no_invalid     BOOLEAN        是            暂不支持。
+                   ate
+
+                   force          BOOLEAN        是            是否强制导入，忽略锁的状态，默认
+                                                              false。
+
+                   stat_categ     VARCHAR        是            暂不支持。
+                   ory            2
+
+
+
+                       说明
+
+                       ● 导入当前用户在指定schema下所有具有权限的表的统计信息，对于无权限的表直接跳
+                         过，不报错。
+                       ● 当ownname参数值设置为null时使用当前Schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                  示例：
+                  -- 导入schema的统计信息同导入表的统计信息用法一致，此处仅展示接口调用方式，具体示例可参考
+                  DBE_STATS.IMPORT_TABLE_STATS示例。
+                  gaussdb=# CALL DBE_STATS.IMPORT_SCHEMA_STATS(ownname => 'dbe_stats_import', stattab =>
+                  'export_table', statid => 's1',force => false);
+                   import_schema_stats
+                  ---------------------
+                  (1 row)
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                2894
+GaussDB
+集中式版参考                                                                                           3 存储过程
+
+
+              ●   DBE_STATS.IMPORT_DATABASE_STATS
+                  从stattab标识的用户统计信息表中检索当前database用户表的统计信息，并将其
+                  写回系统表中。该接口无返回值。
+                  DBE_STATS.IMPORT_DATABASE_STATS原型为：
+                  DBE_STATS.IMPORT_DATABASE_STATS (
+                     stattab      VARCHAR2,
+                     statid      VARCHAR2 DEFAULT NULL,
+                     statown       VARCHAR2 DEFAULT NULL,
+                     no_invalidate BOOLEAN DEFAULT NULL,
+                     force       BOOLEAN DEFAULT FALSE,
+                     stat_category VARCHAR2 DEFAULT NULL
+                  );
+
+
+                  表 3-416 DBE_STATS.IMPORT_DATABASE_STATS 接口参数说明
+
+                   参数             类型             是否允许          描述
+                                                 为空
+
+                   stattab        VARCHAR        否             指定存储统计信息用户表的表名。
+                                  2
+
+                   statid         VARCHAR        是             指向stattab中统计信息的标识符（可
+                                  2                            选）。
+
+                   statown        VARCHAR        是             指定存储统计信息用户表所在Schema
+                                  2                            的名称，如果设置为null，会使用当前
+                                                               Schema。
+
+                   no_invalid     BOOLEAN        是             暂不支持。
+                   ate
+
+                   force          BOOLEAN        是             是否强制导入，忽略锁的状态，默认
+                                                               false。
+
+                   stat_categ     VARCHAR        是             暂不支持。
+                   ory            2
+
+
+
+
+                       说明
+
+                       ● 导入当前用户在指定database下所有具有analyze权限的用户表的统计信息，对于无权
+                         限的表直接跳过，不报错。
+                       ● 当statown参数值设置为null时使用当前Schema，需将behavior_compat_options参数
+                         值设置为bind_procedure_searchpath。
+                  示例：
+                  -- 导入database的统计信息同导入表的统计信息用法一致，此处仅展示接口调用方式，具体示例可参考
+                  DBE_STATS.IMPORT_TABLE_STATS示例。
+                  gaussdb=# CALL DBE_STATS.IMPORT_DATABASE_STATS(statown => 'dbe_stats_import', stattab =>
+                  'export_table', statid => 's1',force => false);
+                   import_database_stats
+                  ---------------------
+                  (1 row)
+
+              ●   DBE_STATS.SET_COLUMN_STATS
+                  设置列相关的统计信息，包括设置单列、多列和表达式统计信息。该接口无返回
+                  值。
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                 2895
+GaussDB
+集中式版参考                                                                          3 存储过程
+
+                 DBE_STATS.SET_COLUMN_STATS原型为：
+                 DBE_STATS.SET_COLUMN_STATS (
+                    ownname         VARCHAR2,
+                    tabname        VARCHAR2,
+                    colname        VARCHAR2,
+                    partname       VARCHAR2 DEFAULT NULL,
+                    stattab      VARCHAR2 DEFAULT NULL,
+                    statid      VARCHAR2 DEFAULT NULL,
+                    distcnt      NUMBER    DEFAULT NULL,
+                    density      NUMBER    DEFAULT NULL,
+                    nullcnt      NUMBER    DEFAULT NULL,
+                    srec        VARCHAR2 DEFAULT NULL,
+                    avgclen       NUMBER     DEFAULT NULL,
+                    flags       NUMBER    DEFAULT NULL,
+                    statown       VARCHAR2 DEFAULT NULL,
+                    no_invalidate BOOLEAN DEFAULT NULL,
+                    force       BOOLEAN DEFAULT FALSE
+                 );
+
+
+                 表 3-417 DBE_STATS.SET_COLUMN_STATS 接口参数说明
+                  参数          类型             是否允许            描述
+                                             为空
+
+                  ownna       VARCHAR        否               该表所在的schema。如果设置为null，则
+                  me          2                              默认使用当前schema。
+
+                  tabnam      VARCHAR        否               表名。
+                  e           2
+
+                  colname     VARCHAR        否               列名。
+                              2
+
+                  partnam     VARCHAR        是               要设置统计信息的表分区的名称。如果表
+                  e           2                              已分区且partname为null，则设置全局级
+                                                             别的列级统计信息。
+
+                  stattab     VARCHAR        是               暂不支持此参数。
+                              2
+
+                  statid      VARCHAR        是               暂不支持此参数。
+                              2
+
+                  distcnt     NUMBER         是               设置该列中NDV数量。
+
+                  density     NUMBER         是               暂不支持。
+
+                  nullcnt     NUMBER         是               设置该列中null值数量。
+
+                  srec        VARCHAR        是               暂不支持此参数。
+                              2
+
+                  avgclen     NUMBER         是               设置该列中字段的平均长度（以字节为单
+                                                             位）。
+
+                  flags       NUMBER         是               暂不支持此参数。
+
+                  statown     VARCHAR        是               暂不支持此参数。
+                              2
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                              2896
+GaussDB
+集中式版参考                                                                                             3 存储过程
+
+
+                  参数           类型              是否允许         描述
+                                               为空
+
+                  no_inval     BOOLEAN         是            暂不支持此参数。
+                  idate
+
+                  force        NUMBER          是            决定统计信息被锁定时的行为。如果为
+                                                            true，则即使列级统计信息被锁定，该过
+                                                            程也会设置值。默认为false。
+
+
+
+
+                       说明
+
+                       ● 该接口支持设置表达式统计信息，由于表达式的创建依赖于索引，因此当调用该接口设
+                         置表达式统计信息时，tabname应该传入该索引的名称。
+                       ● 当前仅支持设置列的NDV（distcnt）、nullfrac（nullcnt）和width（avgclen）三类统
+                         计信息。
+                       ● 当单列、表达式统计信息被删除后，仍然支持调用该接口设置对应的单列、表达式统计
+                         信息，此时PG_STATISTIC系统表中将插入新的数据。但对于多列统计信息，当其被删
+                         除后，不支持使用该接口进行重新设置。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                       ● 当前列的行数(reltuples)为0时，nullfrac将会被设置为0，distcnt将会被设置为入参的
+                         值。
+                 示例：
+                 -- 前置条件，建表，收集统计信息。
+                 gaussdb=# CREATE SCHEMA dbe_stats_set_schema;
+                 CREATE SCHEMA
+                 gaussdb=# SET CURRENT_SCHEMA = dbe_stats_set_schema;
+                 SET
+                 gaussdb=# DROP TABLE IF EXISTS t1;
+                 NOTICE: table "t1" does not exist, skipping
+                 DROP TABLE
+                 gaussdb=# CREATE TABLE IF NOT EXISTS t1 (a int, b int, c int);
+                 CREATE TABLE
+                 gaussdb=# CREATE INDEX idx_t1_expr ON t1((a*a), (a+a), (a*b));
+                 CREATE INDEX
+                 gaussdb=# INSERT INTO t1 VALUES (100, 300, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t1 VALUES (150, 550, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t1 VALUES (250, 150, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t1 VALUES (250, 150, 1);
+                 INSERT 0 1
+                 gaussdb=# ANALYZE t1;
+                 ANALYZE
+                 gaussdb=# ANALYZE t1((a, b));
+                 ANALYZE
+                 -- 设置单列统计信息。
+                 -- 查询原有统计信息。
+                 gaussdb=# SELECT staattnum,stanullfrac,stawidth,stadistinct FROM PG_STATISTIC WHERE
+                 starelid='t1'::REGCLASS ORDER BY 1;
+                  staattnum | stanullfrac | stawidth | stadistinct
+                 -----------+-------------+----------+-------------
+                        1|         0|       4|       -.75
+                        2|         0|       4|       -.75
+                        3|         0|       4|       -.25
+                 (3 rows)
+                 -- 设置列级统计信息后重新查询。
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                 2897
+GaussDB
+集中式版参考                                                                                          3 存储过程
+
+                 gaussdb=# CALL DBE_STATS.SET_COLUMN_STATS(ownname => 'dbe_stats_set_schema', tabname =>
+                 't1', colname => 'a', distcnt => 6, nullcnt => 5, avgclen => 42);
+                  set_column_stats
+                 ------------------
+                 (1 row)
+                 gaussdb=# SELECT staattnum,stanullfrac,stawidth,stadistinct FROM PG_STATISTIC WHERE
+                 starelid='t1'::REGCLASS ORDER BY 1;
+                  staattnum | stanullfrac | stawidth | stadistinct
+                 -----------+-------------+----------+-------------
+                         1|         1|      42 |         6
+                         2|         0|       4|       -.75
+                         3|         0|       4|       -.25
+                 (3 rows)
+                 -- 设置多列统计信息。
+                 -- 查询原有统计信息。
+                 gaussdb=# SELECT stakey,staextname,stanullfrac,stawidth,stadistinct FROM PG_STATISTIC_EXT
+                 WHERE starelid='t1'::REGCLASS;
+                  stakey |      staextname       | stanullfrac | stawidth | stadistinct
+                 --------+---------------------+-------------+----------+-------------
+                  1 2 | extname_-1308656218 |                 0|       8|       -.75
+                 (1 row)
+                 -- 设置统计信息后重新查询
+                 gaussdb=# CALL DBE_STATS.SET_COLUMN_STATS(ownname => 'dbe_stats_set_schema', tabname =>
+                 't1', colname => 'extname_-1308656218', distcnt => 5, nullcnt => 5, avgclen => 2);
+                  set_column_stats
+                 ------------------
+                 (1 row)
+                 gaussdb=# SELECT stakey,staextname,stanullfrac,stawidth,stadistinct FROM PG_STATISTIC_EXT
+                 WHERE starelid='t1'::REGCLASS;
+                  stakey |      staextname       | stanullfrac | stawidth | stadistinct
+                 --------+---------------------+-------------+----------+-------------
+                  1 2 | extname_-1308656218 |                 1|       2|          5
+                 (1 row)
+                 -- 设置表达式统计信息。
+                 -- 查询原有统计信息。
+                 gaussdb=# SELECT staattnum,stanullfrac,stawidth,stadistinct FROM PG_STATISTIC WHERE
+                 starelid='idx_t1_expr'::REGCLASS ORDER BY 1;
+                  staattnum | stanullfrac | stawidth | stadistinct
+                 -----------+-------------+----------+-------------
+                         1|         0|       4|       -.75
+                         2|         0|       4|       -.75
+                         3|         0|       4|       -.75
+                 (3 rows)
+                 -- 查询表达式列名。
+                 gaussdb=# SELECT attnum, attname FROM PG_ATTRIBUTE WHERE attrelid='idx_t1_expr'::REGCLASS
+                 ORDER BY 1;
+                  attnum | attname
+                 --------+---------
+                       1 | expr
+                       2 | expr1
+                       3 | expr2
+                 (3 rows)
+                 -- 设置统计信息后重新查询。
+                 gaussdb=# CALL DBE_STATS.SET_COLUMN_STATS(ownname => 'dbe_stats_set_schema', tabname =>
+                 'idx_t1_expr', colname => 'expr', distcnt => 13, nullcnt => 5, avgclen => 22);
+                  set_column_stats
+                 ------------------
+                 (1 row)
+                 gaussdb=# SELECT staattnum,stanullfrac,stawidth,stadistinct FROM PG_STATISTIC WHERE
+                 starelid='idx_t1_expr'::REGCLASS ORDER BY 1;
+                  staattnum | stanullfrac | stawidth | stadistinct
+                 -----------+-------------+----------+-------------
+                         1|         1|      22 |        13
+                         2|         0|       4|       -.75
+                         3|         0|       4|       -.75
+                 (3 rows)
+                 -- 删除表、命名空间。
+                 gaussdb=# DROP INDEX idx_t1_expr;
+                 DROP INDEX
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                                                 2898
+GaussDB
+集中式版参考                                                                        3 存储过程
+
+                  gaussdb=# DROP TABLE t1;
+                  DROP TABLE
+                  gaussdb=# DROP SCHEMA dbe_stats_set_schema cascade;
+                  DROP SCHEMA
+
+              ●   DBE_STATS.SET_INDEX_STATS
+                  设置索引相关的统计信息。该接口无返回值。
+                  DBE_STATS.SET_INDEX_STATS原型为：
+                  DBE_STATS.SET_INDEX_STATS (
+                     ownname          VARCHAR2,
+                     indname         VARCHAR2,
+                     partname        VARCHAR2 DEFAULT NULL,
+                     stattab       VARCHAR2 DEFAULT NULL,
+                     statid       VARCHAR2 DEFAULT NULL,
+                     numrows         NUMBER DEFAULT NULL,
+                     numlblks       NUMBER DEFAULT NULL,
+                     relallvisible NUMBER DEFAULT NULL,
+                     numdist        NUMBER DEFAULT NULL,
+                     avglblk       NUMBER DEFAULT NULL,
+                     avgdblk        NUMBER DEFAULT NULL,
+                     clstfct      NUMBER DEFAULT NULL,
+                     indlevel      NUMBER DEFAULT NULL,
+                     flags        NUMBER DEFAULT NULL,
+                     statown        VARCHAR2 DEFAULT NULL,
+                     no_invalidate BOOLEAN DEFAULT NULL,
+                     guessq        NUMBER DEFAULT NULL,
+                     cachedblk      NUMBER DEFAULT NULL,
+                     cachehit      NUMBER DEFAULT NULL,
+                     force        BOOLEAN DEFAULT FALSE
+                  );
+
+
+                  表 3-418 DBE_STATS.SET_INDEX_STATS 接口参数说明
+                   参数            类型           是否允         描述
+                                              许为空
+
+                   ownnam        VARCHA       否           该索引所在的schema。如果设置为null，则
+                   e             R2                       默认使用当前schema。
+
+                   indname       VARCHA       否           索引名。
+                                 R2
+
+                   partnam       VARCHA       是           要设置统计信息的索引分区的名称。如果索
+                   e             R2                       引已分区且partname为null，则设置全局索
+                                                          引级别的统计信息。
+
+                   stattab       VARCHA       是           暂不支持该参数。
+                                 R2
+
+                   statid        VARCHA       是           暂不支持该参数。
+                                 R2
+
+                   numrows       NUMBE        是           设置索引的行数。
+                                 R
+
+                   numlblks      NUMBE        是           设置索引的页数。
+                                 R
+
+                   relallvisi    NUMBE        是           设置被标识为全可见的索引中的页的数量。
+                   ble           R
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                          2899
+GaussDB
+集中式版参考                                                                            3 存储过程
+
+
+                  参数             类型            是否允           描述
+                                               许为空
+
+                  numdist        NUMBE         是             暂不支持该参数。
+                                 R
+
+                  avglblk        NUMBE         是             暂不支持此参数。
+                                 R
+
+                  avgdblk        NUMBE         是             暂不支持此参数。
+                                 R
+
+                  clstfct        NUMBE         是             暂不支持此参数。
+                                 R
+
+                  indlevel       NUMBE         是             暂不支持此参数。
+                                 R
+
+                  flags          NUMBE         是             暂不支持此参数。
+                                 R
+
+                  statown        VARCHA        是             暂不支持此参数。
+                                 R2
+
+                  no_invali      BOOLEA        是             暂不支持此参数。
+                  date           N
+
+                  guessq         NUMBE         是             暂不支持此参数。
+                                 R
+
+                  cachedbl       NUMBE         是             暂不支持此参数。
+                  k              R
+
+                  cachehit       NUMBE         是             暂不支持此参数。
+                                 R
+
+                  force          BOOLEA        是             决定统计信息被锁定时的行为。如果为
+                                 N                           TRUE，则即使索引统计信息被锁定，该过程
+                                                             也会设置值。默认为false。
+
+
+
+
+                        说明
+
+                       ● 当前仅支持设置索引的reltuples（numrows）、relpages（numlblks）和relallvisible
+                         （relallvisible）三类统计信息。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                 示例：
+                 -- 前置条件，建表，收集统计信息。
+                 gaussdb=# CREATE SCHEMA dbe_stats_set_schema;
+                 CREATE SCHEMA
+                 gaussdb=# SET CURRENT_SCHEMA = dbe_stats_set_schema;
+                 SET
+                 gaussdb=# DROP TABLE IF EXISTS t1;
+                 NOTICE: table "t1" does not exist, skipping
+                 DROP TABLE
+                 gaussdb=# CREATE TABLE IF NOT EXISTS t1 (a int, b int, c int);
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                              2900
+GaussDB
+集中式版参考                                                                                                3 存储过程
+
+                  CREATE TABLE
+                  gaussdb=# CREATE INDEX idx_t1_a on t1(a);
+                  CREATE INDEX
+                  gaussdb=# INSERT INTO t1 VALUES (100, 300, 1);
+                  INSERT 0 1
+                  gaussdb=# INSERT INTO t1 VALUES (150, 550, 1);
+                  INSERT 0 1
+                  gaussdb=# INSERT INTO t1 VALUES (250, 150, 1);
+                  INSERT 0 1
+                  gaussdb=# ANALYZE t1;
+                  ANALYZE
+                  -- 设置索引统计信息。
+                  -- 查看当前索引统计信息。
+                  gaussdb=# SELECT reltuples,relpages,relallvisible FROM PG_CLASS WHERE relname='idx_t1_a';
+                   reltuples | relpages | relallvisible
+                  -----------+----------+---------------
+                         3|       2|           0
+                  (1 row)
+                  -- 设置统计信息后重新查询。
+                  gaussdb=# CALL DBE_STATS.SET_INDEX_STATS(indname => 'idx_t1_a', ownname =>
+                  'dbe_stats_set_schema', numrows => 1, numlblks => 3, relallvisible => 6);
+                   set_index_stats
+                  -----------------
+                  (1 row)
+                  gaussdb=# SELECT reltuples,relpages,relallvisible FROM PG_CLASS WHERE relname='idx_t1_a';
+                   reltuples | relpages | relallvisible
+                  -----------+----------+---------------
+                         1|       3|           6
+                  (1 row)
+                  -- 删除表、命名空间。
+                  gaussdb=# DROP INDEX idx_t1_a;
+                  DROP INDEX
+                  gaussdb=# DROP TABLE t1;
+                  DROP TABLE
+                  gaussdb=# DROP SCHEMA dbe_stats_set_schema CASCADE;
+                  DROP SCHEMA
+
+              ●   DBE_STATS.SET_TABLE_STATS
+                  设置表级统计信息。该接口无返回值。
+                  DBE_STATS.SET_TABLE_STATS原型为：
+                  DBE_STATS.SET_TABLE_STATS (
+                     ownname           VARCHAR2,
+                     tabname          VARCHAR2,
+                     partname         VARCHAR2 DEFAULT NULL,
+                     stattab       VARCHAR2 DEFAULT NULL,
+                     statid       VARCHAR2 DEFAULT NULL,
+                     numrows         NUMBER DEFAULT NULL,
+                     numblks        NUMBER DEFAULT NULL,
+                     relallvisible NUMBER DEFAULT NULL,
+                     avgrlen       NUMBER DEFAULT NULL,
+                     flags        NUMBER DEFAULT NULL,
+                     statown        VARCHAR2 DEFAULT NULL,
+                     no_invalidate BOOLEAN DEFAULT NULL,
+                     cachedblk       NUMBER DEFAULT NULL,
+                     cachehit      NUMBER DEFAULT NULL,
+                     force        BOOLEAN DEFAULT FALSE,
+                     im_imcu_count NUMBER DEFAULT NULL,
+                     im_block_count NUMBER DEFAULT NULL,
+                     scanrate       NUMBER DEFAULT NULL
+                  );
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                       2901
+GaussDB
+集中式版参考                                                             3 存储过程
+
+                 表 3-419 DBE_STATS.SET_TABLE_STATS 接口参数说明
+                  参数            参数       是否允   描述
+                                         许为空
+
+                  ownnam        VARCHA   否     该表所在的schema。如果设置为null，则默
+                  e             R2             认使用当前schema。
+
+                  tabname       VARCHA   否     表名。
+                                R2
+
+                  partnam       VARCHA   是     要设置统计信息的表分区的名称。如果表已
+                  e             R2             分区且partname为null，则设置全局表级别
+                                               的统计信息。
+
+                  stattab       VARCHA   是     暂不支持该参数。
+                                R2
+
+                  statid        VARCHA   是     暂不支持该参数。
+                                R2
+
+                  numrows       NUMBE    是     设置表的行数。
+                                R
+
+                  numblks       NUMBE    是     设置表的页数。
+                                R
+
+                  relallvisib   NUMBE    是     设置被标识为全可见的表中的页的数量。
+                  le            R
+
+                  avgrlen       NUMBE    是     暂不支持该参数。
+                                R
+
+                  flags         NUMBE    是     暂不支持此参数。
+                                R
+
+                  statown       VARCHA   是     暂不支持此参数。
+                                R2
+
+                  no_invali     BOOLEA   是     暂不支持此参数。
+                  date          N
+
+                  cachedbl      NUMBE    是     暂不支持此参数。
+                  k             R
+
+                  cachehit      NUMBE    是     暂不支持此参数。
+                                R
+
+                  force         BOOLEA   是     决定统计信息被锁定时的行为。如果为
+                                N              TRUE，则即使表统计信息被锁定，该过程也
+                                               会设置值。默认为false。
+
+                  im_imcu_      NUMBE    是     暂不支持此参数。
+                  count         R
+
+                  im_block      NUMBE    是     暂不支持此参数。
+                  _count        R
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                  2902
+GaussDB
+集中式版参考                                                                                            3 存储过程
+
+
+                   参数            参数           是否允            描述
+                                              许为空
+
+                   scanrate      NUMBE        是              暂不支持此参数。
+                                 R
+
+
+
+
+                        说明
+
+                       ● 当前仅支持设置表的reltuples（numrows）、relpages（numblks）和relallvisible
+                         （relallvisible）三类统计信息。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                  示例：
+                  --与设置索引统计信息类似，此处只展示接口调用方式，具体使用示例参考
+                  DBE_STATS.SET_INDEX_STATS接口示例。
+                  --设置表级统计信息。
+                  gaussdb=# CALL DBE_STATS.SET_TABLE_STATS(tabname => 't1', ownname => 'dbe_stats_set_schema',
+                  numrows => 1, numblks => 3, relallvisible => 6);
+                   set_table_stats
+                  -----------------
+                  (1 row)
+
+              ●   DBE_STATS.DELETE_COLUMN_STATS
+                  删除列相关的统计信息，包括删除单列、多列和表达式统计信息。该接口无返回
+                  值。
+                  DBE_STATS.DELETE_COLUMN_STATS原型为：
+                  DBE_STATS.DELETE_COLUMN_STATS (
+                     ownname         VARCHAR2,
+                     tabname        VARCHAR2,
+                     colname       VARCHAR2,
+                     partname       VARCHAR2 DEFAULT NULL,
+                     stattab      VARCHAR2 DEFAULT NULL,
+                     statid      VARCHAR2 DEFAULT NULL,
+                     cascade_parts BOOLEAN DEFAULT TRUE,
+                     statown       VARCHAR2 DEFAULT NULL,
+                     no_invalidate BOOLEAN DEFAULT NULL,
+                     force       BOOLEAN DEFAULT FALSE,
+                     col_stat_type VARCHAR2 DEFAULT NULL
+                  );
+
+
+                  表 3-420 DBE_STATS.DELETE_COLUMN_STATS 接口参数说明
+                   参数            类型            是否允许          说明
+                                               为空
+
+                   ownnam        VARCHA        否             该表所在的schema。如果设置为null，则
+                   e             R2                          默认使用当前schema。
+
+                   tabname       VARCHA        否             表名。
+                                 R2
+
+                   colname       VARCHA        否             列名。
+                                 R2
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                   2903
+GaussDB
+集中式版参考                                                                                            3 存储过程
+
+
+                  参数            类型            是否允许         说明
+                                              为空
+
+                  partnam       VARCHA        是            要删除统计信息的表分区的名称。如果表
+                  e             R2                         已分区且partname为null，则删除全局级
+                                                           别的列级统计信息，并且如果
+                                                           cascade_parts为true，则级联删除所有分
+                                                           区的列级统计信息。
+
+                  stattab       VARCHA        是            暂不支持此参数。
+                                R2
+
+                  statid        VARCHA        是            暂不支持此参数。
+                                R2
+
+                  cascade_      BOOLEA        是            决定在删除列级统计信息时是否将其下面
+                  parts         N                          的所有分区的统计信息级联删除。默认为
+                                                           true。
+
+                  statown       VARCHA        是            暂不支持此参数。
+                                R2
+
+                  no_invali     BOOLEA        是            暂不支持此参数。
+                  date          N
+
+                  force         BOOLEA        是            决定统计信息被锁定时的行为。如果为
+                                N                          true，则即使列统计信息被锁定，该过程也
+                                                           会将其删除。默认为false。
+
+                  col_stat_     VARCHA        是            暂不支持此参数。
+                  type          R2
+
+
+
+                       说明
+
+                       ● 该接口支持删除表达式统计信息，由于表达式的创建依赖于索引，因此当调用该接口删
+                         除表达式统计信息时，tabname应该传入该索引的名称。
+                       ● 如果表是一个二级分区表，且指定partname为一级分区名，此时如果cascade_parts为
+                         true，则会将该一级分区下的所有二级分区统计信息一并删除。
+                       ● 删除多列统计信息时，需先查询PG_STATISTIC_EXT中的staextname字段获取多列别
+                         名作为colname入参传入。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                 示例：
+                 -- 前置条件，建表，收集统计信息。
+                 gaussdb=# CREATE SCHEMA dbe_stats_delete_schema;
+                 CREATE SCHEMA
+                 gaussdb=# SET CURRENT_SCHEMA = dbe_stats_delete_schema;
+                 SET
+                 gaussdb=# DROP TABLE IF EXISTS t2;
+                 NOTICE: table "t2" does not exist, skipping
+                 DROP TABLE
+                 gaussdb=# CREATE TABLE t2(a int, b int, c int) PARTITION BY RANGE(a) SUBPARTITION BY RANGE(b)
+                  (
+                    PARTITION p1 VALUES LESS THAN(200)
+                    (SUBPARTITION s1 VALUES LESS THAN (500),
+                     SUBPARTITION s2 VALUES LESS THAN (MAXVALUE)
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                  2904
+GaussDB
+集中式版参考                                                                                                 3 存储过程
+
+                   ),
+                   PARTITION p2 VALUES LESS THAN(500)
+                   (SUBPARTITION s3 VALUES LESS THAN (500),
+                    SUBPARTITION s4 VALUES LESS THAN (MAXVALUE)
+                   ),
+                   PARTITION p3 VALUES LESS THAN(MAXVALUE)
+                   ( SUBPARTITION s5 VALUES LESS THAN (500),
+                     SUBPARTITION s6 VALUES LESS THAN (MAXVALUE)
+                   ));
+                 CREATE TABLE
+                 gaussdb=# INSERT INTO t2 VALUES (100, 300, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (100, 600, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (300, 300, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (300, 600, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (600, 400, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (600, 600, 1);
+                 INSERT 0 1
+                 gaussdb=# ANALYZE t2 WITH ALL;
+                 ANALYZE
+                 gaussdb=# ANALYZE t2((a, b)) WITH ALL;
+                 ANALYZE
+
+                 -- 删除t2表的单列统计信息，不级联分区，分区统计信息仍然存在。
+                 -- 查看表级列的统计信息。
+                 gaussdb=# SELECT staattnum,stadistinct,stakind1,stanumbers1,stavalues1 FROM PG_STATISTIC
+                 WHERE starelid='t2'::REGCLASS ORDER BY 1;
+                  staattnum | stadistinct | stakind1 |         stanumbers1          | stavalues1
+                 -----------+-------------+----------+---------------------------+---------------
+                        1|        -.5 |     1 | {.333333,.333333,.333333} | {100,300,600}
+                        2|        -.5 |     1 | {.5,.333333}              | {600,300}
+                        3 | -.166667 |          1 | {1}                   | {1}
+                 (3 rows)
+                 -- 查看分区级列的统计信息。
+                 gaussdb=# SELECT part.relname,s.staattnum,s.stadistinct,s.stakind1,s.stanumbers1,s.stavalues1 FROM
+                 PG_STATISTIC s,PG_PARTITION part WHERE part.parentid='t2'::REGCLASS and s.starelid=part.oid
+                 ORDER BY 1,2;
+                  relname | staattnum | stadistinct | stakind1 | stanumbers1 | stavalues1
+                 ---------+-----------+-------------+----------+-------------+------------
+                  p1     |       1|        -1 |       1 | {1}       | {100}
+                  p1     |       2|        -1 |       2|          | {300,600}
+                  p1     |       3|        -1 |       1 | {1}       | {1}
+                  p2     |       1|        -1 |       1 | {1}       | {300}
+                  p2     |       2|        -1 |       2|          | {300,600}
+                  p2     |       3|        -1 |       1 | {1}       | {1}
+                  p3     |       1|        -1 |       1 | {1}       | {600}
+                  p3     |       2|        -1 |       2|          | {400,600}
+                  p3     |       3|        -1 |       1 | {1}       | {1}
+                 (9 rows)
+                 -- 删除表级单列统计信息，不级联分区，表级不存在，分区级列的统计信息仍然存在。
+                 gaussdb=# CALL DBE_STATS.DELETE_COLUMN_STATS(ownname => 'dbe_stats_delete_schema',
+                 tabname => 't2', colname => 'a', partname => null, cascade_parts => false);
+                  delete_column_stats
+                 ---------------------
+                 (1 row)
+                 gaussdb=# SELECT staattnum,stadistinct,stakind1,stanumbers1,stavalues1 FROM PG_STATISTIC
+                 WHERE starelid='t2'::REGCLASS ORDER BY 1;
+                  staattnum | stadistinct | stakind1 | stanumbers1 | stavalues1
+                 -----------+-------------+----------+--------------+------------
+                        2|        -.5 |     1 | {.5,.333333} | {600,300}
+                        3 | -.166667 |          1 | {1}       | {1}
+                 (2 rows)
+                 gaussdb=# SELECT part.relname,s.staattnum,s.stadistinct,s.stakind1,s.stanumbers1,s.stavalues1 FROM
+                 PG_STATISTIC s,PG_PARTITION part WHERE part.parentid='t2'::REGCLASS and s.starelid=part.oid
+                 ORDER BY 1,2;
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                       2905
+GaussDB
+集中式版参考                                                                                                 3 存储过程
+
+                  relname | staattnum | stadistinct | stakind1 | stanumbers1 | stavalues1
+                 ---------+-----------+-------------+----------+-------------+------------
+                  p1     |       1|        -1 |      1 | {1}       | {100}
+                  p1     |       2|        -1 |      2|          | {300,600}
+                  p1     |       3|        -1 |      1 | {1}       | {1}
+                  p2     |       1|        -1 |      1 | {1}       | {300}
+                  p2     |       2|        -1 |      2|          | {300,600}
+                  p2     |       3|        -1 |      1 | {1}       | {1}
+                  p3     |       1|        -1 |      1 | {1}       | {600}
+                  p3     |       2|        -1 |      2|          | {400,600}
+                  p3     |       3|        -1 |      1 | {1}       | {1}
+                 (9 rows)
+
+                 -- 删除t2表的多列统计信息，级联分区，分区的列级统计信息被同时删除。
+                 -- 查询统计信息。
+                 gaussdb=# SELECT stakey,staextname,stadistinct,stakind1,stanumbers1,stavalues1 FROM
+                 PG_STATISTIC_EXT WHERE starelid='t2'::REGCLASS;
+                  stakey |    staextname        | stadistinct | stakind1 | stanumbers1 | stavalues1
+                 --------+---------------------+-------------+----------+-------------+------------
+                  1 2 | extname_-1308656218 |                 -1 |      8|          |
+                 (1 row)
+                 gaussdb=# SELECT
+                 part.relname,s.stakey,s.staextname,s.stadistinct,s.stakind1,s.stanumbers1,s.stavalues1 FROM
+                 PG_STATISTIC_EXT s,PG_PARTITION part WHERE part.parentid='t2'::REGCLASS and s.starelid=part.oid
+                 ORDER BY 1;
+                  relname | stakey |      staextname        | stadistinct | stakind1 | stanumbers1 | stavalues1
+                 ---------+--------+---------------------+-------------+----------+-------------+------------
+                  p1     | 1 2 | extname_-1308656218 |                 -1 |      8|         |
+                  p2     | 1 2 | extname_-1308656218 |                 -1 |      8|         |
+                  p3     | 1 2 | extname_-1308656218 |                 -1 |      8|         |
+                 (3 rows)
+                 -- 删除多列统计信息，查询统计信息。
+                 gaussdb=# CALL DBE_STATS.DELETE_COLUMN_STATS(ownname => 'dbe_stats_delete_schema',
+                 tabname => 't2', colname => 'extname_-1308656218', partname => null, cascade_parts => true);
+                  delete_column_stats
+                 ---------------------
+                 (1 row)
+                 gaussdb=# SELECT stakey,staextname,stadistinct,stakind1,stanumbers1,stavalues1 FROM
+                 PG_STATISTIC_EXT WHERE starelid='t2'::REGCLASS;
+                  stakey | staextname | stadistinct | stakind1 | stanumbers1 | stavalues1
+                 --------+------------+-------------+----------+-------------+------------
+                 (0 rows)
+                 gaussdb=# SELECT
+                 part.relname,s.stakey,s.staextname,s.stadistinct,s.stakind1,s.stanumbers1,s.stavalues1 FROM
+                 PG_STATISTIC_EXT s,PG_PARTITION part WHERE part.parentid='t2'::REGCLASS and s.starelid=part.oid;
+                  relname | stakey | staextname | stadistinct | stakind1 | stanumbers1 | stavalues1
+                 ---------+--------+------------+-------------+----------+-------------+------------
+                 (0 rows)
+
+                 -- 指定删除p1分区的列级统计信息，表级、p2、p3列统计信息不受影响。
+                 -- 查询统计信息。
+                 gaussdb=# SELECT staattnum,stadistinct,stakind1,stanumbers1,stavalues1 FROM PG_STATISTIC
+                 WHERE starelid='t2'::REGCLASS and staattnum=2;
+                  staattnum | stadistinct | stakind1 | stanumbers1 | stavalues1
+                 -----------+-------------+----------+--------------+------------
+                        2|        -.5 |     1 | {.5,.333333} | {600,300}
+                 (1 row)
+                 gaussdb=# SELECT part.relname,s.staattnum,s.stadistinct,s.stakind1,s.stanumbers1,s.stavalues1 FROM
+                 PG_STATISTIC s,PG_PARTITION part WHERE part.parentid='t2'::REGCLASS and s.starelid=part.oid and
+                 s.staattnum=2 ORDER BY 1;
+                  relname | staattnum | stadistinct | stakind1 | stanumbers1 | stavalues1
+                 ---------+-----------+-------------+----------+-------------+------------
+                  p1     |       2|        -1 |       2|          | {300,600}
+                  p2     |       2|        -1 |       2|          | {300,600}
+                  p3     |       2|        -1 |       2|          | {400,600}
+                 (3 rows)
+                 -- 删除p1分区的列统计信息，查询统计信息。
+                 gaussdb=# CALL DBE_STATS.DELETE_COLUMN_STATS(ownname => 'dbe_stats_delete_schema',
+                 tabname => 't2', colname => 'b', partname => 'p1', cascade_parts => false);
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                      2906
+GaussDB
+集中式版参考                                                                                                  3 存储过程
+
+                   delete_column_stats
+                  ---------------------
+                  (1 row)
+                  gaussdb=# SELECT staattnum,stadistinct,stakind1,stanumbers1,stavalues1 FROM PG_STATISTIC
+                  WHERE starelid='t2'::REGCLASS and staattnum=2;
+                   staattnum | stadistinct | stakind1 | stanumbers1 | stavalues1
+                  -----------+-------------+----------+--------------+------------
+                         2|        -.5 |     1 | {.5,.333333} | {600,300}
+                  (1 row)
+                  gaussdb=# SELECT part.relname,s.staattnum,s.stadistinct,s.stakind1,s.stanumbers1,s.stavalues1 FROM
+                  PG_STATISTIC s,PG_PARTITION part WHERE part.parentid='t2'::REGCLASS and s.starelid=part.oid and
+                  s.staattnum=2 ORDER BY 1;
+                   relname | staattnum | stadistinct | stakind1 | stanumbers1 | stavalues1
+                  ---------+-----------+-------------+----------+-------------+------------
+                   p2     |       2|        -1 |       2|          | {300,600}
+                   p3     |       2|        -1 |       2|          | {400,600}
+                  (2 rows)
+                  -- 删除表、命名空间。
+                  gaussdb=# DROP TABLE t2;
+                  DROP TABLE
+                  gaussdb=# DROP SCHEMA dbe_stats_delete_schema CASCADE;
+                  DROP SCHEMA
+
+              ●   DBE_STATS.DELETE_INDEX_STATS
+                  删除索引相关的统计信息。该接口无返回值。
+                  DBE_STATS.DELETE_INDEX_STATS原型为:
+                  DBE_STATS.DELETE_INDEX_STATS (
+                    ownname          VARCHAR2,
+                    indname         VARCHAR2,
+                    partname        VARCHAR2 DEFAULT NULL,
+                    stattab       VARCHAR2 DEFAULT NULL,
+                    statid       VARCHAR2 DEFAULT NULL,
+                    cascade_parts BOOLEAN DEFAULT TRUE,
+                    statown        VARCHAR2 DEFAULT NULL,
+                    no_invalidate BOOLEAN DEFAULT NULL,
+                    stattype      VARCHAR2 DEFAULT NULL,
+                    force        BOOLEAN DEFAULT FALSE,
+                    stat_category VARCHAR2 DEFAULT NULL
+                  )
+
+
+                  表 3-421 DBE_STATS.DELETE_INDEX_STATS 接口参数说明
+
+                   参数              类型             是否允          描述
+                                                  许为空
+
+                   ownname         VARCHAR        否            该索引所在的schema。如果设置为null，
+                                   2                           则默认使用当前schema。
+
+                   indname         VARCHAR        否            索引名。
+                                   2
+
+                   partname        VARCHAR        是            要删除统计信息的索引分区的名称。如果
+                                   2                           索引已分区且partname为null，则删除全
+                                                               局级别的索引统计信息，并且如果
+                                                               cascade_parts为true，则级联删除所有分
+                                                               区的索引统计信息。
+
+                   stattab         VARCHAR        是            暂不支持此参数。
+                                   2
+
+                   statid          VARCHAR        是            暂不支持此参数。
+                                   2
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                       2907
+GaussDB
+集中式版参考                                                                                            3 存储过程
+
+
+                  参数             类型            是否允          描述
+                                               许为空
+
+                  cascade_p      BOOLEA        是            决定在删除索引统计信息时是否将其下面
+                  arts           N                          的所有分区的索引统计信息级联删除。默
+                                                            认为true。
+
+                  statown        VARCHAR       是            暂不支持此参数。
+                                 2
+
+                  no_invali      BOOLEA        是            暂不支持此参数。
+                  date           N
+
+                  stattype       VARCHAR       是            暂不支持此参数。
+                                 2
+
+                  force          BOOLEA        是            决定统计信息被锁定时的行为。如果为
+                                 N                          true，则即使索引统计信息被锁定，该过
+                                                            程也会将其删除。默认为false。
+
+                  stat_cate      VARCHAR       是            暂不支持此参数。
+                  gory           2
+
+
+
+
+                       说明
+
+                       ● 删除索引的统计信息等同于将索引统计信息的reltuples、relpages和relallvisible信息置
+                         零。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                 示例：
+                 -- 前置条件，建表。
+                 gaussdb=# CREATE SCHEMA dbe_stats_delete_schema;
+                 CREATE SCHEMA
+                 gaussdb=# SET CURRENT_SCHEMA = dbe_stats_delete_schema;
+                 SET
+                 gaussdb=# DROP TABLE IF EXISTS t2;
+                 NOTICE: table "t2" does not exist, skipping
+                 DROP TABLE
+                 gaussdb=# CREATE TABLE t2(a int, b int, c int) PARTITION BY RANGE(a) SUBPARTITION BY RANGE(b)
+                  (
+                    PARTITION p1 VALUES LESS THAN(200)
+                    (SUBPARTITION s1 VALUES LESS THAN (500),
+                     SUBPARTITION s2 VALUES LESS THAN (MAXVALUE)
+                    ),
+                    PARTITION p2 VALUES LESS THAN(500)
+                    (SUBPARTITION s3 VALUES LESS THAN (500),
+                     SUBPARTITION s4 VALUES LESS THAN (MAXVALUE)
+                    ),
+                    PARTITION p3 VALUES LESS THAN(MAXVALUE)
+                    ( SUBPARTITION s5 VALUES LESS THAN (500),
+                      SUBPARTITION s6 VALUES LESS THAN (MAXVALUE)
+                    ));
+                 CREATE TABLE
+                 gaussdb=# CREATE INDEX idx_t2_local_a ON t2(a) LOCAL
+                  (
+                     PARTITION p1_idx_a
+                     (
+                        SUBPARTITION s1_idx_a,
+                        SUBPARTITION s2_idx_a
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                  2908
+GaussDB
+集中式版参考                                                                                         3 存储过程
+
+                    ),
+                    PARTITION p2_idx_a
+                    (
+                        SUBPARTITION s3_idx_a,
+                        SUBPARTITION s4_idx_a
+                    ),
+                    PARTITION p3_idx_a
+                    (
+                        SUBPARTITION s5_idx_a,
+                        SUBPARTITION s6_idx_a
+                    ));
+                 CREATE INDEX
+                 gaussdb=# INSERT INTO t2 VALUES (100, 300, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (100, 600, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (300, 300, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (300, 600, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (600, 400, 1);
+                 INSERT 0 1
+                 gaussdb=# INSERT INTO t2 VALUES (600, 600, 1);
+                 INSERT 0 1
+                 gaussdb=# ANALYZE t2 WITH ALL;
+                 ANALYZE
+                 gaussdb=# ANALYZE t2((a, b)) WITH ALL;
+                 ANALYZE
+
+                 -- 删除idx_t2_local_a索引的统计信息，不级联分区索引的统计信息。
+                 -- 查看统计信息。
+                 gaussdb=# SELECT relpages,reltuples FROM PG_CLASS WHERE relname='idx_t2_local_a';
+                  relpages | reltuples
+                 ----------+-----------
+                       6|        6
+                 (1 row)
+                 gaussdb=# SELECT relname,relpages,reltuples FROM PG_PARTITION WHERE
+                 parentid='idx_t2_local_a'::REGCLASS ORDER BY oid;
+                  relname | relpages | reltuples
+                 ----------+----------+-----------
+                  s1_idx_a |       1|       0
+                  s2_idx_a |       1|       0
+                  s3_idx_a |       1|       0
+                  s4_idx_a |       1|       0
+                  s5_idx_a |       1|       0
+                  s6_idx_a |       1|       0
+                 (6 rows)
+                 -- 删除统计信息，查询系统表。
+                 gaussdb=# CALL DBE_STATS.DELETE_INDEX_STATS(ownname => 'dbe_stats_delete_schema', indname
+                 => 'idx_t2_local_a', partname => null, cascade_parts => false);
+                  delete_index_stats
+                 --------------------
+                 (1 row)
+                 gaussdb=# SELECT relpages,reltuples FROM PG_CLASS WHERE relname='idx_t2_local_a';
+                  relpages | reltuples
+                 ----------+-----------
+                       0|        0
+                 (1 row)
+                 gaussdb=# SELECT relname,relpages,reltuples FROM PG_PARTITION WHERE
+                 parentid='idx_t2_local_a'::REGCLASS ORDER BY oid;
+                  relname | relpages | reltuples
+                 ----------+----------+-----------
+                  s1_idx_a |       1|       0
+                  s2_idx_a |       1|       0
+                  s3_idx_a |       1|       0
+                  s4_idx_a |       1|       0
+                  s5_idx_a |       1|       0
+                  s6_idx_a |       1|       0
+                 (6 rows)
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                               2909
+GaussDB
+集中式版参考                                                                                          3 存储过程
+
+
+                  -- 删除idx_t2_local_a索引的s1_idx_a分区的统计信息。
+                  gaussdb=# CALL DBE_STATS.DELETE_INDEX_STATS(ownname => 'dbe_stats_delete_schema', indname
+                  => 'idx_t2_local_a', partname => 's1_idx_a', cascade_parts => false);
+                   delete_index_stats
+                  --------------------
+                  (1 row)
+                  gaussdb=# SELECT relname,relpages,reltuples FROM PG_PARTITION WHERE
+                  parentid='idx_t2_local_a'::REGCLASS ORDER BY 1;
+                   relname | relpages | reltuples
+                  ----------+----------+-----------
+                   s1_idx_a |       0|       0
+                   s2_idx_a |       1|       0
+                   s3_idx_a |       1|       0
+                   s4_idx_a |       1|       0
+                   s5_idx_a |       1|       0
+                   s6_idx_a |       1|       0
+                  (6 rows)
+
+                  -- 级联删除所有分区的索引统计信息。
+                  gaussdb=# CALL DBE_STATS.DELETE_INDEX_STATS(ownname => 'dbe_stats_delete_schema', indname
+                  => 'idx_t2_local_a', partname => null, cascade_parts => true);
+                   delete_index_stats
+                  --------------------
+                  (1 row)
+                  gaussdb=# SELECT relname,relpages,reltuples FROM PG_PARTITION WHERE
+                  parentid='idx_t2_local_a'::REGCLASS ORDER BY oid;
+                   relname | relpages | reltuples
+                  ----------+----------+-----------
+                   s1_idx_a |       0|       0
+                   s2_idx_a |       0|       0
+                   s3_idx_a |       0|       0
+                   s4_idx_a |       0|       0
+                   s5_idx_a |       0|       0
+                   s6_idx_a |       0|       0
+                  (6 rows)
+                  -- 删表、删除命名空间。
+                  gaussdb=# DROP INDEX idx_t2_local_a;
+                  DROP INDEX
+                  gaussdb=# DROP TABLE t2;
+                  DROP TABLE
+                  gaussdb=# DROP SCHEMA dbe_stats_delete_schema CASCADE;
+                  DROP SCHEMA
+
+              ●   DBE_STATS.DELETE_TABLE_STATS
+                  删除表级统计信息。该接口无返回值。
+                  DBE_STATS.DELETE_TABLE_STATS原型为:
+                  DBE_STATS.DELETE_TABLE_STATS (
+                    ownname             VARCHAR2,
+                    tabname            VARCHAR2,
+                    partname           VARCHAR2 DEFAULT NULL,
+                    stattab          VARCHAR2 DEFAULT NULL,
+                    statid          VARCHAR2 DEFAULT NULL,
+                    cascade_parts       BOOLEAN DEFAULT TRUE,
+                    cascade_columns       BOOLEAN DEFAULT TRUE,
+                    cascade_indexes      BOOLEAN DEFAULT TRUE,
+                    statown           VARCHAR2 DEFAULT NULL,
+                    no_invalidate      BOOLEAN DEFAULT NULL,
+                    force           BOOLEAN DEFAULT FALSE,
+                    stat_category      VARCHAR2 DEFAULT NULL
+                  )
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                2910
+GaussDB
+集中式版参考                                                                    3 存储过程
+
+                 表 3-422 DBE_STATS.DELETE_TABLE_STATS 接口参数说明
+
+                  参数            类型       是否允许    描述
+                                         为空
+
+                  ownname       VARCHA   否       该表所在的schema。如果设置为null，则
+                                R2               默认使用当前schema。
+
+                  tabname       VARCHA   否       表名。
+                                R2
+
+                  partname      VARCHA   是       要删除统计信息的表分区的名称。如果表
+                                R2               已分区且partname为null，则删除全局级
+                                                 别的表统计信息，并且如果
+                                                 cascade_parts为true，则级联删除所有分
+                                                 区的表级统计信息。
+
+                  stattab       VARCHA   是       暂不支持此参数。
+                                R2
+
+                  statid        VARCHA   是       暂不支持此参数。
+                                R2
+
+                  cascade_pa    BOOLEA   是       决定在删除表级统计信息时是否将其下面
+                  rts           N                的所有分区的表统计信息级联删除。默认
+                                                 为true。
+
+                  cascade_co    BOOLEA   是       决定是否调用delete_column_stats删除
+                  lumns         N                该表的所有列级统计信息。默认为true。
+
+                  cascade_in    BOOLEA   是       决定是否调用delete_index_stats删除该
+                  dexes         N                表的所有索引统计信息。默认为true。
+
+                  statown       VARCHA   是       暂不支持此参数。
+                                R2
+
+                  no_invalida   BOOLEA   是       暂不支持此参数。
+                  te            N
+
+                  force         BOOLEA   是       决定统计信息被锁定时的行为。如果为
+                                N                true，则即使表的统计信息被锁定，该过
+                                                 程也会将其删除。默认为false。
+
+                  stat_categ    VARCHA   是       暂不支持此参数。
+                  ory           R2
+
+
+
+
+                       说明
+
+                       ● 如果cascade_columns或cascade_indexes设置为true，且是否级联删除对应分区列或索
+                         引的统计信息，也由cascade_parts决定。比如，如果cascade_parts设置为true，则对
+                         于一个分区表，不仅将其所有分区的表级统计信息删除，而且会将所有分区的列级、索
+                         引级统计信息删除。
+                       ● 删除表的统计信息等同于将表统计信息的reltuples、relpages和relallvisible信息置零。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                            2911
+GaussDB
+集中式版参考                                                                                          3 存储过程
+
+                  示例：
+                  -- 删除表级索引统计信息与删除索引统计信息类似，此处仅展示接口调用方式，具体示例参考
+                  DBE_STATS.DELETE_INDEX_STATS示例。
+                  -- 删除表级统计信息，同时将该表的所有列、索引统计信息进行删除。
+                  gaussdb=# CALL DBE_STATS.DELETE_TABLE_STATS(ownname => 'dbe_stats_delete_schema', tabname
+                  => 't2', cascade_columns => true, cascade_indexes => true);
+                   delete_table_stats
+                  --------------------
+                  (1 row)
+
+              ●   DBE_STATS.DELETE_SCHEMA_STATS
+                  删除schema下所有的表级、索引级和列级统计信息。该接口无返回值。
+                  DBE_STATS.DELETE_SCHEMA_STATS原型为:
+                  DBE_STATS.DELETE_SCHEMA_STATS (
+                     ownname         VARCHAR2,
+                     stattab       VARCHAR2 DEFAULT NULL,
+                     statid       VARCHAR2 DEFAULT NULL,
+                     statown        VARCHAR2 DEFAULT NULL,
+                     no_invalidate BOOLEAN DEFAULT NULL,
+                     force        BOOLEAN DEFAULT FALSE,
+                     stat_category VARCHAR2 DEFAULT NULL
+                  );
+
+
+                  表 3-423 DBE_STATS.DELETE_SCHEMA_STATS 接口参数说明
+                   参数           类型            是否允许           描述
+                                              为空
+
+                   ownnam       VARCHAR       否              schema名字。如果设置为null，则默认
+                   e            2                            使用当前schema。
+
+                   stattab      VARCHAR       是              暂不支持此参数。
+                                2
+
+                   statid       VARCHAR       是              暂不支持此参数。
+                                2
+
+                   statown      VARCHAR       是              暂不支持此参数。
+                                2
+
+                   no_invali    BOOLEA        是              暂不支持此参数。
+                   date         N
+
+                   force        BOOLEA        是              决定统计信息被锁定时的行为。如果为
+                                N                            true，则即使有统计信息被锁定，该过程
+                                                             也会将其删除。默认为false。
+
+                   stat_cate    VARCHAR       是              暂不支持此参数。
+                   gory         2
+
+
+
+                       说明
+
+                       ● 删除schema下的统计信息，即删除当前用户在指定schema下所有有权限的表，对于没
+                         有权限的表直接跳过，不报错。
+                       ● 当ownname参数值设置为null时使用当前schema，需将behavior_compat_options参
+                         数值设置为bind_procedure_searchpath。
+                  示例：
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                2912
+GaussDB
+集中式版参考                                                                                         3 存储过程
+
+                  -- 此处仅展示接口调用，具体实现用例参考DBE_STATS.DELETE_TABLE_STATS。
+                  gaussdb=# CALL DBE_STATS.DELETE_SCHEMA_STATS(ownname => 'dbe_stats_delete_schema');
+                   delete_schema_stats
+                  ---------------------
+                  (1 row)
+
+              ●   DBE_STATS.GET_TABLES_BY_SQLID
+                  获取Unique SQL ID对应语句所有涉及的表，如果含有多张表，则返回多行记录。
+                  DBE_STATS.GET_TABLES_BY_SQLID原型为：
+                  DBE_STATS.GET_TABLES_BY_SQLID (
+                     unique_sqlid BIGINT
+                  )
+                  RETURNS TABLE (
+                     nspname TEXT,
+                     tabname TEXT
+                  );
+
+
+                  表 3-424 DBE_STATS.GET_TABLES_BY_SQLID 接口参数与返回值说明
+                   字段名         数据类         字        是否允      描述
+                               型           段        许为空
+                                           类
+                                           型
+
+                   unique_     BIGINT      IN       否        唯一SQL ID，可从
+                   sqlid                                     pg_catalog.pg_stat_activity（实时会话
+                                                             信息视图）、dbe_perf.statement（归一
+                                                             化SQL语句记录视图）、
+                                                             dbe_perf.statement_history（全量或慢
+                                                             SQL语句记录视图）中查询获得。
+
+                   nspnam      TEXT        OU       否        语句中涉及表的模式名称。
+                   e                       T
+
+                   tabnam      TEXT        OU       否        语句中涉及表的名称。
+                   e                       T
+
+
+
+                  示例：
+                  -- 前置条件。
+                  gaussdb=# DROP TABLE IF EXISTS t1;
+                  DROP TABLE
+                  gaussdb=# CREATE TABLE t1 (c1 int);
+                  CREATE TABLE
+                  gaussdb=# INSERT INTO t1 VALUES (1);
+                  INSERT 0 1
+                  gaussdb=# CREATE OR REPLACE PROCEDURE select_t1()
+                  gaussdb-# AS
+                  gaussdb$# BEGIN
+                  gaussdb$#    PERFORM * FROM t1;
+                  gaussdb$# END;
+                  gaussdb$# /
+                  CREATE PROCEDURE
+
+                  -- 1.使用从pg_stat_activity中查询的unique sqlid。
+                  -- 会话1：模拟无法执行的语句。
+                  gaussdb=# SET cursor_sharing = off; -- 避免自动参数化不进行解析。
+                  SET
+                  gaussdb=# SELECT pg_sleep(60) FROM t1;
+                   pg_sleep
+                  ----------
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                  2913
+GaussDB
+集中式版参考                                                                                             3 存储过程
+
+
+                 (1 row)
+
+                 -- 会话2：在会话一执行期间查询其unique sqlid，并查询对应的tabname，语句需根据实际sql_id调整。
+                 gaussdb=# SELECT query, sessionid, unique_sql_id FROM pg_stat_activity WHERE query LIKE
+                 '%pg_sleep%t1%' AND query NOT LIKE '%pg_stat_activity%';
+                           query           | sessionid | unique_sql_id
+                 ------------------------------+-----------+---------------
+                  select pg_sleep(60) from t1; |          1 | 3101300097
+                 (1 row)
+
+                 gaussdb=# SELECT * FROM dbe_stats.get_tables_by_sqlid(3101300097);
+                  nspname | tabname
+                 ---------+---------
+                  public | t1
+                 (1 row)
+
+                 -- 2.使用从dbe_perf.statement中查询的unique sqlid。
+                 gaussdb=# SHOW instr_unique_sql_count; -- 查看statement视图中的最大记录数。
+                  instr_unique_sql_count
+                 ------------------------
+                  200000
+                 (1 row)
+
+                 gaussdb=# SELECT count(*) FROM dbe_perf.statement; -- 确认statement视图中的记录数是否超限。
+                  count
+                 -------
+                    46
+                 (1 row)
+
+                 gaussdb=# SELECT reset_unique_sql('GLOBAL','ALL',0); -- 如果达到限制，后续的语句不会再记录，可以
+                 清空记录（注：会导致SQL记录丢失）。
+                  reset_unique_sql
+                 ------------------
+                  t
+                 (1 row)
+
+                 gaussdb=# SELECT * FROM t1;
+                  c1
+                 ----
+                   1
+                 (1 row)
+
+                 gaussdb=# SELECT unique_sql_id FROM dbe_perf.statement WHERE query LIKE '%select * from t1%';
+                  unique_sql_id
+                 ---------------
+                    4115569441
+                 (1 row)
+
+                 gaussdb=# SELECT * FROM dbe_stats.get_tables_by_sqlid(4115569441);
+                  nspname | tabname
+                 ---------+---------
+                  public | t1
+                 (1 row)
+
+                 -- 3.使用从dbe_stats.statement_history中查询的unique sqlid。
+                 gaussdb=# SET log_min_duration_statement = '1s'; -- 执行时间>=1s的慢SQL会被记录。
+                 SET
+                 gaussdb=# SELECT pg_sleep(1) FROM t1;
+                  pg_sleep
+                 ----------
+
+                 (1 row)
+
+                 gaussdb=# SELECT unique_query_id FROM dbe_perf.statement_history WHERE query LIKE '%pg_sleep
+                 %t1%' LIMIT 1;
+                  unique_query_id
+                 -----------------
+                      3101300097
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                    2914
+GaussDB
+集中式版参考                                                                                                3 存储过程
+
+                 (1 row)
+
+                 gaussdb=# SELECT * FROM dbe_stats.get_tables_by_sqlid(3101300097);
+                  nspname | tabname
+                 ---------+---------
+                  public | t1
+                 (1 row)
+
+                 -- 4.使用存储过程的unique sqlid，从dbe_stats.statement中查询。
+                 gaussdb=# SHOW instr_unique_sql_track_type; -- 确认此时statement视图记录包括存储过程子语句。
+                  instr_unique_sql_track_type
+                 -----------------------------
+                  all
+                 (1 row)
+
+                 gaussdb=# SELECT * FROM select_t1();
+                  select_t1
+                 -----------
+
+                 (1 row)
+
+                 gaussdb=# SELECT s1.query, s1.unique_sql_id FROM dbe_perf.statement s1 WHERE s1.query = 'select *
+                 from select_t1();'
+                 gaussdb-# UNION ALL
+                 gaussdb-# SELECT s2.query, s2.unique_sql_id FROM dbe_perf.statement s1, dbe_perf.statement s2
+                 WHERE s1.query = 'select * from select_t1();' AND s1.unique_sql_id = s2.parent_unique_sql_id;
+                          query           | unique_sql_id
+                 ----------------------------+---------------
+                  select * from select_t1(); | 1861705880
+                  SELECT * from t1            | 4115569441
+                 (2 rows)
+
+                 gaussdb=# SELECT * FROM dbe_stats.get_tables_by_sqlid(1861705880); -- 顶层语句不包含基表。
+                  nspname | tabname
+                 ---------+---------
+                 (0 rows)
+
+                 gaussdb=# SELECT * FROM dbe_stats.get_tables_by_sqlid(4115569441); -- 子语句包含基表。
+                  nspname | tabname
+                 ---------+---------
+                  public | t1
+                 (1 row)
+
+                 -- 5.在dbe_perf.statement中查询，涉及多张表的语句。
+                 gaussdb=# SELECT * FROM t1, t2 LIMIT 1;
+                  c1 | c1
+                 ----+----
+                   1| 1
+                 (1 row)
+
+                 gaussdb=# SELECT query, unique_sql_id FROM dbe_perf.statement WHERE query LIKE '%select * from
+                 t1, t2 limit%';
+                            query           | unique_sql_id
+                 -------------------------------+---------------
+                  select * from t1, t2 limit ?; | 2763456878
+                 (1 row)
+
+                 gaussdb=# SELECT * FROM dbe_stats.get_tables_by_sqlid(2763456878);
+                  nspname | tabname
+                 ---------+---------
+                  public | t1
+                  public | t2
+                 (2 rows)
+
+                 -- 后置操作。
+                 gaussdb=# DROP PROCEDURE IF EXISTS select_t1;
+                 DROP PROCEDURE
+                 gaussdb=# DROP TABLE IF EXISTS t1;
+                 DROP TABLE
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                      2915
+GaussDB
+集中式版参考                                                                               3 存储过程
+
+                  gaussdb=# DROP TABLE IF EXISTS t2;
+                  DROP TABLE
+
+              ●   DBE_STATS.ANALYZE_SQLID
+                  获取Unique SQL ID对应语句所有涉及的表，以及收集对应表的统计信息。对于收
+                  集成功的表，如果含有多张表，则返回多行记录。
+                  DBE_STATS.ANALYZE_SQLID原型为：
+                  DBE_STATS.GET_TABLES_BY_SQLID (
+                    unique_sqlid BIGINT,
+                    all_complete BOOLEAN DEFAULT FALSE
+                  )
+                  RETURNS TABLE (
+
+                       nspname TEXT,
+                       tabname TEXT
+                  );
+
+
+                  表 3-425 DBE_STATS.ANALYZE_SQLID 接口参数与返回值说明
+                       字段名        数据类       字      是否允       描述
+                                  型         段      许为空
+                                            类
+                                            型
+
+                       unique_    BIGINT    IN     否         唯一SQL ID，可从
+                       sqlid                                 pg_catalog.pg_stat_activity（实时会话
+                                                             信息视图）、dbe_perf.statement（归一
+                                                             化SQL语句记录视图）、
+                                                             dbe_perf.statement_history（全量或慢
+                                                             SQL语句记录视图）中查询获得。
+
+                       all_com    BOOLE     IN     是         指定是否使用ALL COMPLETE模式进行
+                       plete      AN                         统计信息收集，与ANALYZE tabname
+                                                             WITH ALL COMPLETE的行为一致。未
+                                                             指定则使用默认模式，对应ANALYZE
+                                                             tabname。
+
+                       nspnam     TEXT      OU     否         语句中涉及表的模式名称。
+                       e                    T
+
+                       tabnam     TEXT      OU     否         语句中涉及表的名称。仅包含成功收集
+                       e                    T                统计信息的表。
+
+
+
+
+                  示例：
+                  -- ANALYZE_SQLID的使用方法与上述GET_TABLES_SQLID基本相同，除了本接口会实际收集统计信息，以
+                  及提供了all_complete选项。
+
+                  -- 前置条件。
+                  gaussdb=# DROP TABLE IF EXISTS t1;
+                  DROP TABLE
+                  gaussdb=# CREATE TABLE t1 (c1 int);
+                  CREATE TABLE
+                  gaussdb=# INSERT INTO t1 VALUES (1);
+                  INSERT 0 1
+                  gaussdb=# ANALYZE t1;
+                  ANALYZE
+                  gaussdb=# CREATE OR REPLACE PROCEDURE select_t1()
+                  gaussdb-# AS
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                 2916
+GaussDB
+集中式版参考                                                                                           3 存储过程
+
+                 gaussdb$# BEGIN
+                 gaussdb$#    PERFORM * FROM t1;
+                 gaussdb$# END;
+                 gaussdb$# /
+                 CREATE PROCEDURE
+                 gaussdb=# CREATE TABLE t2 (c1 int) PARTITION BY LIST (c1) (
+                 gaussdb(#    PARTITION t2_p1 VALUES (1),
+                 gaussdb(#    PARTITION t2_p2 VALUES (2)
+                 gaussdb(# );
+                 CREATE TABLE
+                 gaussdb=# INSERT INTO t2 VALUES (1), (2);
+                 INSERT 0 2
+                 gaussdb=# ANALYZE t2;
+                 ANALYZE
+
+                 -- 1.使用从pg_stat_activity中查询的unique sqlid。
+                 -- 会话1：模拟无法执行的语句。
+                 gaussdb=# SET cursor_sharing = off; -- 避免自动参数化不进行解析。
+                 SET
+                 gaussdb=# SELECT pg_sleep(60) FROM t1;
+                  pg_sleep
+                 ----------
+
+                 (1 row)
+
+                 -- 会话2：在会话一执行期间查询其unique sqlid，并查询对应的tabname，语句需根据实际sql_id调整。
+                 gaussdb=# SELECT query, sessionid, unique_sql_id FROM pg_stat_activity WHERE query LIKE
+                 '%pg_sleep%t1%' AND query NOT LIKE '%pg_stat_activity%';
+                           query           | sessionid | unique_sql_id
+                 ------------------------------+-----------+---------------
+                  select pg_sleep(60) from t1; |          1 | 3101300097
+                 (1 row)
+
+                 gaussdb=# SELECT analyze_count FROM pg_stat_all_tables WHERE schemaname = 'public' AND
+                 relname = 't1'; -- 此前的analyze次数。
+                  analyze_count
+                 ---------------
+                           1
+                 (1 row)
+
+                 gaussdb=# SELECT * FROM dbe_stats.analyze_sqlid(3101300097);
+                  nspname | tabname
+                 ---------+---------
+                  public | t1
+                 (1 row)
+
+                 gaussdb=# SELECT analyze_count FROM pg_stat_all_tables WHERE schemaname = 'public' AND
+                 relname = 't1'; -- 确认以上操作完成了一次analyze。
+                  analyze_count
+                 ---------------
+                           2
+                 (1 row)
+
+                 -- 2.使用从dbe_perf.statement中查询的unique sqlid。
+                 gaussdb=# SHOW instr_unique_sql_count; -- 查看statement视图中的最大记录数。
+                  instr_unique_sql_count
+                 ------------------------
+                  200000
+                 (1 row)
+
+                 gaussdb=# SELECT count(*) FROM dbe_perf.statement; -- 确认statement视图中的记录数是否超限。
+                  count
+                 -------
+                    46
+                 (1 row)
+
+                 gaussdb=# SELECT reset_unique_sql('GLOBAL','ALL',0); -- 如果达到限制，后续的语句不会再记录，可以
+                 清空记录（注：会导致SQL记录丢失）。
+                  reset_unique_sql
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                    2917
+GaussDB
+集中式版参考                                                                                             3 存储过程
+
+                 ------------------
+                  t
+                 (1 row)
+
+                 gaussdb=# SELECT * FROM t1;
+                  c1
+                 ----
+                   1
+                 (1 row)
+
+                 gaussdb=# SELECT unique_sql_id FROM dbe_perf.statement WHERE query LIKE '%select * from t1%';
+                  unique_sql_id
+                 ---------------
+                    4115569441
+                 (1 row)
+
+                 gaussdb=# SELECT analyze_count FROM pg_stat_all_tables WHERE schemaname = 'public' AND
+                 relname = 't1'; -- 此前的analyze次数。
+                  analyze_count
+                 ---------------
+                           2
+                 (1 row)
+
+                 gaussdb=# SELECT * FROM dbe_stats.analyze_sqlid(4115569441);
+                  nspname | tabname
+                 ---------+---------
+                  public | t1
+                 (1 row)
+
+                 gaussdb=# SELECT analyze_count FROM pg_stat_all_tables WHERE schemaname = 'public' AND
+                 relname = 't1'; -- 确认以上操作完成了一次analyze。
+                  analyze_count
+                 ---------------
+                           3
+                 (1 row)
+
+                 -- 3.使用从dbe_stats.statement_history中查询的unique sqlid。
+                 gaussdb=# SET log_min_duration_statement = '1s'; -- 执行时间>=1s的慢SQL会被记录。
+                 SET
+                 gaussdb=# SELECT pg_sleep(1) FROM t1;
+                  pg_sleep
+                 ----------
+
+                 (1 row)
+
+                 gaussdb=# SELECT unique_query_id FROM dbe_perf.statement_history WHERE query LIKE '%pg_sleep
+                 %t1%' LIMIT 1;
+                  unique_query_id
+                 -----------------
+                      3101300097
+                 (1 row)
+
+                 gaussdb=# SELECT analyze_count FROM pg_stat_all_tables WHERE schemaname = 'public' AND
+                 relname = 't1'; -- 此前的analyze次数。
+                  analyze_count
+                 ---------------
+                           3
+                 (1 row)
+
+                 gaussdb=# SELECT * FROM dbe_stats.analyze_sqlid(3101300097);
+                  nspname | tabname
+                 ---------+---------
+                  public | t1
+                 (1 row)
+
+                 gaussdb=# SELECT analyze_count FROM pg_stat_all_tables WHERE schemaname = 'public' AND
+                 relname = 't1'; -- 确认以上操作完成了一次analyze。
+                  analyze_count
+                 ---------------
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                  2918
+GaussDB
+集中式版参考                                                                                                3 存储过程
+
+                           4
+                 (1 row)
+
+                 -- 4.使用存储过程的unique sqlid，从dbe_stats.statement中查询。
+                 gaussdb=# SHOW instr_unique_sql_track_type; -- 确认此时statement视图记录包括存储过程子语句。
+                  instr_unique_sql_track_type
+                 -----------------------------
+                  all
+                 (1 row)
+
+                 gaussdb=# SELECT * FROM select_t1();
+                  select_t1
+                 -----------
+
+                 (1 row)
+
+                 gaussdb=# SELECT s1.query, s1.unique_sql_id FROM dbe_perf.statement s1 WHERE s1.query = 'select *
+                 from select_t1();'
+                 gaussdb-# UNION ALL
+                 gaussdb-# SELECT s2.query, s2.unique_sql_id FROM dbe_perf.statement s1, dbe_perf.statement s2
+                 WHERE s1.query = 'select * from select_t1();' AND s1.unique_sql_id = s2.parent_unique_sql_id;
+                          query           | unique_sql_id
+                 ----------------------------+---------------
+                  select * from select_t1(); | 1861705880
+                  SELECT * from t1            | 4115569441
+                 (2 rows)
+
+                 gaussdb=# SELECT analyze_count FROM pg_stat_all_tables WHERE schemaname = 'public' AND
+                 relname = 't1'; -- 此前的analyze次数。
+                  analyze_count
+                 ---------------
+                           4
+                 (1 row)
+
+                 gaussdb=# SELECT * FROM dbe_stats.analyze_sqlid(1861705880); -- 顶层语句不包含基表。
+                  nspname | tabname
+                 ---------+---------
+                 (0 rows)
+
+                 gaussdb=# SELECT analyze_count FROM pg_stat_all_tables WHERE schemaname = 'public' AND
+                 relname = 't1'; -- 以上操作并没有触发t1表的analyze。
+                  analyze_count
+                 ---------------
+                           4
+                 (1 row)
+
+                 gaussdb=# SELECT * FROM dbe_stats.analyze_sqlid(4115569441); -- 子语句包含基表。
+                  nspname | tabname
+                 ---------+---------
+                  public | t1
+                 (1 row)
+
+                 gaussdb=# SELECT analyze_count FROM pg_stat_all_tables WHERE schemaname = 'public' AND
+                 relname = 't1'; -- 确认以上操作完成了一次analyze。
+                  analyze_count
+                 ---------------
+                           5
+                 (1 row)
+
+                 -- 5.查询dbe_perf.statement，并对分区表使用all_complete模式进行统计信息收集。
+                 gaussdb=# SELECT * FROM t2;
+                  c1
+                 ----
+                   1
+                   2
+                 (2 rows)
+
+                 gaussdb=# SELECT query, unique_sql_id FROM dbe_perf.statement WHERE query LIKE '%select * from
+                 t2%';
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                      2919
+GaussDB
+集中式版参考                                                                                             3 存储过程
+
+                       query       | unique_sql_id
+                 -------------------+---------------
+                  select * from t2; |    909667705
+                 (1 row)
+
+                 gaussdb=# SELECT analyze_count FROM pg_stat_all_tables WHERE schemaname = 'public' AND
+                 relname = 't2'; -- 此前的analyze次数。
+                  analyze_count
+                 ---------------
+                           1
+                 (1 row)
+
+                 gaussdb=# SELECT * FROM dbe_stats.analyze_sqlid(909667705, true); -- 使用all_complete模式，每个分
+                 区会采集更大的样本。
+                  nspname | tabname
+                 ---------+---------
+                  public | t2
+                 (1 row)
+
+                 gaussdb=# SELECT analyze_count FROM pg_stat_all_tables WHERE schemaname = 'public' AND
+                 relname = 't2'; -- 确认以上操作完成了一次analyze。
+                  analyze_count
+                 ---------------
+                           2
+                 (1 row)
+
+                 -- 6.在dbe_perf.statement中查询并收集，涉及多张表的语句。
+                 gaussdb=# SELECT * FROM t1, t2 LIMIT 1;
+                  c1 | c1
+                 ----+----
+                   1| 1
+                 (1 row)
+
+                 gaussdb=# SELECT query, unique_sql_id FROM dbe_perf.statement WHERE query LIKE '%select * from
+                 t1, t2 limit%';
+                            query           | unique_sql_id
+                 -------------------------------+---------------
+                  select * from t1, t2 limit ?; | 2763456878
+                 (1 row)
+
+                 gaussdb=# SELECT relname, analyze_count FROM pg_stat_all_tables WHERE schemaname = 'public'
+                 AND relname IN ('t1', 't2');
+                  relname | analyze_count
+                 ---------+---------------
+                  t1     |         5
+                  t2     |         2
+                 (2 rows)
+
+                 gaussdb=# SELECT * FROM dbe_stats.analyze_sqlid(2763456878);
+                  nspname | tabname
+                 ---------+---------
+                  public | t1
+                  public | t2
+                 (2 rows)
+
+                 gaussdb=# SELECT relname, analyze_count FROM pg_stat_all_tables WHERE schemaname = 'public'
+                 AND relname IN ('t1', 't2');
+                  relname | analyze_count
+                 ---------+---------------
+                  t1     |         6
+                  t2     |         3
+                 (2 rows)
+
+                 -- 后置操作。
+                 gaussdb=# DROP PROCEDURE IF EXISTS select_t1;
+                 DROP PROCEDURE
+                 gaussdb=# DROP TABLE IF EXISTS t1;
+                 DROP TABLE
+
+
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                 2920
+GaussDB
+集中式版参考                                                                                                3 存储过程
+
+                  gaussdb=# DROP TABLE IF EXISTS t2;
+                  DROP TABLE
+
+              ●   dbe_stats_tools.py
+                  该python脚本用于简化库级统计信息的导出和导入流程：
+                  –    导出统计信息时，需依次执行如下命令：
+                       DBE_STATS.CREATE_STAT_TABLE、
+                       DBE_STATS.EXPORT_DATABASE_STATS、\COPY TO、
+                       DBE_STATS.DROP_STAT_TABLE。执行命令时需要具备相应的接口或命令的
+                       权限，以及指定导出目录的读写权限。
+                  –    导入统计信息时，需依次执行以下命令：
+                       DBE_STATS.CREATE_STAT_TABLE、
+                       DBE_STATS.EXPORT_DATABASE_STATS、\COPY FROM、
+                       DBE_STATS.DROP_STAT_TABLE。执行命令时需要具备相应接口或命令的权
+                       限，以及指定导出目录下文件的读取权限。
+
+                  表 3-426 dbe_stats_tools.py 接口参数说明
+                   参数            类型             是否允许            描述
+                                                为空
+
+                   --            VARCHAR        否               导出为dump，导入为restore，取值范围
+                   mode/-        2                              是[dump, restore]。
+                   m
+
+                   --            VARCHAR        否               导出或导入的目标数据库名字。
+                   databas       2
+                   e/-d
+
+                   --port/-p     VARCHAR        否               数据库端口号。取值范围是[1, 65535]。
+                                 2
+
+                   --user/-      VARCHAR        是               用户名，如果不输入-U参数，则会获取当
+                   U             2                              前用户名作为参数值。
+
+                   --            BOOLEA         是               用户密码。如果指定该选项，需要单独输
+                   passwd/       N                              入密码。
+                   -W
+
+                   --host/-      VARCHAR        是               导出或导入目标数据库节点的IP。
+                   H             2
+
+                   --            VARCHAR        否               存放导出统计信息的目录。
+                   output/-      2
+                   o
+
+
+
+
+                        说明
+
+                       导出后，会在--output参数所指定目录下生成元数据文件gs_stats.meta和指定database用
+                       户表的统计信息文件gs_stats.csv。
+                  示例：
+                  # 导出流程示例
+                  [omm@localhost ~]$ python3 dbe_stats_tools.py -m dump -d db1 -p 8000 --output ./stats
+                  export table name: "export_table_1749783328"
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                   2921
+

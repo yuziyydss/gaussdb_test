@@ -1,0 +1,895 @@
+GaussDB
+集中式版参考                                                             3 存储过程
+
+                 表 3-137 DBE_XML.XML_DOM_GET_DETAIL_DOC_TREE_INFO 接口参数说明
+
+                  参数              类型        入参/出参     是否可以   描述
+                                                      为空
+
+                  id              RAW(13)   IN        否      指定的xmldom
+                                                             类型对象。
+
+
+
+3.12.2 二次封装接口
+
+3.12.2.1 DBE_ALERT
+              DBE_ALERT包的主要功能是在不同会话之间传递数据库的警报信息，包括注册、发送
+              和接收告警。高级功能包DBE_ALERT支持的视图请参见
+              DBE_ALERT.DBE_ALERT_INFO。
+
+                  说明
+
+                 ● DBE_ALERT包仅支持在主节点使用。
+                 ● DBE_ALERT包仅支持在A、B、C、PG兼容性数据库下使用。
+                 ● 退出当前会话时会删除该会话所注册的所有警报。
+
+
+接口介绍
+              高级功能包DBE_ALERT支持的接口如表3-138所示。
+
+              表 3-138 DBE_ALERT
+
+               接口名称                              描述
+
+               DBE_ALERT.REGISTER                为当前会话注册感兴趣的警报。
+
+               DBE_ALERT.REMOVE                  从当前会话的注册列表中删除不感兴趣
+                                                 的警报。
+
+               DBE_ALERT.REMOVEALL               从当前会话的注册列表中删除所有警
+                                                 报。
+
+               DBE_ALERT.SET_DEFAULTS            为查询警报设置轮询间隔。无实际意
+                                                 义，仅用于兼容。
+
+               DBE_ALERT.SIGNAL                  用于发送警报信号。
+
+               DBE_ALERT.WAITANY                 用于等待当前会话注册列表中的任一警
+                                                 报收到警报信号。该函数不受事务回滚
+                                                 影响。
+
+               DBE_ALERT.WAITONE                 用于等待传入警报收到警报信号，警报
+                                                 必须在当前会话注册列表中。该函数不
+                                                 受事务回滚影响。
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                       2666
+GaussDB
+集中式版参考                                                            3 存储过程
+
+
+                  说明
+
+                  该包除了以上接口，其他内部接口请参见DBE_ALERT。
+              ●   DBE_ALERT.REGISTER
+                  为当前会话注册感兴趣的警报。
+                  DBE_ALERT.REGISTER原型为：
+                  DBE_ALERT.REGISTER(
+                    name IN VARCHAR2,
+                    cleanup IN BOOLEAN DEFAULT TRUE
+                  )RETURNS VOID;
+
+
+                  表 3-139 DBE_ALERT.REGISTER 接口参数说明
+
+                   参数             描述
+
+                   name           警报名称（不区分大小写），最长为30字节，超出长度时报错。
+                                  禁止使用以ORA$和GS$作为警报名称的开头。
+
+                   cleanup        无实际意义，仅用于兼容。
+
+
+
+
+                       说明
+
+                       调用DBE_ALERT.REGISTER时，所有会话中注册的警报最多为32个，超出时报错。
+              ●   DBE_ALERT.REMOVE
+                  从当前会话的注册列表中删除不感兴趣的警报。
+                  DBE_ALERT.REMOVE原型为：
+                  DBE_ALERT.REMOVE(
+                    name IN VARCHAR2
+                  )RETURNS VOID;
+
+
+                  表 3-140 DBE_ALERT.REMOVE 接口参数说明
+
+                   参数             描述
+
+                   name           警报名称（不区分大小写）。禁止使用以ORA$和GS$作为警报
+                                  名称的开头。
+
+
+              ●   DBE_ALERT.REMOVEALL
+                  从当前会话的注册列表中删除所有警报。
+                  DBE_ALERT.REMOVEALL原型为：
+                  DBE_ALERT.REMOVEALL(
+                  )RETURNS VOID;
+
+              ●   DBE_ALERT.SET_DEFAULTS
+                  为查询警报设置轮询间隔。无实际意义，仅用于兼容。
+                  DBE_ALERT.SET_DEFAULTS原型为：
+                  DBE_ALERT.SET_DEFAULTS(
+                    sensitivity IN NUMBER
+                  )RETURNS VOID;
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                  2667
+GaussDB
+集中式版参考                                                       3 存储过程
+
+                  表 3-141 DBE_ALERT.SET_DEFAULTS 接口参数说明
+
+                   参数             描述
+
+                   sensitivity    无实际意义，仅用于兼容。
+
+
+              ●   DBE_ALERT.SIGNAL
+                  用于发送警报信号。仅当所在事务提交时才会发送信号，若事务回滚则不会产生
+                  任何影响。所有注册过此警报的会话均会被通知，并唤醒处于等待状态中的会
+                  话。若注册过此警报的会话当前未处于等待状态，将在下次等待信号时将立即收
+                  到通知。同一个警报发送的信号可被多个会话同时接收。
+                  DBE_ALERT.SIGNAL原型为：
+                  DBE_ALERT.SIGNAL(
+                    name IN VARCHAR2,
+                    message IN VARCHAR2
+                  )RETURNS VOID;
+
+
+                  表 3-142 DBE_ALERT.SIGNAL 接口参数说明
+
+                   参数             描述
+
+                   name           警报名称（不区分大小写）。禁止使用以ORA$和GS$作为警报
+                                  名称的开头。
+
+                   message        警报信号关联的消息，最长为1800字节，若消息长度超出此范
+                                  围，将报错。
+
+
+              ●   DBE_ALERT.WAITANY
+                  用于等待当前会话注册列表中的任一警报收到警报信号。该函数不受事务回滚影
+                  响。
+                  DBE_ALERT.WAITANY原型为：
+                  DBE_ALERT.WAITANY(
+                    name OUT VARCHAR2,
+                    message OUT VARCHAR2,
+                    status OUT INTEGER,
+                    timeout IN NUMBER DEFAULT 86400000
+                  )RETURNS VOID;
+
+
+                  表 3-143 DBE_ALERT.WAITANY 接口参数说明
+
+                   参数             描述
+
+                   name           返回发生警报的名称。
+
+                   message        返回与发生警报关联的消息。
+
+                   status         返回状态。
+                                  ● 0表示发生警报。
+                                  ● 1表示超时。
+
+                   timeout        等待警报的最长持续时间。如果在指定超时时间内（timeout
+                                  秒）未检测到警报信号，status将返回1。
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司              2668
+GaussDB
+集中式版参考                                                                            3 存储过程
+
+
+              ●    DBE_ALERT.WAITONE
+                   用于等待传入警报收到警报信号，警报必须在当前会话注册列表中。该函数不受
+                   事务回滚影响。
+                   DBE_ALERT.WAITONE原型为：
+                   DBE_ALERT.WAITONE(
+                     name IN VARCHAR2,
+                     message OUT VARCHAR2,
+                     status OUT INTEGER,
+                     timeout IN NUMBER DEFAULT 86400000
+                   )RETURNS VOID;
+
+
+                   表 3-144 DBE_ALERT.WAITONE 接口参数说明
+                     参数                 描述
+
+                     name               警报名称（不区分大小写）。禁止使用以ORA$和GS$作为警报
+                                        名称的开头。
+
+                     message            返回与发生警报关联的消息。
+
+                     status             返回状态。
+                                        ● 0表示发生警报。
+                                        ● 1表超时。
+
+                     timeout            等待警报的最长持续时间。如果在指定超时时间内（timeout
+                                        秒）未检测到警报信号，status将返回1。
+
+
+
+示例
+              -- 创建表并插入数据
+              -- Step1：
+              -- 在接收告警信息的消费端进行注册
+              --Session1--
+              gaussdb=# BEGIN
+              gaussdb$#    dbe_alert.register('alert_name_test');
+              gaussdb$# END;
+              gaussdb$# /
+              ANONYMOUS BLOCK EXECUTE
+
+              -- Step2：
+              -- 在发送告警信息的生产端进行发送
+              --Session2--
+              gaussdb=# BEGIN
+              gaussdb$#    dbe_alert.signal('alert_name_test', 'message_test');
+              gaussdb$#    commit;
+              gaussdb$# END;
+              gaussdb$# /
+              ANONYMOUS BLOCK EXECUTE
+
+              -- Step3：
+              -- 在接收告警信息的消费端接受指定alert_name_test的消息，可以获取到对应的message_test告警信息
+              -- Session1 --
+              gaussdb=# DECLARE
+              gaussdb-#      name varchar2(50) := 'alert_name_test';
+              gaussdb-#      message VARCHAR2(100);
+              gaussdb-#      status int;
+              gaussdb-#      timeout number := 5;
+              gaussdb-# BEGIN
+              gaussdb$#      dbe_alert.set_defaults(5);
+              gaussdb$#      dbe_alert.waitone(name, message, status, timeout);
+              gaussdb$#      dbe_output.put_line('alert name:' || name);
+
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                          2669
+GaussDB
+集中式版参考                                                                           3 存储过程
+
+              gaussdb$#     dbe_output.put_line('message:' || message);
+              gaussdb$#     dbe_output.put_line('status:' || status);
+              gaussdb$# END;
+              gaussdb$# /
+              alert name:alert_name_test
+              message:message_test
+              status:0
+              ANONYMOUS BLOCK EXECUTE
+
+
+              -- step1,step2相同，step3使用waitany接口，消费端接收任意一个告警的消息
+              -- Session1 --
+              gaussdb=# DECLARE
+              gaussdb-#      name varchar2(50);
+              gaussdb-#      message VARCHAR2(100);
+              gaussdb-#      status int;
+              gaussdb-#      timeout number := 5;
+              gaussdb-# BEGIN
+              gaussdb$#       dbe_alert.set_defaults(5);
+              gaussdb$#       dbe_alert.waitany(name, message, status, timeout);
+              gaussdb$#       dbe_output.put_line('alert name:' || name);
+              gaussdb$#       dbe_output.put_line('message:' || message);
+              gaussdb$#       dbe_output.put_line('status:' || status);
+              gaussdb$# END;
+              gaussdb$# /
+              alert name:ALERT_NAME_TEST
+              message:message_test
+              status:0
+              ANONYMOUS BLOCK EXECUTE
+              gaussdb=# -- step1,step2相同，step3使用waitany接口，消费端接收任意一个告警的消息--Session1--
+              gaussdb=#
+              gaussdb=#
+              gaussdb=# -- Step4：
+              gaussdb=# -- 在接收告警信息的消费端删除告警，并通过视图查询
+              gaussdb=# BEGIN
+              gaussdb$#       dbe_alert.remove('alert_name_test');
+              gaussdb$#       dbe_alert.removeall;
+              gaussdb$# END;
+              gaussdb$# /
+              ANONYMOUS BLOCK EXECUTE
+              gaussdb=# SELECT * FROM dbe_alert.dbe_alert_info;
+               name | sid | changed | message
+              ------+-----+---------+---------
+              (0 rows)
+
+
+3.12.2.2 DBE_APPLICATION_INFO
+
+接口介绍
+              高级功能包DBE_APPLICATION_INFO支持的接口请参见表3-145。
+              DBE_APPLICATION_INFO作用范围是当前session。
+
+              表 3-145 DBE_APPLICATION_INFO
+               接口名称                                                  描述
+
+               DBE_APPLICATION_INFO.SET_CLIENT                       写入客户端信息。
+               _INFO
+
+               DBE_APPLICATION_INFO.READ_CLIE                        读取客户端信息。
+               NT_INFO
+
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                             2670
+GaussDB
+集中式版参考                                                                    3 存储过程
+
+
+               接口名称                                        描述
+
+               DBE_APPLICATION_INFO.SET_MODU               将当前正在运行的模块的名称设置为新
+               LE                                          模块。设置module和action。
+
+               DBE_APPLICATION_INFO.READ_MOD               读取当前会话的模块和操作字段的值。
+               ULE
+
+               DBE_APPLICATION_INFO.SET_ACTIO              设置当前模块中当前操作的名称，设置
+               N                                           action的值。
+
+
+
+
+              ●   DBE_APPLICATION_INFO.SET_CLIENT_INFO
+                  写入客户端信息。
+                  DBE_APPLICATION_INFO.SET_CLIENT_INFO原型为：
+                  DBE_APPLICATION_INFO.SET_CLIENT_INFO(
+                     str text
+                  )returns void;
+
+
+                  表 3-146 DBE_APPLICATION_INFO.SET_CLIENT_INFO 接口参数说明
+                   参数             描述
+
+                   str            写入的客户端信息，最长为64字节，超过64字节将被截断。
+
+
+              ●   DBE_APPLICATION_INFO.READ_CLIENT_INFO
+                  读取客户端信息。
+                  DBE_APPLICATION_INFO.READ_CLIENT_INFO原型为：
+                  DBE_APPLICATION_INFO.READ_CLIENT_INFO(
+                  OUT client_info text);
+
+
+                  表 3-147 DBE_APPLICATION_INFO.READ_CLIENT_INFO 接口参数说明
+                   参数             描述
+
+                   client_info    客户端信息。
+
+
+              ●   DBE_APPLICATION_INFO.SET_MODULE
+                  将当前正在运行的模块的名称设置为新模块。
+                  DBE_APPLICATION_INFO.SET_MODULE原型为：
+                  DBE_APPLICATION_INFO.SET_MODULE(
+                     IN module_name text,
+                     IN action_name text
+                  );
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                        2671
+GaussDB
+集中式版参考                                                                                 3 存储过程
+
+                  表 3-148 DBE_APPLICATION_INFO.SET_MODULE 接口参数说明
+                   参数                描述
+
+                   module_na         当前正在运行的模块的名称。最长为64字节，超过64字节将被截
+                   me                断。
+
+                   action_nam        当前模块中当前操作的名称。最长为64字节，超过64字节将被截
+                   e                 断。
+
+
+
+
+                  示例：
+                  CALL dbe_application_info.set_module('module_name','action_name');
+                   set_module
+                  ------------
+
+                  (1 row)
+
+              ●   DBE_APPLICATION_INFO.READ_MODULE
+                  读取当前会话的模块和操作字段的值。
+                  DBE_APPLICATION_INFO.READ_MODULE原型为：
+                  DBE_APPLICATION_INFO.READ_MODULE(
+                     OUT module_name text,
+                     OUT action_name text
+                  );
+
+
+                  表 3-149 DBE_APPLICATION_INFO.READ_MODULE 接口参数说明
+                   参数                描述
+
+                   module_na         当前正在运行的模块的名称。
+                   me
+
+                   action_nam        当前模块中当前操作的名称。
+                   e
+
+
+
+
+                  示例：
+                  DECLARE
+                   module varchar2(64);
+                   action varchar2(64);
+                  BEGIN
+                   dbe_application_info.read_module(module,action);
+                   dbe_output.print_line(module);
+                   dbe_output.print_line(action);
+                  END;
+                  /
+                  module_name
+                  action_name
+                  ANONYMOUS BLOCK EXECUTE
+
+              ●   DBE_APPLICATION_INFO.SET_ACTION
+                  设置当前模块中当前操作的名称。
+                  DBE_APPLICATION_INFO.SET_ACTION原型为：
+                  DBE_APPLICATION_INFO.SET_ACTION(
+                      IN action_name text
+                  );
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                  2672
+GaussDB
+集中式版参考                                                                              3 存储过程
+
+                  表 3-150 DBE_APPLICATION_INFO.SET_ACTION 接口参数说明
+                   参数                描述
+
+                   action_nam        当前模块中当前操作的名称。最长为64字节，超过64字节将被截
+                   e                 断。
+
+
+
+
+                  示例：
+                  CALL dbe_application_info.set_action('action_name');
+                   set_action
+                  ------------
+
+                  (1 row)
+
+
+3.12.2.3 DBE_COMPRESSION
+
+接口介绍
+              根据输入的参数，评估指定数据对象的采样压缩率或者获取指定行数据的压缩类型。
+              DBE_COMPRESSION支持的接口请参见表3-151。
+
+              表 3-151 DBE_COMPRESSION
+               接口名称                                   描述
+
+               DBE_COMPRESSION.GET_C                  根据输入参数评估指定数据对象的采样压缩率。
+               OMPRESSION_RATIO
+
+               DBE_COMPRESSION.GET_C                  根据输入参数获取指定行数据的压缩类型。
+               OMPRESSION_TYPE
+
+               DBE_COMPRESSION.GET_A                  根据输入参数评估指定数据对象的真实压缩率。
+               CTUAL_COMPRESSION_RAT
+               IO
+
+               DBE_COMPRESSION.GET_H                  根据输入参数评估指定跨页透明压缩数据对象的采
+               OLE_RATIO                              样空洞率。
+
+               DBE_COMPRESSION.TURBO                  输出turbo_compress_shared_buffers的使用情况。
+               _COMPRESS_BUFFER_STATS
+
+               DBE_COMPRESSION.GET_IN                 根据输入参数获取指定索引页的压缩类型。
+               DEX_COMPRESSION_TYPE
+
+
+
+
+              ●   DBE_COMPRESSION.GET_COMPRESSION_RATIO
+                  根据输入参数评估指定数据对象的采样压缩率。
+                  DBE_COMPRESSION.GET_COMPRESSION_RATIO原型为：
+                  DBE_COMPRESSION.GET_COMPRESSION_RATIO(
+                  SCRATCHTBSNAME IN VARCHAR2,
+                  OWNNAME       IN VARCHAR2,
+                  OBJNAME     IN VARCHAR2,
+                  SUBOBJNAME    IN VARCHAR2,
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                2673
+GaussDB
+集中式版参考                                                            3 存储过程
+
+                 COMPTYPE     IN NUMBER,
+                 BLKCNT_CMP    OUT INTEGER,
+                 BLKCNT_UNCMP OUT INTEGER,
+                 ROW_CMP      OUT INTEGER,
+                 ROW_UNCMP      OUT INTEGER,
+                 CMP_RATIO    OUT NUMBER,
+                 COMPTYPE_STR OUT VARCHAR2,
+                 SAMPLE_RATIO IN NUMBER DEFAULT 20,
+                 OBJTYPE    IN INTEGER DEFAULT 1);
+
+                       说明
+
+                       ● 对于跨页透明压缩表，一级分区表必须传入一级分区名称，二级分区表必须传入二级分
+                         区名称，否则会报错提示“no data found.”。对于高级压缩表，分区表必须传入分区
+                         名称（二级分区表也可传入一级分区名称），否则会报错提示“no data found.”。
+                       ● 不支持在高级压缩表上评估跨页透明压缩的压缩率，直接使用会报错提示“The ilm
+                         turbo policy is not supported here.”。
+
+
+                 表 3-152 DBE_COMPRESSION.GET_COMPRESSION_RATIO 接口参数说明
+                  参数            描述
+
+                  SCRATCHT      数据对象所属表空间。
+                  BSNAME
+
+                  OWNNAME       数据对象所有者（所属模式）。
+
+                  OBJNAME       数据对象名称。
+
+                  SUBOBJNA      数据子对象名称。
+                  ME
+
+                  COMPTYPE      压缩类型，支持：
+                                ● 1：未压缩。
+                                ● 2：高级压缩。
+                                ● 3：跨页透明压缩low。
+                                ● 4：跨页透明压缩medium。
+                                ● 5：跨页透明压缩high。
+                                ● 6：高级压缩high。
+
+                  BLKCNT_C      样本被压缩后占用的块数。
+                  MP
+
+                  BLKCNT_U      样本未压缩占用的块数。
+                  NCMP
+
+                  ROW_CMP       样本被压缩后单个块内可容纳的行数，跨页透明压缩显示为0。
+
+                  ROW_UNC       样本未被压缩时单个数据块可容纳的行数，跨页透明压缩显示为
+                  MP            0。
+
+                  CMP_RATI      压缩比，BLKCNT_UNCMP除以BLKCNT_CMP。
+                  O
+
+                  COMPTYPE      描述压缩类型的字符串。
+                  _STR
+
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                     2674
+GaussDB
+集中式版参考                                                               3 存储过程
+
+
+                   参数            描述
+
+                   SAMPLE_R      采样比例，输入为0-100的整数或浮点数，对应为百分之n的采样
+                   ATIO          比例。默认为20，即对20%的行数进行采样。
+
+                   OBJTYPE       对象类型，支持：
+                                 ● 1：表对象。
+
+
+              ●   DBE_COMPRESSION.GET_COMPRESSION_TYPE
+                  根据输入参数获取指定行数据的压缩状态（返回1表示未压缩，2表示压缩），该
+                  接口属于运维类接口，不做可见性判断，即传入的ctid为已删除的行时，该接口依
+                  然会返回当前行在页面上最新的状态。跨页透明压缩不支持此高级包，默认返回
+                  1，无实际意义。
+                  DBE_COMPRESSION.GET_COMPRESSION_TYPE原型为：
+                  DBE_COMPRESSION.GET_COMPRESSION_TYPE(
+                  OWNNAME IN VARCHAR2,
+                  TABNAME IN VARCHAR2,
+                  CTID   IN TEXT,
+                  SUBOBJNAME IN VARCHAR2 DEFAULT NULL);
+
+
+                  表 3-153 DBE_COMPRESSION.GET_COMPRESSION_TYPE 接口参数说明
+
+                   参数            描述
+
+                   OWNNAME       数据对象所有者（所属模式）。
+
+                   TABNAME       数据对象名称。
+
+                   CTID          目标行ctid。
+
+                   SUBOBJNA      数据子对象名称。
+                   ME
+
+
+              ●   DBE_COMPRESSION.GET_ACTUAL_COMPRESSION_RATIO
+                  根据输入参数评估指定数据对象的真实压缩率，仅支持跨页透明压缩表。
+                  DBE_COMPRESSION.GET_ACTUAL_COMPRESSION_RATIO原型为：
+                  DBE_COMPRESSION.GET_ACTUAL_COMPRESSION_RATIO(
+                  OWNER_NAME      IN VARCHAR2,
+                  OBJNAME      IN VARCHAR2,
+                  FILEPATH    OUT VARCHAR2,
+                  IS_COMPRESS   OUT BOOL,
+                  FILE_COUNT    OUT INTEGER,
+                  LOGIC_SIZE  OUT BIGINT,
+                  PHYSIC_SIZE  OUT BIGINT,
+                  COMPRESS_RATIO OUT VARCHAR2);
+
+
+                  表 3-154 DBE_COMPRESSION.GET_ACTUAL_COMPRESSION_RATIO 接口参数
+                  说明
+
+                   参数            描述
+
+                   OWNER_N       数据对象所有者（所属模式）。
+                   AME
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                     2675
+GaussDB
+集中式版参考                                                                                          3 存储过程
+
+
+                   参数               描述
+
+                   OBJNAME          数据对象名称。
+
+                   FILEPATH         数据对象路径。
+
+                   IS_COMPRE        压缩类型。
+                   SS
+
+                   FILE_COUN        文件个数，包含数据文件和cmap文件。
+                   T
+
+                   LOGIC_SIZE       逻辑大小。
+
+                   PHYSIC_SIZ       物理大小。
+                   E
+
+                   COMPRESS         压缩比。
+                   _RATIO           小表场景下，压缩比可能出现小于1的现象，属于正常现象。
+
+
+
+
+                        说明
+
+                       小表场景下，压缩比可能出现小于1的现象，属于正常现象。
+                       示例：建表table_test，插入一条数据，使用高级包进行查询，压缩比显示小于1。
+                       gaussdb=# CREATE TABLE table_test(a int) ILM ADD POLICY ROW STORE COMPRESS TURBO
+                       HIGH UNIT AFTER 1 days OF NO MODIFICATION;
+                       gaussdb=# INSERT INTO table_test VALUES(1);
+                       gaussdb=# CALL DBE_COMPRESSION.GET_ACTUAL_COMPRESSION_RATIO('public', 'table_test',
+                       NULL,NULL,NULL,NULL,NULL,NULL);
+
+              ●   DBE_COMPRESSION.GET_HOLE_RATIO
+                  根据输入参数评估指定跨页透明压缩数据对象的采样空洞率，仅支持跨页透明压
+                  缩表。
+                  DBE_COMPRESSION.GET_HOLE_RATIO原型为：
+                  DBE_COMPRESSION.GET_HOLE_RATIO(
+                  OWNER_NAME      IN VARCHAR2,
+                  OBJNAME      IN VARCHAR2,
+                  FILE_COUNT    OUT INTEGER,
+                  PHYSIC_SIZE  OUT BIGINT,
+                  HOLE_SIZE    OUT BIGINT,
+                  HOLE_RATIO    OUT VARCHAR2,
+                  SAMPLE_RATIO   IN NUMBER DEFAULT 20);
+
+
+                  表 3-155 DBE_COMPRESSION.GET_HOLE_RATIO 接口参数说明
+
+                   参数               描述
+
+                   OWNER_N          数据对象所有者（所属模式）。
+                   AME
+
+                   OBJNAME          数据对象名称。
+
+                   FILE_COUN        数据对象的文件个数，只包含数据文件
+                   T
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                                2676
+GaussDB
+集中式版参考                                                               3 存储过程
+
+
+                   参数            描述
+
+                   PHYSIC_SIZ    物理大小。
+                   E
+
+                   HOLE_SIZE     空洞大小
+
+                   HOLE_RATI     空洞率
+                   O
+
+                   SAMPLE_R      采样率。
+                   ATIO
+
+
+              ●   DBE_COMPRESSION.TURBO_COMPRESS_BUFFER_STATS
+                  输出turbo_compress_shared_buffers的使用情况。
+                  DBE_COMPRESSION.TURBO_COMPRESS_BUFFER_STATS原型为：
+                  DBE_COMPRESSION.TURBO_COMPRESS_BUFFER_STATS(
+                  CAPACITY    OUT BIGINT,
+                  MAIN_LEN      OUT BIGINT,
+                  FREE_LEN     OUT BIGINT,
+                  BUFFER_ACCESS OUT BIGINT,
+                  BUFFER_NOREADS OUT BIGINT,
+                  DISK_READS    OUT BIGINT,
+                  RECYCLE_TIMES OUT BIGINT,
+                  RECYCLE_STEP OUT BIGINT,
+                  RECYCLE_WAITS OUT BIGINT,
+                  HIT_RATIO    OUT VARCHAR2);
+
+
+                  表 3-156 DBE_COMPRESSION.TURBO_COMPRESS_BUFFER_STATS 接口参数说
+                  明
+
+                   参数            描述
+
+                   CAPACITY      turbo_compress_shared_buffers的容量。
+
+                   MAIN_LEN      lrulist中main_list的长度。
+
+                   FREE_LEN      lrulist中free_list的长度。
+
+                   BUFFER_AC     逻辑读的次数。
+                   CESS
+
+                   BUFFER_N      新扩展出来的block个数。
+                   OREADS
+
+                   DISK_READ     物理读的次数。
+                   S
+
+                   RECYCLE_TI    回收次数。
+                   MES
+
+                   RECYCLE_S     回收步长。
+                   TEP
+
+                   RECYCLE_W     alloc buf ctrl时的等待次数。
+                   AITS
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                    2677
+GaussDB
+集中式版参考                                                                                              3 存储过程
+
+
+                    参数               描述
+
+                    HIT_RATIO        在内存中的命中率。
+
+
+              ●    DBE_COMPRESSION.GET_INDEX_COMPRESSION_TYPE
+                   查询索引页面是否已经被压缩。此高级包仅能查询到高级压缩的状态，查询不到
+                   跨页透明压缩的状态。
+                   DBE_COMPRESSION.GET_INDEX_COMPRESSION_TYPE原型为：
+                   DBE_COMPRESSION.GET_INDEX_COMPRESSION_TYPE(
+                   IDXOID    IN OID,
+                   IDXTYPE    IN TEXT,
+                   BUCKET_ID    IN INT2 DEFAULT NULL,
+                   BLOCK_ID    IN INT8);
+
+
+                   表 3-157 DBE_COMPRESSION.GET_INDEX_COMPRESSION_TYPE 接口参数说明
+                    参数               描述
+
+                    IDXOID           索引oid。
+
+                    IDXTYPE          索引类型，支持普通索引（'i'）、全局索引（'I'）、分区索引
+                                     （'x'）。
+
+                    BUCKET_ID        如果索引的bucket存储，传入对应的bucket id，默认为NULL。
+
+                    BLOCK_ID         待查询的索引block id，如果输入是小数，会四舍五入取整。
+
+
+
+示例
+              gaussdb=# ALTER DATABASE set ilm = on;
+              gaussdb=# CREATE USER user1 IDENTIFIED BY 'Gauss_zzy123';
+              gaussdb=# CREATE USER user2 IDENTIFIED BY 'Gauss_zzy123';
+              gaussdb=# SET ROLE user1 PASSWORD 'Gauss_zzy123';
+              gaussdb=# CREATE TABLE TEST_DATA (ORDER_ID INT, GOODS_NAME TEXT, CREATE_TIME TIMESTAMP)
+               ILM ADD POLICY ROW STORE COMPRESS ADVANCED ROW AFTER 1 DAYS OF NO MODIFICATION;
+              INSERT INTO TEST_DATA VALUES (1, '零食大礼包A', NOW());
+
+              gaussdb=# SELECT DBE_COMPRESSION.GET_COMPRESSION_TYPE('user1', 'test_data', '(0,1)', NULL);
+               get_compression_type
+              ----------------------
+                              1
+              (1 row)
+
+              DECLARE
+              o_blkcnt_cmp    integer;
+              o_blkcnt_uncmp integer;
+              o_row_cmp       integer;
+              o_row_uncmp      integer;
+              o_cmp_ratio    number;
+              o_comptype_str varchar2;
+              BEGIN
+              dbe_compression.get_compression_ratio(
+                 SCRATCHTBSNAME => NULL,
+                 OWNNAME          => 'user1',
+                 OBJNAME        => 'test_data',
+                 SUBOBJNAME       => NULL,
+                 COMPTYPE       => 2,
+                 BLKCNT_CMP       => o_blkcnt_cmp,
+                 BLKCNT_UNCMP => o_blkcnt_uncmp,
+                 ROW_CMP         => o_row_cmp,
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                    2678
+GaussDB
+集中式版参考                                                                                                     3 存储过程
+
+                ROW_UNCMP          => o_row_uncmp,
+                CMP_RATIO        => o_cmp_ratio,
+                COMPTYPE_STR => o_comptype_str,
+                SAMPLE_RATIO => 100,
+                OBJTYPE        => 1);
+              RAISE INFO 'Number of blocks used by the compressed sample of the object        : %', o_blkcnt_cmp;
+              RAISE INFO 'Number of blocks used by the uncompressed sample of the object         : %', o_blkcnt_uncmp;
+              RAISE INFO 'Number of rows in a block in compressed sample of the object       : %', o_row_cmp;
+              RAISE INFO 'Number of rows in a block in uncompressed sample of the object        : %', o_row_uncmp;
+              RAISE INFO 'Estimated Compression Ratio of Sample                      : %', o_cmp_ratio;
+              RAISE INFO 'Compression Type                                   : %', o_comptype_str;
+              end;
+              /
+              INFO: Number of blocks used by the compressed sample of the object        :1
+              INFO: Number of blocks used by the uncompressed sample of the object         :1
+              INFO: Number of rows in a block in compressed sample of the object       :1
+              INFO: Number of rows in a block in uncompressed sample of the object        :1
+              INFO: Estimated Compression Ratio of Sample                      : 1.0
+              INFO: Compression Type                                   : Compress Advanced
+
+
+3.12.2.4 DBE_DESCRIBE
+
+数据类型介绍
+              高级包DBE_DESCRIBE内置了两个数据类型，这两个数据类型使用自定义类型创建，用
+              于DESCRIBE_PROCEDURE接口的返回值。
+
+              ●    DBE_DESCRIBE.NUMBER_TABLE
+                   该类型是NUMBER的TABLE类型，通过TABLE OF语法实现。
+                   DBE_DESCRIBE.NUMBER_TABLE原型为：
+                   CREATE TYPE DBE_DESCRIBE.NUMBER_TABLE AS TABLE OF NUMBER INDEX BY INTEGER;
+
+              ●    DBE_DESCRIBE.VARCHAR2_TABLE
+                   该类型是VARCHAR2的TABLE类型，通过TABLE OF语法实现。
+                   DBE_DESCRIBE.VARCHAR2_TABLE原型为：
+                   CREATE TYPE DBE_DESCRIBE.VARCHAR2_TABLE AS TABLE OF VARCHAR2(30) INDEX BY INTEGER;
+
+
+接口介绍
+              高级包DBE_DESCRIBE提供了接口DBE_DESCRIBE.DESCRIBE_PROCEDURE，接口描述
+              请参见表3-158。
+
+              表 3-158 DBE_DESCRIBE
+               接口名称                                                 描述
+
+               DBE_DESCRIBE.DESCRIBE_PROCEDUR                       用来显示存储过程或函数的参数信息。
+               E
+
+
+
+              ●    DBE_DESCRIBE.DESCRIBE_PROCEDURE
+                   存储过程DESCRIBE_PROCEDURE用来显示存储过程或函数的参数信息，如参数
+                   名、参数模式、参数位置等，将函数或存储过程的参数信息以列表的方式返回。
+                   DBE_DESCRIBE.DESCRIBE_PROCEDURE原型为：
+                   DBE_DESCRIBE.DESCRIBE_PROCEDURE(
+                    object_name         IN VARCHAR2,
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                                        2679
+
