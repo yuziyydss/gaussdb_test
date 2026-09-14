@@ -69,3 +69,31 @@ python3 -c "import json; d=json.load(open('generated/factor_packages/generation_
 ```
 
 数据库执行仍为 0；本文全部为静态处置记录。
+
+## 2026-09-14 更新：PDF全量抽取后的缺口复核
+
+全部PDF大部抽取完成后（353条结构化facts），对25条剩余value gaps进行了逐条复核：
+
+### 可行动但需设计工作（7条）
+
+| 包/值 | 阻断原因 | 下一步 |
+| --- | --- | --- |
+| create_foreign_table.format × 5 | 语法slots中没有format维度；format值需通过OPTIONS传递 | 需设计format→OPTIONS语法接线，涉及syntax AST修改 |
+| insert.conflict_clause.tuple_update | 现有facet不更新冲突键，语义不同 | 需创建更新冲突键的专属facet和实机证据 |
+
+### 合法阻断（18条，保持现状）
+
+| 包/值 | 阻断原因 | 证据 |
+| --- | --- | --- |
+| resource_pool dop_one × 2 | DDL与PG_RESOURCE_POOL跨章冲突 | docs/compat_facts/system_tables_auth_partition.yaml |
+| alter_package COMPILE × 4 | 注意事项仅支持OWNER与语法矛盾 | alter_package_fact_support_conflict |
+| WHERE CURRENT OF × 2 | 需存储过程+FOR UPDATE游标 | docs/compat_facts/stored_procedure_cursor.yaml (16条约束) |
+| TDE/ILM/COLVIEW × 5 | 环境资产缺口 | 需TDE加密/ILM特性/列存视图环境 |
+| CASCADE × 1 | 依赖语义设计 | 需无依赖/有依赖两种形态 |
+
+### 全局状态
+
+- 25条gap中18条（72%）为合法阻断，有明确证据和恢复条件
+- 7条（28%）可行动但需要设计工作
+- 全部PDF大部已完成系统性抽取（353条facts）
+- M包93/93 source extraction完成
