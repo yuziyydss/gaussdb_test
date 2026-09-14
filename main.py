@@ -614,6 +614,69 @@ async def api_generate_default_scenario():
     })
 
 
+
+
+# ===== 兼容性Facts API =====
+COMPAT_FACTS_DIR = BASE_DIR / "docs" / "compat_facts"
+
+def _load_compat_facts():
+    """Load all compatibility facts YAML files."""
+    import yaml
+    facts_by_file = {}
+    if not COMPAT_FACTS_DIR.exists():
+        return facts_by_file
+    for yml in sorted(COMPAT_FACTS_DIR.glob("*.yaml")):
+        try:
+            data = yaml.safe_load(open(yml))
+            if data and "facts" in data:
+                facts_by_file[yml.stem] = data
+        except Exception:
+            continue
+    return facts_by_file
+
+
+@app.get("/api/compat-facts")
+async def api_compat_facts(category: Optional[str] = None):
+    """List all compatibility facts, optionally filtered by category keyword."""
+    data = _load_compat_facts()
+    result = []
+    for filename, doc in data.items():
+        for fact in doc.get("facts", []):
+            if fact.get("status") != "confirmed":
+                continue
+            item = {
+                "source_file": filename,
+                "document": doc.get("document", ""),
+                **{k: v for k, v in fact.items() if v is not None},
+            }
+            if category and category.lower() not in filename.lower() and category.lower() not in str(item.get("statement", "")).lower():
+                continue
+            result.append(item)
+    return {
+        "total": len(result),
+        "categories": sorted(data.keys()),
+        "facts": result,
+    }
+
+
+@app.get("/api/compat-facts/summary")
+async def api_compat_facts_summary():
+    """Summarize compatibility facts by category."""
+    data = _load_compat_facts()
+    summary = []
+    for filename, doc in data.items():
+        facts = doc.get("facts", [])
+        confirmed = sum(1 for f in facts if f.get("status") == "confirmed")
+        summary.append({
+            "file": filename,
+            "document": doc.get("document", ""),
+            "total": len(facts),
+            "confirmed": confirmed,
+            "types": sorted(set(f.get("type", "unknown") for f in facts)),
+        })
+    return {"categories": summary, "total_confirmed": sum(s["confirmed"] for s in summary)}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
