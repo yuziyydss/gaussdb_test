@@ -1,0 +1,1791 @@
+GaussDB
+集中式版参考                                                           5 工具参考
+
+
+5.7.3 gs_dump 导出数据库信息
+工具介绍
+              gs_dump是GaussDB用于导出数据库相关信息的工具，用户可以自定义导出一个数据
+              库或其中的对象（模式、表、视图等）。支持导出的数据库可以是默认数据库，也可
+              以是自定义数据库。
+
+              ●   gs_dump支持SSL加密通信。
+              ●   gs_dump支持导出PDB。当导出PDB时，用户可以自定义导出一个PDB或其中的
+                  对象（模式、表、视图等）。
+              ●   gs_dump工具在进行数据导出时，其他用户可以访问数据库（读或写）。
+              ●   gs_dump工具导出完整一致的数据。例如，T1时刻启动gs_dump导出A数据库，
+                  那么导出数据结果将会是T1时刻A数据库的数据状态，T1时刻之后对A数据库的修
+                  改不会被导出。
+              ●   gs_dump支持导出兼容v1数据库的文本格式文件。
+              ●   gs_dump支持将数据库信息导出至纯文本格式的SQL脚本文件或其他归档文件
+                  中。
+                  –    纯文本格式的SQL脚本文件：包含将数据库恢复为其保存时的状态所需的SQL
+                       语句。通过gsql连接数据库运行该SQL脚本文件，可以恢复数据库。即使在
+                       其他主机和其他数据库产品上，只要对SQL脚本文件稍作修改，也可以用来
+                       重建数据库。
+                  –    归档格式文件：包含将数据库恢复为其保存时的状态所需的数据，可以是tar
+                       格式、目录归档格式或自定义归档格式，详见表5-109。
+              ●   gs_dump支持四种不同的导出文件格式，通过[-F或者--format=]选项指定，具体
+                  如表5-109所示。
+
+                  表 5-109 导出文件格式
+                  格式名     -F的    说明             建议         对应导入工具
+                  称       参数
+                          值
+
+                  纯文本     p      纯文本脚本文件包含      小型数据库，     使用gsql连接数据
+                  格式             SQL语句和命令。命令    或者需要对导     库工具恢复数据库
+                                 可以由gsql命令行终端   出的sql文件进   对象前，可根据需
+                                 程序执行，用于重新      行修改，推荐     要使用文本编辑器
+                                 创建数据库对象并加      纯文本格式。     编辑纯文本导出文
+                                 载表数据。                     件。
+
+                  自定义     c      一种二进制文件。支      中型或大型数     这三种归档格式，
+                  归档格            持从导出文件中恢复      据库，推荐自     必须使用5.7.5-
+                  式              所有或所选数据库对      定义归档格      gs_restore进行对
+                                 象。             式。         象和数据的导入。
+                                                           gs_restore也可以
+                                                           选择要导入的数据
+                                                           库对象。
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                   3894
+GaussDB
+集中式版参考                                                                   5 工具参考
+
+
+                  格式名       -F的    说明                建议           对应导入工具
+                  称         参数
+                            值
+
+                  目录归       d      该格式会创建一个目         需要将数据库
+                  档格式              录，该目录包含两类         对象与数据分
+                                   文件，一类是包含数         目录存储导
+                                   据库对象的目录文          出，推荐使用
+                                   件，另一类是每个表         目录归档格
+                                   和blob对象对应的数       式。
+                                   据文件。
+
+                  tar归档     t      tar归档文件支持从导       需要将归档结
+                  格式               出文件中恢复所有或         果导出并打
+                                   所选数据库对象。tar       包，可以使用
+                                   归档格式不支持压缩         tar归档格式。
+                                   且对于单个文件大小
+                                   应小于8GB。
+
+
+
+
+                       说明
+
+                       ● 可以使用gs_dump工具将文件压缩为目录归档或自定义归档导出文件，减少导出文件
+                         的大小。生成目录归档或自定义归档导出文件时，默认进行中等级别的压缩。
+                         gs_dump程序无法压缩已归档导出文件。
+                       ● M-Compatibility模式数据库下，禁止在lower_case_table_names参数不同的实例之间
+                         进行导入导出，否则可能引起数据丢失。
+                       ● 通过CREATE EVENT语法创建的定时任务若无法被导出，请检查gs_job_attribute表中
+                         定时任务job_style属性是否为EVENT，若不是请重新创建该定时任务。
+
+
+注意事项
+              ●   gs_dump导出时，HTAP表创建的IMCV元信息（gs_imcv系统表）不会被转储。
+              ●   使用gs_dump前请确保gs_dump版本与数据库版本保持一致，高版本gs_dump不
+                  保证完全兼容低版本内核数据。
+              ●   gs_dump不适合应用于库中对象数量（表、视图、索引等）过多的场景。当库中
+                  对象数量超过十万级，或者对象间依赖关系过于复杂时，gs_dump导出时间会很
+                  长。
+              ●   禁止修改-F c/d/t格式导出的文件和内容，否则可能无法恢复成功。对于-F p格式
+                  导出的文件，如有需要，可谨慎编辑导出的文件。
+              ●   为了保证数据一致性和完整性，gs_dump默认会对需要转储的表设置ACCESS
+                  SHARE级别锁。如果表在别的事务中设置了冲突的锁，gs_dump会等待锁释放后
+                  锁定表。如果无法在指定时间内锁定某个表，转储会失败。用户可以通过指定--
+                  lock-wait-timeout选项，自定义等待锁超时时间。锁与锁之间的冲突请参见
+                  LOCK。
+              ●   不支持加密导出存储过程和函数。
+              ●   对于物化视图，本工具仅支持物化视图定义的导出，在导入后需手动执行
+                  REFRESH命令来进行数据恢复。
+              ●   gs_dump不会导出物化视图相关的matviewmap_和mlog_前缀开头的表，不会导
+                  出带有internal_mask选项的表，不会导出在回收站中的表。
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                          3895
+GaussDB
+集中式版参考                                                                             5 工具参考
+
+
+              ●   对于临时对象，本工具仅支持导出全局临时表。
+              ●   本工具不支持在备机上使用。
+              ●   gs_dump导出分区索引时，部分索引分区的属性无法导出，比如索引分区的
+                  unusable状态。可以通过查询系统表PG_PARTITION或者查询视图
+                  ADM_IND_PARTITIONS/ADM_IND_SUBPARTITIONS获取索引分区的具体属性，
+                  通过ALTER INDEX命令可以手动设置索引分区属性。
+              ●   对于定时任务，本工具仅支持导出在B兼容性数据库中，通过CREATE EVENT创建
+                  的定时任务。通过高级包创建的定时任务不支持被导出。仅初始用户可导出所有
+                  定时任务，具有sysadmin权限的用户可导出owner为该用户的定时任务，没有相
+                  关权限的普通用户无法导出定时任务。
+              ●   gs_dump不支持导出自定义Tokenweight分词词典，可以根据报错WARNING:
+                  dictionary xx cannot be automatically exported, please create it manually手动
+                  创建对应分词词典。
+              ●   在多租场景下，使用gs_dump导出时，不支持导出模板PDB，也不支持导出关闭
+                  的PDB。
+              ●   在多租场景下，普通用户使用gs_dump导出时，只能导出该用户有权限的数据库
+                  对象和数据。
+              ●   当未开启多租时，gs_dump不支持导出PDB及其内的对象。
+              ●   普通用户不支持导出DIRECTORY、SYNONYM，若普通用户进行相关导出，会提
+                  示“WARNING: xx not dumped because current user is not a superuser”。
+              ●   如果源数据库实例的template1中存在本地数据，请将gs_dump的输出恢复到一个
+                  真正的空数据库（从template0而非template1复制），否则可能会因为被添加对
+                  象的定义被复制，出现错误。创建一个无本地添加的空数据库，需从template0而
+                  非template1复制，例如：
+                  CREATE DATABASE foo WITH TEMPLATE template0;
+              ●   tar归档形式的单个文件大小不得超过8GB（tar文件格式的固有限制）。tar文档整
+                  体大小和任何其他输出格式没有限制，操作系统可能对此有要求。
+              ●   由gs_dump生成的转储文件不包含优化程序用来做执行计划决定的统计数据。因
+                  此，建议从某转储文件恢复之后运行ANALYZE以确保最佳效果。转储文件不包含
+                  ALTER DATABASE…SET命令、数据库用户和其他完成安装设置，这些设置由
+                  gs_dumpall转储。
+              ●   M-Compatibility模式数据库下，含零字符（'\0' ASCII码为0）数据进行gs_dump
+                  操作时存在数据截断。
+              ●   gs_dump不会导出失效函数，导出函数前请确保函数有效，失效的函数会打印告
+                  警，提示对应OID的函数失效。
+              ●   PACKAGE外的函数参数类型是表的列类型（table.column%type）或视图的列类
+                  型（view.column%type），且列类型是基础类型时，导出的函数定义中，参数类
+                  型会被转化为对应的基础类型。通过ALTER TABLE MODIFY COLUMN修改表的列
+                  类型并执行ALTER FUNCTION COMPILE，或者修改视图查询表的列类型后重建视
+                  图并执行ALTER FUNCTION COMPILE，PG_PROC系统表中该函数PROARGSRC字
+                  段中参数类型不会随之变化，导出的函数定义中，参数类型依然是对象列类型变
+                  更前的基础类型。
+              ●   对于依赖PACKAGE内函数的视图，删除PACKAGE会级联删除视图，设置参数
+                  ddl_invalid_mode级联失效时，删除PACKAGE会导致视图导出报错。
+              ●   gs_dump当前设计不兼容三权分立，三权分立下仅可通过初始用户使用gs_dump
+                  工具。导入的文件也需要通过初始用户执行。
+              ●   当导出对象中包含触发器时，需要加上参数--use-set-session-authorization --
+                  all，并通过文本模式导出。否则恢复时无法准确还原触发器的owner信息。
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                                    3896
+GaussDB
+集中式版参考                                                         5 工具参考
+
+
+              ●   使用gs_dump不会转储model对象。
+              ●   使用系统管理员用户执行gs_dump导出时，不会导出初始用户创建的对象，初始
+                  用户创建的对象需要使用初始用户进行导出。使用普通用户执行gs_dump导出
+                  时，仅会导出owner归属于该普通用户的所有对象。
+              ●   当导出对象中包含依赖PACKAGE内部函数的视图时，在首次导入目标端时会报视
+                  图依赖对象找不到的错误，此时需要使用gs_dump --schema-only备份元数据，
+                  并再次导入到目标端即可。
+              ●   在使用gs_dump导出高级压缩库级策略定义时，需满足以下条件：必须执行全库
+                  导出操作且用户具备系统管理员权限。若上述条件未同时满足，则相关策略将以
+                  表、分区或子分区级别的独立策略形式导出，而非作为库级策略处理。
+              ●   gs_dump会把sequence的实际状态导出，其在恢复到目标端后，该sequence会继
+                  续上一次的状态。
+              ●   对一些还未支持ustore老版本上导出的备份文件，在支持ustore的版本上恢复时，
+                  表会被创建为ustore格式且受ustore规格的限制，若想恢复为astore格式，需要设
+                  置enable_default_ustore_table为off。
+              ●   使用gs_dump导出间隔分区表时，只能导出该分区表的range分区部分，不能导出
+                  该分区表的interval分区部分。对于该分区表上的分类索引，遵循同样的原则，即
+                  只能导出建立在range分区上的分类索引，不能导出interval分区上的分类索引。
+              ●   当ddl_invalid_mode参数设置为invalid后，对函数和包做drop操作时，不会级联
+                  删除依赖其的对象，只是失效其依赖关系，即pg_depend系统表中仍然保有一条
+                  依赖关系记录；此时使用gs_dump进行备份时，会因为存在依赖关系但是找不到
+                  依赖的对象而报错cache lookup failed。需要修复依赖关系（重建依赖对象/删除
+                  被依赖对象）后进行导出。
+              ●   gs_dump默认会导出失效视图，如果导出的视图中有失效视图会打印提示，在
+                  507.0之前版本导入时可能会报错。可指定--ignore-invalid-views选项，不导出失
+                  效视图。
+              ●   gs_dump不导出rowid系统列上的数据，仅导出rowid作为数据类型时用户列的数
+                  据。
+
+命令格式
+              gs_dump [OPTION]... [DBNAME]
+
+
+参数说明
+              ●   DBNAME
+                  指定要连接的数据库，前面不需要加短或长选项。例如：
+                  gs_dump -p port_number testdb -f dump1.sql
+                  或者
+                  export PGDATABASE=testdb
+                  gs_dump -p port_number -f dump1.sql
+                  DBNAME详细使用方式参见“gsql使用指导”中表5-12。
+              ●   OPTION
+                  分为三类，通用参数、转储参数和连接参数。
+                  通用参数：
+                  –    -f, --file=FILENAME
+                       将输出发送至指定文件或目录。如果省略该参数，则使用标准输出。如果输
+                       出格式为-F c、-F d或-F t时，必须指定-f参数。如果-f的参数值含有目录，要
+                       求当前用户对该目录具有读写权限。
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司           3897
+GaussDB
+集中式版参考                                                          5 工具参考
+
+                 –     -F, --format=c|d|t|p
+                       选择输出格式。格式如下：
+
+                       ▪   c|custom：输出一个自定义格式的归档，并且以目录形式输出，以此作
+                           为gs_restore的输入信息。该格式是最灵活的输出格式，因为可以手动选
+                           择，而且可以在恢复过程中将归档项重新排序。该格式默认状态下会被
+                           压缩。
+
+                       ▪   d|directory：该格式会创建一个目录，该目录包含两类文件，一类是目
+                           录文件，另一类是每个表和blob对象对应的数据文件。
+
+                       ▪   t|tar：输出一个tar格式的归档，作为gs_restore输入信息。tar格式与目
+                           录格式兼容，tar格式归档形式在提取过程中会生成一个有效的目录格式
+                           归档形式。tar格式不支持压缩且对于单独表有8GB的大小限制。此外，
+                           表数据项的相应排序在恢复过程中不能更改。
+
+                       ▪   p|plain：输出一个文本SQL脚本文件（默认）。
+                 –     -v, --verbose
+                       指定verbose模式。该选项将导致gs_dump向转储文件输出详细的对象注解和
+                       启动/停止次数，向标准错误流输出处理信息。
+                 –     -V, --version
+                       打印gs_dump版本，然后退出。
+                 –     -Z, --compress=0-9
+                       指定使用的压缩比级别。
+                       取值范围：0~9
+
+                       ▪   0表示无压缩。
+
+                       ▪   1表示压缩比最小，处理速度最快。
+
+                       ▪   9表示压缩比最大，处理速度最慢。
+
+                            说明
+
+                           ● 针对自定义归档格式，该选项指定单个表数据片段的压缩，默认方式是以中等级
+                             别进行压缩。tar归档格式和纯文本格式目前不支持压缩。
+                           ● 对于参数的取值，系统将取遇到的第一个非数字字符之前的部分。如果字符串以
+                             非数字字符开头，则取值为0。
+                 –     --lock-wait-timeout=TIMEOUT
+                       请勿在转储刚开始时一直等待以获取共享表锁，如果不能在指定时间内锁定
+                       表，则选择失败。参数单位为ms（毫秒）。可以以任何符合SET
+                       statement_timeout的格式指定超时时间。
+                 –     -?, --help
+                       显示gs_dump命令行参数帮助，然后退出。
+                 –     --ignore-invalid-views
+                       指定该参数时，不会导出失效视图，导出时发现有失效视图会打印提示。
+                 转储参数：
+                 –     -a, --data-only
+                       只输出数据，不输出模式（数据定义）。转储表数据和序列值。
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司             3898
+GaussDB
+集中式版参考                                                                                 5 工具参考
+
+                 –     -b, --blobs
+                       该参数为扩展预留接口，不建议使用。
+                 –     -c, --clean
+                       在将创建数据库对象的指令输出到备份文件之前，先将清理（删除）数据库
+                       对象的指令输出到备份文件中。如果目标数据库中没有任何对象，gsql或
+                       gs_restore工具可能会输出一些提示性的错误信息。
+                       该选项只对文本格式有意义。针对归档格式，可以在调用gs_restore时指定选
+                       项。
+                            说明
+
+                           ● 输出到备份文件中的删除数据库对象指令，均为非级联式删除的DROP命令。
+                           ● 连接database1在t1时刻使用-c参数导出表table1到backup01.dmp文件，t2时刻
+                             在database1中创建视图view1并依赖table1，t3使用gs_restore的-c参数将
+                             backup01.dmp恢复到database1中时，因为会使用非级联删除，在删除table1时
+                             会报错“ERROR: table table cannot be dropped because other objects depend
+                             on it.”，并在创建table1时报错“ERROR: Relation "table1" already exists. ”。
+                             此时需要用户在评估影响后，手动对相关依赖对象进行删除，或手动执行级联删
+                             除命令。
+                 –     -C, --create
+                       备份文件的内容以创建数据库和连接到该数据库的命令开始。如果命令脚本
+                       以这种方式执行，在运行脚本之前连接的是哪一个数据库都没有影响。该选
+                       项只对文本格式有意义。针对归档格式，可以在调用gs_restore时指定选项。
+                            说明
+
+                           ● 在多租场景下，使用gs_dump导出指定PDB时，不支持使用该选项。
+                           ● 在M-Compatibility模式数据库下，不支持使用该选项。必须先在目标实例上创建
+                             出M-Compatibility模式数据库，然后在源实例上导出，最后在目标实例连接新创
+                             建的M-Compatibility模式数据库导入。
+                           ● 在指定-n、-t或者--include-table-file之后，-C选项会失效。
+                 –     -E, --encoding=ENCODING
+                       以指定的字符集编码创建转储。默认情况下，以数据库编码创建转储。将环
+                       境变量“PGCLIENTENCODING”设置为所需的转储编码，也可以得到相同
+                       的结果。
+                            说明
+
+                           当指定转储编码存在转码场景，且表中的数据存在非法编码的数据时，导出会报错
+                           invalid byte sequence，建议使用gs_dump的-s参数只导出定义，并单独使用COPY打
+                           开编码容错进行数据的导出与导入。
+                 –     -g, --exclude-guc=GUC_PARAM
+                       该参数为扩展预留接口，不建议使用。
+                 –     -j, --jobs=NUM
+                       以指定的并行数进行导出。
+
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                     3899
+GaussDB
+集中式版参考                                                                                                5 工具参考
+
+
+                             说明
+
+                           ● 不指定-j时，默认使用串行导出。
+                           ● 指定的并行数不允许超过客户端CPU核数的两倍。当客户端运行在容器中时，由
+                             于获取到的是主机的CPU数量，可能比容器实际能使用的多，并发度建议由用户
+                             自行控制在实际能使用的客户端CPU数量的两倍范围内。表内并行导出通过多进
+                             程并发多个事务实现，实际并发度会受限于服务端的线程池模型，也同时会给服
+                             务端增加压力，请按实际情况合理设置并发度，例如并发度不超过客户端空闲
+                             CPU数量，同时不超过服务端最大连接数限制等。
+                           ● 并行导出仅支持目录归档格式。
+                           ● 并行导出默认使用表内并行导出，即只导出一个表时，也可以对该表的数据拆分
+                             成多个导出任务，并行导出到多个文件中。可以通过同时指定--disable-inter-
+                             table-parallel参数关闭表内并行，当关闭表内并行导出时，并行导出是表级别
+                             的，即仅在导出多个表的表数据时，并行才会生效。
+                           ● 表内并行导出后执行并行导入时，同表数据会放到一个事务中，即并行导入效率
+                             没有提升。
+                           ● 并行导出与--inserts、--column-inserts、--attribute-inserts选项冲突。
+                           ● 并行导出与--query选项冲突。
+                           ● bucket表不支持表内并行导出。
+                           ● 并行导出性能会受到压缩参数-Z的影响，建议合理设置压缩级别（默认中等压
+                             缩、或者设置为0即不压缩）。压缩级别越高，客户端CPU占用会越高，并存在客
+                             户端CPU抢占导致导出速度降低的情况。
+                 –     -n, --schema=SCHEMA
+                       只转储与模式名称匹配的模式，此选项包括模式本身和所有它包含的对象。
+                       如果该选项没有指定，所有在目标数据库中的非系统模式将会被转储。支持
+                       写入多个-n选项来选择多个模式。此外，根据gsql的\d命令所使用的相同规
+                       则，模式参数可以被理解为一个pattern，所以多个模式也可以通过在该
+                       pattern中写入通配符来选择。使用通配符时，注意给pattern打引号，防止
+                       shell扩展通配符。
+                             说明
+
+                           ● 当指定-n时，gs_dump不会转储已选模式所附着的任何其他数据库对象。因此，
+                             无法保证某个指定模式的转储结果能够自行成功地储存到一个空数据库中。
+                           ● 当指定-n时，非模式内的对象不会被转储。
+                           ● M-Compatibility模式数据库下， 通过CREATE DATABASE带templatem创建的数
+                             据库直接通过指定db_name导出数据； 而通过CREATE DATABASE db_name创建
+                             的DATABASE与SCHEMA等效，只能通过-n导出数据。
+                           ● GaussDB会自动将对象名称中的大写字母转为小写，当模式名称中包含大写字母
+                             时，需要添加额外的引号，如：-n '"Sch1"' 或 -n "\"Sch1\""。
+                           ● 当指定-n时，不支持通过pattern "*"去匹配导出数据库中的系统SCHEMA。
+                       转储支持多个模式的转储。例如，以下示例中，sch1和sch2都会被转储。
+                       gs_dump -h host_name -p port_number testdb -f backup/bkp_shl2.sql -n sch1 -n sch2
+                 –     -N, --exclude-schema=SCHEMA
+                       不转储任何与模式pattern匹配的模式。Pattern将参照针对-n的相同规则来理
+                       解。可以通过输入多个-N，不转储与任何pattern匹配的模式。
+                       当同时输入-n和-N时，会转储与至少一个-n选项匹配、与-N选项不匹配的模
+                       式。如果有-N没有-n，则不转储常规转储中与-N匹配的模式。
+                       转储过程支持排除多个模式。例如，以下示例中，sch1和sch2在转储过程中
+                       都会被排除。
+                       gs_dump -h host_name -p port_number testdb -f backup/bkp_shl2.sql -N sch1 -N sch2
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                    3900
+GaussDB
+集中式版参考                                                                                                5 工具参考
+
+
+                             说明
+
+                           GaussDB会自动将对象名称中的大写字母转为小写，当模式名称中包含大写字母时，
+                           需要添加额外的引号，如：-N '"Sch1"' 或 -N "\"Sch1\""。
+                 –     -o, --oids
+                       转储每个表的对象标识符（OIDs），作为表的一部分数据。该选项用于以某
+                       种方式（例如：外键约束方式）参照了OID列的情况。如果不是以上这种情
+                       况，请勿使用该选项。不能与--inserts/--column-inserts选项一起使用。
+                 –     -O, --no-owner
+                       不输出设置对象的归属这样的命令，以匹配原始数据库。默认情况下，
+                       gs_dump会发出ALTER OWNER或SET SESSION AUTHORIZATION语句设置
+                       所创建的数据库对象的归属。脚本运行时这些语句会失败，除非是由系统管
+                       理员（或是拥有脚本中所有对象的同一个用户）触发。通过指定-O，可以生
+                       成一个任何用户都能用于恢复的脚本，且该脚本会授予该用户所有对象的权
+                       限。
+                       该选项只对文本格式有意义。针对归档格式，可以在调用gs_restore时指定选
+                       项。
+                 –     -s, --schema-only
+                       只转储对象定义（模式），不转储数据。
+                 –     -q, --target=VERSION
+                       指定导出兼容其他版本数据库的文本文件，目前支持v1和v5参数，指定其他
+                       参数不会报错，但不会生效。v1参数用于导出GaussDB v5版本数据库的数据
+                       为兼容GaussDB v1版本的文本文件。v5参数用于导出GaussDB v5版本数据
+                       库的数据为GaussDB v5版本数据库格式的文本文件，减少了导入GaussDB
+                       v5版本数据库时的可能的报错情况。
+                       在使用v1参数时，建议同时设置--exclude-guc="enable_cluster_resize"，--
+                       exclude-function，--exclude-with等选项，否则导入到GaussDB v1版本数据
+                       库时可能报错。
+                 –     -S, --sysadmin=NAME
+                       该参数为扩展预留接口，不建议使用。
+                 –     -t, --table=TABLE
+                       指定转储的表（或视图、或序列、或外表）对象列表，可以使用多个-t选项
+                       来选择多个表，也可以使用通配符指定多个表对象。例如，以下示例中，
+                       schema1.table1和schema2.table2都会被转储。
+                       gs_dump -h host_name -p port_number testdb -f backup/bkp_shl2.sql -t schema1.table1 -t
+                       schema2.table2
+                       当使用通配符指定多个表对象时，注意给pattern打引号，防止shell扩展通配
+                       符。
+                       当使用-t时，-n和-N没有任何效果，因为由-t选择的表的转储不受-n、-N选
+                       项的影响。
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                         3901
+GaussDB
+集中式版参考                                                                                                5 工具参考
+
+
+                             说明
+
+                           ● -t参数选项个数必须小于等于100。
+                           ● 如果-t参数选项个数大于100，建议使用参数--include-table-file来替换。
+                           ● 当指定-t时，gs_dump不会转储已选表所附着的任何其他数据库对象。因此，无
+                             法保证某个指定表的转储结果能够自行成功地储存到一个空数据库中。
+                           ● -t tablename只转储在默认搜索路径中可见的表。-t *.tablename转储数据库中所
+                             有模式下的tablename表（系统模式下的表除外）。-t schema.table转储特定模
+                             式中的表。
+                           ● -t tablename不会导出表上的触发器信息。
+                           ● 对于表名中包含大写字母的表，在使用-t参数指定导出时需对表名添加\"来导出。
+                             例如对于表"abC"，需要指定-t \"abC\"；对于表schema."abC"，导出需指定-t
+                             schema.\"abC\"。
+                           ● -t "" 不匹配任何表。
+                           ● 当-t参数中有多个"."分隔符时，实际上仅最后两个分隔符生效，倒数第二个和倒
+                             数第一个分隔符之间的名称即模式名，倒数第一个分隔符之后的名称即表名。例
+                             如-t schema_a.schema_b.schema_c.table1，实际上会导出模式schema_c的表
+                             table1；-t schema_a.schema_b.schema_c.*.table1，实际上会导出所有模式下的
+                             表table1。
+                 –     --include-table-file=FILENAME
+                       指定需要dump的表文件。
+                 –     -T, --exclude-table=TABLE
+                       不转储的表（视图、序列、外表）对象列表，可以使用多个-T选项来选择多
+                       个表，也可以使用通配符指定多个表对象。
+                       当同时输入-t和-T时，会转储在-t列表中，而不在-T列表中的表对象。
+                       例如，以下示例中，table1和table2在转储过程中会被排除。
+                       gs_dump -h host_name -p port_number testdb -f backup/bkp_shl2.sql -T table1 -T table2
+
+                             说明
+
+                           对于自增列的序列，-T参数不会生效。
+                 –     --exclude-table-file=FILENAME
+                       指定不需要dump的表文件。
+                             说明
+
+                           同--include-table-file，其内容格式如下：
+                           schema1.table1
+                           schema2.table2
+                           ......
+                 –     -x, --no-acl
+                       防止转储访问权限命令（授权/撤销命令），只影响acl对象，不影响privilege
+                       对象。
+                 –     --exclude-function
+                       不导出函数和存储过程。
+                 –     --exclude-with
+                       导出的表定义末尾不添加WITH(orientation=row,compression=on)等描述。
+                 –     --binary-upgrade
+                       该参数为扩展预留接口，不建议使用。
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                       3902
+GaussDB
+集中式版参考                                                                        5 工具参考
+
+
+                             说明
+
+                             M-Compatibility模式数据库不支持该选项。
+                 –     --binary-upgrade-usermap="USER1=USER2"
+                       该参数为扩展预留接口，不建议使用。
+                 –     --column-inserts|--attribute-inserts
+                       以INSERT命令带列名（INSERT INTO表（列、…）值…）方式导出数据。这
+                       会导致恢复缓慢。但是由于该选项会针对每行生成一个独立分开的命令，所
+                       以，重新加载某行时出现的错误只会导致失败语句对应的数据丢失，而非整
+                       个表内容。
+                             说明
+
+                             M-Compatibility模式数据库不支持该选项。
+                 –     --disable-dollar-quoting
+                       该选项将禁止在函数体前使用美元符号$，并强制使用SQL标准字符串语法对
+                       其进行引用。
+                 –     --disable-inter-table-parallel
+                       该选项仅在并行导出时生效，当指定该参数时，并行导出使用表级别的并
+                       行。
+                 –     --include-alter-table
+                       导出表删除列的相关步骤。
+                 –     --disable-triggers
+                       该参数为扩展预留接口，不建议使用。
+                 –     --exclude-table-data=TABLE
+                       指定不转储任何匹配pattern的表的数据。依照针对-t的相同规则理解该
+                       pattern。
+                       可多次输入--exclude-table-data来排除匹配任何pattern的表。当用户需要特
+                       定表的定义但不需要其中的数据时，该选项很有帮助。
+                       排除数据库中所有表的数据，请参见-s, --schema-only。
+                 –     --include-query-file=FILENAME
+                       导出表内数据时通过该参数在文件内批量配置谓词过滤条件，通过增加过滤
+                       条件，只导出满足过滤条件的表数据。
+                       FILENAME中的内容支持如下两种格式，每个谓词条件之间以'\n'换行分隔：
+                       i.    [schema_name.][table_name:] query_clause
+                       ii.   query=[schema_name.][table_name:] query_clause
+
+                             说明
+
+                             ● 文件中以'#'开头的行会被当做注释行。
+                             ● --include-query-file和--query可以同时使用，但是对于同一张表只能指定一个谓
+                               词条件。
+                             ● 谓词条件其他规则请参见--query参数说明。
+                 –     --inserts
+                       发出INSERT命令（而非COPY命令）时转储数据，会导致恢复缓慢。
+                       但是，由于该选项会针对每行生成一个独立分开的命令，所以重新加载某行
+                       时出现的错误只会导致对应的一行数据丢失，而非整个表内容。需要注意的
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                            3903
+GaussDB
+集中式版参考                                                                   5 工具参考
+
+                       是，如果重排列顺序，可能会导致恢复失败。列顺序改变时，--column-
+                       inserts选项不受影响。
+                            说明
+
+                           M-Compatibility模式数据库不支持该选项。
+                 –     --log-level=LOG|DEBUG|DEBUG1|DEBUG2|DEBUG3
+                       该选项将指定gs_dump的日志级别。LOG记录正常执行信息，DEBUG记录一
+                       些调试信息。DEBUG数字越大，日志级别越高，记录的信息越详细。
+                 –     --no-security-labels
+                       该参数为扩展预留接口，不建议使用。
+                 –     --no-tablespaces
+                       不输出选择表空间的命令。若使用该选项，无论默认表空间是什么，在恢复
+                       过程中所有对象都会被创建。
+                       该选项只对文本格式有意义。针对归档格式，可以在调用gs_restore时指定选
+                       项。
+                 –     --no-unlogged-table-data
+                       该参数为扩展预留接口，不建议使用。
+                 –     --non-lock-table
+                       屏蔽gs_dump导出过程中对表加锁的行为。该参数仅供软件间接口调用，不
+                       推荐用户主动调用。
+                            说明
+
+                           gs_dump导出table过程中，默认在整个事务内对要导出的table添加access share
+                           lock，此级别的锁会阻塞表上并发DDL语句的执行，保证导出表的过程中不会因对表
+                           并发DDL的影响而报错。
+                 –     --query=[schema_name.][table_name:]query_clause
+                       导出表内数据时通过该参数支持谓词过滤，通过增加过滤条件，只导出满足
+                       过滤条件的表数据。
+                       其中query_clause是一个标准的以'where'开头的查询子句。
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                        3904
+GaussDB
+集中式版参考                                                                                     5 工具参考
+
+
+                            说明
+
+                           ● 当多个表需要添加谓词过滤时，需要同时使用多个--query参数。
+                           ● 可以同时指定多个query参数，但是对于同一张表只能指定一个query参数。
+                           ● -t参数的优先级高于--query参数，同时使用-t与--query参数时，先按照-t参数过
+                             滤需要被导出的表的范围，再根据范围内的表进行谓词筛选。
+                           ● --query参数仅对谓词进行拼接，不对谓词进行转义，需要转义时需要用户手动进
+                             行转义处理。
+                           ● 使用的谓词应符合SQL标准且能被正确执行，否则数据导出时会报错。
+                           ● 不支持对视图、物化视图指定谓词条件，否则数据导出时会报错。
+                           ● 导出性能受谓词的查询性能影响。
+                           ● --query参数中的where子句部分需要使用单引号或双引号进行包围，如果where
+                             子句中出现字符类型的过滤条件，则必须使用双引号进行包围。
+                              例如where子句中的过滤条件不是字符类型，可以使用单引号或双引号进行包
+                              围。
+                              --query=test_schema.test_table:'where test_attr > 3'
+                              --query=test_schema.test_table:"where test_attr > 3"
+                              例如where子句中的过滤条件是字符类型，必须使用双引号进行包围。
+                              --query=test_schema.test_table:"where test_attr = 'a'"
+                           ● GaussDB会自动将对象名称中的大写字母转为小写，当schema_name、
+                             table_name或者query_clause中包含大写字母或特殊字符时，需要添加额外的引
+                             号。
+                              例如Schema名称包含大写字符或特殊字符：
+                              --query="\"TEST_SCHEMA\"".test_table:"where test_attr > 3"
+                              例如谓词条件包含大写字符（列名有大写）：
+                              --query=test_schema.test_table:"where \"TEST_attr\" > 3"
+
+                 –     --quote-all-identifiers
+                       强制对所有标识符加引号。向后续版本迁移场景下，可能涉及引入额外关键
+                       词，使用该选项会有帮助。
+                            说明
+
+                           M-Compatibility模式数据库不支持该选项。
+                 –     --section=SECTION
+                       转储指定名称的区段（pre-data、data和post-data）。
+                 –     --serializable-deferrable
+                       转储过程中使用可串行化事务，以确保所使用的快照与之后的数据库状态一
+                       致；要实现该操作需要在无异常状况的事务流中等待某个点，因为这样才能
+                       保证转储成功，避免引起其他事务出现serialization_failure要重新再做。
+                       但是该选项对于灾难恢复没有益处。对于在原始数据库进行升级的时候，加
+                       载一个数据库的复制作为报告或其他只读加载共享的转储是有帮助的。没有
+                       这个选项，转储会反映一个与任何事务最终提交的序列化执行不一致的状
+                       态。
+                       如果当gs_dump启动时，读写事务仍处于非活动状态，即便使用该选项也不
+                       会对其产生影响。如果读写事务处于活动状态，转储的开始可能会延迟一段
+                       不确定的时间。
+                 –     --use-set-session-authorization
+                       输出符合SQL标准的SET SESSION AUTHORIZATION命令而不是ALTER
+                       OWNER命令来确定对象所有权。使用SET SESSION AUTHORIZATION命令
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                        3905
+GaussDB
+集中式版参考                                                                        5 工具参考
+
+                       的转储，如果转储文件中对象的历史有问题，可能不能正确恢复。并且，使
+                       用SET SESSION AUTHORIZATION的转储需要数据库系统管理员权限才能成
+                       功，而ALTER OWNER需要的权限比较低。此外，SET SESSION
+                       AUTHORIZATION部分支持直接使用密文密码，因此使用此参数导出的脚本
+                       可能无法正常恢复，不建议使用此参数导出。
+                               说明
+
+                           SET SESSION AUTHORIZATION使用范围：
+                           ● 系统管理员可以通过SET SESSION AUTHORIZATION语句切换到普通用户，无法
+                             切换到初始用户、其他sysadmin、opradmin、monadmin、poladmin和
+                             auditadmin。
+                           ● 其他用户无法通过SET SESSION AUTHORIZATION语句切换用户。
+                           使用--use-set-session-authorization参数导出，并以系统管理员身份进行导入时，如
+                           果导入的数据中包含初始用户的对象，由于安全权限的校验及以上使用范围的限制，
+                           从系统管理员向初始用户切换用户时，会报错ERROR: permission denied to set
+                           session authorization。导致初始用户对象的属主变为导入时使用的系统管理员角
+                           色。此种场景推荐使用初始用户进行导入导出。
+                 –     --all
+                       表示调用来自于gs_dumpall。除了需要导出触发器场景之外，不建议使用此
+                       参数。
+                 –     --with-copy-format=FILE_FORMAT
+                       指定gs_dump导出的数据文件格式。
+                               说明
+
+                           ● FILE_FORMAT值为字符串类型，只允许输入TEXT和CSV格式，默认取值为TEXT格
+                             式。
+                           ● 仅在目录归档模式下，支持FILE_FORMAT值为CSV格式。
+                           ● 指定FILE_FORMAT值为CSV时，不支持与--inserts、--column-inserts、--
+                             attribute-inserts参数同时使用。
+                           ● 使用目录归档模式进行导出后，必须使用gs_restore工具进行导入恢复，用户不需
+                             要关心导出的数据文件格式。若用户明确需要导出的数据文件格式为CSV，则可
+                             以指定--with-copy-format=CSV进行导出。
+                 –     --with-encryption=AES128
+                       指定转储数据用AES128进行加密。
+                 –     --with-key=KEY
+                       AES128密钥规则如下：
+
+                       ▪       密钥长度为8~16个字符。
+
+                       ▪       至少包含大写字母（A-Z），小写字母（a-z），数字（0-9），非字母数
+                               字字符（限定为~!@#$%^&*()-_=+\|[{}];:,<.>/?）四类字符中的三类字
+                               符。
+                               说明
+
+                           不支持加密导出存储过程和函数。
+                 –     --with-salt=RANDVALUES
+                       gs_dumpall使用此参数传递随机值。
+                 –     --include-extensions
+                       在转储中包含扩展。
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                               3906
+GaussDB
+集中式版参考                                                                                              5 工具参考
+
+
+                           须知
+
+                       扩展功能为内部使用功能，只允许操作数据库内部的高级包或扩展。
+
+                 –     --include-depend-objs
+                       备份结果包含依赖于指定对象的对象信息。该参数需要同-t/--include-table-
+                       file参数关联使用才会生效。
+                 –     --exclude-self
+                       备份结果不包含指定对象自身的信息。该参数需要同-t/--include-table-file参
+                       数关联使用才会生效。
+                 –     --pipeline
+                       使用管道传输密码，禁止在终端使用。
+                 –     --no-transaction
+                       默认情况下，导出的文件(纯文本格式)会为 CREATE 和 ALTER ... OWNER TO
+                       这类 DDL 语句以及SET SESSION AUTHORIZATION和RESET SESSION
+                       AUTHORIZATION语句单独添加事务块。如果开启该选项，这些语句将直接
+                       输出，而不会被额外包裹在 BEGIN/COMMIT 中。
+                 –     --dont-overwrite-file
+                       文本、tar以及自定义格式情况下会重写现有文件。对目录格式不适用。
+                       例如：
+                       设想这样一种情景，即当前目录下backup.sql已存在。如果在输入命令中输
+                       入-f backup.sql选项时，当前目录恰好也生成backup.sql，文件就会被重写。
+                       如果备份文件已存在，且输入--dont-overwrite-file选项，则会报告附带‘转
+                       储文件已经存在’信息的错误。
+                       gs_dump -p port_number testdb -f backup.sql -F plain --dont-overwrite-file
+
+                        说明
+
+                       ● -s/--schema-only和-a/--data-only不能同时使用。
+                       ● -c/--clean和-a/--data-only不能同时使用。
+                       ● --inserts/--column-inserts和-o/--oids不能同时使用，因为INSERT命令不能设置
+                         OIDS。
+                       ● --role和--rolepassword必须一起使用。
+                       ● --binary-upgrade-usermap和--binary-upgrade必须一起使用。
+                       ● --include-depend-objs/--exclude-self需要同-t/--include-table-file参数关联使用才会
+                         生效。
+                       ● --exclude-self必须同--include-depend-objs一起使用。
+                       ● --with-encryption=AES128仅支持-F p/plain。
+                       ● --with-key=KEY仅支持-F p/plain。
+                       ● --with-salt=RANDVALUES由gs_dumpall调用，不需要用户手动输入。
+                 连接参数：
+                 –     -h, --host=HOSTNAME
+                       指定主机名称。如果数值以斜杠开头，则被用作Unix域套接字的路径。缺省
+                       从PGHOST环境变量中获取（如果已设置）。
+                       该参数只针对数据库外，对数据库内本机IPv4用127.0.0.1，IPv6用::1。
+                 –     -p, --port=PORT
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                3907
+GaussDB
+集中式版参考                                                                                                   5 工具参考
+
+                         指定主机端口。在开启线程池情况下，建议使用pooler port，即主机端口
+                         +1。缺省从PGPORT环境变量中获取（如果已设置）。
+                   –     -U, --username=NAME
+                         指定所连接主机的用户名，跨节点执行不支持使用初始用户。缺省从PGUSER
+                         环境变量中获取（如果已设置）。
+                               说明
+
+                              使用普通用户权限导出、普通用户权限导入时，在导入前需要给普通用户赋予对应数
+                              据库创建schema权限，如：GRANT CREATE ON DATABASE db_xxx TO user_xxx。
+                   –     -w, --no-password
+                         不出现输入密码提示。如果主机要求密码认证并且密码没有通过其他形式给
+                         出，则连接尝试将会失败。 该选项在批量工作和不存在用户输入密码的脚本
+                         中很有帮助。
+                   –     -W, --password=PASSWORD
+                         指定用户连接的密码。当主机的认证策略是trust时，不会对系统管理员进行
+                         密码验证，即无需输入-W选项；如果不加此参数且不是系统管理员，则会提
+                         示交互式输入。为了系统安全，推荐使用交互式输入密码方式。
+                   –     --role=ROLENAME
+                         指定创建转储使用的角色名。选择该选项，会使gs_dump连接数据库后，发
+                         起一个SET ROLE角色名命令。当所授权用户（由-U指定）没有gs_dump要求
+                         的权限时，该选项会起到作用，即切换到具备相应权限的角色。某些安装操
+                         作规定不允许直接以超系统管理员身份登录，而使用该选项能够在不违反该
+                         规定的情况下完成转储。
+                   –     --rolepassword=ROLEPASSWORD
+                         指定角色名的密码。
+
+示例
+              以下示例中，“backup/MPPDB_backup.sql”表示导出的文件，其中backup表示相对
+              于当前目录的相对目录；“37300”表示数据库服务器端口；“testdb”表示要访问的
+              数据库名。
+
+                    说明
+
+                  导出操作时，请确保该目录存在并且当前的操作系统用户对其具有读写权限。
+
+              示例一
+              执行gs_dump，导出testdb数据库全量信息，导出的MPPDB_backup.sql文件格式为纯
+              文本格式。
+              gs_dump -U omm -f backup/MPPDB_backup.sql -p 37300 testdb -F p
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 09:49:17]: The total objects number is
+              356.
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 09:49:17]: [100.00%] 356 objects have
+              been dumped.
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 09:49:17]: dump database testdb
+              successfully
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 09:49:17]: total time: 1274 ms
+
+              示例二
+              执行gs_dump，导出testdb数据库全量信息，导出的MPPDB_backup.tar文件格式为
+              tar格式。
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                       3908
+GaussDB
+集中式版参考                                                                                                   5 工具参考
+
+              gs_dump -U omm -f backup/MPPDB_backup.tar -p 37300 testdb -F t
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 10:02:24]: The total objects number is
+              1369.
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 10:02:53]: [100.00%] 1369 objects have
+              been dumped.
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 10:02:53]: dump database testdb
+              successfully
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 10:02:53]: total time: 50086 ms
+
+              示例三
+
+              执行gs_dump，导出testdb数据库全量信息，导出的MPPDB_backup.dmp文件格式为
+              自定义归档格式。
+              gs_dump -U omm -f backup/MPPDB_backup.dmp -p 37300 testdb -F c
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 10:05:40]: The total objects number is
+              1369.
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 10:06:03]: [100.00%] 1369 objects have
+              been dumped.
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 10:06:03]: dump database testdb
+              successfully
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 10:06:03]: total time: 36620 ms
+
+              示例四
+
+              执行gs_dump，导出testdb数据库全量信息，导出的MPPDB_backup文件格式为目录
+              格式。
+              gs_dump -U omm -f backup/MPPDB_backup -p 37300 testdb -F d
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 10:16:04]: The total objects number is
+              1369.
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 10:16:23]: [100.00%] 1369 objects have
+              been dumped.
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 10:16:23]: dump database testdb
+              successfully
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 10:16:23]: total time: 33977 ms
+
+              示例五
+
+              执行gs_dump，导出testdb数据库信息，但不导出/home/MPPDB_temp.sql中指定的
+              表信息。导出的MPPDB_backup.sql文件格式为纯文本格式。
+              gs_dump -U omm -p 37300 testdb --exclude-table-file=/home/MPPDB_temp.sql -f backup/
+              MPPDB_backup.sql
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 10:37:01]: The total objects number is
+              1367.
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 10:37:22]: [100.00%] 1367 objects have
+              been dumped.
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 10:37:22]: dump database testdb
+              successfully
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-27 10:37:22]: total time: 37017 ms
+
+              示例六
+
+              执行gs_dump，仅导出依赖于指定表testtable的视图信息。
+              gs_dump -U omm -s -p 37300 testdb -t PUBLIC.testtable --include-depend-objs --exclude-self -f backup/
+              MPPDB_backup.sql -F p
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-15 14:12:54]: The total objects number is
+              331.
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-15 14:12:54]: [100.00%] 331 objects have
+              been dumped.
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-15 14:12:54]: dump database testdb
+              successfully
+              gs_dump[user='omm'][localhost][port='37300'][testdb][2018-06-15 14:12:54]: total time: 327 ms
+
+              示例七
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                       3909
+GaussDB
+集中式版参考                                                                                                  5 工具参考
+
+              在多租场景下，执行gs_dump，导出名称为testpdb的PDB的全量信息，导出的
+              backup_pdb.sql文件格式为纯文本格式。
+              gs_dump -U omm testpdb -f backup/backup_pdb.sql -p 20000 -F p
+              gs_dump[user='omm'][localhost][port='20000'][testpdb][2024-04-26 17:41:21]: The total objects number is
+              459.
+              gs_dump[user='omm'][localhost][port='20000'][testpdb][2024-04-26 17:41:21]: [100.00%] 459 objects have
+              been dumped.
+              gs_dump[user='omm'][localhost][port='20000'][testpdb][2024-04-26 17:41:21]: dump database testpdb
+              successfully
+              gs_dump[user='omm'][localhost][port='20000'][testpdb][2024-04-26 17:41:21]: total time: 5427 ms
+
+              示例八
+
+              在多租场景下，执行gs_dump，导出名称为testpdb的PDB的全量信息，导出的
+              backup_pdb_t.tar文件格式为tar格式。
+              gs_dump -U omm testpdb -p 20000 -f backup/backup_pdb_t.tar -F t
+              gs_dump[user='omm'][localhost][port='20000'][testpdb][2024-04-26 17:02:40]: The total objects number is
+              459.
+              gs_dump[user='omm'][localhost][port='20000'][testpdb][2024-04-26 17:02:40]: [100.00%] 459 objects have
+              been dumped.
+              gs_dump[user='omm'][localhost][port='20000'][testpdb][2024-04-26 17:02:40]: dump database testpdb
+              successfully
+              gs_dump[user='omm'][localhost][port='20000'][testpdb][2024-04-26 17:02:40]: total time: 5506 ms
+
+              示例九
+
+              在多租场景下，执行gs_dump，导出名称为testpdb的PDB的全量信息，导出的
+              backup_pdb_c文件格式为自定义归档格式。
+              gs_dump -U omm testpdb -p 20000 -f backup/backup_pdb_c -F c
+              gs_dump[user='omm'][localhost][port='20000'][testpdb][2024-04-26 16:57:19]: The total objects number is
+              459.
+              gs_dump[user='omm'][localhost][port='20000'][testpdb][2024-04-26 16:57:19]: [100.00%] 459 objects have
+              been dumped.
+              gs_dump[user='omm'][localhost][port='20000'][testpdb][2024-04-26 16:57:19]: dump database testpdb
+              successfully
+              gs_dump[user='omm'][localhost][port='20000'][testpdb][2024-04-26 16:57:19]: total time: 5622 ms
+
+              示例十
+
+              在多租场景下，执行gs_dump，导出名称为testpdb的PDB的全量信息，导出的
+              backup_pdb_dir文件格式为目录格式。
+              gs_dump -U omm testpdb -p 20000 -f backup/backup_pdb_dir -F d
+              gs_dump[user='omm'][localhost][port='20000'][testpdb][2024-04-26 17:05:46]: The total objects number is
+              459.
+              gs_dump[user='omm'][localhost][port='20000'][testpdb][2024-04-26 17:05:46]: [100.00%] 459 objects have
+              been dumped.
+              gs_dump[user='omm'][localhost][port='20000'][testpdb][2024-04-26 17:05:46]: dump database testpdb
+              successfully
+              gs_dump[user='omm'][localhost][port='20000'][testpdb][2024-04-26 17:05:46]: total time: 5680 ms
+
+              示例十一
+
+              在多租场景下，执行gs_dump，使用-C, --create选项导出名称为testpdb的PDB的全量
+              信息，gs_dump报错退出。
+              gs_dump -U omm testpdb -C -p 20000 -f backup/backup_pdb_dir -F d
+              gs_dump unsupport the '-C, --create' option for pdb.
+
+
+相关工具
+              gs_dumpall导出所有数据库信息，gs_restore导入数据，gsql连接数据库
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                      3910
+GaussDB
+集中式版参考                                                                5 工具参考
+
+
+5.7.4 gs_dumpall 导出所有数据库信息
+工具介绍
+              gs_dumpall是GaussDB用于导出所有数据库相关信息工具，它可以导出数据库的所有
+              数据，包括默认数据库postgres的数据、自定义数据库的数据、所有数据库公共的全
+              局对象。
+              gs_dumpall工具在进行数据导出时，其他用户可以访问数据库（读或写）。
+              gs_dumpall工具支持导出完整一致的数据。例如，T1时刻启动gs_dumpall导出整个数
+              据库，那么导出数据结果将会是T1时刻该数据库的数据状态，T1时刻之后对数据库的
+              修改不会被导出。
+              gs_dumpall时HTAP表创建IMCV元信息（gs_imcv系统表）不会被转储。
+              gs_dumpall在导出所有数据库时分为两部分：
+
+              ●   gs_dumpall自身对所有数据库公共的全局对象进行导出，包括有关数据库用户和
+                  组，表空间以及属性（例如，适用于数据库整体的访问权限）信息。
+              ●   gs_dumpall通过调用gs_dump来完成数据库中各数据库的SQL脚本文件导出，该
+                  脚本文件包含将数据库恢复为其保存时的状态所需要的全部SQL语句。
+              以上两部分导出的结果为纯文本格式的SQL脚本文件，使用gsql连接数据库运行该脚
+              本文件可以恢复数据库。
+              gs_dumpall支持SSL加密通信，使用方式同gsql方式。
+              使用gs_dumpall前请确保gs_dumpall版本与gs_dump版本、数据库版本保持一致，高
+              版本gs_dump、gs_dump不保证完全兼容低版本内核数据。
+              gs_dumpall使用时会调用gs_dump，因此一些关于数据库内对象导出的约束与
+              gs_dump相同。
+
+                  说明
+
+                  M-Compatibility模式数据库下，禁止在lower_case_table_names参数不同的实例之间进行导入
+                  导出，否则可能引起数据丢失。
+
+
+注意事项
+              ●   禁止修改导出的文件和内容，否则可能无法恢复成功。
+              ●   为了保证数据一致性和完整性，gs_dumpall会对需要转储的表设置共享锁。如果
+                  某张表在别的事务中设置了共享锁，gs_dumpall会等待此表的锁释放后锁定此
+                  表。如果无法在指定时间内锁定某张表，转储会失败。用户可以通过指定--lock-
+                  wait-timeout选项，自定义等待锁超时时间。
+              ●   由于gs_dumpall读取所有数据库中的表，因此必须以数据库管理员身份进行连
+                  接，才能导出完整文件。在使用gsql执行脚本文件导入时，同样需要管理员权
+                  限，以便添加用户和组，以及创建数据库。导入备份前，验证其安全性，防止管
+                  理员权限被利用。
+              ●   使用gs_dumpall导出所有数据库对象，并希望在新的实例环境上进行导入时，需
+                  要保证导出和导入时使用用户的名称和权限相同，否则会出现名称不一致或权限
+                  不足的报错。
+              ●   gs_dumpall导出的文件，在新的实例环境上进行导入时，连接的数据库必须是默
+                  认database。否则可能出现语法不兼容的情况，导致导入出错。
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                           3911
+GaussDB
+集中式版参考                                                                              5 工具参考
+
+
+              ●    对于定时任务，本工具仅支持导出在B兼容性数据库中，通过CREATE EVENT创建
+                   的定时任务或通过高级包创建的非周期性定时任务。
+              ●    gs_dumpall不支持导出自定义Tokenweight分词词典，可以根据报错WARNING:
+                   dictionary xx cannot be automatically exported, please create it manually手动
+                   创建对应分词词典。
+              ●    当导出的数据库中包含PDB时，使用gs_dumpall不会导出模板PDB及创建的
+                   PDB。
+              ●    gs_dumpall时HTAP表创建IMCV元信息（gs_imcv系统表）不会被转储。
+              ●    当指定转储编码存在转码场景时，且表中的数据存在非法编码的数据，导出会报
+                   错invalid byte sequence，建议使用gs_dump的-s参数只导出定义，并单独使用
+                   COPY打开编码容错进行数据的导出与导入。
+              ●    M-Compatibility模式数据库下，含零字符（'\0' ASCII码为0）数据进行
+                   gs_dumpall操作时存在数据截断。
+              ●    gs_dumpall当前设计不兼容三权分立，三权分立下仅可通过初始用户使用
+                   gs_dumpall工具。导入的文件也需要通过初始用户执行。
+              ●    使用系统管理员用户执行gs_dumpall导出时，不会导出初始用户创建的对象，初
+                   始用户创建的对象需要使用初始用户进行导出。
+              ●    当导出对象中包含依赖package内部函数的视图时，在首次导入目标端时会产生视
+                   图依赖对象不存在的错误，此时需要使用gs_dumpall --schema-only备份元数
+                   据，并再次导入到目标端即可正确。
+              ●    gs_dumpall默认会导出失效视图，如果导出的视图中有失效视图会打印提示，在
+                   507.0之前版本导入时可能会报错。可指定--ignore-invalid-views选项，不导出失
+                   效视图。
+
+命令格式
+              gs_dumpall [OPTION]...
+
+
+参数说明
+              通用参数：
+
+              ●    -f, --filename=FILE_NAME
+                   将输出发送至指定文件。如果这里省略，则使用标准输出。
+              ●    -v, --verbose
+                   指定verbose模式。该选项将导致gs_dumpall向转储文件输出详细的对象注解和启
+                   动/停止次数，向标准错误流输出处理信息。
+              ●    -V, --version
+                   打印gs_dumpall版本，然后退出。
+              ●    --lock-wait-timeout=TIMEOUT
+                   请勿在转储刚开始时一直等待以获取共享表锁。如果无法在指定时间内锁定某个
+                   表，就选择失败。参数单位为ms（毫秒）。可以以任何符合SET
+                   statement_timeout的格式指定超时时间。
+              ●    -?, --help
+                   显示gs_dumpall命令行参数帮助，然后退出。
+              ●    --ignore-invalid-views
+                   指定该参数时，不会导出失效视图，导出时发现有失效视图会打印提示。
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                 3912
+GaussDB
+集中式版参考                                                                5 工具参考
+
+              转储参数：
+
+              ●   -a, --data-only
+                  只转储数据，不转储模式（数据定义）。
+              ●   -c, --clean
+                  在重新创建数据库之前，执行SQL语句清理（删除）这些数据库。针对角色和表
+                  空间的转储命令已添加。
+              ●   -g, --globals-only
+                  只转储全局对象（角色和表空间），无数据库。
+              ●   -o, --oids
+                  转储每个表的对象标识符（OIDs），作为表的一部分数据。该选项用于应用以某
+                  种方式（例如：外键约束方式）参照了OID列的情况。如果不是以上这种情况，
+                  请勿使用该选项。
+              ●   -O, --no-owner
+                  不输出设置对象的归属这样的命令，以匹配原始数据库。默认情况下，
+                  gs_dumpall会发出ALTER OWNER或SET SESSION AUTHORIZATION语句设置所
+                  创建的模式元素的所属。如果脚本正在运行，该语句不会执行成功，除非是由系
+                  统管理员触发（或是拥有脚本中所有对象的同一个用户）。通过指定-O，编写一
+                  个任何用户都能存储的脚本，且该脚本会授予该用户拥有所有对象的权限，因为
+                  没有使用ALTER OWNER或SET SESSION AUTHORIZATION语句，导入时一直使
+                  用执行用户权限，所以在导入前请确认转储文件内是否存在风险。例如，检查转
+                  储文件中是否包含提权语句，且该语句管理员是否知晓。
+              ●   -r, --roles-only
+                  只转储角色，不转储数据库或表空间。
+              ●   -s, --schema-only
+                  只转储对象定义（模式），而非数据。
+              ●   -S, --sysadmin=NAME
+                  该参数为扩展预留接口，不建议使用。
+              ●   -t, --tablespaces-only
+                  只转储表空间，不转储数据库或角色。
+              ●   -x, --no-privileges
+                  防止转储访问权限（授权/撤销命令）。
+              ●   --column-inserts/--attribute-inserts
+                  以INSERT命令带列名的方式导出数据。这会导致恢复缓慢。但是由于该选项会针
+                  对每行生成一个独立分开的命令，所以在重新加载某行时出现的错误只会导致失
+                  败语句对应的数据丢失，而非整个表内容。
+
+                       说明
+
+                       M-Compatibility模式数据库不支持该选项，导出M-Compatibility模式数据库时会跳过该
+                       选项。
+              ●   --disable-triggers
+                  该参数为扩展预留接口，不建议使用。
+              ●   --inserts
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                   3913
+GaussDB
+集中式版参考                                                                    5 工具参考
+
+                  发出INSERT命令（而非COPY命令）时转储数据。这会导致恢复缓慢。注意如果
+                  重排列顺序，可能会导致恢复整个失败。--column-inserts选项更加安全，虽然可
+                  能更慢些。
+                        说明
+
+                       M-Compatibility模式数据库不支持该选项，导出M-Compatibility模式数据库时会跳过该
+                       选项。
+              ●   --no-security-labels
+                  该参数为扩展预留接口，不建议使用。
+              ●   --no-tablespaces
+                  请勿输出创建表空间的命令，也请勿针对对象选择表空间。使用该选项，无论默
+                  认表空间是哪一个，在恢复过程中所有对象都会被创建。
+              ●   --no-unlogged-table-data
+                  该参数为扩展预留接口，不建议使用。
+              ●   --include-alter-table
+                  导出表中已删除的列信息。
+              ●   --quote-all-identifiers
+                  强制对所有标识符加引号。为了向后续版本迁移，且其中可能涉及引入额外关键
+                  词，在转储相应数据库时该选项会有帮助。
+                        说明
+
+                       M-Compatibility模式数据库不支持该选项，导出M-Compatibility模式数据库时会跳过该
+                       选项。
+              ●   --dont-overwrite-file
+                  不重写当前文件。
+              ●   --use-set-session-authorization
+                  输出符合SQL标准的SET SESSION AUTHORIZATION命令而不是ALTER OWNER
+                  命令来确定对象所有权。这样令转储更加符合标准，但是如果转储文件中的对象
+                  的历史有些问题，那么可能不能正确恢复。并且，使用SET SESSION
+                  AUTHORIZATION的转储需要数据库系统管理员的权限才能转储成功，而ALTER
+                  OWNER需要的权限则低得多。但是SET SESSION AUTHORIZATION部分支持使
+                  用密文密码随意切换用户及权限，因为使用此参数导出的脚本可能无法正常恢
+                  复，不建议使用此参数导出。
+                        说明
+
+                       SET SESSION AUTHORIZATION使用范围：
+                       ● 系统管理员可以通过SET SESSION AUTHORIZATION语句切换到普通用户，无法切换
+                         到初始用户, 其他sysadmin、opradmin、monadmin、poladmin和auditadmin。
+                       ● 其他用户无法通过SET SESSION AUTHORIZATION语句切换用户。
+              ●   --with-encryption=AES128
+                  指定转储数据需用AES128进行加密。
+              ●   --with-key=KEY
+                  AES128密钥规则如下：
+                  –    密钥长度为8~16个字符。
+                  –    至少包含大写字母（A-Z），小写字母（a-z），数字（0-9），非字母数字字
+                       符（限定为~!@#$%^&*()-_=+\|[{}];:,<.>/?）四类字符中的三类字符。
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                         3914
+GaussDB
+集中式版参考                                                                 5 工具参考
+
+
+              ●   --include-extensions
+                  如果include-extensions参数被设置，将备份所有的CREATE EXTENSION语句。
+
+
+                       须知
+
+                  扩展功能为内部使用功能，只允许操作数据库内部的高级包或扩展。
+
+              ●   --include-templatedb
+                  转储过程中包含模板库。
+              ●   --binary-upgrade
+                  该参数为扩展预留接口，不建议使用。
+                        说明
+
+                       M-Compatibility数据库不支持该选项，导出M-Compatibility数据库时会跳过该选项。
+              ●   --binary-upgrade-usermap="USER1=USER2"
+              ●   该参数为扩展预留接口，不建议使用。
+              ●   --non-lock-table
+                  该参数仅供软件间接口调用。
+              ●   --tablespaces-postfix
+                  该参数为扩展预留接口，不建议使用。
+              ●   --parallel-jobs
+                  指定备份进程并发数，取值范围为1~1000。
+              ●   --no-transaction
+                  默认情况下，导出的文件(纯文本格式)会为 CREATE 和 ALTER ... OWNER TO 这
+                  类 DDL 语句以及SET SESSION AUTHORIZATION和RESET SESSION
+                  AUTHORIZATION语句单独添加事务块。如果开启该选项，这些语句将直接输
+                  出，而不会被额外包裹在 BEGIN/COMMIT 中。
+              ●   --pipeline
+                  使用管道传输密码，禁止在终端使用。
+
+                   说明
+
+                  ● -g/--globals-only和-r/--roles-only不能同时使用。
+                  ● -g/--globals-only和-t/--tablespaces-only不能同时使用。
+                  ● -r/--roles-only和-t/--tablespaces-only不能同时使用。
+                  ● -s/--schema-only和-a/--data-only不能同时使用。
+                  ● -r/--roles-only和-a/--data-only不能同时使用。
+                  ● -t/--tablespaces-only和-a/--data-only不能同时使用。
+                  ● -g/--globals-only和-a/--data-only不能同时使用。
+                  ● --tablespaces-postfix和--binary-upgrade必须一起使用。
+                  ● --binary-upgrade-usermap和--binary-upgrade必须一起使用。
+                  ● --parallel-jobs和-f/--file必须一起使用。
+
+              连接参数：
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                     3915
+GaussDB
+集中式版参考                                                                5 工具参考
+
+
+              ●   -h, --host=HOSTNAME
+                  指定主机的名称。如果取值是以斜线开头，它将用作Unix域套接字的目录。默认
+                  值取自PGHOST环境变量；如果没有设置，将启动某个Unix域套接字建立连接。
+                  该参数只针对数据库外，对数据库内本机IPv4用127.0.0.1，IPv6用::1。
+                  环境变量：PGHOST
+              ●   -l, --database=DATABASENAME
+                  指定所连接的转储全局对象的数据库名称，并去寻找还有其他哪些数据库需要被
+                  转储。如果没有指定，会使用postgres数据库，如果postgres数据库不存在，会使
+                  用template1。
+                       说明
+
+                       无论指定哪一个数据库作为导出时连接的数据库，在新实例环境上使用gsql进行导入时，
+                       必须连接postgres，否则可能出现语法不兼容的情况，导致导入出错。特别地，如果错误
+                       地连接M-compatibility数据库进行导入时，由于M-compatibility数据库下CREATE
+                       DATABASE等价于CREATE SCHEMA会导致创建失败。
+              ●   -p, --port=PORT
+                  指定服务器所侦听的TCP端口或本地Unix域套接字后缀，以确保连接。默认值设置
+                  为PGPORT环境变量。
+                  在开启线程池情况下，建议使用 pooler port，即侦听端口+1。
+                  环境变量：PGPORT
+              ●   -U, --username=NAME
+                  所连接的用户名，跨节点执行不支持使用初始用户。
+                  环境变量：PGUSER
+              ●   -w, --no-password
+                  不出现输入密码提示。如果服务器要求密码认证并且密码没有通过其他形式给
+                  出，则连接尝试将会失败。 该选项在批量工作和不存在用户输入密码的脚本中很
+                  有帮助。
+              ●   -W, --password=PASSWORD
+                  指定用户连接的密码。如果主机的认证策略是trust，则不会对系统管理员进行密
+                  码验证，即无需输入-W选项；如果不加此参数，并且不是系统管理员，则会提示
+                  交互式输入，为了系统安全，推荐使用交互式输入密码方式。
+              ●   --role=ROLENAME
+                  指定创建转储使用的角色名。选择该选项，会使gs_dumpall连接数据库后，发起
+                  一个SET ROLE角色名命令。当所授权用户（由-U指定）没有gs_dumpall要求的权
+                  限时，该选项会起到作用，即切换到具备相应权限的角色。某些安装操作规定不
+                  允许直接以系统管理员身份登录，而使用该选项能够在不违反该规定的情况下完
+                  成转储。
+              ●   --rolepassword=ROLEPASSWORD
+                  指定具体角色用户的角色密码。
+
+说明
+              ●   由于gs_dumpall内部调用gs_dump，所以一些诊断信息请参见gs_dump导出数据
+                  库信息。
+              ●   一旦恢复，建议在每个数据库上运行ANALYZE，优化程序提供有用的统计数据。
+              ●   gs_dumpall恢复前需要所有必要的表空间目录为空；否则，对于处在非默认位置
+                  的数据库，数据库创建会失败。
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                    3916
+GaussDB
+集中式版参考                                                                                                 5 工具参考
+
+
+示例
+              使用gs_dumpall一次导出数据库的所有数据库。
+
+                  说明
+
+                  gs_dumpall仅支持纯文本格式导出。所以只能使用gsql恢复gs_dumpall导出的转储内容。
+
+              ●   导出所有数据库。
+                  backup/bkp2.sql表示导出的文件，29900表示数据库服务器端口，omm为用户
+                  名。
+                  gs_dumpall -U omm -f ./backup/bkp2.sql -p 29900
+                  gs_dump[user='omm'][localhost][port='29900'][dbname='postgres'][2024-11-11 11:00:01]: The total
+                  objects number is 458.
+                  gs_dump[user='omm'][localhost][port='29900'][dbname='postgres'][2024-11-11 11:00:01]: [100.00%]
+                  458 objects have been dumped.
+                  gs_dump[user='omm'][localhost][port='29900'][dbname='postgres'][2024-11-11 11:00:01]: dump
+                  database dbname='postgres' successfully
+                  gs_dump[user='omm'][localhost][port='29900'][dbname='postgres'][2024-11-11 11:00:01]: total time:
+                  3239 ms
+                  gs_dumpall[user='omm'][localhost][port='29900'][2024-11-11 11:00:01]: dumpall operation successful
+                  gs_dumpall[user='omm'][localhost][port='29900'][2024-11-11 11:00:01]: total time: 3305 ms
+
+              ●   设置4并发导出所有数据库。
+                  gs_dumpall -U omm -f ./backup/bkp2.sql -p 29900 --parallel-jobs 4
+                  gs_dump[user='omm'][localhost][port='29900'][dbname='postgres'][2024-11-11 11:04:13]: The total
+                  objects number is 458.
+                  gs_dump[user='omm'][localhost][port='29900'][dbname='postgres'][2024-11-11 11:04:13]: [100.00%]
+                  458 objects have been dumped.
+                  gs_dump[user='omm'][localhost][port='29900'][dbname='postgres'][2024-11-11 11:04:13]: dump
+                  database dbname='postgres' successfully
+                  gs_dump[user='omm'][localhost][port='29900'][dbname='postgres'][2024-11-11 11:04:13]: total time:
+                  3261 ms
+                  gs_dumpall[user='omm'][localhost][port='29900'][2024-11-11 11:04:13]: dumpall operation successful
+                  gs_dumpall[user='omm'][localhost][port='29900'][2024-11-11 11:04:13]: total time: 3320 ms
+
+              ●   只导出全局对象（角色和表空间）。
+                  gs_dumpall -U omm -f ./backup/bkp2.sql -p 29900 -g
+                  gs_dumpall[user='omm'][localhost][port='29900'][2024-11-11 11:06:00]: dumpall operation successful
+                  gs_dumpall[user='omm'][localhost][port='29900'][2024-11-11 11:06:00]: total time: 45 ms
+
+              ●   指定导出文件用AES128进行加密。
+                  使用实际的密码替换********。
+                  gs_dumpall -U omm -f ./backup/bkp2.sql -p 29900 --with-encryption=AES128 --with-key='********'
+                  gs_dump[user='omm'][localhost][port='29900'][dbname='postgres'][2024-11-11 11:07:20]: The total
+                  objects number is 459.
+                  gs_dump[user='omm'][localhost][port='29900'][dbname='postgres'][2024-11-11 11:07:20]: [100.00%]
+                  459 objects have been dumped.
+                  gs_dump[user='omm'][localhost][port='29900'][dbname='postgres'][2024-11-11 11:07:21]: dump
+                  database dbname='postgres' successfully
+                  gs_dump[user='omm'][localhost][port='29900'][dbname='postgres'][2024-11-11 11:07:21]: total time:
+                  3518 ms
+                  gs_dumpall[user='omm'][localhost][port='29900'][2024-11-11 11:07:21]: dumpall operation successful
+                  gs_dumpall[user='omm'][localhost][port='29900'][2024-11-11 11:07:21]: total time: 3764 ms
+
+
+相关命令
+              gs_dump导出数据库信息
+
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                      3917
+GaussDB
+集中式版参考                                                                     5 工具参考
+
+
+5.7.5 gs_restore 导入数据
+工具介绍
+              gs_restore是GaussDB提供的针对gs_dump导出数据的导入工具。通过此工具可将
+              gs_dump导出生成的文件进行导入。
+              主要功能包含：
+
+              ●    导入到数据库
+                   如果连接参数中指定了数据库，则数据将被导入到指定的数据库中。其中，并行
+                   导入必须指定连接的密码。导入时生成列会自动更新，并像普通列一样保存。
+                   如果连接参数中指定了PDB，则数据将被导入到指定的PDB中。
+                          说明
+
+                        ● 如果导入至指定的PDB，则不支持使用-C, --create选项。
+                        ● 如果导入指定的PDB处于close状态时，导入操作会执行失败。
+                        ● 如果导入指定的PDB设置事务为只读事务时，导入操作会执行失败。
+                        ● M-Compatibility模式数据库下，禁止在lower_case_table_names参数不同的实例之间
+                          进行导入导出，否则可能引起数据丢失。
+                        ● M-Compatibility模式数据库下，含零字符（'\0' ASCII码为0）数据进行gs_restore操作
+                          时存在数据截断。
+                        ● gs_restore当前设计不兼容三权分立，三权分立下仅可通过初始用户使用gs_restore工
+                          具。导入的文件也需要通过初始用户执行。
+              ●    导入到归档文件
+                   如果参数指定"-l"，则生成归档文件，其中包含简略的数据总结。
+              gs_restore支持SSL加密通信，使用方式同gsql方式。
+
+前提条件
+              使用gs_restore前请确保gs_restore版本与gs_dump版本、数据库版本保持一致。
+
+注意事项
+              ●    gs_restore恢复到新库中时，允许隐藏系统列上rowid的值发生变化，允许隐藏列
+                   关联的sequence值发生变化，数据类型为rowid的用户列数据不变。
+
+命令格式
+              gs_restore [OPTION]... FILE
+
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                     3918
+GaussDB
+集中式版参考                                                                   5 工具参考
+
+
+                  说明
+
+                  ● FILE没有短选项或长选项。用来指定归档文件所处的位置。
+                  ● 作为前提条件，需输入dbname或-l选项。不允许用户同时输入dbname和-l选项。
+                  ● gs_restore默认是以追加的方式进行数据导入。为避免多次导入造成数据异常，在进行导入
+                    时，建议选择使用“-c”和“-e”参数。“-c”表示在重新创建数据库对象前，清理（删
+                    除）已存在于将要还原的数据库中的数据库对象；“-e”表示当发送SQL语句到数据库时如
+                    果出现错误请退出，默认状态下会继续，且在导入后会显示一系列错误信息。
+                  ● 在进行导入时，如果schema对象的owner拥有OPRADMIN的系统权限，那么在导入时需要
+                    使用初始用户。
+                  ● 在进行导入时，如果数据中存在非法编码的数据并且不需要进行转码，可以配置数据库兼容
+                    性参数copy_special_character_version为'no_error'将非法编码的数据进行导入，否则会报
+                    错，但不会中断导入。
+
+
+参数说明
+              通用参数：
+
+              ●   -d, --dbname=NAME
+                  连接数据库dbname并直接导入到该数据库中。
+              ●   -f, --file=<FILE_NAME>
+                  指定生成归档的输出文件，使用-l时列表的输出文件。
+                  默认是标准输出。
+                         说明
+
+                       -f不能同-d一起使用。
+              ●   -F, --format=c|d|t
+                  指定归档格式。由于gs_restore会自动决定格式，因此不需要指定格式。
+                  取值范围：
+                  –     c/custom：该归档形式为gs_dump的自定义格式。
+                  –     d/directory：该归档形式是一个目录归档形式。
+                  –     t/tar：该归档形式是一个tar归档形式。
+              ●   -l, --list
+                  列出归档形式内容。这一操作的输出可用作-L选项的输入。
+                         说明
+
+                       如果类似-n或-t的过滤选项与-l同时使用，过滤选项将会限制列举的项目（即归档形式内
+                       容）。
+              ●   -v, --verbose
+                  指定verbose模式。
+              ●   -V, --version
+                  打印gs_restore版本，然后退出。
+              ●   -?, --help
+                  显示gs_restore命令行参数帮助，然后退出。
+
+              导入参数：
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                        3919
+GaussDB
+集中式版参考                                                                                                5 工具参考
+
+
+              ●   -a, -data-only
+                  只导入数据，不导入模式（数据定义）。gs_restore的导入是以追加方式进行的。
+              ●   -c, --clean
+                  在重新创建数据库对象前，清理（删除）已存在于将要还原的数据库中的数据库
+                  对象。如果目标数据库中没有删除操作涉及的对象，可能会输出一些提示性的错
+                  误信息。
+                        说明
+
+                       ● 备份文件中的删除数据库对象指令，均为非级联式删除的DROP命令。
+                       ● 连接database1在t1时刻使用-c参数导出表table1到backup01.dmp文件，t2时刻在
+                         database1中创建视图view1并依赖table1，t3使用gs_restore的-c参数将
+                         backup01.dmp恢复到database1中时，因为会使用非级联删除，在删除table1时会报
+                         错ERROR: table table cannot be dropped because other objects depend on it. 并在
+                         创建table1时报错ERROR: Relation "table1" already exists. 此时需要用户在评估影响
+                         后，手动对相关依赖对象进行删除，或手动执行级联删除命令。
+              ●   -C, --create
+                  导入数据库之前会先使用CREATE DATABASE创建数据库（指定该选项后，-d指定
+                  的数据库仅用于执行CREATE DATABASE命令，所有数据依然会导入到创建的数据
+                  库中）。
+                        说明
+
+                       ● 在多租场景下，使用gs_restore导入数据至PDB时，不支持使用该选项。
+                       ● 在M-Compatibility模式数据库下，不支持使用该选项。必须先在目标实例上创出M-
+                         Compatibility模式数据库，然后在源实例上导出，最后在目标实例连接新创出的M-
+                         Compatibility模式数据库导入。
+              ●   -e, --exit-on-error
+                  当发送SQL语句到数据库时如果出现错误，请退出。默认状态下会继续，且在导
+                  入后会显示一系列错误信息。
+              ●   -I, --index=NAME
+                  只导入已列举的index的定义。允许导入多个index。如果多次输入-I index导入多
+                  个index。
+                  例如：
+                  gs_restore -h host_name -p port_number -d testdb -I Index1 -I Index2 backup/MPPDB_backup.tar
+
+                  在上面这个例子中，Index1和Index2会被导入。
+              ●   -j, --jobs=NUM
+                  运行gs_restore最耗时的部分（如加载数据、创建index、或创建约束）使用并发
+                  任务。该选项能大幅缩短导入时间，即将一个大型数据库导入到某一多处理器的
+                  服务器上。
+                  每个任务可能是一个进程或一个线程，这由操作系统决定。每个任务与服务器进
+                  行单独连接。
+                  该选项的最优值取决于服务器的硬件设置、客户端、以及网络。还包括这些因
+                  素，如CPU核数量、硬盘设置。建议是从增加服务器上的CPU核数量入手，更大
+                  的值（服务器上CPU核数量）在很多情况下也能导致数据文件更快地被导入。相
+                  应地，过高的值会由于超负荷反而导致性能降低。
+                  该选项只支持自定义归档格式。输入文件必须是常规文件（不能是像pipe的文
+                  件）。如果是通过脚本文件，而非直接连接数据库服务器，该选项可忽略。而
+                  且，多任务不能与--single-transaction选项一起使用。
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                      3920
+GaussDB
+集中式版参考                                                                                                     5 工具参考
+
+
+                        说明
+
+                       ● 此参数适用于多表/多索引/多约束的情况。实际使用过程中，创建的进程数（或线程
+                         数）与表、索引、约束等的数量有关，最高并发不会超过给定的jobs数。
+                       ● 当gs_restore导入目标数据库是PDB时，该选项的最优值取决于分配给该PDB的资源规
+                         格。
+              ●   -L, --use-list=<FILE_NAME>
+                  只导入列举在list-file中的那些归档形式元素，导入顺序以它们在文件中的顺序为
+                  准。注意如果像-n或-t的过滤选项与-L使用，它们将会进一步限制导入的项目。
+                  一般情况下，list-file是通过编辑前面提到的某个-l参数的输出创建的。文件行的位
+                  置可更改或直接删除行，也可使用分号（;）在行的开始注出。见下文的举例。
+              ●   -n, --schema=NAME
+                  只导入已列举的模式中的对象。
+                  该选项可与-t选项一起用以导入某个指定的表。
+                  多次输入-n schemaname可以导入多个模式。
+                  例如：
+                  gs_restore -h host_name -p port_number -d testdb -n sch1 -n sch2 backup/MPPDB_backup.tar
+
+                  在上面这个例子中，sch1和sch2会被导入。
+                        说明
+
+                       ● M-Compatibility兼容模式下，通过CREATE DATABASE带templatem创建的数据库通
+                         过-d指定db_name导入数据，而通过CREATE DATABASE db_name创建出来的
+                         database等价于Schema，只能通过-n导入数据。
+                       ● 指定的模式名必须存在于作为输入的归档文件中，如果指定了归档文件中不存在的模式
+                         名，该模式的导入不生效。
+                       ● GaussDB会自动将对象名称中的大写字母转为小写，当模式名称中包含大写字母时，需
+                         要添加额外的引号，如：-n '"Sch1"' 或 -n "\"Sch1\""。
+              ●   -O, --no-owner
+                  不输出设置对象的归属这样的命令，以匹配原始数据库。默认情况下，gs_restore
+                  会发出ALTER OWNER或SET SESSION AUTHORIZATION语句设置所创建的模式
+                  元素的所属。除非是由系统管理员（或是拥有脚本中所有对象的同一个用户）进
+                  行数据库首次连接的操作，否则语句会失败。使用-O选项，任何用户名都可用于
+                  首次连接，且该用户拥有所有已创建的对象。
+              ●   -P, --function=NAME(args)
+                  只导入已列举的函数。请按照函数所在转储文件中的目录，准确拼写函数名称和
+                  参数。
+                  当-P单独使用时，表示导入文件中所有'function-name(args)'函数；当-P同-n一
+                  起使用时，表示导入指定模式下的'function-name(args)'函数；多次输入-P，而
+                  仅指定一次-n，表示所有导入的函数默认都是位于-n模式下的。
+                  可以多次输入-n schema-name -P 'function-name(args)'同时导入多个指定模式
+                  下的函数。
+                  例如：
+                  ./gs_restore -h host_name -p port_number -d testdb -n test1 -P 'Func1(integer)' -n test2 -P
+                  'Func2(integer)' backup/MPPDB_backup.tar
+
+                  在上面这个例子中，test1模式下的函数Func1(i integer)和test2模式下的函数
+                  Func2(j integer)会被一起导入。
+              ●   -s, --schema-only
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                       3921
+GaussDB
+集中式版参考                                                                                                     5 工具参考
+
+                  只导入模式（数据定义），不导入数据（表内容）。当前的序列值也不会导入。
+              ●   -S, --sysadmin=NAME
+                  该参数为扩展预留接口，不建议使用。
+              ●   -t, --table=NAME
+                  只导入已列举的表定义、数据或定义和数据。该选项与-n选项同时使用时，用来
+                  指定某个模式下的表对象。-n参数不输入时，默认为PUBLIC模式。多次输入-n
+                  <schemaname> -t <tablename>可以导入指定模式下的多个表。
+                  例如：
+                  导入PUBLIC模式下的table1
+                  gs_restore -h host_name -p port_number -d testdb -t table1 backup/MPPDB_backup.tar
+                  导入test1模式下的test1和test2模式下test2
+                  gs_restore -h host_name -p port_number -d testdb -n test1 -t test1 -n test2 -t test2 backup/
+                  MPPDB_backup.tar
+                  导入PUBLIC模式下的table1和test1 模式下test1
+                  gs_restore -h host_name -p port_number -d testdb -n PUBLIC -t table1 -n test1 -t table1 backup/
+                  MPPDB_backup.tar
+
+
+
+                       须知
+
+                  ● -t不支持schema_name.table_name的输入格式，指定此格式不会报错，但不
+                    会生效。
+                  ● 当-t已指定时，gs_restore不会导入已选表所附着的任何其他数据库对象。因
+                    此，无法保证某个指定表的转储结果能够自行成功地导入到一个空数据库中。
+                  ● -t tablename不会导入表上的触发器信息。
+
+              ●   -T, --trigger=NAME
+                  该参数为扩展预留接口。
+              ●   -x, --no-privileges/--no-acl
+                  防止导入访问权限（grant/revoke命令）。
+              ●   -1, --single-transaction
+                  执行导入作为一个单独事务。
+                  该选项确保要么所有命令成功完成，要么没有改变应用。该选项意为--exit-on-
+                  error。
+              ●   --disable-triggers
+                  该参数为扩展预留接口，不建议使用。
+              ●   --log-level=LOG|DEBUG|DEBUG1|DEBUG2|DEBUG3
+                  该选项将指定gs_restore的日志级别。LOG记录正常执行信息，DEBUG记录一些
+                  调试信息。DEBUG数字越大，日志级别越高，记录的信息越详细。
+              ●   --no-data-for-failed-tables
+                  默认状态下，即使创建表的命令失败（如表已经存在），表数据仍会被导入。使
+                  用该选项，像这种表的数据会被跳过。如果目标数据库已包含想要的表内容，这
+                  种行为会有帮助。
+                  该选项只有在直接导入到某数据库中时有效，不针对生成SQL脚本文件输出。
+              ●   --no-security-labels
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                        3922
+GaussDB
+集中式版参考                                                                           5 工具参考
+
+                   该参数为扩展预留接口，不建议使用。
+              ●    --no-tablespaces
+                   不输出选择表空间的命令。使用该选项，无论默认表空间是哪一个，在导入过程
+                   中所有对象都会被创建。
+              ●    --no-transaction
+                   默认情况下，CREATE 和 ALTER ... OWNER TO 以及SET SESSION
+                   AUTHORIZATION和RESET SESSION AUTHORIZATION这类语句默认会在单独的
+                   事务块中执行。如果开启该选项，这些语句将直接执行，而不会额外包裹在
+                   BEGIN/COMMIT 中。
+              ●    --section=SECTION
+                   导入已列举的区段（如pre-data、data、或post-data）。
+              ●    --use-set-session-authorization
+                   该选项用来进行文本格式的备份。
+                   输出SET SESSION AUTHORIZATION命令，而非ALTER OWNER命令，用以决定
+                   对象归属。该选项使转储更加兼容标准，但通过参考转储中对象的记录，导入过
+                   程可能会有问题。使用SET SESSION AUTHORIZATION的转储要求必须是系统管
+                   理员，同时在导入前还需参考"SET SESSION AUTHORIZATION"，手工对导出文
+                   件的密码进行修改验证，只有这样才能进行正确的导入操作，相比之下，ALTER
+                   OWNER对权限要求较低。
+                         说明
+
+                       使用--use-set-session-authorization参数，并以系统管理员身份进行导入时，如果导入的
+                       数据中包含初始用户的对象，由于安全权限的校验，从系统管理员向初始用户切换用户
+                       时，会报错ERROR: permission denied to set session authorization并中断导入。此种场
+                       景推荐使用初始用户进行导入导出。
+              ●    --pipeline
+                   使用管道传输密码，禁止在终端使用。
+
+
+
+                  须知
+
+              ● 如果安装过程中有任何本地数据要添加到template1数据库，请谨慎将gs_restore的
+                输出载入到一个真正的空数据库中；否则可能会因为被添加对象的定义被复制，而
+                出现错误。要创建一个无本地添加的空数据库，需从template0而非template1复
+                制，例如：
+                  gaussdb=# CREATE DATABASE foo WITH TEMPLATE template0;
+
+
+
+                    说明
+
+                   ● -d/--dbname 和 -f/--file 不能同时使用。
+                   ● -s/--schema-only 和 -a/--data-only不能同时使用。
+                   ● -c/--clean 和 -a/--data-only不能同时使用。
+                   ● 使用--single-transaction时，-j/--jobs必须为单任务。
+                   ● --role 和 --rolepassword必须一起使用。
+
+              连接参数：
+
+              ●    -h, --host=HOSTNAME
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                               3923
+GaussDB
+集中式版参考                                                                   5 工具参考
+
+                  指定的主机名称。如果取值是以斜线开头，他将用作Unix域套接字的目录。默认
+                  值取自PGHOST环境变量；如果没有设置，将启动某个Unix域套接字建立连接。
+                  该参数只针对数据库外，对数据库内本机IPv4用127.0.0.1，IPv6用::1。
+                  环境变量：PGHOST
+              ●   -p, --port=PORT
+                  指定服务器所监听的TCP端口或本地Unix域套接字后缀，以确保连接。默认值设置
+                  为PGPORT环境变量。
+                  在开启线程池情况下，建议使用 pooler port，即监听端口+1。
+                  环境变量：PGPORT
+              ●   -U, --username=NAME
+                  所连接的用户名，跨节点执行不支持使用初始用户。
+                  环境变量：PGUSER
+                        说明
+
+                       使用普通用户权限导出，普通用户权限导入时，在导入前需要给普通用户赋予对应数据库
+                       创建schema权限，如：grant create on database db_xxx to user_xxx;
+              ●   -w, --no-password
+                  不出现输入密码提示。如果服务器要求密码认证并且密码没有通过其他形式给
+                  出，则连接尝试将会失败。 该选项在批量工作和不存在用户输入密码的脚本中很
+                  有帮助。
+              ●   -W, --password=PASSWORD
+                  指定用户连接的密码。如果主机的认证策略是trust，则不会对系统管理员进行密
+                  码验证，即无需输入-W参数；如果不加此参数，并且不是系统管理员，则会提示
+                  交互式输入，为了系统安全，推荐使用交互式输入密码方式。
+              ●   --role=ROLENAME
+                  指定导入操作使用的角色名。选择该参数，会使gs_restore连接数据库后，发起一
+                  个SET ROLE角色名命令。当所授权用户（由-U指定）没有gs_restore要求的权限
+                  时，该参数会起到作用，即切换到具备相应权限的角色。某些安装操作规定不允
+                  许直接以初始用户身份登录，而使用该参数能够在不违反该规定的情况下完成导
+                  入。
+              ●   --rolepassword=ROLEPASSWORD
+                  指定具体角色用户的角色密码。
+
+示例
+              gs_restore用来导入由gs_dump生成的导出文件。
+              ●   示例1：执行gs_restore，将导出的MPPDB_backup.dmp文件（自定义归档格式）
+                  导入到testdb数据库。
+                  gs_restore backup/MPPDB_backup.dmp -p 8000 -d testdb
+                  restore operation successful
+                  total time: 13053 ms
+
+              ●   示例2：执行gs_restore，将导出的MPPDB_backup.tar文件（tar格式）导入到
+                  testdb数据库。
+                  gs_restore backup/MPPDB_backup.tar -p 8000 -d testdb
+                  restore operation successful
+                  total time: 21203 ms
+
+              ●   示例3：执行gs_restore，将导出的MPPDB_backup文件（目录格式）导入到
+                  testdb数据库。
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                      3924
+GaussDB
+集中式版参考                                                                                                  5 工具参考
+
+                  gs_restore backup/MPPDB_backup -p 8000 -d testdb
+                  restore operation successful
+                  total time: 21003 ms
+
+              ●   示例4：执行gs_restore，使用自定义归档格式的MPPDB_backup.dmp文件来进行
+                  如下导入操作。 导入PUBLIC模式下所有对象的定义和数据。在导入时会先删除已
+                  经存在的对象，如果原对象存在跨模式的依赖则需手工强制干预。
+                  gs_restore backup/MPPDB_backup.dmp -p 8000 -d testdb -e -c -n PUBLIC
+                  Error while PROCESSING TOC:
+                  Error from TOC entry 313; 1259 337399 TABLE table1 gaussdba
+                  could not execute query: ERROR: cannot drop table table1 because other objects depend on it
+                  DETAIL: view t1.v1 depends on table table1
+                  HINT: Use DROP ... CASCADE to drop the dependent objects too.
+                     Command was: DROP TABLE IF EXISTS public.table1;
+                  手工删除依赖，导入完成后再重新创建。
+                  gs_restore backup/MPPDB_backup.dmp -p 8000 -d testdb -e -c -n PUBLIC
+                  restore operation successful
+                  total time: 2203 ms
+
+              ●   示例5：执行gs_restore，使用自定义归档格式的MPPDB_backup.dmp文件来进行
+                  如下导入操作。只导入PUBLIC模式下表table1的定义。
+                  gs_restore backup/MPPDB_backup.dmp -p 8000 -d testdb -e -c -s -n PUBLIC -t table1
+                  restore operation successful
+                  total time: 21000 ms
+
+              ●   示例6：执行gs_restore，使用自定义归档格式的MPPDB_backup.dmp文件来进行
+                  如下导入操作。只导入PUBLIC模式下表table1的数据。
+                  gs_restore backup/MPPDB_backup.dmp -p 8000 -d testdb -e -a -n PUBLIC -t table1
+                  restore operation successful
+                  total time: 20203 ms
+
+              ●   示例7：在多租场景下，执行gs_restore，导入指定PDB_backup.dmp文件（自定
+                  义归档格式）到名称为testpdb的PDB。
+                  gs_restore backup/PDB_backup.dmp -p 20000 -d testpdb
+                  restore operation successful
+                  total time: 371 ms
+
+              ●   示例8：在多租场景下，执行gs_restore，导入指定PDB_backup.tar文件（tar归档
+                  格式）到名称为testpdb的PDB。
+                  gs_restore backup/PDB_backup.tar -p 20000 -d testpdb
+                  restore operation successful
+                  total time: 367 ms
+
+              ●   示例9：在多租场景下，执行gs_restore，导入指定PDB_backup目录文件（目录归
+                  档格式）到名称为testpdb的PDB。
+                  gs_restore backup/PDB_backup -p 20000 -d testpdb
+                  restore operation successful
+                  total time: 370 ms
+
+              ●   示例10：在多租场景下，执行gs_restore，使用-C, --create选项来进行导入操
+                  作，gs_restore报错退出。
+                  gs_restore backup/PDB_backup -C -p 20000 -d testpdb
+                  gs_restore unsupport the '-C, --create' option for pdb.
+
+              ●   特例：执行gsql程序，使用如下选项导入由gs_dump/gs_dumpall生成导出文件夹
+                  （纯文本格式）的MPPDB_backup.sql文件到testdb数据库。
+                  gsql -d testdb -p 8000 -f /home/omm/test/MPPDB_backup.sql
+                  SET
+                  SET
+                  SET
+                  SET
+                  SET
+                  ALTER TABLE
+                  ALTER TABLE
+                  ALTER TABLE
+                  ALTER TABLE
+                  ALTER TABLE
+                  CREATE INDEX
+
+
+文档版本 01 (2026-04-30)                   版权所有 © 华为云计算技术有限公司                                                       3925
+GaussDB
+集中式版参考                                                              5 工具参考
+
+                  CREATE INDEX
+                  CREATE INDEX
+                  SET
+                  CREATE INDEX
+                  REVOKE
+                  REVOKE
+                  GRANT
+                  GRANT
+                  total time: 30476 ms
+                  示例中“-f”后的是导出的文件，“8000”表示数据库服务器端口；“testdb”表示要访问的数据库名。
+
+
+相关命令
+              gs_dump导出数据库信息，gs_dumpall导出所有数据库信息
+
+
+5.8 数据库扩/缩容工具
+
+5.8.1 数据库扩/缩容工具概览
+              表 5-110 数据库扩/缩容工具概览
+
+               工具名称                     工具简介
+
+               gs_expand                对数据库节点进行扩容操作（扩分片及升副本）。详
+                                        细信息请参见gs_expand升副本。
+
+               gs_redis                 对扩容后的数据库执行数据重分布。详细信息请参见
+                                        gs_redis扩容后数据重分布。
+
+               gs_redis_bucket bucket   对扩容后的数据库中hashbucket、rangebucket表执
+                                        行数据重分布的工具。详细信息请参见
+                                        gs_redis_bucket bucket表执行数据重分布。
+
+               gs_shrink                对数据库节点进行缩容操作（缩分片及降副本）。详
+                                        细信息请参见gs_shrink缩容。
+
+
+
+
+5.8.2 gs_expand 升副本
+工具介绍
+              GaussDB提供了gs_expand工具，来帮助用户在部署数据库实例后，通过升副本的方式
+              增加系统可靠性。
+
+                   说明
+
+                  集中式仅支持升副本操作，且不支持单独调用。
+                  集中式单节点不支持该工具。
+
+
+扩容（升副本）前提条件
+              ●   升副本操作要求在数据库实例normal状态下进行，degraded和unavailable状态不
+                  支持升副本。
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                    3926
+

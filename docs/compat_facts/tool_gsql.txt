@@ -1,0 +1,3034 @@
+GaussDB
+集中式版参考                                                                                                 5 工具参考
+
+
+参数说明
+              ●    --delete-data
+                   删除数据文件。
+              ●    -L
+                   只卸载本地主机。如果数据库实例内某主机做单点卸载后，数据库实例不能再做
+                   全量卸载。
+              ●    -l
+                   指定日志文件名及可访问的绝对路径。在内部会自动给日志名添加一个时间戳。
+                   –     当既不明确指定-l，又不在XML文件中配置gaussdbLogPath时，默认值为
+                         “$GAUSSLOG/om/gs_uninstall-YYYY-MM-DD_hhmmss.log”。
+                   –     当不明确指定-l，但在XML文件中配置了gaussdbLogPath时，默认值为
+                         “gaussdbLogPath/用户名/om/gs_uninstall-YYYY-MM-
+                         DD_hhmmss.log”。
+
+                          说明
+
+                        由于在执行gs_uninstall时，系统会自动删除数据库实例相关目录。因此建议用户通过该参
+                        数指定日志文件到非GaussDB数据库实例相关路径。
+              ●    -?, --help
+                   显示帮助信息。
+              ●    -V, --version
+                   显示版本号信息。
+
+
+示例
+              使用数据库实例用户执行gs_uninstall脚本卸载数据库实例。
+              gs_uninstall --delete-data
+              Checking uninstallation.
+              Successfully checked uninstallation.
+              Stopping the cluster.
+              Successfully stopped the cluster.
+              Successfully deleted instances.
+              Uninstalling application.
+              Successfully uninstalled application.
+              Uninstallation succeeded.
+              Successfully uninstall cluster, for more message please see /home/omm/gs_uninstall.log
+
+
+
+相关工具
+              gs_install安装数据库，gs_postuninstall后置清理数据库
+
+
+5.3 数据库连接工具
+
+5.3.1 gsql 连接数据库
+
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                                3555
+GaussDB
+集中式版参考                                                           5 工具参考
+
+
+5.3.1.1 gsql 使用指导
+
+工具介绍
+              gsql是GaussDB提供在命令行下运行的数据库连接工具，可以通过此工具连接服务器
+              并对其进行操作和维护，除了具备操作数据库的基本功能，gsql还提供了若干高级功
+              能，便于用户使用。
+              基本功能：
+
+              ●   连接数据库：默认只支持从服务器本机连接，如果需要连接到远端的数据库，必
+                  须在服务端进行配置。详细操作请参见《开发指南》中“数据库使用入门 > 连接
+                  数据库 > 使用gsql连接”章节。
+                       说明
+
+                       gsql创建连接时，会有5分钟超时时间。如果在这个时间内，数据库未正确地接受连接并对
+                       身份进行认证，gsql将超时退出。针对此问题，可以参考FAQ。
+              ●   执行SQL语句：支持交互式地键入并执行SQL语句，也可以执行一个文件中指定的
+                  SQL语句。
+              ●   执行元命令：元命令可以帮助管理员查看数据库对象的信息、查询缓存区信息、
+                  格式化SQL输出结果，以及连接到新的数据库等。元命令的详细说明请参见元命
+                  令参考。
+              高级功能：
+              gsql的高级功能如表5-7所示。
+
+              表 5-7 gsql 高级功能
+               特性名称         描述
+
+               变量           gsql提供类似于Linux的shell命令的变量特性，可以使用gsql的元命令
+                            \set设置一个变量，格式如下：
+                            \set varname value
+                            删除由\set命令设置的变量请使用如下方式：
+                            \unset varname
+                            说明
+                              ● 变量只是简单的名称/值对，这里的值可以是任意长度。
+                              ● 变量名称必须由字母（包括非拉丁字母）、数字和下划线组成，且对大小写
+                                敏感。
+                              ● 如果使用\set varname的格式（不带第二个参数），则只是设置这个变量而
+                                没有给变量赋值。
+                              ● 可以使用不带参数的\set来显示所有变量的值。
+                            变量的示例和详细说明请参见变量。
+
+               SQL代换        利用gsql的变量特性，可以将常用的SQL语句设置为变量，以简化操
+                            作。
+                            SQL代换的示例和详细说明请参见SQL代换。
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                3556
+GaussDB
+集中式版参考                                                                        5 工具参考
+
+
+               特性名称           描述
+
+               自定义提示          gsql使用的提示符支持用户自定义。可以通过修改gsql预留的三个变量
+               符              PROMPT1、PROMPT2、PROMPT3来改变提示符。
+                              这三个变量的值可以用户自定义，也可以使用gsql预定义的值。详细
+                              请参见提示符。
+
+               客户端操作          gsql支持客户端操作历史记录，当客户端连接时指定“-r”参数，此功
+               历史记录           能被打开。可以通过\set设置记录历史的条数，例如，\set HISTSIZE
+                              50，将记录历史的条数设置为50，\set HISTSIZE 0，不记录历史。
+                              说明
+                                ● 客户端操作历史记录条数默认设置为32条，最多支持记录500条。当客户端
+                                  交互式输入包含中文字符时，只支持UTF-8的编码环境。
+                                ● 出于安全考虑，将包含PASSWORD、IDENTIFIED、
+                                  GS_ENCRYPT_AES128、GS_DECRYPT_AES128、GS_ENCRYPT、
+                                  GS_DECRYPT、GS_ENCRYPT_BYTEA、GS_DECRYPT_BYTEA、
+                                  PG_CREATE_PHYSICAL_REPLICATION_SLOT_EXTERN、
+                                  SECRET_ACCESS_KEY、SECRETKEY、CREATE_CREDENTIAL、
+                                  ACCESSKEY、SECRET_KEY等字符串（不区分大小写）的SQL语句记录识别
+                                  为包含敏感信息的语句，不会记录到历史信息中，即不能通过上下翻回显。
+
+
+
+
+              ●   变量
+                  可以使用gsql元命令\set设置一个变量。例如，把变量foo的值设置为bar：
+                  gaussdb=# \set foo bar
+                  要引用变量的值，在变量前面加冒号。例如，查看变量的值：
+                  gaussdb=# \echo :foo
+                  bar
+                  这种变量的引用方法适用于规则的SQL语句和除\copy、\ef、\help、\sf、\!以外的
+                  元命令。
+                  gsql预定义了一些特殊变量，同时也规划了变量的取值。为了保证和后续版本最
+                  大限度兼容，请避免以其他目的使用这些变量。所有特殊变量见表5-8。
+                        说明
+
+                       ● 所有特殊变量都由大写字母、数字和下划线组成。
+                       ● 要查看特殊变量的默认值，请使用元命令\echo :varname（例如\echo :DBNAME）。
+
+
+                  表 5-8 特殊变量设置
+                   变量             设置方法                      变量说明
+
+                   DBNAME         \set DBNAME dbname        当前连接的数据库的名称。每次连接数据库
+                                                            时都会被重新设置。
+
+                   ECHO           \set ECHO all | queries   ● 如果设置为all，只显示查询信息。等效
+                                                              于使用gsql连接数据库时指定-a参数。
+                                                            ● 如果设置为queries，显示命令行和查询
+                                                              信息。等效于使用gsql连接数据库时指
+                                                              定-e参数。
+
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                         3557
+GaussDB
+集中式版参考                                                                            5 工具参考
+
+
+                  变量         设置方法                       变量说明
+
+                  ECHO_HI    \set ECHO_HIDDEN on |      当使用元命令查询数据库信息（例如\dg）
+                             off | noexec
+                  DDEN                                  时，此变量的取值决定了查询的行为：
+                                                        ● 设置为on，先显示元命令实际调用的查
+                                                          询语句，然后显示查询结果。等效于使用
+                                                          gsql连接数据库时指定-E参数。
+                                                        ● 设置为off，则只显示查询结果。
+                                                        ● 设置为noexec，则只显示查询信息，不
+                                                          执行查询操作。
+
+                  ENCODI     \set ENCODING encoding     当前客户端的字符集编码。
+                  NG
+
+                  FETCH_C    \set FETCH_COUNT           ● 如果该变量的值为大于0的整数，假设为
+                             variable
+                  OUNT                                    n，则执行SELECT语句时，每次从结果集
+                                                          中取n行到缓存并显示到屏幕。
+                                                        ● 如果不设置此变量，或设置的值小于等于
+                                                          0，则执行SELECT语句时，一次性把结果
+                                                          都取到缓存。
+                                                        说明
+                                                         设置合理的变量值，将减少内存使用量。一般来
+                                                         说，设为100到1000之间的值比较合理。
+
+                  HISTCON    \set HISTCONTROL           ● ignorespace：以空格开始的行将不会写
+                             ignorespace | ignoredups
+                  TROL       | ignoreboth | none          入历史列表。
+                                                        ● ignoredups：与以前历史记录里匹配的
+                                                          行不会写入历史记录。
+                                                        ● ignoreboth、none或者其他值：所有以
+                                                          交互模式读入的行都被保存到历史列表。
+                                                         说明
+                                                          none表示不设置HISTCONTROL。
+
+                  HISTFILE   \set HISTFILE filename     此文件用于存储历史命令列表。缺省值是
+                                                        ~/.bash_history。
+
+                  HISTSIZE   \set HISTSIZE size         保存在历史命令里命令的个数。缺省值是
+                                                        500。
+
+                  HOST       \set HOST hostname         已连接的数据库主机名称。
+
+                  IGNOREE    \set IGNOREEOF variable    ● 若设置此变量为数值，假设为10，则在
+                  OF                                      gsql中输入的前9次EOF字符（通常是Ctrl
+                                                          +C）都会被忽略，在第10次按Ctrl+C才
+                                                          能退出gsql程序。
+                                                        ● 若设置此变量为非数值，则缺省为10。
+                                                        ● 若删除此变量，则向交互的gsql会话发送
+                                                          一个EOF终止应用。
+
+                  LASTOID    \set LASTOID oid           最后影响的oid值，即为从一条INSERT或
+                                                        lo_import命令返回的值。此变量只保证在下
+                                                        一条SQL语句的结果显示之前有效。
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                                  3558
+GaussDB
+集中式版参考                                                                       5 工具参考
+
+
+                   变量           设置方法                     变量说明
+
+                   ON_ERR       \set                     ● on：当一个事务块里的语句发生错误
+                                ON_ERROR_ROLLBACK
+                   OR_ROLL      on | interactive | off     时，自动回滚到上一个命令之前的状态，
+                   BACK                                    并继续执行后续命令。该模式是通过在一
+                                                           个事务块的每个命令前隐含地创建一个
+                                                           SAVEPOINT来工作的，在发生错误时，
+                                                           自动回滚到之前创建的SAVEPOINT，从
+                                                           而撤销失败命令的影响。
+                                                         ● interactive：仅在交互式会话中启用自动
+                                                           回滚功能。
+                                                         ● off（缺省值）：事务块里的语句发生错
+                                                           误时，终止整个事务。
+
+                   ON_ERR       \set ON_ERROR_STOP       ● on：命令执行错误时会立即停止，在交
+                                on | off
+                   OR_STOP                                 互模式下，gsql会立即返回已执行命令的
+                                                           结果。
+                                                         ● off（缺省值）：命令执行错误时将会跳
+                                                           过错误继续执行。
+
+                   PORT         \set PORT port           当前连接数据库的端口号。
+
+                   USER         \set USER username       当前用于连接的数据库用户。
+
+                   VERBOSI      \set VERBOSITY terse |   该选项用于控制错误报告的冗余行。
+                                default | verbose
+                   TY                                    ● terse：仅返回严重且主要的错误文本以
+                                                           及文本位置（一般适合于单行错误信
+                                                           息）。
+                                                         ● default：返回严重且主要的错误文本及
+                                                           其位置，还包括详细的错误细节、错误提
+                                                           示（可能会跨越多行）。
+                                                         ● verbose：返回所有的错误信息。
+
+
+              ●   SQL代换
+                  像元命令的参数一样，gsql变量的一个关键特性是可以把gsql变量替换成正规的
+                  SQL语句。此外，gsql还提供为变量更换新的别名或其他标识符等功能。使用SQL
+                  代换方式替换一个变量的值可在变量前加冒号。例如：
+                  gaussdb=# \set foo 'HR.areaS'
+                  -- 执行以下命令，将会查询HR.areaS表。
+                  gaussdb=# SELECT * FROM :foo;
+                   area_id |      area_name
+                  ---------+------------------------
+                        4 | Middle East and Africa
+                        3 | Asia
+                        1 | Europe
+                        2 | Americas
+                  (4 rows)
+
+                       说明
+
+                       变量的值是逐字复制的，甚至可以包含不对称的引号或反斜杠命令。所以必须保证输入的
+                       内容有意义。
+              ●   提示符
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                           3559
+GaussDB
+集中式版参考                                                                          5 工具参考
+
+                 通过表5-9的三个变量可以设置gsql的提示符，这些变量由字符和特殊的转义字符
+                 所组成。
+
+                 表 5-9 提示符变量
+
+                  变量     描述              示例
+
+                  PROM   gsql请求一个新命令时使   使用变量PROMPT1切换提示符：
+                  PT1    用的正常提示符。        ● 提示符变为local：
+                         PROMPT1的默认值为：      gaussdb=# \set PROMPT1 %M
+                                            local:/data/huawei/wisequery/perfadm_mppdb
+                         %o%R%#。
+                                         ● 提示符变为name：
+                                            gaussdb=# \set PROMPT1 name
+                                            name
+
+                                         ● 提示符变为=：
+                                            gaussdb=# \set PROMPT1 %R
+                                            =
+
+                  PROM   在一个命令期待更多输入     使用变量PROMPT2显示提示符：
+                  PT2    时（例如，查询没有用一     gaussdb=# \set PROMPT2 TEST
+                                         gaussdb=# SELECT * FROM HR.areaS
+                         个分号结束或者引号不完     TEST;
+                         整）显示的提示符。        area_id |      area_name
+                                         ---------+--------------------
+                                               1 | Europe
+                                               2 | Americas
+                                               4 | Middle East and Africa
+                                               3 | Asia
+                                         (4 rows)
+
+                  PROM   当执行COPY命令，并期    使用变量PROMPT3显示COPY提示符：
+                  PT3    望在终端输入数据时（例     gaussdb=# \set PROMPT3 '>>>>'
+                                         gaussdb=# COPY HR.areaS FROM STDIN;
+                         如，COPY FROM     Enter data to be copied followed by a newline.
+                         STDIN），显示提示符。   End with a backslash and a period on a line by
+                                         itself.
+                                         >>>>1 aa
+                                         >>>>2 bb
+                                         >>>>\.
+
+
+
+
+                 提示符变量的值是按实际字符显示的，但是，当设置提示符的命令中出现“%”
+                 时，变量的值根据“%”后的字符，替换为已定义的内容，已定义的提示符请参
+                 见表5-10。
+
+                 表 5-10 已定义的替换
+
+                  符号      符号说明
+
+                  %M      主机的全名（包含域名），若连接是通过Unix域套接字进行的，
+                          则全名为[local]，若Unix域套接字不是编译的缺省位置，则为
+                          [local:/dir/name]。
+
+                  %m      主机名删去第一个点后面的部分。若通过Unix域套接字连接，则
+                          为[local]。
+
+                  %o      数据库名称。如果是postgres库，显示gaussdb；其他库则显示数
+                          据库名。
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                                          3560
+GaussDB
+集中式版参考                                                                                 5 工具参考
+
+
+                  符号            符号说明
+
+                  %>            主机正在侦听的端口号。
+
+                  %n            数据库会话的用户名。
+
+                  %/            当前数据库名称。
+
+                  %~            类似%/，如果数据库是缺省数据库时输出的是波浪线“~”。
+
+                  %#            如果会话用户是数据库系统管理员，使用“#”，否则用“>”。
+
+                  %R            ● 对于PROMPT1，通常是“=”，如果是单行模式则是“^”，
+                                  如果会话与数据库断开（如果\connect失败可能发生）则是
+                                  “!”。
+                                ● 对于PROMPT2，该序列被“-”、“*”、单引号、双引号或
+                                  “$”（取决于gsql是否等待更多的输入：查询没有终止、正在
+                                  一个/* ... */注释里、正在引号或者美元符扩展里）代替。
+
+                  %x            事务状态：
+                                ● 如果不在事务块里，则是一个空字符串。
+                                ● 如果在事务块里，则是“*”。
+                                ● 如果在一个失败的事务块里则是“!”。
+                                ● 如果无法判断事务状态时为“?”（比如没有连接）。
+
+                  %digits       指定字节值的字符将被替换到该位置。
+
+                  %:name        gsql变量“name”的值。
+
+                  %`comma       “command”表示指定命令的输出，类似于普通的“反引号”替
+                  nd`           换。
+
+                  %[ . . . %]   提示可以包含终端控制字符，这些字符可以改变颜色、背景、提示
+                                文本的风格、终端窗口的标题。例如：
+                                gaussdb=# \set PROMPT1 '%[%033[1;33;40m%]%n@%/%R%[%033[0m%]%#'
+                                这个句式的结果是在VT100兼容的可显示彩色的终端上的一个宽体
+                                （1;）黑底黄字（33;40）。
+
+
+
+
+                 环境变量：
+                 与gsql相关的环境变量参见表5-11。
+
+                 表 5-11 与 gsql 相关的环境变量
+                  名称                      描述
+
+                  COLUMNS                 如果\set columns为0，则由此参数控制wrapped格式的
+                                          宽度。这个宽度用于决定在自动扩展的模式下，是否要
+                                          把宽输出模式变成竖线的格式。
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                                         3561
+GaussDB
+集中式版参考                                                                              5 工具参考
+
+
+                    名称                       描述
+
+                    PAGER                    如果查询结果无法在一页显示，它们就会被重定向到这
+                                             个命令。可以用\pset命令关闭分页器。典型的是用命令
+                                             more或less来实现逐页查看。缺省值与平台相关。
+                                             说明
+                                              less的文本显示，受系统环境变量LC_CTYPE影响。
+
+                    PSQL_EDITOR              \e和\ef命令使用环境变量指定的编辑器。变量是按照列
+                                             出的先后顺序检查的。在Unix系统上默认的编辑工具是
+                    EDITOR                   vi。
+                    VISUAL
+
+                    PSQL_EDITOR_LINE         当\e和\ef带上一行数字参数使用时，这个变量指定的命
+                    NUMBER_ARG               令行参数用于向编辑器传递起始行数。对于Emacs或vi
+                                             编辑器，该参数值为一个加号。如果选项和行号之间需
+                                             要空白，在变量的值后加一个空格。例如：
+                                             PSQL_EDITOR_LINENUMBER_ARG = '+'
+                                             PSQL_EDITOR_LINENUMBER_ARG='--line '
+                                             Unix系统默认的是+。
+
+                    PSQLRC                   用户的.gsqlrc文件的交互位置。
+
+                    SHELL                    使用\!命令和shell执行的命令效果相同。
+
+                    TMPDIR                   存储临时文件的目录。缺省是/tmp。
+
+
+
+
+                        说明
+
+                       gsql不支持按照nls_date_format格式显示DATEA类型，当前只支持显示YYYY-MM-DD
+                       HH24-MI-SS AD格式。
+
+
+前提条件
+              ●   连接数据库时使用的用户需要具备访问数据库的权限。
+              ●   gsql需要与数据库版本配套。
+              ●   当gsql客户端编码设置为UTF8时，若GaussDB返回的数据编码格式不是UTF8，则
+                  数据将无法正确显示在gsql客户端中。
+
+                   说明
+
+                  ● gsql工具可通过发布包中的gsql_env.sh脚本设置环境变量使用，例如：source gsql_env.sh。
+                  ● 如果之前设置过环境变量，执行gsql_env.sh后会以脚本中环境变量优先。
+
+
+命令格式
+              gsql [OPTION]... [DBNAME [USERNAME]]
+
+
+参数说明
+              详细的gsql参数请参见表5-12、表5-13、表5-14、表5-15和表5-16。
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                                 3562
+GaussDB
+集中式版参考                                                                    5 工具参考
+
+              表 5-12 常用参数
+               参数                参数说明                                 取值范围
+
+               -c, --            声明gsql要执行一条字符串命令然后退出。                -
+               command=CO
+               MMAND
+
+               -d, --            指定连接的数据库名称。若未指定数据库名                  字符串。
+               dbname=DBNA       称，则使用初始化时默认生成的数据库名
+               ME                称。
+                                 另外，gsql允许使用扩展的DBNAME，即
+                                 “postgres[ql]://[user[:password]@]
+                                 [netloc][:port][,...][/dbname][?
+                                 param1=value1&...]”或“[key=value]
+                                 [...]”形式的连接串作为DBNAME，gsql将
+                                 从连接串中解析连接信息，并优先使用这些
+                                 信息。
+                                 说明
+                                  gsql使用扩展的DBNAME创建连接时，不支持指
+                                  定replication参数。
+
+               -f, --            使用文件作为命令源而不是交互式输入。                   绝对路径或相对路
+               file=FILENAME     gsql将在处理完文件后结束。如果                    径，且满足操作系
+                                 FILENAME是-（连字符），则从标准输入读              统路径命名规则。
+                                 取。
+                                 说明
+                                  当服务端编码为GB18030/GB18030_2022时，若
+                                  gsql -f 结合管道符('>') 执行（如：gsql -f
+                                  xxx.sql > xxx.log），导入文件编码格式需与服务
+                                  端编码格式保持一致，建议在文件中手动设置
+                                  client_encoding为服务端编码格式。
+
+               -l, --list        列出所有可用的数据库，然后退出。                     -
+
+               -v, --set=, --    设置gsql变量NAME为VALUE。                  -
+               variable=NAME     变量的示例和详细说明请参见变量。
+               =VALUE
+
+               -X, --no-gsqlrc   不读取启动文件（系统范围的gsqlrc或者用               -
+                                 户的~/.gsqlrc都不读取）。
+                                 说明
+                                  启动文件默认为~/.gsqlrc，或通过PSQLRC环境
+                                  变量指定。
+
+               -1 ("one"), --    当gsql使用-f选项执行脚本时，会在脚本的               -
+               single-           开头和结尾分别加上START
+               transaction       TRANSACTION/COMMIT用以把整个脚本
+                                 当作一个事务执行。这将保证该脚本完全执
+                                 行成功，或者脚本无效。
+                                 说明
+                                  如果脚本中已经使用了START TRANSACTION、
+                                  COMMIT、ROLLBACK，则该选项无效。
+
+
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                          3563
+GaussDB
+集中式版参考                                                                   5 工具参考
+
+
+               参数                   参数说明                         取值范围
+
+               -y, --slash-         将当前语句终结并发送到内核执行或者重新          -
+               command              执行已经执行过的语句（不包括gsql元命
+                                    令）。
+                                    说明
+                                     ● 该功能仅支持A兼容模式数据库，而且不支
+                                       持-c, --command参数的使用场景。
+                                     ● A兼容模式数据库下默认普通语句分隔符为
+                                       “;”，PL/SQL为“/”，使用该参数时不支
+                                       持更换分隔符。
+
+               -?, --help           显示关于gsql命令行参数的帮助信息然后退        -
+                                    出。
+
+               -V, --version        打印gsql版本信息然后退出。              -
+
+
+
+
+              表 5-13 输入和输出参数
+               参数              参数说明                                  取值范围
+
+               -a, --          在读取行时向标准输出打印所有内容。                     -
+               echo-all        说明
+                                使用此参数可能会暴露部分SQL语句中的敏感信息，如创建
+                                用户语句中的password信息等，请谨慎使用。
+
+               -B, --          表示-c参数传入的是Base64编码后的内容。               -
+               base64          说明
+                                此参数必须与-c参数同时使用。
+
+               -e, --          把所有发送给服务器的查询同时回显到标准输出。                -
+               echo-           说明
+               queries          使用此参数可能会暴露部分SQL语句中的敏感信息，如创建
+                                用户语句中的password信息等，请谨慎使用。
+
+               -E, --          回显由\d和其他反斜杠命令生成的实际查询。                 -
+               echo-
+               hidden
+
+               -k, --with-     使用gsql对导入的加密文件进行解密。                   -
+               key=KEY         说明
+                                ● 对于本身就是shell命令中的关键字符如单引号（'）或双
+                                  引号（"），Linux shell会检测输入的单引号（'）或双引
+                                  号（"）是否匹配。如果不匹配，shell认为用户没有输入
+                                  完毕，会一直等待用户输入，从而不会进入到gsql程
+                                  序。
+                                ● 不支持解密导入存储过程和函数。
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                      3564
+GaussDB
+集中式版参考                                                           5 工具参考
+
+
+               参数            参数说明                            取值范围
+
+               -L, --log-    除了正常的输出源之外，把所有查询输出记录到文件         绝对路径或相
+               file=FILEN    FILENAME中。                      对路径，且满
+               AME           说明                              足操作系统路
+                                                             径命名规则。
+                              ● 使用此参数可能会暴露部分SQL语句中的敏感信息，如创
+                                建用户语句中的password信息等，请谨慎使用。
+                              ● 此参数只保留查询结果到相应文件中，主要目标是为了
+                                查询结果能够更好更准确地被其他调用者（例如自动化
+                                运维脚本）解析，而不是保留gsql运行过程中的相关日
+                                志信息。
+
+               -m, --        允许在两阶段事务恢复期间连接数据库。              -
+               maintena      说明
+               nce            该选项是一个开发选项，禁止用户使用，只限专业技术人员
+                              使用，功能是：使用该选项时，gsql可以连接到备机，用于
+                              校验主备机数据的一致性。
+
+               -n, --no-     关闭命令行编辑。                        -
+               libedit
+
+               -o, --        将所有查询输出重定向到文件FILENAME。          绝对路径或相
+               output=FI                                     对路径，且满
+               LENAME                                        足操作系统路
+                                                             径命名规则。
+
+               -q, --quiet   安静模式，执行时不会打印出额外信息。              缺省时gsql将
+                                                             打印许多其他
+                                                             输出信息。
+
+               -s, --        单步模式运行。意味着每个查询在发往服务器之前都         -
+               single-       要提示用户，用这个选项也可以取消执行。此选项主
+               step          要用于调试脚本。
+                             说明
+                              使用此参数可能会暴露部分SQL语句中的敏感信息，如创建
+                              用户语句中的password信息等，请谨慎使用。
+
+               -S, --        单行运行模式，这时每个命令都将由换行符结束。          -
+               single-line
+
+               -C，-C1,       当使用-C参数连接本地数据库或者连接远程数据库         -
+               --enable-     时，可通过该选项打开密态数据库开关，此开关为密
+               client-       态等值查询基本能力开关。
+               encryptio
+               n=1
+
+               -C3，--        当使用-C参数连接本地数据库或者连接远程数据库         -
+               enable-       时，可通过该选项打开内存解密逃生通道开关，支持
+               client-       密态等值查询基本能力以及内存解密逃生通道能力。
+               encryptio
+               n=3
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                3565
+GaussDB
+集中式版参考                                                               5 工具参考
+
+              表 5-14 输出格式参数
+               参数              参数说明                              取值范围
+
+               -A, --no-       切换为非对齐输出模式。缺省为对齐输出模式。             -
+               align
+
+               -F, --field-    设置域分隔符（默认为“|”）。                   -
+               separator=S
+               TRING
+
+               -H, --html      指定HTML格式输出。                       -
+
+               -P, --          在命令行上以\pset的风格设置打印选项。             -
+               pset=VAR[=      说明
+               ARG]             这里必须用等号而不是空格分隔名称和值。例如，把输出格
+                                式设置为LaTeX，可以键入-P format=latex。
+
+               -R, --record-   设置记录分隔符。                          -
+               separator=S
+               TRING
+
+               -r              开启在客户端操作中可以进行编辑的模式。缺省为关           -
+                               闭。
+
+               -t, --tuples-   只打印行。                             -
+               only
+
+               -T, --table-    允许声明放在HTML table标签里的选项。           -
+               attr=TEXT       使用时请搭配参数“-H,--html”，指定为HTML格式
+                               输出。
+
+               -x, --          启用扩展格式显示。                         -
+               expanded
+
+               -z, --field-    设置非对齐输出模式的域分隔符为空。                 -
+               separator-      使用时请搭配参数“-A, --no-align”，指定为非对齐
+               zero            输出模式。
+
+               -0, --record-   设置非对齐输出模式的记录分隔符为空。                -
+               separator-      使用时请搭配参数“-A, --no-align”，指定为非对齐
+               zero            输出模式。
+
+               -2, --          使用管道传输密码，禁止在终端使用，必须和-c或者-         -
+               pipeline        f参数一起使用。
+
+
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                     3566
+GaussDB
+集中式版参考                                                                5 工具参考
+
+              表 5-15 连接参数
+               参数                参数说明                          取值范围
+
+               -h, --            指定正在运行服务器的主机名、Unix域套          如果省略主机名，
+               host=HOSTNAM      接字的路径或者域名。接受以“,”分隔的           gsql将通过Unix域
+               E                 字符串来指定多个主机地址，支持指定多            套接字与本地主机
+                                 个主机地址，支持指定IPv6主机地址。           的服务器相连，或
+                                 当指定多个主机地址时，默认情况下会自            者在没有Unix域套
+                                 动选择主节点地址进行连接。可通过设置            接字的机器上，通
+                                 PGTARGETSESSIONATTRS环境变量的值来   过TCP/IP与
+                                 选择连接到不同类型的节点，                 localhost连接。
+                                 PGTARGETSESSIONATTRS变量取值如下：
+                                 ● read-write：可读写的节点。
+                                 ● read-only：只读节点。
+                                 ● primary或者不设定：主节点。
+                                 ● standby：备节点。
+                                 ● prefer-standby：首选备节点，没有备
+                                   节点则转为any。
+                                 ● any：不进行角色检查。
+                                 说明
+                                  当配置域名时，设置环境变量
+                                  GSHOSTRESOLVE=1，可以支持域名自动寻
+                                  主。
+
+               -p, --port=PORT   指定数据库服务器的端口号。可以配置一            默认端口可通过编
+                                 个或多个，当配置一个时，所有的主机地            译参数来指定，不
+                                 址都使用同一个端口连接；当配置多个             指定时默认为
+                                 时，顺序与主机地址顺序相同，个数必须            5432。
+                                 与主机地址数相等，当不相等时会报错。
+                                 可以通过port参数修改默认端口号。
+
+               -U, --            指定连接数据库的用户。                   字符串，默认使用
+               username=USER     说明                            与当前操作系统用
+               NAME                                            户同名的用户。
+                                  ● 通过该参数指定用户连接数据库时，需要同
+                                    时提供用户密码用以身份验证。可以通过交
+                                    互方式输入密码，或者通过-W参数指定密
+                                    码。
+                                  ● 用户名中包含有字符$，需要在字符$前增加
+                                    转义字符才可成功连接数据库。
+
+
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                      3567
+GaussDB
+集中式版参考                                                              5 工具参考
+
+
+               参数              参数说明                          取值范围
+
+               -W, --          当使用-U参数连接本地数据库或者连接远           字符串。
+               password=PASS   端数据库时，可通过该选项指定密码。
+               WORD            说明
+                                ● 登录数据库主节点所在服务器后连接本地数
+                                  据库主节点实例时，默认使用trust连接，会
+                                  忽略此参数。
+                               ● 用户密码中包含特殊字符“\”和“`”时，
+                                 需要增加转义字符才可成功连接数据库。
+                                ● 如果用户未输入该参数，但是数据库连接需
+                                  要用户密码，这时将出现交互式输入，请用
+                                  户输入当前连接的密码。该密码最长长度为
+                                  999字节，受限于GUC参数
+                                  password_max_length的最大值。
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                      3568
+GaussDB
+集中式版参考                                                                                   5 工具参考
+
+              表 5-16 Unix Domain Socket 运维通道的运维命令
+               参数           参数说明                                 取值范围
+
+               -O, --       Unix Domain Socket运维通道的              ● "{port} mem_log"：记载
+               emergency-   运维命令。                                  全局的内存概况与全局级内
+               command=E    在极端情况下，gsql工具无法与                       存上下文、线程级内存上下
+               MERGENCYC    GaussDB建立连接时，可以使用                      文、session级内存上下文
+               OMMAND       该命令进行应急运维。此命令通过                        的top20内存上下文占用详
+                            Unix Domain Socket运维通道与                情。该功能仅在GUC参数
+                            GaussDB通信，实现一键运维功                      use_workload_manager开
+                            能。                                     启时有效，范围同内存过载
+                                                                   记录mem_log特性。无参
+                            -O选项的参数格式具体如下：
+                            "{port} {command} [{param} [...]]"
+                                                                   数。示例：
+                                                                   -O "19995 mem_log"
+                            {port}：数据库监听端口。
+                                                                 ● "{port} kill_wait_event
+                            {command}：具体运维命令。                      {wait_event}"：查杀指定
+                            {param}：该运维命令的参数，可                     等待事件会话。参数
+                            能有0个或多个。                               {wait_event}表示具体的
+                            说明
+                                                                   锁、轻量级锁以及I/O的信
+                                                                   息等。示例：
+                              ● 使用此选项时，gsql工具必须与                   -O "19995 kill_wait_event
+                                GaussDB进程位于同一台服务器                  relation"
+                                上。
+                                                                 ● "{port}
+                              ● 如果运维命令的参数包含空格，
+                                                                   kill_business_sql"：查杀非
+                                请在参数两边加上引号。
+                                                                   rdsAdmin用户的全部业务
+                                                                   SQL语句。无参数。示例：
+                                                                   -O "19995 kill_business_sql"
+
+                                                                 ● "{port} kill_slow_sql
+                                                                   {username}"：批量查杀非
+                                                                   默认数据库下，指定用户的
+                                                                   状态为非idle的执行超过1
+                                                                   分钟的SQL语句。参数
+                                                                   {username}表示用户名。
+                                                                   示例：
+                                                                   -O "19995 kill_slow_sql omm"
+
+                                                                 ● "{port} kill_slow_sql
+                                                                   {username} {database}"：
+                                                                   批量查杀指定用户在指定数
+                                                                   据库中的执行超过1分钟的
+                                                                   SQL语句。参数
+                                                                   {username}表示用户名，
+                                                                   {database}表示数据库名。
+                                                                   示例：
+                                                                   -O "19995 kill_slow_sql omm db1"
+
+                                                                 ● "{port} kill_executing_sql
+                                                                   {username}"：查杀非默认
+                                                                   数据库下，指定用户的状态
+                                                                   为active的正在执行的SQL
+                                                                   语句。参数{username}表
+                                                                   示用户名。示例：
+                                                                   -O "19995 kill_executing_sql
+                                                                   omm"
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                                                3569
+GaussDB
+集中式版参考                                                                                                                 5 工具参考
+
+
+               参数                      参数说明                                                取值范围
+
+                                                                                           ● "{port} kill_mem_topn
+                                                                                             {top n}"：查杀内存占用
+                                                                                             top n的SQL语句。参数
+                                                                                             {top n}表示指定的top n。
+                                                                                             示例：
+                                                                                                  -O "19995 kill_mem_topn 10"
+
+                                                                                           ● "{port} kill_cpu_topn {top
+                                                                                             n}"：查杀CPU TIME占用
+                                                                                             top n的SQL语句。参数
+                                                                                             {top n}表示指定的top n。
+                                                                                             示例：
+                                                                                                  -O "19995 kill_cpu_topn 10"
+
+
+
+
+示例
+              示例一
+              连接数据库并执行命令。
+
+        步骤1 使用gsql连接到GaussDB服务器。
+              gsql工具使用-d参数指定目标数据库名、-U参数指定数据库用户名、-h参数指定主机
+              名、-p参数指定端口号信息。详细的gsql参数请参见参数说明。
+              --使用jack用户连接到远程主机postgres数据库的8000端口。（根据实际需要替换各参数值）
+              gsql -h 10.180.123.163 -d postgres -U jack -p 8000
+
+                     说明
+
+                   ● 若未指定数据库名称，则使用初始化时默认生成的数据库名称。
+                   ● 若未指定数据库用户名，则默认使用当前操作系统用户作为数据库用户名。
+                   ● 当某个值没有前面的参数（-d、-U等）时，若连接的命令中没有指定数据库名（-d），则该
+                     参数会被解释为数据库名；如果已经指定数据库名（-d）而没有指定数据库用户名（-U），
+                     该参数则会被解释为数据库用户名。
+                        例如，以下命令中，参数postgres和omm不属于任何选项，会被分别解释为数据库名和用户
+                        名。
+                        gsql postgres omm -p 8000
+                        等效于以下命令。
+                        gsql -d postgres -U omm -p 8000
+
+        步骤2 执行gsql元命令和SQL语句。
+              --创建数据库human_staff。
+              gaussdb=# CREATE DATABASE human_staff;
+              CREATE DATABASE
+
+              --列出GaussDB中所有的数据库和描述信息。
+              gaussdb=# \l
+                                       List of databases
+                   Name        | Owner | Encoding | Collate | Ctype | Access privileges
+              ----------------+----------+-----------+---------+-------+-----------------------
+               human_resource | omm | SQL_ASCII | C             |C     |
+               postgres       | omm | SQL_ASCII | C         |C    |
+               template0        | omm | SQL_ASCII | C        |C     | =c/omm         +
+                           |       |        |      |     | omm=CTc/omm
+               template1        | omm | SQL_ASCII | C        |C     | =c/omm          +
+
+
+文档版本 01 (2026-04-30)                        版权所有 © 华为云计算技术有限公司                                                                  3570
+GaussDB
+集中式版参考                                                                                                  5 工具参考
+
+                       |      |      |     |     | omm=CTc/omm
+               human_staff | omm | SQL_ASCII | C     |C   |
+               gaussdb    | omm | SQL_ASCII | C     |C  |
+              (6 rows)
+
+              --删除数据库human_staff。
+              gaussdb=# DROP DATABASE human_staff;
+              DROP DATABASE
+
+              更多gsql元命令请参见元命令参考。
+
+              ----结束
+
+              示例二
+
+              获取帮助信息。
+              gsql --help
+              gsql is the GaussDB Kernel interactive terminal.
+
+              Usage:
+               gsql [OPTION]... [DBNAME [USERNAME]]
+
+              General options:
+               -c, --command=COMMAND run only single command (SQL or internal) and exit
+               -d, --dbname=DBNAME             database name to connect to (default: "omm")
+               -f, --file=FILENAME        execute commands from file, then exit
+               -l, --list          list available databases, then exit
+               -v, --set=, --variable=NAME=VALUE
+                                  set gsql variable NAME to VALUE
+               -V, --version           output version information, then exit
+               -X, --no-gsqlrc          do not read startup file (~/.gsqlrc)
+               -1 ("one"), --single-transaction
+                                  execute command file as a single transaction
+               -?, --help             show this help, then exit
+
+              Input and output options:
+                -a, --echo-all        echo all input from script
+                -e, --echo-queries       echo commands sent to server
+                -E, --echo-hidden        display queries that internal commands generate
+                -k, --with-key=KEY        the key for decrypting the encrypted file
+                -L, --log-file=FILENAME send session log to file
+                -m, --maintenance          can connect to cluster during 2-pc transaction recovery
+                -n, --no-libedit      disable enhanced command line editing (libedit)
+                -o, --output=FILENAME send query results to file (or |pipe)
+                -q, --quiet          run quietly (no messages, only query output)
+                -C, -C1, --enable-client-encryption=1
+                                   enable client encryption feature
+                -C2, --enable-client-encryption=2
+                                   enable client sorting based client encryption feature
+                -C3, --enable-client-encryption=3
+                                   enable Trusted Domain operation based on client encryption feature
+
+               -s, --single-step   single-step mode (confirm each query)
+               -S, --single-line   single-line mode (end of line terminates SQL command)
+               -y, --slash-command     enable slash command to re-execute query in buffer
+
+              Output format options:
+               -A, --no-align          unaligned table output mode
+               -F, --field-separator=STRING
+                                  set field separator (default: "|")
+               -H, --html             HTML table output mode
+               -P, --pset=VAR[=ARG]        set printing option VAR to ARG (see \pset command)
+               -R, --record-separator=STRING
+                                  set record separator (default: newline)
+               -r                 if this parameter is set,use libedit
+               -t, --tuples-only       print rows only
+               -T, --table-attr=TEXT set HTML table tag attributes (e.g., width, border)
+               -x, --expanded           turn on expanded table output
+
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                                                3571
+GaussDB
+集中式版参考                                                                                                     5 工具参考
+
+               -z, --field-separator-zero
+                                  set field separator to zero byte
+               -0, --record-separator-zero
+                                  set record separator to zero byte
+               -2, --pipeline         use pipeline to pass the password, forbidden to use in terminal
+                                  must use with -c or -f
+
+              Connection options:
+               -h, --host=HOSTNAME       database server host or socket directory (default: "/data/huawei/wisequery/
+              perfadm_mppdb")
+                               allow multi host IP address with comma separator, Use the
+                               PGTARGETSESSIONATTRS(default: "primary") variable to select the
+                               IP address to be connected.
+                               (PGTARGETSESSIONATTRS can be {read-write|read-only|primary|
+                                standby|prefer-standby|any})
+               -p, --port=PORT       database server port (default: "5432")
+               -U, --username=USERNAME database user name (default: "omm")
+               -W, --password=PASSWORD the password of specified database user
+
+              Emergency O&M command:
+               -O, --emergency-command=EMERGENCYCOMMAND
+                               emergency O&M command
+
+              For more information, type "\?" (for internal commands) or "\help" (for SQL
+              commands) from within gsql, or consult the gsql section in the GaussDB Kernel
+              documentation.
+
+              示例三
+
+              执行Unix Domain Socket运维通道的运维命令。以下为如何通过Unix Domain Socket
+              运维通道查看内存使用情况的简单示例：
+
+        步骤1 登录GaussDB节点所在服务器，执行以下gsql命令，确认是否生成内存概况以及内存
+            上下文等使用记录。
+              gsql -O "{port} mem_log"
+
+              其中，{port}为数据库监听端口。当显示true时，则表示已生成具体的详情信息；如果
+              执行失败，则显示失败原因。
+              -- 示例中19995为数据库监听端口。
+              gsql -O "19995 mem_log"
+              true
+
+        步骤2 查看$GAUSSLOG/mem_log/{nodename}目录下生成的mem_log文件内容，其中
+            {nodename}为数据库节点名称。
+              -- 示例中datanode为数据库节点名称。
+              ls -l $GAUSSLOG/mem_log/datanode
+              total 8
+              -rw-------. 1 omm omm 7543 May 28 15:15 mem_log-2025-05-28_151518.log
+
+        步骤3 执行以下命令查看文件内容。
+              cat $GAUSSLOG/mem_log/datanode/mem_log-time.log
+
+              其中，mem_log-time.log为步骤2中$GAUSSLOG/mem_log/datanode路径下生成的
+              文件（文件名后缀为.log）。
+
+              ----结束
+
+
+5.3.1.2 元命令参考
+              使用GaussDB数据库命令行交互工具登录数据库后，gsql提供了一些元命令。连接数
+              据库后，可以使用\?命令，显示所有可用的元命令帮助信息。
+
+
+文档版本 01 (2026-04-30)                     版权所有 © 华为云计算技术有限公司                                                       3572
+GaussDB
+集中式版参考                                                            5 工具参考
+
+
+注意事项
+              ●   一个gsql元命令的格式是反斜杠后面紧跟一个动词，然后是任意参数。参数命令
+                  动词和其他参数以任意个空白字符间隔。
+              ●   要在参数里面包含空白，必须用单引号把它引起来。要在这样的参数里包含单引
+                  号，可以在前面加一个反斜杠。任何包含在单引号里的内容都会被进一步进行类
+                  似C语言的替换：\n（新行）、\t（制表符）、\b（退格）、\r（回车）、\f（换
+                  页）、\digits（八进制表示的字符）、\xdigits（十六进制表示的字符）。
+              ●   用反引号“`”包围的内容被当作一个命令行传入shell。该命令的输出（删除了结
+                  尾的新行）会替换原参数中的反引号及其包围的文本，被当作参数值。
+              ●   如果不带引号的参数以冒号（:）开头，它会被当做一个gsql变量，并且该变量的
+                  值最终会成为真正的参数值。
+              ●   有些命令以一个SQL标识的名称（比如一个表）为参数。这些参数遵循SQL语法关
+                  于双引号的规则：不带双引号的标识强制转换成小写，而双引号保护字母不进行
+                  大小写转换，并且允许在标识符中使用空白。在双引号中，成对的双引号在结果
+                  名称中分析成一个双引号。比如，FOO"BAR"BAZ解析成fooBARbaz；而
+                  "Aweird""name"解析成Aweird"name。
+              ●   对参数的分析在遇到另一个不带引号的反斜杠时停止，这里会认为是一个新的元
+                  命令的开始。特殊的双反斜杠序列（\\）标识参数的结尾并将继续分析后面的SQL
+                  语句。这样SQL和gsql命令可以在一行中混合使用。但是在任何情况下，一条元命
+                  令的参数不能延续超过行尾。
+              ●   M-Compatibility模式数据库不支持\h元命令。
+
+命令格式及参数说明
+              元命令的详细说明请参见表5-17、表5-18、表5-19、表5-20、表5-22、表5-24、表
+              5-25、表5-26和表5-28。
+
+                   说明
+
+                  以下命令中所提到的FILE代表文件路径。此路径可以是绝对路径（如/home/gauss/file.txt），
+                  也可以是相对路径（如file.txt，file.txt会默认在用户执行gsql命令所在的路径下创建）。
+
+
+              表 5-17 一般的元命令
+               参数               参数说明                     取值范围
+
+               \copyright       显示GaussDB的版本和版权信息。       -
+
+               \g [FILE] or ;   执行查询（并将结果发送到文件或管         -
+                                道）。
+
+               \h(\help)        给出指定SQL语句的语法帮助。          如果没有给出NAME，
+               [NAME]                                    gsql将列出可获得帮助
+                                                         的所有命令。如果
+                                                         NAME是一个星号
+                                                         （*），则显示所有
+                                                         SQL语句的语法帮助。
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                  3573
+GaussDB
+集中式版参考                                                                   5 工具参考
+
+
+               参数              参数说明                               取值范围
+
+               \parallel [on   控制并发执行开关。                          -
+               [num]|off]      ● on：打开控制并发执行开关，且最大并
+                                 发数为num。num的默认值为1024。
+                               ● off：关闭控制并发执行开关。
+                               说明
+                                ● 不支持事务中开启并发执行以及并发中开启
+                                  事务。
+                                ● 不支持\d这类元命令的并发。
+                                ● 并发select返回结果混乱问题可接受，
+                                  core、进程停止响应不可接受。
+                                ● 不推荐在并发中使用set语句，否则导致结
+                                  果与预期不一致。
+                                ● 不支持创建临时表。如需使用临时表，需要
+                                  在开启parallel之前创建好，并在parallel内
+                                  部使用。parallel内部不允许创建临时表。
+                                ● \parallel执行时最多会启动num个独立的
+                                  gsql进程连接服务器。
+                                ● \parallel中所有作业的持续时间不能超过
+                                  session_timeout，否则可能会导致并发执行
+                                  过程中断开连接。
+                                ● 在\parallel on之后一条或多条命令，会等到
+                                  \parallel off执行后才会执行，因而，
+                                  \parallel on之后需要有对应的\parallel
+                                  off，否则\parallel on后的命令都无法执
+                                  行。
+                                ● 服务器能接受的最大连接数受
+                                  max_connection及当前已有连接数限制。
+                                  设置num时，请根据服务器当前可接受的实
+                                  际连接数合理指定。
+
+               \q              退出gsql程序。在一个脚本文件里，只在               -
+                               脚本终止时执行。
+
+
+
+
+文档版本 01 (2026-04-30)                版权所有 © 华为云计算技术有限公司                      3574
+GaussDB
+集中式版参考                                                                            5 工具参考
+
+
+               参数             参数说明                                     取值范围
+
+               delimiter      delimiter命令用来为客户端设置一个分隔                  ● delimiter符号目前
+                              符。当用户设置分隔符后，gsql客户端识                       不是自由设定的，
+                              别到分隔符时，会立即将SQL语句发送到                        结束符范围有限
+                              服务端执行，但是服务端仍然将“;”看作                        制，目前接受大小
+                              SQL语句分隔符，并相应的处理SQL语句。                      写字母组合或特殊
+                              SQL语句之间分隔符默认值为“;”。                         字符组合
+                                                                         （~/!/@/#/^/&/`/?/
+                              设置的分隔符的级别是会话级别的，当切
+                                                                         +/-/*//（除
+                              换数据库时分隔符会设置为默认值“;”。
+                                                                         号）/%/</>/=），
+                              说明                                         其中常见的用法是
+                               delimiter分隔符只有sql_compatibility='B'时支
+                                                                         “//”。
+                               持。
+                                                                       ● 符号组合中尽量使
+                                                                         用无歧义符号组
+                                                                         合，特殊符号组合
+                                                                         （注释符：
+                                                                         “\*”、“--”，以
+                                                                         加号“+”或减号
+                                                                         “-”结尾的符号组
+                                                                         合）目前不支持用
+                                                                         于delimiter命名。
+                                                                       ● delimiter长度范围
+                                                                         为0 ~ 15字符。
+                                                                       ● 用户如果想使用其
+                                                                         他字符组合例如
+                                                                         “adbc $$”，可以
+                                                                         使用引号包含，例
+                                                                         如delimiter "adbc
+                                                                         $$"，但使用时也需
+                                                                         要使用引号包含，
+                                                                         例如：SELECT
+                                                                         1"adbc $$"。
+
+
+
+              表 5-18 查询缓存区元命令
+               参数                          参数说明
+
+               \e [FILE] [LINE]            使用外部编辑器编辑查询缓冲区（或者文件）。
+
+               \ef [FUNCNAME [LINE]]       使用外部编辑器编辑函数定义。如果指定了LINE
+                                           （即行号），则光标会指到函数体的指定行。
+
+               \p                          打印当前查询缓冲区到标准输出。
+
+               \r                          重置（或清空）查询缓冲区。
+
+               \w FILE                     将当前查询缓冲区输出到文件。
+               \w |COMMAND                 将当前查询缓冲区通过管道发送给COMMAND指定
+                                           的shell命令。
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                                  3575
+GaussDB
+集中式版参考                                                    5 工具参考
+
+              表 5-19 输入/输出元命令
+               参数            参数说明
+
+               \copy         在任何gsql客户端登录数据库成功后可以执行导入导出数据，这是一
+               { table       个运行SQL COPY命令的操作，但不是读取或写入指定文件的服务器，
+               [ ( column    而是读取或写入文件，并在服务器和本地文件系统之间路由数据。这
+               _list ) ] |   意味着文件的可访问性和权限是本地用户的权限，而不是服务器的权
+               ( query ) }   限，并且不需要数据库初始化用户权限。
+               { from |
+               to }
+               { filename
+               | stdin |
+               stdout |
+               pstdin |
+               pstdout }
+               [copy_para
+               meter]
+               [LOAD]
+               [LOAD_DIS
+               CARD
+               'string']
+               [parallel
+               integer]
+               [NO_SPLIT
+               _FILE]
+               [FIELD_NO
+               _EOL]
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司           3576
+GaussDB
+集中式版参考                                                                 5 工具参考
+
+
+               参数      参数说明
+                       说明
+                        ● \COPY只适合小批量，格式良好的数据导入，导入数据应优先选择GDS或
+                          COPY。
+                        ● \COPY可以通过parallel参数指定数据导入时的客户端数量，从而实现数据
+                          文件的并行导入，目前并发数范围为[1, 客户端CPU核数的两倍]。
+                        ● \COPY指定parallel参数进行并行导入时，将启动多个线程导入数据，每个
+                          线程都是单独的事务。在少数特殊情况下，可能出现数据部分导入的结果。
+                          请在充分理解并行可能造成的结果下，谨慎使用并行导入数据。
+                        ● \COPY可以指定pstdin和pstdout。pstdin声明输入是来自gsql的标准输入，
+                          pstdout声明输出是来自gsql的标准输出。
+                        ● \COPY并行导入目前存在以下约束：临时表的并行导入不支持、在事务内的
+                          并行导入不支持、对二进制文件的并行导入不支持、数据中存在换行符不支
+                          持、数据导入支持AES128加密时不支持以及COPY选项中存在EOL时不支
+                          持。在这些情况下，即使指定了parallel参数，仍然会按照非并行流程；在
+                          数据文件中数据少于100行时，也会按照非并行流程。
+                          在对带触发器的表执行并行导入时，若触发器内部存在向带约束的表（记为
+                          t1）插入数据的操作，则可能因并行导入导致死锁问题。具体表现为：多个
+                          并行导入进程在操作过程中，t1表因约束条件（如唯一键、外键等）导致不
+                          同事务间产生锁等待状态，若形成循环等待则触发数据库死锁检测机制，最
+                          终导致导入失败并抛出deadlock错误。因此当目标表包含触发器，且触发器
+                          逻辑中存在向带约束的表插入数据的操作时，不建议使用并行导入。
+                            在对带约束的表（如唯一约束等）执行并行导入时，如果不使用load语法，
+                            若数据文件本身含有违反约束冲突的数据，则可能因并行导入导致死锁问
+                            题。具体表现为：多个并行导入线程在操作过程中，t1表因约束条件（如唯
+                            一键、外键等）导致不同事务间产生锁等待状态，若形成循环等待则触发数
+                            据库死锁检测机制，最终导致数据部分导入失败，并抛出错误。因此当目标
+                            表包含约束条件（如唯一键等），建议使用load进行并行导入。
+                            FIELD_NO_EOL语法在parallel大于1时生效，在使用FIELD_NO_EOL语法时
+                            会加快数据导入的速度，但用户需要自行确认导入数据文件中的数据行字段
+                            内没有包含换行符。如果包含换行符，可能会导致：
+                            ● 一个完整的数据行被数据字段内的换行符分割为两部分，两部分被分配
+                              给不同的线程向客户端发送数据，导致插入字段与表结构不匹配的错
+                              误。
+                            ● 在使用skip语法时会跳过前面指定数量的数据行。字段内的换行符可能
+                              让一行数据被误认为是两行数据，导致skip语法跳过的数据行数错误。
+                       ● \COPY新增加NO_SPLIT_FILE语法，当parallel大于1时生效，如果使用该参
+                         数，表示使用原有逻辑无法解除并行度最大值为8的限制。默认解除并行度
+                         最大值为8的限制，同时自动拆分数据文件实现并行。
+                       ● \COPY元命令不建议与其它数据库命令放在同一行执行。
+                       ● \COPY执行时，若遇到\copy: parse error at end of line报错，建议优先校
+                         验当前命令是否完全遵循COPY语法规范，重点关注字段分隔符、导入导出
+                         格式相关参数的正确性。
+                       ● \COPY执行时，当通过copy_custom_id等参数传递自定义字符串时，建议避
+                         免字符串内容包含EOL、BINARY等COPY语法参数，以防止并行导入出现异
+                         常。
+                       ● 其中LOAD功能为gs_loader进行语法转换后调用copy的标识，非主动调用功
+                         能。
+                       ● 其中LOAD_DISCARD功能为gs_loader解析后discard文件路径，非主动调用
+                         功能。
+                       ● \COPY支持COPY的所有命令，在参数列表中用copy_parameter来指代，关
+                         于COPY所有命令的详细信息请参见COPY。
+
+
+
+
+文档版本 01 (2026-04-30)        版权所有 © 华为云计算技术有限公司                              3577
+GaussDB
+集中式版参考                                                                   5 工具参考
+
+
+               参数            参数说明
+
+               \echo         把字符串写到标准输出。
+               [STRING]
+
+               prompt        把字符串写到标准输出（等同于\echo）。
+               [STRING]
+
+               \i FILE       从文件FILE中读取内容，并将其当作输入，执行查询。
+
+               \i+ FILE      执行加密文件中的命令。
+               KEY
+
+               \ir FILE      和\i类似，只是相对于存放当前脚本的路径。
+
+               \ir+ FILE     和\i+类似，只是相对于存放当前脚本的路径。
+               KEY
+
+               \o [FILE]     把后续所有查询结果发送到FILE指定的文件里。
+
+               \o [|         把后续所有查询结果通过管道发送给COMMAND指定的shell命令。
+               COMMAN
+               D]
+
+               \qecho        把字符串写到查询结果输出流里。
+               [STRING]
+
+               \print_cop    切换COPY FROM STDIN命令是否打印"COPY XXX"回显，默认开启。
+               y_lines [on   ● on：COPY FROM STDIN命令打印当前导入多少行数据。
+               | off]
+                             ● off：COPY FROM STDIN命令不打印当前导入多少行数据。
+
+
+
+
+              表 5-20 显示信息元命令
+               参数            参数说明                取值范围     示例
+
+               \d[S+]        列出当前search_path中模   -        列出当前
+                             式下所有的表、视图和序                  search_path中模式
+                             列。当search_path中不同            下所有的表、视图和
+                             模式存在同名对象时，只显                 序列。
+                             示search_path中位置靠前            gaussdb=# \d
+                             模式下的同名对象。
+
+               \d[S+]        列出指定表、视图和索引的        -        假设存在表a，列出
+               NAME          结构。当search_path中不            指定表a的结构。
+                             同模式存在同名对象时，只                 gaussdb=# \dtable+ a
+                             显示search_path中位置靠
+                             前模式下的同名对象。
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                           3578
+GaussDB
+集中式版参考                                                                  5 工具参考
+
+
+               参数          参数说明                取值范围        示例
+
+               \d+         列出所有表、视图和索引。        -           列出所有名称以f开
+               [PATTERN]   当search_path中不同模式               头的表、视图和索
+                           存在同名对象时，只显示                     引。
+                           search_path中位置靠前模               gaussdb=# \d+ f*
+                           式下的同名对象。如果声明
+                           了PATTERN，只显示名称
+                           匹配PATTERN的表、视图
+                           和索引。
+
+               \da[S]      列出所有可用的聚集函数，        -           列出所有名称以f开
+               [PATTERN]   以及它们操作的数据类型和                    头可用的聚集函数，
+                           返回值类型。当                         以及它们操作的数据
+                           search_path中不同模式存               类型和返回值类型。
+                           在同名对象时，只显示                      gaussdb=# \da f*
+                           search_path中位置靠前模
+                           式下的同名对象。如果声明
+                           了PATTERN，只显示名称
+                           匹配PATTERN的聚集函
+                           数。
+
+               \db[+]      列出所有可用的表空间。如        -           列出所有名称以p开
+               [PATTERN]   果声明了PATTERN，只显                  头的可用表空间。
+                           示名称匹配PATTERN的表                  gaussdb=# \db p*
+                           空间。
+
+               \dc[S+]     列出所有字符集之间的可用        -           列出所有字符集之间
+               [PATTERN]   转换。当search_path中不               的可用转换。
+                           同模式存在同名对象时，只                    gaussdb=# \dc *
+                           显示search_path中位置靠
+                           前模式下的同名对象。如果
+                           声明了PATTERN，只显示
+                           名称匹配PATTERN的转
+                           换。
+
+               \dC[+]      列出所有类型转换。当          PATTERN需要   列出所有名称以c开
+               [PATTERN]   search_path中不同模式存   使用实际类型      头的类型转换。
+                           在同名对象时，只显示          名，不能使用别     gaussdb=# \dC c*
+                           search_path中位置靠前模   名。
+                           式下的同名对象。如果声明
+                           了PATTERN，只显示名称
+                           匹配PATTERN的转换。
+
+               \dd[S]      显示所有可视对象。当          -           列出所有可视对象。
+               [PATTERN]   search_path中不同模式存               gaussdb=# \dd
+                           在同名对象时，只显示
+                           search_path中位置靠前模
+                           式下的同名对象。如果声明
+                           了PATTERN，只显示名称
+                           匹配的对象。对象包括：聚
+                           集、函数、操作符、类型、
+                           关系(表、视图、索引、序
+                           列)、规则。
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                              3579
+GaussDB
+集中式版参考                                                                  5 工具参考
+
+
+               参数            参数说明                取值范围   示例
+
+               \ddp          显示所有默认的使用权限。        -      列出所有默认的使用
+               [PATTERN]     如果指定了PATTERN，只             权限。
+                             显示名称匹配PATTERN的             gaussdb=# \ddp
+                             使用权限。
+
+               \dD[S+]       列出所有可用域。当           -      列出所有可用域。
+               [PATTERN]     search_path中不同模式存          gaussdb=# \dD
+                             在同名对象时，只显示
+                             search_path中位置靠前模
+                             式下的同名对象。如果声明
+                             了PATTERN，只显示名称
+                             匹配PATTERN的域。
+
+               \det[+]       列出所有的外部表。当          -      列出所有的外部表。
+               [PATTERN]     search_path中不同模式存          gaussdb=# \det
+                             在同名对象时，只显示
+                             search_path中位置靠前模
+                             式下的同名对象。如果声明
+                             了PATTERN，只显示名称
+                             匹配PATTERN的表。
+
+               \des[+]       列出所有的外部服务器。如        -      列出所有的外部服务
+               [PATTERN]     果声明了PATTERN，只显             器。
+                             示名称匹配PATTERN的服             gaussdb=# \des
+                             务器。
+
+               \deu[+]       列出用户映射信息。如果声        -      列出用户映射信息。
+               [PATTERN]     明了PATTERN，只显示名             gaussdb=# \deu
+                             称匹配PATTERN的信息。
+
+               \dew[+]       列出封装的外部数据。如果        -      列出封装的外部数
+               [PATTERN]     声明了PATTERN，只显示             据。
+                             名称匹配PATTERN的数              gaussdb=# \dew
+                             据。
+
+               \df[antw][S   列出所有可用函数，以及它        -      列出所有可用函数，
+               +]            们的参数和返回的数据类                以及它们的参数和返
+               [PATTERN]     型。a代表聚集函数，n代               回的数据类型。
+                             表普通函数，t代表触发                gaussdb=# \df
+                             器，w代表窗口函数。当
+                             search_path中不同模式存
+                             在同名对象时，只显示
+                             search_path中位置靠前模
+                             式下的同名对象。如果声明
+                             了PATTERN，只显示名称
+                             匹配PATTERN的函数。
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                         3580
+GaussDB
+集中式版参考                                                             5 工具参考
+
+
+               参数          参数说明                取值范围   示例
+
+               \dF[+]      列出所有的文本搜索配置信        -      列出所有的文本搜索
+               [PATTERN]   息。当search_path中不同          配置信息。
+                           模式存在同名对象时，只显               gaussdb=# \dF+
+                           示search_path中位置靠前
+                           模式下的同名对象。如果声
+                           明了PATTERN，只显示名
+                           称匹配PATTERN的配置信
+                           息。
+
+               \dFd[+]     列出所有的文本搜索字典。        -      列出所有的文本搜索
+               [PATTERN]   当search_path中不同模式          字典。
+                           存在同名对象时，只显示                gaussdb=# \dFd
+                           search_path中位置靠前模
+                           式下的同名对象。如果声明
+                           了PATTERN，只显示名称
+                           匹配PATTERN的字典。
+
+               \dFp[+]     列出所有的文本搜索分析         -      列出所有的文本搜索
+               [PATTERN]   器。当search_path中不同          分析器。
+                           模式存在同名对象时，只显               gaussdb=# \dFp
+                           示search_path中位置靠前
+                           模式下的同名对象。如果声
+                           明了PATTERN，只显示名
+                           称匹配PATTERN的分析
+                           器。
+
+               \dFt[+]     列出所有的文本搜索模板。        -      列出所有的文本搜索
+               [PATTERN]   当search_path中不同模式          模板。
+                           存在同名对象时，只显示                gaussdb=# \dFt
+                           search_path中位置靠前模
+                           式下的同名对象。如果声明
+                           了PATTERN，只显示名称
+                           匹配PATTERN的模板。
+
+               \dg[+]      列出所有数据库角色。如果        -      列出名称为“j?e”
+               [PATTERN]   指定了PATTERN，只显示             所有数据库角色
+                           名称匹配PATTERN的角              （“?”表示任一字
+                           色。                         符）。
+                                                      gaussdb=# \dg j?e
+                           说明
+                            因为用户和群组的概念被统一
+                            为角色，所以这个命令等价于
+                            \du。为了和以前兼容，所以
+                            保留两个命令。
+
+               \dL[S+]     列出可用的程序语言。如果        -      列出可用的程序语
+               [PATTERN]   指定了PATTERN，只列出             言。
+                           名称匹配PATTERN的语              gaussdb=# \dL
+                           言。
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                          3581
+GaussDB
+集中式版参考                                                             5 工具参考
+
+
+               参数          参数说明                取值范围   示例
+
+               \dm[S+]     列出物化视图。当            -      列出物化视图。
+               [PATTERN]   search_path中不同模式存          gaussdb=# \dm
+                           在同名对象时，只显示
+                           search_path中位置靠前模
+                           式下的同名对象。如果指定
+                           了PATTERN，只列出名称
+                           匹配PATTERN的物化视
+                           图。
+
+               \dn[S+]     列出所有模式（名称空          -      列出所有名称以d开
+               [PATTERN]   间）。如果向命令追加+，               头的模式以及相关信
+                           会列出每个模式相关的权限               息。
+                           及描述。如果声明了                  gaussdb=# \dn+ d*
+                           PATTERN，只列出名称匹
+                           配PATTERN的模式名。缺
+                           省时，只列出用户创建的模
+                           式。
+
+               \do[S]      列出所有可用的操作符，以        -      列出所有可用的操作
+               [PATTERN]   及它们的操作数和返回的数               符，以及它们的操作
+                           据类型。当search_path中          数和返回的数据类
+                           不同模式存在同名对象时，               型。
+                           只显示search_path中位置          gaussdb=# \do
+                           靠前模式下的同名对象。如
+                           果声明了PATTERN，只列
+                           出名称匹配PATTERN的操
+                           作符。缺省时，只列出用户
+                           创建的操作符。
+
+               \dO[S+]     列出排序规则。当            -      列出排序规则。
+               [PATTERN]   search_path中不同模式存          gaussdb=# \dO
+                           在同名对象时，只显示
+                           search_path中位置靠前模
+                           式下的同名对象。如果声明
+                           了PATTERN，只列出名称
+                           匹配PATTERN的规则。缺
+                           省时，只列出用户创建的规
+                           则。
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                          3582
+GaussDB
+集中式版参考                                                             5 工具参考
+
+
+               参数          参数说明                取值范围   示例
+
+               \dp         列出可用的表、视图以及相        -      列出可用的表、视图
+               [PATTERN]   关的权限信息。当                   以及相关的权限信
+                           search_path中不同模式存          息。
+                           在同名对象时，只显示                 gaussdb=# \dp
+                           search_path中位置靠前模          \dp显示结果如下：
+                           式下的同名对象。如果指定               rolename=xxxx/yyyy --赋
+                                                      予一个角色的权限
+                           了PATTERN，只列出名称
+                                                      =xxxx/yyyy --赋予public的
+                           匹配PATTERN的表、视              权限
+                           图。
+                                                      xxxx表示赋予的权
+                                                      限，yyyy表示授予这
+                                                      个权限的角色。权限
+                                                      的参数说明请参见表
+                                                      5-21。
+
+               \drds       列出所有修改过的配置参         -      列出数据库所有修改
+               [PATTERN1   数。这些设置可以是针对角               过的配置参数。
+               [PATTERN2   色的、针对数据库的或者同               gaussdb=# \drds *
+                                                      dbname
+               ]]          时针对两者的。PATTERN1
+                           和PATTERN2表示要列出的
+                           角色PATTERN和数据库
+                           PATTERN。如果声明了
+                           PATTERN，只列出名称匹
+                           配PATTERN的规则。缺省
+                           或指定*时，则会列出所有
+                           设置。
+
+               \dT[S+]     列出所有的数据类型。当         -      列出所有的数据类
+               [PATTERN]   search_path中不同模式存          型。
+                           在同名对象时，只显示                 gaussdb=# \dT
+                           search_path中位置靠前模
+                           式下的同名对象。如果指定
+                           了PATTERN，只列出名称
+                           匹配PATTERN的类型。
+
+               \du[+]      列出所有数据库角色。如果        -      列出所有数据库角
+               [PATTERN]   指定了PATTERN，则只列             色。
+                           出名称匹配PATTERN的角             gaussdb=# \du
+                           色。
+                           说明
+                            因为用户和群组的概念被统一
+                            为角色，所以这个命令等价于
+                            \dg。为了和以前兼容，所以
+                            保留两个命令。
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                          3583
+GaussDB
+集中式版参考                                                               5 工具参考
+
+
+               参数          参数说明                取值范围   示例
+
+               \dE[S+]     这一组命令，字母E、i、        -      列出所有的索引和视
+               [PATTERN]   s、t和v分别代表着外部               图。
+                           表、索引、序列、表和视                gaussdb=# \div
+               \di[S+]
+               [PATTERN]   图。可以以任意顺序指定其
+                           中一个或者它们的组合来列
+               \ds[S+]     出这些对象。当
+               [PATTERN]   search_path中不同模式存
+               \dt[S+]     在同名对象时，只显示
+               [PATTERN]   search_path中位置靠前模
+               \dv[S+]     式下的同名对象。例如：
+               [PATTERN]   \dit列出所有的索引和表。
+                           如果指定了PATTERN，只
+                           列出名称匹配该PATTERN
+                           的对象。默认情况下只会显
+                           示用户创建的对象。通过
+                           PATTERN或者S修饰符可以
+                           把系统对象包括在内。
+
+               \dx[+]      列出安装数据库的扩展信         -      列出安装数据库的扩
+               [PATTERN]   息。如果指定了                    展信息。
+                           PATTERN，则只列出名称             gaussdb=# \dx
+                           匹配PATTERN的扩展信
+                           息。
+
+               \l[+]       列出服务器上所有数据库的        -      列出服务器上所有数
+                           名称、所有者、字符集编码               据库的名称、所有
+                           以及使用权限。                    者、字符集编码以及
+                                                      使用权限。
+                                                      gaussdb=# \l
+
+               \sf[+]      显示函数的定义。            -      假设存在函数
+               FUNCNAM     说明                         function_a和函数名
+               E                                      带圆括号的函数
+                            ● 对于带圆括号的函数名，
+                              需要在函数名两端添加双             func()name，列出
+                              引号，并且在双引号后面             函数的定义。
+                              加上参数类型列表。参数             gaussdb=# \sf function_a
+                              类型列表两端添加圆括              gaussdb=# \sf
+                                                      "func()name"(argtype1,
+                              号。
+                                                      argtype2)
+                            ● 如果存在同名的函数，则
+                              会返回多个函数的定义。
+
+               \z          列出数据库中所有表、视图        -      列出数据库中所有
+               [PATTERN]   和序列，以及它们相关的访               表、视图和序列，以
+                           问特权。如果给出任何                 及它们相关的访问特
+                           PATTERN，则被当成一个             权。
+                           正则表达式，只显示匹配的               gaussdb=# \z
+                           表、视图、序列。
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                        3584
+GaussDB
+集中式版参考                                                               5 工具参考
+
+
+                   说明
+
+                   ● 表5-20中的选项S表示显示系统对象，+表示显示对象附加的描述信息。
+                   ● PATTERN用来指定要被显示的对象名称。关于PATTERN的注意事项如下：
+                    ●   在最简单的情况下，PATTERN是该对象的准确名称。在PATTERN中的字符通常会被变
+                        成小写形式（和在SQL名称中相同），例如\dt FOO将会显示名为foo的表。和在SQL名
+                        称中相同，把PATTERN放在双引号中可以阻止它被转换成小写形式。如果需要在一个
+                        PATTERN中包括一个真正的双引号字符，则需要把它写成两个相邻的双引号，这同样
+                        是符合SQL引用标识符的规则。例如，\dt "FOO""BAR"将显示名为FOO"BAR（不是
+                        foo"bar）的表。和普通的SQL名称规则不同，不能只在PATTERN的一部分周围放上双
+                        引号，例如\dt FOO"FOO"BAR将会显示名为fooFOObar的表。
+                    ●   不使用PATTERN参数时，\d命令会显示当前schema搜索路径中可见的全部对象——这
+                        等价于用*作为PATTERN。所谓对象可见是指可以直接用名称引用该对象，而不需要用
+                        schema来进行限定。要查看数据库中所有的对象而不管它们的可见性，可以把*.*用作
+                        PATTERN。
+                    ●   如果放在一个PATTERN中，*将匹配任意字符序列（包括空序列），而?会匹配任意的单
+                        个字符（和Unix shell的文件名PATTERN相同）。例如，\dt int*会显示名称以int开始的
+                        表。但是如果被放在双引号内，*和?就会失去这些特殊含义而变成普通的字符。
+                    ●   包含一个点号（.）的PATTERN被解释为一个schema名称模式后面跟上一个对象名称模
+                        式。例如，\dt foo*.*bar*会显示名称以foo开始的schema中所有名称包括bar的表。如
+                        果没有出现点号，那么模式将只匹配当前schema搜索路径中可见的对象。同样，双引
+                        号内的点号会失去其特殊含义并且变成普通的字符。
+                    ●   高级用户可以使用字符类等正则表达式记法，如[0-9]可以匹配任意数字。所有的正则
+                        表达式特殊字符都按照POSIX正则表达式使用。以下字符除外：
+                        ●   .会按照上文所述作为一种分隔符。
+                        ●   *会被翻译成正则表达式记号.*。
+                        ●   ?会被翻译成.。
+                        ●   $则按字面意思匹配。
+                    ●   根据需要，可以通过书写?、(R+|)、(R|)和R?来分别模拟PATTERN字符.、R*和R?。$不
+                        需要作为一个正则表达式字符，因为PATTERN必须匹配整个名称，而不是按照正则表
+                        达式的常规用法解释（换句话说，$会被自动地追加到PATTERN上）。如果不希望该
+                        PATTERN的匹配位置被固定，可以在开头或者结尾写上*。注意在双引号内，所有的正
+                        则表达式特殊字符会失去其特殊含义并且按照其字面意思进行匹配。另外，在操作符名
+                        称PATTERN中（即\do的PATTERN参数），正则表达式特殊字符也按照字面意思进行匹
+                        配。
+
+
+              表 5-21 权限的参数说明
+               参数              参数说明
+
+               r               SELECT：允许对指定的表、视图读取数据。
+
+               w               UPDATE：允许对指定表更新字段。
+
+               a               INSERT：允许对指定表插入数据。
+
+               d               DELETE：允许删除指定表中的数据。
+
+               D               TRUNCATE：允许清理指定表中的数据。
+
+               x               REFERENCES：允许创建外键约束。
+
+               t               TRIGGER：允许在指定表上创建触发器。
+
+
+
+
+文档版本 01 (2026-04-30)          版权所有 © 华为云计算技术有限公司                         3585
+GaussDB
+集中式版参考                                                      5 工具参考
+
+
+               参数              参数说明
+
+               X               EXECUTE：允许使用指定的函数，以及利用这些函数实现的操
+                               作符。
+
+               U               USAGE：
+                               ● 对于过程语言，允许用户在创建函数时，指定过程语言。
+                               ● 对于模式，允许访问包含在指定模式中的对象。
+                               ● 对于序列，允许使用nextval函数。
+
+               C               CREATE：
+                               ● 对于数据库，允许在该数据库里创建新的模式。
+                               ● 对于模式，允许在该模式中创建新的对象。
+                               ● 对于表空间，允许在其中创建表，以及允许创建数据库和模
+                                 式的时候把该表空间指定为其缺省表空间。
+
+               c               CONNECT：允许用户连接到指定的数据库。
+
+               T               TEMPORARY：允许创建临时表。
+
+               A               ALTER：允许用户修改指定对象的属性。
+
+               P               DROP：允许用户删除指定的对象。
+
+               m               COMMENT：允许用户定义或修改指定对象的注释。
+
+               i               INDEX：允许用户在指定表上创建索引。
+
+               v               VACUUM：允许用户对指定的表执行ANALYZE和VACUUM操
+                               作。
+
+               *               授权以上权限。
+
+
+
+
+              表 5-22 格式化元命令
+               参数            参数说明               取值范围
+
+               \a            对齐模式和非对齐模式之间的切     -
+                             换。
+
+               \C [STRING]   为表输出设置标题，或者取消标题    任意字符串或空。
+                             （如果没有参数）。
+
+               \f [STRING]   指定在非对齐输出模式下，用于分    任意字符串。
+                             隔字段的字符或字符串。
+
+               \H            标准输出和HTML表格格式输出之   -
+                             间的切换。
+
+               \pset NAME    设置影响查询结果表输出的选项。    NAME的取值见表5-23。
+               [VALUE]
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                3586
+GaussDB
+集中式版参考                                                            5 工具参考
+
+
+               参数                参数说明                 取值范围
+
+               \t [on | off]     切换输出的表格格式。           ● on：只显示数据行，不显示
+                                                        列标题和行计数。
+                                                      ● off：显示完整的表格，包括
+                                                        列标题和行计数。
+
+               \T [STRING]       指定在使用HTML输出格式时放在     -
+                                 table标签里的属性。如果参数为
+                                 空，表示不设置。
+
+               \x [on | off |    切换扩展行显示模式。           ● on：启用扩展显示模式，每
+               auto]                                    个字段单独一行显示。
+                                                      ● off：禁用扩展显示模式，使
+                                                        用标准表格显示。
+                                                      ● auto：根据查询结果的宽度
+                                                        自动选择是否使用扩展显示
+                                                        模式。
+
+
+
+
+              表 5-23 可调节的打印选项
+               选项               选项说明            取值范围
+
+               border           用于控制表格输出时的边框样   ● 在HTML格式下，取值范围为大于
+                                式。                0的整数。
+                                                ● 在其他格式下，取值范围：
+                                                     – 0：无边框，表格输出时不显示
+                                                       任何边框线。
+                                                     – 1：内部边框，显示列之间的分
+                                                       隔线，但不显示表格的外边
+                                                       框。
+                                                     – 2：完整边框，显示外边框和内
+                                                       部分隔线。
+
+               expanded         在正常和扩展格式之间切换。   ● on：启用扩展显示模式，每个字
+               (或x)                               段单独一行显示。
+                                                ● off：禁用扩展显示模式，使用标
+                                                  准表格显示。标准格式只对
+                                                  aligned和wrapped格式有意义。
+                                                ● auto：根据查询结果的宽度自动
+                                                  选择是否使用扩展显示模式。
+
+               fieldsep         用于控制在非对齐输出模式    可以设置为任意字符串。常见的取值
+                                下，各个字段之间的分隔符。   包括“,”、“\t”、“|”等，如果不
+                                                设置该选项，默认使用空格作为字段
+                                                分隔符。
+
+
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                3587
+GaussDB
+集中式版参考                                                            5 工具参考
+
+
+               选项           选项说明               取值范围
+
+               fieldsep_z   用于设置未对齐输出模式下的      -
+               ero          字段分隔符为ASCII NUL字
+                            符。
+
+               footer       用于设置查询结果的页脚。       ● on：显示页脚信息。
+                                               ● off：不显示页脚信息。
+
+               format       控制查询结果的输出格式。       ● unaligned（u）：以未对齐的形
+                                                 式显示，字段之间使用当前的字段
+                                                 分隔符分隔。
+                                               ● aligned（a）：以对齐的表格形式
+                                                 显示。
+                                               ● wrapped（w）：与aligned类
+                                                 似，但会自动换行过长的值。
+                                               ● html（h）：以HTML表格格式显
+                                                 示。
+                                               ● latex（l）：以LaTeX表格格式显
+                                                 示。
+                                               ● troff-ms（t）：以troff ms宏格式
+                                                 显示。
+
+               null         用于设置NULL值的显示方式。    任意字符串。如果不设置该选项，默
+                                               认使用空白字符来代替NULL值。
+
+               numericlo    用于控制数字输出格式时是否      ● on：数字输出时会使用当前系统
+               cale         使用当前系统的区域设置。         的区域设置进行格式化。例如，在
+                                                 英语环境下，数字1,000.00会显示
+                                                 为1,000.00，在德语环境下会显示
+                                                 为1.000,00。
+                                               ● off：数字输出时不使用区域设
+                                                 置，而是使用标准的数字格式，如
+                                                 1000.00。
+
+               pager        控制查询和gsql帮助输出的分    ● on：当输出到终端且不适合屏幕
+                            页器。如果设置了环境变量         显示时，使用分页器。
+                            PAGER，输出将被指向到指定
+                                               ● off：不使用分页器。
+                            程序，否则使用系统缺省。
+                                               ● always：当输出到终端无论是否
+                                                 符合屏幕显示时，都使用分页器。
+
+               recordsep    用于设置未对齐输出模式下的      可以设置为任意字符串。常见的取值
+                            记录分隔符。             包括换行符\n、回车符\r、回车换行
+                                               符\r\n等。如果不设置该选项，默认
+                                               使用换行符\n作为记录分隔符。
+
+               recordsep    用于设置未对齐输出模式下的      -
+               _zero        记录分隔符为ASCII NUL字
+                            符。
+
+
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                       3588
+GaussDB
+集中式版参考                                                                 5 工具参考
+
+
+               选项           选项说明                   取值范围
+
+               tableattr    声明放在HTML输出格式中          例如，bgcolor=#FFFFFF等。如果没
+               （或T）         HTML table标签的属性。注      有给出value，则表示不设置表的属
+                            意：如果已经使用\pset          性。
+                            border命令，这里无需再设置
+                            border。
+
+               title        用于设置查询结果的标题。           可以设置为任意字符串，如果不设置
+                                                   该选项，查询结果将不会显示任何标
+                                                   题。
+
+               tuples_onl   在完全显示和只显示实际的表          -
+               y（或t）        数据之间切换。完全显示将输
+                            出像列头、标题、各种脚注等
+                            信息。在tuples_only模式下，
+                            只显示实际的表数据。
+
+               feedback     在是否输出结果行数之间切           -
+                            换。
+
+
+
+
+              表 5-24 连接元命令
+               参数              参数说明                             取值范围
+
+               \c[onnect]      连接到一个新的数据库。当数据库名称长               -
+               [DBNAME|-       度超过63个字节时，默认前63个字节有
+               USER|- HOST|-   效，连接到前63个字节对应的数据库，但
+               PORT|-]         是gsql的命令提示符中显示的数据库对象
+                               名仍为截断前的名称。
+                               说明
+                                重新建立连接时，如果切换数据库登录用户，
+                                可能会出现交互式输入，要求输入新用户的连
+                                接密码。该密码最大长度为999字节，受限于
+                                GUC参数password_max_length的最大值。
+
+               \encoding       设置客户端字符编码格式。                     不带参数时，显示
+               [ENCODING]                                       当前的编码格式。
+
+               \conninfo       输出当前连接的数据库的信息。                   -
+
+
+
+
+              表 5-25 操作系统元命令
+               参数              参数说明                         取值范围
+
+               \cd [DIR]       切换当前的工作目录。                   绝对路径或相对路径，
+                                                            且满足操作系统路径命
+                                                            名规则。
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                        3589
+GaussDB
+集中式版参考                                                                                   5 工具参考
+
+
+               参数              参数说明                                     取值范围
+
+               \setenv NAME    设置环境变量NAME为VALUE，如果                      -
+               [VALUE]         没有给出VALUE值，则不设置环境变
+                               量。
+
+               \timing [on |   以毫秒为单位显示每条SQL语句的执                        ● on：表示打开显示。
+               off]            行时间（不包括屏显打印时间）。
+                                                                        ● off：表示关闭显示。
+
+               \! [COMMAND]    用于执行操作系统的命令。如果不跟                         -
+                               任何参数，\!会直接打开一个独立的
+                               shell供用户交互。
+
+
+
+
+              表 5-26 变量元命令
+               参数                     参数说明
+
+               \prompt [TEXT] NAME    用于提示用户输入一个值，并将其存储在一个gsql变量
+                                      中。TEXT表示提示用户输入的文本，NAME表示要将输
+                                      入值存储的gsql变量。示例如下：
+                                      gaussdb=# \prompt 'Enter area name: ' area
+                                      Enter area name: Asia
+                                      gaussdb=# SELECT * FROM HR.areaS WHERE area_name = :'area';
+                                      area_id | area_name
+                                      ---------+-----------
+                                      3 | Asia
+                                      (1 row)
+
+               \set [NAME [VALUE]]    设置内部变量NAME为VALUE，如果给出了多于一个
+                                      值，变量取值为所有值的连接结果。如果没有给出第二
+                                      个参数，只设置变量不设置值。
+                                      有一些常用变量被gsql特殊对待，它们是一些选项设
+                                      置，通常所有特殊对待的变量都是由大写字母组成（可
+                                      能还有数字和下划线）。
+                                      表5-27是所有被特殊对待的变量列表。
+
+               \unset NAME            不设置（或删除）gsql变量名。
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                                              3590
+GaussDB
+集中式版参考                                                           5 工具参考
+
+              表 5-27 \set 常用命令
+               名称               命令说明                   取值范围
+
+               \set VERBOSITY   该选项控制错误报告的冗余行。         ● default：返回严重且
+               value                                     主要的错误文本及其
+                                                         位置，还包括详细的
+                                                         错误细节、错误提示
+                                                         （可能会跨越多
+                                                         行）。
+                                                       ● verbose：返回所有的
+                                                         错误信息。
+                                                       ● terse：仅返回严重且
+                                                         主要的错误文本以及
+                                                         文本位置（一般适合
+                                                         于单行错误信息）。
+
+               \set             如果设置了这个变量，脚本处理将        ● on：命令执行错误时
+               ON_ERROR_STO     马上停止。如果该脚本是从另外一          会立即停止，在交互
+               P value          个脚本调用的，另外一个脚本也会          模式下，gsql会立即
+                                按同样的方式停止。如果最外层的          返回已执行命令的结
+                                脚本不是从一次交互的gsql会话中        果。
+                                调用的而是用-f选项调用的，gsql将
+                                                       ● off：命令执行错误时
+                                返回错误代码3，以示这个情况与致
+                                                         将会跳过错误继续执
+                                命错误条件的区别（错误代码为
+                                                         行。
+                                1）。
+
+               \set             控制当前gsql连接的自动提交行       ● on：表示打开自动提
+               AUTOCOMMIT       为。默认情况下，gsql连接处于自        交。
+               [on | off]       动提交模式，每个单独的语句都被
+                                                       ● off：表示关闭自动提
+                                隐式提交。如果基于性能或者其他
+                                                         交。
+                                方面考虑，关闭自动提交时，需要
+                                用户自己显式发出COMMIT命令来
+                                保证事务的提交。例如，在指定的
+                                业务SQL执行完之后发送COMMIT
+                                语句显式提交，特别是gsql客户端
+                                退出之前务必保证所有的事务已经
+                                提交。
+                                说明
+                                 gsql默认使用自动提交模式，若关闭自
+                                 动提交，将会导致后面执行的语句都被
+                                 隐式事务包裹，数据库中不支持在事务
+                                 中执行的语句不能在此模式下执行。
+
+
+
+
+              表 5-28 全密态元命令
+               参数                   参数说明
+
+               \send_token          全密态功能，传输密钥到服务端缓存，只在开启内存解
+                                    密逃生通道的情况下使用。
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                  3591
+GaussDB
+集中式版参考                                                                           5 工具参考
+
+
+               参数                       参数说明
+
+               \st                      全密态功能，传输密钥到服务端缓存，只在开启内存解
+                                        密逃生通道的情况下使用。
+
+               \clear_token             全密态功能，销毁服务端缓存的密钥，只在开启内存解
+                                        密逃生通道的情况下使用。
+
+               \ct                      全密态功能，销毁服务端缓存的密钥，只在开启内存解
+                                        密逃生通道的情况下使用。
+
+               \key_info KEY_INFO       在全密态数据库特性中，设置访问外部密钥管理者的参
+                                        数。
+
+
+
+
+                     说明
+
+                     M-Compatibility暂不支持全密态数据库。
+
+
+              表 5-29 常用简易运维元命令
+               简易运维命令            参数解释                    实际执行的SQL
+
+               \view             stmt_track：记录指定SQL的     SELECT * FROM
+               stmt_track        L2级别的FULLSQL信息。         pg_catalog.dynamic_func_contr
+               {unique_sql_id}   unique_sql_id：需要记录的     ol('LOCAL', 'STMT', 'TRACK',
+                                 SQL的unique_sql_id。      '{"{unique_sql_id}", "L2"}');
+
+               \view             stmt_untrack：取消记录指      SELECT * FROM
+               stmt_untrack      定SQL的L2级别的FULLSQL       pg_catalog.dynamic_func_contr
+               {unique_sql_id}   信息。                     ol('LOCAL', 'STMT', 'UNTRACK',
+                                 unique_sql_id：需要取消记     '{"{unique_sql_id}"}');
+                                 录的SQL的unique_sql_id。
+
+               \view stmt_list   stmt_list：查询记录列表。       SELECT * FROM
+                                                         pg_catalog.dynamic_func_contr
+                                                         ol('LOCAL', 'STMT', 'LIST', '{}');
+
+               \view             stmt_clean：清理记录列        SELECT * FROM
+               stmt_clean        表。                      pg_catalog.dynamic_func_contr
+                                                         ol('LOCAL', 'STMT', 'CLEAN',
+                                                         '{}');
+
+               \view             explain_and_stack：查询指   SELECT
+               explain_and_sta   定会话的运行时计划及堆             pg_catalog.gs_get_explain(pid),
+               ck {pid}          栈。                      pg_catalog.gs_stack(pid) FROM
+                                 pid：指定会话的pid。           pg_catalog.pg_stat_activity
+                                                         WHERE pid = {pid};
+
+
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                                    3592
+GaussDB
+集中式版参考                                                                     5 工具参考
+
+
+               简易运维命令           参数解释                 实际执行的SQL
+
+               \view slow_sql   slow_sql：查询实时慢SQL情   SELECT pid, sessionid,
+               {top_n}          况。                   pg_catalog.SUBSTRING(query,
+                                top_n：查询的行数。         0, 100), state, usename,
+                                                     pg_catalog.NOW() -
+                                                     query_start AS elp FROM
+                                                     pg_catalog.pg_stat_activity
+                                                     WHERE state != 'idle' AND
+                                                     usename NOT IN ('rdsAdmin',
+                                                     'rdsMetric', 'rdsBackup',
+                                                     'rdsRepl',
+                                                     'dbmind_monitor_agent',
+                                                     'dbmind_monitor') ORDER BY
+                                                     elp DESC LIMIT {top_n};
+
+               \view            slow_trans：查询实时长事务   SELECT pid, sessionid,
+               slow_trans       情况。                  pg_catalog.SUBSTRING(query,
+               {top_n}          top_n：查询的行数。         0, 100), state, usename,
+                                                     pg_catalog.NOW() - xact_start
+                                                     AS elp FROM
+                                                     pg_catalog.pg_stat_activity
+                                                     WHERE state != 'idle' AND
+                                                     usename NOT IN ('rdsAdmin',
+                                                     'rdsMetric', 'rdsBackup',
+                                                     'rdsRepl',
+                                                     'dbmind_monitor_agent',
+                                                     'dbmind_monitor') ORDER BY
+                                                     elp DESC LIMIT {top_n};
+
+               \view            wait_event（不带参数）：    SELECT a.pid, a.sessionid,
+               wait_event       查询当前语句和等待事件。         a.datname, a.usename,
+                                                     a.client_addr, a.xact_start,
+                                                     a.query_start,
+                                                     (pg_catalog.NOW() -
+                                                     a.query_start)::text
+                                                     "query_runtime", w.wait_status,
+                                                     w.wait_event, w.locktag,
+                                                     w.lockmode, w.block_sessionid,
+                                                     a.query FROM
+                                                     pg_catalog.pg_stat_activity a
+                                                     JOIN
+                                                     pg_catalog.pg_thread_wait_stat
+                                                     us w ON a.sessionid =
+                                                     w.sessionid WHERE a.pid <>
+                                                     pg_catalog.pg_backend_pid()
+                                                     AND a.state = 'active' AND
+                                                     a.client_addr IS NOT NULL
+                                                     ORDER BY query_runtime
+                                                     DESC;
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                              3593
+GaussDB
+集中式版参考                                                                         5 工具参考
+
+
+               简易运维命令            参数解释                   实际执行的SQL
+
+               \view             wait_event（带有三个参       SELECT *,
+               wait_event        数）：查询指定慢SQL的历史         pg_catalog.statement_detail_de
+               {unique_sql_id}   等待事件。                  code(details, 'plaintext', true)
+               {start_time}      unique_sql_id：需要查询的    FROM
+               {end_time}        慢SQL的unique_sql_id。    dbe_perf.statement_history
+                                                        WHERE unique_query_id =
+                                 start_time：开始时间。如      {unique_sql_id} AND start_time
+                                 '2025-01-01 00:00'。    > {start_time} AND start_time
+                                 end_time：结束时间。如        < {end_time} ORDER BY
+                                 '2025-01-01 00:00'。    db_time DESC;
+
+               \view             thr_wait_event（不带参     SELECT wait_status, wait_event,
+               thr_wait_event    数）：查询实时整体等待事           pg_catalog.COUNT(*) FROM
+                                 件。                     pg_catalog.pg_thread_wait_stat
+                                                        us GROUP BY 1, 2 ORDER BY 3
+                                                        DESC;
+
+               \view             thr_wait_event（带有一个参   SELECT * FROM
+               thr_wait_event    数）：查询指定语句的等待           pg_catalog.pg_thread_wait_stat
+               {sessionid}       事件。                    us WHERE sessionid =
+                                 sessionid：指定的          {sessionid};
+                                 sessionid。
+
+               \view gs_asp      gs_asp：查询历史指定时间        SELECT wait_status, event,
+               {start_time}      段整体等待事件。               pg_catalog.COUNT(*) FROM
+               {end_time}        start_time：开始时间。如      pg_catalog.gs_asp WHERE
+                                 '2025-01-01 00:00'。    sample_time BETWEEN
+                                                        {start_time} AND {end_time}
+                                 end_time：结束时间。如        GROUP BY 1, 2 ORDER BY 3
+                                 '2025-12-31 23:59'。    DESC;
+
+               \view pg_stats    pg_stats：查询指定表的统计      SELECT * FROM
+               {table_name}      信息分布。                  pg_catalog.pg_stats WHERE
+               {att_name}        table_name：表名。         tablename = '{table_name}'
+                                                        AND attname = '{att_name}';
+                                 att_name：列名。
+
+               \view autovac     autovac：查询统计信息更新       SELECT * FROM
+               {table_name}      阈值。                    pg_catalog.pg_autovac_status('
+                                 table_name：表名。         {table_name}'::regclass);
+
+               \view thr_pool    thr_pool：查询线程池使用情      SELECT node_name,
+                                 况。                     worker_info FROM
+                                                        dbe_perf.global_threadpool_sta
+                                                        tus;
+
+               \view             failed_proc：查询失效的视     SELECT re.ev_class, cl.relname
+               failed_proc       图或存储过程。                FROM pg_catalog.pg_rewrite
+               {proc_name}       proc_name：失效的函数。       re, pg_catalog.pg_class cl
+                                                        WHERE re.ev_action LIKE '%
+                                                        {proc_name}%' AND cl.oid =
+                                                        re.ev_class;
+
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                                 3594
+GaussDB
+集中式版参考                                                                         5 工具参考
+
+
+               简易运维命令             参数解释                   实际执行的SQL
+
+               \view              failed_proc_pkg：查询失效   SELECT DISTINCT object_type,
+               failed_proc_pkg    存储过程对应的package。        pg_catalog.pg_get_userbyid(cre
+                                                         ator) AS owner, CASE
+                                                         object_type WHEN 'P' THEN
+                                                         ( SELECT DISTINCT
+                                                         pg_catalog.UPPER(pkgname)
+                                                         FROM pg_catalog.gs_package
+                                                         WHERE oid = ( SELECT
+                                                         propackageid FROM
+                                                         pg_catalog.pg_proc WHERE oid
+                                                         = object_oid ) ) WHEN 'B'
+                                                         THEN ( SELECT DISTINCT
+                                                         pg_catalog.UPPER(pkgname)
+                                                         FROM pg_catalog.gs_package
+                                                         WHERE oid = object_oid )
+                                                         WHEN 'S' THEN ( SELECT
+                                                         DISTINCT
+                                                         pg_catalog.UPPER(pkgname)
+                                                         FROM pg_catalog.gs_package
+                                                         WHERE oid = object_oid ) END
+                                                         package_name FROM
+                                                         pg_catalog.pg_object WHERE
+                                                         valid = 'f' AND object_type IN
+                                                         ('P', 'B', 'S');
+
+               \view              failed_index：查询不可用的    SELECT a.schemaname,
+               failed_index       索引。                    a.relname, a.indexrelname,
+                                                         b.indisusable FROM
+                                                         pg_catalog.pg_stat_user_indexe
+                                                         s a, pg_catalog.pg_index b
+                                                         WHERE a.indexrelid =
+                                                         b.indexrelid AND b.indisusable
+                                                         = 'f';
+
+               \view table_size   table_size：查询当前库下所     SELECT schemaname, relname,
+                                  有表的大小，按降序输出。           pg_catalog.pg_total_relation_siz
+                                                         e(pg_catalog.CONCAT(schema
+                                                         name, '.', relname)) / 1024 /
+                                                         1024 / 1024 "GB" FROM
+                                                         pg_catalog.pg_stat_user_tables
+                                                         ORDER BY 3 DESC;
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                                 3595
+GaussDB
+集中式版参考                                                                            5 工具参考
+
+
+               简易运维命令             参数解释                     实际执行的SQL
+
+               \view dead_tup     dead_tup：查询死元组的数         SELECT relname, n_live_tup,
+               {top_n}            量。                       n_dead_tup, (n_dead_tup /
+                                  top_n：查询的行数。             (n_live_tup + 1)) AS rating,
+                                                           last_vacuum, last_autovacuum,
+                                                           last_analyze, last_autoanalyze
+                                                           FROM
+                                                           pg_catalog.pg_stat_user_tables
+                                                           ORDER BY rating DESC,
+                                                           n_dead_tup DESC LIMIT
+                                                           {top_n};
+
+               \view table_size   table_size：查询指定表的大       SELECT * FROM
+               {table_name}       小。                       pg_catalog.pg_size_pretty(pg_c
+                                  table_name：表名。           atalog.pg_total_relation_size('{t
+                                                           able_name}'::regclass));
+
+               \view login        login：查询指定IP和端口的         SELECT *,
+               {start_time}       登录即退出信息。                 pg_catalog.SUBSTRING( client_
+               {end_time} {ip}    start_time：开始时间。如        conninfo::varchar,
+               {port}             '2024-01-01 00:00:00'。   pg_catalog.POSITION(client_co
+                                                           nninfo::varchar, '@'::varchar) +
+                                  end_time：结束时间。如          1, 15 ) AS ip FROM
+                                  '2025-12-31 23:59:59'。   pg_catalog.pg_query_audit({sta
+                                  ip：IP地址。                 rt_time}, {end_time}) WHERE ip
+                                  port：端口。                 = '{ip}' AND remote_port =
+                                                           '{port}';
+
+               \view mem          mem：查询当前内存使用信            SELECT * FROM
+                                  息                        pg_catalog.pg_total_memory_d
+                                                           etail;
+
+               \view thr_mem      thr_mem（带有一个参            SELECT contextname,
+               {top_n}            数）：查询数据库所有线程             pg_catalog.SUM(totalsize) /
+                                  的内存上下文使用情况。              1024 / 1024 "totalsize",
+                                  top_n：查询的行数。             pg_catalog.SUM(freesize) /
+                                                           1024 / 1024 "freesize",
+                                                           pg_catalog.COUNT(*) "sum"
+                                                           FROM
+                                                           pg_catalog.gs_thread_memory_
+                                                           context GROUP BY
+                                                           contextname ORDER BY sum
+                                                           DESC LIMIT {top_n};
+
+               \view thr_mem      thr_mem（带有两个参            SELECT * FROM
+               {context_name}     数）：查询使用内存最多的             pg_catalog.pv_thread_memory_
+               {top_n}            线程的线程id。                 detail() WHERE contextname =
+                                  context_name：内存上下文       '{context_name}' ORDER BY
+                                  的名称。                     totalsize DESC LIMIT {top_n};
+                                  top_n：查询的行数。
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                                    3596
+GaussDB
+集中式版参考                                                                      5 工具参考
+
+
+               简易运维命令           参数解释                  实际执行的SQL
+
+               \view sess_mem   sess_mem：查询数据库所有      SELECT contextname,
+               {top_n}          session的内存上下文使用情      pg_catalog.SUM(totalsize) /
+                                况。                    1024 / 1024 "totalsize",
+                                top_n：查询的行数。          pg_catalog.SUM(freesize) /
+                                                      1024 / 1024 "freesize",
+                                                      pg_catalog.COUNT(*) "sum"
+                                                      FROM
+                                                      pg_catalog.gs_session_memory
+                                                      _context GROUP BY
+                                                      contextname ORDER BY sum
+                                                      DESC LIMIT {top_n};
+
+               \view            thr_mem_detail：查询指定   SELECT * FROM
+               thr_mem_detail   线程的内存使用情况。            pg_catalog.gs_get_thread_mem
+               {tid}            tid：线程id。             ctx_detail({tid},
+               {context_name}                         '{context_name}');
+                                context_name：内存上下文
+                                的名称。
+
+               \view            sess_mem_tp：查询指定内     SELECT * FROM
+               sess_mem_tp      存上下文的内存使用情况。          pg_catalog.gs_get_session_me
+               {context_name}   context_name：内存上下文    mctx_detail('{context_name}');
+                                的名称。
+
+               \view            shared_mem：查询数据库全     SELECT contextname,
+               shared_mem       局共享内存上下文的使用情          pg_catalog.SUM(totalsize) /
+               {top_n}          况。                    1024 / 1024 "totalsize MB",
+                                top_n：查询的行数。          pg_catalog.SUM(freesize) /
+                                                      1024 / 1024 "freesize MB",
+                                                      pg_catalog.COUNT(*) "sum"
+                                                      FROM
+                                                      pg_catalog.gs_shared_memory_
+                                                      detail GROUP BY contextname
+                                                      ORDER BY sum DESC LIMIT
+                                                      {top_n};
+
+               \view            sess_mem_detail：查询    SELECT contextname,
+               sess_mem_detai   session级内存上下文的使用      pg_catalog.SUM(totalsize) /
+               l {top_n}        情况。                   1024 / 1024 "totalsize MB",
+                                top_n：查询的行数。          pg_catalog.COUNT(1) "count"
+                                                      FROM
+                                                      pg_catalog.pv_session_memory
+                                                      _detail() GROUP BY
+                                                      contextname ORDER BY 2
+                                                      DESC LIMIT {top_n};
+
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                               3597
+GaussDB
+集中式版参考                                                                            5 工具参考
+
+
+               简易运维命令            参数解释                       实际执行的SQL
+
+               \view             sess_mem_detail_tp：查询      SELECT sessid,
+               sess_mem_detai    session级内存上下文的使用           pg_catalog.SUM(totalsize) /
+               l_tp {top_n}      情况（仅在线程池模式开启               1024 / 1024 "totalsize MB",
+                                 时生效）。                      pg_catalog.COUNT(1) "count"
+                                 top_n：查询的行数。               FROM
+                                                            pg_catalog.gs_session_memory
+                                                            _context GROUP BY sessid
+                                                            ORDER BY 2 DESC LIMIT
+                                                            {top_n};
+
+               \view             thr_mem_pv：查询线程级内          SELECT contextname,
+               thr_mem_pv        存上下文的使用情况。                 pg_catalog.SUM(totalsize) /
+               {top_n}           top_n：查询的行数。               1024 / 1024 "totalsize",
+                                                            pg_catalog.SUM(freesize) /
+                                                            1024 / 1024 "freesize",
+                                                            pg_catalog.COUNT(1) "count"
+                                                            FROM
+                                                            pg_catalog.pv_thread_memory_
+                                                            detail() GROUP BY 1 ORDER BY
+                                                            2 DESC LIMIT {top_n};
+
+               \view             total_mem：查询当前数据           SELECT * FROM
+               total_mem         库节点的内存使用情况。                pg_catalog.gs_total_memory_d
+               {top_n}           top_n：查询的行数。               etail LIMIT {top_n};
+
+               \view avg_cpu     avg_cpu：查询SQL语句的平          SELECT unique_sql_id,
+               {top_n}           均CPU时间，按降序输出。              cpu_time / (n_calls)
+                                 top_n：查询的行数。               "average_cpu_time" FROM
+                                                            dbe_perf.statement WHERE
+                                                            n_calls != 0 ORDER BY 2 DESC
+                                                            LIMIT {top_n};
+
+               \om               create_abort_sql_patch：创   SELECT * FROM
+               create_abort_sq   建避险SQL PATCH。              dbe_sql_util.create_abort_sql_p
+               l_patch           patch_name：SQL PATCH       atch('{patch_name}',
+               {patch_name}      名。                         {unique_sql_id});
+               {unique_sql_id}
+                                 unique_sql_id：指定SQL的
+                                 unique_sql_id。
+
+
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                                     3598
+GaussDB
+集中式版参考                                                                                                   5 工具参考
+
+
+               简易运维命令                 参数解释                                    实际执行的SQL
+
+               \om                    kill_sess_thr：根据线程内存                    SELECT
+               kill_sess_thr          占用，查杀内存占用高的SQL                          pg_catalog.pg_terminate_sessio
+               {username}             语句。                                     n(pid, sessionid), pid, sessionid
+               {database}             username：用户名。                           FROM
+               {context_name}                                                 pg_catalog.pg_stat_activity
+                                      database：数据库名。                          WHERE usename =
+                                      context_name：内存上下文                      '{username}' AND datname !=
+                                      的名称。                                    'postgres' AND datname =
+                                                                              '{database}' AND pid IN
+                                                                              ( SELECT tid FROM
+                                                                              pg_catalog.gs_thread_memory_
+                                                                              context WHERE contextname =
+                                                                              '{context_name}' ) AND state =
+                                                                              'idle';
+
+               \om                    kill_sess_sess：根据session                SELECT
+               kill_sess_sess         内存占用，查杀内存占用高                            pg_catalog.pg_terminate_sessio
+               {username}             的SQL语句。                                 n(pid, sessionid), pid, sessionid
+               {database}             username：用户名。                           FROM
+               {context_name}                                                 pg_catalog.pg_stat_activity
+                                      database：数据库名。                          WHERE usename =
+                                      context_name：内存上下文                      '{username}' AND datname !=
+                                      的名称。                                    'postgres' AND datname =
+                                                                              '{database}' AND pid IN
+                                                                              ( SELECT threadid FROM
+                                                                              pg_catalog.gs_session_memory
+                                                                              _context WHERE contextname
+                                                                              = '{context_name}' );
+
+
+
+
+示例
+              示例一
+              获取帮助信息。
+              --连接数据库。（根据实际需要替换数据库名字和端口号）
+              gsql -d postgres -p 8000
+              gsql ((GaussDB Kernel XXX.X.XXX build f521c606) compiled at 2021-09-16 14:55:22 last mr 6385 release)
+              Non-SSL connection (SSL connection is recommended when requiring high-security)
+              Type "help" for help.
+
+              --查看GaussDB支持的所有SQL语句。
+              gaussdb=# \h
+              Available help:
+                ABORT
+                ALTER AGGREGATE
+               ... ...
+
+              --查看DROP TABLE语法的参数。
+              gaussdb=# \h DROP TABLE
+              Command:       DROP TABLE
+              Description: remove a table
+              Syntax:
+              DROP TABLE [ IF EXISTS ]
+                { [schema.]table_name } [, ...] [ CASCADE | RESTRICT ] [ PURGE ];
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                                                      3599
+GaussDB
+集中式版参考                                                                                                       5 工具参考
+
+
+              --查看gsql支持的元命令。
+              gaussdb=# \?
+              General
+                 \copyright     show GaussDB Kernel usage and distribution terms
+                 \g [FILE] or ; execute query (and send results to file or |pipe)
+              ... ...
+
+              示例二
+              使用元命令。
+              --连接数据库。（根据实际需要替换数据库名字和端口号）
+              gsql -d postgres -p 8000
+              gsql ((GaussDB Kernel XXX.X.XXX build f521c606) compiled at 2021-09-16 14:55:22 last mr 6385 release)
+              Non-SSL connection (SSL connection is recommended when requiring high-security)
+              Type "help" for help.
+
+              --创建表。
+              gaussdb=# CREATE SCHEMA HR;
+              CREATE SCHEMA
+              gaussdb=# CREATE TABLE HR.areaS(area_ID NUMBER,area_NAME VARCHAR2(25));
+              NOTICE: The 'DISTRIBUTE BY' clause is not specified. Using 'area_id' as the distribution column by default.
+              HINT: Please use 'DISTRIBUTE BY' clause to specify suitable data distribution column.
+              CREATE TABLE
+
+              --查看表的定义。
+              gaussdb=# \d HR.areaS
+                          Table "hr.areas"
+                Column |          Type          | Modifiers
+              -----------+-----------------------+-----------
+               area_id | numeric                |
+               area_name | character varying(25) |
+
+
+              --向HR.areaS表插入四行数据。
+              gaussdb=# INSERT INTO HR.areaS (area_ID, area_NAME) VALUES (1, 'Europe');
+              INSERT 0 1
+              gaussdb=# INSERT INTO HR.areaS (area_ID, area_NAME) VALUES (2, 'Americas');
+              INSERT 0 1
+              gaussdb=# INSERT INTO HR.areaS (area_ID, area_NAME) VALUES (3, 'Asia');
+              INSERT 0 1
+              gaussdb=# INSERT INTO HR.areaS (area_ID, area_NAME) VALUES (4, 'Middle East and Africa');
+              INSERT 0 1
+
+              --查看表。
+              gaussdb=# SELECT * FROM HR.areaS;
+              area_id |      area_name
+              ---------+------------------------
+                    4 | Middle East and Africa
+                    1 | Europe
+                    2 | Americas
+                    3 | Asia
+              (4 rows)
+
+              --用\pset命令以不同的方式显示表。
+              gaussdb=# \pset border 2
+              Border style is 2.
+
+              gaussdb=# SELECT * FROM HR.areaS;
+              +---------+------------------------+
+              | area_id |     area_name          |
+              +---------+------------------------+
+              |     4 | Middle East and Africa |
+              |     1 | Europe               |
+              |     2 | Americas               |
+              |     3 | Asia               |
+              +---------+------------------------+
+              (4 rows)
+
+
+
+文档版本 01 (2026-04-30)                        版权所有 © 华为云计算技术有限公司                                                       3600
+GaussDB
+集中式版参考                                                         5 工具参考
+
+              gaussdb=# \pset border 0
+              Border style is 0.
+
+              gaussdb=# SELECT * FROM HR.areaS;
+              area_id       area_name
+              ------- ----------------------
+                   4 Middle East and Africa
+                   1 Europe
+                   2 Americas
+                   3 Asia
+              (4 rows)
+
+              --使用元命令。
+              gaussdb=# \a \t \x
+              Output format is unaligned.
+              Showing only tuples.
+              Expanded display is on.
+
+              gaussdb=# SELECT * FROM HR.areaS;
+              area_id|4
+              area_name|Middle East and Africa
+
+              area_id|1
+              area_name|Europe
+
+              area_id|2
+              area_name|Americas
+
+              area_id|3
+              area_name|Asia
+
+              gaussdb=# \a \t \x
+              Output format is aligned.
+              Tuples only is off.
+              Expanded display is off.
+
+              gaussdb=# SELECT * FROM HR.areaS;
+              area_id       area_name
+              ------- ----------------------
+                   4 Middle East and Africa
+                   1 Europe
+                   2 Americas
+                   3 Asia
+              (4 rows)
+
+              gaussdb=# DROP TABLE HR.areaS;
+              DROP TABLE
+
+              gaussdb=# DROP SCHEMA HR;
+              DROP SCHEMA
+
+
+5.3.1.3 FAQ
+
+连接性能问题
+              ●    问题：开启log_hostname，但是配置错误的DNS导致的连接性能问题。
+                   解决：
+                   连接数据库，通过“show log_hostname”语句，检查数据库中是否开启
+                   log_hostname参数。
+                   如果开启了相关参数，数据库内核通过DNS反查客户端所在机器的主机名。如果
+                   数据库配置了不正确的/不可达的DNS服务器，会导致数据库建立连接过程较慢。
+                   此参数的更多信息详见GUC参数log_hostname。
+              ●    问题：数据库内核执行初始化语句较慢导致的性能问题。
+                   解决：
+
+文档版本 01 (2026-04-30)                      版权所有 © 华为云计算技术有限公司      3601
+GaussDB
+集中式版参考                                                                                                    5 工具参考
+
+                  此种情况定位较难，可以尝试使用Linux命令strace。
+                  strace gsql -U MyUserName -d gaussdb -h 127.0.0.1 -p 23508 -r -c '\q'
+                  Password for MyUserName：
+
+                  在屏幕上打印出数据库的连接过程。比如，如果较长时间停留在下面的操作上，
+                  便可以确定是数据库执行“SELECT VERSION()”语句较慢：
+                  sendto(3, "Q\0\0\0\25SELECT VERSION()\0", 22, MSG_NOSIGNAL, NULL, 0) = 22
+                  poll([{fd=3, events=POLLIN|POLLERR}], 1, -1) = 1 ([{fd=3, revents=POLLIN}])
+
+                  在连接数据库后，便可以通过执行“explain performance select version()”语句
+                  来确定初始化语句执行较慢的原因。更多信息，详见《SQL调优指南》中“SQL执
+                  行计划介绍”章节。
+                  另外还有一种场景不太常见：由于DN所在机器的磁盘满或故障，此时查询等受影
+                  响，无法进行用户认证，导致连接过程挂起。解决此问题的方法是清理DN的数据
+                  盘空间。
+              ●   问题：TCP连接创建较慢问题。
+                  解决：
+                  此问题可以参考上面的初始化语句较慢问题的排查方法，通过strace侦听，如果长
+                  时间停留在：
+                  connect(3, {sa_family=AF_FILE, path="/home/test/tmp/gaussdb_llt1/.s.PGSQL.61052"}, 110) = 0
+
+                  或者
+                  connect(3, {sa_family=AF_INET, sin_port=htons(61052), sin_addr=inet_addr("127.0.0.1")}, 16) = -1
+                  EINPROGRESS (Operation now in progress)
+
+                  说明客户端与数据库端建立物理连接过慢，此时应当检查网络是否存在不稳定、
+                  吞吐量太大的问题。
+              ●   问题：资源负载满导致连接较慢的问题。
+                  解决：
+                  当CPU、内存、I/O负载中的任意一项接近100%时，会出现gsql连接慢的现象。
+                  –    通过top命令等确认CPU使用率；通过free命令确认内存使用情况；通过iostat
+                       命令确认I/O负载；还可以通过cm_agent中的监控日志，以及数据库运维平
+                       台中的监测记录进行检查。
+                  –    针对短时间内大量慢查询导致的峰值负载场景，可通过（数据库服务器的端
+                       口号+1）端口连接，查询pg_stat_activity视图；针对慢查询，可以使用系统
+                       函数pg_terminate_backend进行查杀会话。
+                  –    针对业务量长期超负载情况（即无明显慢查询，或慢查询查杀后但新的查询
+                       依然会变成慢查询），应考虑降低业务负载、增加数据库资源的方式进行优
+                       化。
+
+创建连接故障
+              ●   问题：gsql: could not connect to server: No route to host
+                  解决：
+                  此问题一般是因为指定了不可达的地址或者端口。请检查-h参数与-p参数是否添
+                  加正确。
+              ●   问题：gsql: FATAL: Invalid username/password,login denied.
+                  解决：
+                  此问题一般是因为输入了错误的用户名和密码，请联系数据库管理员，确认用户
+                  名和密码的正确性。
+              ●   问题：gsql: FATAL: Forbid remote connection with trust method!
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                                         3602
+GaussDB
+集中式版参考                                                                                          5 工具参考
+
+                  解决：
+                  由于安全问题，数据库禁止远程登录时使用trust模式。这时需要修改gs_hba.conf
+                  里的连接认证信息。请联系管理员处理。
+                        说明
+
+                       请不要修改gs_hba.conf中数据库主机的相关设置，否则可能导致数据库功能故障。建议业
+                       务应用部署在数据库之外，而非数据库内部。
+              ●   问题：在DN连接数据库，添加“-h 127.0.0.1”可以连接，去掉后无法连接。
+                  解决：
+                  通过执行SQL语句“show unix_socket_directory”检查DN使用的Unix套接字目
+                  录，是否与shell中的环境变量$PGHOST一致。如果检查结果不一致，那么修改
+                  PGHOST环境变量到GUC参数unix_socket_directory指向的目录。
+                  关于unix_socket_directory的更多信息，请联系管理员获取。
+              ●   问题：The "libpq.so" loaded mismatch the version of gsql, please check it.
+                  解决：
+                  此问题是由于环境中使用的libpq.so的版本与gsql的版本不匹配导致的，请通过
+                  “ldd gsql”命令确认当前加载的libpq.so的版本，并通过修改LD_LIBRARY_PATH
+                  环境变量来加载正确的libpq.so。
+              ●   问题：gsql: symbol lookup error: xxx/gsql: undefined symbol:
+                  libpqVersionString
+                  解决：
+                  此问题是由于环境中使用的libpq.so的版本与gsql的版本不匹配导致的（也有可能
+                  是环境中存在PG的libpq.so），请通过“ldd gsql”命令确认当前加载的libpq.so
+                  的版本，并通过修改LD_LIBRARY_PATH环境变量来加载正确的libpq.so。
+              ●   问题：gsql: connect to server failed: Connection timed out
+                  Is the server running on host "xx.xxx.xxx.xxx" and accepting TCP/IP
+                  connections on port xxxx?
+                  解决：
+                  此问题是由于网络连接故障。请检查客户端与数据库服务器间的网络连接。如果
+                  发现从客户端无法PING到数据库服务器端，则说明网络连接出现故障。请联系网
+                  络管理人员排查解决。
+                  ping -c 4 10.10.10.1
+                  PING 10.10.10.1 (10.10.10.1) 56(84) bytes of data.
+                  From 10.10.10.1: icmp_seq=2 Destination Host Unreachable
+                  From 10.10.10.1 icmp_seq=2 Destination Host Unreachable
+                  From 10.10.10.1 icmp_seq=3 Destination Host Unreachable
+                  From 10.10.10.1 icmp_seq=4 Destination Host Unreachable
+                  --- 10.10.10.1 ping statistics ---
+                  4 packets transmitted, 0 received, +4 errors, 100% packet loss, time 2999ms
+
+              ●   问题：gsql: FATAL: permission denied for database "gaussdb"
+                  DETAIL: User does not have CONNECT privilege.
+                  解决：
+                  此问题是由于用户不具备访问该数据库的权限，可以使用如下方法解决。
+                  a.   使用管理员用户连接数据库。
+                       gsql -d gaussdb -U dbadmin -p 8000
+
+                  b.   赋予该用户访问数据库的权限。
+                       GRANT CONNECT ON DATABASE gaussdb TO user1;
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                           3603
+GaussDB
+集中式版参考                                                                                            5 工具参考
+
+                  另外，许多常见的错误操作也可能导致用户无法连接到数据库。如用户连接的数
+                  据库不存在，用户名或密码输入错误等。这些错误操作在客户端工具会有相应的
+                  提示信息。
+                  gsql -d gaussdb -p 8000
+                  gsql: FATAL: database "gaussdb" does not exist
+
+                  gsql -d gaussdb -U user1 -p 8000
+                  Password for user user1:
+                  gsql: FATAL: Invalid username/password,login denied.
+
+              ●   问题：gsql: FATAL: sorry, too many clients already，active/non-active: 197/3.
+                  解决：
+                  此问题是由于系统连接数量超过了最大连接数量。请联系数据库DBA进行会话连
+                  接数管理，释放无用会话。
+                  关于查看用户会话连接数的方法如表5-30。
+                  会话状态可以在视图PG_STAT_ACTIVITY中查看。无用会话可以使用函数
+                  pg_terminate_backend进行释放。
+                  SELECT datid,pid,state FROM pg_stat_activity;
+                  datid |     pid       | state
+                  -------+-----------------+--------
+                   13205 | 139834762094352 | active
+                   13205 | 139834759993104 | idle
+                  (2 rows)
+                  其中pid的值即为该会话的线程ID。根据线程ID结束会话。
+                  SELECT PG_TERMINATE_BACKEND(139834759993104);
+                  显示类似如下信息，表示结束会话成功。
+                  PG_TERMINATE_BACKEND
+                  ----------------------
+                   t
+                  (1 row)
+
+
+              表 5-30 查看会话连接数
+               描述                              命令
+
+               查看指定用户的会话连                      执行如下命令查看连接到指定用户user1的会话连接数上
+               接数上限。                           限。其中-1表示没有对用户user1设置连接数的限制。
+                                               gaussdb=# SELECT ROLNAME,ROLCONNLIMIT FROM PG_ROLES
+                                               WHERE ROLNAME='user1';
+                                                rolname | rolconnlimit
+                                               ---------+--------------
+                                                user1 |           -1
+                                               (1 row)
+
+               查看指定用户已使用的                      执行如下命令查看指定用户user1已使用的会话连接数。
+               会话连接数。                          其中，1表示user1已使用的会话连接数。
+                                               gaussdb=# SELECT COUNT(*) FROM dv_sessions WHERE
+                                               USERNAME='user1';
+                                                count
+                                               -------
+                                                   1
+                                               (1 row)
+
+
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                             3604
+GaussDB
+集中式版参考                                                                                  5 工具参考
+
+
+               描述                      命令
+
+               查看指定数据库的会话              执行如下命令查看连接到指定数据库gaussdb的会话连接
+               连接数上限。                  数上限。其中-1表示没有对数据库gaussdb设置连接数的
+                                       限制。
+                                       gaussdb=# SELECT DATNAME,DATCONNLIMIT FROM PG_DATABASE
+                                       WHERE DATNAME='gaussdb';
+                                        datname | datconnlimit
+                                       ----------+--------------
+                                        gaussdb |          -1
+                                       (1 row)
+
+               查看指定数据库已使用              执行如下命令查看指定数据库gaussdb上已使用的会话连
+               的会话连接数。                 接数。其中，1表示数据库gaussdb上已使用的会话连接
+                                       数。
+                                       gaussdb=# SELECT COUNT(*) FROM PG_STAT_ACTIVITY WHERE
+                                       DATNAME='gaussdb';
+                                        count
+                                       -------
+                                           1
+                                       (1 row)
+
+               查看所有用户已使用会              执行如下命令查看所有用户已使用的会话连接数。
+               话连接数。                   gaussdb=# SELECT COUNT(*) FROM dv_sessions;
+                                        count
+                                       -------
+                                           10
+                                       (1 row)
+
+
+
+
+              ●   问题：gsql: wait xxx.xxx.xxx.xxx:xxxx timeout expired
+                  解决：
+                  gsql在向数据库发起连接的时候，会有5分钟超时机制，如果在这个超时时间内，
+                  数据库未能正常的对客户端请求进行校验和身份认证，那么gsql会退出当前会话
+                  的连接过程，并报出该错误。
+                  一般来说，此问题是由于连接时使用的-h参数及-p参数指定的连接主机及端口有
+                  误（即错误信息中的xxx部分），导致通信故障；极少数情况是网络故障导致。要
+                  排除此问题，请检查数据库的主机名及端口是否正确。
+              ●   问题：gsql: could not receive data from server: Connection reset by peer.
+                  解决：
+                  请检查DN日志中的如下类似日志“ FATAL: cipher file "/data/coordinator/
+                  server.key.cipher" has group or world access”，一般是由于数据目录或部分关
+                  键文件的权限被误操作篡改导致。请参照其他正常实例下的相关文件权限修改。
+              ●   问题：gsql: FATAL: GSS authentication method is not allowed because XXXX
+                  user password is not disabled.
+                  解决：
+                  表示目标DN的gs_hba.conf里，配置了当前客户端IP使用“gss”方式来做认证，
+                  该认证算法不支持用作客户端的身份认证，请修改到“sha256”后再试。具体操
+                  作请联系管理员处理。
+                       说明
+
+                       ● 请不要修改gs_hba.conf中数据库主机的相关设置，否则可能导致数据库功能故障。
+                       ● 建议业务应用部署在数据库之外，而非数据库内部。
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                                            3605
+GaussDB
+集中式版参考                                                          5 工具参考
+
+
+其他故障
+              ●   问题：出现因“总线错误”（Bus error）导致的core dump或异常退出。
+                  解决：
+                  一般情况下出现此种问题，是进程运行过程中加载的共享动态库（在Linux为.so文
+                  件）出现变化，或者进程二进制文件本身出现变化，导致操作系统加载机器的执
+                  行码或者加载依赖库的入口发生变化，操作系统出于保护目的将进程终止，产生
+                  core dump文件。为解决此问题，请重试。同时请尽可能避免在升级等运维操作
+                  过程中，在数据库内部运行业务程序，避免升级时因替换文件产生此问题。
+
+                        说明
+
+                        此故障的core dump文件的堆栈可能是dl_main及其子调用，它是操作系统用来初始化进程
+                        做共享动态库加载的。如果进程已经初始化，但是共享动态库还未加载完成，严格意义上
+                        来说，此时进程并未完全启动。
+
+
+
+5.4 数据库运维管理工具
+
+5.4.1 数据库运维管理工具概览
+
+              表 5-31 数据库运维管理工具概览
+
+               工具名称              工具简介
+
+               gs_collector      收集数据库实例的OS信息、日志信息以及配置文件等信息，
+                                 来定位问题。详细信息请参见gs_collector数据库信息收集。
+
+               gs_guc            设置数据库参数的工具。详细信息请参见gs_guc设置配置参
+                                 数。
+
+               gs_om             帮助对数据库进行维护，包括启动数据库、停止数据库、查
+                                 询数据库状态、切换主备实例、修改IP、生成静态配置文
+                                 件、SSL证书替换、执行日常巡检并上报告警、显示帮助信息
+                                 和显示版本号信息等功能。详细信息请参见gs_om维护数据
+                                 库。
+
+               gs_ctl            数据库服务控制工具，可以用来启停数据库服务和查询数据
+                                 库状态。主要供数据库管理模块调用。详细信息请参见
+                                 gs_ctl服务控制工具。
+
+               gs_switch_ddb     将不带ETCD（DCC）数据库切换到ETCD数据库，或者将带
+                                 ETCD数据库切换到不带ETCD（DCC）数据库。详细信息请
+                                 参见gs_switch_ddb。
+
+               gs_controldata    显示数据库数据目录下pg_control文件的信息。详细信息请
+                                 参见gs_controldata显示数据库文件信息。
+
+               gs_resetxlog      重新设置数据库事务文件的工具。详细信息请参见
+                                 gs_resetxlog重新设置事务文件。
+
+               gs_ssh            数据库各节点上执行相同的命令。详细信息请参见gs_ssh节
+                                 点间执行命令。
+
+
+
+文档版本 01 (2026-04-30)            版权所有 © 华为云计算技术有限公司                  3606
+

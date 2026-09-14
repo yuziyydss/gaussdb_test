@@ -1,0 +1,512 @@
+GaussDB
+集中式版参考                                                                                  5 工具参考
+
+              node21/configfiles/config_20240617_155036595300/dn_6001/postgresql.conf
+              node21/configfiles/config_20240617_155036595300/dn_6001/pg_ident.conf
+              node21/configfiles/config_20240617_155036595300/dn_6001/gaussdb.state
+              node21/catalogfiles/
+              node21/logfiles/
+              node21/logfiles/log_20240617_155034615116.tar.gz
+              node21/systemfiles/
+              node21/systemfiles/OS_information_20240617_155025607066.txt
+              node21/systemfiles/database_system_info_20240617_155029731626.txt
+
+
+5.4.3 gs_guc 设置配置参数
+工具介绍
+              目前GaussDB配置文件（“gaussdb.conf”、“gs_hba.conf”、“pdb.conf”）中的
+              参数默认值都是单机的配置模式。应用程序可以通过调用gs_guc来设置适合自己的参
+              数。与该工具相关的文件如下：
+
+              ●    “gs_guc-current.log”
+                   记录gs_guc产生的日志。
+                   默认路径：$GAUSSLOG/bin/gs_guc。
+              ●    “gs_guc-年-月-日_HHMMSS.log”
+                   当“gs_guc-current.log”文件大小超过16MB后，会根据当前时刻生成一个备份
+                   文件。
+              ●    “server.key.cipher”，“server.key.rand”
+                   使用gs_guc encrypt命令加密用户密码时，如果指定的-M的值为server，则会生
+                   成这两个文件。其中“server.key.cipher”存储用户密码的密文，
+                   “server.key.rand”存储的是加密因子。
+              ●    “client.key.cipher”，“client.key.rand”
+                   使用gs_guc encrypt命令加密用户密码时，如果指定的-M的值为client，则会生成
+                   这两个文件。其中“client.key.cipher”存储用户密码的密文，“client.key.rand”
+                   存储的是加密因子。
+                         说明
+
+                        “client.key.cipher”和“client.key.rand”是不指定-U选项时生成的密文文件和加密因子
+                        文件。如果通过-U指定了用户名，则会生成以用户名开头的文件。以指定-U test为例，生
+                        成的文件名为:“test.key.cipher、test.key.rand”。
+              ●    “obsserver.key.cipher”，“obsserver.key.rand”
+                   使用gs_guc generate命令加密输入的密码时，则会生成这两个文件。其中
+                   “obsserver.key.cipher”存储输入密码的密文，“obsserver.key.rand”存储的是
+                   加密因子。
+                         说明
+
+                        “obsserver.key.cipher”和“obsserver.key.rand”是创建OBS服务对象时调用的密钥文
+                        件。
+
+
+注意事项
+              ●    gs_guc工具不支持参数值中包含“#”、“`”的设置。可以使用vi工具通过手动
+                   修改配置文件来设置。
+              ●    如果已经在环境变量中设置PGDATA，则可以省略-D参数。否则提示设置参数失
+                   败。
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                                   3617
+GaussDB
+集中式版参考                                                                                             5 工具参考
+
+
+              ●   环境变量PGDATA设置方法：先将参数PGDATA设置为/gaussdb/data，然后再执
+                  行“export PGDATA”使设置生效。
+              ●   如果设置GUC参数时使用-c "parameter"，则会将已设置的GUC参数值设置成该
+                  参数在数据库启动时的默认值（系统视图PG_SETTINGS中boot_val字段值）。注
+                  意log_directory和audit_directory不会被设置为数据库启动时参数默认值，而是设
+                  为$GAUSSLOG/pg_audit/instance_name。因为GUC参数间存在依赖关系，所以
+                  请慎用该功能。
+              ●   设置-c参数时，参数都可以省略双引号。
+              ●   如果value中含有特殊字符（如$），请转义后使用。
+              ●   如果同一个配置参数在配置文件里面出现多行，且有两行或多于两行同时生效
+                  （即没有用“#”注释掉），那么只有最后一个配置参数会被设置，前面的都会被
+                  忽略。
+              ●   通过reload模式设置或修改数据库节点配置文件（gaussdb.conf）的参数，生效存
+                  在短暂延迟，有可能导致配置后数据库各实例参数在极短时间内不一致。
+              ●   gs_guc设置浮点数类型的参数时，由于浮点数在计算机中不能精确表示，所以参
+                  数值误差范围在1e-9内都可以设置成功。
+              ●   gs_guc设置整型类型的参数时，可以接受十进制、十六进制、八进制的数据，以
+                  0x开始表示十六进制，以0开始表示八进制，其他情况表示十进制。
+              ●   无故障场景下，gs_guc单节点参数设置5s内命令可执行成功，全部节点参数设置
+                  随集群规模增大执行时间会对应延长。
+              ●   gs_guc设置参数时，不支持关联参数校验。
+              ●   推荐使用gs_guc设置参数，不建议手动配置gaussdb.conf文件。因为手动设置过
+                  程中如果出现错误，没有校验，可能导致数据库重启失败。
+              ●   gs_guc设置string参数，参数中的单引号会计算字符数。
+
+命令格式
+              ●   检查配置文件中的参数。（-Z为datanode）
+                  gs_guc check -Z NODE-TYPE [-N NODE-NAME] {-I INSTANCE-NAME | -D DATADIR} {-c "parameter" -
+                  c "parameter" ...}
+                  gs_guc check -Z NODE-TYPE [-N NODE-NAME] {-I INSTANCE-NAME | -D DATADIR} {-c parameter -c
+                  parameter ...}
+              ●   配置GUC参数，若选择reload，则无需重启即可生效。（-Z为datanode或者
+                  gnsserver）
+                  gs_guc {set | reload} -Z NODE-TYPE [-N NODE-NAME] {-I INSTANCE-NAME | -D DATADIR} [--ignore-
+                  node=NODES] {-c "parameter1=value1" -c "parameter2=value2" ...}
+                  其中参数名、= 、参数值的前后可以添加额外空格。例如：
+                  gs_guc {set | reload} -Z NODE-TYPE [-N NODE-NAME] {-I INSTANCE-NAME | -D DATADIR} [--ignore-
+                  node=NODES] {-c " parameter1 = value1 " ...}
+                  GUC参数有字符串类型和非字符串类型的区别，非字符串类型的参数值可以不用
+                  单引号括起来，字符串类型的参数必须要使用单引号括起来，例如：
+                  gs_guc {set | reload} -Z NODE-TYPE [-N NODE-NAME] {-I INSTANCE-NAME | -D DATADIR} [--ignore-
+                  node=NODES] {-c "parameter1 = 'value1'" ...}
+
+              ●   配置GUC参数为默认值，若选择reload，则无需重启即可生效。（-Z为datanode
+                  或者gnsserver）
+                  gs_guc {set | reload} -Z NODE-TYPE [-N NODE-NAME] {-I INSTANCE-NAME | -D DATADIR} [--ignore-
+                  node=NODES] {-c "parameter" -c "parameter" ...}
+
+              ●   修改客户端认证策略。若选择reload，则无需重启即可生效。（-Z为datanode或
+                  者gnsserver）
+                  gs_guc {set | reload} -Z NODE-TYPE [-N NODE-NAME] {-I INSTANCE-NAME | -D DATADIR} [--ignore-
+                  node=NODES] -h "HOSTTYPE DATABASE USERNAME IPADDR IPMASK AUTHMEHOD authentication-
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                                                  3618
+GaussDB
+集中式版参考                                                                                             5 工具参考
+
+                  options"
+                  gs_guc {set | reload} -Z NODE-TYPE [-N NODE-NAME] {-I INSTANCE-NAME | -D DATADIR} [--ignore-
+                  node=NODES] -h "HOSTTYPE DATABASE USERNAME IPADDR-WITH-IPMASK AUTHMEHOD
+                  authentication-options"
+                  gs_guc {set | reload} -Z NODE-TYPE [-N NODE-NAME] {-I INSTANCE-NAME | -D DATADIR} [--ignore-
+                  node=NODES] -h "HOSTTYPE DATABASE USERNAME HOSTNAME AUTHMEHOD authentication-
+                  options"
+
+                            说明
+
+                        gs_hba.conf中的认证策略越靠前优先级越高，使用gs_guc工具配置时会按一定规则排序将
+                        新策略插入到原有认证策略中。配置字段比较顺序为：IPADDR/HOSTNAME > HOSTTYPE
+                        > DATABASE > USERNAME，即优先比较IPADDR或HOSTNAME，如果无法区分优先级则
+                        继续比较HOSTTYPE，以此类推。对于每个配置字段，通常越严格的配置参数优先级越
+                        高、排序越靠前，越宽松的配置参数优先级越低、排序越靠后，具体如下：
+                        ●    IPADDR：当配置为全0时表示不限制IP，会放在指定具体某个IP地址的策略后面。
+                        ●    DATABASE：当配置为all时表示不限制数据库，会放在指定具体某个数据库的策略后
+                             面；当数据库配置为replication时会放在其他策略后面。
+                        ●    USERNAME：当配置为all时表示不限制用户，会放在指定具体某个用户的策略后
+                             面。
+                        ●    HOSTTYPE：local > hostssl > hostnossl > host。
+              ●   注释已经设置的客户端认证策略。若选择reload，则无需重启即可生效。（-Z为
+                  datanode或者gnsserver）
+                  gs_guc {set | reload} -Z NODE-TYPE [-N NODE-NAME] {-I INSTANCE-NAME | -D DATADIR} [--ignore-
+                  node=NODES] -h "HOSTTYPE DATABASE USERNAME IPADDR IPMASK"
+                  gs_guc {set | reload} -Z NODE-TYPE [-N NODE-NAME] {-I INSTANCE-NAME | -D DATADIR} [--ignore-
+                  node=NODES] -h "HOSTTYPE DATABASE USERNAME IPADDR-WITH-IPMASK"
+                  gs_guc {set | reload} -Z NODE-TYPE [-N NODE-NAME] {-I INSTANCE-NAME | -D DATADIR} [--ignore-
+                  node=NODES] -h "HOSTTYPE DATABASE USERNAME HOSTNAME"
+
+              ●   显示帮助信息。
+                  gs_guc -? | --help
+
+              ●   显示版本号信息。
+                  gs_guc -V | --version
+
+              ●   gs_guc encrypt生成加密密码和加密因子文件。
+                  gs_guc encrypt [-M keymode] [-K password] [-U username] {-D DATADIR | -R RANDFILEDIR -C
+                  CIPHERFILEDIR}
+              ●   gs_guc generate生成obsserver或其他前缀的加密密码和加密因子文件。
+                  gs_guc generate [-o prefix] [-S cipherkey] -D DATADIR
+
+                            说明
+
+                        使用gs_guc encrypt或generate命令生成加密密码和加密因子文件时只是参数不同，本质
+                        上是一样的。生成过程中会使用随机数作为加密密钥材料和盐值，因此每次生成的文件都
+                        是不同的。每次生成的加密密码和加密因子文件需要成对使用，不能更换或交替使用，加
+                        密和解密时需要使用相同的加密密码和加密因子文件。
+
+
+参数说明
+              ●   set
+                  表示只修改配置文件中的参数。
+              ●   check
+                  表示只检查配置文件中的参数。
+                            说明
+
+                        check结果中出现parameter=NULL，表示配置文件中没有配置此参数。
+              ●   reload
+
+文档版本 01 (2026-04-30)                      版权所有 © 华为云计算技术有限公司                                                3619
+GaussDB
+集中式版参考                                                                   5 工具参考
+
+                  表示修改配置文件中的参数，同时发送信号量给数据库进程，使其重新加载配置
+                  文件，即无需重启即可生效。
+              ●   encrypt/generate
+                  生成加密密码文件。
+              ●   -N NODE-NAME
+                  需要设置的主机名称。
+                  取值范围：已有主机名称。
+                  当参数取值为all时，表示设置数据库中所有的主机。
+                  暂不支持一次设置中指定多个-N参数，指定多个-N会报错。
+              ●   -I INSTANCE-NAME
+                  需要设置的实例名称。
+                  取值范围：已有实例名称。
+                  当参数取值为all时，表示设置主机中所有的实例。
+                  暂不支持一次设置中指定多个-I参数，指定多个-I会报错。
+              ●   -D, --pgdata=DATADIR
+                  需要执行命令的数据库实例路径。使用encrypt命令时，此参数表示指定的密码文
+                  件生成的路径。
+                       说明
+
+                       数据库实例路径-D与实例名称-I不能同时使用。
+              ●   -C CIPHERFILEDIR
+                  使用encrypt命令时，指定明文密钥文件生成路径。
+              ●   -R RANDFILEDIR
+                  使用encrypt命令时，指定随机数密钥文件生成路径。
+              ●   -c parameter=value
+                  要设定的数据库配置参数的名称和参数值。
+                  取值范围：gaussdb.conf中的所有参数。
+                       说明
+
+                       ● 如果参数是一个字符串变量，则使用-c parameter="'value'"或者使用-c
+                         "parameter='value'"。
+                       ● 当使用gs_guc set/reload为log_directory参数恢复默认值时，其值会被置为具体的data
+                         目录。
+                       ● 当参数是字符串类型，gs_guc工具不会进行合法性校验，如果配置参数不合法导致数据
+                         库运行异常，可以查看gs_log日志进行问题排查。
+              ●   --ignore-node=NODES
+                  需要忽略的主机名称。
+                       说明
+
+                       ● 该参数必须与set/reload一起使用，且-Z只支持datanode。
+                       ● 该参数不支持与-D一起使用。
+                       ● 在与reload一起使用时，如果--ignore-node没有指定主节点，则数据库实例中所有节
+                         点的参数会全部同步修改。
+                       ● --ignore-node必须在-N all时才可生效。
+
+
+文档版本 01 (2026-04-30)             版权所有 © 华为云计算技术有限公司                          3620
+GaussDB
+集中式版参考                                                                  5 工具参考
+
+
+              ●   -c parameter
+                  当进行check操作时，表示需要检查的参数名称；当进行set/reload操作时，表示
+                  需要恢复为数据库默认值的参数名称。
+              ●   -h
+                  指定需要在“gs_hba.conf”增加的客户端认证策略。
+                  取值范围：
+                  HOSTTYPE DATABASE USERNAME IPADDR IPMASK [AUTHMEHOD
+                  authentication-options]
+                  HOSTTYPE DATABASE USERNAME IPADDR-WITH-IPMASK [AUTHMEHOD
+                  authentication-options]
+                  HOSTTYPE DATABASE USERNAME HOSTNAME [AUTHMEHOD
+                  authentication-options]
+                  –    HOSTTYPE取值：
+
+                       ▪   local：是一个Unix域套接字。
+
+                       ▪   host：是普通或SSL加密的TCP/IP套接字。
+
+                       ▪   hostssl：是SSL加密的TCP/IP套接字。
+
+                       ▪   hostnossl：是一个纯TCP/IP套接字。
+                  –    DATABASE
+                       具体数据库名字或者all。
+                  –    USERNAME
+                       用户名。
+                  –    AUTHMEHOD authentication-options为可选参数，取值范围：
+
+                       ▪   trust：不验证密码。禁止远程主机使用trust方式访问数据库。
+
+                       ▪   reject：拒绝访问。
+
+                       ▪   md5：MD5认证。MD5加密算法安全性低，存在安全风险，不建议使
+                           用。
+
+                       ▪   sha256：SHA256认证。推荐使用。
+
+                       ▪   sm3：SM3认证（国密SM3）。
+
+                       ▪   cert：客户端证书认证。
+
+                       ▪   gss：kerberos认证，仅用于内部节点间认证。
+
+                       ▪   peer：获取客户端所在操作系统用户名，并检查与数据库初始用户名是
+                           否一致，若一致则通过认证。此方式只支持数据库初始用户通过local模
+                           式本地连接，并支持通过配置gs_ident.conf建立操作系统用户与数据库
+                           初始用户映射关系。
+                  详细的参数说明请参见“gs_hba.conf”配置文件中的描述。
+              ●   -?, --help
+                  显示帮助信息。
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                         3621
+GaussDB
+集中式版参考                                                                          5 工具参考
+
+
+              ●   -V, --version
+                  显示版本信息。
+              ●   -Z NODE-TYPE
+                  实例类型。
+                  取值范围：
+                  –      datanode
+                  –      gnsserver
+              ●   -M, --keymode=MODE
+                  加密模式。在使用SSL功能时，会涉及到服务端证书和私钥文件的加密密码、客户
+                  端证书和私钥文件的加密密码，在加密存储加密密码时，需要指定模式，否则默
+                  认是生成服务端的密码文件。
+                  取值范围：
+                  –      server（缺省）：密码用于服务端。
+                  –      client：密码用于客户端。
+                  –      tde：仅用于透明数据加密特性场景。该模式加密-K中的参数并保存在
+                         $GAUSSHOME/gs_security/tde.key.cipher与$GAUSSHOME/gs_security/
+                         tde.key.rand文件中。
+                  –      ldap；仅用于LDAP认证搜索绑定模式中配置ldapbindpasswd使用，加密文件
+                         保存在$GAUSSHOME/data/ldap.key.cipher与$GAUSSHOME/data/
+                         ldap.key.rand文件中。
+              ●   -K PASSWORD
+                  用户指定的密码，gs_guc会对该密码进行长度和密码复杂度校验，如果不满足，
+                  将会报错。如果不带-K参数则会提示交互式输入密码。为了系统安全，推荐使用
+                  交互式输入密码方式。此密码用于保证生成密码文件的安全性和唯一性，用户无
+                  需保存或记忆。
+                  不同加密类型（MODE）取值范围如表5-34所示：
+
+                  表 5-34 -K 参数取值范围
+                   -M取值                     密码长度要求                 密码复杂度要求
+
+                   client, server           8 ~ 128字节              符合复杂度要求
+
+                   tde                      8 ~ 256字节              无复杂度要求
+
+                   ldap                     8 ~ 256字节              无复杂度要求
+
+
+
+
+文档版本 01 (2026-04-30)                 版权所有 © 华为云计算技术有限公司                              3622
+GaussDB
+集中式版参考                                                                                                  5 工具参考
+
+
+                        须知
+
+                    密码长度兼容问题：
+                    旧版gs_guc（GaussDB Kernel 505.2.0之前的版本）支持加密8 ~ 15字节的密
+                    码，新版gs_guc（GaussDB Kernel 505.2.0及之后的版本）支持加密8 ~ 128字节
+                    的密码，新版和旧版加密后部分场景文件格式不一致。兼容场景如下：
+                    1. 旧版gs_guc加密的密码，新版数据库可解密。
+                    2. 新版gs_guc加密8 ~ 15字节的密码，旧版数据库可解密。
+                    3. 新版gs_guc加密16 ~ 128字节的密码，旧版数据库无法解密。该场景下，建议
+                       重新使用新版或旧版gs_guc加密8 ~ 15字节的密码，供旧版数据库使用。
+
+              ●     -U, --keyuser=USER
+                    指定要加密的用户，隶属于OS用户。
+                           说明
+
+                         GaussDB可以为每个用户配置不同的SSL证书和私钥文件，若指定该选项，可以生成按用户
+                         名区分的密码文件。
+              ●     -S CIPHERKEY
+                    gs_guc generate指定需要加密的字符串。如果不加此参数则会提示交互式输入，
+                    为了系统安全，推荐使用交互式输入密码方式。
+                    取值范围：字符串，符合密码长度（8 ~ 15字节）和复杂度的要求。当其值为
+                    default时，会随机生成一段字符串作为密码，该密码长度为13字节。
+              ●     -o PREFIX
+                    输出cipher和rand文件前缀名称，默认输出文件名前缀为obsserver。其内容仅支
+                    持数字、字母和下划线。
+              ●     -B, --base64
+                    参数值为base64格式。
+              ●     --pdbname PDBNAME
+                    需要设置参数的PDB的名称，仅支持datanode节点的set、check命令。
+
+示例
+              示例一
+              修改数据库允许的最大连接数为800。修改后需要重启数据库才能生效。
+              gs_guc set -Z datanode -D /gaussdb/data/datanode -c "max_connections = 800" -N plat1
+              The gs_guc run with the following arguments: [gs_guc -Z datanode -D /gaussdb/data/datanode -c
+              max_connections = 800 -N plat1 set ].
+
+              Total instances: 1. Failed instances: 0.
+              Success to perform gs_guc!
+
+              示例二
+              将已设置的数据库允许的最大连接数值修改为默认值。修改后需要重启数据库才能生
+              效。
+              gs_guc set -Z datanode -D /gaussdb/data/datanode -c "max_connections" -N plat1
+              The gs_guc run with the following arguments: [gs_guc -Z datanode -D /gaussdb/data/datanode -c
+              max_connections -N plat1 set ].
+
+
+
+文档版本 01 (2026-04-30)                       版权所有 © 华为云计算技术有限公司                                                 3623
+GaussDB
+集中式版参考                                                                                                        5 工具参考
+
+              Total instances: 1. Failed instances: 0.
+              Success to perform gs_guc!
+
+              示例三
+              设置客户端认证策略。
+              gs_guc set -Z datanode -N all -I all -h "host replication testuser 10.252.95.191/32 sha256"
+              The gs_guc run with the following arguments: [gs_guc -Z datanode -N all -I all -h host replication testuser
+              10.252.95.191/32 sha256 set ].
+              Begin to perform the total nodes: 3.
+              Popen count is 3, Popen success count is 3, Popen failure count is 0.
+              Begin to perform gs_guc for datanodes.
+              Command count is 3, Command success count is 3, Command failure count is 0.
+
+              Total instances: 3. Failed instances: 0.
+              ALL: Success to perform gs_guc!
+
+              示例四
+              注释清理已经设置的客户端认证策略。
+              gs_guc set -Z datanode -N all -I all -h "host replication testuser 10.252.95.191/32"
+              The gs_guc run with the following arguments: [gs_guc -Z datanode -N all -I all -h host replication testuser
+              10.252.95.191/32 set ].
+              Begin to perform the total nodes: 3.
+              Popen count is 3, Popen success count is 3, Popen failure count is 0.
+              Begin to perform gs_guc for datanodes.
+              Command count is 3, Command success count is 3, Command failure count is 0.
+
+              Total instances: 3. Failed instances: 0.
+              ALL: Success to perform gs_guc!
+
+
+              NOTICE: This hba line will be commented out or maybe not exist.
+
+              示例五
+              加密服务器端存储用户密码的明文，避免密码泄露。
+              gs_guc encrypt -K ******** -D /data/xzg/wisequery/gaussdb
+              The gs_guc run with the following arguments: [gs_guc -K ******** -D /data/xzg/wisequery/gaussdb encrypt ].
+
+              示例六
+              检查各个实例的参数配置情况。
+              gs_guc check -Z datanode -D /gaussdb/data/datanode -c "max_connections" -N plat1
+              The gs_guc run with the following arguments: [gs_guc -Z datanode -D /gaussdb/data/datanode -c
+              max_connections -N plat1 check ].
+
+              Total GUC values: 1. Failed GUC values: 0.
+              The details for max_connections:
+              [plat1] max_connections=NULL [/gaussdb/data/datanode/gaussdb.conf]
+
+              示例七
+              修改DN的参数，例如修改数据库允许的最大连接数为800。修改后需要重启数据库才
+              能生效。
+              gs_guc set -Z datanode -N all -I all -c "max_connections = 800"
+              The gs_guc run with the following arguments: [gs_guc -Z datanode -N all -I all -c max_connections = 800
+              set ].
+              Begin to perform the total nodes: 3.
+              Popen count is 3, Popen success count is 3, Popen failure count is 0.
+              Begin to perform gs_guc for datanodes.
+              Command count is 3, Command success count is 3, Command failure count is 0.
+
+              Total instances: 3. Failed instances: 0.
+              ALL: Success to perform gs_guc!
+
+
+文档版本 01 (2026-04-30)                       版权所有 © 华为云计算技术有限公司                                                        3624
+GaussDB
+集中式版参考                                                                                                      5 工具参考
+
+              示例八
+
+              通过用户输入的密码，生成自定义的test.key.cipher和test.key.rand文件。
+              gs_guc generate -S ******** -D /data/xzg/wisequery/gaussdb -o test
+              The gs_guc run with the following arguments: [gs_guc -S ******** -D /data/xzg/wisequery/gaussdb -o test
+              generate ].
+
+              示例九
+
+              设置PDB的参数。
+              gs_guc set --pdbname pdbname -Z datanode -D /gaussdb/data/datanode -c
+              "global_syscache_threshold=70MB"
+
+              Total instances: 1. Failed instances: 0.
+              Success to perform gs_guc!
+
+
+5.4.4 gs_om 维护数据库
+                     说明
+
+                   系统内部工具，不支持单独调用。
+
+
+工具介绍
+              GaussDB提供了gs_om工具帮助对数据库进行维护，包括启动数据库、停止数据库、
+              查询数据库状态、切换主备实例、修改IP、生成静态配置文件、SSL证书替换、执行日
+              常巡检并上报告警、显示帮助信息和显示版本号信息等功能。
+
+                     说明
+
+                   使用root用户执行功能时，需调用临时存放的包路径下的gs_om。
+
+
+命令格式
+              ●     启动数据库实例。
+                    gs_om -t start [-h HOSTNAME] [-D INSTANCEDIR] [--az=AZNAME] [--time-out=SECS] [-l LOGFILE]
+
+                           说明
+
+                         当前版本不支持--az参数。
+              ●     停止数据库实例。
+                    gs_om -t stop [-h HOSTNAME] [-D INSTANCEDIR] [--az=AZNAME] [-m MODE] [-l LOGFILE] [--
+                    enable_alt]
+
+                           说明
+
+                         当前版本不支持--az参数。
+              ●     重启数据库实例。
+                    gs_om -t restart [-l LOGFILE]
+
+              ●     查询数据库实例状态。
+                    gs_om -t status [-h HOSTNAME] [-o OUTPUT] [--detail] [-l LOGFILE]
+
+              ●     切换主备数据库实例。
+                    gs_om -t switch [-h HOSTNAME] [--az=AZNAME] [-D INSTANCEDIR] [--reset] [--time-out=SECS] [-l
+                    LOGFILE] [--enable_alt]
+
+
+
+文档版本 01 (2026-04-30)                       版权所有 © 华为云计算技术有限公司                                                      3625
+
