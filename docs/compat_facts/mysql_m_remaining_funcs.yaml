@@ -1,0 +1,90 @@
+# M模式 — JSON/加密/比较/转换函数深化 — 结构化参考事实
+# 来源: gaussdb-rf-cent.pdf 4.4.2.2.5-4.4.2.2.9
+document: "集中式版参考 / 4.4.2.2 MySQL兼容性M模式JSON/加密/比较/转换函数"
+version: "V2.0-10.0.0"
+parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+extraction_date: "2026-09-14"
+extraction_method: pdftotext -layout 逐函数精读
+verification_status: confirmed
+
+facts:
+  # === 加密函数 ===
+  - id: m_fn_aes_ecb_mode
+    type: constraint
+    statement: "AES_ENCRYPT/AES_DECRYPT差异：GaussDB不支持ECB模式（不安全），默认为CBC模式。block_encryption_mode参数不支持数字设置。"
+    source_anchor: "4.4.2.2.6 表4-147"
+    status: confirmed
+    verification_method: 逐页精读（页3294）
+
+  - id: m_fn_aes_sql_ascii
+    type: behavior_oracle
+    statement: "AES_ENCRYPT/AES_DECRYPT差异：SQL_ASCII字符集时，字节0~127按ASCII解释，128~255为无法解析字符。非ASCII数据无法转换或校验，与MySQL有差异。"
+    source_anchor: "4.4.2.2.6 表4-147"
+    status: confirmed
+    verification_method: 逐页精读（页3294）
+
+  - id: m_fn_password_old_passwords
+    type: behavior_oracle
+    statement: "PASSWORD差异：MySQL通过old_passwords控制哈希方式（0=MySQL 4.1 native，2=SHA-256）。GaussDB未实现old_passwords，行为只与默认（0）一致。BINARY类型填充符差异导致入参为BINARY时结果不一致。"
+    source_anchor: "4.4.2.2.6 表4-147"
+    status: confirmed
+    verification_method: 逐页精读（页3294-3295）
+
+  # === 比较函数 ===
+  - id: m_fn_coalesce_union_precision
+    type: behavior_oracle
+    statement: "COALESCE差异：UNION DISTINCT场景返回值精度与MySQL不完全一致。第一个非NULL参数后存在隐式类型转换错误时MySQL忽略，GaussDB报错。参数为MIN/MAX时返回类型不一致。"
+    source_anchor: "4.4.2.2.7 表4-148"
+    status: confirmed
+    verification_method: 逐页精读（页3297）
+
+  - id: m_fn_greatest_least_type
+    type: behavior_oracle
+    statement: "GREATEST/LEAST差异：参数数据类型不一致时返回值类型与MySQL有差异。入参含NULL且在WHERE后调用时与MySQL 5.7不一致（MySQL 8.0已修复，GaussDB与8.0一致）。"
+    source_anchor: "4.4.2.2.7 表4-148"
+    status: confirmed
+    verification_method: 逐页精读（页3297）
+
+  - id: m_fn_isnull_aggregate_nested
+    type: behavior_oracle
+    statement: "ISNULL差异：返回值类型兼容MySQL 8.0（5.7与8.0有差异）。内层嵌套聚合函数时部分场景返回结果有差异，GaussDB兼容8.0。SELECT isnull(avg(1.23))返回f，isnull(group_concat(1.23))返回f。"
+    source_anchor: "4.4.2.2.7 表4-148"
+    status: confirmed
+    verification_method: 逐页精读含6组SQL（页3298-3299）
+
+  # === 类型转换函数 ===
+  - id: m_fn_cast_nested_date
+    type: behavior_oracle
+    statement: "CAST嵌套差异：CAST(least(1.23,1.23,0.234) AS date)时，MySQL 5.7返回0000-00-00，GaussDB输出WARNING并返回空值（0001-01-01BC）。flags无法传递给内层函数。"
+    source_anchor: "4.4.2.2.5 表4-146"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3295）
+
+  - id: m_fn_cast_float_precision
+    type: behavior_oracle
+    statement: "CAST(expr AS FLOAT[(p)])差异：p∈[0,24)返回FLOAT，但CREATE TABLE/VIEW AS SELECT中字段类型变为DOUBLE（与MySQL 8.0不一致）。MySQL 5.7不支持此转换。"
+    source_anchor: "4.4.2.2.5 表4-146"
+    status: confirmed
+    verification_method: 逐页精读（页3295）
+
+  - id: m_fn_cast_subquery_float
+    type: behavior_oracle
+    statement: "CAST嵌套子查询float差异：子查询返回FLOAT类型时，GaussDB返回准确值1.23，MySQL 5.7返回失真值1.2300000190734863。BINARY函数使用CAST实现，同理。"
+    source_anchor: "4.4.2.2.5 表4-146"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3296-3297）
+
+  - id: m_fn_cast_json_precision
+    type: behavior_oracle
+    statement: "CAST JSON精度差异：JSON类型显式转换后精度计算与MySQL 5.7不一致，与MySQL 8.0一致。CAST('98.7654321' AS JSON)后取负，GaussDB/MySQL8.0返回-98.7654321，MySQL5.7可能有精度差异。"
+    source_anchor: "4.4.2.2.5 表4-146"
+    status: confirmed
+    verification_method: 逐页精读含SQL对比（页3297-3298）
+
+  # === JSON函数补充 ===
+  - id: m_fn_json_unsupported_functions
+    type: environment
+    statement: "M模式支持的JSON函数（30+个）中绝大多数无差异：JSON_APPEND/JSON_ARRAY/JSON_CONTAINS/JSON_DEPTH/JSON_EXTRACT/JSON_INSERT/JSON_KEYS/JSON_LENGTH/JSON_MERGE/JSON_OBJECT/JSON_QUOTE/JSON_REMOVE/JSON_REPLACE/JSON_SEARCH/JSON_SET/JSON_TYPE/JSON_VALID等。"
+    source_anchor: "4.4.2.2.9 表4-150"
+    status: confirmed
+    verification_method: 逐页精读（页3310-3311）
