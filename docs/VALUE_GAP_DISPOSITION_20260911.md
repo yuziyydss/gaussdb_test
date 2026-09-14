@@ -97,3 +97,28 @@ python3 -c "import json; d=json.load(open('generated/factor_packages/generation_
 - 7条（28%）可行动但需要设计工作
 - 全部PDF大部已完成系统性抽取（353条facts）
 - M包93/93 source extraction完成
+
+## 2026-09-14 Facts Integration实验记录
+
+### 尝试1：TDE/ILM/COLVIEW fresh facet
+**结果**：失败。添加fresh值到matrix后，fresh值本身成为新gap（因为也需要被manifest选中）。TDE/ILM/COLVIEW确实需要实际环境，无法通过添加fresh值解决。
+
+### 尝试2：create_foreign_table format接线
+**结果**：失败。将format值添加到table_options维度并绑定到manifest后：
+1. format维度值仍为gap（original_value_ref机制未被正确触发）
+2. 新添加的table_options format值也变成gap
+3. 原有的table_options值也出现gap
+
+**根本原因**：format参数需要在语法AST中有专门的slot，通过OPTIONS传递需要修改syntax.yaml的生产式。这不是简单的维度值添加能解决的。
+
+**正确的解决方案**（需要设计工作）：
+1. 修改syntax.yaml，将OPTIONS拆分为format参数和其他参数
+2. 或者创建一个复合维度，将format和其他OPTIONS组合
+3. 涉及生成器的AST渲染逻辑修改
+
+### 结论
+
+25条value gaps中：
+- 18条为合法阻断（文档冲突/环境资产/语义设计）→ 保持现状
+- 7条可行动但需要结构性设计（语法AST修改/专属facet）→ 需要专门的设计工作
+- **简单添加fresh值或绑定到现有维度都无法解决这些gap**
