@@ -93,8 +93,9 @@ class MCompatBatch02Tests(unittest.TestCase):
             self.assertEqual(hashlib.sha256(src.read_bytes()).hexdigest(),f.source.artifact_sha256)
             self.assertEqual(f.status,'needs_review')
             ledger=self.registry.source_ledgers[f.source_ledger_ref]
-            # m_drop_view已完成source extraction；其余仍保留unmapped账本。
-            if fid == 'm_drop_view':
+            # 已完成source extraction的包不再有unmapped；其余保留。
+            completed = {'m_drop_view','m_drop_database','m_drop_schema','m_rename_table','m_rollback_to_savepoint','m_drop_owned'}
+            if fid in completed:
                 self.assertFalse(any(u.status=='unmapped' for u in ledger.units))
             else:
                 self.assertTrue(any(u.status=='unmapped' for u in ledger.units))
