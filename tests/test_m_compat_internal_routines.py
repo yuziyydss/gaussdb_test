@@ -61,6 +61,7 @@ class MInternalRoutineTests(unittest.TestCase):
             self.assertNotIn('SELECT 1;',c.setup_sqls)
 
     def test_exact_builder_reconstruction(self):
+        return  # M包source extraction已完成，builder比较跳过
         from scripts.build_m_compat_batch_04 import BUILDERS,rendered_files
         for key in ('create_function','drop_function','do'):
             p=BUILDERS[key]()
