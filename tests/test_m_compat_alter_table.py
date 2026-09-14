@@ -60,8 +60,6 @@ class MAlterTableTests(unittest.TestCase):
         # m_alter_table已进入人工演进阶段（新增source completion facts），
         # 不再回退到batch_06一次性builder的输出。
         return
-        p=alter_table()
-        for name,obj in p.finish().items():self.assertEqual((ROOT/'specs'/p.category.lower()/p.id/name).read_text(),yaml.safe_dump(obj,allow_unicode=True,sort_keys=False,width=110))
 
 
 if __name__=='__main__':unittest.main()
