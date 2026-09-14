@@ -1,0 +1,432 @@
+GaussDB
+集中式版参考                                                            4 兼容性说明
+
+
+                      索引字段类型   常量类型        GaussDB是否支持走索      MySQL是否支持
+                                           引                  走索引
+
+                               字符串类型       是                  是
+
+                               带日期的时间      否                  否
+                               类型
+
+                               TIME类型      是                  否
+
+                               YEAR类型      否                  否
+
+                               整型          否                  否
+
+                               浮点型         否                  否
+
+                               定点型         否                  否
+
+                      字符串类型    字符串类型       是                  是
+
+                               带日期的时间      否                  否
+                               类型
+
+                               TIME类型      是                  否
+
+                               YEAR类型      否                  否
+
+                               二进制类型       否                  否
+
+                               整型          否                  否
+
+                               浮点型         否                  否
+
+                               定点型         否                  否
+
+
+
+
+                       说明
+
+                       ● 仅在GUC参数m_format_behavior_compat_options未开启
+                         disable_int_cmp_num_index选项时，支持整型索引字段与定点型常量比较时，可以执
+                         行索引。
+                       ● 整型索引字段与定点型常量比较执行索引场景中，要求定点型常量不能为用户自定义变
+                         量、CASE WHEN表达式或子查询返回值。
+
+
+4.4.2.4 字符集
+              GaussDB数据库支持指定数据库、模式、表或列的字符集，默认的字符集是utf8，支
+              持的范围如下。
+
+              表 4-158 字符集列表
+
+               MySQL数据库                        GaussDB数据库
+
+               utf8mb4                         支持
+
+               utf8                            支持
+
+
+文档版本 01 (2026-04-30)           版权所有 © 华为云计算技术有限公司                       3348
+GaussDB
+集中式版参考                                                                      4 兼容性说明
+
+
+               MySQL数据库                            GaussDB数据库
+
+               gbk                                 支持
+
+               gb18030                             支持
+
+               binary                              支持
+
+               latin1                              支持
+
+
+
+
+                     说明
+
+                 ● GaussDB数据库将utf8和utf8mb4视为同一个字符集，编码最大长度为4字节。当字符串字符
+                   集为utf8，指定其字符序为utf8mb4_bin、utf8mb4_general_ci、utf8mb4_unicode_ci、
+                   utf8mb4_0900_ai_ci时（例如SELECT _utf8'a' collate utf8mb4_bin），MySQL会发生报
+                   错，GaussDB不报错。当字符串字符集为utf8mb4，指定其字符序为utf8_bin、
+                   utf8_general_ci、utf8_unicode_ci时，存在同样差异。
+                 ● 词法语法解析按照字节流解析，当多字节字符中包含与'\'、'\''、'\\'等符号一致的编码时，会
+                   导致与MySQL行为不一致，建议暂时关闭转义符开关进行规避。
+                 ● GaussDB数据库对不属于当前字符集的非法字符未执行严格的编码逻辑校验，严格模式下，
+                   使用部分字符函数可能导致此类非法字符成功输入，而MySQL会校验报错。宽松模式下截断
+                   后插入，与MYSQL行为一致。严格模式与宽松模式由GUC参数sql_mode的
+                   strict_trans_tables配置项决定。
+                 ● GaussDB字符集之间的转换逻辑与MySQL存在差异，binary字符集与其他字符集混用时可能
+                   存在转码流程导致的行为不一致，建议使用binary字符集时，client_encoding、
+                   server_encoding、character_set_connection等字符集相关参数保持一致，且仅输入ASCII范
+                   围内的字符。
+
+
+4.4.2.5 排序规则
+              GaussDB数据库支持指定模式、表或列的排序规则，支持的范围如下。
+
+              表 4-159 排序规则列表
+
+               MySQL数据库                            GaussDB数据库
+
+               binary                              支持
+
+               gb18030_bin                         支持
+
+               gb18030_chinese_ci                  支持
+
+               gbk_bin                             支持
+
+               gbk_chinese_ci                      支持
+
+               latin1_bin                          支持
+
+               latin1_swedish_ci                   支持
+
+               utf8_bin                            支持
+
+               utf8_general_ci                     支持
+
+               utf8_unicode_ci                     支持
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                              3349
+GaussDB
+集中式版参考                                                                 4 兼容性说明
+
+
+               MySQL数据库                            GaussDB数据库
+
+               utf8mb4_0900_ai_ci                  支持
+
+               utf8mb4_bin                         支持
+
+               utf8mb4_general_ci                  支持
+
+               utf8mb4_unicode_ci                  支持
+
+
+
+
+                    说明
+
+                  排序规则差异说明：
+                  ● GaussDB数据库仅字符串类型、部分二进制类型支持指定排序规则，其他类型不支持指定排
+                    序规则，可以通过查询pg_type系统表中类型的typcollation属性是否为0来判断该类型是否
+                    支持字符序。MySQL中所有类型均可以指定字符序，但除字符串、二进制类型外，其他类型
+                    指定排序规则无实际意义。
+                  ● GaussDB数据库中排序规则（除binary外）仅支持在其对应字符集与库级字符集一致时可以
+                    指定，字符集必须与数据库的字符集一致，且不支持表内多种字符集混合使用。
+                  ● utf8mb4字符集下默认字符序为utf8mb4_general_ci，与MySQL 5.7保持一致。
+                  ● 使用latin1字符序需要设置兼容性参数m_format_dev_version = 's2'。
+                  ● GaussDB数据库中通过驱动PBE接口传参时，该参数不支持显式指定排序规则，与MySQL行
+                    为存在差异。
+                  ● GaussDB数据库中显式指定操作符两侧的排序规则时，若一侧排序规则为binary，另一侧排
+                    序规则不为binary，则不支持该比较操作，与MySQL行为存在差异。
+
+
+4.4.2.6 事务
+              GaussDB数据库兼容MySQL的事务，但存在部分差异。本章节介绍GaussDB数据库中
+              事务相关的差异，GaussDB数据库隔离级别只有READ COMMITTED、REPEATABLE
+              READ生效。
+
+
+事务默认隔离级别
+              GaussDB数据库默认隔离级别为READ COMMITTED，MySQL默认隔离级别为
+              REPEATABLE-READ。
+              -- 查看当前事务隔离级别。
+              m_db=# SHOW transaction_isolation;
+               transaction_isolation
+              -----------------------
+               read committed
+              (1 row)
+
+
+
+子事务
+              GaussDB数据库中，可使用SAVEPOINT用于在当前事务里建立一个新的保存点（子事
+              务），使用ROLLBACK TO SAVEPOINT回滚到指定保存点（子事务），子事务回滚后
+              父事务可以继续运行，子事务的回滚不影响父事务的事务状态。
+
+              MySQL不存在创建保存点（子事务）。
+
+
+文档版本 01 (2026-04-30)                  版权所有 © 华为云计算技术有限公司                   3350
+GaussDB
+集中式版参考                                                                          4 兼容性说明
+
+
+嵌套事务
+              嵌套事务指在事务块中开启新事务。
+
+              GaussDB数据库中，正常事务块中开启新事务会警告存在一个进行中的事务，忽略开
+              启命令；异常事务块中开启新事务将报错，必须在执行ROLLBACK/COMMIT回滚之前
+              的语句后才可以执行。
+
+              MySQL中，正常事务块中开启新事务会先把之前事务提交，然后开启新事务；异常事
+              务块中开启新事务会忽略错误，提交之前无错误的语句并开启新事务。
+              -- GaussDB数据库正常事务块中，开启新事务会警告并忽略。
+              m_db=# DROP TABLE IF EXISTS test_t;
+              m_db=# CREATE TABLE test_t(a int, b int);
+              m_db=# BEGIN;
+              m_db=# INSERT INTO test_t values(1, 2);
+              m_db=# BEGIN; -- 会警告there is already a transaction in progress。
+              m_db=# SELECT * FROM test_t ORDER BY 1;
+              m_db=# COMMIT;
+
+              -- GaussDB数据库异常事务块中，开启新事务会报错，必须ROLLBACK/COMMIT之后才可以执行。
+              m_db=# BEGIN;
+              m_db=# ERROR sql; -- 错误语句。
+              m_db=# BEGIN; -- 报错。
+              m_db=# COMMIT; -- ROLLBACK/COMMIT之后才可以执行。
+
+
+隐式提交的语句
+              GaussDB数据库使用GaussDB存储，继承GaussDB事务机制，事务中执行DDL、DCL
+              不会自动提交。
+
+              MySQL在DDL、DCL、管理类语句，锁相关语句会自动提交。
+              -- GaussDB数据库创建表和设置GUC参数可以回滚操作。
+              m_db=# DROP TABLE IF EXISTS test_table_rollback;
+              m_db=# BEGIN;
+              m_db=# CREATE TABLE test_table_rollback(a int, b int);
+              m_db=# \d test_table_rollback;
+              m_db=# ROLLBACK;
+              m_db=# \d test_table_rollback; -- 不存在该表。
+
+
+SET TRANSACTION 差异
+              GaussDB数据库中，SET TRANSACTION同时设置多次隔离级别/事务访问模式时，只
+              有最后一个会生效；多个事务特性支持使用空格和逗号分隔。
+
+              MySQL中SET TRANSACTION不允许设置多次隔离级别/事务访问模式；多个事务特性
+              只支持使用逗号分隔。
+
+              表 4-160 SET TRANSACTION 差异
+
+               语法                功能                  差异
+
+               SET               设置事务特               GaussDB数据库中，设置GUC参数
+               TRANSACTI         性。                  m_format_dev_version取值不为's2'时，SET
+               ON                                    TRANSACTION在会话级别生效，功能与SET
+                                                     SESSION TRANSACTION一致；设置GUC参数
+                                                     m_format_dev_version取值为's2'时，SET
+                                                     TRANSACTION是设置下一个事务特性；MySQL中
+                                                     SET TRANSACTION在下一个事务生效。
+
+
+文档版本 01 (2026-04-30)                    版权所有 © 华为云计算技术有限公司                           3351
+GaussDB
+集中式版参考                                                                                   4 兼容性说明
+
+
+               语法             功能               差异
+
+               SET            设置会话级事           -
+               SESSION        务特性。
+               TRANSACTI
+               ON
+
+               SET            设置全局会话           GaussDB数据库中，GLOBAL是全局会话级别生效，
+               GLOBAL         级事务特性，           只针对当前数据库实例，其它数据库不影响。
+               TRANSACTI      该特性适用于           MySQL中，会使所有数据库生效。
+               ON             后续会话，对
+                              当前会话无影
+                              响。
+
+
+
+              -- SET TRANSACTION会话级生效。
+              m_db=# SET TRANSACTION ISOLATION LEVEL READ COMMITTED READ WRITE;
+              m_db=# SHOW transaction_isolation;
+              m_db=# SHOW transaction_read_only;
+              -- GaussDB数据库同时设置多次隔离级别/事务访问模式，最后一个生效。
+              m_db=# SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED, ISOLATION LEVEL
+              REPEATABLE READ, READ WRITE, READ ONLY;
+              m_db=# SHOW transaction_isolation; -- repeatable read
+               transaction_isolation
+              -----------------------
+               repeatable read
+              (1 row)
+              m_db=# SHOW transaction_read_only; -- on
+               transaction_read_only
+              -----------------------
+               on
+              (1 row)
+
+
+START TRANSACTION 差异
+              GaussDB数据库中，START TRANSACTION开启事务时，同时支持设置隔离级别；同
+              时设置多次隔离级别/事务访问模式时，只有最后一个会生效；当前版本不支持立即开
+              启一致性快照；多个事务特性支持空格和逗号分隔。
+
+              MySQL的START TRANSACTION开启事务时，不支持设置隔离级别，不支持设置多次
+              事务访问模式；多个事务特性只支持逗号分隔。
+              -- 开启事务设置隔离级别。
+              m_db=# START TRANSACTION ISOLATION LEVEL READ COMMITTED;
+              m_db=# COMMIT;
+              -- 多次设置访问模式。
+              m_db=# START TRANSACTION READ ONLY, READ WRITE;
+              m_db=# COMMIT;
+
+
+事务相关的 GUC 参数
+
+              表 4-161 事务相关的 GUC 参数差异
+
+               GUC参数          功能               差异
+
+               autocommi      设置事务自动           -
+               t              提交模式。
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                                          3352
+GaussDB
+集中式版参考                                                                             4 兼容性说明
+
+
+               GUC参数          功能              差异
+
+               transaction    在GaussDB中       ● GaussDB中，通过使用SET transaction_isolation
+               _isolation     是设置当前事            = value命令，只能改变当前事务的隔离级别。如
+                              务的隔离级             果想要改变会话级的隔离级别，可以使用
+                              别。                default_transaction_isolation。在MySQL中，通
+                              在MySQL中           过使用SET命令，可以改变会话级的事务隔离级
+                              是设置会话级            别。
+                              事务的隔离级          ● 支持范围差异。
+                              别。                MySQL中，支持以下隔离级别设置，对大小写不
+                                                敏感，对空格敏感：
+                                                – READ-COMMITTED
+                                                – READ-UNCOMMITTED
+                                                – REPEATABLE-READ
+                                                – SERIALIZABLE
+                                                GaussDB中，支持以下隔离级别设置，对大小写
+                                                和空格敏感：
+                                                – read committed
+                                                – read uncommitted（可以设置，但实际生效的
+                                                  隔离级别为read committed）
+                                                – repeatable read
+                                                – serializable（可以设置，但实际生效的隔离级
+                                                  别为repeatable read）
+                                                – default（设置和会话中默认隔离级别一样）
+                                                – 设置m_format_dev_version = 's2'时，支持
+                                                  MySQL的隔离级别设置。
+                                              ● 在GaussDB中，新事务的transaction_isolation值
+                                                将被初始化为default_transaction_isolation的
+                                                值。
+                                              ● 设置m_format_dev_version = 's2'时：
+                                                – 以下语句是设置下一个事务特性：set
+                                                  @@transaction_isolation = value; set
+                                                  transaction isolation level value。
+                                                – 以下语句修改会话级事务特性：set [local|
+                                                  session|@@session.] transaction_isolation =
+                                                  value。
+                                                – 下一个事务特性不允许在事务内使用，如果隐
+                                                  式事务报错，即单个SQL语句报错，继续保持
+                                                  下一个事务特性。
+
+               tx_isolation   设置事务的隔          GaussDB中只支持通过select @@语法查询，不支持
+                              离级别；            通过show语法查询，不支持修改。
+                              tx_isolation
+                              和
+                              transaction_i
+                              solation是同
+                              义词。
+
+
+文档版本 01 (2026-04-30)               版权所有 © 华为云计算技术有限公司                                      3353
+GaussDB
+集中式版参考                                                                            4 兼容性说明
+
+
+               GUC参数         功能              差异
+
+               default_tra   设置事务的隔          GaussDB中通过SET设置会改变会话级事务隔离级
+               nsaction_is   离级别。            别。
+               olation                       MySQL中不支持该系统参数。
+
+               transaction   在GaussDB中       ● 在GaussDB中，通过使用SET命令，只能改变当前
+               _read_only    是设置当前事            事务的访问模式。如果想要改变会话级的访问模
+                             务的访问模             式，可以使用default_transaction_read_only。
+                             式。                在MySQL中，通过使用SET命令，可以改变会话
+                             在MySQL中           级的事务隔离级别。
+                             是设置会话级          ● 在GaussDB中，新事务的transaction_read_only
+                             事务的访问模            值将被初始化为default_transaction_read_only的
+                             式。                值。
+                                             ● 设置m_format_dev_version = 's2'时：
+                                               – 以下语句是设置下一个事务特性：set
+                                                 @@transaction_read_only = value; set
+                                                 transaction {read write | read only}。
+                                               – 以下语句修改会话级事务特性：set [local|
+                                                 session|@@session.] transaction_read_only =
+                                                 value。
+                                               – 下一个事务特性不允许在事务内使用，如果隐
+                                                 式事务报错，即单个SQL语句报错，继续保持
+                                                 下一个事务特性。
+
+               tx_read_onl   设置事务的访          GaussDB中只支持通过select @@语法查询，不支持
+               y             问模式。            通过show语法查询，不支持修改。
+                             tx_read_only
+                             和
+                             transaction_r
+                             ead_only是同
+                             义词。
+
+               default_tra   设置事务的访          GaussDB中通过SET设置会改变会话级事务访问模
+               nsaction_re   问模式。            式；MySQL中不支持该系统参数。
+               ad_only
+
+
+
+
+4.4.2.7 SQL
+
+4.4.2.7.1 SQL 兼容性概述
+              GaussDB数据库兼容绝大多数MySQL语法，但存在部分差异。本章节介绍GaussDB数
+              据库当前支持的MySQL语法。
+
+              ●   部分关键字在MySQL可以做标识符但在GaussDB数据库不可以或存在限制，如表
+                  4-162所示。
+
+
+
+
+文档版本 01 (2026-04-30)              版权所有 © 华为云计算技术有限公司                                     3354
+

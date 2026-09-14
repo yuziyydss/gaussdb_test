@@ -1,0 +1,117 @@
+# M模式 — 字符集/排序规则/事务 — 结构化参考事实
+document: "集中式版参考 / 4.4.2.4-4.4.2.6 MySQL兼容性M模式字符集/排序/事务"
+version: "V2.0-10.0.0"
+parent_pdf_sha256: "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe"
+extraction_date: "2026-09-14"
+extraction_method: pdftotext -layout
+verification_status: confirmed
+
+facts:
+  # 字符集
+  - id: m_charset_supported
+    type: syntax
+    statement: "GaussDB M模式支持字符集：utf8mb4、utf8、gbk、gb18030、binary、latin1。默认字符集为utf8。utf8和utf8mb4视为同一字符集（最大4字节）。"
+    source_anchor: "4.4.2.4 表4-158"
+    status: confirmed
+    verification_method: pdftotext双模式交叉验证通过（页3399）
+
+  - id: m_charset_utf8_mb4_equivalence
+    type: behavior_oracle
+    statement: "GaussDB将utf8和utf8mb4视为同一字符集。utf8字符集可指定utf8mb4字符序（MySQL报错GaussDB不报错），反之亦然。"
+    source_anchor: "4.4.2.4 说明"
+    status: confirmed
+    verification_method: pdftotext双模式交叉验证通过（页3399）
+
+  - id: m_charset_multibyte_escape
+    type: constraint
+    statement: "多字节字符中包含与反斜杠/引号一致的编码时会导致与MySQL行为不一致，建议关闭转义符开关规避。"
+    source_anchor: "4.4.2.4 说明"
+    status: confirmed
+    verification_method: pdftotext双模式交叉验证通过（页3399）
+
+  - id: m_charset_illegal_chars
+    type: behavior_oracle
+    statement: "严格模式下非法字符可能通过部分字符函数成功输入（MySQL会校验报错）。宽松模式下截断后插入（与MySQL一致）。由sql_mode的strict_trans_tables控制。"
+    source_anchor: "4.4.2.4 说明"
+    status: confirmed
+    verification_method: pdftotext双模式交叉验证通过（页3399）
+
+  - id: m_charset_binary_conversion
+    type: constraint
+    statement: "binary字符集与其他字符集混用时可能存在转码行为不一致。建议使用binary时client_encoding/server_encoding/character_set_connection保持一致，且仅输入ASCII字符。"
+    source_anchor: "4.4.2.4 说明"
+    status: confirmed
+    verification_method: pdftotext双模式交叉验证通过（页3399）
+
+  # 排序规则
+  - id: m_collation_supported
+    type: syntax
+    statement: "GaussDB M模式支持排序规则：binary、gb18030_bin、gb18030_chinese_ci、gbk_bin、gbk_chinese_ci、latin1_bin、latin1_swedish_ci、utf8_bin、utf8_general_ci、utf8_unicode_ci、utf8mb4_0900_ai_ci、utf8mb4_bin、utf8mb4_general_ci、utf8mb4_unicode_ci。"
+    source_anchor: "4.4.2.5 表4-159"
+    status: confirmed
+    verification_method: pdftotext双模式交叉验证通过（页3400）
+
+  - id: m_collation_type_restriction
+    type: constraint
+    statement: "仅字符串类型和部分二进制类型支持指定排序规则。其他类型不支持（MySQL所有类型均可指定但无实际意义）。可通过pg_type的typcollation属性判断。"
+    source_anchor: "4.4.2.5 说明"
+    status: confirmed
+    verification_method: pdftotext双模式交叉验证通过（页3400）
+
+  - id: m_collation_charset_match
+    type: constraint
+    statement: "排序规则（除binary外）仅支持在其对应字符集与库级字符集一致时指定。不支持表内多种字符集混合。"
+    source_anchor: "4.4.2.5 说明"
+    status: confirmed
+    verification_method: pdftotext双模式交叉验证通过（页3400）
+
+  - id: m_collation_default
+    type: behavior_oracle
+    statement: "utf8mb4字符集下默认字符序为utf8mb4_general_ci（与MySQL 5.7一致）。使用latin1字符序需设置m_format_dev_version='s2'。"
+    source_anchor: "4.4.2.5 说明"
+    status: confirmed
+    verification_method: pdftotext双模式交叉验证通过（页3400）
+
+  - id: m_collation_binary_mixed
+    type: constraint
+    statement: "显式指定操作符两侧排序规则时，若一侧为binary另一侧不为binary，不支持该比较操作（MySQL支持）。"
+    source_anchor: "4.4.2.5 说明"
+    status: confirmed
+    verification_method: pdftotext双模式交叉验证通过（页3400）
+
+  # 事务
+  - id: m_transaction_isolation
+    type: behavior_oracle
+    statement: "GaussDB M模式默认隔离级别为READ COMMITTED（MySQL默认REPEATABLE-READ）。仅READ COMMITTED和REPEATABLE READ生效。"
+    source_anchor: "4.4.2.6"
+    status: confirmed
+    verification_method: pdftotext双模式交叉验证通过（页3401）
+
+  - id: m_transaction_savepoint
+    type: syntax
+    statement: "GaussDB M模式支持SAVEPOINT建立保存点（子事务），ROLLBACK TO SAVEPOINT回滚到指定保存点。子事务回滚不影响父事务状态。MySQL不存在保存点机制。"
+    source_anchor: "4.4.2.6 子事务"
+    status: confirmed
+    verification_method: pdftotext双模式交叉验证通过（页3401）
+
+  - id: m_transaction_nested
+    type: behavior_oracle
+    statement: "正常事务块中开启新事务会警告并忽略开启命令。异常事务块中开启新事务报错，必须先ROLLBACK/COMMIT。"
+    source_anchor: "4.4.2.6 嵌套事务"
+    status: confirmed
+    verification_method: pdftotext双模式交叉验证通过（页3401）
+
+  # 操作符索引支持
+  - id: m_op_index_string_const
+    type: behavior_oracle
+    statement: "字符串类型索引字段与字符串常量比较：支持走索引（MySQL也支持）。字符串索引与TIME常量：GaussDB支持走索引，MySQL不支持。"
+    source_anchor: "4.4.2.3 操作符差异表"
+    status: confirmed
+    verification_method: pdftotext双模式交叉验证通过（页3397）
+
+  - id: m_op_index_int_decimal
+    type: constraint
+    statement: "整型索引字段与定点型常量比较：仅在未开启disable_int_cmp_num_index时支持走索引。定点型常量不能为用户自定义变量、CASE WHEN或子查询返回值。"
+    source_anchor: "4.4.2.3 操作符差异表说明"
+    status: confirmed
+    verification_method: pdftotext双模式交叉验证通过（页3397）
