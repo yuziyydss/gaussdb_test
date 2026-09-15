@@ -18,7 +18,7 @@
 - 生成缺口诊断：在因子详情展开“为什么未完整”，区分条件取值、规则覆盖、生成异常和待校准Oracle；总览、API和Markdown同口径，见[诊断说明](docs/GENERATION_DIAGNOSTICS.md)。
 ---
 
-## 项目最终状态（2026-09-14）
+## 项目最终状态（2026-09-14，更新于09-15）
 
 ### 规模
 
@@ -73,6 +73,40 @@ gsql -d <dbname> -p <port> -f docs/extended_validation_script.sql
 | [PROJECT_DELIVERY_REPORT_20260914.md](docs/PROJECT_DELIVERY_REPORT_20260914.md) | 完整交付报告 |
 | [FACT_INTEGRATION_PLAN.md](docs/FACT_INTEGRATION_PLAN.md) | Facts接入计划 |
 | [VALUE_GAP_DISPOSITION_20260911.md](docs/VALUE_GAP_DISPOSITION_20260911.md) | 缺口处置记录 |
+
+### 连库执行工具（2026-09-14 新增）
+
+| 文件 | 用途 | 使用方法 |
+|---|---|---|
+| `scripts/auto_validate.py` | 自动化验证（10条核心测试） | `python3 scripts/auto_validate.py --host H --port P --db D --user U` |
+| `docs/ASSERTION_ENHANCEMENT_PLAN.md` | 276条facts分析→4类增强方案 | 参考 |
+| `docs/ASSERTION_ENHANCEMENT_SQL.md` | 26组增强SQL（边界/错误/GUC/模式） | 按`\`sql`块逐条执行 |
+| `docs/ERROR_DIAGNOSIS_HANDBOOK.md` | 错误码速查表 | 遇到错误按表操作 |
+| `docs/minimal_validation_script.sql` | 10条核心验证 | `gsql -f docs/minimal_validation_script.sql` |
+| `docs/extended_validation_script.sql` | 100条扩展验证 | `gsql -f docs/extended_validation_script.sql` |
+| `docs/EXECUTION_VALIDATION_PLAN.md` | 三阶段验证方案 | 按Phase 1/2/3执行 |
+| `docs/FACT_INTEGRATION_PLAN.md` | Facts接入计划 | 参考 |
+| `docs/VALUE_GAP_DISPOSITION_20260911.md` | 25条gap处置记录 | 参考 |
+
+### 连库后的执行顺序
+
+```bash
+# 1. Phase 1: 核心验证（5分钟）
+python3 scripts/auto_validate.py --host $HOST --port $PORT --db $DB --user $USER
+
+# 2. Phase 2: 扩展验证（30分钟）
+gsql -d $DB -p $PORT -U $USER -f docs/extended_validation_script.sql
+
+# 3. Phase 3: 增强SQL（按手册逐组执行）
+# 打开 docs/ASSERTION_ENHANCEMENT_SQL.md，按顺序执行
+
+# 4. 遇到错误查手册
+# 打开 docs/ERROR_DIAGNOSIS_HANDBOOK.md
+
+# 5. Web界面浏览
+python3 -m uvicorn main:app --host 0.0.0.0 --port 8080
+# 浏览器访问 http://localhost:8080
+```
 
 ### 已知限制
 
