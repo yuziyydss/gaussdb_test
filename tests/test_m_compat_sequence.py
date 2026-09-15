@@ -61,7 +61,7 @@ class MSequenceTests(unittest.TestCase):
         for fid in IDS:
             f=self.r.factors[fid]
             self.assertEqual(f.status,'needs_review')
-            self.assertTrue(any(u.status=='unmapped' for u in self.r.source_ledgers[f.source_ledger_ref].units))
+            self.assertFalse(any(u.status=='unmapped' for u in self.r.source_ledgers[f.source_ledger_ref].units))
             self.assertTrue(all(self.r.scenarios[s].status=='planned' for s in f.scenario_refs))
         self.assertTrue(any(f.type=='open_question' and '相等' in f.statement for f in self.r.factors['m_alter_sequence'].facts))
 
