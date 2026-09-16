@@ -92,7 +92,9 @@ class LogFDWCatalogTests(unittest.TestCase):
 
     def test_file_formats_are_not_credited_by_a_log_catalog_example(self):
         cases, _ = self.cases('create')
-        self.assertNotIn('format', cases[0].consumed_dimension_ids)
+        self.assertIn('format', cases[0].consumed_dimension_ids)
+        self.assertEqual(cases[0].params['format'], 'create_foreign_table_format_not_applicable')
+        self.assertNotIn("format '", cases[0].sql)
         values = self.r.resolve_dimension_values('create_foreign_table')['format']
         for suffix in ('text', 'csv', 'binary', 'fixed'):
             self.assertEqual(values['create_foreign_table_format_'+suffix].validity, 'conditional')

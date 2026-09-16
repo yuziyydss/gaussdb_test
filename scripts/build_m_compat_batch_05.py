@@ -512,7 +512,7 @@ def load_data():
     p=LoadDataPackage('LOAD DATA','UTILITY',CORPUS)
     p.fact('syntax','syntax','LOAD DATA INFILE指定文件，INTO TABLE指定真实目标表；支持冲突模式和字段子句。',next(i+1 for i,line in enumerate(p.lines) if line.strip()=='LOAD DATA'),12)
     p.fact('columns','syntax','可指定输入列列表，SET指定表达式或DEFAULT。','[(col_name_or_user_var',2)
-    p.fact('all_columns','syntax','输入列列表可省略；未声明字段列表时使用所有字段。有限空表两列输入由真实TSV与列序对齐，不套用SET或跳行行为。',125,4)
+    p.fact('all_columns','constraint','输入列列表可省略；未声明字段列表时使用所有字段。有限空表两列输入由真实TSV与列序对齐，不套用SET或跳行行为。',125,4)
     p.facts[-1]['source_anchor'] = '2.4.2.13.1 L125-127'
     p.fact('authority','environment','LOAD DATA需要INSERT/DELETE；enable_copy_server_files打开时SYSADMIN可用文件导入。','LOAD DATA语法需要具有表的INSERT和DELETE权限',6)
     p.fact('path','environment','文件路径必须位于safe_data_path白名单内；本批只声明专用部署路径，不修改白名单。','数据库管理员可以通过GUC参数safe_data_path',4)

@@ -70,12 +70,11 @@ class GeneralInsertPGConflictTests(unittest.TestCase):
     def test_generic_gaps_and_unexecuted_oracles_are_honest(self):
         self.generated()
         audit=FactorCoverageAuditor(self.r).audit('insert')
-        # 三个泛化conditional值由已选中的PG有限facet代表；tuple_update
-        # 因更新冲突键语义不同仍保留缺口。
-        for suffix in ('nothing_no_target','update','expression_predicate'):
+        # 四个泛化conditional值均由有限facet代表；同键赋回不证明任意键变更。
+        for suffix in ('nothing_no_target','update','expression_predicate','tuple_update'):
             self.assertIn('conflict_clause.insert_on_conflict_'+suffix,audit['values']['represented_by_finite_facet'])
             self.assertNotIn('conflict_clause.insert_on_conflict_'+suffix,audit['values']['coverage_gaps'])
-        self.assertIn('conflict_clause.insert_on_conflict_tuple_update',audit['values']['conditional_unselected'])
+        self.assertNotIn('conflict_clause.insert_on_conflict_tuple_update',audit['values']['conditional_unselected'])
         self.assertFalse(audit['conclusions']['static_coverage_complete'])
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
         for suffix,note in [('nothing','existing'),('update','alpha')]:

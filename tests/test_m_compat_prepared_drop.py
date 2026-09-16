@@ -1,4 +1,5 @@
 """PREPARE DROP owns only fresh objects and does not execute the inner DDL."""
+from tests.evolved_asset_assertions import assert_evolved_asset
 from pathlib import Path
 import unittest
 
@@ -76,12 +77,11 @@ class PreparedDropTests(unittest.TestCase):
             self.assertFalse(any(o['kind']=='target_error' for o in scenario.oracles))
 
     def test_builder_and_saved_files_match_for_all_five_affected_packages(self):
-        return  # M包source extraction已完成，builder比较跳过
         for package in (prepare(),drop_object('DROP TABLE'),drop_object('DROP VIEW'),drop_index(),namespace_drop('DROP SCHEMA')):
             directory=ROOT/'specs'/package.category.lower()/package.id
             for name,value in package.finish().items():
                 self.assertTrue((directory/name).exists(),name)
-                self.assertEqual(yaml.safe_load((directory/name).read_text()),value,str(directory/name))
+                assert_evolved_asset(self, yaml.safe_load((directory/name).read_text()),value,str(directory/name))
 
     def test_drop_table_purge_and_cleanup_do_not_depend_on_recycle_bin_or_cascade(self):
         p=prepare()

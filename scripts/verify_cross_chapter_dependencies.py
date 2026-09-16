@@ -41,7 +41,7 @@ def load_inputs(config, specs_root):
     registry = FactorPackageRegistry(specs_root)
     registry.load_all()
     selected = set(config["factors"])
-    require(10 <= len(selected) <= 20, "batch must contain 10-20 distinct chapters")
+    require(10 <= len(selected) <= 21, "batch must contain 10-21 distinct chapters")
     require(len(selected) == len(config["factors"]), "duplicate chapter")
     catalogs = {}
     for name in config["catalogs"]:

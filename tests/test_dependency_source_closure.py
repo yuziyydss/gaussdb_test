@@ -15,14 +15,14 @@ class DependencySourceClosureTests(unittest.TestCase):
     def test_all_declared_pdf_bodies_are_selected(self):
         body = source_input_closure(self.config, self.registry, self.inputs)
         primary = {v['chapter']['source_relpath'] for v in self.inputs.values()}
-        self.assertEqual(len(primary), 20)
+        self.assertEqual(len(primary), 21)
         self.assertEqual(set(body) - primary, {'general/utility/section_1_4_3.txt',
+                                              'general/ddl/create_masking_policy.txt',
                                               'general/ddl/create_tablespace.txt',
                                               'general/ddl/drop_sequence.txt',
-                                              'general/dml/copy.txt',
                                               'general/utility/section_1_9_4.txt',
                                               'general/utility/union_case.txt'})
-        self.assertEqual(len(body), 26)
+        self.assertEqual(len(body), 27)
 
     def test_wrong_supplemental_hash_cannot_be_ignored(self):
         registry = copy.deepcopy(self.registry)
@@ -33,11 +33,11 @@ class DependencySourceClosureTests(unittest.TestCase):
 
     def test_body_only_chapters_are_not_promoted_to_factor_tasks(self):
         state = {'tasks': [{'factor_id': f, 'source_relpath': f + '.txt'}
-                           for f in [*self.config['factors'], 'section_1_4_3', 'create_tablespace', 'drop_sequence', 'copy',
+                           for f in [*self.config['factors'], 'section_1_4_3', 'create_tablespace', 'drop_sequence',
                                      'section_1_9_4', 'union_case']]}
         excluded = select_batch_tasks(state, self.config['factors'])
-        self.assertEqual(len(state['tasks']), 20)
-        self.assertEqual({t['factor_id'] for t in excluded}, {'section_1_4_3', 'create_tablespace', 'drop_sequence', 'copy',
+        self.assertEqual(len(state['tasks']), 21)
+        self.assertEqual({t['factor_id'] for t in excluded}, {'section_1_4_3', 'create_tablespace', 'drop_sequence',
                                                             'section_1_9_4', 'union_case'})
 
     def test_missing_requested_task_is_not_silently_filtered(self):

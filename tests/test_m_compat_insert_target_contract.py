@@ -76,7 +76,7 @@ class MInsertTargetContractTests(unittest.TestCase):
 
     def test_only_ordinary_targets_select_this_contract(self):
         g = self.generator()
-        for suffix in ('table','upsert'):
+        for suffix in ('table','upsert','string_utf8'):
             self.assertEqual(self.profile(g,suffix).properties.get('target_column_contract'), 'fixture_ordinary_columns')
         self.assertNotEqual(self.profile(g,'view').properties.get('target_column_contract'),
                             'fixture_ordinary_columns')
@@ -84,7 +84,12 @@ class MInsertTargetContractTests(unittest.TestCase):
                             'fixture_ordinary_columns')
         cases = [c for mid in g.registry.factors['m_insert'].manifest_refs
                  for c in g.generate_with_report(g.registry.manifests[mid])[0]]
-        self.assertEqual(len(cases),29)
+        string_cases = [c for c in cases if c.case_id.startswith('manifest_m_insert_string_utf8_')]
+        original_cases = [c for c in cases if c not in string_cases]
+        self.assertEqual(len(original_cases),29)
+        self.assertEqual(len(string_cases),9)
+        self.assertTrue(all(c.params['target_profile'] == 'm_insert_target_profile_string_utf8'
+                            for c in string_cases))
 
 class InsertTargetEvidenceBoundaryTests(unittest.TestCase):
     def check(self, **changes):

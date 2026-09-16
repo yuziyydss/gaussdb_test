@@ -1,0 +1,34 @@
+schema_version: 1
+kind: fixture
+id: fixture_create_foreign_table_file_csv
+name: file_fdw csv真实文件与新服务器
+factor_ref: create_foreign_table
+status: needs_review
+description: 仅本地文件字节；未传输，未授权远端路径；目标DDL尚未执行。
+provides:
+  files:
+  - id: rows_csv
+    source_path: assets/rows.csv
+    sha256: ee2cb0fb201933421baec24b0b77f4e871cbd2079038f463745519001a159062
+    target_path: /tmp/factor_assets/general/create_foreign_table/rows.csv
+    format: integer_csv
+    column_count: 2
+    row_count: 3
+    deployment: manual_copy_and_verify
+    cleanup: remove_only_owned_deployed_file_after_hash_check
+    fact_refs:
+    - create_foreign_table_fact_filename
+seed:
+  required: false
+  rows: []
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+  - CREATE SERVER g_cft_file_server FOREIGN DATA WRAPPER file_fdw;
+  - CREATE SCHEMA g_cft_file_ns;
+  teardown_sqls:
+  - DROP FOREIGN TABLE g_cft_file_ns.rows RESTRICT;
+  - DROP SCHEMA g_cft_file_ns RESTRICT;
+  - DROP SERVER g_cft_file_server RESTRICT;
+  note: 需先验证现有file_fdw与validator、非PDB/PG连接和权限，再另行授权专属文件部署及哈希/可读性/所有权核验。仅清理由本场景成功创建的对象；失败停止，禁止兜底CASCADE或删除无所有权文件。

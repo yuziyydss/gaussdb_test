@@ -1,4 +1,5 @@
 """Integer SET representatives do not prove the full variable conversion domain."""
+from tests.evolved_asset_assertions import assert_evolved_asset
 from pathlib import Path
 import unittest
 import yaml
@@ -10,7 +11,6 @@ from core.factor_package_generator import FactorPackageSQLGenerator
 
 class MSetIntegerDefinitionTests(unittest.TestCase):
     def test_integer_values_have_direct_source_and_separate_selection(self):
-        return  # 全部93个M包source extraction已完成，builder重建测试跳过
         p = set_command()
         files = p.finish()
         self.assertTrue('manifests/user_variable_integer.manifest.yaml' in files)
@@ -75,4 +75,7 @@ class MSetIntegerIntegrationTests(unittest.TestCase):
         self.assertEqual(gap.status, 'needs_verification')
 
     def test_curated_builder_and_saved_package_match_exactly(self):
-        return  # M包source extraction已完成，builder比较跳过
+        self.cases()
+        for name, expected in set_command().finish().items():
+            path = self.root / 'specs/utility/m_set' / name
+            assert_evolved_asset(self, yaml.safe_load(path.read_text()), expected, name)

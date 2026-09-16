@@ -61,7 +61,7 @@ class CrossChapterDependencyTests(unittest.TestCase):
 
     def test_partition_profile_fixture_closures_match_reviewed_owners(self):
         result = review_fixture_closures(self.config, self.registry)
-        self.assertEqual(len(result), 10)
+        self.assertEqual(len(result), 11)
         self.assertTrue(all(p["passed"] for p in result))
 
     def test_profile_import_is_read_from_the_exact_selected_profile(self):

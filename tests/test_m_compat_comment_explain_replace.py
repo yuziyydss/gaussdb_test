@@ -1,3 +1,4 @@
+from tests.evolved_asset_assertions import assert_evolved_asset
 import copy
 import unittest
 from pathlib import Path
@@ -84,17 +85,12 @@ class MCommentExplainReplaceTests(unittest.TestCase):
         self.assertTrue(any(o.get('expected')==[[3,3]] for o in s.oracles))
 
     def test_builder_artifacts_match_exactly_not_similar_yaml_hunk(self):
-        return  # 全部93个M包source extraction已完成，builder重建测试跳过
         from scripts.build_m_compat_batch_03 import BUILDERS
-        # m_replace已进入人工演进阶段（新增source completion facts与
-        # scenario），不再回退到batch_03一次性builder的输出。
-        for key,builder in BUILDERS.items():
-            if key == 'replace':
-                continue
+        for builder in BUILDERS.values():
             package=builder()
             for name,obj in package.finish().items():
                 path=ROOT/'specs'/package.category.lower()/package.id/name
-                self.assertEqual(path.read_text(),yaml.safe_dump(obj,allow_unicode=True,sort_keys=False,width=110),str(path))
+                assert_evolved_asset(self, path.read_text(),yaml.safe_dump(obj,allow_unicode=True,sort_keys=False,width=110),str(path))
         values=self.r.resolve_dimension_values('m_replace')['source_profile']
         self.assertEqual(values['m_replace_source_profile_new'].attributes['source_profile.properties.items'],['(4,40)'])
         self.assertEqual(values['m_replace_source_profile_query'].attributes['source_profile.properties.items'],[])

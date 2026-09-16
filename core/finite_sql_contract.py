@@ -250,9 +250,11 @@ def check_types(names, expressions, target, source=None, alias=None, default_tab
         if target[name] != actual and not (target[name] == 'numeric' and actual == 'integer'):
             raise ReviewNeeded('conversion_unknown', f'{name}: {actual} -> {target[name]}')
         if value_table is not None and not is_default:
-            from .shared_column_contract import check_assignment_integer_literal, check_assignment_decimal_literal
+            from .shared_column_contract import (check_assignment_integer_literal,
+                check_assignment_decimal_literal, check_assignment_string_literal)
             check_assignment_integer_literal(value_table, name, expr)
             check_assignment_decimal_literal(value_table, name, expr)
+            check_assignment_string_literal(value_table, name, expr)
 
 
 def check_partition_assignment(table, name, expr, alias):
@@ -1050,16 +1052,19 @@ def check_conflict_assignments(sql, table, alias, tables, source_scope, setup_sq
     return checks
 
 
-def inspect_write(sql, setup_sqls, *, conflict_source_scope='general', auto_increment_context=None):
+def inspect_write(sql, setup_sqls, *, conflict_source_scope='general', auto_increment_context=None,
+                  environment_requirements=None):
     result = {'status': 'needs_review', 'scope': 'finite_write_shape_only', 'checks': [], 'issues': []}
     try:
         sql = sql.strip().removesuffix(';').strip()
         if ';' in top_mask(sql) or '--' in sql or '/*' in sql or '"' in sql:
             raise ReviewNeeded('syntax_unknown', 'Multiple statements/comments/quoted identifiers unsupported')
         from .shared_column_contract import (
-            QUERY_KEYWORDS, attach_shared_contracts, check_omitted_columns, finite_derived_target,
+            QUERY_KEYWORDS, attach_shared_contracts, attach_m_string_context, check_omitted_columns, finite_derived_target,
         )
         tables = attach_shared_contracts(ddl_tables(setup_sqls), setup_sqls)
+        if conflict_source_scope == 'm_compat':
+            attach_m_string_context(tables, environment_requirements)
         sql, tables, cte_checks = finite_ctes(sql, tables, setup_sqls, source_scope=conflict_source_scope)
         direct_insert = re.match(rf'^INSERT(?:\s+INTO)?\s+({NAME})\b', sql, re.I)
         direct_table = tables.get(direct_insert[1].lower()) if direct_insert else None
@@ -1287,6 +1292,10 @@ def inspect_write(sql, setup_sqls, *, conflict_source_scope='general', auto_incr
             result['checks'].append('shared_integer_literal_ranges')
         if any(t and t.get('_decimal_literals_checked') for t in checked_tables):
             result['checks'].append('shared_exact_decimal_literals')
+        if any(t and t.get('_string_literals_checked') for t in checked_tables):
+            result['checks'].append('shared_ascii_string_literal_lengths')
+        if any(t and t.get('_m_string_literals_checked') for t in checked_tables):
+            result['checks'].append('shared_m_utf8_string_storage')
         if any(t and t.get('_defaults_checked') for t in checked_tables):
             result['checks'].append('shared_constant_or_null_defaults')
         if any(t and t.get('_omissions_checked') for t in checked_tables):

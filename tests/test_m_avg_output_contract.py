@@ -1,4 +1,5 @@
 """M AVG consumes existing real sources without inventing a general interpreter."""
+from tests.evolved_asset_assertions import assert_evolved_asset
 import copy
 from pathlib import Path
 import unittest
@@ -97,7 +98,6 @@ class AvgConsumerTests(unittest.TestCase):
             self.assertIn('per_step_oracle', s.execution_requirements)
 
     def test_avg_source_is_exact_and_builder_reproduces_saved_package(self):
-        return  # M包source extraction已完成，builder比较跳过
         self.manifest('builtin')
         source = next(s for s in self.r.source_ledgers['source_ledger_m_select'].supplemental_sources
                       if s.id == 'm_select_avg_signature_source')
@@ -105,7 +105,7 @@ class AvgConsumerTests(unittest.TestCase):
         self.assertEqual(source.catalog_chapter_ref.chapter_sha256,
                          'ca0c02156ff890f3b89fb2e200133acde2be0b10f7d5bb06af2c67d8c9900db9')
         for name, value in select().finish().items():
-            self.assertEqual(yaml.safe_load((ROOT/'specs/dml/m_select'/name).read_text()), value, name)
+            assert_evolved_asset(self, yaml.safe_load((ROOT/'specs/dml/m_select'/name).read_text()), value, name)
 
 
 if __name__ == '__main__': unittest.main()

@@ -3,24 +3,27 @@
 
 Usage:
   python3 auto_validate.py --host HOST --port PORT --db DB --user USER
-  python3 auto_validate.py --host HOST --port PORT --db DB --user USER --phase 2
+  Execution is a separate, explicitly invoked phase; this is not a coverage audit.
 """
-import argparse, json, os, subprocess, sys, time
+import argparse, json, os, re, subprocess, sys, uuid
 from datetime import datetime
 from pathlib import Path
 
-VERSION = "1.0"
+VERSION = "1.1"
 RESULTS = []
 START_TIME = None
+ENVIRONMENT = {}
 
 def run_sql(host, port, db, user, password, sql, client="gsql", timeout=30):
-    cmd = [client, "-h", host, "-p", str(port), "-d", db, "-U", user, "-c", sql]
+    cmd = [client, "-X", "-A", "-t", "-F", "\t", "-P", "null=\\N",
+           "-v", "ON_ERROR_STOP=1", "-v", "VERBOSITY=verbose",
+           "-h", host, "-p", str(port), "-d", db, "-U", user, "-c", sql]
     env = dict(os.environ)
     if password:
         env["PGPASSWORD"] = password
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
-        return r.returncode, r.stdout.strip(), r.stderr.strip()
+        return r.returncode, r.stdout.rstrip("\r\n"), r.stderr.strip()
     except FileNotFoundError:
         return -2, "", f"Client not found: {client}"
     except subprocess.TimeoutExpired:
@@ -28,8 +31,51 @@ def run_sql(host, port, db, user, password, sql, client="gsql", timeout=30):
     except Exception as e:
         return -3, "", str(e)
 
-def add_result(tid, desc, sql, expected, actual, status, error=""):
-    RESULTS.append({"id": tid, "desc": desc, "sql": sql, "expected": expected, "actual": actual, "status": status, "error": error})
+def evaluate_result(rc, out, err, oracle, *, stage="target"):
+    """Finite machine-output Oracles. Never infer success from rc alone.
+
+    Result rows are ordered textual cells, not a general typed SQL comparator.
+    SQLSTATEs must come from a verbose ERROR line, never from echoed SQL.
+    """
+    kind = oracle.get("kind")
+    if kind == "target_error":
+        states = oracle.get("sqlstates", [])
+        if not states or not all(re.fullmatch(r"[0-9A-Z]{5}", s) for s in states):
+            return "FAIL", "missing or invalid target SQLSTATE Oracle"
+        actual = re.findall(r"^\s*(?:.*?:\d+:\s*)?ERROR:\s+([0-9A-Z]{5}):", err, re.M)
+        ok = stage == "target" and rc > 0 and len(actual) == 1 and actual[0] in states
+        return ("PASS", "") if ok else ("FAIL", "target stage/SQLSTATE mismatch")
+    if rc != 0 or re.search(r"\b(?:ERROR|FATAL|PANIC):", err):
+        return "FAIL", "client or SQL execution failed"
+    lines = out.splitlines()
+    if kind == "command":
+        expected = oracle.get("tags")
+    elif kind == "affected_rows":
+        command, count = oracle.get("command"), oracle.get("count")
+        if command not in ("INSERT", "UPDATE", "DELETE") or type(count) is not int or count < 0:
+            return "FAIL", "invalid affected-row Oracle"
+        expected = [f"INSERT 0 {count}" if command == "INSERT" else f"{command} {count}"]
+    elif kind == "result_set":
+        rows = oracle.get("rows")
+        if not isinstance(rows, list) or not rows or any(not isinstance(row, list) or not row for row in rows):
+            return "FAIL", "invalid result-set Oracle"
+        expected = list(oracle.get("prefix_tags", []))
+        for row in rows:
+            if any(cell is not None and (not isinstance(cell, str) or
+                   any(c in cell for c in "\t\r\n") or cell in ("", "\\N")) for cell in row):
+                return "FAIL", "unsupported cell encoding"
+            expected.append("\t".join("\\N" if cell is None else cell for cell in row))
+    else:
+        return "FAIL", "missing or unsupported Oracle"
+    if expected is None or (kind == "command" and not expected):
+        return "FAIL", "empty command Oracle"
+    return ("PASS", "") if lines == expected else ("FAIL", "Oracle output mismatch")
+
+
+def add_result(tid, desc, sql, expected, actual, status, error="", stage="target", returncode=None):
+    RESULTS.append({"id": tid, "desc": desc, "sql": sql, "expected": expected,
+                    "actual": actual, "status": status, "error": error,
+                    "stage": stage, "returncode": returncode})
     icon = "OK" if status == "PASS" else "FAIL"
     print(f"  [{icon}] {tid}: {desc}")
     if status != "PASS":
@@ -40,7 +86,7 @@ def add_result(tid, desc, sql, expected, actual, status, error=""):
 
 def test_connection(host, port, db, user, password, client):
     rc, out, err = run_sql(host, port, db, user, password, "SELECT 1;", client)
-    if rc == 0:
+    if evaluate_result(rc, out, err, {"kind": "result_set", "rows": [["1"]]})[0] == "PASS":
         print(f"  OK: {host}:{port}/{db}")
         return True
     print(f"  FAIL: {err[:200]}")
@@ -65,62 +111,89 @@ def phase1(host, port, db, user, password, client):
     print("\n" + "="*60)
     print("Phase 1: Core Validation (10 tests)")
     print("="*60)
+    schema = "v_test_" + uuid.uuid4().hex
     tests = [
         ("CREATE TABLE",
-         "DROP SCHEMA IF EXISTS v_test CASCADE; CREATE SCHEMA v_test; SET current_schema=v_test; CREATE TABLE t1(id INT PRIMARY KEY, name VARCHAR(100))",
-         "CREATE TABLE"),
+         "CREATE TABLE v_test.t1(id INT PRIMARY KEY, name VARCHAR(100))",
+         {"kind": "command", "tags": ["CREATE TABLE"]}),
         ("INSERT",
          "INSERT INTO v_test.t1 VALUES(1,'a'),(2,'b'),(3,'c')",
-         "INSERT 0 3"),
+         {"kind": "affected_rows", "command": "INSERT", "count": 3}),
         ("SELECT",
          "SELECT id,name FROM v_test.t1 ORDER BY id",
-         "3 rows"),
+         {"kind": "result_set", "rows": [["1", "a"], ["2", "b"], ["3", "c"]]}),
         ("UPDATE",
          "UPDATE v_test.t1 SET name='upd' WHERE id=1",
-         "UPDATE 1"),
+         {"kind": "affected_rows", "command": "UPDATE", "count": 1}),
         ("DELETE",
          "DELETE FROM v_test.t1 WHERE id=3",
-         "DELETE 1"),
+         {"kind": "affected_rows", "command": "DELETE", "count": 1}),
         ("CREATE INDEX",
          "CREATE INDEX idx_p1 ON v_test.t1(name)",
-         "CREATE INDEX"),
+         {"kind": "command", "tags": ["CREATE INDEX"]}),
         ("GRANT",
          "GRANT SELECT ON v_test.t1 TO PUBLIC",
-         "GRANT"),
+         {"kind": "command", "tags": ["GRANT"]}),
         ("BEGIN/COMMIT",
          "BEGIN; INSERT INTO v_test.t1 VALUES(99,'x'); COMMIT",
-         "COMMIT"),
+         {"kind": "command", "tags": ["BEGIN", "INSERT 0 1", "COMMIT"]}),
         ("GUC:leading_zero",
-         "SET behavior_compat_options='display_leading_zero'; SELECT LENGTH(0.123); SET behavior_compat_options=''",
-         "5"),
+         "SET behavior_compat_options='display_leading_zero'; SELECT LENGTH(0.123)",
+         {"kind": "result_set", "prefix_tags": ["SET"], "rows": [["5"]]}),
         ("GUC:end_month",
-         "SET behavior_compat_options='end_month_calculate'; SELECT ADD_MONTHS('2018-02-28',3); SET behavior_compat_options=''",
-         "2018-05-31"),
+         "SET behavior_compat_options='end_month_calculate'; SELECT ADD_MONTHS('2018-02-28',3)::date",
+         {"kind": "result_set", "prefix_tags": ["SET"], "rows": [["2018-05-31"]]}),
     ]
-    for i, (desc, sql, expected) in enumerate(tests, 1):
-        rc, out, err = run_sql(host, port, db, user, password, sql, client)
-        status = "PASS" if rc == 0 else "FAIL"
-        actual = out if rc == 0 else err[:200]
-        add_result(f"P1-{i:03d}", desc, sql, expected, actual, status, err[:200])
-    cleanup(host, port, db, user, password, client)
+    setup_sql = f"CREATE SCHEMA {schema}"
+    setup_oracle = {"kind": "command", "tags": ["CREATE SCHEMA"]}
+    rc, out, err = run_sql(host, port, db, user, password, setup_sql, client)
+    status, reason = evaluate_result(rc, out, err, setup_oracle, stage="setup")
+    owned = status == "PASS"
+    add_result("P1-SETUP", "Create run-owned schema", setup_sql, setup_oracle,
+               out, status, err or reason, stage="setup", returncode=rc)
+    blocked = not owned
+    try:
+        for i, (desc, sql, expected) in enumerate(tests, 1):
+            sql = sql.replace("v_test.", schema + ".")
+            if blocked:
+                add_result(f"P1-{i:03d}", desc, sql, expected, "", "BLOCKED", "prior step failed")
+                continue
+            rc, out, err = run_sql(host, port, db, user, password, sql, client)
+            status, reason = evaluate_result(rc, out, err, expected)
+            add_result(f"P1-{i:03d}", desc, sql, expected, out, status,
+                       err or reason, returncode=rc)
+            blocked = status != "PASS"
+    finally:
+        if owned:
+            cleanup(host, port, db, user, password, client, schema)
 
-def cleanup(host, port, db, user, password, client):
-    run_sql(host, port, db, user, password, "DROP SCHEMA IF EXISTS v_test CASCADE", client, timeout=60)
+def cleanup(host, port, db, user, password, client, schema):
+    if not re.fullmatch(r"v_test_[0-9a-f]{32}", schema):
+        raise ValueError("cleanup requires a run-owned schema name")
+    sql = f"DROP SCHEMA {schema} CASCADE"
+    expected = {"kind": "command", "tags": ["DROP SCHEMA"]}
+    rc, out, err = run_sql(host, port, db, user, password, sql, client, timeout=60)
+    status, reason = evaluate_result(rc, out, err, expected, stage="teardown")
+    add_result("P1-CLEANUP", "Remove run-owned schema", sql, expected, out,
+               status, err or reason, stage="teardown", returncode=rc)
 
 def generate_report(host, port, db, user):
     end = datetime.now()
     passed = sum(1 for r in RESULTS if r["status"] == "PASS")
     failed = sum(1 for r in RESULTS if r["status"] == "FAIL")
+    blocked = sum(1 for r in RESULTS if r["status"] == "BLOCKED")
     duration = (end - START_TIME).total_seconds() if START_TIME else 0
 
     report = {
         "summary": {
-            "total": len(RESULTS), "passed": passed, "failed": failed,
+            "total": len(RESULTS), "passed": passed, "failed": failed, "blocked": blocked,
+            "executed": sum(r["returncode"] is not None for r in RESULTS),
             "pass_rate": f"{passed*100//len(RESULTS)}%" if RESULTS else "N/A",
             "database": f"{host}:{port}/{db}", "user": user,
             "start": START_TIME.isoformat() if START_TIME else "",
             "end": end.isoformat(), "duration_sec": round(duration, 1),
         },
+        "environment": ENVIRONMENT,
         "results": RESULTS,
     }
 
@@ -149,10 +222,10 @@ def generate_report(host, port, db, user):
     print(f"  JSON: {jpath}")
     print(f"  Text: {tpath}")
     print(f"  Pass Rate: {passed}/{len(RESULTS)}")
-    return failed
+    return failed + blocked
 
 def main():
-    global START_TIME
+    global START_TIME, ENVIRONMENT
     p = argparse.ArgumentParser()
     p.add_argument("--host", required=True)
     p.add_argument("--port", type=int, required=True)
@@ -164,6 +237,7 @@ def main():
     a = p.parse_args()
 
     START_TIME = datetime.now()
+    RESULTS.clear()
     print(f"GaussDB Auto-Validation v{VERSION}")
     print(f"Target: {a.host}:{a.port}/{a.db} (user: {a.user})")
     print(f"\nTesting connection...")
@@ -176,6 +250,7 @@ def main():
         sys.exit(1)
 
     env = get_env_info(a.host, a.port, a.db, a.user, a.password, a.client)
+    ENVIRONMENT = env
     print("\nEnvironment:")
     for k, v in env.items():
         print(f"  {k}: {v}")

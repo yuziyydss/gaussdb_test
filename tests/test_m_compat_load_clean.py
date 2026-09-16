@@ -1,3 +1,4 @@
+from tests.evolved_asset_assertions import assert_evolved_asset
 import hashlib
 import unittest
 from pathlib import Path
@@ -71,4 +72,8 @@ class MLoadCleanTests(unittest.TestCase):
             self.assertEqual(c.teardown_sqls,['DROP SCHEMA m_clean_connection_user;','DROP USER m_clean_connection_user RESTRICT;'])
 
     def test_reconstruction_and_asset_bytes(self):
-        return  # M包source extraction已完成，builder比较跳过
+        from scripts.build_m_compat_batch_05 import BUILDERS,LOAD_PAYLOAD
+        for key in ('load_data','clean_connection'):
+            p=BUILDERS[key]()
+            for name,obj in p.finish().items():assert_evolved_asset(self, (ROOT/'specs'/p.category.lower()/p.id/name).read_text(),yaml.safe_dump(obj,allow_unicode=True,sort_keys=False,width=110))
+        self.assertEqual((ROOT/'specs/utility/m_load_data/fixtures/assets/two_int.tsv').read_bytes(),LOAD_PAYLOAD.encode())

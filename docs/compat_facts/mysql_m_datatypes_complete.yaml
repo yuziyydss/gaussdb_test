@@ -11,10 +11,16 @@ facts:
   # 整数类型
   - id: m_dt_int_union_length
     type: behavior_oracle
-    statement: "整数UNION CTAS差异：开启enable_precision_decimal时GaussDB取最大长度（INT=11，BIGINT=20）计算列长度；MySQL按实际长度。示例：SELECT 1234567 UNION ALL SELECT '456789'，GaussDB列类型varchar(11)，MySQL为varchar(7)。"
+    statement: "M 模式中 m_format_behavior_compat_options 包含 enable_precision_decimal，且 CREATE TABLE AS 的 UNION 包含直接整数常量时，GaussDB 按整型最大长度（INT=11、BIGINT=20）推导列长；MySQL 按实际长度。不是任意 UNION 表达式的长度合同。"
     source_anchor: "4.4.2.1.2 表4-131"
     status: confirmed
-    verification_method: 逐页精读（页3293-3294）
+    verification_method: "2026-09-15 PDF 原文复核（物理页3293,3294）；非数据库验证"
+    compatibility_mode: M
+    source_physical_pages: [3293, 3294]
+    evaluation_phase: "CTAS output-column metadata"
+    applicability_conditions:
+    - "m_format_behavior_compat_options contains enable_precision_decimal"
+    - "direct integer literal participating in UNION inside CREATE TABLE AS"
 
   - id: m_dt_bool_output
     type: behavior_oracle
@@ -41,31 +47,52 @@ facts:
   # 日期时间类型
   - id: m_dt_timestamp_explicit_defaults
     type: behavior_oracle
-    statement: "TIMESTAMP差异：GaussDB不支持设置explicit_defaults_for_timestamp，行为与MySQL设为on时相同（NULL不替换为当前时间戳，不自动添加DEFAULT CURRENT_TIMESTAMP和ON UPDATE）。MySQL 5.7默认off，8.0默认on。"
+    statement: "GaussDB 不提供 explicit_defaults_for_timestamp 设置，文档说明其行为对应 MySQL 设为 on；MySQL 5.7 默认 off、8.0 默认 on。NULL 赋值须结合显式 NULL/NOT NULL 声明及严格模式，不意味着所有 TIMESTAMP 列都接受 NULL。"
     source_anchor: "4.4.2.1.3 表4-134"
     status: confirmed
-    verification_method: 逐页精读（页3296）
+    verification_method: "2026-09-15 PDF 原文复核（物理页3295,3296）；非数据库验证"
+    compatibility_mode: M
+    source_physical_pages: [3295, 3296]
+    evaluation_phase: "TIMESTAMP column defaults and NULL assignment"
+    applicability_conditions:
+    - "MySQL comparison version and explicit_defaults_for_timestamp setting"
+    - "explicit NULL/NOT NULL column declaration"
 
   - id: m_dt_precision_truncate
     type: behavior_oracle
-    statement: "DATETIME/TIME/TIMESTAMP精度超过最大时GaussDB截断为最大精度，MySQL报错。"
+    statement: "指定 DATETIME/TIME/TIMESTAMP 类型的声明精度超过支持上限时，GaussDB 将声明精度限制为最大值，MySQL 报错；本条不描述输入值小数秒的舍入或截断。"
     source_anchor: "4.4.2.1.3 说明"
     status: confirmed
-    verification_method: 逐页精读（页3297）
+    verification_method: "2026-09-15 PDF 原文复核（物理页3296）；非数据库验证"
+    compatibility_mode: M
+    source_physical_pages: [3296]
+    evaluation_phase: "datetime type precision declaration"
+    applicability_conditions:
+    - "DATETIME/TIME/TIMESTAMP precision exceeds the supported maximum"
 
   - id: m_dt_time_negative_zero
     type: behavior_oracle
-    statement: "带负号零时间（-00:00:00）GaussDB不显示负号，MySQL显示负号。"
+    statement: "TIME 类型的负零时间（如 -00:00:00）作为结果显示时，GaussDB 不显示负号，MySQL 显示负号；仅涉及输出格式。"
     source_anchor: "4.4.2.1.3 说明"
     status: confirmed
-    verification_method: 逐页精读（页3297）
+    verification_method: "2026-09-15 PDF 原文复核（物理页3296）；非数据库验证"
+    compatibility_mode: M
+    source_physical_pages: [3296]
+    evaluation_phase: "TIME output formatting"
+    applicability_conditions:
+    - "negative zero time"
 
   - id: m_dt_year_display
     type: behavior_oracle
-    statement: "YEAR差异：MySQL 5.7默认显示year(4)，GaussDB与MySQL 8.0一致只显示year。"
+    statement: "YEAR 列的元数据/显示：MySQL 5.7 默认显示 year(4)，GaussDB 与 MySQL 8.0 一致显示 year；不推导其他整数或日期存储行为。"
     source_anchor: "4.4.2.1.3 表4-134"
     status: confirmed
-    verification_method: 逐页精读（页3296）
+    verification_method: "2026-09-15 PDF 原文复核（物理页3296）；非数据库验证"
+    compatibility_mode: M
+    source_physical_pages: [3296]
+    evaluation_phase: "YEAR metadata/display"
+    applicability_conditions:
+    - "MySQL 5.7 versus 8.0 comparison"
 
   # 字符串类型
   - id: m_dt_text_binary_input

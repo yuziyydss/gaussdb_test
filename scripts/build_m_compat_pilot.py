@@ -272,6 +272,9 @@ class Package:
                     if self.fid('approximate_source_types') in unit.get('fact_refs',[]):
                         unit.setdefault('supplemental_source_refs',[]).append(source_id)
                         unit['rationale']='SELECT expression为消费者；聚合签名来自M2.5.11，实际FLOAT/DOUBLE源列声明来自M2.6.7.4，两个来源不能互相替代。'
+        if self.id in ('m_insert','m_update'):
+            from scripts.m_string_package import attach_string_sources
+            attach_string_sources(self, self.files[self.id+'.source.yaml'])
         return self.files
 
 
@@ -401,7 +404,7 @@ def insert():
     p.fact('view_duplicate','constraint','视图不支持 ON DUPLICATE KEY UPDATE。','6. 不支持ON DUPLICATE KEY UPDATE功能。')
     p.fact('duplicate_effect','behavior_oracle','带唯一键的表遇冲突更新已有行；VALUES(qty)引用输入行，不是旧值。','对于带有唯一约束',3)
     p.fact('duplicate_authority','environment','ON DUPLICATE KEY UPDATE需要INSERT、UPDATE及被更新列SELECT权限。','如果使用ON DUPLICATE KEY UPDATE',2)
-    p.fact('column_input','syntax','省略列列表的输入按前 N 列关联。','如果value子句和query中只提供了N个字段',2)
+    p.fact('column_input','constraint','省略列列表的输入按前 N 列关联。','如果value子句和query中只提供了N个字段',2)
     p.fact('view_column','constraint','插入视图的列须为直接基表用户列。','1. 只有直接引用基表用户列的列可插入。')
     p.dim('into',[('yes','INTO'),('none','')])
     targets=[('table',SRC,dict(generated=False,is_view=False)),('view',V,dict(generated=False,is_view=True)),
@@ -445,6 +448,7 @@ def insert():
     p.rule('generated_write','target_profile.properties.generated == True => source_profile.properties.generated_explicit == False','generated_write')
     p.rule('view_duplicate',f"target_profile.properties.is_view == True => duplicate == '{p.vid('duplicate','none')}'",'view_duplicate')
     p.checks=[dict(id=p.id+'_struct_input',kind='insert_input_contract',fact_refs=[p.fid('column_input')])]
+    p.syntax_fact_refs = [p.fid('syntax'), p.fid('default'), p.fid('column_input')]
     p.ast=seq('INSERT ',slot('into'),' ',slot('target_profile'),' ',dict(kind='choice',selector='source_profile',branches={
         p.vid('source_profile',k): (seq('SET ',repeat('source_profile')) if k=='set' else
                                   slot('source_profile') if k=='query' else seq(slot('values_keyword'),' ',repeat('source_profile')))
@@ -499,6 +503,8 @@ def insert():
         [dict(kind='result_set',sql=f'SELECT id,qty FROM {SRC} WHERE id=7;',expected=[[7,9]])])
     p.files['scenarios/view_column_lineage.scenario.yaml']['fact_refs'].append('m_create_view::m_create_view_fact_updatable_column')
     p.files['matrices/source_profile.matrix.yaml']['fact_refs'].append('m_create_table::m_create_table_fact_default')
+    from scripts.m_string_package import add_string_cases
+    add_string_cases(p)
     return p
 
 
@@ -582,6 +588,8 @@ def update():
                 value['validity']='invalid'
         else:
             value['fact_refs'].append('m_create_table::m_create_table_fact_default')
+    from scripts.m_string_package import add_string_cases
+    add_string_cases(p)
     return p
 
 

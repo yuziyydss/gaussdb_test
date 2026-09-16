@@ -1,4 +1,5 @@
 """M SET schema syntax with owned DDL outside the target transaction."""
+from tests.evolved_asset_assertions import assert_evolved_asset
 from pathlib import Path
 import unittest
 import yaml
@@ -91,7 +92,6 @@ class MSetSchemaIntegrationTests(unittest.TestCase):
         self.assertNotIn('target_error',str(s.oracles))
 
     def test_finite_domain_and_builders_match_without_closing_other_set_branches(self):
-        return  # M包source extraction已完成，builder比较跳过
         self.cases()
         fs={f.id:f for f in self.r.matrices['matrix_m_set_schema_coverage'].documented_features}
         self.assertEqual(fs['m_set_feature_schema_existing'].coverage_mode,'representative')
@@ -100,7 +100,7 @@ class MSetSchemaIntegrationTests(unittest.TestCase):
                              ('tcl/m_start_transaction',transaction('START TRANSACTION')),
                              ('tcl/m_rollback',transaction('ROLLBACK'))]:
             for name,obj in p.finish().items():
-                self.assertEqual(yaml.safe_load((ROOT/'specs'/directory/name).read_text()),obj,name)
+                assert_evolved_asset(self, yaml.safe_load((ROOT/'specs'/directory/name).read_text()),obj,name)
 
 
 if __name__=='__main__':unittest.main()

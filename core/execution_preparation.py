@@ -5,10 +5,13 @@ database, calibrate an Oracle, or validate arbitrary SQL safety.
 """
 import copy
 import re
+from pathlib import Path
 
 from .candidate_identity import setup_signature
 from .m_compat_environment import BOOTSTRAP_PATH
 from .factor_package_model import CandidateScenarioStepDef
+from .file_fdw_options_contract import check_file_fdw, parse_create
+from .insert_conflict_key_contract import check_same_key_tuple
 from .log_fdw_catalog_contract import check_log_fdw_option_seed
 
 
@@ -51,11 +54,21 @@ def _m_plain_server_input(case, setup, assets):
             and setup_signature(case.teardown_sqls) == setup_signature(['DROP TABLE m_load_data_empty;']))
 
 
+def _case_gates(case):
+    gates = {}
+    for gate in case.environment_requirements:
+        if gate['key'] in gates:
+            return None
+        gates[gate['key']] = gate['allowed_values']
+    return gates
+
+
 def file_preparation_plan(scenario, bound_cases, setup, generator):
     """Recheck local bytes for bound steps; never deploy or prove remote state.
 
-    Existing general LOAD DATA and one plain M input are reviewed here.
-    LOCAL location/protocol, complex M variants and outputs need other contracts.
+    Existing general LOAD DATA, one plain M input and the finite file_fdw
+    two-integer CREATE contract are reviewed here. LOCAL location/protocol,
+    complex M variants and outputs need other contracts.
     """
     assets, blockers, needed = {}, [], False
     declared = any(generator.registry.get_fixture(ref).provides.files
@@ -77,7 +90,16 @@ def file_preparation_plan(scenario, bound_cases, setup, generator):
                  if gate['key'] == 'compatibility_mode']
         general_input = case.factor_id == 'load_data' and modes == [['B']]
         m_plain = _m_plain_server_input(case, setup, actual) if case.factor_id == 'm_load_data' else False
-        if (not (general_input or m_plain)
+        file_fdw = case.factor_id == 'create_foreign_table'
+        if file_fdw:
+            try:
+                _, _, options = parse_create(case.sql)
+                check_file_fdw(case.sql, setup, case.teardown_sqls,
+                               _case_gates(case) or {}, actual, options['format'])
+            except ValueError:
+                blockers.append('file_location_contract_unreviewed:' + sid)
+                continue
+        elif (not (general_input or m_plain)
                 or tokens[:3] != ('load', 'data', 'infile') or len(actual) != 1
                 or tokens[3] != "'" + actual[0]['target_path'] + "'"):
             blockers.append('file_location_contract_unreviewed:' + sid)
@@ -105,15 +127,23 @@ def file_preparation_plan(scenario, bound_cases, setup, generator):
                 # The table does not exist during file deployment. Verify its
                 # privileges only after setup succeeds, before the target step.
                 assets[path]['target_required_receipts'] = ['table_insert_delete_privileges']
+            if file_fdw:
+                assets[path]['target_required_receipts'] = [
+                    'fdw_validator_options_accepted',
+                    'foreign_table_select_privilege',
+                    'target_create_success_receipt',
+                ]
     if not needed:
         return None, blockers
     return {'assets': list(assets.values()), 'deployment_authorized': False,
             'runtime_verified': False, 'phase': 'after_environment_before_setup',
+            'contract': 'file_fdw_two_integer_input_v1' if any(
+                c.factor_id == 'create_foreign_table' for c in bound_cases.values()) else None,
             'limits': ['Local bytes and SQL path identity do not prove server deployment.',
                        'No file transfer, remote read, overwrite or cleanup is implemented.']}, blockers
 
 
-def ownership_plan(setup, teardown):
+def ownership_plan(setup, teardown, target_steps=()):
     """Track finite names/dependencies, never assume runtime creation/ownership."""
     name = r'[a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)?'
     creates, drops, blockers, known = [], [], [], {}
@@ -122,6 +152,8 @@ def ownership_plan(setup, teardown):
     option_seeds, mutations = set(), []
     catalog_name = r'g_a3_[a-z0-9_]+'
     server_shape = rf'\s*CREATE\s+SERVER\s+({catalog_name})\s+FOREIGN\s+DATA\s+WRAPPER\s+log_fdw\s*;?\s*'
+    file_server_shape = (r'\s*CREATE\s+SERVER\s+(g_cft_file_server)\s+FOREIGN\s+DATA'
+                         r'\s+WRAPPER\s+file_fdw\s*;?\s*')
     foreign_shape = (rf'\s*CREATE\s+FOREIGN\s+TABLE\s+({catalog_name})\.([a-z_][a-z0-9_]*)'
                      rf'\s*\(\s*col1\s+TEXT\s*\)\s+SERVER\s+({catalog_name})'
                      r"\s+OPTIONS\s*\(\s*logtype\s+'(?-i:gs_log)'\s*\)\s*;?\s*")
@@ -137,10 +169,12 @@ def ownership_plan(setup, teardown):
             blockers.append(f'setup_identity:{index}')
             continue
         server_create = re.fullmatch(server_shape, sql, re.I)
+        file_server_create = re.fullmatch(file_server_shape, sql, re.I)
         foreign_create = re.fullmatch(foreign_shape, sql, re.I)
-        if server_create or foreign_create:
-            if server_create:
-                obj, kind, parents = server_create[1].lower(), 'server', []
+        if server_create or file_server_create or foreign_create:
+            if server_create or file_server_create:
+                obj = (server_create or file_server_create)[1].lower()
+                kind, parents = 'server', []
             else:
                 schema, table, server = (x.lower() for x in foreign_create.groups())
                 obj, kind, parents = schema+'.'+table, 'foreign_table', [schema,server]
@@ -209,6 +243,24 @@ def ownership_plan(setup, teardown):
             insert = re.match(rf'^\s*INSERT\s+INTO\s+({name})(?=\s|\()', sql, re.I)
             if not insert or known.get(insert[1].lower()) != 'table':
                 blockers.append(f'unreviewed_setup:{index}')
+    for target in target_steps:
+        sid, sql = target['step_id'], target['sql']
+        try:
+            table, server, _ = parse_create(sql)
+        except ValueError:
+            blockers.append('target_create_unreviewed:' + sid)
+            continue
+        schema = table.rsplit('.', 1)[0]
+        if known.get(schema) != 'schema' or known.get(server) != 'server':
+            blockers.append('target_foreign_parents_not_owned:' + sid)
+        elif table in known:
+            blockers.append('duplicate_create:' + table)
+        else:
+            known[table] = 'foreign_table'
+            foreign_parents[table] = [schema, server]
+            creates.append({'object': table, 'kind': 'foreign_table', 'phase': 'target',
+                            'step_id': sid, 'depends_on': [schema, server],
+                            'requires_success_receipt': True, 'require_absent_before_run': True})
     remaining = dict(known)
     for index, sql in enumerate(teardown):
         match = re.fullmatch(rf'\s*DROP\s+(TABLE|SCHEMA|INDEX|SERVER|FOREIGN\s+TABLE)\s+({name})(?:\s+RESTRICT)?\s*;?\s*', sql, re.I)
@@ -242,6 +294,40 @@ def ownership_plan(setup, teardown):
             'limits': ['Name/order check only; not a general DDL parser or runtime cleanup authorization.']}
 
 
+def _finite_contract_evidence(bound_cases, setup, teardown, generator):
+    """Recompute reviewed finite contracts from actual bound candidates."""
+    evidence, blockers = [], []
+    for sid, case in bound_cases.items():
+        if (case.factor_id == 'insert'
+                and case.params.get('target_profile') == 'insert_target_same_key_tuple'
+                and case.params.get('conflict_clause') == 'insert_on_conflict_same_key_tuple'):
+            try:
+                item = check_same_key_tuple(case.sql, setup, teardown, _case_gates(case) or {})
+            except ValueError:
+                blockers.append('finite_contract_identity:' + sid)
+                continue
+            item['step_id'] = sid
+            evidence.append(item)
+        elif case.factor_id == 'create_foreign_table' and case.file_assets:
+            try:
+                _, _, options = parse_create(case.sql)
+                item = dict(check_file_fdw(case.sql, setup, teardown,
+                                           _case_gates(case) or {}, case.file_assets,
+                                           options['format']))
+                asset = case.file_assets[0]
+                source = Path(generator.registry.specs_dir).parent / asset['repository_source_path']
+                planned_rows = [[int(value) for value in line.split(',' if options['format'] == 'csv' else '\t')]
+                                for line in source.read_text(encoding='utf-8').splitlines()]
+            except (ValueError, OSError):
+                blockers.append('finite_contract_identity:' + sid)
+                continue
+            item.update({'contract': 'file_fdw_two_integer_input_v1', 'step_id': sid,
+                         'planned_rows': planned_rows,
+                         'oracle_sql': 'SELECT id,qty FROM g_cft_file_ns.rows ORDER BY id;'})
+            evidence.append(item)
+    return evidence, blockers
+
+
 def prepare_unit(scenario, cases, generator):
     """Bind reviewed scenario steps to actual candidates with identical setup.
 
@@ -250,8 +336,7 @@ def prepare_unit(scenario, cases, generator):
     """
     source = scenario.model_dump()
     setup, teardown = generator._compile_fixture_lifecycle(scenario.fixture_refs)
-    ownership = ownership_plan(setup, teardown)
-    blockers, calibration, steps = list(ownership['blockers']), [], []
+    blockers, calibration, steps = [], [], []
     if not scenario.steps:
         blockers.append('empty_sequence')
     cases = [c for c in cases if c.factor_id == scenario.factor_ref]
@@ -298,6 +383,16 @@ def prepare_unit(scenario, cases, generator):
         steps.append({'step_id': sid, 'source_step': copy.deepcopy(raw),
                       'case_id': case.case_id if case else None,
                       'resolved_sql': case.sql if case else None, 'oracles': []})
+    target_steps = [{'step_id': sid, 'sql': case.sql}
+                    for sid, case in bound_cases.items()
+                    if case.factor_id == 'create_foreign_table']
+    ownership = ownership_plan(setup, teardown, target_steps)
+    blockers.extend(ownership['blockers'])
+    finite_evidence, finite_blockers = _finite_contract_evidence(bound_cases, setup, teardown, generator)
+    blockers.extend(finite_blockers)
+    evidence_by_step = {item['step_id']: item for item in finite_evidence}
+    if any(item['contract'] == 'file_fdw_two_integer_input_v1' for item in finite_evidence) and len(steps) != 1:
+        blockers.append('file_fdw_sequence_unreviewed')
     for index, oracle in enumerate(scenario.oracles):
         if not isinstance(oracle, dict):
             blockers.append(f'untyped_oracle:{index}')
@@ -331,6 +426,19 @@ def prepare_unit(scenario, cases, generator):
             if not any(item['oracle_index'] == index for item in calibration):
                 calibration.append({'step_id': targets[0]['step_id'], 'oracle_index': index, 'kind': 'target_error'})
     for step in steps:
+        item = evidence_by_step.get(step['step_id'])
+        if item:
+            expected_rows, oracle_sql = item.get('planned_rows'), item.get('oracle_sql')
+            for oracle in step['oracles']:
+                if (oracle.get('kind') != 'result_set'
+                        or oracle.get('expected') != expected_rows
+                        or 'sql' not in oracle
+                        or sql_identity(oracle['sql']) != sql_identity(oracle_sql)):
+                    blockers.append('finite_oracle_identity:' + step['step_id'])
+            if not any(entry['step_id'] == step['step_id'] for entry in calibration):
+                calibration.append({'step_id': step['step_id'], 'oracle_index': 0,
+                                    'kind': 'finite_contract_result_set',
+                                    'contract': item['contract']})
         if not step['oracles']:
             blockers.append('missing_oracle:'+step['step_id'])
     gates = {}
@@ -350,6 +458,7 @@ def prepare_unit(scenario, cases, generator):
         'source_cases': [c.to_dict() for c in cases], 'setup_sqls': setup, 'teardown_sqls': teardown,
         'steps': steps, 'environment_requirements': gates, 'ownership_plan': ownership,
         'static_blockers': sorted(set(blockers)), 'oracle_calibration_pending': calibration,
+        **({'finite_contract_evidence': finite_evidence} if finite_evidence else {}),
         'm_environment_plan_ref': BOOTSTRAP_PATH if gates.get('compatibility_mode') == ['M'] else None,
         'required_runtime_evidence': ['explicit_database_authorization', 'actual_physical_database_mode',
                                       'isolated_connection_and_namespace', 'per_create_success_receipts',
@@ -365,5 +474,7 @@ def prepare_unit(scenario, cases, generator):
     if file_plan is not None:
         unit['file_preparation_plan'] = file_plan
         unit['required_runtime_evidence'].append('file_deployment_and_verification')
+        if file_plan.get('contract') == 'file_fdw_two_integer_input_v1':
+            unit['required_runtime_evidence'].append('exclusive_file_fdw_namespace_serialization')
         unit['failure_policy']['file'] = 'stop_before_setup_and_target'
     return unit

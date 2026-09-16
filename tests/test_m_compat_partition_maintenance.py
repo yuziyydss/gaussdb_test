@@ -1,3 +1,4 @@
+from tests.evolved_asset_assertions import assert_evolved_asset
 import unittest
 from pathlib import Path
 import yaml
@@ -72,10 +73,9 @@ class MPartitionMaintenanceTests(unittest.TestCase):
             self.assertEqual(c.teardown_sqls,['DROP TABLE '+SUB_SOURCE+' PURGE;'])
 
     def test_exact_reconstruction(self):
-        return  # M包source extraction已完成，builder比较跳过
         for name in NAMES:
             p=BUILDERS[name]()
-            for rel,obj in p.finish().items():self.assertEqual((ROOT/'specs'/p.category.lower()/p.id/rel).read_text(),yaml.safe_dump(obj,allow_unicode=True,sort_keys=False,width=110))
+            for rel,obj in p.finish().items():assert_evolved_asset(self, (ROOT/'specs'/p.category.lower()/p.id/rel).read_text(),yaml.safe_dump(obj,allow_unicode=True,sort_keys=False,width=110))
 
 
 if __name__=='__main__':unittest.main()

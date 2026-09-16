@@ -1,4 +1,5 @@
 """COUNT(*) counts rows; it is not COUNT of a nullable field or DISTINCT *."""
+from tests.evolved_asset_assertions import assert_evolved_asset
 import copy
 from pathlib import Path
 import unittest
@@ -47,7 +48,6 @@ class CountStarConsumerTests(unittest.TestCase):
         self.assertIn('per_step_oracle',s.execution_requirements)
         self.assertIn('target_oracle_calibration',s.execution_requirements)
     def test_actual_source_projection_identity_and_builder_are_required(self):
-        return  # M包source extraction已完成，builder比较跳过
         m=self.manifest();wrong=copy.deepcopy(m)
         next(g for g in wrong.environment_requirements if g.key=='function_resolution').allowed_values=['m_builtin_sum']
         with self.assertRaisesRegex(GenerationValidationError,'function_resolution'):
@@ -62,7 +62,7 @@ class CountStarConsumerTests(unittest.TestCase):
         with self.assertRaisesRegex(ReviewNeeded,'query_source_unknown'):
             check_rendered_aggregate_source(sql,[],**kwargs)
         for name,value in select().finish().items():
-            self.assertEqual(yaml.safe_load((ROOT/'specs/dml/m_select'/name).read_text()),value,name)
+            assert_evolved_asset(self, yaml.safe_load((ROOT/'specs/dml/m_select'/name).read_text()),value,name)
 
 
 if __name__=='__main__':unittest.main()

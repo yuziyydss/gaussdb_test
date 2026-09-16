@@ -9,7 +9,6 @@ from scripts.build_m_compat_batch_03 import set_command
 
 class MSetVariableDefinitionTests(unittest.TestCase):
     def test_assignment_is_an_independent_branch_with_real_limited_values(self):
-        return  # 全部93个M包source extraction已完成，builder重建测试跳过
         p=set_command();files=p.finish()
         self.assertEqual(p.ast['kind'],'choice')
         self.assertEqual(p.ast['selector'],'form')

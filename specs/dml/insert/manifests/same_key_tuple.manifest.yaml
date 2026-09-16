@@ -1,0 +1,29 @@
+schema_version: 1
+kind: manifest
+id: manifest_insert_same_key_tuple
+name: PG同键赋回与WHERE过滤对照
+factor_ref: insert
+syntax_ref: syntax_insert_v1
+status: needs_review
+description: 三个独立候选；同列EXCLUDED赋回，不包含真正键值改变、多唯一索引、子查询或多行输入。
+suite_type: positive
+strategy: full_cartesian
+fixture_refs: []
+identifier_policy: {}
+bindings:
+  target_profile: [insert_target_same_key_tuple]
+  source_profile: [insert_source_same_key_conflict, insert_source_same_key_new, insert_source_same_key_filtered]
+  conflict_clause: [insert_on_conflict_same_key_tuple]
+  with_clause: [insert_with_none]
+  ignore_modifier: [insert_ignore_none]
+  returning_clause: [insert_returning_none]
+environment_requirements:
+  - {key: compatibility_mode, allowed_values: [PG], fact_refs: [insert_fact_conflict_environment]}
+  - {key: actor_authority, allowed_values: [fixture_creator_insert_select_update], fact_refs: [insert_fact_permissions, insert_fact_conflict_environment]}
+  - {key: case_namespace, allowed_values: [isolated_user_schema], fact_refs: [insert_fact_permissions]}
+local_rules:
+  - expression: "target_profile == 'insert_target_same_key_tuple' and source_profile in ['insert_source_same_key_conflict', 'insert_source_same_key_new', 'insert_source_same_key_filtered'] and conflict_clause == 'insert_on_conflict_same_key_tuple' and with_clause == 'insert_with_none' and ignore_modifier == 'insert_ignore_none' and returning_clause == 'insert_returning_none'"
+    rationale: 仅本批两列主键表、单行字面量、同键赋回；不改变DUPLICATE KEY限制或其他合法形状。
+    fact_refs: [insert_fact_conflict_action_grammar, insert_fact_conflict_restrictions]
+expected: {default: success, scope: syntax_only}
+coverage_requirements: {strength: 2, require_all_feasible_pairs: true}

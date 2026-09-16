@@ -51,7 +51,7 @@ PDF_FACTOR_BASELINES = {
         "source_relpath": "general/ddl/alter_table.txt",
         "sha256": "ff15f5547fd4f2b5aa4888b0d8c67b74f0586098cf3c87d3b2628506562e786e",
         "lines": 1636,
-        "units": 213,  # CHANGE syntax, name/definition and environment separated.
+        "units": 218,  # Six CHANGE environment/restriction atoms replace one group.
         "manifests": 24,
         "cases": 288,  # Prior 285 retained; ROWID plus two auto-increment ALTER cases.
     },
@@ -60,8 +60,8 @@ PDF_FACTOR_BASELINES = {
         "sha256": "5383f2eca79ecbe64ce3e880c8e3a2a39178a6bd93ca328401740bf36c16fae5",
         "lines": 918,
         "units": 245,
-        "manifests": 26,
-        "cases": 134,  # Prior 132 retained; two explicitly A integer INSERT SELECTs.
+        "manifests": 27,
+        "cases": 137,  # Prior 134 retained; three finite same-key tuple branches.
     },
     "select": {
         "source_relpath": "general/dml/select.txt",
@@ -1381,11 +1381,14 @@ class TestFactorPackageV1(unittest.TestCase):
         self.assertEqual(audit["facts"]["unconsumed_confirmed"], [])
         self.assertEqual(len(audit["facts"]["unresolved_open_questions"]), 8)
         self.assertEqual(audit["values"]["valid_unselected"], [])
-        # 3个泛化ON CONFLICT值由已选中PG facet代表；仅tuple_update保留。
-        self.assertEqual(len(audit["values"]["coverage_gaps"]), 1)
-        self.assertIn("conflict_clause.insert_on_conflict_tuple_update", audit["values"]["coverage_gaps"])
+        # 4个泛化ON CONFLICT值均由有限facet代表；不借此声明任意键变更语义。
+        self.assertEqual(audit["values"]["coverage_gaps"], [])
+        self.assertIn(
+            "conflict_clause.insert_on_conflict_tuple_update",
+            audit["values"]["represented_by_finite_facet"],
+        )
         self.assertEqual(audit["rules"]["gaps"], [])
-        self.assertEqual(audit["manifests"]["generated_case_count"], 134)
+        self.assertEqual(audit["manifests"]["generated_case_count"], 137)
         self.assertEqual(
             audit["documented_features"]["needs_profile"],
             [
@@ -1407,7 +1410,7 @@ class TestFactorPackageV1(unittest.TestCase):
             self.assertFalse(feature["domain_complete"])
             self.assertIn(feature_id, audit["documented_features"]["coverage_gaps"])
         self.assertTrue(audit["conclusions"]["source_extraction_complete"])
-        self.assertFalse(audit["conclusions"]["generation_model_complete"])
+        self.assertTrue(audit["conclusions"]["generation_model_complete"])
         self.assertFalse(audit["conclusions"]["static_coverage_complete"])
         self.assertFalse(audit["conclusions"]["behavior_coverage_complete"])
 
@@ -1428,6 +1431,7 @@ class TestFactorPackageV1(unittest.TestCase):
             "manifest_insert_generated_returning": 4,
             "manifest_insert_generated_storage_default": 2,
             "manifest_insert_pg_tuple_fresh": 2,
+            "manifest_insert_same_key_tuple": 3,
             "manifest_insert_partial_index_fresh": 3,
             "manifest_insert_autoincrement_fresh": 3,
             "manifest_insert_autoincrement_omitted": 1,
@@ -1440,9 +1444,9 @@ class TestFactorPackageV1(unittest.TestCase):
         self.assertEqual(len(by_manifest) - len(additions), 15)
         self.assertEqual(len(original), 110)
         self.assertEqual(Counter(c.expected for c in original), {"success": 100, "error": 10})
-        self.assertEqual(len(cases), 134)
-        self.assertEqual(len({case.case_id for case in cases}), 134)
-        self.assertEqual(sum(case.expected == "success" for case in cases), 122)
+        self.assertEqual(len(cases), 137)
+        self.assertEqual(len({case.case_id for case in cases}), 137)
+        self.assertEqual(sum(case.expected == "success" for case in cases), 125)
         self.assertEqual(sum(case.expected == "error" for case in cases), 12)
         self.assertTrue(all(case.sql.endswith(";") for case in cases))
         self.assertTrue(all(
@@ -1671,21 +1675,19 @@ class TestFactorPackageV1(unittest.TestCase):
 
     def test_alter_table_source_audit_and_generation_quality(self):
         audit = FactorCoverageAuditor(self.registry).audit("alter_table")
-        self.assertEqual(audit["source_units"]["total"], 213)
+        self.assertEqual(audit["source_units"]["total"], 218)
         self.assertEqual(audit["source_units"]["line_coverage"], {
             "total": 1636,
             "covered_by_units": 1636,
             "ignored": 0,
             "missing": [],
         })
-        # The former aggregate CHANGE unit hid six independent conditions.
-        # Keep the newly visible mapping gap, not a fabricated atomic closure.
-        self.assertEqual(audit["source_units"]["atomicity"]["gaps"], [{
-            "id": "at_pdf_su_052_environment", "line_start": 400, "line_end": 404,
-            "line_span": 5, "atomicity": "grouped", "independent_claim_count": 6,
-            "fact_ref_count": 5, "atomicity_rationale": None,
-            "reasons": ["independent_claims_exceed_fact_mappings"],
-        }])
+        # Six separately sourced CHANGE conditions replace the old aggregate.
+        self.assertEqual(audit["source_units"]["atomicity"]["gaps"], [])
+        ledger = self.registry.source_ledgers[self.registry.factors['alter_table'].source_ledger_ref]
+        atoms = [u for u in ledger.units if u.id.startswith('at_pdf_su_052_environment')]
+        self.assertEqual(len(atoms), 6)
+        self.assertTrue(all(u.atomicity == 'atomic' for u in atoms))
         self.assertEqual(audit["facts"]["unledgered"], [])
         self.assertEqual(audit["facts"]["unconsumed_confirmed"], [])
         # Preserve the original 19 gaps plus the two branch-specific contracts;
@@ -1743,7 +1745,7 @@ class TestFactorPackageV1(unittest.TestCase):
         self.assertEqual(audit["documented_features"]["covered"], 15)
         self.assertEqual(audit["documented_features"]["represented"], 17)
         self.assertEqual(len(audit["documented_features"]["coverage_gaps"]), 23)
-        self.assertFalse(audit["conclusions"]["source_extraction_complete"])
+        self.assertTrue(audit["conclusions"]["source_extraction_complete"])
         self.assertFalse(audit["conclusions"]["generation_model_complete"])
         self.assertFalse(audit["conclusions"]["static_coverage_complete"])
         self.assertFalse(audit["conclusions"]["behavior_coverage_complete"])

@@ -2,15 +2,17 @@
 import unittest
 from unittest.mock import patch
 from core.finite_sql_contract import inspect_write, check_types, finite_replace_set_values, Contradiction
+from tests.test_m_string_storage_contract import REQUIREMENTS
 
 
 class MReplaceSequenceContractTests(unittest.TestCase):
     setup=['CREATE TABLE t(id INT PRIMARY KEY DEFAULT 2,qty INT DEFAULT 9)',
            'INSERT INTO t VALUES(1,10),(2,20)']
 
-    def inspect(self, assignments, setup=None, scope='m_compat', verb='REPLACE'):
+    def inspect(self, assignments, setup=None, scope='m_compat', verb='REPLACE', requirements=None):
         return inspect_write(verb+' INTO t SET '+assignments,
-                             self.setup if setup is None else setup,conflict_source_scope=scope)
+                             self.setup if setup is None else setup,conflict_source_scope=scope,
+                             environment_requirements=requirements)
 
     def resolved(self, assignments, expected, setup=None):
         with patch('core.finite_sql_contract.check_types',wraps=check_types) as checked:
@@ -92,7 +94,11 @@ class MReplaceSequenceContractTests(unittest.TestCase):
 
     def test_strings_containing_expressions_remain_literal_inputs(self):
         result=self.inspect("id=1,qty='id+1'",['CREATE TABLE t(id INT,qty TEXT)'])
+        self.assertEqual(result['status'],'needs_review',result)
+        self.assertEqual(result['issues'][0]['code'],'m_string_environment_unknown')
+        result=self.inspect("id=1,qty='id+1'",['CREATE TABLE t(id INT,qty TEXT)'], requirements=REQUIREMENTS)
         self.assertEqual(result['status'],'checked',result)
+        self.assertIn('shared_m_utf8_string_storage',result['checks'])
         self.assertNotIn('replace_sequential_input_literals',result['checks'])
 
 

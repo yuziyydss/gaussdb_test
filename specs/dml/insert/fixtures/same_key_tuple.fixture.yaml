@@ -1,0 +1,26 @@
+schema_version: 1
+kind: fixture
+id: fixture_insert_same_key_tuple
+name: PG同键元组赋回的独立种子
+factor_ref: insert
+status: needs_review
+description: 每个场景独立创建两列主键表与两条种子，不预删除既有对象。
+provides:
+  tables:
+    - name: g_insert_pg_key
+      persistence: permanent
+      table_kind: regular
+      columns:
+        - {name: id, type: INTEGER, nullable: false}
+        - {name: note, type: VARCHAR(64), nullable: true}
+seed:
+  required: true
+  rows: [{id: 101, note: existing}, {id: -1, note: blocked}]
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - CREATE TABLE g_insert_pg_key (id INTEGER PRIMARY KEY, note VARCHAR(64));
+    - "INSERT INTO g_insert_pg_key (id, note) VALUES (101, 'existing'), (-1, 'blocked');"
+  teardown_sqls: [DROP TABLE g_insert_pg_key;]
+  note: 仅在专属PG用户schema中串行隔离，独立恢复种子；只凭本次成功创建回执清理，目标错误不由setup/cleanup错误替代；未授权实机执行。

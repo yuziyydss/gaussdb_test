@@ -19,9 +19,15 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 INPUT_DIRS = ('core', 'api', 'scripts', 'tests', 'web', 'specs', 'factors',
               'grammars', 'manifests', 'matrices', 'fixtures',
-              'work/doc2spec', 'intranet_corpus', 'generated/factor_packages', 'archive/spec_reviews')
+              'work/doc2spec', 'intranet_corpus', 'generated/factor_packages', 'archive/spec_reviews',
+              'docs/compat_facts', 'work/pdf_foundations_2026_09_07/corpus',
+              'work/m_compat_batch_01/corpus', 'work/m_compat_batch_02/corpus',
+              'work/m_compat_batch_03/corpus', 'work/m_compat_batch_04/corpus',
+              'work/m_compat_batch_04_charset/corpus', 'work/m_compat_batch_04_dependencies/corpus',
+              'work/m_compat_batch_05/corpus', 'work/m_compat_batch_06/corpus')
 INPUT_FILES = ('main.py', 'requirements.txt', 'pyproject.toml', 'pytest.ini',
-               'setup.cfg', 'gaussdb-rf-cent.pdf', 'generated/audit/pdf_catalog_coverage.json')
+               'setup.cfg', 'gaussdb-rf-cent.pdf', 'generated/audit/pdf_catalog_coverage.json',
+               'work/pdf_tiered_2026_09_07/batch_19/corpus/m_compat/utility/section_2_6.txt')
 INPUT_SUFFIXES = {'.py', '.yaml', '.yml', '.json', '.txt', '.html', '.css', '.js', '.sql'}
 LIMITS = [
     'Only the listed input paths/extensions, spec fixture assets and Python version are fingerprinted; installed libraries and secrets are not.',

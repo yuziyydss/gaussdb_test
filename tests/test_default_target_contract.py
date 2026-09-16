@@ -1,8 +1,9 @@
 """DEFAULT is a target-column operation, not a base-lineage substitution.
 
-Source boundaries: local PDF INSERT column_name/DEFAULT; ALTER VIEW
-SET/DROP DEFAULT has no actual effect. Neither proves general view default
-inheritance. These are static regressions, not database execution evidence.
+Source boundaries: ALTER TABLE describes view defaults before ON INSERT
+rewriting, while ALTER VIEW says SET/DROP DEFAULT has no practical meaning.
+Neither establishes automatic base-default inheritance or UPDATE behavior.
+These are static regressions, not database execution evidence.
 """
 import unittest
 
@@ -78,6 +79,37 @@ class DefaultTargetContractTests(unittest.TestCase):
             setup = [f'CREATE TABLE t(id INT{default}, note TEXT)', self.setup[1]]
             with self.subTest(default=default):
                 self.assert_review("INSERT INTO v(note) VALUES('x')", setup)
+
+    def test_general_and_m_default_guards_do_not_borrow_each_others_semantics(self):
+        for scope in ('general', 'm_compat'):
+            for target in ('v', '(SELECT id,note FROM t)'):
+                for sql in (f'UPDATE {target} SET id=DEFAULT',):
+                    with self.subTest(scope=scope, sql=sql):
+                        r = inspect_write(sql, self.setup, conflict_source_scope=scope)
+                        self.assertEqual(r['status'], 'needs_review', r)
+                        self.assertIn('default_unknown', [i['code'] for i in r['issues']])
+            r = inspect_write('INSERT INTO v(id,note) VALUES(DEFAULT,NULL)', self.setup,
+                              conflict_source_scope=scope)
+            self.assertEqual(r['status'], 'needs_review', r)
+            self.assertIn('default_unknown', [i['code'] for i in r['issues']])
+        # The M INSERT derived-target parser has a narrower entry scope;
+        # do not claim it reached the DEFAULT semantic checker.
+        r = inspect_write('INSERT INTO (SELECT id,note FROM t)(note) VALUES(NULL)',
+                          self.setup, conflict_source_scope='m_compat')
+        self.assertEqual(r['status'], 'needs_review', r)
+        self.assertIn('syntax_unknown', [i['code'] for i in r['issues']])
+
+    def test_source_difference_is_preserved_instead_of_declaring_inheritance(self):
+        from pathlib import Path
+        import hashlib
+        root = Path(__file__).resolve().parents[1]
+        table = (root/'work/doc2spec/full_general_corpus/general/ddl/alter_table.txt').read_bytes()
+        self.assertEqual(hashlib.sha256(table).hexdigest(),
+                         'ff15f5547fd4f2b5aa4888b0d8c67b74f0586098cf3c87d3b2628506562e786e')
+        self.assertIn('的ON INSERT规则应用之前插入到INSERT句中的', table.decode())
+        for path in ('work/doc2spec/full_general_corpus/general/ddl/alter_view.txt',
+                     'work/m_compat_batch_04/corpus/m_compat/ddl/alter_view.txt'):
+            self.assertIn('暂无实际意义', (root/path).read_text())
 
 
 if __name__ == '__main__':

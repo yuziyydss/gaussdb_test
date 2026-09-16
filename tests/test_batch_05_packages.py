@@ -73,15 +73,8 @@ class Batch05Tests(unittest.TestCase):
                 report = auditor.audit(fid)
                 self.assertEqual(f.status, "needs_review")
                 gaps = report["source_units"]["atomicity"]["gaps"]
-                if fid == "comment":
-                    self.assertEqual({g["id"] for g in gaps}, {
-                        "comment_su_syntax_a_25", "comment_su_syntax_c_40",
-                        "comment_su_syntax_d_47",
-                    })
-                    self.assertFalse(report["conclusions"]["source_extraction_complete"])
-                else:
-                    self.assertEqual(gaps, [])
-                    self.assertTrue(report["conclusions"]["source_extraction_complete"])
+                self.assertEqual(gaps, [])
+                self.assertTrue(report["conclusions"]["source_extraction_complete"])
                 self.assertEqual(report["facts"]["unconsumed_confirmed"], [])
                 self.assertEqual(report["facts"]["wrong_consumer_type"], [])
                 self.assertTrue(report["conclusions"]["generation_model_complete"])

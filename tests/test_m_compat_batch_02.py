@@ -87,19 +87,14 @@ class MCompatBatch02Tests(unittest.TestCase):
             self.assertNotIn('CASCADE',c.sql); self.assertNotIn('ONLY',c.sql)
 
     def test_source_fingerprints_and_gaps_remain_visible(self):
-        return  # M包source extraction已完成，builder比较跳过
         for fid in FACTORS:
             f=self.registry.factors[fid]
             src=CORPUS/f.source.catalog_chapter_ref.source_relpath
             self.assertEqual(hashlib.sha256(src.read_bytes()).hexdigest(),f.source.artifact_sha256)
             self.assertEqual(f.status,'needs_review')
             ledger=self.registry.source_ledgers[f.source_ledger_ref]
-            # 已完成source extraction的包不再有unmapped；其余保留。
-            completed = {'m_drop_view','m_drop_database','m_drop_schema','m_rename_table','m_rollback_to_savepoint','m_drop_owned','m_rollback','m_use','m_create_database','m_drop_table'}
-            if fid in completed:
-                self.assertFalse(any(u.status=='unmapped' for u in ledger.units))
-            else:
-                self.assertTrue(any(u.status=='unmapped' for u in ledger.units))
+            # Source completion changed; it does not establish runtime evidence.
+            self.assertFalse(any(u.status=='unmapped' for u in ledger.units))
             lines=[n for u in ledger.units for n in range(u.line_start,u.line_end+1)]
             lines += [i.line for i in ledger.ignored_lines]
             self.assertEqual(sorted(lines),list(range(1,len(src.read_text().splitlines())+1)))

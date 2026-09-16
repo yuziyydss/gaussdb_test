@@ -1,4 +1,5 @@
 """An M namespace DROP body must not erase its fixture during PREPARE."""
+from tests.evolved_asset_assertions import assert_evolved_asset
 from pathlib import Path
 import unittest
 import yaml
@@ -81,4 +82,13 @@ class PreparedDropNamespaceTests(unittest.TestCase):
                           ('alter_database', 'alter_user', 'create_user', 'drop_user', 'privilege')})
 
     def test_builder_reproduces_every_saved_prepare_asset_without_cleanup_shortcuts(self):
-        return  # M包source extraction已完成，builder比较跳过
+        p = prepare()
+        self.assertTrue('fixtures/drop_namespace.fixture.yaml' in p.files)
+        for name, value in p.finish().items():
+            path = ROOT / 'specs/utility/m_prepare' / name
+            assert_evolved_asset(self, yaml.safe_load(path.read_text()), value, str(path))
+        fixture = p.files['fixtures/drop_namespace.fixture.yaml']['execution']
+        for sql in fixture['setup_sqls'] + fixture['teardown_sqls']:
+            self.assertNotIn('CASCADE', sql)
+            self.assertNotIn('DROP OWNED', sql)
+            self.assertNotIn('DROP DATABASE', sql)

@@ -84,8 +84,7 @@ class CommentTypeTests(unittest.TestCase):
             self.assertEqual((facts[fid].type,facts[fid].source_anchor),('syntax',f'L{line}-L{line}'))
         self.assertFalse(any(u.line_start<=57<=u.line_end for u in ledger.units))
         gaps=FactorCoverageAuditor(self.r).audit('comment')['source_units']['atomicity']['gaps']
-        self.assertEqual({g['id'] for g in gaps},
-                         {'comment_su_syntax_a_25','comment_su_syntax_c_40','comment_su_syntax_d_47'})
+        self.assertEqual(gaps, [])
 
     def test_actual_create_and_drop_bodies_supply_supplemental_identity(self):
         self.cases();ledger=self.r.source_ledgers['source_ledger_comment']

@@ -107,8 +107,7 @@ class CommentFunctionTests(unittest.TestCase):
             self.assertEqual((facts[fid].type,facts[fid].source_anchor),('syntax',f'L{line}-L{line}'))
             self.assertIn(fid,features['comment_feature_object_'+kind].fact_refs)
         gaps=FactorCoverageAuditor(self.r).audit('comment')['source_units']['atomicity']['gaps']
-        self.assertEqual({g['id'] for g in gaps},
-                         {'comment_su_syntax_a_25','comment_su_syntax_c_40','comment_su_syntax_d_47'})
+        self.assertEqual(gaps, [])
         self.assertTrue(all(features['comment_feature_object_'+k].status=='needs_profile' for k in kinds[:5]))
 
     def test_recombining_seven_lines_under_one_fact_reproduces_atomicity_failure(self):

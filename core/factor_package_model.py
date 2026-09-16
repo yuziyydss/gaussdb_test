@@ -536,12 +536,12 @@ class FixtureTableV1Def(StrictV1Model):
 
 
 class FixtureInputFileDef(StrictV1Model):
-    """Small source-controlled INTEGER TSV input, not a deployed server file."""
+    """Small unquoted INTEGER TSV/CSV input, not a deployed server file."""
     id: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     source_path: str
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     target_path: str
-    format: Literal["integer_tsv"]
+    format: Literal["integer_tsv", "integer_csv"]
     column_count: int = Field(ge=1, le=32)
     row_count: int = Field(ge=1)
     deployment: Literal["manual_copy_and_verify"]

@@ -61,9 +61,9 @@ class CommentRuleTests(unittest.TestCase):
         for gate in ('target_oracle_calibration','ownership_scoped_cleanup','rule_drop_authorization','per_step_oracle'):
             self.assertIn(gate,s.execution_requirements)
 
-    def test_source_hashes_and_unclosed_original_groups_are_honest(self):
+    def test_source_hashes_and_source_closure_do_not_upgrade_operator_profile(self):
         self.cases();ledger=self.r.source_ledgers['source_ledger_comment']
-        unit=next(u for u in ledger.units if u.id=='comment_su_syntax_c_40')
+        unit=next(u for u in ledger.units if u.id=='comment_su_atom_rule')
         for name in ('create_rule','drop_rule'):
             sid='comment_source_'+name+'_owned';self.assertIn(sid,unit.supplemental_source_refs)
             s=next(s for s in ledger.supplemental_sources if s.id==sid)
@@ -75,9 +75,8 @@ class CommentRuleTests(unittest.TestCase):
         self.assertEqual(f.value_refs,['comment_target_rule_fresh'])
         self.assertEqual(features['comment_feature_object_operator'].status,'needs_profile')
         a=FactorCoverageAuditor(self.r).audit('comment')
-        self.assertEqual({g['id'] for g in a['source_units']['atomicity']['gaps']},
-                         {'comment_su_syntax_a_25','comment_su_syntax_c_40','comment_su_syntax_d_47'})
-        self.assertFalse(a['conclusions']['source_extraction_complete'])
+        self.assertEqual(a['source_units']['atomicity']['gaps'], [])
+        self.assertTrue(a['conclusions']['source_extraction_complete'])
 
 
 if __name__=='__main__':unittest.main()

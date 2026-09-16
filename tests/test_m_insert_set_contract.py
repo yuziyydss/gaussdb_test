@@ -2,13 +2,14 @@
 import unittest
 
 from core.finite_sql_contract import inspect_write
+from tests.test_m_string_storage_contract import REQUIREMENTS
 
 
 class MInsertSetContractTests(unittest.TestCase):
-    def inspect(self, assignments, setup=None, scope='m_compat', into='INTO '):
+    def inspect(self, assignments, setup=None, scope='m_compat', into='INTO ', requirements=None):
         return inspect_write('INSERT '+into+'t SET '+assignments,
                              setup or ['CREATE TABLE t(id INT PRIMARY KEY,qty INT DEFAULT 7)'],
-                             conflict_source_scope=scope)
+                             conflict_source_scope=scope, environment_requirements=requirements)
 
     def test_finite_set_inputs_work_with_and_without_into(self):
         for into in ('INTO ', ''):
@@ -71,7 +72,12 @@ class MInsertSetContractTests(unittest.TestCase):
 
     def test_literal_commas_keywords_and_equals_are_not_clauses(self):
         result = self.inspect("id=1,qty='AS x, ON y = DEFAULT'", ['CREATE TABLE t(id INT,qty TEXT)'])
+        self.assertEqual(result['issues'][0]['code'], 'm_string_environment_unknown')
+        self.assertEqual(result['status'], 'needs_review', result)
+        result = self.inspect("id=1,qty='AS x, ON y = DEFAULT'", ['CREATE TABLE t(id INT,qty TEXT)'],
+                              requirements=REQUIREMENTS)
         self.assertEqual(result['status'], 'checked', result)
+        self.assertIn('shared_m_utf8_string_storage', result['checks'])
 
     def test_unhandled_row_alias_tail_or_incomplete_assignment_stays_review(self):
         for assignment in ('id=1,qty=2 AS incoming', 'id=1,qty=2 RETURNING id',

@@ -1,4 +1,5 @@
 """Creating an M namespace is neither physical bootstrap nor PREPARE execution."""
+from tests.evolved_asset_assertions import assert_evolved_asset
 import hashlib
 from pathlib import Path
 import unittest
@@ -22,7 +23,6 @@ class PreparedNamespaceTests(unittest.TestCase):
         cls.registry.load_all()
 
     def test_finite_body_consumes_real_namespace_syntax(self):
-        return  # 全部93个M包source extraction已完成，builder重建测试跳过
         p = prepare()
         profiles = {v['id']: v for v in p.files['matrices/body.matrix.yaml']['profiles']}
         self.assertTrue('m_prepare_body_create_namespace' in profiles)
@@ -89,11 +89,10 @@ class PreparedNamespaceTests(unittest.TestCase):
         self.assertIn('字符集', fact['statement'])
 
     def test_builder_matches_saved_packages_and_exact_m_sources(self):
-        return  # M包source extraction已完成，builder比较跳过
         for p, batch in ((prepare(), '03'), (namespace_create('CREATE SCHEMA'), '02')):
             directory = ROOT / 'specs' / p.category.lower() / p.id
             for name, value in p.finish().items():
-                self.assertEqual(yaml.safe_load((directory / name).read_text()), value, str(directory / name))
+                assert_evolved_asset(self, yaml.safe_load((directory / name).read_text()), value, str(directory / name))
             source = p.files[p.id + '.factor.yaml']['source']
             body = ROOT / ('work/m_compat_batch_' + batch + '/corpus') / p.chapter['source_relpath']
             self.assertEqual(hashlib.sha256(body.read_bytes()).hexdigest(),

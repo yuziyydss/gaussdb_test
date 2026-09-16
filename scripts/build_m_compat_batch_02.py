@@ -20,6 +20,9 @@ CORPUS = ROOT/'work/m_compat_batch_02/corpus'
 def package(command, category, anchor, count=1):
     p = Package(command, category, CORPUS)
     p.fact('syntax','syntax','本章语法的有限代表分支；未选择的完整语法保留 source 缺口。',anchor,count)
+    start, end, _ = p.spans[-1]
+    p.facts[-1]['statement'] = '原文语法片段（仅此来源区间，不等同完整生成能力）：' + ' '.join(
+        line.strip() for line in p.lines[start-1:end] if not line.startswith('[[PDF_PAGE'))
     return p
 
 

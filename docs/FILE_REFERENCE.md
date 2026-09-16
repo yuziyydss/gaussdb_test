@@ -12,7 +12,7 @@ gaussdb_test/
 │   └── ...
 │
 ├── docs/
-│   ├── compat_facts/          # 936条结构化facts（67个YAML文件）
+│   ├── compat_facts/          # 885条参考事实（67个YAML；文件名::ID定位，不等于SQL覆盖）
 │   ├── minimal_validation_script.sql   # 10条核心验证
 │   ├── extended_validation_script.sql  # 100条扩展验证
 │   ├── ASSERTION_ENHANCEMENT_PLAN.md  # 276条facts增强分析
@@ -25,7 +25,7 @@ gaussdb_test/
 │   └── ...                            # 批次文档
 │
 ├── generated/
-│   └── factor_packages/       # 841个manifest / 5,273条SQL
+│   └── factor_packages/       # 846个manifest / 5,295条候选SQL（静态生成）
 │
 ├── core/
 │   ├── factor_package_model.py      # V1模型定义
@@ -39,7 +39,7 @@ gaussdb_test/
 │   ├── run_static_regression.py       # 静态回归
 │   └── ...
 │
-├── tests/                     # 257个测试文件（1,916项测试
+├── tests/                     # 270个测试文件（静态测试入口持续增加
 ├── web/                       # Web界面
 │   ├── templates/              # Jinja2模板
 │   ├── static/                 # CSS/JS
@@ -48,6 +48,21 @@ gaussdb_test/
 ├── requirements.txt
 └── gaussdb-rf-cent.pdf         # 原始PDF（5,686页）
 ```
+
+## 新增离线产物（2026-09-15）
+
+[外表格式合同](FOREIGN_OPTIONS_CONTRACT_20260915.md)：TEXT/CSV OPTIONS 与本地文件资产、旧候选对账；保留 BINARY/FIXED 和远端验证缺口。
+
+[语义复核报告](SEMANTIC_REVIEW_20260915.md)：三个包的来源原子性拆分、视图 DEFAULT 来源差异，
+以及 `scripts/audit_common_type_evidence.py` 公共类型证据审计；不提升为整条 SQL 或实机通过。
+
+[M INSERT/UPDATE 字符串包报告](M_STRING_PACKAGES_20260915.md)：两个正式清单、两个独立 Fixture、
+17 个 planned 场景与生成 SQL 的直接绑定。`scripts/prepare_execution_batch.py --profile m_string_storage`
+只准备离线产物，不连接数据库。具体命令与限制见报告。
+
+[PG同键与file_fdw执行准备](INSERT_KEY_EXECUTION_PREPARATION_20260916.md)：
+`insert_same_key` 与 `file_fdw_options` 两个 bounded profile 生成离线准备单元，
+绑定 finite contract evidence、目标 CREATE 所有权和 Oracle 身份；未部署文件、未连接数据库。
 
 ## 新增文件说明（连库后使用）
 

@@ -68,7 +68,10 @@ class Batch10Tests(unittest.TestCase):
         self.assertFalse(FactorCoverageAuditor(self.registry).audit('alter_foreign_table')
                          ['conclusions']['behavior_coverage_complete'])
         for fid in ('create_foreign_table', 'drop_foreign_table'):
-            self.assertEqual(self.factors[fid].manifest_refs, ['manifest_'+fid+'_log_catalog'])
+            expected = ['manifest_'+fid+'_log_catalog']
+            if fid == 'create_foreign_table':
+                expected += ['manifest_create_foreign_table_file_text', 'manifest_create_foreign_table_file_csv']
+            self.assertEqual(self.factors[fid].manifest_refs, expected)
             case = self.factor_cases(fid)[0]
             self.assertEqual(case.expected_scope, 'syntax_only')
             self.assertTrue(any('FOREIGN DATA WRAPPER log_fdw' in s for s in case.setup_sqls))

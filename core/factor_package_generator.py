@@ -318,16 +318,26 @@ class FactorPackageSQLGenerator:
                 name_dimension = 'table_name' if factor.id == 'create_foreign_table' else 'table_names'
                 target = resolved.get(name_dimension, {}).get(combo.get(name_dimension))
                 chapter = factor.source.catalog_chapter_ref
-                if (target is None or target.attributes.get(name_dimension+'.properties.foreign_table_contract')
-                        != 'log_fdw_catalog_one_text_column' or chapter is None
+                contract = target and target.attributes.get(name_dimension+'.properties.foreign_table_contract')
+                if (contract not in ('log_fdw_catalog_one_text_column','file_fdw_two_integer_input') or chapter is None
                         or chapter.source_relpath != 'general/ddl/'+factor.id+'.txt'
                         or manifest.expected.default != 'success' or manifest.expected.scope != 'syntax_only'):
                     raise GenerationValidationError('log_fdw_catalog: explicit finite source/target contract required')
-                if factor.id == 'create_foreign_table' and combo.get('format') != 'create_foreign_table_format_not_applicable':
+                if contract == 'log_fdw_catalog_one_text_column' and factor.id == 'create_foreign_table' and combo.get('format') != 'create_foreign_table_format_not_applicable':
                     raise GenerationValidationError('log_fdw_catalog: file format must be not_applicable')
                 try:
-                    check_log_fdw_catalog(factor.id.split('_')[0], sql, setup_sqls, teardown_sqls,
-                        {gate.key: gate.allowed_values for gate in manifest.environment_requirements})
+                    gates = {gate.key: gate.allowed_values for gate in manifest.environment_requirements}
+                    if len(gates) != len(manifest.environment_requirements):
+                        raise ValueError('foreign_table: duplicate environment gates')
+                    if contract == 'file_fdw_two_integer_input':
+                        from .file_fdw_options_contract import check_file_fdw
+                        if factor.id != 'create_foreign_table' or 'format' not in consumed_dimension_ids:
+                            raise ValueError('file_fdw: CREATE with consumed format required')
+                        selected_format = resolved['format'][combo['format']].attributes.get('format.properties.file_format')
+                        check_file_fdw(sql, setup_sqls, teardown_sqls, gates,
+                                       self._compile_fixture_files(fixture_refs, sql, setup_sqls), selected_format)
+                    else:
+                        check_log_fdw_catalog(factor.id.split('_')[0], sql, setup_sqls, teardown_sqls, gates)
                 except ValueError as exc:
                     raise GenerationValidationError(str(exc)) from exc
             if factor.id == 'alter_foreign_table':
@@ -407,7 +417,8 @@ class FactorPackageSQLGenerator:
                     check_log_fdw_enable_rls_negative(sql, setup_sqls, teardown_sqls, gates, foreign_target.render)
                 except ValueError as exc:
                     raise GenerationValidationError(str(exc)) from exc
-            self._validate_fixture_write_contract(factor, setup_sqls)
+            self._validate_fixture_write_contract(factor, setup_sqls,
+                environment_requirements=[gate.model_dump() for gate in manifest.environment_requirements])
             self._validate_rendered_index_keys(factor, manifest, combo, resolved, sql, setup_sqls)
             partition_target=resolved.get('partition_table_profile',{}).get(combo.get('partition_table_profile'))
             partition_contract=(partition_target.attributes.get('partition_table_profile.properties.partition_selector_contract')
@@ -522,6 +533,24 @@ class FactorPackageSQLGenerator:
             partial_contract = (insert_target.attributes.get('target_profile.properties.partial_index_contract')
                                 if insert_target else None)
             conflict_value = resolved.get('conflict_clause', {}).get(combo.get('conflict_clause'))
+            key_contract = insert_target and insert_target.attributes.get('target_profile.properties.conflict_key_update_contract')
+            key_required = conflict_value and conflict_value.attributes.get('conflict_clause.properties.conflict_key_update_contract')
+            actual_key_tuple = factor.id == 'insert' and re.search(
+                r'\bON\s+CONFLICT\s*\(\s*id\s*\)\s+DO\s+UPDATE\s+SET\s*\(\s*id\s*,',
+                re.sub(r"'(?:''|[^'])*'", "''", sql), re.I)
+            if key_contract or key_required or actual_key_tuple:
+                from .insert_conflict_key_contract import check_same_key_tuple
+                gates = {gate.key: gate.allowed_values for gate in manifest.environment_requirements}
+                chapter = factor.source.catalog_chapter_ref
+                if (factor.id != 'insert' or chapter is None or chapter.source_relpath != 'general/dml/insert.txt'
+                        or key_contract != 'same_inline_integer_key_tuple_v1' or key_required != key_contract
+                        or len(gates) != len(manifest.environment_requirements)
+                        or manifest.expected.default != 'success' or manifest.expected.scope != 'syntax_only'):
+                    raise GenerationValidationError('conflict_key: explicit finite source/target/action contract required')
+                try:
+                    check_same_key_tuple(sql, setup_sqls, teardown_sqls, gates)
+                except ValueError as exc:
+                    raise GenerationValidationError(str(exc)) from exc
             partial_required = (conflict_value and conflict_value.attributes.get(
                 'conflict_clause.properties.partial_index_contract_required'))
             # A removed tag must not silently turn actual expression/partial
@@ -653,11 +682,24 @@ class FactorPackageSQLGenerator:
                             output_types=selected_profile.attributes.get(dimension+'.properties.output_types'))
                     except (Contradiction, ReviewNeeded) as exc:
                         raise GenerationValidationError(f'{manifest.id}: {exc.code}: {exc.detail}') from exc
+            required_writes = set()
+            for dimension, value_id in combo.items():
+                selected = resolved.get(dimension, {}).get(value_id)
+                requirement = selected and selected.attributes.get(dimension+'.properties.required_write_contract')
+                if requirement:
+                    if dimension not in consumed_dimension_ids:
+                        raise GenerationValidationError('required_write_contract: declaring profile was not rendered')
+                    if requirement != 'm_utf8_string_storage':
+                        raise GenerationValidationError('required_write_contract: unsupported contract '+str(requirement))
+                    required_writes.add(requirement)
+            if required_writes and manifest.expected.default != 'success':
+                raise GenerationValidationError('required_write_contract: this finite contract requires a positive candidate')
             if manifest.expected.default == "success":
                 chapter = factor.source.catalog_chapter_ref
                 from .auto_increment_contract import insert_audit_context
                 rendered_contract = inspect_write(sql, setup_sqls, conflict_source_scope=(
                     'm_compat' if chapter and chapter.source_relpath.startswith('m_compat/') else 'general'),
+                    environment_requirements=[gate.model_dump() for gate in manifest.environment_requirements],
                     auto_increment_context=insert_audit_context(combo,
                         [gate.model_dump() for gate in manifest.environment_requirements],teardown_sqls))
                 if rendered_contract["status"] == "rejected":
@@ -665,6 +707,16 @@ class FactorPackageSQLGenerator:
                         f"{manifest.id}: rendered SQL/fixture contradiction: "
                         f"{rendered_contract['issues']}"
                     )
+                if required_writes:
+                    if (rendered_contract['status'] != 'checked'
+                            or 'shared_m_utf8_string_storage' not in rendered_contract['checks']):
+                        raise GenerationValidationError(f'{manifest.id}: required_write_contract: {rendered_contract}')
+                    for index, seed_sql in enumerate(setup_sqls):
+                        if re.match(r'^\s*(?:INSERT|UPDATE|REPLACE|DELETE|WITH)\b', seed_sql, re.I):
+                            seed_contract = inspect_write(seed_sql, setup_sqls[:index], conflict_source_scope='m_compat',
+                                environment_requirements=[gate.model_dump() for gate in manifest.environment_requirements])
+                            if seed_contract['status'] != 'checked':
+                                raise GenerationValidationError(f'{manifest.id}: required_write_contract seed {index}: {seed_contract}')
                 # Unsupported expressions are not a proof of correctness.
                 # audit_rendered_sql_contracts records these as needs_review;
                 # do not silently filter them out of the declared pair domain.
@@ -1016,15 +1068,26 @@ class FactorPackageSQLGenerator:
 
     def _compile_fixture_files(self, fixture_refs, sql, setup_sqls):
         from .fixture_file_contract import inspect_fixture_files
-        files=[];targets=set()
+        files=[];targets=set();csv_targets=set()
+        ordered = self._ordered_fixture_refs(fixture_refs)
         referenced=set(re.findall(r"\b(?:INFILE|FROM|TO)\s+'([^']+)'", '\n'.join([sql]+setup_sqls), re.I))
-        for fixture_id in self._ordered_fixture_refs(fixture_refs):
+        if any(self.registry.get_fixture(ref).provides.files for ref in ordered):
+            for statement in [sql]+setup_sqls:
+                if re.match(r'\s*CREATE\s+FOREIGN\s+TABLE\b', statement, re.I) and re.search(r'\bfilename\s+\x27', statement, re.I):
+                    from .file_fdw_options_contract import parse_create
+                    options = parse_create(statement)[2]
+                    referenced.add(options['filename'])
+                    if options['format'] == 'csv':
+                        csv_targets.add(options['filename'])
+        for fixture_id in ordered:
             fixture=self.registry.get_fixture(fixture_id)
             if not fixture or not fixture.provides.files:
                 continue
             for asset in inspect_fixture_files(fixture, self.registry.source_paths[fixture_id], self.registry.specs_dir):
                 if asset['target_path'] in targets:raise ValueError('duplicate file asset target across fixtures')
                 if asset['target_path'] not in referenced:raise ValueError('file asset target not referenced by SQL')
+                if asset['format'] == 'integer_csv' and asset['target_path'] not in csv_targets:
+                    raise ValueError('CSV file asset requires reviewed CREATE FOREIGN TABLE CSV options')
                 targets.add(asset['target_path']);files.append(asset)
         return files
 
@@ -1440,7 +1503,7 @@ class FactorPackageSQLGenerator:
                 raise GenerationValidationError(f'{manifest.id}: {exc.code}: {exc.detail}') from exc
 
     @staticmethod
-    def _validate_fixture_write_contract(factor, setup):
+    def _validate_fixture_write_contract(factor, setup, *, environment_requirements=None):
         """Opt-in finite seed writes; setup errors cannot satisfy a target Oracle.
 
         Each write sees only preceding setup. This does not prove DDL execution,
@@ -1462,7 +1525,8 @@ class FactorPackageSQLGenerator:
                     continue
                 chapter = factor.source.catalog_chapter_ref
                 result = inspect_write(sql, setup[:index], conflict_source_scope=(
-                    'm_compat' if chapter and chapter.source_relpath.startswith('m_compat/') else 'general'))
+                    'm_compat' if chapter and chapter.source_relpath.startswith('m_compat/') else 'general'),
+                    environment_requirements=environment_requirements)
                 if result['status'] != 'checked':
                     kind = 'contradiction' if result['status'] == 'rejected' else 'unknown'
                     raise GenerationValidationError(f"fixture_write_{kind}: step {index}: {result['issues']}")

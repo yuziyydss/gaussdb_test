@@ -1,0 +1,42 @@
+schema_version: 1
+kind: scenario
+id: scenario_create_foreign_table_file_text
+name: file_fdw text候选与文件读取Oracle计划
+factor_ref: create_foreign_table
+status: planned
+description: 目标CREATE与随后SELECT读取分阶段；typed Oracle未实机校准。
+fixture_refs:
+- fixture_create_foreign_table_file_text
+fact_refs:
+- create_foreign_table_fact_filename
+- create_foreign_table_fact_fdw_runtime
+- create_foreign_table_fact_purpose
+- copy::copy_fact_body_384
+preconditions:
+- 专用PG非PDB连接，file_fdw与validator实际存在且用户有建server/schema/foreign table权限。
+- 单独授权文件部署，确认目标路径没有既有文件，核验服务端字节哈希、白名单、可读权限及本次所有权。
+- 尚未执行；不可将快照作为整段脚本运行。
+steps:
+- id: create
+  candidate:
+    manifest_ref: manifest_create_foreign_table_file_text
+    params:
+      format: create_foreign_table_format_text_file_fresh
+oracles:
+- kind: result_set
+  step_id: create
+  sql: SELECT id,qty FROM g_cft_file_ns.rows ORDER BY id;
+  expected:
+  - - 1
+    - 10
+  - - 2
+    - 20
+  - - 3
+    - 30
+execution_requirements:
+- database_authorization
+- explicit_file_deployment
+- fdw_validator_calibration
+- per_step_oracle
+- target_oracle_calibration
+- ownership_scoped_cleanup

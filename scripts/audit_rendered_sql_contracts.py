@@ -21,6 +21,7 @@ def audit_report(report):
         for case in entry['cases']:
             write = inspect_write(case['sql'], case['setup_sqls'],
                                   conflict_source_scope='m_compat' if case['factor_id'].startswith('m_') else 'general',
+                                  environment_requirements=case.get('environment_requirements'),
                                   auto_increment_context=insert_audit_context(
                                       case.get('params',{}),case.get('environment_requirements',[]),case['teardown_sqls']))
             # M writes share the finite checker, not a guarantee that every M

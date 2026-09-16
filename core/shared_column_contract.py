@@ -960,6 +960,8 @@ def default_literal(table, name):
     validate_literal(column, value)
     if column['family'] == 'numeric' and value.upper() != 'NULL':
         table['_decimal_literals_checked'] = True
+    if column.get('_m_string_checked'):
+        table['_m_string_literals_checked'] = True
     return value
 
 
@@ -1033,6 +1035,86 @@ def check_assignment_decimal_literal(table, name, value):
     table['_decimal_literals_checked'] = True
 
 
+def attach_m_string_context(tables, requirements):
+    """Intended M/UTF8 conditions, never observed server state.
+
+    Complete ordinary DDL has no table/column charset override. Its charset
+    inherits from the selected schema. Duplicate/ambiguous gates cannot prove
+    that inheritance; no session SQL is interpreted here.
+    """
+    gates = {}
+    if isinstance(requirements, list):
+        for req in requirements:
+            if (not isinstance(req, dict) or not isinstance(req.get('key'), str)
+                    or not isinstance(req.get('allowed_values'), list) or req['key'] in gates):
+                gates = {}
+                break
+            gates[req['key']] = req['allowed_values']
+    utf8 = (gates.get('compatibility_mode') == ['M']
+            and all(gates.get(key) == ['UTF8'] for key in ('server_encoding', 'client_encoding'))
+            and all(gates.get(key) in (['utf8'], ['utf8mb4'])
+                    for key in ('character_set_connection', 'character_set_database')))
+    for table in tables.values():
+        for column in ((table or {}).get('_column_contract') or {}).values():
+            # character_set_database describes the selected schema, not an
+            # arbitrary qualified CREATE target with independent defaults.
+            column['_m_utf8_context'] = bool(utf8 and '.' not in column['origin'][0])
+
+
+def validate_m_utf8_string_literal(column, decoded, issue_code):
+    """PDF 2.6.4 table 2-74 + 2.3: characters AND encoded storage bytes.
+
+    Conservative positive domain, not maximal VARCHAR declaration support or
+    a strict/non-strict truncation oracle. UTF8 is documented as 1-4 bytes.
+    """
+    if not column['_m_utf8_context']:
+        raise ReviewNeeded('m_string_environment_unknown', 'Exact M and UTF8 schema/client/literal gates required')
+    try:
+        byte_length = len(decoded.encode('utf-8'))
+    except UnicodeEncodeError as exc:
+        raise ReviewNeeded(issue_code, 'Invalid Unicode scalar input') from exc
+    typ, limit = column['type'], column['length']
+    if typ == 'TEXT' and limit is None:
+        fits = byte_length <= 65535
+    elif typ == 'VARCHAR' and limit is not None:
+        # Worst-case four bytes per declared character, not len(actual ASCII).
+        fits = 1 <= limit <= 65532 // 4 and len(decoded) <= limit and byte_length <= 65532
+    else:
+        fits = False
+    if '\\' in decoded or '\x00' in decoded or not fits:
+        raise ReviewNeeded(issue_code, f"{column['origin']}: M declaration/storage/escape outside finite scope")
+    column['_m_string_checked'] = True
+
+
+def validate_ascii_string_literal(column, value, *, issue_code='string_length_unknown'):
+    """Finite ASCII storage-length check, not truncation/error/encoding emulation.
+
+    PDF 1.3.4 table 1-8 (physical 100-101) distinguishes bytes, characters
+    and mode-dependent truncation. 1.9.4 L9-15 separates typmod conversion
+    from expression type resolution. ASCII avoids conflating those units;
+    non-ASCII, escape processing and overlength values require further review.
+    """
+    if not re.fullmatch(r"'(?:''|[^'])*'", value, re.S):
+        raise ReviewNeeded(issue_code, str(column['origin']))
+    decoded = value[1:-1].replace("''", "'")
+    if '_m_utf8_context' in column:
+        return validate_m_utf8_string_literal(column, decoded, issue_code)
+    limit = column['length']
+    if (not decoded.isascii() or '\\' in decoded or '\x00' in decoded
+            or (limit is not None and (limit < 1 or len(decoded) > limit))):
+        raise ReviewNeeded(issue_code,
+                           f"{column['origin']}: length/encoding requires mode and storage review")
+
+
+def check_assignment_string_literal(table, name, value):
+    column = (table.get('_column_contract') or {}).get(name)
+    value = value.strip()
+    if not column or column['family'] != 'text' or not re.fullmatch(r"'(?:''|[^'])*'", value, re.S):
+        return
+    validate_ascii_string_literal(column, value)
+    table['_m_string_literals_checked' if column.get('_m_string_checked') else '_string_literals_checked'] = True
+
+
 def validate_literal(column, value):
     if value.upper() == 'NULL':
         if not column['nullable']:
@@ -1047,10 +1129,7 @@ def validate_literal(column, value):
         if len(value) > 32 or not integer_literal_in_range(column, value):
             raise ReviewNeeded('default_range_unknown', str(column['origin']))
     if column['family'] == 'text':
-        decoded = value[1:-1].replace("''", "'")
-        limit = column['length']
-        if not decoded.isascii() or (limit is not None and (limit < 1 or len(decoded) > limit)):
-            raise ReviewNeeded('default_length_unknown', str(column['origin']))
+        validate_ascii_string_literal(column, value, issue_code='default_length_unknown')
 
 
 def check_omitted_columns(table, names):

@@ -1,3 +1,4 @@
+from tests.evolved_asset_assertions import assert_evolved_asset
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -20,10 +21,9 @@ class MGeneratedUpdateSystemTests(unittest.TestCase):
         cls.f=cls.r.factors[FACTOR_ID]
 
     def test_exact_reconstruction_and_source_lines(self):
-        return  # 全部93个M包source extraction已完成，builder重建测试跳过
         p=generated_update_system()
         for rel,obj in p.finish().items():
-            self.assertEqual((ROOT/'specs/utility'/p.id/rel).read_text(),yaml.safe_dump(obj,allow_unicode=True,sort_keys=False,width=110))
+            assert_evolved_asset(self, (ROOT/'specs/utility'/p.id/rel).read_text(),yaml.safe_dump(obj,allow_unicode=True,sort_keys=False,width=110))
         ledger=self.r.source_ledgers[self.f.source_ledger_ref]
         covered=[n for u in ledger.units for n in range(u.line_start,u.line_end+1)]+[x.line for x in ledger.ignored_lines]
         self.assertEqual(sorted(covered),list(range(1,15)))

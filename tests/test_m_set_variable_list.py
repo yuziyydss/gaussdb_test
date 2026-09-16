@@ -1,4 +1,5 @@
 """Two independent SET variables are a list, not chained assignment or type conversion."""
+from tests.evolved_asset_assertions import assert_evolved_asset
 from pathlib import Path
 import unittest
 
@@ -61,4 +62,9 @@ class MSetVariableListIntegrationTests(unittest.TestCase):
         self.assertIn('target_oracle_calibration',s.execution_requirements)
 
     def test_builder_saved_specs_match_and_old_domains_remain(self):
-        return  # M包source extraction已完成，builder比较跳过
+        import yaml
+        self.cases()
+        for name,value in set_command().finish().items():
+            assert_evolved_asset(self, yaml.safe_load((self.root/'specs/utility/m_set'/name).read_text()),value,name)
+        self.assertEqual(len(self.g.generate_cases_for_manifest(self.r.manifests['manifest_m_set_timezone'])),9)
+        self.assertEqual(len(self.g.generate_cases_for_manifest(self.r.manifests['manifest_m_set_user_variable'])),4)

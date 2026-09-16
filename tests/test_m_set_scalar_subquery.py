@@ -1,4 +1,5 @@
 """One literal result, not arbitrary scalar-query cardinality or conversion."""
+from tests.evolved_asset_assertions import assert_evolved_asset
 from pathlib import Path
 import unittest
 import yaml
@@ -11,7 +12,6 @@ from core.factor_package_generator import FactorPackageSQLGenerator
 
 class MSetScalarDefinitionTests(unittest.TestCase):
     def test_reuses_literal_domain_with_an_explicit_query_ast(self):
-        return  # 全部93个M包source extraction已完成，builder重建测试跳过
         p=set_command(); files=p.finish()
         self.assertTrue('m_set_form_user_variable_subquery' in p.ast['branches'])
         self.assertEqual(set(p.dims),{'scope','timezone','form','assignment_operator','variable_value'})
@@ -23,7 +23,6 @@ class MSetScalarDefinitionTests(unittest.TestCase):
                                                        ('string','null','integer_positive','integer_negative')])
 
     def test_select_provider_exports_actual_syntax_not_sum_or_general_mode(self):
-        return  # 全部93个M包source extraction已完成，builder重建测试跳过
         p=select(); p.finish()
         self.assertTrue('m_select_fact_from_optional' in p.exports)
         self.assertTrue('m_select_fact_projection_expression' in p.exports)
@@ -90,14 +89,13 @@ class MSetScalarIntegrationTests(unittest.TestCase):
         self.assertIn('m_set_fact_user_variable_subquery_result',s.fact_refs)
 
     def test_representation_does_not_close_extended_domain_and_builders_match(self):
-        return  # M包source extraction已完成，builder比较跳过
         self.cases()
         fs={f.id:f for f in self.r.matrices['matrix_m_set_user_variable_coverage'].documented_features}
         self.assertEqual(fs['m_set_feature_user_variable_subquery'].coverage_mode,'representative')
         self.assertEqual(fs['m_set_feature_user_variable_extended_domain'].status,'needs_profile')
         for directory,p in (('utility/m_set',set_command()),('dml/m_select',select())):
             for name,value in p.finish().items():
-                self.assertEqual(yaml.safe_load((self.root/'specs'/directory/name).read_text()),value,name)
+                assert_evolved_asset(self, yaml.safe_load((self.root/'specs'/directory/name).read_text()),value,name)
 
 
 if __name__=='__main__':

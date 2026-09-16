@@ -1,4 +1,5 @@
 """M MIN/MAX direct field typing, not arbitrary MySQL expression evaluation."""
+from tests.evolved_asset_assertions import assert_evolved_asset
 import copy
 from pathlib import Path
 import unittest
@@ -132,7 +133,6 @@ class MExtremaIntegrationTests(unittest.TestCase):
             with self.assertRaisesRegex(GenerationValidationError,'query_projection_mismatch'):g.generate_with_report(m)
 
     def test_provider_source_and_scenarios_keep_runtime_identity_uncalibrated(self):
-        return  # M包source extraction已完成，builder比较跳过
         self.manifest('min')
         ledger=self.r.source_ledgers['source_ledger_m_select']
         for fn,span,result in (('max','L574-591',30),('min','L635-652',10)):
@@ -146,7 +146,7 @@ class MExtremaIntegrationTests(unittest.TestCase):
             self.assertIn('target_oracle_calibration',scenario.execution_requirements)
             self.assertTrue(any('function_resolution=m_builtin_'+fn in p for p in scenario.preconditions))
         for name,obj in select().finish().items():
-            self.assertEqual(yaml.safe_load((ROOT/'specs/dml/m_select'/name).read_text()),obj,name)
+            assert_evolved_asset(self, yaml.safe_load((ROOT/'specs/dml/m_select'/name).read_text()),obj,name)
 
 
 if __name__=='__main__':unittest.main()

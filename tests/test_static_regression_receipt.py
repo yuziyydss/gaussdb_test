@@ -75,6 +75,17 @@ class StaticRegressionReceiptTests(unittest.TestCase):
         result, _ = self.invoke(code=1)
         self.assertEqual(result['status'], 'failed')
 
+    def test_reference_facts_and_builder_source_changes_revoke_receipt(self):
+        for index, name in enumerate(('docs/compat_facts/sample.yaml',
+                                     'work/m_compat_batch_02/corpus/sample.txt')):
+            self.output = self.root/f'work/source_run{index}'
+            path = self.root/name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('original source')
+            result, _ = self.invoke(change=lambda: path.write_text('changed source'))
+            self.assertEqual(result['status'], 'inputs_changed')
+            self.assertIn(name, result['changed_inputs'])
+
     def test_missing_zero_or_failed_summary_never_passes(self):
         for i, log in enumerate(('still running\n', 'Ran 0 tests in 0.001s\n\nOK\n',
                                  'Ran 2 tests in 0.001s\n\nFAILED (failures=1)\n')):

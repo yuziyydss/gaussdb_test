@@ -81,11 +81,11 @@ class MIndexTests(unittest.TestCase):
         self.assertEqual(single.expected,'error');self.assertEqual(cascade.expected,'error')
 
     def test_source_gaps_remain_visible(self):
-        # m_create_index已完成source extraction；其余索引包保留unmapped。
+        # Source extraction is now complete; runtime scenarios remain planned.
         for fid in ('m_alter_index','m_drop_index'):
             f=self.r.factors[fid]
             self.assertEqual(f.status,'needs_review')
-            self.assertTrue(any(u.status=='unmapped' for u in self.r.source_ledgers[f.source_ledger_ref].units))
+            self.assertFalse(any(u.status=='unmapped' for u in self.r.source_ledgers[f.source_ledger_ref].units))
             self.assertTrue(all(self.r.scenarios[s].status=='planned' for s in f.scenario_refs))
         f=self.r.factors['m_create_index']
         self.assertFalse(any(u.status=='unmapped' for u in self.r.source_ledgers[f.source_ledger_ref].units))

@@ -44,8 +44,24 @@ FOREIGN_OPTION_SELECTION = (
     ('scenario_alter_foreign_table_log_set', ('manifest_alter_foreign_table_log_set',)),
     ('scenario_alter_foreign_table_log_drop', ('manifest_alter_foreign_table_log_drop',)),
 )
+M_STRING_SELECTION = tuple(
+    ('scenario_' + factor + '_string_' + suffix, ('manifest_' + factor + '_string_utf8',))
+    for factor in ('m_insert', 'm_update')
+    for suffix in ('empty', 'ascii_short', 'ascii_edge', 'han_short', 'han_edge',
+                   'four_byte', 'quote', 'default') + (('omitted',) if factor == 'm_insert' else ())
+)
+INSERT_KEY_SELECTION = tuple(
+    ('scenario_insert_same_key_' + branch, ('manifest_insert_same_key_tuple',))
+    for branch in ('conflict', 'new', 'filtered')
+)
+FILE_FDW_SELECTION = tuple(
+    ('scenario_create_foreign_table_file_' + fmt,
+     ('manifest_create_foreign_table_file_' + fmt,))
+    for fmt in ('text', 'csv')
+)
 PROFILES = {'baseline': SELECTION, 'semantic_contracts': SEMANTIC_SELECTION,
-            'foreign_options': FOREIGN_OPTION_SELECTION}
+            'foreign_options': FOREIGN_OPTION_SELECTION, 'm_string_storage': M_STRING_SELECTION,
+            'insert_same_key': INSERT_KEY_SELECTION, 'file_fdw_options': FILE_FDW_SELECTION}
 
 
 def inputs_snapshot():

@@ -109,27 +109,27 @@ facts:
   status: confirmed
   source_anchor: 2.4.2.12.1 L2-2
 - id: m_insert_fact_syntax
-  type: example
+  type: syntax
   statement: M INSERT 分 VALUES/VALUE、SET、query，INTO 可省略；表和视图分别列出。
   status: confirmed
   source_anchor: 2.4.2.12.1 L19-49
 - id: m_insert_fact_default
-  type: example
+  type: syntax
   statement: DEFAULT 表示目标列默认值，没有默认值为 NULL。
   status: confirmed
   source_anchor: 2.4.2.12.1 L98-99
 - id: m_insert_fact_generated_write
-  type: example
+  type: constraint
   statement: 生成列不能赋具体值，但可指定 DEFAULT。
   status: confirmed
   source_anchor: 2.4.2.12.1 L15-16
 - id: m_insert_fact_view_duplicate
-  type: example
+  type: constraint
   statement: 视图不支持 ON DUPLICATE KEY UPDATE。
   status: confirmed
   source_anchor: 2.4.2.12.1 L147-147
 - id: m_insert_fact_duplicate_effect
-  type: example
+  type: behavior_oracle
   statement: 带唯一键的表遇冲突更新已有行；VALUES(qty)引用输入行，不是旧值。
   status: confirmed
   source_anchor: 2.4.2.12.1 L105-107
@@ -144,7 +144,7 @@ facts:
   status: confirmed
   source_anchor: 2.4.2.12.1 L80-81
 - id: m_insert_fact_view_column
-  type: example
+  type: constraint
   statement: 插入视图的列须为直接基表用户列。
   status: confirmed
   source_anchor: 2.4.2.12.1 L141-141
@@ -188,6 +188,21 @@ facts:
   statement: 生成列不能直接写入。INSERT不能为生成列指定值，但可指定DEFAULT。
   status: confirmed
   source_anchor: 2.4.2.12.1 L13-14
+- id: m_insert_fact_string_storage
+  type: constraint
+  statement: M VARCHAR(n)按字符计长且受65532字节存储限制；本批只用VARCHAR(2)与同列类型匹配的完整字面量/常量DEFAULT。
+  status: confirmed
+  source_anchor: 2.6.4 L188-217；本章DEFAULT行为为消费者，非字符串类型规则的来源
+- id: m_insert_fact_string_encoding
+  type: environment
+  statement: M字符集区分server/client/connection/schema/results；未指定字符集的表和列逐级继承。本批限定UTF8/utf8mb4同编码、当前独占schema、无表列覆盖，条件仍须实机确认。
+  status: confirmed
+  source_anchor: 2.3 L7-35、L129-164、L258-266、L313-325
+- id: m_insert_fact_string_remaining
+  type: open_question
+  statement: 尚未承诺CHAR补空格、VARCHAR(0)、TEXT(n)、跨schema、编码转换、动态DEFAULT。严格/宽松超长的目标SQLSTATE及实际结果、空串与NULL区分、驱动Unicode返回值待校准；不能以任意错误通过。
+  status: needs_verification
+  source_anchor: 2.6.4 L194-219；2.3 L129-164；DEFAULT消费者与输入结果待独立数据库验证
 rules:
 - id: m_insert_rule_generated_write
   kind: requires
@@ -221,12 +236,14 @@ manifest_refs:
 - manifest_m_insert_generated_omitted_query
 - manifest_m_insert_view_duplicate_negative
 - manifest_m_insert_upsert_conflict
+- manifest_m_insert_string_utf8
 matrix_refs:
 - matrix_m_insert_target_profile
 - matrix_m_insert_source_profile
 fixture_refs:
 - fixture_m_insert_generated
 - fixture_m_insert_upsert
+- fixture_m_insert_string_utf8
 - fixture_m_insert_shared_table
 - fixture_m_insert_shared_view
 scenario_refs:
@@ -238,3 +255,12 @@ scenario_refs:
 - scenario_m_insert_default_result
 - scenario_m_insert_view_column_lineage
 - scenario_m_insert_source_completion_review
+- scenario_m_insert_string_empty
+- scenario_m_insert_string_ascii_short
+- scenario_m_insert_string_ascii_edge
+- scenario_m_insert_string_han_short
+- scenario_m_insert_string_han_edge
+- scenario_m_insert_string_four_byte
+- scenario_m_insert_string_quote
+- scenario_m_insert_string_default
+- scenario_m_insert_string_omitted

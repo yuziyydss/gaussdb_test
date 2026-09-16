@@ -81,9 +81,8 @@ class CommentAggregateTests(unittest.TestCase):
         self.assertEqual(f.value_refs,['comment_target_aggregate_fresh'])
         self.assertEqual(features['comment_feature_object_operator'].status,'needs_profile')
         a=FactorCoverageAuditor(self.r).audit('comment')
-        self.assertEqual({g['id'] for g in a['source_units']['atomicity']['gaps']},
-                         {'comment_su_syntax_a_25','comment_su_syntax_c_40','comment_su_syntax_d_47'})
-        self.assertFalse(a['conclusions']['source_extraction_complete'])
+        self.assertEqual(a['source_units']['atomicity']['gaps'], [])
+        self.assertTrue(a['conclusions']['source_extraction_complete'])
         self.assertFalse(a['conclusions']['behavior_coverage_complete'])
 
 

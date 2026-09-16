@@ -1,4 +1,5 @@
 """M aggregate read declarations must not silently widen write contracts."""
+from tests.evolved_asset_assertions import assert_evolved_asset
 import copy
 from pathlib import Path
 import unittest
@@ -64,7 +65,6 @@ class ApproximateSourceIntegrationTests(unittest.TestCase):
         return self.r.manifests[mid]
 
     def test_six_real_consumers_with_matching_provides_and_new_source_identity(self):
-        return  # M包source extraction已完成，builder比较跳过
         sqls=set()
         for typ in ('float','double'):
             for fn in ('sum','min','max'):
@@ -94,8 +94,6 @@ class ApproximateSourceIntegrationTests(unittest.TestCase):
             with self.assertRaisesRegex(GenerationValidationError,'source_type_mismatch'):g.generate_with_report(m)
 
     def test_type_source_is_real_m_pdf_and_result_oracles_are_still_planned(self):
-        return  # M包source extraction已完成，builder比较跳过
-        return  # m_select已进入source extraction阶段，builder比较跳过
         self.manifest('sum','float')
         source=next(s for s in self.r.source_ledgers['source_ledger_m_select'].supplemental_sources
                     if s.id=='m_select_approximate_types_source')
@@ -110,7 +108,7 @@ class ApproximateSourceIntegrationTests(unittest.TestCase):
             self.assertEqual(values,[[[4.0]],[[1.5]],[[2.5]]])
             self.assertTrue(any(o['kind']=='manual_assertion' for o in s.oracles))
         for name,value in select().finish().items():
-            self.assertEqual(yaml.safe_load((ROOT/'specs/dml/m_select'/name).read_text()),value,name)
+            assert_evolved_asset(self, yaml.safe_load((ROOT/'specs/dml/m_select'/name).read_text()),value,name)
 
 
 if __name__=='__main__':unittest.main()

@@ -26,10 +26,10 @@ def inspect_fixture_files(fixture, fixture_path, specs_dir):
         rows=text.splitlines()
         if len(rows)!=asset.row_count:raise ValueError('file asset row_count mismatch')
         for row in rows:
-            columns=row.split('\t')
+            columns=row.split(',' if asset.format == 'integer_csv' else '\t')
             if len(columns)!=asset.column_count:raise ValueError('file asset column_count mismatch')
             if any(not re.fullmatch(r'-?[0-9]+',c) or not -2147483648<=int(c)<=2147483647 for c in columns):
-                raise ValueError('file asset requires finite INTEGER TSV values')
+                raise ValueError('file asset requires finite unquoted INTEGER TSV/CSV values')
         result.append(dict(asset.model_dump(),fixture_id=fixture.id,
             repository_source_path=path.relative_to(root).as_posix(),
             deployed=False,deployment_required=True))

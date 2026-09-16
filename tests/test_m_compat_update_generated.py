@@ -1,4 +1,5 @@
 """M UPDATE generated-column consumers require real preconditions, not labels."""
+from tests.evolved_asset_assertions import assert_evolved_asset
 from pathlib import Path
 import unittest
 
@@ -80,4 +81,10 @@ class MUpdateGeneratedTests(unittest.TestCase):
             self.assertIn('database_authorization', scenario['execution_requirements'])
 
     def test_builder_reconstruction_and_finite_coverage_preserve_honest_gaps(self):
-        return  # M包source extraction已完成，builder比较跳过
+        self.cases('generated_default')
+        for name, expected in update().finish().items():
+            assert_evolved_asset(self, yaml.safe_load((ROOT / 'specs/dml/m_update' / name).read_text()), expected, name)
+        audit = FactorCoverageAuditor(self.registry).audit('m_update')
+        self.assertTrue(audit['conclusions']['generation_model_complete'], audit['rules'])
+        self.assertTrue(audit['conclusions']['source_extraction_complete'])
+        self.assertFalse(audit['conclusions']['behavior_coverage_complete'])

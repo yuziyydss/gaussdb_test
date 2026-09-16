@@ -1,4 +1,5 @@
 """M UPDATE's own L16 forbids a known named view in multi-table UPDATE."""
+from tests.evolved_asset_assertions import assert_evolved_asset
 from pathlib import Path
 import unittest
 
@@ -78,7 +79,11 @@ class MUpdateViewIntegrationTests(unittest.TestCase):
         cls.registry=FactorPackageRegistry(cls.root/'specs');cls.registry.load_all()
 
     def test_builder_and_saved_package_match_including_new_source_unit(self):
-        return  # M包source extraction已完成，builder比较跳过
+        import yaml
+        for name,value in update().finish().items():
+            path=self.root/'specs/dml/m_update'/name
+            self.assertTrue(path.exists(),name)
+            assert_evolved_asset(self, yaml.safe_load(path.read_text()),value,name)
     def test_generator_rejects_forged_positive_using_actual_m_source_mode(self):
         from core.factor_package_generator import FactorPackageSQLGenerator
         from core.spec_generator import GenerationValidationError
