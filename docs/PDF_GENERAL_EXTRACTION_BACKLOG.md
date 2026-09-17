@@ -50,8 +50,11 @@ MAX_DOP 集中式支持缺口继续保留。
 
 [ALTER RESOURCE POOL IO_PRIORITY](PDF_QUALITY_BATCH_20260917_ALTER_IO_PRIORITY.md) 覆盖
 ALTER分支的Low/Medium/High/None四个字面量，候选从6条增至10条；
-90%阈值、多租冲突和MAX_DOP缺口继续保留。当前全库为847个manifest、5,306条候选，
-generation model complete仍为256/317。
+90%阈值、多租冲突和MAX_DOP缺口继续保留。
+
+[ALTER RESOURCE POOL IO_LIMITS](PDF_QUALITY_BATCH_20260917_IO_LIMITS.md) 覆盖
+0与2147483647两个边界代表，候选从10条增至12条；不宣称全整数域或限流行为。
+当前全库为847个manifest、5,308条候选，generation model complete仍为256/317。
 
 ## 下一阶段：补质量缺口，不再补空目录
 

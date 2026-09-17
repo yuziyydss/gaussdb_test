@@ -28,7 +28,7 @@
 | 参考事实记录 | 885条（67个YAML文件；8组裸ID重名，使用文件名::ID区分；不等于生成器已接入） |
 | 因子包 | 317个（224 general + 93 M兼容） |
 | manifest | 847份 |
-| 候选SQL | 5,306条（静态生成，不代表实机通过） |
+| 候选SQL | 5,308条（静态生成，不代表实机通过） |
 | M包source extraction | 93/93 完成 |
 | Value gaps | 25条（18合法阻断 + 7需结构性设计） |
 
@@ -81,6 +81,7 @@ gsql -d <dbname> -p <port> -f docs/extended_validation_script.sql
 | [PDF_QUALITY_BATCH_20260917_ACTIVE_PAGES.md](docs/PDF_QUALITY_BATCH_20260917_ACTIVE_PAGES.md) | USTORE LOCAL索引ACTIVE_PAGES有限语法代表；关闭值域缺口，保留统计/执行行为缺口 |
 | [PDF_QUALITY_BATCH_20260917_IO_PRIORITY.md](docs/PDF_QUALITY_BATCH_20260917_IO_PRIORITY.md) | CREATE RESOURCE POOL的IO_PRIORITY四值域；保留阈值冲突与MAX_DOP缺口 |
 | [PDF_QUALITY_BATCH_20260917_ALTER_IO_PRIORITY.md](docs/PDF_QUALITY_BATCH_20260917_ALTER_IO_PRIORITY.md) | ALTER RESOURCE POOL的IO_PRIORITY四值域；保留90%阈值冲突与MAX_DOP缺口 |
+| [PDF_QUALITY_BATCH_20260917_IO_LIMITS.md](docs/PDF_QUALITY_BATCH_20260917_IO_LIMITS.md) | ALTER RESOURCE POOL的IO_LIMITS上下界代表；不宣称全整数域或调度行为 |
 
 ### 连库执行工具（2026-09-14 新增）
 
