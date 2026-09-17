@@ -35,6 +35,8 @@ gaussdb_test/
 │
 ├── scripts/
 │   ├── auto_validate.py       # 自动化验证执行器
+│   ├── prepare_execution_batch.py # 离线执行准备器
+│   ├── execute_prepared_batch.py # insert_same_key dry-run 计划器
 │   ├── generate_factor_package_sql.py  # SQL生成入口
 │   ├── run_static_regression.py       # 静态回归
 │   └── ...

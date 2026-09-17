@@ -139,3 +139,48 @@ file_fdw 的本地资产仍未部署，远端 validator、路径独占、权限�
 - file_fdw validator、远端路径权限、对象所有权和读取 Oracle 均未校准。
 - INSERT 同键赋回不证明任意键值变更、多唯一索引或多行输入。
 - 本轮没有 Git commit、push 或数据库授权。
+
+## 2026-09-17 runtime pilot dry run
+
+新增 `scripts/execute_prepared_batch.py`。当前版本只支持
+`insert_same_key`，且没有数据库执行参数或 execute flag。
+
+它读取已冻结的 offline preparation，重新执行：
+
+- 3 个 unit / 3 个 case 的绑定身份；
+- `same_inline_integer_key_tuple_v1` finite contract；
+- setup / target / Oracle / teardown 生命周期；
+- planned rows 与 Oracle SQL identity；
+- ownership 与 runtime proof 边界。
+
+输出是 dry-run plan，不是执行回执：
+
+```bash
+python3 scripts/execute_prepared_batch.py \
+  --input work/insert_key_20260916/insert_same_key_preparation.json \
+  --output work/runtime_pilot_20260917/insert_same_key_dry_run_final.json
+```
+
+当前结果：
+
+- ready units：3 / 3
+- planned target steps：3
+- planned oracles：3
+- blocked units：0
+- database_executed：false
+- execution_authorized：false
+- runtime_verified：0
+
+每个 unit 的执行顺序固定为：
+
+```text
+environment_check
+setup
+setup
+target
+oracle
+teardown
+```
+
+该脚本不打开连接、不执行 SQL、不部署文件，也不接受任意 SQL 输入。
+真实执行入口必须另行显式授权并补充连接与环境校验。
