@@ -124,7 +124,7 @@ class Batch09Tests(unittest.TestCase):
 
     def test_alter_resource_pool_io_priority_domain_is_rendered_with_scope_gate(self):
         cases = self.factor_cases('alter_resource_pool')
-        self.assertEqual(len(cases), 12)
+        self.assertEqual(len(cases), 15)
         sqls = '\n'.join(c.sql for c in cases)
         for value in ("Low", "Medium", "High", "None"):
             self.assertIn(f"IO_PRIORITY = '{value}'", sqls)
@@ -148,6 +148,33 @@ class Batch09Tests(unittest.TestCase):
             'alter_resource_pool_options_io_priority_none',
         })
         self.assertIn('alter_resource_pool_feature_threshold_conflict',
+                      audit['documented_features']['needs_profile'])
+
+    def test_alter_resource_pool_memory_limit_boundaries_are_rendered(self):
+        cases = self.factor_cases('alter_resource_pool')
+        sqls = '\n'.join(c.sql for c in cases)
+        self.assertIn("MEMORY_LIMIT = '1KB'", sqls)
+        self.assertIn("MEMORY_LIMIT = '1MB'", sqls)
+        self.assertIn("MEMORY_LIMIT = '2047GB'", sqls)
+        memory_cases = [c for c in cases if c.params['options'] in {
+            'alter_resource_pool_options_memory_limit_min',
+            'alter_resource_pool_options_memory_limit_mb',
+            'alter_resource_pool_options_memory_limit_max',
+        }]
+        self.assertEqual(len(memory_cases), 3)
+        audit = FactorCoverageAuditor(self.registry).audit('alter_resource_pool')
+        self.assertEqual(audit['values']['coverage_gaps'],
+                         ['options.alter_resource_pool_options_dop_one'])
+        feature = audit['documented_features']['details'][
+            'alter_resource_pool_feature_memory_limit_boundaries']
+        self.assertEqual(feature['status'], 'covered')
+        self.assertEqual(feature['coverage_mode'], 'representative')
+        self.assertEqual(set(feature['selected_refs']), {
+            'alter_resource_pool_options_memory_limit_min',
+            'alter_resource_pool_options_memory_limit_mb',
+            'alter_resource_pool_options_memory_limit_max',
+        })
+        self.assertIn('alter_resource_pool_feature_dop_centralized',
                       audit['documented_features']['needs_profile'])
 
     def test_alter_resource_pool_io_limits_boundaries_are_rendered(self):

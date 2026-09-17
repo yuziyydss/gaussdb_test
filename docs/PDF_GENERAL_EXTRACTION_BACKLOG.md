@@ -56,7 +56,9 @@ ALTER分支的Low/Medium/High/None四个字面量，候选从6条增至10条；
 0与2147483647两个边界代表，候选从10条增至12条；不宣称全整数域或限流行为。
 [CREATE RESOURCE POOL MEMORY_LIMIT](PDF_QUALITY_BATCH_20260917_MEMORY_LIMITS.md) 覆盖
 1KB、1MB与2047GB三个代表，候选从15条增至17条；不宣称内存限额或运行时优先级行为。
-当前全库为847个manifest、5,310条候选，generation model complete仍为256/317。
+[ALTER RESOURCE POOL MEMORY_LIMIT](PDF_QUALITY_BATCH_20260917_ALTER_MEMORY_LIMITS.md) 覆盖
+1KB、1MB与2047GB三个standalone代表，候选从12条增至15条；多租冲突与MAX_DOP缺口继续保留。
+当前全库为847个manifest、5,313条候选，generation model complete仍为256/317。
 
 ## 下一阶段：补质量缺口，不再补空目录
 
