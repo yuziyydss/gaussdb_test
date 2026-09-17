@@ -25,7 +25,7 @@ gaussdb_test/
 │   └── ...                            # 批次文档
 │
 ├── generated/
-│   └── factor_packages/       # 846个manifest / 5,297条候选SQL（静态生成）
+│   └── factor_packages/       # 847个manifest / 5,298条候选SQL（静态生成）
 │
 ├── core/
 │   ├── factor_package_model.py      # V1模型定义
@@ -69,6 +69,10 @@ gaussdb_test/
 [PDF质量增量：DROP FOREIGN TABLE CASCADE](PDF_QUALITY_BATCH_20260917.md)：
 在无依赖的fresh log_fdw生命周期中加入有限CASCADE语法代表；关闭该值域缺口，
 不宣称依赖对象级联行为。
+
+[PDF质量增量：CREATE INDEX ACTIVE_PAGES](PDF_QUALITY_BATCH_20260917_ACTIVE_PAGES.md)：
+为USTORE RANGE分区表的UBTree LOCAL索引加入`active_pages=16`语法代表；关闭该值域缺口，
+不宣称统计更新或执行效果。
 
 ## 新增文件说明（连库后使用）
 

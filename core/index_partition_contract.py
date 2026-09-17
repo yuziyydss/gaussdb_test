@@ -78,13 +78,21 @@ def check_ustore_local_index(sql, setup, teardown, *, target, properties, gates)
     _require(properties.get('partition_keys') == ['id'] and layout == properties.get('partition_layout'),
              'declared key/layout differs from actual DDL')
     _match(rf'DROP\s+TABLE\s+{table}\s+RESTRICT', _statement(teardown[0]))
+    index_sql = _statement(sql)
+    active_pages = re.search(r'\s+WITH\s*\(\s*active_pages\s*=\s*16\s*\)$', index_sql, re.I)
+    if active_pages:
+        _require(gates.get('active_pages_manual_profile') == ['syntax_only_not_recommended'],
+                 'ACTIVE_PAGES requires explicit syntax-only/not-recommended gate')
+        index_sql = index_sql[:active_pages.start()]
     index = _match(rf'CREATE\s+INDEX\s+({IDENT})\s+ON\s+{table}\s+USING\s+ubtree'
-                   r'\s*\(\s*id\s*\)\s+LOCAL', _statement(sql))[1].lower()
+                   r'\s*\(\s*id\s*\)\s+LOCAL', index_sql)[1].lower()
     _require(index != target, 'index and table share relation namespace')
     return {'scope': 'finite_ustore_range_local', 'source_table': target,
             'storage_engine': 'USTORE', 'method': 'ubtree', 'partition_keys': ['id'],
-            'table_layout': layout, 'automatic_partitions': True, 'runtime_proven': False,
-            'cleanup_ownership_proven': False, 'statistics_proven': False}
+            'table_layout': layout, 'automatic_partitions': True,
+            'active_pages_manual': bool(active_pages),
+            'runtime_proven': False, 'cleanup_ownership_proven': False,
+            'statistics_proven': False, 'data_routing_proven': False}
 
 
 def check_index_partition(sql, setup, teardown, *, target, properties, gates):

@@ -36,8 +36,13 @@ python3 scripts/audit_pdf_catalog_coverage.py --source-catalog work/doc2spec/ful
 [DROP FOREIGN TABLE CASCADE](PDF_QUALITY_BATCH_20260917.md) 关闭该包最后一个值域缺口：
 有限候选从 4 条增至 6 条，`generation_model_complete` 从 false 变为 true。
 该代表仍使用无下游依赖的 fresh log_fdw 生命周期，不证明依赖视图/索引级联行为；
-dependencies 与 runtime feature gap 继续保留。当前全库为 846 个 manifest、5,297 条候选，
-generation model complete 为 256 / 317。
+dependencies 与 runtime feature gap 继续保留。
+
+[CREATE INDEX ACTIVE_PAGES](PDF_QUALITY_BATCH_20260917_ACTIVE_PAGES.md) 关闭
+`ci_active_pages_manual` 值域缺口：create_index 候选从 345 条增至 346 条。
+该值仍是 syntax-only 且带 `syntax_only_not_recommended` 门，不证明统计更新或执行效果；
+`ci_feature_active_pages_execution_profile` 继续保留。当前全库为 847 个 manifest、
+5,298 条候选，generation model complete 仍为 256 / 317。
 
 ## 下一阶段：补质量缺口，不再补空目录
 

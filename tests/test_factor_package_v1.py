@@ -44,8 +44,8 @@ PDF_FACTOR_BASELINES = {
         "sha256": "7a8ce69c11e865868cb75fd990000d6a41ceb91ce200dd3e882dc41496863d0d",
         "lines": 899,
         "units": 213,
-        "manifests": 30,
-        "cases": 345,  # Prior 344 retained; one finite USTORE LOCAL candidate.
+        "manifests": 31,
+        "cases": 346,  # Prior 345 retained; one finite ACTIVE_PAGES syntax representative.
     },
     "alter_table": {
         "source_relpath": "general/ddl/alter_table.txt",
@@ -1503,14 +1503,11 @@ class TestFactorPackageV1(unittest.TestCase):
         self.assertEqual(audit["facts"]["unconsumed_confirmed"], [])
         self.assertEqual(len(audit["facts"]["unresolved_open_questions"]), 9)
         self.assertEqual(audit["values"]["valid_unselected"], [])
-        # 4个泛化conditional值由已选中A/B有限facet代表；仅TDE和
-        # active_pages执行画像缺口保留。
+        # 4个泛化conditional值由已选中A/B有限facet代表；ACTIVE_PAGES已有
+        # syntax-only代表，仅TDE环境画像缺口保留。
         self.assertEqual(
             audit["values"]["coverage_gaps"],
-            [
-                "storage_profile.ci_active_pages_manual",
-                "storage_profile.ci_enable_tde_on",
-            ],
+            ["storage_profile.ci_enable_tde_on"],
         )
         for represented in (
             "comment_clause.ci_comment_basic",
@@ -1520,7 +1517,7 @@ class TestFactorPackageV1(unittest.TestCase):
         ):
             self.assertIn(represented, audit["values"]["represented_by_finite_facet"])
         self.assertEqual(audit["rules"]["gaps"], [])
-        self.assertEqual(audit["manifests"]["generated_case_count"], 345)
+        self.assertEqual(audit["manifests"]["generated_case_count"], 346)
         self.assertEqual(audit["documented_features"]["needs_profile"], [
             "ci_feature_active_pages_execution_profile",
             "ci_feature_deduplication_full_domain",
@@ -1557,7 +1554,7 @@ class TestFactorPackageV1(unittest.TestCase):
             cases.extend(generated)
         self.assertEqual(len(cases), PDF_FACTOR_BASELINES['create_index']['cases'])
         self.assertEqual(len({case.case_id for case in cases}), PDF_FACTOR_BASELINES['create_index']['cases'])
-        self.assertEqual(sum(case.expected == "success" for case in cases), 315)
+        self.assertEqual(sum(case.expected == "success" for case in cases), 316)
         self.assertEqual(sum(case.expected == "error" for case in cases), 30)
         self.assertTrue(all(case.sql.startswith("CREATE ") for case in cases))
         self.assertTrue(all(" INDEX " in case.sql for case in cases))

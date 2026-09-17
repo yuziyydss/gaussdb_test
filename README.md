@@ -27,8 +27,8 @@
 | PDF覆盖 | 5,686页 全部大部 |
 | 参考事实记录 | 885条（67个YAML文件；8组裸ID重名，使用文件名::ID区分；不等于生成器已接入） |
 | 因子包 | 317个（224 general + 93 M兼容） |
-| manifest | 846份 |
-| 候选SQL | 5,297条（静态生成，不代表实机通过） |
+| manifest | 847份 |
+| 候选SQL | 5,298条（静态生成，不代表实机通过） |
 | M包source extraction | 93/93 完成 |
 | Value gaps | 25条（18合法阻断 + 7需结构性设计） |
 
@@ -78,6 +78,7 @@ gsql -d <dbname> -p <port> -f docs/extended_validation_script.sql
 | [FOREIGN_OPTIONS_CONTRACT_20260915.md](docs/FOREIGN_OPTIONS_CONTRACT_20260915.md) | file_fdw TEXT/CSV 格式与 OPTIONS、真实本地文件、保留 BINARY/FIXED 缺口 |
 | [INSERT_KEY_EXECUTION_PREPARATION_20260916.md](docs/INSERT_KEY_EXECUTION_PREPARATION_20260916.md) | PG同键元组与file_fdw有限合同的离线执行准备、目标所有权与Oracle身份校验；未执行数据库 |
 | [PDF_QUALITY_BATCH_20260917.md](docs/PDF_QUALITY_BATCH_20260917.md) | DROP FOREIGN TABLE有限CASCADE语法代表；关闭值域缺口，保留依赖行为缺口 |
+| [PDF_QUALITY_BATCH_20260917_ACTIVE_PAGES.md](docs/PDF_QUALITY_BATCH_20260917_ACTIVE_PAGES.md) | USTORE LOCAL索引ACTIVE_PAGES有限语法代表；关闭值域缺口，保留统计/执行行为缺口 |
 
 ### 连库执行工具（2026-09-14 新增）
 
