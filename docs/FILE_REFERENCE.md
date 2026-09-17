@@ -25,7 +25,7 @@ gaussdb_test/
 │   └── ...                            # 批次文档
 │
 ├── generated/
-│   └── factor_packages/       # 847个manifest / 5,298条候选SQL（静态生成）
+│   └── factor_packages/       # 847个manifest / 5,302条候选SQL（静态生成）
 │
 ├── core/
 │   ├── factor_package_model.py      # V1模型定义
@@ -73,6 +73,10 @@ gaussdb_test/
 [PDF质量增量：CREATE INDEX ACTIVE_PAGES](PDF_QUALITY_BATCH_20260917_ACTIVE_PAGES.md)：
 为USTORE RANGE分区表的UBTree LOCAL索引加入`active_pages=16`语法代表；关闭该值域缺口，
 不宣称统计更新或执行效果。
+
+[PDF质量增量：CREATE RESOURCE POOL IO_PRIORITY](PDF_QUALITY_BATCH_20260917_IO_PRIORITY.md)：
+覆盖Low/Medium/High/None四个I/O优先级字面量，并声明仅复杂作业生效；
+不关闭阈值冲突或MAX_DOP集中式支持缺口。
 
 ## 新增文件说明（连库后使用）
 

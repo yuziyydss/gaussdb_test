@@ -67,6 +67,34 @@ class Batch09Tests(unittest.TestCase):
                                 for v in values))
             self.assertTrue(all('MAX_DOP' not in c.sql for c in self.factor_cases(fid)))
 
+    def test_resource_pool_io_priority_domain_is_rendered_with_scope_gate(self):
+        cases = self.factor_cases('create_resource_pool')
+        self.assertEqual(len(cases), 15)
+        sqls = '\n'.join(c.sql for c in cases)
+        for value in ("Low", "Medium", "High", "None"):
+            self.assertIn(f"IO_PRIORITY = '{value}'", sqls)
+        priority_cases = [c for c in cases if 'IO_PRIORITY' in c.sql]
+        self.assertEqual(len(priority_cases), 4)
+        for case in priority_cases:
+            gates = {gate['key']: gate['allowed_values']
+                     for gate in case.environment_requirements}
+            self.assertEqual(gates['io_control_scope'], ['complex_jobs_only'])
+        audit = FactorCoverageAuditor(self.registry).audit('create_resource_pool')
+        self.assertEqual(audit['values']['coverage_gaps'],
+                         ['options.create_resource_pool_options_dop_one'])
+        feature = audit['documented_features']['details'][
+            'create_resource_pool_feature_io_priority_values']
+        self.assertEqual(feature['status'], 'covered')
+        self.assertEqual(feature['coverage_mode'], 'all')
+        self.assertEqual(set(feature['selected_refs']), {
+            'create_resource_pool_options_io_priority_low',
+            'create_resource_pool_options_io_priority_medium',
+            'create_resource_pool_options_io_priority_high',
+            'create_resource_pool_options_io_priority_none',
+        })
+        self.assertIn('create_resource_pool_feature_io_threshold',
+                      audit['documented_features']['needs_profile'])
+
     def test_security_label_negative_oracle_is_explicitly_unverified(self):
         m = self.registry.manifests['manifest_create_security_label_invalid_content']
         self.assertEqual(m.expected.oracle_status, 'needs_verification')

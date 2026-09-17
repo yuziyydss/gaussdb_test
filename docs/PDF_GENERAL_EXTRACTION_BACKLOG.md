@@ -41,8 +41,13 @@ dependencies 与 runtime feature gap 继续保留。
 [CREATE INDEX ACTIVE_PAGES](PDF_QUALITY_BATCH_20260917_ACTIVE_PAGES.md) 关闭
 `ci_active_pages_manual` 值域缺口：create_index 候选从 345 条增至 346 条。
 该值仍是 syntax-only 且带 `syntax_only_not_recommended` 门，不证明统计更新或执行效果；
-`ci_feature_active_pages_execution_profile` 继续保留。当前全库为 847 个 manifest、
-5,298 条候选，generation model complete 仍为 256 / 317。
+`ci_feature_active_pages_execution_profile` 继续保留。
+
+[CREATE RESOURCE POOL IO_PRIORITY](PDF_QUALITY_BATCH_20260917_IO_PRIORITY.md) 覆盖
+Low/Medium/High/None 四个字面量，并加入 `complex_jobs_only` 环境门；
+create_resource_pool 候选从 11 条增至 15 条。阈值冲突、IO_LIMITS 数值域和
+MAX_DOP 集中式支持缺口继续保留。当前全库为 847 个 manifest、5,302 条候选，
+generation model complete 仍为 256 / 317。
 
 ## 下一阶段：补质量缺口，不再补空目录
 
