@@ -25,7 +25,7 @@ gaussdb_test/
 │   └── ...                            # 批次文档
 │
 ├── generated/
-│   └── factor_packages/       # 847个manifest / 5,302条候选SQL（静态生成）
+│   └── factor_packages/       # 847个manifest / 5,306条候选SQL（静态生成）
 │
 ├── core/
 │   ├── factor_package_model.py      # V1模型定义
@@ -77,6 +77,9 @@ gaussdb_test/
 [PDF质量增量：CREATE RESOURCE POOL IO_PRIORITY](PDF_QUALITY_BATCH_20260917_IO_PRIORITY.md)：
 覆盖Low/Medium/High/None四个I/O优先级字面量，并声明仅复杂作业生效；
 不关闭阈值冲突或MAX_DOP集中式支持缺口。
+
+[PDF质量增量：ALTER RESOURCE POOL IO_PRIORITY](PDF_QUALITY_BATCH_20260917_ALTER_IO_PRIORITY.md)：
+覆盖ALTER分支的Low/Medium/High/None四个字面量；90%阈值行为与MAX_DOP缺口继续保留。
 
 ## 新增文件说明（连库后使用）
 

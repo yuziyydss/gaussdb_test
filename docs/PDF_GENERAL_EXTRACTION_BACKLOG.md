@@ -46,8 +46,12 @@ dependencies 与 runtime feature gap 继续保留。
 [CREATE RESOURCE POOL IO_PRIORITY](PDF_QUALITY_BATCH_20260917_IO_PRIORITY.md) 覆盖
 Low/Medium/High/None 四个字面量，并加入 `complex_jobs_only` 环境门；
 create_resource_pool 候选从 11 条增至 15 条。阈值冲突、IO_LIMITS 数值域和
-MAX_DOP 集中式支持缺口继续保留。当前全库为 847 个 manifest、5,302 条候选，
-generation model complete 仍为 256 / 317。
+MAX_DOP 集中式支持缺口继续保留。
+
+[ALTER RESOURCE POOL IO_PRIORITY](PDF_QUALITY_BATCH_20260917_ALTER_IO_PRIORITY.md) 覆盖
+ALTER分支的Low/Medium/High/None四个字面量，候选从6条增至10条；
+90%阈值、多租冲突和MAX_DOP缺口继续保留。当前全库为847个manifest、5,306条候选，
+generation model complete仍为256/317。
 
 ## 下一阶段：补质量缺口，不再补空目录
 
