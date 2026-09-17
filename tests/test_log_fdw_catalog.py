@@ -22,8 +22,9 @@ class LogFDWCatalogTests(unittest.TestCase):
 
     def test_real_server_schema_table_names_and_reverse_cleanup(self):
         create, cr = self.cases('create'); drop, dr = self.cases('drop')
-        # 2个CREATE形态（无/有IF NOT EXISTS） + 4个DROP形态（RESTRICT/省略 × 无/有IF EXISTS）
-        self.assertEqual((len(create), len(drop)), (2, 4))
+        # 2个CREATE形态（无/有IF NOT EXISTS） + 6个DROP形态
+        # （RESTRICT/省略/CASCADE × 无/有IF EXISTS）；CASCADE仅是no-dependency语法代表。
+        self.assertEqual((len(create), len(drop)), (2, 6))
         sql = "CREATE FOREIGN TABLE g_a3_log_ns.foreign_table (col1 TEXT) SERVER g_a3_log_server OPTIONS (logtype 'gs_log');"
         sql_ifne = "CREATE FOREIGN TABLE IF NOT EXISTS g_a3_log_ns.foreign_table (col1 TEXT) SERVER g_a3_log_server OPTIONS (logtype 'gs_log');"
         create_by_sql = {c.sql: c for c in create}
@@ -39,9 +40,15 @@ class LogFDWCatalogTests(unittest.TestCase):
         self.assertIn('DROP FOREIGN TABLE g_a3_log_ns.foreign_table;', by_sql)
         self.assertIn('DROP FOREIGN TABLE IF EXISTS g_a3_log_ns.foreign_table;', by_sql)
         self.assertIn('DROP FOREIGN TABLE IF EXISTS g_a3_log_ns.foreign_table RESTRICT;', by_sql)
+        self.assertIn('DROP FOREIGN TABLE g_a3_log_ns.foreign_table CASCADE;', by_sql)
+        self.assertIn('DROP FOREIGN TABLE IF EXISTS g_a3_log_ns.foreign_table CASCADE;', by_sql)
         for c in drop:
             self.assertEqual(c.setup_sqls, original.setup_sqls)
             self.assertEqual(c.teardown_sqls, original.teardown_sqls)
+        from core.factor_coverage_auditor import FactorCoverageAuditor
+        audit = FactorCoverageAuditor(self.r).audit('drop_foreign_table')
+        self.assertEqual(audit['values']['coverage_gaps'], [])
+        self.assertIn('drop_foreign_table_feature_dependencies', audit['documented_features']['coverage_gaps'])
         self.assertTrue(cr.pairwise_complete and dr.pairwise_complete)
         self.assertTrue(all(c.expected_scope == 'syntax_only' for c in create+drop))
 

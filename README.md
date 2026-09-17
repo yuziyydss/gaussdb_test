@@ -18,7 +18,7 @@
 - 生成缺口诊断：在因子详情展开“为什么未完整”，区分条件取值、规则覆盖、生成异常和待校准Oracle；总览、API和Markdown同口径，见[诊断说明](docs/GENERATION_DIAGNOSTICS.md)。
 ---
 
-## 项目当前记录（2026-09-14，更新于09-16；非全库验收结论）
+## 项目当前记录（2026-09-14，更新于09-17；非全库验收结论）
 
 ### 规模
 
@@ -28,7 +28,7 @@
 | 参考事实记录 | 885条（67个YAML文件；8组裸ID重名，使用文件名::ID区分；不等于生成器已接入） |
 | 因子包 | 317个（224 general + 93 M兼容） |
 | manifest | 846份 |
-| 候选SQL | 5,295条（静态生成，不代表实机通过） |
+| 候选SQL | 5,297条（静态生成，不代表实机通过） |
 | M包source extraction | 93/93 完成 |
 | Value gaps | 25条（18合法阻断 + 7需结构性设计） |
 
@@ -77,6 +77,7 @@ gsql -d <dbname> -p <port> -f docs/extended_validation_script.sql
 | [SEMANTIC_REVIEW_20260915.md](docs/SEMANTIC_REVIEW_20260915.md) | 三包来源原子性、视图 DEFAULT 边界、CASE/UNION 独立类型审计 |
 | [FOREIGN_OPTIONS_CONTRACT_20260915.md](docs/FOREIGN_OPTIONS_CONTRACT_20260915.md) | file_fdw TEXT/CSV 格式与 OPTIONS、真实本地文件、保留 BINARY/FIXED 缺口 |
 | [INSERT_KEY_EXECUTION_PREPARATION_20260916.md](docs/INSERT_KEY_EXECUTION_PREPARATION_20260916.md) | PG同键元组与file_fdw有限合同的离线执行准备、目标所有权与Oracle身份校验；未执行数据库 |
+| [PDF_QUALITY_BATCH_20260917.md](docs/PDF_QUALITY_BATCH_20260917.md) | DROP FOREIGN TABLE有限CASCADE语法代表；关闭值域缺口，保留依赖行为缺口 |
 
 ### 连库执行工具（2026-09-14 新增）
 

@@ -29,10 +29,15 @@ def check_log_fdw_catalog(action, sql, setup, teardown, gates):
         r'\s*\(\s*col1\s+TEXT\s*\)\s+SERVER\s+'+re.escape(server)+
         r"\s+OPTIONS\s*\(\s*logtype\s+'(?-i:gs_log)'\s*\)")
     table = _match(create_pattern, sql if action == 'create' else setup[2])[1].lower()
-    drop_pattern = r'DROP\s+FOREIGN\s+TABLE\s+(?:IF\s+EXISTS\s+)?'+re.escape(table)+r'(?:\s+RESTRICT)?'
+    cleanup_drop_pattern = (r'DROP\s+FOREIGN\s+TABLE\s+(?:IF\s+EXISTS\s+)?'
+                            + re.escape(table) + r'(?:\s+RESTRICT)?')
+    # A no-dependency CASCADE target is a finite syntax representative. It does
+    # not prove dependent-view/index cascade behavior, which remains a feature gap.
+    target_drop_pattern = (r'DROP\s+FOREIGN\s+TABLE\s+(?:IF\s+EXISTS\s+)?'
+                           + re.escape(table) + r'(?:\s+(?:RESTRICT|CASCADE))?')
     if action == 'drop':
-        _match(drop_pattern, sql)
-    cleanup_patterns = ([] if action == 'drop' else [drop_pattern]) + [
+        _match(target_drop_pattern, sql)
+    cleanup_patterns = ([] if action == 'drop' else [cleanup_drop_pattern]) + [
         r'DROP\s+SCHEMA\s+'+re.escape(schema)+r'\s+RESTRICT',
         r'DROP\s+SERVER\s+'+re.escape(server)+r'\s+RESTRICT',
     ]

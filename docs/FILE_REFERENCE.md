@@ -25,7 +25,7 @@ gaussdb_test/
 │   └── ...                            # 批次文档
 │
 ├── generated/
-│   └── factor_packages/       # 846个manifest / 5,295条候选SQL（静态生成）
+│   └── factor_packages/       # 846个manifest / 5,297条候选SQL（静态生成）
 │
 ├── core/
 │   ├── factor_package_model.py      # V1模型定义
@@ -65,6 +65,10 @@ gaussdb_test/
 [PG同键与file_fdw执行准备](INSERT_KEY_EXECUTION_PREPARATION_20260916.md)：
 `insert_same_key` 与 `file_fdw_options` 两个 bounded profile 生成离线准备单元，
 绑定 finite contract evidence、目标 CREATE 所有权和 Oracle 身份；未部署文件、未连接数据库。
+
+[PDF质量增量：DROP FOREIGN TABLE CASCADE](PDF_QUALITY_BATCH_20260917.md)：
+在无依赖的fresh log_fdw生命周期中加入有限CASCADE语法代表；关闭该值域缺口，
+不宣称依赖对象级联行为。
 
 ## 新增文件说明（连库后使用）
 
