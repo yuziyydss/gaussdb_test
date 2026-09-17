@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""Build a bounded dry-run plan for the insert_same_key runtime pilot.
+"""Plan and explicitly execute the bounded insert_same_key runtime pilot.
 
-This is deliberately not a database executor and has no execute flag.  It only
-revalidates an offline preparation artifact and emits the exact ordered plan to
-run after explicit authorization, connection details, and environment checks.
+Without --execute this remains a dry-run planner.  With --execute it uses a
+gsql transport, verifies PG mode, runs each unit independently, compares the
+finite Oracle exactly, and requires owned cleanup.  Passwords are read only
+from an environment variable and are never written to receipts.
 """
 import argparse
 import hashlib
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -17,6 +20,36 @@ if str(ROOT) not in sys.path:
 
 from core.execution_preparation import sql_identity
 from core.insert_conflict_key_contract import check_same_key_tuple
+
+
+class GsqlTransport:
+    """Finite gsql transport; one call per statement, never a concatenated batch."""
+
+    def __init__(self, *, host, port, database, user, password, client="gsql", timeout=30):
+        self.host = host
+        self.port = int(port)
+        self.database = database
+        self.user = user
+        self.password = password
+        self.client = client
+        self.timeout = int(timeout)
+
+    def run(self, sql):
+        command = [self.client, "-X", "-A", "-t", "-F", "\t", "-P", "null=\\N",
+                   "-v", "ON_ERROR_STOP=1", "-v", "VERBOSITY=verbose",
+                   "-h", self.host, "-p", str(self.port), "-d", self.database,
+                   "-U", self.user, "-c", sql]
+        environment = dict(os.environ)
+        if self.password:
+            environment["PGPASSWORD"] = self.password
+        try:
+            result = subprocess.run(command, capture_output=True, text=True,
+                                    timeout=self.timeout, env=environment, check=False)
+            return result.returncode, result.stdout.rstrip("\r\n"), result.stderr.strip()
+        except FileNotFoundError:
+            return -2, "", f"Client not found: {self.client}"
+        except subprocess.TimeoutExpired:
+            return -1, "", f"Timeout after {self.timeout}s"
 
 PROFILE = "insert_same_key"
 SUPPORTED_PROFILES = (PROFILE,)
@@ -238,6 +271,174 @@ def build_dry_run(preparation, *, input_path=None):
     }
 
 
+
+
+def _stage_record(step, status, *, actual="", error="", returncode=None, reason=""):
+    return {
+        "phase": step["phase"], "sequence": step.get("sequence"),
+        "sql": step.get("sql"), "status": status, "actual": actual,
+        "error": error, "returncode": returncode, "reason": reason,
+    }
+
+
+def _command_passed(response, expected_output):
+    returncode, output, error = response
+    return returncode == 0 and output.splitlines() == expected_output and not error
+
+
+def _target_passed(response):
+    returncode, _, error = response
+    return returncode == 0 and not error
+
+
+def _oracle_passed(response, expected_rows):
+    returncode, output, error = response
+    expected = ["\t".join(str(cell) for cell in row) for row in expected_rows]
+    return returncode == 0 and output.splitlines() == expected and not error
+
+
+def execute_plan(plan, transport, *, connection=None):
+    """Execute a validated dry-run plan through a transport, one unit at a time."""
+    _require(isinstance(plan, dict), "execution plan must be an object")
+    _require(plan.get("kind") == "runtime_execution_dry_run", "input must be a runtime dry-run plan")
+    _require(plan.get("profile") == PROFILE, "execution plan profile mismatch")
+    _require(plan.get("status") == "ready_for_authorized_execution", "execution plan is not ready")
+    _require(isinstance(plan.get("units"), list) and len(plan["units"]) == 3,
+             "execution plan must contain three units")
+    units = []
+    runtime_verified = 0
+    failed_units = 0
+    target_steps_executed = 0
+    oracles_executed = 0
+
+    for planned in plan["units"]:
+        steps = []
+        blocked = False
+        owned_table = False
+        target_executed = False
+        oracle_executed = False
+        cleanup_failed = False
+
+        for step in planned["execution_plan"]:
+            phase = step["phase"]
+            if phase == "environment_check":
+                response = transport.run("SHOW sql_compatibility;")
+                returncode, output, error = response
+                passed = returncode == 0 and output.splitlines() == ["PG"] and not error
+                steps.append(_stage_record(step, "PASS" if passed else "FAIL",
+                                           actual=output, error=error, returncode=returncode))
+                blocked = not passed
+                continue
+            if phase == "setup":
+                if blocked:
+                    steps.append(_stage_record(step, "SKIPPED", reason="prior step failed"))
+                    continue
+                response = transport.run(step["sql"])
+                expected = ["CREATE TABLE"] if step["sequence"] == 1 else ["INSERT 0 2"]
+                passed = _command_passed(response, expected)
+                if step["sequence"] == 1 and passed:
+                    owned_table = True
+                steps.append(_stage_record(step, "PASS" if passed else "FAIL",
+                                           actual=response[1], error=response[2],
+                                           returncode=response[0]))
+                blocked = not passed
+                continue
+            if phase == "target":
+                if blocked:
+                    steps.append(_stage_record(step, "SKIPPED", reason="prior step failed"))
+                    continue
+                response = transport.run(step["sql"])
+                passed = _target_passed(response)
+                target_executed = True
+                steps.append(_stage_record(step, "PASS" if passed else "FAIL",
+                                           actual=response[1], error=response[2],
+                                           returncode=response[0]))
+                blocked = not passed
+                continue
+            if phase == "oracle":
+                if blocked:
+                    steps.append(_stage_record(step, "SKIPPED", reason="prior step failed"))
+                    continue
+                response = transport.run(step["sql"])
+                passed = _oracle_passed(response, step["expected_rows"])
+                oracle_executed = True
+                steps.append(_stage_record(step, "PASS" if passed else "FAIL",
+                                           actual=response[1], error=response[2],
+                                           returncode=response[0]))
+                blocked = not passed
+                continue
+            if phase == "teardown":
+                if not owned_table:
+                    steps.append(_stage_record(step, "SKIPPED",
+                                               reason="no owned create receipt"))
+                    continue
+                response = transport.run(step["sql"])
+                passed = _command_passed(response, ["DROP TABLE"])
+                cleanup_failed = not passed
+                steps.append(_stage_record(step, "PASS" if passed else "FAIL",
+                                           actual=response[1], error=response[2],
+                                           returncode=response[0]))
+                continue
+            raise ValueError("unknown execution phase: " + str(phase))
+
+        if target_executed:
+            target_steps_executed += 1
+        if oracle_executed:
+            oracles_executed += 1
+        verified = (not blocked and not cleanup_failed and target_executed
+                    and oracle_executed and all(step["status"] == "PASS" for step in steps))
+        if verified:
+            unit_status = "runtime_verified"
+            runtime_verified += 1
+        elif cleanup_failed:
+            unit_status = "cleanup_failed"
+            failed_units += 1
+        else:
+            unit_status = "failed"
+            failed_units += 1
+        units.append({
+            "scenario_ref": planned["scenario_ref"],
+            "case_id": planned["case_id"],
+            "status": unit_status,
+            "database_executed": True,
+            "runtime_verified": verified,
+            "finite_contract": planned["finite_contract"],
+            "steps": steps,
+            "cleanup": {
+                **planned["cleanup"],
+                "runtime_ownership_proven": owned_table,
+                "cleanup_executed": owned_table,
+                "cleanup_succeeded": owned_table and not cleanup_failed,
+            },
+        })
+
+    return {
+        "kind": "runtime_execution_receipt",
+        "schema_version": 1,
+        "profile": PROFILE,
+        "status": "passed" if runtime_verified == 3 and failed_units == 0 else "failed",
+        "database_executed": True,
+        "execution_authorized": True,
+        "runtime_verified": runtime_verified,
+        "input_path": plan.get("input_path"),
+        "input_sha256": plan.get("input_sha256"),
+        "connection": connection or {},
+        "summary": {
+            "units": len(units),
+            "runtime_verified": runtime_verified,
+            "failed_units": failed_units,
+            "target_steps_executed": target_steps_executed,
+            "oracles_executed": oracles_executed,
+        },
+        "units": units,
+        "limits": [
+            "Runtime verification is limited to the three finite insert_same_key contracts.",
+            "A target client success alone is not proof; the exact result-set Oracle is required.",
+            "Each unit ran independently; sequence state was not shared.",
+            "Cleanup was attempted only after a successful CREATE TABLE receipt.",
+        ],
+    }
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True,
@@ -245,6 +446,15 @@ def main(argv=None):
     parser.add_argument("--output", type=Path, required=True,
                         help="New dry-run JSON receipt; existing paths are never overwritten")
     parser.add_argument("--profile", choices=SUPPORTED_PROFILES, default=PROFILE)
+    parser.add_argument("--execute", action="store_true",
+                        help="Explicitly execute the three-unit pilot; default is dry-run")
+    parser.add_argument("--host")
+    parser.add_argument("--port", type=int)
+    parser.add_argument("--database")
+    parser.add_argument("--user")
+    parser.add_argument("--password-env", default="GAUSSDB_PASSWORD")
+    parser.add_argument("--client", default="gsql")
+    parser.add_argument("--timeout", type=int, default=30)
     args = parser.parse_args(argv)
     try:
         _require(args.input.is_file(), f"input preparation not found: {args.input}")
@@ -253,6 +463,22 @@ def main(argv=None):
         _require(preparation.get("profile") == args.profile,
                  f"input profile must be {args.profile}")
         plan = build_dry_run(preparation, input_path=args.input)
+        if args.execute:
+            missing = [name for name, value in (
+                ("--host", args.host), ("--port", args.port),
+                ("--database", args.database), ("--user", args.user)) if not value]
+            _require(not missing, "execute mode requires: " + ", ".join(missing))
+            _require(1 <= args.timeout <= 3600, "--timeout must be between 1 and 3600")
+            _require(args.password_env in os.environ,
+                     f"password environment variable is not set: {args.password_env}")
+            transport = GsqlTransport(
+                host=args.host, port=args.port, database=args.database,
+                user=args.user, password=os.environ[args.password_env],
+                client=args.client, timeout=args.timeout)
+            plan = execute_plan(plan, transport, connection={
+                "host": args.host, "port": args.port,
+                "database": args.database, "user": args.user, "client": args.client,
+            })
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         parser.error(str(exc))
     args.output.parent.mkdir(parents=True, exist_ok=True)

@@ -183,4 +183,35 @@ teardown
 ```
 
 该脚本不打开连接、不执行 SQL、不部署文件，也不接受任意 SQL 输入。
-真实执行入口必须另行显式授权并补充连接与环境校验。
+
+### 显式 runtime 执行模式
+
+2026-09-17 后续版本已加入 `--execute`，但它仍是受限执行入口：
+
+```bash
+GAUSSDB_PASSWORD='...' python3 scripts/execute_prepared_batch.py \
+  --input work/insert_key_20260916/insert_same_key_preparation.json \
+  --output work/runtime_pilot_20260917/insert_same_key_runtime.json \
+  --execute \
+  --host HOST \
+  --port PORT \
+  --database DATABASE \
+  --user USER
+```
+
+规则：
+
+- 必须显式传入 `--execute`；默认仍是 dry-run。
+- 必须提供 `--host`、`--port`、`--database`、`--user`。
+- 密码只从 `GAUSSDB_PASSWORD` 读取；可用 `--password-env` 指定其它变量名。
+- 回执不包含密码。
+- 每条 SQL 单独调用 gsql，禁止把三个 unit 拼接成一个脚本。
+- 先执行 `SHOW sql_compatibility;`，实际输出必须精确为 `PG`。
+- setup 失败时 target / Oracle 跳过。
+- 只有 `CREATE TABLE` 成功后才允许执行 teardown。
+- target 客户端成功不等于通过；result-set Oracle 必须逐行精确匹配。
+- teardown 失败时该 unit 不能标记 runtime verified。
+- 输出 runtime receipt 记录每个阶段的 SQL、actual、error、returncode 和状态。
+
+当前仓库没有数据库连接，因此尚未产生真实 runtime receipt；
+已有测试使用 scripted transport 验证上述生命周期，不冒充实机结果。
