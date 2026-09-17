@@ -69,7 +69,7 @@ class Batch09Tests(unittest.TestCase):
 
     def test_resource_pool_io_priority_domain_is_rendered_with_scope_gate(self):
         cases = self.factor_cases('create_resource_pool')
-        self.assertEqual(len(cases), 15)
+        self.assertEqual(len(cases), 17)
         sqls = '\n'.join(c.sql for c in cases)
         for value in ("Low", "Medium", "High", "None"):
             self.assertIn(f"IO_PRIORITY = '{value}'", sqls)
@@ -93,6 +93,33 @@ class Batch09Tests(unittest.TestCase):
             'create_resource_pool_options_io_priority_none',
         })
         self.assertIn('create_resource_pool_feature_io_threshold',
+                      audit['documented_features']['needs_profile'])
+
+    def test_create_resource_pool_memory_limit_boundaries_are_rendered(self):
+        cases = self.factor_cases('create_resource_pool')
+        sqls = '\n'.join(c.sql for c in cases)
+        self.assertIn("MEMORY_LIMIT = '1KB'", sqls)
+        self.assertIn("MEMORY_LIMIT = '2047GB'", sqls)
+        memory_cases = [c for c in cases if c.params['options'] in {
+            'create_resource_pool_options_memory_min',
+            'create_resource_pool_options_memory',
+            'create_resource_pool_options_memory_max',
+        }]
+        self.assertEqual(len(memory_cases), 3)
+        self.assertIn("MEMORY_LIMIT = '1MB'", '\n'.join(c.sql for c in memory_cases))
+        audit = FactorCoverageAuditor(self.registry).audit('create_resource_pool')
+        self.assertEqual(audit['values']['coverage_gaps'],
+                         ['options.create_resource_pool_options_dop_one'])
+        feature = audit['documented_features']['details'][
+            'create_resource_pool_feature_memory_limit_boundaries']
+        self.assertEqual(feature['status'], 'covered')
+        self.assertEqual(feature['coverage_mode'], 'representative')
+        self.assertEqual(set(feature['selected_refs']), {
+            'create_resource_pool_options_memory_min',
+            'create_resource_pool_options_memory',
+            'create_resource_pool_options_memory_max',
+        })
+        self.assertIn('create_resource_pool_feature_dop_centralized',
                       audit['documented_features']['needs_profile'])
 
     def test_alter_resource_pool_io_priority_domain_is_rendered_with_scope_gate(self):

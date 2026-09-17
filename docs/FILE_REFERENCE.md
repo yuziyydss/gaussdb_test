@@ -25,7 +25,7 @@ gaussdb_test/
 │   └── ...                            # 批次文档
 │
 ├── generated/
-│   └── factor_packages/       # 847个manifest / 5,308条候选SQL（静态生成）
+│   └── factor_packages/       # 847个manifest / 5,310条候选SQL（静态生成）
 │
 ├── core/
 │   ├── factor_package_model.py      # V1模型定义
@@ -83,6 +83,9 @@ gaussdb_test/
 
 [PDF质量增量：ALTER RESOURCE POOL IO_LIMITS](PDF_QUALITY_BATCH_20260917_IO_LIMITS.md)：
 覆盖0与2147483647两个边界代表；不宣称全整数域、限流行为或90%阈值行为。
+
+[PDF质量增量：CREATE RESOURCE POOL MEMORY_LIMIT](PDF_QUALITY_BATCH_20260917_MEMORY_LIMITS.md)：
+覆盖1KB、1MB与2047GB三个代表；不宣称全字符串域、内存限额或运行时优先级行为。
 
 ## 新增文件说明（连库后使用）
 

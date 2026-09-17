@@ -1,6 +1,6 @@
 -- generated_from: manifest_create_resource_pool_ordinary
 -- static_only: true
--- case_count: 15
+-- case_count: 17
 
 -- case_id: manifest_create_resource_pool_ordinary_683feff66df7
 -- expected: success
@@ -210,6 +210,22 @@ CREATE RESOURCE POOL b9_pool WITH (IO_PRIORITY = 'None');
 -- fixture_teardown:
 DROP RESOURCE POOL IF EXISTS b9_pool;
 
+-- case_id: manifest_create_resource_pool_ordinary_d46093759458
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_only
+-- params: {"options": "create_resource_pool_options_memory_min"}
+-- environment_requirements: [{"allowed_values": ["true"], "fact_refs": ["create_resource_pool_fact_privilege"], "key": "resource_pool_admin"}, {"allowed_values": ["false"], "fact_refs": ["create_resource_pool_fact_no_upgrade"], "key": "upgrade_in_progress"}, {"allowed_values": ["false"], "fact_refs": ["create_resource_pool_fact_no_multitenant"], "key": "multitenant"}, {"allowed_values": ["complex_jobs_only"], "fact_refs": ["create_resource_pool_fact_complex_jobs"], "key": "io_control_scope"}, {"allowed_values": ["High,Medium"], "fact_refs": ["create_resource_pool_fact_timeshare"], "key": "default_timeshare_groups_available"}]
+-- fixture_setup:
+SELECT 1 / (1 - COUNT(*)) AS assert_pool_absent FROM pg_resource_pool WHERE respool_name = 'b9_pool';
+-- test_sql:
+CREATE RESOURCE POOL b9_pool WITH (MEMORY_LIMIT = '1KB');
+-- fixture_teardown:
+DROP RESOURCE POOL IF EXISTS b9_pool;
+
 -- case_id: manifest_create_resource_pool_ordinary_34150e26416d
 -- expected: success
 -- expected_error_category: -
@@ -223,6 +239,22 @@ DROP RESOURCE POOL IF EXISTS b9_pool;
 SELECT 1 / (1 - COUNT(*)) AS assert_pool_absent FROM pg_resource_pool WHERE respool_name = 'b9_pool';
 -- test_sql:
 CREATE RESOURCE POOL b9_pool WITH (MEMORY_LIMIT = '1MB');
+-- fixture_teardown:
+DROP RESOURCE POOL IF EXISTS b9_pool;
+
+-- case_id: manifest_create_resource_pool_ordinary_b88fc2bf2faa
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_only
+-- params: {"options": "create_resource_pool_options_memory_max"}
+-- environment_requirements: [{"allowed_values": ["true"], "fact_refs": ["create_resource_pool_fact_privilege"], "key": "resource_pool_admin"}, {"allowed_values": ["false"], "fact_refs": ["create_resource_pool_fact_no_upgrade"], "key": "upgrade_in_progress"}, {"allowed_values": ["false"], "fact_refs": ["create_resource_pool_fact_no_multitenant"], "key": "multitenant"}, {"allowed_values": ["complex_jobs_only"], "fact_refs": ["create_resource_pool_fact_complex_jobs"], "key": "io_control_scope"}, {"allowed_values": ["High,Medium"], "fact_refs": ["create_resource_pool_fact_timeshare"], "key": "default_timeshare_groups_available"}]
+-- fixture_setup:
+SELECT 1 / (1 - COUNT(*)) AS assert_pool_absent FROM pg_resource_pool WHERE respool_name = 'b9_pool';
+-- test_sql:
+CREATE RESOURCE POOL b9_pool WITH (MEMORY_LIMIT = '2047GB');
 -- fixture_teardown:
 DROP RESOURCE POOL IF EXISTS b9_pool;
 
