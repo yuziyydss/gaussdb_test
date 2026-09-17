@@ -25,7 +25,7 @@ gaussdb_test/
 │   └── ...                            # 批次文档
 │
 ├── generated/
-│   └── factor_packages/       # 847个manifest / 5,313条候选SQL（静态生成）
+│   └── factor_packages/       # 847个manifest / 5,316条候选SQL（静态生成）
 │
 ├── core/
 │   ├── factor_package_model.py      # V1模型定义
@@ -89,6 +89,9 @@ gaussdb_test/
 
 [PDF质量增量：ALTER RESOURCE POOL MEMORY_LIMIT](PDF_QUALITY_BATCH_20260917_ALTER_MEMORY_LIMITS.md)：
 覆盖ALTER分支的1KB、1MB与2047GB三个standalone代表；多租冲突与MAX_DOP缺口继续保留。
+
+[PDF质量增量：ALTER RESOURCE POOL ACTIVE_STATEMENTS](PDF_QUALITY_BATCH_20260917_ACTIVE_STATEMENTS.md)：
+覆盖-1、0、1与2147483647四个代表；不宣称全整数域或并发控制行为。
 
 ## 新增文件说明（连库后使用）
 

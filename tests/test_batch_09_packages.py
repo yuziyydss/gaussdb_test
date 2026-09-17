@@ -124,7 +124,7 @@ class Batch09Tests(unittest.TestCase):
 
     def test_alter_resource_pool_io_priority_domain_is_rendered_with_scope_gate(self):
         cases = self.factor_cases('alter_resource_pool')
-        self.assertEqual(len(cases), 15)
+        self.assertEqual(len(cases), 18)
         sqls = '\n'.join(c.sql for c in cases)
         for value in ("Low", "Medium", "High", "None"):
             self.assertIn(f"IO_PRIORITY = '{value}'", sqls)
@@ -148,6 +148,29 @@ class Batch09Tests(unittest.TestCase):
             'alter_resource_pool_options_io_priority_none',
         })
         self.assertIn('alter_resource_pool_feature_threshold_conflict',
+                      audit['documented_features']['needs_profile'])
+
+    def test_alter_resource_pool_active_statements_boundaries_are_rendered(self):
+        cases = self.factor_cases('alter_resource_pool')
+        sqls = '\n'.join(c.sql for c in cases)
+        for value in (-1, 0, 1, 2147483647):
+            self.assertIn(f'ACTIVE_STATEMENTS = {value}', sqls)
+        active_cases = [c for c in cases if 'ACTIVE_STATEMENTS' in c.sql]
+        self.assertEqual(len(active_cases), 4)
+        audit = FactorCoverageAuditor(self.registry).audit('alter_resource_pool')
+        self.assertEqual(audit['values']['coverage_gaps'],
+                         ['options.alter_resource_pool_options_dop_one'])
+        feature = audit['documented_features']['details'][
+            'alter_resource_pool_feature_active_statements_boundaries']
+        self.assertEqual(feature['status'], 'covered')
+        self.assertEqual(feature['coverage_mode'], 'representative')
+        self.assertEqual(set(feature['selected_refs']), {
+            'alter_resource_pool_options_active_unlimited',
+            'alter_resource_pool_options_active_disabled',
+            'alter_resource_pool_options_active_one',
+            'alter_resource_pool_options_active_max',
+        })
+        self.assertIn('alter_resource_pool_feature_dop_centralized',
                       audit['documented_features']['needs_profile'])
 
     def test_alter_resource_pool_memory_limit_boundaries_are_rendered(self):

@@ -1,6 +1,6 @@
 -- generated_from: manifest_alter_resource_pool_ordinary
 -- static_only: true
--- case_count: 15
+-- case_count: 18
 
 -- case_id: manifest_alter_resource_pool_ordinary_27d0d42e271d
 -- expected: success
@@ -66,6 +66,38 @@ ALTER RESOURCE POOL b9_pool WITH (MEM_PERCENT = 1);
 -- fixture_teardown:
 DROP RESOURCE POOL IF EXISTS b9_pool;
 
+-- case_id: manifest_alter_resource_pool_ordinary_d9c452ea01f5
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_only
+-- params: {"options": "alter_resource_pool_options_active_unlimited"}
+-- environment_requirements: [{"allowed_values": ["true"], "fact_refs": ["alter_resource_pool_fact_privilege"], "key": "resource_pool_admin"}, {"allowed_values": ["false"], "fact_refs": ["alter_resource_pool_fact_no_upgrade"], "key": "upgrade_in_progress"}, {"allowed_values": ["false"], "fact_refs": ["alter_resource_pool_fact_no_multitenant"], "key": "multitenant"}, {"allowed_values": ["complex_jobs_only"], "fact_refs": ["alter_resource_pool_fact_complex_jobs"], "key": "io_control_scope"}, {"allowed_values": ["High,Medium"], "fact_refs": ["alter_resource_pool_fact_timeshare"], "key": "default_timeshare_groups_available"}]
+-- fixture_setup:
+CREATE RESOURCE POOL b9_pool;
+-- test_sql:
+ALTER RESOURCE POOL b9_pool WITH (ACTIVE_STATEMENTS = -1);
+-- fixture_teardown:
+DROP RESOURCE POOL IF EXISTS b9_pool;
+
+-- case_id: manifest_alter_resource_pool_ordinary_2ff0395063c4
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_only
+-- params: {"options": "alter_resource_pool_options_active_disabled"}
+-- environment_requirements: [{"allowed_values": ["true"], "fact_refs": ["alter_resource_pool_fact_privilege"], "key": "resource_pool_admin"}, {"allowed_values": ["false"], "fact_refs": ["alter_resource_pool_fact_no_upgrade"], "key": "upgrade_in_progress"}, {"allowed_values": ["false"], "fact_refs": ["alter_resource_pool_fact_no_multitenant"], "key": "multitenant"}, {"allowed_values": ["complex_jobs_only"], "fact_refs": ["alter_resource_pool_fact_complex_jobs"], "key": "io_control_scope"}, {"allowed_values": ["High,Medium"], "fact_refs": ["alter_resource_pool_fact_timeshare"], "key": "default_timeshare_groups_available"}]
+-- fixture_setup:
+CREATE RESOURCE POOL b9_pool;
+-- test_sql:
+ALTER RESOURCE POOL b9_pool WITH (ACTIVE_STATEMENTS = 0);
+-- fixture_teardown:
+DROP RESOURCE POOL IF EXISTS b9_pool;
+
 -- case_id: manifest_alter_resource_pool_ordinary_e26dfc76cf39
 -- expected: success
 -- expected_error_category: -
@@ -79,6 +111,22 @@ DROP RESOURCE POOL IF EXISTS b9_pool;
 CREATE RESOURCE POOL b9_pool;
 -- test_sql:
 ALTER RESOURCE POOL b9_pool WITH (ACTIVE_STATEMENTS = 1);
+-- fixture_teardown:
+DROP RESOURCE POOL IF EXISTS b9_pool;
+
+-- case_id: manifest_alter_resource_pool_ordinary_0e578b389208
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_only
+-- params: {"options": "alter_resource_pool_options_active_max"}
+-- environment_requirements: [{"allowed_values": ["true"], "fact_refs": ["alter_resource_pool_fact_privilege"], "key": "resource_pool_admin"}, {"allowed_values": ["false"], "fact_refs": ["alter_resource_pool_fact_no_upgrade"], "key": "upgrade_in_progress"}, {"allowed_values": ["false"], "fact_refs": ["alter_resource_pool_fact_no_multitenant"], "key": "multitenant"}, {"allowed_values": ["complex_jobs_only"], "fact_refs": ["alter_resource_pool_fact_complex_jobs"], "key": "io_control_scope"}, {"allowed_values": ["High,Medium"], "fact_refs": ["alter_resource_pool_fact_timeshare"], "key": "default_timeshare_groups_available"}]
+-- fixture_setup:
+CREATE RESOURCE POOL b9_pool;
+-- test_sql:
+ALTER RESOURCE POOL b9_pool WITH (ACTIVE_STATEMENTS = 2147483647);
 -- fixture_teardown:
 DROP RESOURCE POOL IF EXISTS b9_pool;
 
