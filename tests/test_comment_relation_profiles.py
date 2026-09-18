@@ -5,6 +5,7 @@ import unittest
 
 from core.factor_package_model import FactorPackageRegistry
 from core.factor_package_generator import FactorPackageSQLGenerator
+from core.factor_coverage_auditor import FactorCoverageAuditor
 
 
 class CommentRelationProfileTests(unittest.TestCase):
@@ -67,6 +68,18 @@ class CommentRelationProfileTests(unittest.TestCase):
         fixture = self.registry.fixtures['fixture_comment_owned_relations']
         self.assertEqual([t.name for t in fixture.provides.tables], ['g_comment_rel_base'])
         self.assertIn('ownership', fixture.execution.note)
+
+    def test_table_and_column_feature_domain_is_finite_and_complete(self):
+        self.cases()
+        feature=next(f for f in self.registry.matrices['matrix_comment_coverage'].documented_features
+                     if f.id=='comment_feature_table_and_column')
+        self.assertEqual((feature.status,feature.coverage_mode),('covered','all'))
+        self.assertEqual(feature.value_refs,['comment_target_table','comment_target_c1','comment_target_c2'])
+        audit=FactorCoverageAuditor(self.registry).audit('comment')
+        detail=audit['documented_features']['details']['comment_feature_table_and_column']
+        self.assertTrue(detail['domain_complete'])
+        self.assertEqual(detail['missing_refs'],[])
+        self.assertNotIn('comment_feature_table_and_column',audit['documented_features']['coverage_gaps'])
 
     def test_old_table_cases_unchanged_and_domains_not_claimed_complete(self):
         self.cases()

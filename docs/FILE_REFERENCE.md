@@ -114,6 +114,9 @@ gaussdb_test/
 [PDF质量增量：COMMENT TEXT SEARCH DICTIONARY](PDF_QUALITY_BATCH_20260918_COMMENT_TSDICTIONARY.md)：
 为实际Simple词典增加COMMENT目标与四类文本交叉；不验证分词行为或目录身份。
 
+[PDF质量增量：COMMENT TABLE/COLUMN域闭合](PDF_QUALITY_BATCH_20260918_COMMENT_TABLE_COLUMN_ALL.md)：
+TABLE和两个COLUMN目标全部选中，TABLE/COLUMN feature从representative升级为all。
+
 ## 新增文件说明（连库后使用）
 
 ### `scripts/auto_validate.py`

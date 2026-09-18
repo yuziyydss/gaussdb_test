@@ -75,6 +75,11 @@ INTEGER操作符增加COMMENT目标与四类文本交叉，comment候选从64条
 其他arity、operator class/family和目录Oracle仍待校准。当前全库为850个manifest、
 5,332条候选，generation model complete仍为256/317。
 
+[COMMENT TABLE/COLUMN域闭合](PDF_QUALITY_BATCH_20260918_COMMENT_TABLE_COLUMN_ALL.md) 将
+TABLE与两个COLUMN目标从representative升级为all，comment feature gap降至31；
+其他对象类型和目录Oracle仍待校准。当前全库为853个manifest、5,344条候选，
+generation model complete仍为256/317。
+
 [COMMENT TEXT SEARCH DICTIONARY](PDF_QUALITY_BATCH_20260918_COMMENT_TSDICTIONARY.md) 为
 实际Simple词典增加COMMENT目标与四类文本交叉，comment候选从76条增至80条；
 词典分词行为和目录Oracle仍待校准。当前全库为853个manifest、5,344条候选，
