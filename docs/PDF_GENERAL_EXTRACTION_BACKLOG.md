@@ -66,7 +66,11 @@ FDW数据读取、validator和目录Oracle仍待校准。
 
 [COMMENT DOMAIN](PDF_QUALITY_BATCH_20260918_COMMENT_DOMAIN.md) 为实际CHECK DOMAIN
 增加COMMENT目标与四类文本交叉，comment候选从60条增至64条；domain转换、约束和目录Oracle
-仍待校准。当前全库为849个manifest、5,328条候选，generation model complete仍为256/317。
+仍待校准。
+
+[COMMENT文本域闭合](PDF_QUALITY_BATCH_20260918_COMMENT_TEXT_ALL.md) 将四类注释文本
+从representative升级为all，comment feature gap从33降至32；目录Oracle和对象行为仍待数据库校准。
+当前全库为849个manifest、5,328条候选，generation model complete仍为256/317。
 
 ## 下一阶段：补质量缺口，不再补空目录
 

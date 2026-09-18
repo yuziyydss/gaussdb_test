@@ -115,6 +115,19 @@ class CommentFunctionTests(unittest.TestCase):
         foreign_table=features['comment_feature_object_foreign_table']
         self.assertEqual((foreign_table.status,foreign_table.coverage_mode),('covered','representative'))
 
+    def test_comment_text_domain_is_finite_and_complete(self):
+        self.cases()
+        feature=next(f for f in self.r.matrices['matrix_comment_coverage'].documented_features
+                     if f.id=='comment_feature_comment_values')
+        self.assertEqual((feature.status,feature.coverage_mode),('covered','all'))
+        self.assertEqual(feature.value_refs,['comment_text_plain','comment_text_unicode',
+                                             'comment_text_quote','comment_text_null'])
+        audit=FactorCoverageAuditor(self.r).audit('comment')
+        detail=audit['documented_features']['details']['comment_feature_comment_values']
+        self.assertTrue(detail['domain_complete'])
+        self.assertEqual(detail['missing_refs'],[])
+        self.assertNotIn('comment_feature_comment_values',audit['documented_features']['coverage_gaps'])
+
     def test_recombining_seven_lines_under_one_fact_reproduces_atomicity_failure(self):
         r=copy.deepcopy(self.r);ledger=r.source_ledgers['source_ledger_comment']
         units=[u for u in ledger.units if 33<=u.line_start<=39]

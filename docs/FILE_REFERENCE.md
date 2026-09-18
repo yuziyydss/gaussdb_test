@@ -99,6 +99,9 @@ gaussdb_test/
 [PDF质量增量：COMMENT DOMAIN](PDF_QUALITY_BATCH_20260918_COMMENT_DOMAIN.md)：
 为实际CHECK DOMAIN增加COMMENT目标与四类文本交叉；不验证domain转换、约束或目录行为。
 
+[PDF质量增量：COMMENT文本域闭合](PDF_QUALITY_BATCH_20260918_COMMENT_TEXT_ALL.md)：
+四类注释文本全部选中，文本feature从representative升级为all；不证明目录行为。
+
 ## 新增文件说明（连库后使用）
 
 ### `scripts/auto_validate.py`
