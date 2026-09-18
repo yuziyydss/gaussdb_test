@@ -27,8 +27,8 @@
 | PDF覆盖 | 5,686页 全部大部 |
 | 参考事实记录 | 885条（67个YAML文件；8组裸ID重名，使用文件名::ID区分；不等于生成器已接入） |
 | 因子包 | 317个（224 general + 93 M兼容） |
-| manifest | 854份 |
-| 候选SQL | 5,348条（静态生成，不代表实机通过） |
+| manifest | 855份 |
+| 候选SQL | 5,352条（静态生成，不代表实机通过） |
 | M包source extraction | 93/93 完成 |
 | Value gaps | 25条（18合法阻断 + 7需结构性设计） |
 
@@ -93,6 +93,7 @@ gsql -d <dbname> -p <port> -f docs/extended_validation_script.sql
 | [PDF_QUALITY_BATCH_20260918_COMMENT_TRIGGER.md](docs/PDF_QUALITY_BATCH_20260918_COMMENT_TRIGGER.md) | COMMENT TRIGGER一个BEFORE INSERT有限对象代表；保留触发行为与目录Oracle缺口 |
 | [PDF_QUALITY_BATCH_20260918_COMMENT_TSDICTIONARY.md](docs/PDF_QUALITY_BATCH_20260918_COMMENT_TSDICTIONARY.md) | COMMENT TEXT SEARCH DICTIONARY一个Simple词典代表；保留词典行为与目录Oracle缺口 |
 | [PDF_QUALITY_BATCH_20260918_COMMENT_ROLE.md](docs/PDF_QUALITY_BATCH_20260918_COMMENT_ROLE.md) | COMMENT ROLE一个NOLOGIN/DISABLE独占角色代表；保留权限行为与目录Oracle缺口 |
+| [PDF_QUALITY_BATCH_20260918_COMMENT_TSCONFIG.md](docs/PDF_QUALITY_BATCH_20260918_COMMENT_TSCONFIG.md) | COMMENT TEXT SEARCH CONFIGURATION一个default解析器代表；保留分词/映射与目录Oracle缺口 |
 | [PDF_QUALITY_BATCH_20260918_COMMENT_TABLE_COLUMN_ALL.md](docs/PDF_QUALITY_BATCH_20260918_COMMENT_TABLE_COLUMN_ALL.md) | COMMENT TABLE/COLUMN有限域闭合；保留其他对象与目录Oracle缺口 |
 
 ### 连库执行工具（2026-09-14 新增）
