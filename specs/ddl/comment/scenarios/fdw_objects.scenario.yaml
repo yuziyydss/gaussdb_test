@@ -1,0 +1,37 @@
+schema_version: 1
+kind: scenario
+id: scenario_comment_fdw_objects
+name: COMMENT外部服务器与外表目录身份待校准
+factor_ref: comment
+status: planned
+description: 只观察实际创建的外部服务器与外表注释身份；不读取日志数据，不宣称FDW运行时可用。
+fixture_refs: [fixture_comment_fdw_objects]
+fact_refs:
+  - comment_fact_authority
+  - comment_fact_syntax_b
+  - comment_fact_object_foreign_table_syntax
+  - create_server::create_server_fact_fdw_environment
+  - create_foreign_table::create_foreign_table_fact_log_fdw_example
+preconditions:
+  - 独占测试数据库与隔离连接
+  - log_fdw目录DDL能力确认
+  - 非PDB环境
+  - 初始服务器、schema和外表不存在
+  - 记录每个对象的实际创建归属
+steps:
+  - id: comment_foreign_table
+    candidate:
+      manifest_ref: manifest_comment_fdw_objects
+      params: {target: comment_target_foreign_table_fresh, text: comment_text_plain}
+  - id: comment_server
+    candidate:
+      manifest_ref: manifest_comment_fdw_objects
+      params: {target: comment_target_server_fresh, text: comment_text_plain}
+oracles:
+  - kind: manual_assertion
+    step_id: comment_foreign_table
+    expected: 校准目录中该外表注释的设置、替换与清除；不得用目标SQL成功或清理成功替代目录Oracle。
+  - kind: manual_assertion
+    step_id: comment_server
+    expected: 校准目录中该服务器注释的设置、替换与清除；不得用目标SQL成功或清理成功替代目录Oracle。
+execution_requirements: [database_authorization, target_oracle_calibration, isolated_connection, ownership_scoped_cleanup, preserve_stage_failures]

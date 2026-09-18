@@ -1,0 +1,28 @@
+schema_version: 1
+kind: fixture
+id: fixture_comment_fdw_objects
+name: COMMENT外部服务器与外表专属资产
+factor_ref: comment
+status: needs_review
+description: 实际创建log_fdw服务器、独占schema和单TEXT列表外；不读取日志数据，不验证FDW运行时能力。
+requires_fixture_refs: []
+provides:
+  tables:
+    - name: g_comment_fdw_ns.foreign_table
+      persistence: permanent
+      table_kind: foreign
+      columns:
+        - {name: col1, type: TEXT, nullable: true}
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - "CREATE SERVER g_comment_fdw_server FOREIGN DATA WRAPPER log_fdw;"
+    - "CREATE SCHEMA g_comment_fdw_ns;"
+    - "CREATE FOREIGN TABLE g_comment_fdw_ns.foreign_table (col1 TEXT) SERVER g_comment_fdw_server OPTIONS (logtype 'gs_log');"
+  teardown_sqls:
+    - "DROP FOREIGN TABLE g_comment_fdw_ns.foreign_table RESTRICT;"
+    - "DROP SCHEMA g_comment_fdw_ns RESTRICT;"
+    - "DROP SERVER g_comment_fdw_server RESTRICT;"
+  note: 仅在预先授权的独占测试数据库与隔离连接中运行；初始服务器和schema不存在，schema为非当前模式。记录每个对象的实际创建归属，setup失败阻止目标并保留实际对象清单；只有本case确认创建成功的对象才按外表、schema、server逆序RESTRICT清理。禁止CASCADE、DROP OWNED或吞异常。不读取日志数据，不验证FDW validator、权限或远端读取行为；目录身份Oracle仍待校准。

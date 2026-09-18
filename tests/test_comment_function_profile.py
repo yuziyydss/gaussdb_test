@@ -108,7 +108,10 @@ class CommentFunctionTests(unittest.TestCase):
             self.assertIn(fid,features['comment_feature_object_'+kind].fact_refs)
         gaps=FactorCoverageAuditor(self.r).audit('comment')['source_units']['atomicity']['gaps']
         self.assertEqual(gaps, [])
-        self.assertTrue(all(features['comment_feature_object_'+k].status=='needs_profile' for k in kinds[:5]))
+        self.assertTrue(all(features['comment_feature_object_'+k].status=='needs_profile'
+                            for k in kinds[:4]))
+        foreign_table=features['comment_feature_object_foreign_table']
+        self.assertEqual((foreign_table.status,foreign_table.coverage_mode),('covered','representative'))
 
     def test_recombining_seven_lines_under_one_fact_reproduces_atomicity_failure(self):
         r=copy.deepcopy(self.r);ledger=r.source_ledgers['source_ledger_comment']

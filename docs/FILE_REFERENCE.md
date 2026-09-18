@@ -25,7 +25,7 @@ gaussdb_test/
 │   └── ...                            # 批次文档
 │
 ├── generated/
-│   └── factor_packages/       # 847个manifest / 5,316条候选SQL（静态生成）
+│   └── factor_packages/       # 848个manifest / 5,324条候选SQL（静态生成）
 │
 ├── core/
 │   ├── factor_package_model.py      # V1模型定义
@@ -92,6 +92,9 @@ gaussdb_test/
 
 [PDF质量增量：ALTER RESOURCE POOL ACTIVE_STATEMENTS](PDF_QUALITY_BATCH_20260917_ACTIVE_STATEMENTS.md)：
 覆盖-1、0、1与2147483647四个代表；不宣称全整数域或并发控制行为。
+
+[PDF质量增量：COMMENT外部对象](PDF_QUALITY_BATCH_20260918_COMMENT_FDW.md)：
+为FOREIGN TABLE与SERVER增加真实log_fdw生命周期和四类文本交叉；不验证FDW数据或目录行为。
 
 ## 新增文件说明（连库后使用）
 

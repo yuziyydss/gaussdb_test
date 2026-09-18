@@ -79,8 +79,12 @@ class CommentRelationProfileTests(unittest.TestCase):
         function = features['comment_feature_object_function']
         self.assertEqual((function.status,function.coverage_mode),('covered','representative'))
         self.assertEqual(function.value_refs,['comment_target_function_fresh'])
-        for suffix in ('database', 'foreign_table', 'role'):
+        for suffix in ('database', 'role'):
             self.assertEqual(features['comment_feature_object_'+suffix].status, 'needs_profile')
+        foreign_table=features['comment_feature_object_foreign_table']
+        self.assertEqual((foreign_table.status,foreign_table.coverage_mode),('covered','representative'))
+        server=features['comment_feature_object_server']
+        self.assertEqual((server.status,server.coverage_mode),('covered','representative'))
         self.assertEqual(features['comment_feature_other_objects'].status, 'needs_profile')
 
     def test_lifecycle_is_planned_and_directory_oracle_requires_calibration(self):

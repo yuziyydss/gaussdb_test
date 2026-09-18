@@ -60,7 +60,10 @@ ALTER分支的Low/Medium/High/None四个字面量，候选从6条增至10条；
 1KB、1MB与2047GB三个standalone代表，候选从12条增至15条；多租冲突与MAX_DOP缺口继续保留。
 [ALTER RESOURCE POOL ACTIVE_STATEMENTS](PDF_QUALITY_BATCH_20260917_ACTIVE_STATEMENTS.md) 覆盖
 -1、0、1与2147483647四个代表，候选从15条增至18条；不宣称并发控制行为。
-当前全库为847个manifest、5,316条候选，generation model complete仍为256/317。
+[COMMENT外部对象](PDF_QUALITY_BATCH_20260918_COMMENT_FDW.md) 为FOREIGN TABLE与SERVER
+增加真实log_fdw生命周期和四类文本交叉，comment候选从52条增至60条；
+FDW数据读取、validator和目录Oracle仍待校准。当前全库为848个manifest、5,324条候选，
+generation model complete仍为256/317。
 
 ## 下一阶段：补质量缺口，不再补空目录
 
