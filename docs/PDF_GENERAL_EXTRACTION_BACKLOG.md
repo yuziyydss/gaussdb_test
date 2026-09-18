@@ -75,6 +75,11 @@ INTEGER操作符增加COMMENT目标与四类文本交叉，comment候选从64条
 其他arity、operator class/family和目录Oracle仍待校准。当前全库为850个manifest、
 5,332条候选，generation model complete仍为256/317。
 
+[COMMENT FOREIGN DATA WRAPPER](PDF_QUALITY_BATCH_20260918_COMMENT_FDW.md) 为实际
+NO HANDLER、NO VALIDATOR封装器增加COMMENT目标与四类文本交叉，comment候选从88条增至96条；
+FDW行为和目录Oracle仍待校准。当前全库为856个manifest、5,360条候选，
+generation model complete仍为256/317。
+
 [COMMENT TEXT SEARCH CONFIGURATION](PDF_QUALITY_BATCH_20260918_COMMENT_TSCONFIG.md) 为
 实际default解析器配置增加COMMENT目标与四类文本交叉，comment候选从84条增至88条；
 分词、映射和目录Oracle仍待校准。当前全库为855个manifest、5,352条候选，

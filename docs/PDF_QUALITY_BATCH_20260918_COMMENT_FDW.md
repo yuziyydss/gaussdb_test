@@ -1,4 +1,4 @@
-# PDF 质量抽取增量：COMMENT 外部对象（2026-09-18）
+# PDF 质量抽取增量：COMMENT FOREIGN DATA WRAPPER（2026-09-18）
 
 ## 范围
 
@@ -8,7 +8,7 @@
 
 - `general/ddl/comment.txt`
 - 章节：1.13.9.6 COMMENT
-- 相关原文：`FOREIGN TABLE object_name` 与 `SERVER object_name`
+- 相关原文：`FOREIGN DATA WRAPPER object_name`
 - 父 PDF：GaussDB V2.0-10.0.0 centralized，SHA-256
   `716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe`
 
@@ -17,80 +17,63 @@
 新增 manifest：
 
 ```text
-manifest_comment_fdw_objects
+manifest_comment_fdw
 ```
 
-新增两个有限对象代表：
-
-- `FOREIGN TABLE g_comment_fdw_ns.foreign_table`
-- `SERVER g_comment_fdw_server`
-
-并与既有四类注释文本交叉：
-
-- plain
-- Unicode
-- quote
-- NULL
-
-候选数新增 8 条。
-
-真实 fixture 生命周期：
-
-```text
-CREATE SERVER g_comment_fdw_server FOREIGN DATA WRAPPER log_fdw;
-CREATE SCHEMA g_comment_fdw_ns;
-CREATE FOREIGN TABLE g_comment_fdw_ns.foreign_table
-  (col1 TEXT)
-  SERVER g_comment_fdw_server
-  OPTIONS (logtype 'gs_log');
-```
-
-teardown 逆序：
-
-```text
-DROP FOREIGN TABLE g_comment_fdw_ns.foreign_table RESTRICT;
-DROP SCHEMA g_comment_fdw_ns RESTRICT;
-DROP SERVER g_comment_fdw_server RESTRICT;
-```
-
-目标 SQL 示例：
+新增真实对象生命周期：
 
 ```sql
-COMMENT ON FOREIGN TABLE g_comment_fdw_ns.foreign_table IS 'factor note';
-COMMENT ON SERVER g_comment_fdw_server IS NULL;
+CREATE FOREIGN DATA WRAPPER g_comment_fdw NO HANDLER NO VALIDATOR;
 ```
+
+teardown：
+
+```sql
+DROP FOREIGN DATA WRAPPER g_comment_fdw RESTRICT;
+```
+
+目标与四类注释文本交叉：
+
+```sql
+COMMENT ON FOREIGN DATA WRAPPER g_comment_fdw IS 'factor note';
+COMMENT ON FOREIGN DATA WRAPPER g_comment_fdw IS '测试注释';
+COMMENT ON FOREIGN DATA WRAPPER g_comment_fdw IS 'owner''s note';
+COMMENT ON FOREIGN DATA WRAPPER g_comment_fdw IS NULL;
+```
+
+候选数新增 4 条。
 
 ## 结果
 
 | 指标 | 之前 | 当前 |
 |---|---:|---:|
-| comment manifest | 7 | 8 |
-| comment candidate | 52 | 60 |
-| FOREIGN TABLE feature | needs_profile | covered / representative |
-| SERVER feature | needs_profile | covered / representative |
-| 全库 manifest | 847 | 848 |
-| 全库 candidate | 5,316 | 5,324 |
-| 全库 distinct SQL | 5,229 | 5,237 |
-| Planned scenario | 902 | 903 |
+| comment manifest | 15 | 16 |
+| comment candidate | 88 | 96 |
+| FOREIGN DATA WRAPPER feature | needs_profile | covered / representative |
+| 全库 manifest | 855 | 856 |
+| 全库 candidate | 5,352 | 5,360 |
+| 全库 distinct SQL | 5,265 | 5,273 |
+| Planned scenario | 910 | 911 |
 
 ## 保留边界
 
-本轮只证明两个对象分支的 syntax-only 有限代表和真实 fresh 生命周期，不证明：
+本轮只证明一个 NO HANDLER、NO VALIDATOR 的外部封装器可作为 `COMMENT`
+目标存在，不证明：
 
-- FDW validator 行为
-- log_fdw 数据读取
-- 远端服务器连通性
-- 注释目录查询结果
+- 外部数据访问
+- FDW handler 行为
+- validator 校验行为
 - 权限校验
+- 目录身份查询结果
 - 对象所有权运行时回执
-- 其他 COMMENT 对象类型
+- 其他 handler / validator / options 形态
 
-`scenario_comment_fdw_objects` 仍为 planned，目录身份 Oracle
+`scenario_comment_fdw` 仍为 planned，目录身份 Oracle
 需要数据库执行后校准。
 
 ## 验证
 
-- `tests.test_comment_fdw_profiles`
+- `tests.test_comment_fdw`
 - 全部 comment 相关测试
 - `tests.test_cross_chapter_dependencies`
 - `tests.test_generation_diagnostics`

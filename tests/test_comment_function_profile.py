@@ -30,7 +30,7 @@ class CommentFunctionTests(unittest.TestCase):
         self.assertEqual({c.sql for c in cases},{f'COMMENT ON FUNCTION {FN}(INTEGER) IS {t};'
             for t in ("'factor note'","'测试注释'","'owner''s note'",'NULL')})
         self.assertTrue(all(c.expected=='success' and c.expected_scope=='syntax_only' for c in cases))
-        for mid,n in [('manifest_comment_table_and_columns',12),('manifest_comment_owned_relations',12),
+        for mid,n in [('manifest_comment_table_and_columns',12),('manifest_comment_owned_relations',16),
                       ('manifest_comment_namespace_constraint',8)]:
             self.assertEqual(len(self.g.generate_cases_for_manifest(self.r.manifests[mid])),n)
 
@@ -109,7 +109,9 @@ class CommentFunctionTests(unittest.TestCase):
         gaps=FactorCoverageAuditor(self.r).audit('comment')['source_units']['atomicity']['gaps']
         self.assertEqual(gaps, [])
         self.assertTrue(all(features['comment_feature_object_'+k].status=='needs_profile'
-                            for k in ('database','extension','foreign_data_wrapper')))
+                            for k in ('database','extension')))
+        fdw=features['comment_feature_object_foreign_data_wrapper']
+        self.assertEqual((fdw.status,fdw.coverage_mode),('covered','representative'))
         domain=features['comment_feature_object_domain']
         self.assertEqual((domain.status,domain.coverage_mode),('covered','representative'))
         foreign_table=features['comment_feature_object_foreign_table']

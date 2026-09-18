@@ -53,8 +53,8 @@ class CommentNamespaceConstraintTests(unittest.TestCase):
             self.assertEqual((features['comment_feature_object_'+name].status,
                               features['comment_feature_object_'+name].coverage_mode),('covered','representative'))
         self.assertEqual(features['comment_feature_object_database'].status,'needs_profile')
-        for mid in ('manifest_comment_table_and_columns','manifest_comment_owned_relations'):
-            self.assertEqual(len(self.g.generate_cases_for_manifest(self.r.manifests[mid])),12)
+        self.assertEqual(len(self.g.generate_cases_for_manifest(self.r.manifests['manifest_comment_table_and_columns'])),12)
+        self.assertEqual(len(self.g.generate_cases_for_manifest(self.r.manifests['manifest_comment_owned_relations'])),16)
 
     def test_metadata_oracle_and_cleanup_remain_separately_authorized(self):
         self.cases()

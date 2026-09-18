@@ -25,7 +25,7 @@ gaussdb_test/
 │   └── ...                            # 批次文档
 │
 ├── generated/
-│   └── factor_packages/       # 855个manifest / 5,352条候选SQL（静态生成）
+│   └── factor_packages/       # 856个manifest / 5,360条候选SQL（静态生成）
 │
 ├── core/
 │   ├── factor_package_model.py      # V1模型定义
@@ -119,6 +119,9 @@ gaussdb_test/
 
 [PDF质量增量：COMMENT TEXT SEARCH CONFIGURATION](PDF_QUALITY_BATCH_20260918_COMMENT_TSCONFIG.md)：
 为实际default解析器配置增加COMMENT目标与四类文本交叉；不验证分词、映射或目录身份。
+
+[PDF质量增量：COMMENT FOREIGN DATA WRAPPER](PDF_QUALITY_BATCH_20260918_COMMENT_FDW.md)：
+为实际NO HANDLER、NO VALIDATOR封装器增加COMMENT目标与四类文本交叉；不验证FDW行为或目录身份。
 
 [PDF质量增量：COMMENT TABLE/COLUMN域闭合](PDF_QUALITY_BATCH_20260918_COMMENT_TABLE_COLUMN_ALL.md)：
 TABLE和两个COLUMN目标全部选中，TABLE/COLUMN feature从representative升级为all。
