@@ -25,7 +25,7 @@ gaussdb_test/
 │   └── ...                            # 批次文档
 │
 ├── generated/
-│   └── factor_packages/       # 851个manifest / 5,336条候选SQL（静态生成）
+│   └── factor_packages/       # 852个manifest / 5,340条候选SQL（静态生成）
 │
 ├── core/
 │   ├── factor_package_model.py      # V1模型定义
@@ -107,6 +107,9 @@ gaussdb_test/
 
 [PDF质量增量：COMMENT CAST](PDF_QUALITY_BATCH_20260918_COMMENT_CAST.md)：
 为实际底层函数支撑的CAST增加COMMENT目标与四类文本交叉；不验证转换行为或目录身份。
+
+[PDF质量增量：COMMENT TRIGGER](PDF_QUALITY_BATCH_20260918_COMMENT_TRIGGER.md)：
+为实际普通表上的BEFORE INSERT触发器增加COMMENT目标与四类文本交叉；不验证触发行为或目录身份。
 
 ## 新增文件说明（连库后使用）
 

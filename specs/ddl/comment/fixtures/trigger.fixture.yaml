@@ -1,0 +1,31 @@
+schema_version: 1
+kind: fixture
+id: fixture_comment_trigger
+name: COMMENT触发器专属资产
+factor_ref: comment
+status: needs_review
+description: 实际创建schema、普通表、触发器函数和BEFORE INSERT触发器；不执行触发器，不验证目录身份。
+requires_fixture_refs: []
+provides:
+  tables:
+    - name: g_comment_trigger_ns.base_table
+      persistence: permanent
+      table_kind: regular
+      columns:
+        - {name: col_1, type: INTEGER, nullable: true}
+        - {name: col_2, type: INTEGER, nullable: true}
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - "CREATE SCHEMA g_comment_trigger_ns;"
+    - "CREATE TABLE g_comment_trigger_ns.base_table (col_1 INTEGER, col_2 INTEGER) WITH (storage_type=astore);"
+    - "CREATE FUNCTION g_comment_trigger_ns.comment_trigger_fn() RETURNS TRIGGER LANGUAGE plpgsql AS 'BEGIN RETURN NEW; END;';"
+    - "CREATE TRIGGER fp_comment_trigger BEFORE INSERT ON g_comment_trigger_ns.base_table FOR EACH ROW EXECUTE PROCEDURE g_comment_trigger_ns.comment_trigger_fn();"
+  teardown_sqls:
+    - "DROP TRIGGER fp_comment_trigger ON g_comment_trigger_ns.base_table RESTRICT;"
+    - "DROP FUNCTION g_comment_trigger_ns.comment_trigger_fn() RESTRICT;"
+    - "DROP TABLE g_comment_trigger_ns.base_table RESTRICT;"
+    - "DROP SCHEMA g_comment_trigger_ns RESTRICT;"
+  note: 仅在预先授权的独占测试数据库与隔离连接中运行；初始schema、表、函数和触发器不存在，均使用非当前模式。记录每个对象的实际创建归属；setup失败阻止目标并保留实际对象清单。只清理本case确认创建成功的对象，按trigger、function、table、schema逆序RESTRICT清理。禁止CASCADE、DROP OWNED或吞异常。不执行触发器，不验证触发行为、权限或目录身份；目录身份Oracle尚待校准。

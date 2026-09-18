@@ -73,7 +73,7 @@ class CommentTypeTests(unittest.TestCase):
                          ('covered','representative'))
         self.assertEqual(fs['comment_feature_object_type'].value_refs,
                          ['comment_target_enum_fresh','comment_target_composite_fresh'])
-        self.assertEqual(fs['comment_feature_object_trigger'].status,'needs_profile')
+        self.assertEqual(fs['comment_feature_object_trigger'].status,'covered')
         facts={f.id:f for f in self.r.factors['comment'].facts}
         ledger=self.r.source_ledgers['source_ledger_comment']
         for line,kind in ((54,'type'),(55,'view'),(56,'trigger'),(58,'is')):
