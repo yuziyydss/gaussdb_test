@@ -70,7 +70,10 @@ FDW数据读取、validator和目录Oracle仍待校准。
 
 [COMMENT文本域闭合](PDF_QUALITY_BATCH_20260918_COMMENT_TEXT_ALL.md) 将四类注释文本
 从representative升级为all，comment feature gap从33降至32；目录Oracle和对象行为仍待数据库校准。
-当前全库为849个manifest、5,328条候选，generation model complete仍为256/317。
+[COMMENT OPERATOR](PDF_QUALITY_BATCH_20260918_COMMENT_OPERATOR.md) 为实际双目
+INTEGER操作符增加COMMENT目标与四类文本交叉，comment候选从64条增至68条；
+其他arity、operator class/family和目录Oracle仍待校准。当前全库为850个manifest、
+5,332条候选，generation model complete仍为256/317。
 
 ## 下一阶段：补质量缺口，不再补空目录
 

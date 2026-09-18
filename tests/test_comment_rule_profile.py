@@ -73,7 +73,7 @@ class CommentRuleTests(unittest.TestCase):
         f=features['comment_feature_object_rule']
         self.assertEqual((f.status,f.coverage_mode),('covered','representative'))
         self.assertEqual(f.value_refs,['comment_target_rule_fresh'])
-        self.assertEqual(features['comment_feature_object_operator'].status,'needs_profile')
+        self.assertEqual(features['comment_feature_object_operator'].status,'covered')
         a=FactorCoverageAuditor(self.r).audit('comment')
         self.assertEqual(a['source_units']['atomicity']['gaps'], [])
         self.assertTrue(a['conclusions']['source_extraction_complete'])

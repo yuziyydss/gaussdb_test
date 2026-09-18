@@ -35,7 +35,7 @@ class CommentRemainingGroupTests(unittest.TestCase):
         fs = {f.id:f for f in self.r.matrices['matrix_comment_coverage'].documented_features}
         self.assertEqual(fs['comment_feature_object_type'].coverage_mode, 'representative')
         self.assertEqual(fs['comment_feature_object_type'].status, 'covered')
-        self.assertEqual(fs['comment_feature_object_operator'].status, 'needs_profile')
+        self.assertEqual(fs['comment_feature_object_operator'].status, 'covered')
 
     def test_recombining_seven_claims_still_fails_atomicity_audit(self):
         r = copy.copy(self.r); r.source_ledgers = dict(self.r.source_ledgers)

@@ -1,0 +1,22 @@
+schema_version: 1
+kind: fixture
+id: fixture_comment_operator
+name: COMMENT操作符专属资产
+factor_ref: comment
+status: needs_review
+description: 实际创建独占schema、底层函数和双目INTEGER操作符；不调用操作符，不验证执行计划或目录身份。
+requires_fixture_refs: []
+provides: {}
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - "CREATE SCHEMA g_comment_operator_ns;"
+    - "CREATE FUNCTION g_comment_operator_ns.plus_one(INTEGER) RETURNS INTEGER LANGUAGE SQL IMMUTABLE AS 'SELECT $1 + 1;';"
+    - "CREATE OPERATOR @#@ (PROCEDURE = g_comment_operator_ns.plus_one, LEFTARG = INTEGER, RIGHTARG = INTEGER);"
+  teardown_sqls:
+    - "DROP OPERATOR @#@ (INTEGER, INTEGER) RESTRICT;"
+    - "DROP FUNCTION g_comment_operator_ns.plus_one(INTEGER);"
+    - "DROP SCHEMA g_comment_operator_ns RESTRICT;"
+  note: 仅在预先授权的独占测试数据库与隔离连接中运行；初始操作符和函数均使用非当前模式，操作符名在授权隔离后使用。记录schema、函数和操作符的实际创建归属；setup失败阻止目标并保留实际对象清单。只清理本case确认创建成功的对象，按operator、function、schema逆序RESTRICT清理。禁止CASCADE、DROP OWNED或吞异常。不调用操作符，不验证行为、权限或目录身份；目录身份Oracle尚待校准。

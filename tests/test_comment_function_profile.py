@@ -81,7 +81,7 @@ class CommentFunctionTests(unittest.TestCase):
         aggregate=features['comment_feature_object_aggregate']
         self.assertEqual((aggregate.status,aggregate.coverage_mode),('covered','representative'))
         self.assertEqual(aggregate.value_refs,['comment_target_aggregate_fresh'])
-        self.assertEqual(features['comment_feature_object_operator'].status,'needs_profile')
+        self.assertEqual(features['comment_feature_object_operator'].status,'covered')
         ledger=yaml.safe_load((ROOT/'specs/ddl/comment/comment.source.yaml').read_text())
         unit=next(u for u in ledger['units'] if u['id']=='comment_su_object_function_38')
         self.assertEqual((unit['atomicity'],unit['independent_claim_count']),('atomic',1))

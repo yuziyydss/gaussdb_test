@@ -25,7 +25,7 @@ gaussdb_test/
 │   └── ...                            # 批次文档
 │
 ├── generated/
-│   └── factor_packages/       # 849个manifest / 5,328条候选SQL（静态生成）
+│   └── factor_packages/       # 850个manifest / 5,332条候选SQL（静态生成）
 │
 ├── core/
 │   ├── factor_package_model.py      # V1模型定义
@@ -101,6 +101,9 @@ gaussdb_test/
 
 [PDF质量增量：COMMENT文本域闭合](PDF_QUALITY_BATCH_20260918_COMMENT_TEXT_ALL.md)：
 四类注释文本全部选中，文本feature从representative升级为all；不证明目录行为。
+
+[PDF质量增量：COMMENT OPERATOR](PDF_QUALITY_BATCH_20260918_COMMENT_OPERATOR.md)：
+为实际双目INTEGER操作符增加COMMENT目标与四类文本交叉；不验证operator行为或目录身份。
 
 ## 新增文件说明（连库后使用）
 
