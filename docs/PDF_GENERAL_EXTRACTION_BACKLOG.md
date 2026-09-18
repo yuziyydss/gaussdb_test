@@ -62,8 +62,11 @@ ALTER分支的Low/Medium/High/None四个字面量，候选从6条增至10条；
 -1、0、1与2147483647四个代表，候选从15条增至18条；不宣称并发控制行为。
 [COMMENT外部对象](PDF_QUALITY_BATCH_20260918_COMMENT_FDW.md) 为FOREIGN TABLE与SERVER
 增加真实log_fdw生命周期和四类文本交叉，comment候选从52条增至60条；
-FDW数据读取、validator和目录Oracle仍待校准。当前全库为848个manifest、5,324条候选，
-generation model complete仍为256/317。
+FDW数据读取、validator和目录Oracle仍待校准。
+
+[COMMENT DOMAIN](PDF_QUALITY_BATCH_20260918_COMMENT_DOMAIN.md) 为实际CHECK DOMAIN
+增加COMMENT目标与四类文本交叉，comment候选从60条增至64条；domain转换、约束和目录Oracle
+仍待校准。当前全库为849个manifest、5,328条候选，generation model complete仍为256/317。
 
 ## 下一阶段：补质量缺口，不再补空目录
 

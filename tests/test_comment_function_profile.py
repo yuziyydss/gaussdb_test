@@ -109,7 +109,9 @@ class CommentFunctionTests(unittest.TestCase):
         gaps=FactorCoverageAuditor(self.r).audit('comment')['source_units']['atomicity']['gaps']
         self.assertEqual(gaps, [])
         self.assertTrue(all(features['comment_feature_object_'+k].status=='needs_profile'
-                            for k in kinds[:4]))
+                            for k in ('database','extension','foreign_data_wrapper')))
+        domain=features['comment_feature_object_domain']
+        self.assertEqual((domain.status,domain.coverage_mode),('covered','representative'))
         foreign_table=features['comment_feature_object_foreign_table']
         self.assertEqual((foreign_table.status,foreign_table.coverage_mode),('covered','representative'))
 

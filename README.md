@@ -27,8 +27,8 @@
 | PDF覆盖 | 5,686页 全部大部 |
 | 参考事实记录 | 885条（67个YAML文件；8组裸ID重名，使用文件名::ID区分；不等于生成器已接入） |
 | 因子包 | 317个（224 general + 93 M兼容） |
-| manifest | 848份 |
-| 候选SQL | 5,324条（静态生成，不代表实机通过） |
+| manifest | 849份 |
+| 候选SQL | 5,328条（静态生成，不代表实机通过） |
 | M包source extraction | 93/93 完成 |
 | Value gaps | 25条（18合法阻断 + 7需结构性设计） |
 
@@ -86,6 +86,7 @@ gsql -d <dbname> -p <port> -f docs/extended_validation_script.sql
 | [PDF_QUALITY_BATCH_20260917_ALTER_MEMORY_LIMITS.md](docs/PDF_QUALITY_BATCH_20260917_ALTER_MEMORY_LIMITS.md) | ALTER RESOURCE POOL的MEMORY_LIMIT三个standalone代表；保留多租与MAX_DOP缺口 |
 | [PDF_QUALITY_BATCH_20260917_ACTIVE_STATEMENTS.md](docs/PDF_QUALITY_BATCH_20260917_ACTIVE_STATEMENTS.md) | ALTER RESOURCE POOL的ACTIVE_STATEMENTS边界与中间代表；不宣称并发行为 |
 | [PDF_QUALITY_BATCH_20260918_COMMENT_FDW.md](docs/PDF_QUALITY_BATCH_20260918_COMMENT_FDW.md) | COMMENT外部服务器与外表两个有限对象代表；保留FDW运行时与目录Oracle缺口 |
+| [PDF_QUALITY_BATCH_20260918_COMMENT_DOMAIN.md](docs/PDF_QUALITY_BATCH_20260918_COMMENT_DOMAIN.md) | COMMENT DOMAIN一个有限对象代表；保留domain行为与目录Oracle缺口 |
 
 ### 连库执行工具（2026-09-14 新增）
 

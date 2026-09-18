@@ -67,7 +67,7 @@ class CommentFDWObjectTests(unittest.TestCase):
         self.assertTrue(all(order.index(d)<order.index('comment')
                             for d in ('create_server','create_foreign_table','drop_schema')))
 
-    def test_features_are_two_owned_representatives_without_runtime_claim(self):
+    def test_features_are_three_owned_representatives_without_runtime_claim(self):
         self.cases()
         fs={f.id:f for f in self.r.matrices['matrix_comment_coverage'].documented_features}
         for fid,target in (('comment_feature_object_foreign_table','comment_target_foreign_table_fresh'),
@@ -84,3 +84,57 @@ class CommentFDWObjectTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+
+class CommentDomainTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.r=FactorPackageRegistry(ROOT/'specs');cls.r.load_all()
+        cls.g=FactorPackageSQLGenerator(cls.r)
+
+    def cases(self):
+        mid='manifest_comment_domain'
+        self.assertTrue(mid in self.r.manifests,mid)
+        return self.g.generate_with_report(self.r.manifests[mid])
+
+    def test_local_domain_target_crosses_four_text_values(self):
+        cases,report=self.cases()
+        self.assertEqual(len(cases),4);self.assertTrue(report.pairwise_complete)
+        expected={f"COMMENT ON DOMAIN g_comment_domain_ns.positive_integer IS {text};"
+                  for text in ("'factor note'","'测试注释'","'owner''s note'",'NULL')}
+        self.assertEqual({c.sql for c in cases},expected)
+        self.assertTrue(all(c.expected=='success' and c.expected_scope=='syntax_only' for c in cases))
+
+    def test_actual_domain_ddl_and_reverse_owned_cleanup(self):
+        cases,_=self.cases()
+        for c in cases:
+            self.assertEqual(c.setup_sqls,[
+                'CREATE SCHEMA g_comment_domain_ns;',
+                'CREATE DOMAIN g_comment_domain_ns.positive_integer AS INTEGER CHECK (VALUE > 0);',
+            ])
+            self.assertEqual(c.teardown_sqls,[
+                'DROP DOMAIN g_comment_domain_ns.positive_integer RESTRICT;',
+                'DROP SCHEMA g_comment_domain_ns RESTRICT;',
+            ])
+            self.assertFalse(any('CASCADE' in x or 'DROP OWNED' in x
+                                 for x in c.setup_sqls+c.teardown_sqls))
+        fixture=self.r.fixtures['fixture_comment_domain']
+        self.assertFalse(fixture.provides.tables)
+        for phrase in ('非当前模式','本case','setup失败','不依赖DDL回滚'):
+            self.assertIn(phrase,fixture.execution.note)
+
+    def test_domain_feature_is_representative_and_source_stays_planned(self):
+        self.cases()
+        fs={f.id:f for f in self.r.matrices['matrix_comment_coverage'].documented_features}
+        self.assertEqual((fs['comment_feature_object_domain'].status,
+                          fs['comment_feature_object_domain'].coverage_mode),
+                         ('covered','representative'))
+        self.assertEqual(fs['comment_feature_object_domain'].value_refs,
+                         ['comment_target_domain_fresh'])
+        scenario=self.r.scenarios['scenario_comment_domain']
+        self.assertEqual(scenario.status,'planned')
+        self.assertEqual(len(scenario.steps),1)
+        self.assertEqual(len(scenario.oracles),1)
+        self.assertTrue(all(o['kind']=='manual_assertion' for o in scenario.oracles))
+        self.assertIn('target_oracle_calibration',scenario.execution_requirements)
+        self.assertIn('ownership_scoped_cleanup',scenario.execution_requirements)

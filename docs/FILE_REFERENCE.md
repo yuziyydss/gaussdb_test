@@ -25,7 +25,7 @@ gaussdb_test/
 │   └── ...                            # 批次文档
 │
 ├── generated/
-│   └── factor_packages/       # 848个manifest / 5,324条候选SQL（静态生成）
+│   └── factor_packages/       # 849个manifest / 5,328条候选SQL（静态生成）
 │
 ├── core/
 │   ├── factor_package_model.py      # V1模型定义
@@ -95,6 +95,9 @@ gaussdb_test/
 
 [PDF质量增量：COMMENT外部对象](PDF_QUALITY_BATCH_20260918_COMMENT_FDW.md)：
 为FOREIGN TABLE与SERVER增加真实log_fdw生命周期和四类文本交叉；不验证FDW数据或目录行为。
+
+[PDF质量增量：COMMENT DOMAIN](PDF_QUALITY_BATCH_20260918_COMMENT_DOMAIN.md)：
+为实际CHECK DOMAIN增加COMMENT目标与四类文本交叉；不验证domain转换、约束或目录行为。
 
 ## 新增文件说明（连库后使用）
 
