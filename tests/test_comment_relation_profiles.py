@@ -26,7 +26,7 @@ class CommentRelationProfileTests(unittest.TestCase):
         manifest = self.registry.manifests['manifest_comment_owned_relations'].model_copy(deep=True)
         manifest.fixture_refs = []
         cases, _ = self.generator.generate_with_report(manifest)
-        self.assertEqual(len(cases), 12)
+        self.assertEqual(len(cases), 16)
         self.assertTrue(all(len(c.setup_sqls) == 4 and len(c.teardown_sqls) == 3 for c in cases))
 
     def test_cross_chapter_sources_and_dependency_graph_are_consistent(self):
@@ -41,17 +41,17 @@ class CommentRelationProfileTests(unittest.TestCase):
             self.assertTrue(all(any(ref in unit.fact_refs for unit in ledger.units)
                                 for ref in factor.exported_fact_refs))
 
-    def test_all_three_targets_cross_all_four_text_values(self):
+    def test_all_four_targets_cross_all_four_text_values(self):
         cases, report = self.cases()
         targets = ('INDEX g_comment_rel_idx', 'VIEW g_comment_rel_view',
-                   'COLUMN g_comment_rel_view.col_1')
+                   'COLUMN g_comment_rel_view.col_1', 'COLUMN g_comment_rel_view.col_2')
         texts = ("'factor note'", "'测试注释'", "'owner''s note'", 'NULL')
         self.assertEqual({c.sql for c in cases},
                          {f'COMMENT ON {target} IS {text};' for target in targets for text in texts})
-        self.assertEqual(len(cases), 12)
-        self.assertEqual(len({c.case_id for c in cases}), 12)
+        self.assertEqual(len(cases), 16)
+        self.assertEqual(len({c.case_id for c in cases}), 16)
         self.assertTrue(report.pairwise_complete)
-        self.assertEqual((report.feasible_pair_count, report.covered_pair_count), (12, 12))
+        self.assertEqual((report.feasible_pair_count, report.covered_pair_count), (16, 16))
         self.assertTrue(all((c.expected, c.expected_scope) == ('success', 'syntax_only') for c in cases))
 
     def test_fixture_creates_actual_view_index_and_uses_owned_cleanup_order(self):
@@ -86,9 +86,13 @@ class CommentRelationProfileTests(unittest.TestCase):
         old, _ = self.generator.generate_with_report(self.registry.manifests['manifest_comment_table_and_columns'])
         self.assertEqual(len(old), 12)
         features = {f.id:f for f in self.registry.matrices['matrix_comment_coverage'].documented_features}
-        for suffix in ('index', 'view', 'view_column'):
+        for suffix in ('index', 'view'):
             f = features['comment_feature_object_'+suffix]
             self.assertEqual((f.status, f.coverage_mode), ('covered', 'representative'))
+        view_column = features['comment_feature_object_view_column']
+        self.assertEqual((view_column.status,view_column.coverage_mode),('covered','all'))
+        self.assertEqual(view_column.value_refs,
+                         ['comment_target_view_column_fresh','comment_target_view_column_2_fresh'])
         function = features['comment_feature_object_function']
         self.assertEqual((function.status,function.coverage_mode),('covered','representative'))
         self.assertEqual(function.value_refs,['comment_target_function_fresh'])
