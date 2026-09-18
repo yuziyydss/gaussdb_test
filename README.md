@@ -27,8 +27,8 @@
 | PDF覆盖 | 5,686页 全部大部 |
 | 参考事实记录 | 885条（67个YAML文件；8组裸ID重名，使用文件名::ID区分；不等于生成器已接入） |
 | 因子包 | 317个（224 general + 93 M兼容） |
-| manifest | 850份 |
-| 候选SQL | 5,332条（静态生成，不代表实机通过） |
+| manifest | 851份 |
+| 候选SQL | 5,336条（静态生成，不代表实机通过） |
 | M包source extraction | 93/93 完成 |
 | Value gaps | 25条（18合法阻断 + 7需结构性设计） |
 
@@ -89,6 +89,7 @@ gsql -d <dbname> -p <port> -f docs/extended_validation_script.sql
 | [PDF_QUALITY_BATCH_20260918_COMMENT_DOMAIN.md](docs/PDF_QUALITY_BATCH_20260918_COMMENT_DOMAIN.md) | COMMENT DOMAIN一个有限对象代表；保留domain行为与目录Oracle缺口 |
 | [PDF_QUALITY_BATCH_20260918_COMMENT_TEXT_ALL.md](docs/PDF_QUALITY_BATCH_20260918_COMMENT_TEXT_ALL.md) | COMMENT四类文本有限域闭合；保留目录Oracle与对象缺口 |
 | [PDF_QUALITY_BATCH_20260918_COMMENT_OPERATOR.md](docs/PDF_QUALITY_BATCH_20260918_COMMENT_OPERATOR.md) | COMMENT OPERATOR一个双目INTEGER有限对象代表；保留其他arity和目录Oracle缺口 |
+| [PDF_QUALITY_BATCH_20260918_COMMENT_CAST.md](docs/PDF_QUALITY_BATCH_20260918_COMMENT_CAST.md) | COMMENT CAST一个函数转换有限对象代表；保留转换行为与目录Oracle缺口 |
 
 ### 连库执行工具（2026-09-14 新增）
 
