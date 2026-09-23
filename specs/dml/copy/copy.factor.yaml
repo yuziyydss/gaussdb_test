@@ -20,6 +20,33 @@ source:
 source_ledger_ref: "source_ledger_copy"
 syntax_ref: "syntax_copy"
 dimensions:
+  direction:
+    description: "COPY方向"
+    classes:
+      -
+        id: "copy_direction_stdout_class"
+        meaning: "stdout"
+        values:
+          -
+            id: "copy_direction_stdout"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "copy_fact_body_997"
+      -
+        id: "copy_direction_server_file_class"
+        meaning: "server_file"
+        values:
+          -
+            id: "copy_direction_server_file"
+            render: ""
+            representative: true
+            validity: "invalid"
+            fact_refs:
+              - "copy_fact_body_997"
+              - "copy_fact_body_1003"
+    default_value_id: "copy_direction_stdout"
   format:
     description: "传输文本格式"
     classes:
@@ -156,7 +183,15 @@ dimensions:
             fact_refs:
               - "copy_fact_body_166"
     default_value_id: "copy_quote_all_off"
-rules: []
+rules:
+  -
+    id: "copy_rule_server_file_requires_authority"
+    kind: "requires"
+    expression: "direction != 'copy_direction_server_file'"
+    fact_refs:
+      - "copy_fact_body_997"
+      - "copy_fact_body_1003"
+    severity: "error"
 structural_checks: []
 facts:
   -
@@ -3382,6 +3417,12 @@ facts:
     status: "confirmed"
     source_anchor: "L1003-L1005"
   -
+    id: "copy_fact_server_file_prohibited_error"
+    type: "behavior_oracle"
+    statement: "非初始用户未获服务器文件COPY授权时，原文错误为：ERROR: COPY to or from a file is prohibited for security concerns."
+    status: "confirmed"
+    source_anchor: "L997-L1005"
+  -
     id: "copy_fact_example_1008"
     type: "example"
     statement: "示例原文片段：--创建SCHEMA。 gaussdb=# CREATE SCHEMA tpcds;"
@@ -3485,21 +3526,21 @@ facts:
     source_anchor: "L1089-L1092"
   -
     id: "copy_fact_stream_contract"
-    type: "open_question"
-    statement: "COPY FROM STDIN需要协议级数据流和终止符，不能把输入数据拼为SQL；文件读写需独占路径及安全权限。当前只有TO STDOUT text/csv静态候选，仍需COPY-out协议收集器。"
-    status: "needs_verification"
+    type: "environment"
+    statement: "静态COPY域只生成TO STDOUT text/csv代表；FROM STDIN需要协议级数据流和终止符，文件读写需独占路径与安全权限，普通manifest不验证流导入。"
+    status: "confirmed"
     source_anchor: "L26-L28"
   -
     id: "copy_fact_freeze_text_conflict"
-    type: "open_question"
-    statement: "原生FREEZE语义是冻结行，括号选项L807–811却描述文件头；保留文档冲突，不使用该错文生成。"
-    status: "needs_verification"
+    type: "constraint"
+    statement: "静态域不生成FREEZE分支；原生冻结行语义与括号选项文件头描述冲突保留为来源限制。"
+    status: "confirmed"
     source_anchor: "L124-L147"
   -
     id: "copy_fact_boundary_protocol"
-    type: "open_question"
-    statement: "长度、编码、日志拒绝、FIXED/FORMATTER、TRANSFORM、ILLEGAL字符和工具专用参数均需不同输入流与错误Oracle，未纳入当前有限输出域。"
-    status: "needs_verification"
+    type: "constraint"
+    statement: "静态域不生成长度、编码、日志拒绝、FIXED/FORMATTER、TRANSFORM、ILLEGAL字符和工具专用参数分支；这些需不同输入流与错误Oracle。"
+    status: "confirmed"
     source_anchor: "L75-L76"
   -
     id: "copy_fact_atomic_10_0"
@@ -3958,6 +3999,7 @@ exported_fact_refs:
 manifest_refs:
   - "manifest_copy_text_stdout"
   - "manifest_copy_csv_stdout"
+  - "manifest_copy_server_file_negative"
 matrix_refs:
   - "matrix_copy_coverage"
 fixture_refs:

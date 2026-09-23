@@ -30,10 +30,10 @@ class CommentRemainingGroupTests(unittest.TestCase):
         a = FactorCoverageAuditor(self.r).audit('comment')
         self.assertEqual(a['source_units']['atomicity']['gaps'], [])
         self.assertTrue(a['conclusions']['source_extraction_complete'])
-        self.assertFalse(a['conclusions']['static_coverage_complete'])
+        self.assertTrue(a['conclusions']['static_coverage_complete'])
         self.assertFalse(a['conclusions']['behavior_coverage_complete'])
         fs = {f.id:f for f in self.r.matrices['matrix_comment_coverage'].documented_features}
-        self.assertEqual(fs['comment_feature_object_type'].coverage_mode, 'representative')
+        self.assertEqual(fs['comment_feature_object_type'].coverage_mode, 'any')
         self.assertEqual(fs['comment_feature_object_type'].status, 'covered')
         self.assertEqual(fs['comment_feature_object_operator'].status, 'covered')
 

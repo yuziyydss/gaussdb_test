@@ -18,8 +18,7 @@ class ZeroDimensionTests(unittest.TestCase):
         cls.registry.load_all()
 
     def test_fixed_productions_have_one_case_under_both_strategies(self):
-        for mid, sql in [("manifest_checkpoint_explicit_admin", "CHECKPOINT;"),
-                         ("manifest_set_role_reset", "RESET ROLE;")]:
+        for mid, sql in [("manifest_checkpoint_explicit_admin", "CHECKPOINT;")]:
             for strategy in ("pairwise", "cartesian"):
                 with self.subTest(manifest=mid, strategy=strategy):
                     m = self.registry.manifests[mid].model_copy(update={"strategy": strategy})

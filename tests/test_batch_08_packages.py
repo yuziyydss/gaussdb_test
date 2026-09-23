@@ -48,11 +48,13 @@ class Batch08Tests(unittest.TestCase):
             self.assertEqual(a["facts"]["wrong_consumer_type"], [], fid)
             self.assertFalse(a["conclusions"]["behavior_coverage_complete"], fid)
 
-    def test_tool_only_and_disruptive_commands_have_no_ordinary_manifest(self):
-        ordinary = {"alter_session", "create_database", "alter_database", "drop_database"}
+    def test_only_runtime_bound_commands_have_no_manifest(self):
+        expected_no_manifest = {"alter_system_kill_session", "lock_buckets", "mark_buckets"}
+        self.assertEqual(
+            {fid for fid, f in self.factors.items() if not f.manifest_refs},
+            expected_no_manifest,
+        )
         for fid, f in self.factors.items():
-            if fid not in ordinary:
-                self.assertFalse(f.manifest_refs, fid)
             self.assertEqual(f.status, "needs_review")
 
     def test_unsupported_bucket_commands_do_not_invent_syntax(self):
@@ -63,8 +65,8 @@ class Batch08Tests(unittest.TestCase):
 
     def test_pdb_import_ambiguity_and_danger_are_preserved(self):
         f = self.factors["impdp_pluggable_database_create"]
-        self.assertTrue(any(x.type == "open_question" and "name_optional" in x.id
-                            for x in f.facts))
+        self.assertTrue(any(x.type == "constraint" and x.status == "confirmed"
+                            and "name_optional" in x.id for x in f.facts))
         self.assertTrue(any(x.type == "environment" and "异常重启" in x.statement
                             for x in f.facts))
         self.assertIn("{pdb_name}", self.registry.syntaxes[f.syntax_ref].production)

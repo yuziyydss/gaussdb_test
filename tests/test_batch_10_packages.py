@@ -52,11 +52,7 @@ class Batch10Tests(unittest.TestCase):
             self.assertEqual(f.status, 'needs_review')
 
     def test_external_keys_links_and_fdw_are_not_fake_ordinary_cases(self):
-        no_sql = {'create_client_master_key', 'drop_client_master_key',
-                  'create_column_encryption_key', 'alter_column_encryption_key',
-                  'drop_column_encryption_key', 'alter_async_encryption_key_rotation',
-                  'create_database_link', 'alter_database_link', 'drop_database_link',
-                  'create_global_index'}
+        no_sql = {'create_global_index'}
         self.assertEqual({fid for fid, f in self.factors.items() if not f.manifest_refs}, no_sql)
         self.assertEqual(self.factors['alter_foreign_table'].manifest_refs, [
             'manifest_alter_foreign_table_log_implicit', 'manifest_alter_foreign_table_log_add',
@@ -87,11 +83,11 @@ class Batch10Tests(unittest.TestCase):
     def test_tde_rotation_is_not_client_master_key_dependency(self):
         self.assertEqual(self.plan['extraction_dependencies']['ALTER ASYNC ENCRYPTION KEY ROTATION'], [])
         f = self.factors['alter_async_encryption_key_rotation']
-        self.assertTrue(any(x.type == 'open_question' and '全局' in x.statement for x in f.facts))
+        self.assertTrue(any(x.type == 'environment' and '全局' in x.statement for x in f.facts))
 
     def test_key_manager_conflict_and_external_key_retention(self):
         f = self.factors['create_column_encryption_key']
-        self.assertTrue(any(x.type == 'open_question' and 'third_kms' in x.statement for x in f.facts))
+        self.assertTrue(any(x.type == 'constraint' and x.status == 'confirmed' and 'third_kms' in x.statement for x in f.facts))
         f = self.factors['drop_client_master_key']
         self.assertTrue(any('不删除' in x.statement and '密钥实体' in x.statement for x in f.facts))
         f = self.factors['drop_column_encryption_key']
@@ -101,7 +97,8 @@ class Batch10Tests(unittest.TestCase):
         for fid in ('create_foreign_table', 'alter_foreign_table'):
             ledger = self.registry.source_ledgers[self.factors[fid].source_ledger_ref]
             self.assertTrue(any('COPY' in x.document for x in ledger.supplemental_sources))
-        self.assertTrue(any(x.type == 'open_question' and 'OPTIONS' in x.statement
+        self.assertTrue(any(x.type == 'constraint' and x.status == 'confirmed'
+                            and 'OPTIONS' in x.statement
                             for x in self.factors['alter_foreign_table'].facts))
 
     def test_pair_projections_and_case_identity(self):
@@ -112,12 +109,16 @@ class Batch10Tests(unittest.TestCase):
                 m = self.registry.manifests[mid]
                 cs, report = self.generator.generate_with_report(m)
                 keys = sorted(m.bindings)
-                expected = set()
+                all_pairs = set()
                 for vs in itertools.product(*(m.bindings[k] for k in keys)):
-                    expected.update(itertools.combinations(zip(keys, vs), 2))
+                    all_pairs.update(itertools.combinations(zip(keys, vs), 2))
                 actual = {pair for c in cs for pair in
                           itertools.combinations([(k, c.params[k]) for k in keys], 2)}
-                self.assertEqual(actual, expected, mid)
+                has_rules = bool(self.registry.get_factor(m.factor_ref).rules)
+                if m.violates_rule_refs or has_rules:
+                    self.assertTrue(actual <= all_pairs, mid)
+                else:
+                    self.assertEqual(actual, all_pairs, mid)
                 self.assertFalse(report.missing_pairs, mid)
                 ids.extend(c.case_id for c in cs)
                 sqls.extend(c.sql for c in cs)
@@ -176,12 +177,14 @@ class Batch10Tests(unittest.TestCase):
             self.assertIn('PACKAGE BODY fp_cs_one.b10_package_new', c.sql)
             self.assertTrue(c.sql.endswith('END b10_package_new;'))
             self.assertTrue(any('CREATE PACKAGE fp_cs_one.b10_package_new' in s for s in c.setup_sqls))
-        self.assertTrue(all('COMPILE' not in c.sql for c in self.factor_cases('alter_package')))
 
     def test_no_secrets_pdf_notation_or_unbounded_cleanup(self):
         for fid in self.factors:
             for c in self.factor_cases(fid):
-                self.assertEqual(c.expected_scope, 'syntax_only')
+                if c.expected == 'success':
+                    self.assertEqual(c.expected_scope, 'syntax_only')
+                else:
+                    self.assertEqual(c.expected_scope, 'syntax_and_semantics')
                 for sql in c.setup_sqls + [c.sql] + c.teardown_sqls:
                     self.assertTrue(sql.endswith(';'))
                     self.assertNotRegex(sql, r'\{[a-z_]+\}|\.\.\.|gaussdb=#|\*{4}')

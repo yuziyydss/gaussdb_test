@@ -42,6 +42,24 @@ DROP FUNCTION m_function_existing_namespace.increment_value (INTEGER) RESTRICT;
 DROP FUNCTION IF EXISTS m_function_existing_namespace.increment_value(INTEGER) RESTRICT;
 DROP SCHEMA m_function_existing_namespace;
 
+-- case_id: manifest_m_drop_function_restricted_finite_c882d21bb5d5
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_only
+-- params: {"behavior": "m_drop_function_behavior_restrict", "if_exists": "m_drop_function_if_exists_yes", "signature": "m_drop_function_signature_omitted"}
+-- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_drop_function_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["m_internal_tool_reviewed"], "fact_refs": ["m_drop_function_fact_internal"], "key": "command_applicability"}, {"allowed_values": ["dedicated_database_no_other_users"], "fact_refs": ["m_drop_function_fact_internal"], "key": "test_isolation"}, {"allowed_values": ["fixture_function_creator"], "fact_refs": ["m_drop_function_fact_owner"], "key": "function_authority"}]
+-- fixture_setup:
+CREATE SCHEMA m_function_existing_namespace;
+CREATE OR REPLACE FUNCTION m_function_existing_namespace.increment_value(i INTEGER) RETURNS INTEGER LANGUAGE plpgsql AUTHID CURRENT_USER AS 'BEGIN RETURN i + 1; END;';
+-- test_sql:
+DROP FUNCTION IF EXISTS m_function_existing_namespace.increment_value RESTRICT;
+-- fixture_teardown:
+DROP FUNCTION IF EXISTS m_function_existing_namespace.increment_value(INTEGER) RESTRICT;
+DROP SCHEMA m_function_existing_namespace;
+
 -- case_id: manifest_m_drop_function_restricted_finite_a5d0cfa2c8e5
 -- expected: success
 -- expected_error_category: -
@@ -56,24 +74,6 @@ CREATE SCHEMA m_function_existing_namespace;
 CREATE OR REPLACE FUNCTION m_function_existing_namespace.increment_value(i INTEGER) RETURNS INTEGER LANGUAGE plpgsql AUTHID CURRENT_USER AS 'BEGIN RETURN i + 1; END;';
 -- test_sql:
 DROP FUNCTION IF EXISTS m_function_existing_namespace.increment_value (INTEGER);
--- fixture_teardown:
-DROP FUNCTION IF EXISTS m_function_existing_namespace.increment_value(INTEGER) RESTRICT;
-DROP SCHEMA m_function_existing_namespace;
-
--- case_id: manifest_m_drop_function_restricted_finite_4a12dcd7ef4a
--- expected: success
--- expected_error_category: -
--- expected_sqlstates: -
--- expected_error_regex: -
--- expected_oracle_status: confirmed
--- expected_scope: syntax_only
--- params: {"behavior": "m_drop_function_behavior_restrict", "if_exists": "m_drop_function_if_exists_yes", "signature": "m_drop_function_signature_named"}
--- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_drop_function_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["m_internal_tool_reviewed"], "fact_refs": ["m_drop_function_fact_internal"], "key": "command_applicability"}, {"allowed_values": ["dedicated_database_no_other_users"], "fact_refs": ["m_drop_function_fact_internal"], "key": "test_isolation"}, {"allowed_values": ["fixture_function_creator"], "fact_refs": ["m_drop_function_fact_owner"], "key": "function_authority"}]
--- fixture_setup:
-CREATE SCHEMA m_function_existing_namespace;
-CREATE OR REPLACE FUNCTION m_function_existing_namespace.increment_value(i INTEGER) RETURNS INTEGER LANGUAGE plpgsql AUTHID CURRENT_USER AS 'BEGIN RETURN i + 1; END;';
--- test_sql:
-DROP FUNCTION IF EXISTS m_function_existing_namespace.increment_value (i INTEGER) RESTRICT;
 -- fixture_teardown:
 DROP FUNCTION IF EXISTS m_function_existing_namespace.increment_value(INTEGER) RESTRICT;
 DROP SCHEMA m_function_existing_namespace;
@@ -114,6 +114,24 @@ DROP FUNCTION m_function_existing_namespace.increment_value (i IN INTEGER);
 DROP FUNCTION IF EXISTS m_function_existing_namespace.increment_value(INTEGER) RESTRICT;
 DROP SCHEMA m_function_existing_namespace;
 
+-- case_id: manifest_m_drop_function_restricted_finite_4a12dcd7ef4a
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_only
+-- params: {"behavior": "m_drop_function_behavior_restrict", "if_exists": "m_drop_function_if_exists_yes", "signature": "m_drop_function_signature_named"}
+-- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_drop_function_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["m_internal_tool_reviewed"], "fact_refs": ["m_drop_function_fact_internal"], "key": "command_applicability"}, {"allowed_values": ["dedicated_database_no_other_users"], "fact_refs": ["m_drop_function_fact_internal"], "key": "test_isolation"}, {"allowed_values": ["fixture_function_creator"], "fact_refs": ["m_drop_function_fact_owner"], "key": "function_authority"}]
+-- fixture_setup:
+CREATE SCHEMA m_function_existing_namespace;
+CREATE OR REPLACE FUNCTION m_function_existing_namespace.increment_value(i INTEGER) RETURNS INTEGER LANGUAGE plpgsql AUTHID CURRENT_USER AS 'BEGIN RETURN i + 1; END;';
+-- test_sql:
+DROP FUNCTION IF EXISTS m_function_existing_namespace.increment_value (i INTEGER) RESTRICT;
+-- fixture_teardown:
+DROP FUNCTION IF EXISTS m_function_existing_namespace.increment_value(INTEGER) RESTRICT;
+DROP SCHEMA m_function_existing_namespace;
+
 -- case_id: manifest_m_drop_function_restricted_finite_a981b1f16a20
 -- expected: success
 -- expected_error_category: -
@@ -128,24 +146,6 @@ CREATE SCHEMA m_function_existing_namespace;
 CREATE OR REPLACE FUNCTION m_function_existing_namespace.increment_value(i INTEGER) RETURNS INTEGER LANGUAGE plpgsql AUTHID CURRENT_USER AS 'BEGIN RETURN i + 1; END;';
 -- test_sql:
 DROP FUNCTION IF EXISTS m_function_existing_namespace.increment_value (i IN INTEGER) RESTRICT;
--- fixture_teardown:
-DROP FUNCTION IF EXISTS m_function_existing_namespace.increment_value(INTEGER) RESTRICT;
-DROP SCHEMA m_function_existing_namespace;
-
--- case_id: manifest_m_drop_function_restricted_finite_2176e11ca9bb
--- expected: success
--- expected_error_category: -
--- expected_sqlstates: -
--- expected_error_regex: -
--- expected_oracle_status: confirmed
--- expected_scope: syntax_only
--- params: {"behavior": "m_drop_function_behavior_default", "if_exists": "m_drop_function_if_exists_yes", "signature": "m_drop_function_signature_omitted"}
--- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_drop_function_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["m_internal_tool_reviewed"], "fact_refs": ["m_drop_function_fact_internal"], "key": "command_applicability"}, {"allowed_values": ["dedicated_database_no_other_users"], "fact_refs": ["m_drop_function_fact_internal"], "key": "test_isolation"}, {"allowed_values": ["fixture_function_creator"], "fact_refs": ["m_drop_function_fact_owner"], "key": "function_authority"}]
--- fixture_setup:
-CREATE SCHEMA m_function_existing_namespace;
-CREATE OR REPLACE FUNCTION m_function_existing_namespace.increment_value(i INTEGER) RETURNS INTEGER LANGUAGE plpgsql AUTHID CURRENT_USER AS 'BEGIN RETURN i + 1; END;';
--- test_sql:
-DROP FUNCTION IF EXISTS m_function_existing_namespace.increment_value;
 -- fixture_teardown:
 DROP FUNCTION IF EXISTS m_function_existing_namespace.increment_value(INTEGER) RESTRICT;
 DROP SCHEMA m_function_existing_namespace;

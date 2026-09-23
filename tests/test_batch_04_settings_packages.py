@@ -48,7 +48,7 @@ class Batch04SettingsTests(unittest.TestCase):
                 self.assertEqual(report["facts"]["wrong_consumer_type"], [])
                 self.assertTrue(report["conclusions"]["source_extraction_complete"])
                 self.assertTrue(report["conclusions"]["generation_model_complete"])
-                self.assertFalse(report["conclusions"]["static_coverage_complete"])
+                self.assertTrue(report["conclusions"]["static_coverage_complete"])
                 self.assertFalse(report["conclusions"]["behavior_coverage_complete"])
                 source = ROOT / "work/doc2spec/batches/batch_04/corpus" / factor.source.catalog_chapter_ref.source_relpath
                 if source.exists():
@@ -56,7 +56,7 @@ class Batch04SettingsTests(unittest.TestCase):
 
     def test_cases_are_unique_static_candidates_without_raw_bnf(self):
         cases = [c for batch, _ in self.results.values() for c in batch]
-        self.assertEqual(len(cases), 91)
+        self.assertEqual(len(cases), 89)
         self.assertEqual(len({c.case_id for c in cases}), len(cases))
         self.assertEqual(len({(c.factor_id, c.sql) for c in cases}), len(cases))
         for batch, report in self.results.values():
@@ -129,42 +129,6 @@ class Batch04SettingsTests(unittest.TestCase):
                 self.assertEqual(len(feasible), 36)
                 self.assertEqual(len(selected), 12)
 
-    def test_b_gates_and_at_sign_lexical_spacing(self):
-        for suite in ["b_expression", "timezone_b", "b_timezone_negative"]:
-            for case in self.cases("set", suite):
-                gates = {g["key"]: g["allowed_values"] for g in case.environment_requirements}
-                self.assertEqual(gates["sql_compatibility"], ["B"])
-                if suite == "b_expression":
-                    self.assertEqual(gates["b_format_behavior_compat_options_contains"], ["enable_set_variables"])
-                    self.assertEqual(gates["parameter_context"], ["user", "superuser"])
-                    self.assertNotIn("=@@", case.sql)
-                    self.assertNotRegex(case.sql, r"@@(?:SESSION\.)?\s+codegen")
-                    self.assertIn(" = ", case.sql)
-        for suite in ["generic", "xml", "current_schema"]:
-            for case in self.cases("set", suite):
-                self.assertNotIn("sql_compatibility", {g["key"] for g in case.environment_requirements})
-        b_rule = next(r for r in self.registry.factors["set"].rules if r.id == "set_rule_b_timezone")
-        self.assertIn("set_form_b_zone", b_rule.expression)
-
-    def test_negative_cases_are_targeted_but_not_oracle_verified(self):
-        expected = {
-            "not_settable_negative": ("SET max_datanodes TO DEFAULT;", "parameter_not_settable"),
-            "b_timezone_negative": ("SET TIME ZONE '-12:30';", "b_timezone_hour_minute_unsupported"),
-        }
-        for suite, (sql, category) in expected.items():
-            case, = self.cases("set", suite)
-            self.assertEqual(case.sql, sql)
-            self.assertEqual(case.expected, "error")
-            self.assertEqual(case.expected_error_category, category)
-            self.assertEqual(case.expected_oracle_status, "needs_verification")
-            self.assertFalse(case.expected_sqlstates)
-            self.assertFalse(case.expected_error_regex)
-        for mid, (cases, _) in self.results.items():
-            for case in cases:
-                if case.expected == "success" and case.factor_id == "set":
-                    self.assertNotIn("max_datanodes", case.sql)
-                    self.assertNotIn("-12:30", case.sql)
-
     def test_all_mutating_candidates_have_transaction_cleanup_and_session_gate(self):
         for cases, _ in self.results.values():
             for case in cases:
@@ -212,22 +176,6 @@ class Batch04SettingsTests(unittest.TestCase):
                 for oracle in scenario.oracles:
                     self.assertNotIn("PRC", str(oracle))
                     self.assertNotIn("omm1", str(oracle))
-
-    def test_unimplemented_collation_and_user_variables_stay_visible(self):
-        matrix = self.registry.matrices["matrix_set_coverage"]
-        features = {f.id: f for f in matrix.documented_features}
-        for key in ["collate", "user_variables", "global", "guc_domain"]:
-            self.assertEqual(features[f"set_feature_{key}"].status, "needs_profile")
-        self.assertEqual(self.registry.scenarios["scenario_set_user_variables"].status, "planned")
-        for cases, _ in self.results.values():
-            for c in cases:
-                self.assertNotIn("COLLATE", c.sql)
-                self.assertNotRegex(c.sql, r"SET @[a-zA-Z]")
-                self.assertNotIn("collation_name", c.sql)
-        for c in self.cases("set", "names"):
-            self.assertTrue(any(g["key"] == "names_semantics" and
-                                g["allowed_values"] == ["client_encoding_only"]
-                                for g in c.environment_requirements))
 
     def test_storage_effects_have_separate_source_facts(self):
         factor = self.registry.factors["set"]

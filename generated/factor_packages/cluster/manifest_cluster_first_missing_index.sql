@@ -6,8 +6,8 @@
 -- expected: error
 -- expected_error_category: cluster_missing_recorded_index
 -- expected_sqlstates: -
--- expected_error_regex: -
--- expected_oracle_status: needs_verification
+-- expected_error_regex: there is no previously clustered index for table ".*"
+-- expected_oracle_status: confirmed
 -- expected_scope: syntax_and_semantics
 -- params: {"index": "cluster_index_none", "target": "cluster_target_unset", "verbose": "cluster_verbose_none"}
 -- environment_requirements: [{"allowed_values": ["true"], "fact_refs": ["cluster_fact_no_transaction"], "key": "autocommit_no_transaction"}, {"allowed_values": ["true"], "fact_refs": ["cluster_fact_disk"], "key": "cluster_disk_capacity_ready"}]

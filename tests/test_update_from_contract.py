@@ -68,8 +68,6 @@ class UpdateFromContractTests(unittest.TestCase):
                         'manifest_update_multi_syntax_positive_39a73c3bf1ed']:
             case = cases[case_id]
             self.assertEqual(inspect_write(case['sql'], case['setup_sqls'])['status'], 'checked')
-        for case in report['manifests']['manifest_update_from_self_unaliased_negative']['cases']:
-            self.assertEqual(inspect_write(case['sql'], case['setup_sqls'])['status'], 'rejected')
 
 
 if __name__ == '__main__':

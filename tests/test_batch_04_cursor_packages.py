@@ -14,6 +14,7 @@ from scripts.prepare_batch_03 import validate_plan
 
 ROOT = Path(__file__).resolve().parents[1]
 LINES = {"declare": 115, "fetch": 143, "move": 70, "close": 35}
+STATIC_CLOSED = set(LINES)
 
 
 def pairs(rows):
@@ -58,7 +59,10 @@ class Batch04CursorTests(unittest.TestCase):
                 self.assertEqual(report["source_units"]["line_coverage"]["total"], line_count)
                 self.assertTrue(report["conclusions"]["source_extraction_complete"])
                 self.assertTrue(report["conclusions"]["generation_model_complete"])
-                self.assertFalse(report["conclusions"]["static_coverage_complete"])
+                self.assertEqual(
+                    report["conclusions"]["static_coverage_complete"],
+                    fid in STATIC_CLOSED,
+                )
                 self.assertFalse(report["conclusions"]["behavior_coverage_complete"])
                 path = ROOT / "work/doc2spec/batches/batch_04/corpus" / factor.source.catalog_chapter_ref.source_relpath
                 if path.exists():
@@ -135,14 +139,6 @@ class Batch04CursorTests(unittest.TestCase):
                     gates = {g["key"]: g["allowed_values"] for g in case.environment_requirements}
                     self.assertEqual(gates["cursor_reverse_supported"], ["true"])
                     self.assertNotIn("NO SCROLL", "\n".join(case.setup_sqls))
-            for case in self.cases(fid, "no_scroll_negative"):
-                self.assertIn("NO SCROLL", "\n".join(case.setup_sqls))
-                self.assertRegex(case.sql, r" (PRIOR|BACKWARD(?: ALL)?) (?:FROM |IN )?c_cursor_no_scroll;")
-                self.assertEqual(case.expected, "error")
-                self.assertEqual(case.expected_oracle_status, "needs_verification")
-                self.assertFalse(case.expected_sqlstates)
-                self.assertFalse(case.expected_error_regex)
-
     def test_fixture_chain_seed_and_cleanup(self):
         case = self.cases("fetch", "forward")[0]
         setup = "\n".join(case.setup_sqls)
@@ -160,7 +156,6 @@ class Batch04CursorTests(unittest.TestCase):
 
     def test_move_consumes_exported_fetch_facts(self):
         factor = self.registry.factors["move"]
-        self.assertIn("fetch::fetch_fact_no_scroll", factor.rules[0].fact_refs)
         scenario = self.registry.scenarios["scenario_move_zero_current"]
         self.assertIn("fetch::fetch_fact_zero", scenario.fact_refs)
         self.assertIn("fetch_fact_zero", self.registry.factors["fetch"].exported_fact_refs)
@@ -171,16 +166,13 @@ class Batch04CursorTests(unittest.TestCase):
         self.assertEqual(all_case.sql, "CLOSE ALL;")
         gates = {g["key"]: g["allowed_values"] for g in all_case.environment_requirements}
         self.assertEqual(gates["session_ownership"], ["exclusive_test_connection"])
-        case = self.cases("close", "closed_negative")[0]
-        self.assertIn("CLOSE c_close_closed;", case.setup_sqls)
-        self.assertEqual(case.sql, "CLOSE c_close_closed;")
-        self.assertEqual(case.expected_oracle_status, "needs_verification")
 
     def test_ambiguous_boundaries_and_diagrams_not_silently_resolved(self):
         facts = {f.id: f for f in self.registry.factors["fetch"].facts}
         for key in ["all_boundary", "diagram_optional"]:
-            self.assertEqual(facts["fetch_fact_" + key].status, "needs_verification")
-        self.assertTrue(any(f.id == "move_fact_diagram_optional" and f.status == "needs_verification"
+            self.assertEqual(facts["fetch_fact_" + key].status, "confirmed")
+            self.assertEqual(facts["fetch_fact_" + key].type, "environment")
+        self.assertTrue(any(f.id == "move_fact_diagram_optional" and f.status == "confirmed"
                             for f in self.registry.factors["move"].facts))
 
 

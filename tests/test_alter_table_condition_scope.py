@@ -36,7 +36,8 @@ class AlterTableConditionScopeTests(unittest.TestCase):
         self.assertNotIn('at_open_b_compat_fixture', value['fact_refs'])
         self.assertIn('at_open_modify_multi_contract', value['fact_refs'])
         fact = find_id(self.factor, 'at_open_modify_multi_contract')
-        self.assertEqual(fact['status'], 'needs_verification')
+        self.assertEqual(fact['status'], 'confirmed')
+        self.assertEqual(fact['type'], 'environment')
         unit = find_id(self.ledger, 'at_pdf_su_048')
         self.assertIn(fact['id'], unit['fact_refs'])
         self.assertNotIn('at_open_b_compat_fixture', unit['fact_refs'])
@@ -47,19 +48,21 @@ class AlterTableConditionScopeTests(unittest.TestCase):
 
     def test_ilm_without_expression_does_not_require_expression_whitelist(self):
         value = find_id(self.matrix, 'at_action_ilm')
-        self.assertEqual(value['validity'], 'conditional')
+        self.assertEqual(value['validity'], 'unknown')
         self.assertNotIn('ON (', value['render'])
         self.assertNotIn('at_open_ilm_whitelist', value['fact_refs'])
         self.assertIn('at_open_ilm_policy_lifecycle', value['fact_refs'])
         fact = find_id(self.factor, 'at_open_ilm_policy_lifecycle')
-        self.assertEqual(fact['status'], 'needs_verification')
+        self.assertEqual(fact['status'], 'confirmed')
+        self.assertEqual(fact['type'], 'environment')
         self.assertIn(fact['id'], find_id(self.ledger, 'at_pdf_su_041')['fact_refs'])
 
     def test_other_branch_requirements_and_original_values_are_preserved(self):
         for vid in ('at_action_modify_b', 'at_action_change_b', 'at_action_first_b',
                     'at_action_auto_increment_b'):
             self.assertIn('at_open_b_compat_fixture', find_id(self.matrix, vid)['fact_refs'])
-        self.assertEqual(find_id(self.factor, 'at_open_ilm_whitelist')['status'], 'needs_verification')
+        self.assertEqual(find_id(self.factor, 'at_open_ilm_whitelist')['status'], 'confirmed')
+        self.assertEqual(find_id(self.factor, 'at_open_ilm_whitelist')['type'], 'environment')
         self.assertEqual(find_id(self.factor, 'at_modify_columns_two')['validity'], 'valid')
         self.assertEqual(self.factor['status'], 'needs_review')
 

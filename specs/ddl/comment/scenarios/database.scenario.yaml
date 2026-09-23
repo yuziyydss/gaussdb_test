@@ -1,0 +1,32 @@
+schema_version: 1
+kind: scenario
+id: scenario_comment_database
+name: COMMENT DATABASE目录身份待校准
+factor_ref: comment
+status: planned
+description: 只观察实际新建数据库注释的设置、替换与清除；不验证模板复制、连接行为或全局元数据。
+fixture_refs: [fixture_comment_database]
+fact_refs:
+  - comment_fact_authority
+  - comment_fact_pdb
+  - create_database::create_database_fact_privilege
+  - create_database::create_database_fact_no_transaction
+  - drop_database::drop_database_fact_privilege
+  - drop_database::drop_database_fact_no_transaction
+  - drop_database::drop_database_fact_no_connections
+preconditions:
+  - 独占测试服务器与隔离连接
+  - 当前环境不是PDB
+  - 初始数据库名不存在
+  - 记录数据库的实际创建归属
+  - 目标执行前后不连接到该新建数据库
+steps:
+  - id: comment_database
+    candidate:
+      manifest_ref: manifest_comment_database
+      params: {target: comment_target_database_fresh, text: comment_text_plain}
+oracles:
+  - kind: manual_assertion
+    step_id: comment_database
+    expected: 校准目录中该数据库注释的设置、替换与清除；不得用目标SQL成功或清理成功替代目录Oracle。
+execution_requirements: [database_authorization, target_oracle_calibration, isolated_connection, ownership_scoped_cleanup, preserve_stage_failures]

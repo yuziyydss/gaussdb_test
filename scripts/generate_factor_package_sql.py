@@ -21,6 +21,8 @@ from core.generator import validate_sql_syntax
 from core.spec_generator import GenerationValidationError
 from core.m_compat_environment import BOOTSTRAP_PATH, requires_m
 from core.candidate_identity import setup_signature
+from core.generation_gap_dispositions import load_generation_gap_dispositions
+from core.no_manifest_dispositions import load_no_manifest_dispositions
 from core.package_inventory import package_inventory
 
 
@@ -30,6 +32,13 @@ def display_path(path: Path) -> str:
         return str(path.resolve().relative_to(ROOT_DIR.resolve()))
     except ValueError:
         return str(path.resolve())
+
+
+def should_write_global_report(output_dir: Path, requested, registry) -> bool:
+    """Preserve the canonical global report unless this is a full generation run."""
+    full_run = set(requested) == set(registry.manifests)
+    canonical_dir = output_dir.resolve() == (ROOT_DIR / "generated" / "factor_packages").resolve()
+    return full_run or not canonical_dir
 
 
 def parse_args() -> argparse.Namespace:
@@ -255,7 +264,9 @@ def main() -> int:
         return 1
 
     report_path = args.output_dir / "generation_report.json"
-    report_path.parent.mkdir(parents=True, exist_ok=True)
+    write_global_report = should_write_global_report(args.output_dir, requested, registry)
+    if write_global_report:
+        report_path.parent.mkdir(parents=True, exist_ok=True)
     factor_summaries: Dict[str, Any] = {}
     auditor = FactorCoverageAuditor(registry)
     for factor_id in sorted({registry.manifests[item].factor_ref for item in requested}):
@@ -267,46 +278,88 @@ def main() -> int:
                 json.dumps(audit, ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
-    report_path.write_text(
-        json.dumps({
-            "package_inventory": package_inventory(registry, requested),
-            "manifest_count": len(reports),
-            "global_case_id_count": len(global_case_ids),
-            "distinct_sql_count": len(sql_origins),
-            "cross_factor_sql_overlaps": [
-                {"sql": sql, "origins": origins}
-                for sql, origins in sorted(sql_origins.items())
-                if len({origin['factor_id'] for origin in origins}) > 1
-            ],
-            "same_factor_sql_setup_variants": [
-                {"sql": sql, "factor_id": factor_id, "origins": [
-                    {**origin, "setup_sha256": hashlib.sha256(json.dumps(
-                        sql_setup_contexts[origin['case_id']],ensure_ascii=False).encode()).hexdigest()}
-                    for origin in origins if origin['factor_id']==factor_id]}
-                for sql, origins in sorted(sql_origins.items())
-                for factor_id in sorted({origin['factor_id'] for origin in origins})
-                if sum(origin['factor_id']==factor_id for origin in origins)>1
-            ],
-            "factor_dependencies": {
-                factor_id: sorted(dependencies)
-                for factor_id, dependencies in sorted(
-                    registry.factor_dependency_graph().items()
-                )
-            },
-            "factor_topological_order": registry.factor_topological_order(),
-            "factor_scheduling_dependencies": {
-                fid: sorted(refs) for fid, refs in sorted(registry.factor_scheduling_graph().items())
-            },
-            "source_only_fact_refs": {
-                fid: factor.source_only_fact_refs for fid, factor in sorted(registry.factors.items())
-                if factor.source_only_fact_refs
-            },
-            "factor_coverage": factor_summaries,
-            "manifests": reports,
-        }, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    print(f"report={display_path(report_path)} global_case_ids={len(global_case_ids)}")
+    generation_gap_dispositions = load_generation_gap_dispositions() or {}
+    full_generation_run = set(requested) == set(registry.manifests)
+    generation_model_gaps = []
+    if full_generation_run:
+        generation_gap_refs = {
+            factor_id for factor_id, audit in factor_summaries.items()
+            if not audit["conclusions"]["generation_model_complete"]
+        }
+        if set(generation_gap_dispositions) != generation_gap_refs:
+            missing = sorted(generation_gap_refs - set(generation_gap_dispositions))
+            unexpected = sorted(set(generation_gap_dispositions) - generation_gap_refs)
+            raise ValueError(
+                "Generation-gap disposition set mismatch: "
+                f"missing={missing}, unexpected={unexpected}"
+            )
+        for factor_id in sorted(generation_gap_refs):
+            disposition = generation_gap_dispositions[factor_id]
+            audit = factor_summaries[factor_id]
+            generation_model_gaps.append({
+                "factor_ref": factor_id,
+                "status": "generation_model_not_complete",
+                "blocking_category": disposition["blocking_category"],
+                "blocking_reason": disposition["blocking_reason"],
+                "next_action": disposition["next_action"],
+                "value_gaps": audit["values"]["coverage_gaps"],
+                "feature_gaps": audit["documented_features"]["coverage_gaps"],
+                "unresolved_fact_refs": audit["facts"]["unresolved"],
+            })
+    if write_global_report:
+            report_path.write_text(
+                json.dumps({
+                "package_inventory": package_inventory(
+                    registry, requested, load_no_manifest_dispositions()
+                ),
+                "generation_model_gap_scope": (
+                    "all_manifests" if full_generation_run else "requested_only"
+                ),
+                "generation_model_gap_count": len(generation_model_gaps),
+                "generation_model_gaps": generation_model_gaps,
+                "manifest_count": len(reports),
+                "global_case_id_count": len(global_case_ids),
+                "distinct_sql_count": len(sql_origins),
+                "cross_factor_sql_overlaps": [
+                    {"sql": sql, "origins": origins}
+                    for sql, origins in sorted(sql_origins.items())
+                    if len({origin['factor_id'] for origin in origins}) > 1
+                ],
+                "same_factor_sql_setup_variants": [
+                    {"sql": sql, "factor_id": factor_id, "origins": [
+                        {**origin, "setup_sha256": hashlib.sha256(json.dumps(
+                            sql_setup_contexts[origin['case_id']],ensure_ascii=False).encode()).hexdigest()}
+                        for origin in origins if origin['factor_id']==factor_id]}
+                    for sql, origins in sorted(sql_origins.items())
+                    for factor_id in sorted({origin['factor_id'] for origin in origins})
+                    if sum(origin['factor_id']==factor_id for origin in origins)>1
+                ],
+                "factor_dependencies": {
+                    factor_id: sorted(dependencies)
+                    for factor_id, dependencies in sorted(
+                        registry.factor_dependency_graph().items()
+                    )
+                },
+                "factor_topological_order": registry.factor_topological_order(),
+                "factor_scheduling_dependencies": {
+                    fid: sorted(refs) for fid, refs in sorted(registry.factor_scheduling_graph().items())
+                },
+                "source_only_fact_refs": {
+                    fid: factor.source_only_fact_refs for fid, factor in sorted(registry.factors.items())
+                    if factor.source_only_fact_refs
+                },
+                "factor_coverage": factor_summaries,
+                "manifests": reports,
+            }, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    if write_global_report:
+        print(f"report={display_path(report_path)} global_case_ids={len(global_case_ids)}")
+    else:
+        print(
+            "report=skipped (scoped run; canonical global report preserved) "
+            f"global_case_ids={len(global_case_ids)}"
+        )
     return 0
 
 

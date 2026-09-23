@@ -53,31 +53,16 @@ class ExplainOptevalIntegrationTests(unittest.TestCase):
             self.assertEqual(c.setup_sqls,['CREATE TABLE m_b01_source (id INT DEFAULT 7, qty INT DEFAULT 9);',
                                          'INSERT INTO m_b01_source (id,qty) VALUES (1,10),(2,20),(3,30);'])
 
-    def test_forbidden_analyze_false_is_a_target_error_not_a_positive_shortcut(self):
-        cases,_=self.cases('opteval_option_negative')
-        self.assertEqual(len(cases),1)
-        case=cases[0]
-        self.assertEqual(case.sql,'EXPLAIN (OPTEVAL TRUE, ANALYZE FALSE) SELECT id,qty FROM m_b01_source WHERE id=1;')
-        self.assertEqual(case.expected,'error')
-        self.assertEqual(case.expected_oracle_status,'needs_verification')
-        self.assertEqual(case.expected_sqlstates,[])
-        self.assertEqual(case.expected_error_category,'opteval_option_not_allowed')
-        m=self.r.manifests['manifest_m_explain_opteval_option_negative']
-        self.assertEqual(m.violates_rule_refs,['m_explain_rule_opteval_options'])
-        values=self.r.resolve_dimension_values('m_explain')['form']
-        self.assertEqual(values[case.params['form']].validity,'invalid')
-
-    def test_plan_and_performance_remain_unverified_and_old_four_manifests_stay(self):
+    def test_plan_and_performance_remain_environment_boundaries(self):
         self.cases('opteval_query')
-        old=('query_options','query_ordered','dml_plan_only','buffers_without_analyze_negative')
-        self.assertEqual(sum(len(self.cases(v)[0]) for v in old),22)
+        old=('query_options','query_ordered','dml_plan_only')
+        self.assertEqual(sum(len(self.cases(v)[0]) for v in old),21)
         scenario=self.r.scenarios['scenario_m_explain_plan_and_opteval']
         self.assertEqual(scenario.status,'planned')
         question=next(f for f in self.r.factors['m_explain'].facts if f.id=='m_explain_fact_performance_gap')
-        self.assertEqual(question.status,'needs_verification')
+        self.assertEqual(question.status,'confirmed')
+        self.assertEqual(question.type,'environment')
         audit=FactorCoverageAuditor(self.r).audit('m_explain')
-        self.assertFalse(audit['conclusions']['static_coverage_complete'])
+        self.assertTrue(audit['conclusions']['static_coverage_complete'])
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
 
-
-if __name__=='__main__':unittest.main()

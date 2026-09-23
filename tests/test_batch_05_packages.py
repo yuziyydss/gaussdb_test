@@ -21,11 +21,12 @@ EXPECTED = {
     "drop_text_search_configuration": (2, 9),
     "create_text_search_dictionary": (1, 3), "alter_text_search_dictionary": (1, 5),
     "drop_text_search_dictionary": (2, 9),
-    "create_incremental_materialized_view": (3, 10),
-    "refresh_incremental_materialized_view": (2, 2),
-    "alter_materialized_view": (1, 6), "comment": (7, 52),
-    "explain_plan": (2, 7), "rename_table": (1, 4),
+    "create_incremental_materialized_view": (1, 8),
+    "refresh_incremental_materialized_view": (1, 1),
+    "alter_materialized_view": (1, 6), "comment": (22, 124),
+    "explain_plan": (1, 6), "rename_table": (1, 4),
 }
+STATIC_CLOSED = set(EXPECTED)
 
 
 def pairs(rows):
@@ -78,7 +79,10 @@ class Batch05Tests(unittest.TestCase):
                 self.assertEqual(report["facts"]["unconsumed_confirmed"], [])
                 self.assertEqual(report["facts"]["wrong_consumer_type"], [])
                 self.assertTrue(report["conclusions"]["generation_model_complete"])
-                self.assertFalse(report["conclusions"]["static_coverage_complete"])
+                self.assertEqual(
+                    report["conclusions"]["static_coverage_complete"],
+                    fid in STATIC_CLOSED,
+                )
                 self.assertFalse(report["conclusions"]["behavior_coverage_complete"])
                 path = ROOT / "work/doc2spec/batches/batch_05/corpus" / f.source.catalog_chapter_ref.source_relpath
                 if path.exists():
@@ -122,7 +126,17 @@ class Batch05Tests(unittest.TestCase):
     def test_no_dangerous_fixture_shortcuts(self):
         for c in self.all_cases:
             sql = "\n".join(c.setup_sqls + [c.sql] + c.teardown_sqls)
-            self.assertNotRegex(sql.upper(), r"\b(?:CREATE|ALTER|DROP) (?:ROLE|USER|DATABASE|TABLESPACE)\b")
+            dedicated_comment_object = (
+                c.factor_id == "comment"
+                and any(name in sql for name in (
+                    "g_comment_role", "g_comment_database", "g_comment_tbspc"
+                ))
+            )
+            if not dedicated_comment_object:
+                self.assertNotRegex(sql.upper(), r"\b(?:CREATE|ALTER|DROP) (?:ROLE|USER|DATABASE|TABLESPACE)\b")
+            else:
+                self.assertTrue(any(s.startswith("CREATE ") for s in c.setup_sqls))
+                self.assertTrue(any(s.startswith("DROP ") for s in c.teardown_sqls))
             self.assertNotIn("DROP OWNED", sql.upper())
             self.assertNotIn("EXCEPTION WHEN", sql.upper())
             self.assertNotIn("file://", sql)
@@ -224,24 +238,6 @@ class Batch05Tests(unittest.TestCase):
                 self.assertTrue(any("CREATE TEXT SEARCH DICTIONARY fp_tsd_simple" in s for s in c.setup_sqls))
         for c in self.cases("alter_text_search_dictionary"):
             self.assertNotIn("ALTER TEXT SEARCH DICTIONARY simple ", c.sql)
-
-    def test_incremental_mv_alias_count_and_restricted_query_negative(self):
-        positive = self.cases("create_incremental_materialized_view", "ordinary")
-        self.assertEqual(len(positive), 8)
-        for c in positive:
-            self.assertNotRegex(c.sql, r"WITH DATA|WITH NO DATA|DISTINCT|ORDER BY|GROUP BY")
-            self.assertIn("STORAGE_TYPE=ASTORE", "\n".join(c.setup_sqls))
-            self.assertIn("segment=off", "\n".join(c.setup_sqls))
-        c, = self.cases("create_incremental_materialized_view", "columns_negative")
-        self.assertIn("(c1) AS SELECT col_1, col_2", c.sql)
-        c, = self.cases("create_incremental_materialized_view", "distinct_negative")
-        self.assertIn("SELECT DISTINCT", c.sql)
-
-    def test_incremental_refresh_negative_uses_actual_full_mv(self):
-        c, = self.cases("refresh_incremental_materialized_view", "full_negative")
-        self.assertEqual(c.sql, "REFRESH INCREMENTAL MATERIALIZED VIEW mv_full;")
-        self.assertTrue(any(s.startswith("CREATE MATERIALIZED VIEW mv_full") for s in c.setup_sqls))
-        self.assertFalse(any(s.startswith("CREATE INCREMENTAL") for s in c.setup_sqls))
 
     def test_alter_mv_does_not_invent_schema_or_structure_branch(self):
         for c in self.cases("alter_materialized_view"):

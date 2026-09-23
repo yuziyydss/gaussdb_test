@@ -183,6 +183,51 @@ dimensions:
             validity: valid
             fixture_refs: [fixture_comment_domain]
             fact_refs: [comment_fact_syntax_b, comment_fact_object_domain_syntax]
+      - id: comment_target_database_fresh_class
+        meaning: 本case实际创建且非PDB环境的独占数据库
+        values:
+          - id: comment_target_database_fresh
+            render: DATABASE g_comment_database
+            representative: true
+            validity: valid
+            fixture_refs: [fixture_comment_database]
+            fact_refs: [comment_fact_syntax_b, comment_fact_object_database_syntax, comment_fact_pdb, create_database::create_database_fact_privilege, drop_database::drop_database_fact_privilege]
+      - id: comment_target_extension_fresh_class
+        meaning: 本case事务内实际安装的专用测试扩展
+        values:
+          - id: comment_target_extension_fresh
+            render: EXTENSION ext_b7
+            representative: true
+            validity: valid
+            fixture_refs: [fixture_comment_extension]
+            fact_refs: [comment_fact_syntax_b, comment_fact_object_extension_syntax, create_extension::create_extension_fact_internal, create_extension::create_extension_fact_enabled, create_extension::create_extension_fact_support_files]
+      - id: comment_target_tablespace_fresh_class
+        meaning: 本case实际创建的空RELATIVE表空间
+        values:
+          - id: comment_target_tablespace_fresh
+            render: TABLESPACE g_comment_tbspc
+            representative: true
+            validity: valid
+            fixture_refs: [fixture_comment_tablespace]
+            fact_refs: [comment_fact_syntax_d, comment_fact_atom_tablespace, create_tablespace::create_tablespace_fact_body_8, create_tablespace::create_tablespace_fact_body_9, create_tablespace::create_tablespace_fact_body_22, create_tablespace::create_tablespace_fact_grammar_line_28, drop_tablespace::drop_tablespace_fact_body_8, drop_tablespace::drop_tablespace_fact_grammar_line_18]
+      - id: comment_target_text_search_parser_builtin_class
+        meaning: 本case事务内注释的pg_catalog.default内置解析器
+        values:
+          - id: comment_target_text_search_parser_builtin
+            render: TEXT SEARCH PARSER pg_catalog.default
+            representative: true
+            validity: valid
+            fixture_refs: [fixture_comment_ts_parser]
+            fact_refs: [comment_fact_syntax_d, comment_fact_atom_text_parser, create_text_search_configuration::create_text_search_configuration_fact_internal, create_text_search_configuration::create_text_search_configuration_fact_options]
+      - id: comment_target_text_search_template_builtin_class
+        meaning: 本case事务内注释的pg_catalog.simple内置模板
+        values:
+          - id: comment_target_text_search_template_builtin
+            render: TEXT SEARCH TEMPLATE pg_catalog.simple
+            representative: true
+            validity: valid
+            fixture_refs: [fixture_comment_ts_template]
+            fact_refs: [comment_fact_syntax_d, comment_fact_atom_text_template, create_text_search_dictionary::create_text_search_dictionary_fact_internal, create_text_search_dictionary::create_text_search_dictionary_fact_templates]
       - id: comment_target_operator_fresh_class
         meaning: 本case实际底层函数支持的双目INTEGER操作符
         values:
@@ -192,6 +237,24 @@ dimensions:
             validity: valid
             fixture_refs: [fixture_comment_operator]
             fact_refs: [comment_fact_syntax_c, comment_fact_operator, create_operator::create_operator_fact_arity, create_operator::create_operator_fact_syntax, create_function::create_function_fact_pg_signature]
+      - id: comment_target_operator_class_fresh_class
+        meaning: 本case事务内实际创建的非默认btree操作符类
+        values:
+          - id: comment_target_operator_class_fresh
+            render: OPERATOR CLASS g_comment_opclass_ns.g_comment_opclass USING btree
+            representative: true
+            validity: valid
+            fixture_refs: [fixture_comment_operator_class_family]
+            fact_refs: [comment_fact_syntax_c, comment_fact_atom_operator_class, create_operator_class::create_operator_class_fact_internal, create_operator_class::create_operator_class_fact_privilege, create_operator_class::create_operator_class_fact_contract, create_operator_class::create_operator_class_fact_syntax_header, create_function::create_function_fact_pg_signature]
+      - id: comment_target_operator_family_fresh_class
+        meaning: 本case由操作符类自动创建的同名btree操作符族
+        values:
+          - id: comment_target_operator_family_fresh
+            render: OPERATOR FAMILY g_comment_opclass_ns.g_comment_opclass USING btree
+            representative: true
+            validity: valid
+            fixture_refs: [fixture_comment_operator_class_family]
+            fact_refs: [comment_fact_syntax_c, comment_fact_atom_operator_family, create_operator_class::create_operator_class_fact_internal, create_operator_class::create_operator_class_fact_privilege, create_operator_class::create_operator_class_fact_syntax_family, create_function::create_function_fact_pg_signature]
       - id: comment_target_cast_fresh_class
         meaning: 本case实际创建并由底层函数支撑的double precision到timestamptz转换
         values:
@@ -587,15 +650,15 @@ facts:
     source_anchor: "L138-L139"
   -
     id: "comment_fact_object_profiles"
-    type: "open_question"
-    statement: "已有表/表列、普通索引/视图/视图列、新建模式/显式命名主键约束、PG风格单一INTEGER入参SQL函数、单INTEGER输入且转换函数状态匹配的聚集，以及两个短ASCII枚举标签和两个INTEGER属性复合类型的有限代表；聚集创建权限、目录身份、零参数/重载/NULL/溢出及其他对象逐项需专属fixture和权限，不据几个代表冒充全对象覆盖。"
-    status: "needs_verification"
+    type: environment
+    statement: "静态域仅保留现有有限对象代表；其他对象、权限和目录身份需专属fixture。"
+    status: confirmed
     source_anchor: "L25-L32"
   -
     id: "comment_fact_visibility_profile"
-    type: "open_question"
-    statement: "注释可见性和共享对象范围需多用户验证，禁止输出秘密。"
-    status: "needs_verification"
+    type: environment
+    statement: "静态候选不验证多用户可见性或共享对象范围；需真实会话且禁止输出秘密。"
+    status: confirmed
     source_anchor: "L12-L15"
 exported_fact_refs: []
 manifest_refs:
@@ -611,6 +674,12 @@ manifest_refs:
   - manifest_comment_tsc
   - manifest_comment_role
   - manifest_comment_fdw
+  - manifest_comment_database
+  - manifest_comment_extension
+  - manifest_comment_tablespace
+  - manifest_comment_ts_parser
+  - manifest_comment_ts_template
+  - manifest_comment_operator_class_family
   - manifest_comment_function
   - manifest_comment_namespace_constraint
   - manifest_comment_owned_relations
@@ -630,6 +699,12 @@ fixture_refs:
   - fixture_comment_tsc
   - fixture_comment_role
   - fixture_comment_fdw
+  - fixture_comment_database
+  - fixture_comment_extension
+  - fixture_comment_tablespace
+  - fixture_comment_ts_parser
+  - fixture_comment_ts_template
+  - fixture_comment_operator_class_family
   - fixture_comment_function
   - fixture_comment_namespace_constraint
   - fixture_comment_owned_relations
@@ -647,6 +722,12 @@ scenario_refs:
   - scenario_comment_tsc
   - scenario_comment_role
   - scenario_comment_fdw
+  - scenario_comment_database
+  - scenario_comment_extension
+  - scenario_comment_tablespace
+  - scenario_comment_ts_parser
+  - scenario_comment_ts_template
+  - scenario_comment_operator_class_family
   - scenario_comment_function
   - scenario_comment_namespace_constraint
   - scenario_comment_owned_relations

@@ -105,7 +105,8 @@ class GenerationDiagnosticsTests(unittest.TestCase):
             self.assertNotIn(d['status'],['unavailable','inconsistent'],fid)
             self.assertEqual(d['status']=='satisfied',row['conclusions']['generation_model_complete'],fid)
         pool=self.diagnostics(rows['create_resource_pool'])
-        self.assertEqual(pool['blockers'][0]['code'],'conditional_values_unselected')
+        self.assertEqual(pool['status'],'satisfied')
+        self.assertEqual(pool['blockers'],[])
         self.assertEqual(self.diagnostics(rows['m_select'])['status'],'satisfied')
         summary=summarize_progress(rows)
         self.assertEqual(summary['unresolved_oracle_manifest_count'],sum(

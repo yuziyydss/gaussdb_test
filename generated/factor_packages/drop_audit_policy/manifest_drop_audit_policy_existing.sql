@@ -2,14 +2,14 @@
 -- static_only: true
 -- case_count: 2
 
--- case_id: manifest_drop_audit_policy_existing_6abfced37d8c
+-- case_id: manifest_drop_audit_policy_existing_999f19d6c39e
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"if_exists": "drop_audit_policy_if_exists_none"}
+-- params: {"if_exists": "drop_audit_policy_if_exists_none", "policy_name": "drop_audit_policy_policy_name_existing"}
 -- environment_requirements: [{"allowed_values": ["true"], "fact_refs": ["drop_audit_policy_fact_privilege"], "key": "security_policy_admin"}]
 -- fixture_setup:
 CREATE SCHEMA fp_cs_one;
@@ -32,14 +32,14 @@ ROLLBACK;
 DROP SCHEMA IF EXISTS fp_cs_two CASCADE;
 DROP SCHEMA IF EXISTS fp_cs_one CASCADE;
 
--- case_id: manifest_drop_audit_policy_existing_9c9c40cea852
+-- case_id: manifest_drop_audit_policy_existing_3746ce3095ce
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"if_exists": "drop_audit_policy_if_exists_yes"}
+-- params: {"if_exists": "drop_audit_policy_if_exists_yes", "policy_name": "drop_audit_policy_policy_name_existing"}
 -- environment_requirements: [{"allowed_values": ["true"], "fact_refs": ["drop_audit_policy_fact_privilege"], "key": "security_policy_admin"}]
 -- fixture_setup:
 CREATE SCHEMA fp_cs_one;

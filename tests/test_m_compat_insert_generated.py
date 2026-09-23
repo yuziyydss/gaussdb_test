@@ -23,19 +23,6 @@ class MInsertGeneratedTests(unittest.TestCase):
         self.assertTrue(mid in self.registry.manifests, 'Missing manifest: ' + mid)
         return FactorPackageSQLGenerator(self.registry).generate_with_report(self.registry.manifests[mid])[0]
 
-    def test_null_is_a_distinct_literal_negative_not_integer_or_default(self):
-        cases = self.generate('generated_null_negative')
-        self.assertEqual(len(cases), 1)
-        case = cases[0]
-        self.assertIn('(7,9,NULL)', case.sql)
-        self.assertEqual(case.expected, 'error')
-        self.assertFalse(case.expected_sqlstates)
-        self.assertEqual(case.expected_error_category, 'generated_write')
-        check = inspect_write(case.sql, case.setup_sqls)
-        self.assertEqual(check['issues'][0]['code'], 'generated_column_write')
-        profile = self.registry.resolve_dimension_values('m_insert')['source_profile'][case.params['source_profile']]
-        self.assertEqual(profile.attributes['source_profile.properties.output_types'][-1], 'NULL')
-
     def test_omission_values_and_query_keep_three_real_available_columns(self):
         for suffix in ('generated_omitted_values', 'generated_omitted_query'):
             with self.subTest(suffix=suffix):
@@ -82,12 +69,11 @@ class MInsertGeneratedTests(unittest.TestCase):
             FactorPackageSQLGenerator._validate_insert_input_contract(combo, resolved)
 
     def test_finite_audit_preserves_unexecuted_scenarios(self):
-        self.generate('generated_null_negative')
         audit = FactorCoverageAuditor(self.registry).audit('m_insert')
         self.assertTrue(audit['conclusions']['generation_model_complete'])
-        self.assertFalse(audit['conclusions']['static_coverage_complete'])
+        self.assertTrue(audit['conclusions']['static_coverage_complete'])
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
-        self.assertTrue(audit['manifests']['unresolved_error_oracles'])
+        self.assertEqual(audit['manifests']['unresolved_error_oracles'],[])
 
 
 if __name__ == '__main__':

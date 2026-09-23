@@ -21,6 +21,10 @@ from core.spec_generator import SpecSQLGenerator
 from core.factor_package_model import FactorPackageLoadError, FactorPackageRegistry
 from core.factor_package_generator import FactorPackageSQLGenerator
 from core.factor_coverage_auditor import FactorCoverageAuditor
+from core.generation_gap_dispositions import category_label as generation_gap_category_label
+from core.generation_gap_dispositions import load_generation_gap_dispositions
+from core.no_manifest_dispositions import category_label, load_no_manifest_dispositions
+from core.package_inventory import package_inventory
 from core.progress_reporting import factor_progress, summarize_progress
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -56,6 +60,47 @@ def _factor_package_coverage_report() -> dict:
     progress = summarize_progress(audits)
     for audit in audits.values():
         audit['display_progress'] = factor_progress(audit)
+    dispositions = load_no_manifest_dispositions() or {}
+    inventory = package_inventory(
+        factor_package_registry,
+        list(factor_package_registry.manifests),
+        dispositions,
+    )
+    for row in inventory["without_manifest"]:
+        row["blocking_category_label"] = category_label(row["blocking_category"])
+        audits[row["factor_ref"]]["no_manifest_disposition"] = row
+    generation_gap_dispositions = load_generation_gap_dispositions() or {}
+    generation_gap_refs = {
+        factor_id for factor_id, audit in audits.items()
+        if audit["manifests"]["total"]
+        and not audit["conclusions"]["generation_model_complete"]
+    }
+    if set(generation_gap_dispositions) != generation_gap_refs:
+        missing = sorted(generation_gap_refs - set(generation_gap_dispositions))
+        unexpected = sorted(set(generation_gap_dispositions) - generation_gap_refs)
+        raise ValueError(
+            "Generation-gap disposition set mismatch: "
+            f"missing={missing}, unexpected={unexpected}"
+        )
+    generation_model_gaps = []
+    for factor_id in sorted(generation_gap_refs):
+        disposition = generation_gap_dispositions[factor_id]
+        audit = audits[factor_id]
+        row = {
+            "factor_ref": factor_id,
+            "status": "generation_model_not_complete",
+            "blocking_category": disposition["blocking_category"],
+            "blocking_category_label": generation_gap_category_label(
+                disposition["blocking_category"]
+            ),
+            "blocking_reason": disposition["blocking_reason"],
+            "next_action": disposition["next_action"],
+            "value_gaps": audit["values"]["coverage_gaps"],
+            "feature_gaps": audit["documented_features"]["coverage_gaps"],
+            "unresolved_fact_refs": audit["facts"]["unresolved"],
+        }
+        generation_model_gaps.append(row)
+        audits[factor_id]["generation_gap_disposition"] = row
     catalog_path = BASE_DIR / "generated" / "audit" / "pdf_catalog_coverage.json"
     catalog_summary = {
         "total": 0,
@@ -125,6 +170,18 @@ def _factor_package_coverage_report() -> dict:
             len(audit["scenarios"]["planned"])
             for audit in audits.values()
         ),
+        "package_inventory": inventory,
+        "generation_model_gap_count": len(generation_model_gaps),
+        "generation_model_gaps": generation_model_gaps,
+        "without_manifest_count": inventory["without_manifest_count"],
+        "without_manifest": inventory["without_manifest"],
+        "no_manifest_disposition_categories": {
+            category: sum(
+                row["blocking_category"] == category
+                for row in inventory["without_manifest"]
+            )
+            for category in sorted({row["blocking_category"] for row in inventory["without_manifest"]})
+        },
         "factors": audits,
     }
 
@@ -153,6 +210,20 @@ async def factor_package_detail(request: Request, factor_id: str):
     confirmed_count = sum(1 for fact in factor.facts if fact.status == "confirmed")
     open_questions = [fact for fact in factor.facts if fact.type == "open_question"]
     coverage_audit = FactorCoverageAuditor(factor_package_registry).audit(factor_id)
+    disposition = (load_no_manifest_dispositions() or {}).get(factor_id)
+    if disposition is not None:
+        disposition = {
+            **disposition,
+            "blocking_category_label": category_label(disposition["blocking_category"]),
+        }
+    generation_gap = (load_generation_gap_dispositions() or {}).get(factor_id)
+    if generation_gap is not None:
+        generation_gap = {
+            **generation_gap,
+            "blocking_category_label": generation_gap_category_label(
+                generation_gap["blocking_category"]
+            ),
+        }
     return templates.TemplateResponse(request, "_factor_package_detail.html", {
         "request": request,
         "factor": factor,
@@ -160,6 +231,8 @@ async def factor_package_detail(request: Request, factor_id: str):
         "open_questions": open_questions,
         "coverage_audit": coverage_audit,
         "progress": factor_progress(coverage_audit),
+        "no_manifest_disposition": disposition,
+        "generation_gap_disposition": generation_gap,
         "manifests": [
             factor_package_registry.get_manifest(manifest_id)
             for manifest_id in factor.manifest_refs
@@ -299,9 +372,37 @@ async def coverage_export_md():
         f"{report['progress']['unresolved_oracle_manifest_count']}份清单，不是生成异常。",
         "条件值未纳入不等于产品不支持；应先核实来源与支持条件，不直接补为正向。",
         "",
+        "## 生成模型剩余缺口",
+        "",
+        f"当前 {report['generation_model_gap_count']} 个有manifest包仍未满足生成模型声明条件。",
+        "",
+        "| Factor | 阻断类别 | 当前原因 | 下一步动作 |",
+        "|---|---|---|---|",
+    ]
+    for row in report["generation_model_gaps"]:
+        lines.append(
+            f"| {row['factor_ref']} | {row['blocking_category_label']} | "
+            f"{row['blocking_reason']} | {row['next_action']} |"
+        )
+    lines.extend([
+        "",
+        "## 无普通manifest处置",
+        "",
+        f"当前 {report['without_manifest_count']} 包无普通manifest；无manifest不是统一的不支持结论。",
+        "",
+        "| Factor | 阻断类别 | 当前原因 | 下一步动作 |",
+        "|---|---|---|---|",
+    ])
+    for row in report["without_manifest"]:
+        lines.append(
+            f"| {row['factor_ref']} | {row['blocking_category_label']} | "
+            f"{row['blocking_reason']} | {row['next_action']} |"
+        )
+    lines.extend([
+        "",
         "| Factor | 包已建 | SQL候选数 | 原文账本 | 候选生成 | 生成模型诊断 | 静态覆盖 | 实机验证 |",
         "|---|---|---:|---|---|---|---|---|",
-    ]
+    ])
     for factor_id, audit in report["factors"].items():
         p = audit['display_progress']
         generation = {'generated': '有候选', 'partial': '部分生成/有异常', 'no_cases': '无候选'}[p['generation_status']]

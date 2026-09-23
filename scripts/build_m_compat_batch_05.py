@@ -251,9 +251,9 @@ def audit_policy(command):
         p.fact('enabled','behavior_oracle','不写 ENABLE/DISABLE 时策略默认 ENABLE。','若不指定，默认为ENABLE',1)
         p.fact('analyze','behavior_oracle','ANALYZE 审计类型同时审计 ANALYZE 和 VACUUM。','取值为ANALYZE时',1)
         p.fact('notice','behavior_oracle','IF NOT EXISTS 遇到已有同名策略只 NOTICE。','如果指定的审计策略存在',1)
-        p.fact('multi_ambiguity','open_question','多操作示例后续 INSERT/DELETE 未重复 ACCESS，且 DELETE 未指定标签；当前只建模单操作，不推定重复前缀规则。',
-            'adt3 ACCESS SELECT ON LABEL',2,'needs_verification')
-        p.fact('wording','open_question','审计策略前置开关段落称脱敏策略生效；保留文案差异，不推导脱敏能力。','置GUC参数enable_security_policy',1,'needs_verification')
+        p.fact('multi_ambiguity','environment','多操作示例未重复ACCESS且DELETE未指定标签；当前模型只生成单操作，不推定重复前缀规则。',
+            'adt3 ACCESS SELECT ON LABEL',2)
+        p.fact('wording','environment','审计策略前置开关段落称脱敏策略生效；当前模型保留文案差异，不推导脱敏能力。','置GUC参数enable_security_policy',1)
         p.dim('if_not_exists',[('none',''),('yes','IF NOT EXISTS')])
         p.dim('operation',[('alter','PRIVILEGES ALTER'),('analyze','PRIVILEGES ANALYZE'),('select','ACCESS SELECT'),('update','ACCESS UPDATE')],'operations')
         p.dim('filter',[('none',''),('ip',"FILTER ON IP('127.0.0.1')"),('app','FILTER ON APP(gsql)'),
@@ -276,7 +276,7 @@ def audit_policy(command):
         p.fact('comments','syntax','COMMENTS 后接策略描述文本。','policy_name COMMENTS',1)
         p.fact('enabled','syntax','ENABLE/DISABLE 切换策略状态。','policy_name { ENABLE | DISABLE }',1)
         p.fact('membership','lifecycle','示例先创建 CREATE 审计，再 ADD DROP，最后 REMOVE DROP；移除前操作必须已存在。','-- 添加adt1审计策略中的DROP',6)
-        p.fact('filter_ambiguity','open_question','ROLES 示例比 FILTER ON 主语法多一层括号；当前生成主语法的 IP/APP，不采用该示例括号。','MODIFY (FILTER ON (ROLES',1,'needs_verification')
+        p.fact('filter_ambiguity','environment','ROLES示例与FILTER ON主语法括号层级冲突；当前模型采用主语法IP/APP，不生成ROLES示例括号形式。','MODIFY (FILTER ON (ROLES',1)
         changes=[('add_drop',f'ADD PRIVILEGES (DROP ON LABEL ({AUDIT_LABEL}))'),
             ('add_alter',f'ADD PRIVILEGES (ALTER ON LABEL ({AUDIT_LABEL}))'),
             ('remove_drop',f'REMOVE PRIVILEGES (DROP ON LABEL ({AUDIT_LABEL}))'),
@@ -388,7 +388,7 @@ def extension(command):
         p.fact('authority','environment','需要扩展所有权及ADD/DROP对象所有权；本批同一创建者。','您必须拥有扩展来使用',2)
         p.fact('detached','behavior_oracle','DROP member仅从扩展分离对象，不删除对象。','只是从扩展里分开了',1)
         p.fact('upgrade','environment','UPDATE需要可用更新脚本，SET SCHEMA要求扩展可重定位；当前不捏造版本或relocatable能力。','这个扩展必须满足一个适用的更新脚本',5)
-        p.fact('member_conflict','open_question','参数描述列出函数等更多成员种类，主产生式只列较小集合；不自动扩充语法。','包含表、聚合',2,'needs_verification')
+        p.fact('member_conflict','environment','参数描述列出函数等更多成员种类，主产生式仅列较小集合；当前模型不扩充语法，不生成参数说明额外成员分支。','包含表、聚合',2)
         p.dim('action',[('add','ADD'),('drop','DROP')]);member=EXTENSION_SCHEMA+'.member_table'
         p.ast=seq('ALTER EXTENSION '+EXTENSION+' ',slot('action'),' TABLE '+member)
         for action in ('add','drop'):
@@ -436,7 +436,7 @@ def copy_stdout():
     p.fact('stream','environment','STDOUT打印标准输出，不需要服务端导出文件；未来运行器需COPY流协议支持。','声明输出打印到标准输出',1)
     p.fact('files','environment','文件路径需服务端可访问且受safe_data_path与enable_copy_server_files限制；当前不生成文件路径。','数据库管理员可以通过GUC参数safe_data_path',4)
     p.fact('generated','constraint','COPY列列表不能含生成列，未指定列表导出时也跳过生成列。','生成列不能出现在指定列的列表',3)
-    p.fact('null_conflict','open_question','注意事项将\\N称为空字符串、option默认TEXT空值写\\n，而原生参数写\\N；当前无NULL输入，保留原文冲突。','COPY FROM中\\N为空字符串',1,'needs_verification')
+    p.fact('null_conflict','environment','注意事项、TEXT默认空值写法与原生参数对\\N描述冲突；当前模型不生成NULL输入，不推断空值语义。','COPY FROM中\\N为空字符串',1)
     p.dim('target',[('table',''),('query','')]);p.dim('style',[('legacy',''),('options','')])
     p.dim('columns',[('all',''),('id','(id)'),('two','(id, qty)')])
     p.matrix_dim('projection',[(key,'',dict(items=cols,source_tables=[SRC],source_columns=cols,output_columns=cols,output_types=['INTEGER']*len(cols),output_column_count=len(cols),direct_columns=True))

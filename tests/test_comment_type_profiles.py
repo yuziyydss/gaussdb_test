@@ -70,7 +70,7 @@ class CommentTypeTests(unittest.TestCase):
         self.cases()
         fs={f.id:f for f in self.r.matrices['matrix_comment_coverage'].documented_features}
         self.assertEqual((fs['comment_feature_object_type'].status,fs['comment_feature_object_type'].coverage_mode),
-                         ('covered','representative'))
+                         ('covered','any'))
         self.assertEqual(fs['comment_feature_object_type'].value_refs,
                          ['comment_target_enum_fresh','comment_target_composite_fresh'])
         self.assertEqual(fs['comment_feature_object_trigger'].status,'covered')

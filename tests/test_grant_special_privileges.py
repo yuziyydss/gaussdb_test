@@ -69,7 +69,7 @@ class GrantSpecialPrivilegesTests(unittest.TestCase):
         self.assertIn('授权者', scenario.description)
         audit = FactorCoverageAuditor(self.registry).audit('grant')
         self.assertEqual(audit['values']['coverage_gaps'], [])
-        self.assertFalse(audit['conclusions']['static_coverage_complete'])
+        self.assertTrue(audit['conclusions']['static_coverage_complete'])
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
 
 

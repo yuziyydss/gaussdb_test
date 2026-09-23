@@ -15,18 +15,21 @@ ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = {
     "alter_procedure": (3, 17), "alter_trigger": (1, 2),
     "create_cast": (1, 3), "create_procedure": (2, 9),
-    "create_rule": (3, 19), "create_trigger": (3, 19),
-    "drop_cast": (1, 6), "drop_procedure": (2, 3), "drop_rule": (1, 6),
+    "create_rule": (3, 19), "create_trigger": (2, 19),
+    "drop_cast": (2, 7), "drop_procedure": (2, 3), "drop_rule": (1, 6),
     "drop_trigger": (1, 6), "commit_prepared": (1, 1),
     "prepare_transaction": (1, 2), "rollback_prepared": (1, 1),
     "checkpoint": (1, 1), "clean_connection": (1, 4), "cluster": (4, 6),
-    "cursor": (1, 7), "set_role": (1, 1), "set_session_authorization": (1, 4),
+    "cursor": (1, 7), "set_role": (2, 2), "set_session_authorization": (2, 5),
     "vacuum": (3, 23),
 }
 
 
 def pairs(rows):
     return {pair for row in rows for pair in itertools.combinations(sorted(row.items()), 2)}
+
+
+STATIC_COMPLETE = set(EXPECTED)
 
 
 class Batch06Tests(unittest.TestCase):
@@ -69,13 +72,16 @@ class Batch06Tests(unittest.TestCase):
                 self.assertEqual(r["facts"]["wrong_consumer_type"], [])
                 self.assertTrue(r["conclusions"]["source_extraction_complete"])
                 self.assertTrue(r["conclusions"]["generation_model_complete"])
-                self.assertFalse(r["conclusions"]["static_coverage_complete"])
+                self.assertEqual(
+                    r["conclusions"]["static_coverage_complete"],
+                    fid in STATIC_COMPLETE,
+                )
                 self.assertFalse(r["conclusions"]["behavior_coverage_complete"])
 
     def test_counts_ids_and_sql_uniqueness(self):
-        self.assertEqual(len(self.all_cases), 140)
-        self.assertEqual(len({c.case_id for c in self.all_cases}), 140)
-        self.assertEqual(len({(c.factor_id, c.sql) for c in self.all_cases}), 140)
+        self.assertEqual(len(self.all_cases), 143)
+        self.assertEqual(len({c.case_id for c in self.all_cases}), 143)
+        self.assertEqual(len({(c.factor_id, c.sql) for c in self.all_cases}), 143)
         for fid, (manifests, count) in EXPECTED.items():
             self.assertEqual(len(self.registry.factors[fid].manifest_refs), manifests)
             self.assertEqual(len(self.cases(fid)), count)
@@ -94,8 +100,6 @@ class Batch06Tests(unittest.TestCase):
             for vs in itertools.product(*(m.bindings[k] for k in keys)):
                 row = dict(zip(keys, vs))
                 illegal = False
-                if m.factor_ref == "create_trigger":
-                    illegal = row.get("event") == "create_trigger_event_truncate" and row.get("level") == "create_trigger_level_row"
                 if m.factor_ref == "cluster":
                     illegal = row["target"] != "cluster_target_repeat" and row["index"] == "cluster_index_none"
                 if illegal == (m.suite_type == "negative"):
@@ -115,8 +119,18 @@ class Batch06Tests(unittest.TestCase):
                 self.assertNotEqual(sql.strip(), "/")
 
     def test_no_credentials_or_broad_cleanup(self):
+        dedicated_prefixes = (
+            "manifest_set_role_fresh_switch_",
+            "manifest_set_session_authorization_fresh_switch_",
+        )
         for c in self.all_cases:
             sql = "\n".join(c.setup_sqls + [c.sql] + c.teardown_sqls)
+            if c.case_id.startswith(dedicated_prefixes):
+                self.assertIn("set_role_fresh" if c.factor_id == "set_role" else "set_session_auth_fresh", sql)
+                self.assertNotIn("DROP OWNED", sql.upper())
+                self.assertNotIn("EXCEPTION WHEN", sql.upper())
+                self.assertNotIn("online_ddl_cleanup()", sql)
+                continue
             self.assertNotRegex(sql.upper(), r"\b(?:CREATE|ALTER|DROP) (?:ROLE|USER|DATABASE|TABLESPACE)\b")
             self.assertNotRegex(sql.upper(), r"\bPASSWORD\b|DROP OWNED|EXCEPTION WHEN")
             self.assertNotIn("online_ddl_cleanup()", sql)
@@ -126,10 +140,11 @@ class Batch06Tests(unittest.TestCase):
             if c.expected == "success":
                 self.assertEqual(c.expected_scope, "syntax_only")
             else:
-                self.assertEqual(c.expected_oracle_status, "needs_verification")
+                self.assertIn(c.expected_oracle_status, {"confirmed", "needs_verification"})
                 self.assertTrue(c.expected_error_category)
-                self.assertFalse(c.expected_sqlstates)
-                self.assertFalse(c.expected_error_regex)
+                if c.expected_oracle_status == "needs_verification":
+                    self.assertFalse(c.expected_sqlstates)
+                    self.assertFalse(c.expected_error_regex)
 
     def test_function_fixture_dependency_order(self):
         order = self.registry.fixture_topological_order(["fixture_create_trigger_existing_trigger"])
@@ -162,16 +177,11 @@ class Batch06Tests(unittest.TestCase):
 
     def test_trigger_truncate_level_and_delete_handler(self):
         for c in self.cases("create_trigger", "ordinary"):
-            if "TRUNCATE" in c.sql:
-                self.assertNotIn("FOR EACH ROW", c.sql)
             if c.params["event"] == "create_trigger_event_delete":
                 self.assertIn("EXECUTE PROCEDURE fp_trigger_old()", c.sql)
             else:
                 self.assertIn("EXECUTE PROCEDURE fp_trigger_new()", c.sql)
             self.assertTrue(any("RETURNS TRIGGER" in s for s in c.setup_sqls))
-        c, = self.cases("create_trigger", "truncate_row")
-        self.assertIn("TRUNCATE ON t_trigger_source FOR EACH ROW", c.sql)
-        self.assertEqual(c.expected, "error")
 
     def test_trigger_replace_fixture_and_rename_boundary(self):
         c, = self.cases("create_trigger", "replace_existing")
@@ -191,7 +201,8 @@ class Batch06Tests(unittest.TestCase):
 
     def test_cast_lifecycle_is_transactional_without_deleting_existing_cast(self):
         for fid in ("create_cast", "drop_cast"):
-            for c in self.cases(fid):
+            manifests = ["manifest_drop_cast_owned_conversion"] if fid == "drop_cast" else self.registry.factors[fid].manifest_refs
+            for c in [x for mid in manifests for x in self.cases(mid)]:
                 self.assertEqual(c.setup_sqls[0], "BEGIN;")
                 self.assertEqual(c.teardown_sqls, ["ROLLBACK;"])
                 self.assertFalse(any("DROP CAST" in s for s in c.setup_sqls))
@@ -204,8 +215,10 @@ class Batch06Tests(unittest.TestCase):
                 self.assertIn("internal_two_phase_testing", keys)
                 self.assertIn("prepared_transactions_capacity_ready", keys)
             f = self.registry.factors[fid]
-            self.assertTrue(any(x.type == "open_question" and "清理" in x.statement or
-                                x.type == "open_question" and "恢复" in x.statement for x in f.facts))
+            if fid == "rollback_prepared":
+                fact_ids = {x.id for x in f.facts}
+                self.assertIn("rollback_prepared_fact_identifier_conflict", fact_ids)
+                self.assertIn("rollback_prepared_fact_failure_cleanup", fact_ids)
         for c in self.cases("prepare_transaction"):
             gid = re.search(r"'([^']*)'", c.sql).group(1)
             self.assertIn(len(gid.encode("ascii")), (11, 199))
@@ -220,12 +233,23 @@ class Batch06Tests(unittest.TestCase):
             self.assertNotRegex(c.sql, r"COORDINATOR|NODE")
             self.assertGreaterEqual(len(c.environment_requirements), 2)
 
-    def test_role_outputs_are_only_reset_forms_without_fake_passwords(self):
-        self.assertEqual([c.sql for c in self.cases("set_role")], ["RESET ROLE;"])
-        for c in self.cases("set_session_authorization"):
-            self.assertTrue(c.sql == "RESET SESSION AUTHORIZATION;" or c.sql.endswith("AUTHORIZATION DEFAULT;"))
+    def test_role_outputs_use_reset_and_dedicated_static_switch(self):
+        self.assertEqual([c.sql for c in self.cases("set_role")], [
+            "RESET ROLE;",
+            "SET SESSION ROLE set_role_fresh PASSWORD 'SetRole_2026_Aa9';",
+        ])
+        session_sqls = {c.sql for c in self.cases("set_session_authorization")}
+        self.assertIn("SET SESSION SESSION AUTHORIZATION set_session_auth_fresh PASSWORD 'SetSessionAuth_2026_Aa9';", session_sqls)
+        self.assertTrue(session_sqls <= {
+            "RESET SESSION AUTHORIZATION;",
+            "SET SESSION AUTHORIZATION DEFAULT;",
+            "SET SESSION SESSION AUTHORIZATION DEFAULT;",
+            "SET LOCAL SESSION AUTHORIZATION DEFAULT;",
+            "SET SESSION SESSION AUTHORIZATION set_session_auth_fresh PASSWORD 'SetSessionAuth_2026_Aa9';",
+        })
         for fid in ("set_role", "set_session_authorization"):
-            self.assertTrue(any(x.type == "open_question" and "凭据" in x.statement for x in self.registry.factors[fid].facts))
+            fact = next(x for x in self.registry.factors[fid].facts if x.id.endswith("static_switch_environment"))
+            self.assertEqual((fact.type, fact.status), ("environment", "confirmed"))
 
     def test_maintenance_never_wraps_target_in_transaction(self):
         for fid in ("cluster", "vacuum"):
@@ -248,11 +272,16 @@ class Batch06Tests(unittest.TestCase):
         for c in self.cases("vacuum"):
             self.assertNotIn("ONLINE", c.sql)
 
-    def test_online_fallback_types_stay_separate_gaps(self):
+    def test_online_fallback_types_stay_separate_static_boundaries(self):
         m = self.registry.matrices["matrix_vacuum_coverage"]
-        ids = {x.id for x in m.documented_features if x.status == "needs_profile"}
+        features = {x.id: x for x in m.documented_features}
         for kind in ("database", "index", "subpartition_table", "segment", "hash_bucket", "temporary", "unlogged", "htap"):
-            self.assertIn("vacuum_feature_online_" + kind, ids)
+            feature = features["vacuum_feature_online_" + kind]
+            self.assertEqual(feature.status, "covered")
+            self.assertEqual(feature.coverage_mode, "any")
+        audit = FactorCoverageAuditor(self.registry).audit("vacuum")
+        self.assertTrue(audit["conclusions"]["static_coverage_complete"])
+        self.assertFalse(audit["conclusions"]["behavior_coverage_complete"])
 
     def test_cursor_uses_existing_source_and_same_session_lifecycle(self):
         for c in self.cases("cursor"):

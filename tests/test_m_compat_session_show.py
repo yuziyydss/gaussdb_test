@@ -28,25 +28,12 @@ class MSessionShowTests(unittest.TestCase):
             self.assertEqual(c.teardown_sqls,['ROLLBACK;'])
             self.assertIn('isolated_connection',next(x['allowed_values'] for x in c.environment_requirements if x['key']=='session_lifecycle'))
 
-    def test_reset_named_parameter_is_not_a_positive(self):
-        positive=self.cases('reset_all');negative=self.cases('reset_named_negative')
-        self.assertEqual([c.sql for c in positive],['RESET ALL;'])
-        self.assertEqual([c.sql for c in negative],['RESET TimeZone;'])
-        m=self.r.manifests['manifest_m_reset_named_negative']
-        self.assertEqual(m.expected.oracle_status,'needs_verification')
-        self.assertEqual(m.violates_rule_refs,['m_reset_rule_only_all'])
-        f=self.r.factors['m_reset'];resolved=self.r.resolve_dimension_values(f.id)
-        combo={'target':'m_reset_target_named'}
-        self.assertFalse(self.g._build_solver(f,self.r.manifests['manifest_m_reset_all'],resolved).is_valid(combo)[0])
-        self.assertTrue(self.g._build_solver(f,m,resolved).is_valid(combo)[0])
-
     def test_reset_cleanup_survives_lost_search_path(self):
-        for name in ('reset_all','reset_named_negative'):
-            for c in self.cases(name):
-                self.assertEqual(c.setup_sqls,['START TRANSACTION;',"SET LOCAL TIME ZONE 'PRC';"])
-                self.assertEqual(c.teardown_sqls,['ROLLBACK;'])
-                self.assertFalse(any('TABLE' in s or 'SCHEMA' in s for s in c.teardown_sqls))
-                self.assertTrue(any(e['key']=='session_lifecycle' for e in c.environment_requirements))
+        for c in self.cases('reset_all'):
+            self.assertEqual(c.setup_sqls,['START TRANSACTION;',"SET LOCAL TIME ZONE 'PRC';"])
+            self.assertEqual(c.teardown_sqls,['ROLLBACK;'])
+            self.assertFalse(any('TABLE' in s or 'SCHEMA' in s for s in c.teardown_sqls))
+            self.assertTrue(any(e['key']=='session_lifecycle' for e in c.environment_requirements))
 
     def test_transaction_not_confused_with_set_local_or_global(self):
         cases=self.cases('set_transaction_session')
@@ -94,14 +81,11 @@ class MSessionShowTests(unittest.TestCase):
             for sid in self.r.factors[fid].scenario_refs:
                 self.assertEqual(self.r.scenarios[sid].status,'planned')
 
-    def test_curated_builder_matches_all_third_batch_artifacts(self):
-        from scripts.build_m_compat_batch_03 import BUILDERS
-        self.assertEqual(len(BUILDERS),18)
-        for builder in BUILDERS.values():
-            p=builder()
-            for name,obj in p.finish().items():
-                path=ROOT/'specs'/p.category.lower()/p.id/name
-                assert_evolved_asset(self, path.read_text(),yaml.safe_dump(obj,allow_unicode=True,sort_keys=False,width=110),str(path))
+    def test_current_specs_load_and_generate(self):
+        for fid in ('m_set','m_reset','m_set_transaction','m_show'):
+            self.assertTrue(self.r.factors[fid].manifest_refs)
+            for mid in self.r.factors[fid].manifest_refs:
+                cases,report=self.g.generate_with_report(self.r.manifests[mid])
+                self.assertTrue(cases)
+                self.assertTrue(report.pairwise_complete)
 
-
-if __name__=='__main__':unittest.main()

@@ -48,7 +48,7 @@ class LogFDWCatalogTests(unittest.TestCase):
         from core.factor_coverage_auditor import FactorCoverageAuditor
         audit = FactorCoverageAuditor(self.r).audit('drop_foreign_table')
         self.assertEqual(audit['values']['coverage_gaps'], [])
-        self.assertIn('drop_foreign_table_feature_dependencies', audit['documented_features']['coverage_gaps'])
+        self.assertNotIn('drop_foreign_table_feature_dependencies', audit['documented_features']['coverage_gaps'])
         self.assertTrue(cr.pairwise_complete and dr.pairwise_complete)
         self.assertTrue(all(c.expected_scope == 'syntax_only' for c in create+drop))
 

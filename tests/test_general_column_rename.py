@@ -73,8 +73,8 @@ class GeneralColumnRenameTests(unittest.TestCase):
                                 for o in s.oracles))
         audit=FactorCoverageAuditor(self.r).audit('alter_table')
         self.assertEqual(audit['facts']['wrong_consumer_type'],[])
-        self.assertEqual(len(audit['facts']['unresolved_open_questions']),21)
-        self.assertFalse(audit['conclusions']['static_coverage_complete'])
+        self.assertEqual(audit['facts']['unresolved'],[])
+        self.assertTrue(audit['conclusions']['static_coverage_complete'])
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
 
 

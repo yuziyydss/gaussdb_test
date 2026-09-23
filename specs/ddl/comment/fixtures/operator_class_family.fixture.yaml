@@ -1,0 +1,21 @@
+schema_version: 1
+kind: fixture
+id: fixture_comment_operator_class_family
+name: COMMENT事务内操作符类与自动操作符族
+factor_ref: comment
+status: needs_review
+description: 事务内创建独占schema、比较函数和非默认btree操作符类；省略FAMILY时自动创建同名操作符族。
+requires_fixture_refs: []
+provides: {}
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - "BEGIN;"
+    - "CREATE SCHEMA g_comment_opclass_ns;"
+    - "CREATE FUNCTION g_comment_opclass_ns.compare_integer(INTEGER, INTEGER) RETURNS INTEGER LANGUAGE SQL IMMUTABLE AS 'SELECT CASE WHEN $1 = $2 THEN 0 WHEN $1 < $2 THEN -1 ELSE 1 END;';"
+    - "CREATE OPERATOR CLASS g_comment_opclass_ns.g_comment_opclass FOR TYPE INTEGER USING btree AS FUNCTION 1 g_comment_opclass_ns.compare_integer(INTEGER, INTEGER);"
+  teardown_sqls:
+    - "ROLLBACK;"
+  note: 仅在预先授权且非事务块外启动的独占测试会话中运行；schema、函数、非默认操作符类和自动同名操作符族均由本case在事务内创建。setup失败阻止目标并保留实际对象清单；目标仅观察注释设置、替换与清除，不验证索引比较契约、操作符类完整性或目录身份。清理使用ROLLBACK，禁止COMMIT、CASCADE、DROP OWNED或吞异常。

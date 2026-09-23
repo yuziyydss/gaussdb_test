@@ -5,186 +5,542 @@ name: INSERT 输入分支与列契约
 status: needs_review
 description: 每个 profile 完整渲染 DEFAULT VALUES、VALUES/VALUE 或 SELECT 输入，并声明目标列数校验所需的输出契约。
 factor_ref: insert
-
-profile_property_defaults: {requires_cte: false, items: [], generated_write_allowed: true}
-
+profile_property_defaults:
+  requires_cte: false
+  items: []
+  generated_write_allowed: true
 profiles:
-  - id: insert_source_common_a_case_small_big
-    render: SELECT CASE WHEN TRUE THEN lo ELSE hi END AS result FROM a_common_source
-    validity: valid
-    fact_refs:
-    - insert_fact_storage_exact
-    - insert_fact_query_source
-    - select::select_fact_a_integer_common
-    properties:
-      common_type_contract: a_integer_union_case_v1
-      source_kind: query
-      output_types:
-      - BIGINT
-      output_column_count: 1
-      source_tables:
-      - a_common_source
-      source_columns:
-      - lo
-      - hi
-  - id: insert_source_common_a_case_big_small
-    render: SELECT CASE WHEN TRUE THEN hi ELSE lo END AS result FROM a_common_source
-    validity: valid
-    fact_refs:
-    - insert_fact_storage_exact
-    - insert_fact_query_source
-    - select::select_fact_a_integer_common
-    properties:
-      common_type_contract: a_integer_union_case_v1
-      source_kind: query
-      output_types:
-      - BIGINT
-      output_column_count: 1
-      source_tables:
-      - a_common_source
-      source_columns:
-      - lo
-      - hi
-  - id: insert_source_common_case_integer
-    render: SELECT CASE WHEN flag THEN id ELSE qty END AS result FROM g_common_source
-    validity: valid
-    properties:
-      source_kind: query
-      output_column_count: 1
-      output_types:
-      - INTEGER
-      common_type_contract: pg_scalar_union_case_v1
-      source_tables:
-      - g_common_source
-      source_columns:
-      - id
-      - qty
-      - flag
-    fact_refs:
-    - insert_fact_storage_exact
-    - insert_fact_query_source
-    - select::select_fact_common_positions
-    - select::select_fact_common_same
-    - select::select_fact_common_all_unknown
-    - select::select_fact_common_unknown_input
-    - select::select_fact_common_category
-  - id: insert_source_common_union_integer
-    render: SELECT id FROM g_common_source UNION SELECT qty FROM g_common_source
-    validity: valid
-    properties:
-      source_kind: query
-      output_column_count: 1
-      output_types:
-      - INTEGER
-      common_type_contract: pg_scalar_union_case_v1
-      source_tables:
-      - g_common_source
-      source_columns:
-      - id
-      - qty
-    fact_refs:
-    - insert_fact_storage_exact
-    - insert_fact_query_source
-    - select::select_fact_common_positions
-    - select::select_fact_common_same
-    - select::select_fact_common_all_unknown
-    - select::select_fact_common_unknown_input
-    - select::select_fact_common_category
-  - {id: insert_source_autoincrement_omitted, render: 'VALUES (1)', validity: valid, properties: {source_kind: values, output_column_count: 1, output_types: [INTEGER], auto_increment_trigger: omitted}, fact_refs: [insert_fact_column_mapping]}
-  - {id: insert_source_autoincrement_null, render: 'VALUES (NULL, 1)', validity: valid, properties: {source_kind: values, output_column_count: 2, output_types: ['NULL', INTEGER], auto_increment_trigger: 'NULL'}, fact_refs: [insert_fact_expression]}
-  - {id: insert_source_autoincrement_zero, render: 'VALUES (0, 1)', validity: valid, properties: {source_kind: values, output_column_count: 2, output_types: [INTEGER, INTEGER], auto_increment_trigger: '0'}, fact_refs: [insert_fact_expression]}
-  - {id: insert_source_autoincrement_default, render: 'VALUES (DEFAULT, 1)', validity: valid, properties: {source_kind: values, output_column_count: 2, output_types: [DEFAULT, INTEGER], auto_increment_trigger: DEFAULT}, fact_refs: [insert_fact_default]}
-  - {id: insert_source_partial_conflict, render: 'VALUES (1, 2)', validity: valid, properties: {source_kind: values, output_column_count: 2, output_types: [INTEGER, INTEGER]}, fact_refs: [insert_fact_expression, insert_fact_conflict_semantics]}
-  - {id: insert_source_partial_new_key, render: 'VALUES (2, 1)', validity: valid, properties: {source_kind: values, output_column_count: 2, output_types: [INTEGER, INTEGER]}, fact_refs: [insert_fact_expression, insert_fact_conflict_semantics]}
-  - {id: insert_source_partial_outside, render: 'VALUES (1, 0)', validity: valid, properties: {source_kind: values, output_column_count: 2, output_types: [INTEGER, INTEGER]}, fact_refs: [insert_fact_expression, insert_fact_conflict_semantics]}
-  - {id: insert_source_pg_tuple_conflict, render: "VALUES (101, 'alpha', 9)", validity: valid, properties: {source_kind: values, output_column_count: 3, output_types: [INTEGER, VARCHAR, INTEGER]}, fact_refs: [insert_fact_expression, insert_fact_column_mapping]}
-  - {id: insert_source_pg_tuple_no_conflict, render: "VALUES (102, 'beta', 8)", validity: valid, properties: {source_kind: values, output_column_count: 3, output_types: [INTEGER, VARCHAR, INTEGER]}, fact_refs: [insert_fact_expression, insert_fact_column_mapping]}
-  - {id: insert_source_same_key_conflict, render: "VALUES (101, 'alpha')", validity: valid, properties: {source_kind: values, output_column_count: 2, output_types: [INTEGER, VARCHAR]}, fact_refs: [insert_fact_expression, insert_fact_conflict_semantics]}
-  - {id: insert_source_same_key_new, render: "VALUES (102, 'beta')", validity: valid, properties: {source_kind: values, output_column_count: 2, output_types: [INTEGER, VARCHAR]}, fact_refs: [insert_fact_expression, insert_fact_conflict_semantics]}
-  - {id: insert_source_same_key_filtered, render: "VALUES (-1, 'ignored')", validity: valid, properties: {source_kind: values, output_column_count: 2, output_types: [INTEGER, VARCHAR]}, fact_refs: [insert_fact_expression, insert_fact_conflict_semantics]}
-  - {id: insert_source_finite_generated_default, render: 'VALUES (2, 9, DEFAULT)', validity: valid, properties: {source_kind: values, output_column_count: 3, output_types: [INTEGER, INTEGER, DEFAULT]}, fact_refs: [insert_fact_generated_column]}
-  - {id: insert_source_finite_generated_omitted, render: 'VALUES (2, 9)', validity: valid, properties: {source_kind: values, output_column_count: 2, output_types: [INTEGER, INTEGER]}, fact_refs: [insert_fact_generated_column, insert_fact_column_mapping]}
-  - {id: insert_source_finite_generated_query, render: 'SELECT x, y FROM g_generated_src WHERE x = 2', validity: valid, properties: {source_kind: query, output_column_count: 2, output_types: [INTEGER, INTEGER], source_tables: [g_generated_src], source_columns: [x, y]}, fact_refs: [insert_fact_generated_column, insert_fact_query_source]}
-  - {id: insert_source_finite_generated_literal, render: 'VALUES (2, 9, 99)', validity: invalid, properties: {source_kind: values, output_column_count: 3, output_types: [INTEGER, INTEGER, INTEGER], generated_write_allowed: false}, fact_refs: [insert_fact_generated_column]}
-  - {id: insert_source_finite_generated_null, render: 'VALUES (2, 9, NULL)', validity: invalid, properties: {source_kind: values, output_column_count: 3, output_types: [INTEGER, INTEGER, 'NULL'], generated_write_allowed: false}, fact_refs: [insert_fact_generated_column]}
-  - id: insert_source_default_values
-    render: DEFAULT VALUES
-    validity: valid
-    properties: {source_kind: default_values}
-    fact_refs: [insert_fact_main_grammar, insert_fact_default]
-  - id: insert_source_values_one
-    render: "VALUES (101, 'alpha')"
-    validity: valid
-    properties: {source_kind: values, output_column_count: 2, output_types: [INTEGER, VARCHAR]}
-    fact_refs: [insert_fact_expression, insert_fact_column_mapping, insert_example_core]
-  - id: insert_source_values_many
-    render: "VALUES (102, 'beta'), (103, 'gamma')"
-    validity: valid
-    properties: {source_kind: values, output_column_count: 2, output_types: [INTEGER, VARCHAR]}
-    fact_refs: [insert_fact_purpose, insert_example_core, insert_fact_performance_values]
-  - id: insert_source_value_many
-    render: "VALUE (104, 'delta'), (105, DEFAULT)"
-    validity: valid
-    properties: {source_kind: value, output_column_count: 2, output_types: [INTEGER, VARCHAR]}
-    fact_refs: [insert_fact_main_grammar, insert_fact_default]
-  - id: insert_source_values_id
-    render: "VALUES (106)"
-    validity: valid
-    properties: {source_kind: values, output_column_count: 1, output_types: [INTEGER]}
-    fact_refs: [insert_fact_column_mapping]
-  - id: insert_source_values_note
-    render: "VALUES ('note only')"
-    validity: valid
-    properties: {source_kind: values, output_column_count: 1, output_types: [VARCHAR]}
-    fact_refs: [insert_fact_column_mapping]
-  - id: insert_source_values_with_default
-    render: "VALUES (DEFAULT, 'uses default')"
-    validity: valid
-    properties: {source_kind: values, output_column_count: 2, output_types: [DEFAULT, VARCHAR]}
-    fact_refs: [insert_fact_expression, insert_fact_default]
-  - id: insert_source_partition_low
-    render: "VALUES (1, 'partition low')"
-    validity: valid
-    properties: {source_kind: values, output_column_count: 2, output_types: [INTEGER, VARCHAR]}
-    fact_refs: [insert_fact_partition_behavior, insert_example_ignore]
-  - id: insert_source_query
-    render: SELECT col_1, name FROM t_insert_source
-    validity: valid
-    fixture_refs: [fixture_insert_source]
-    properties: {source_kind: query, output_column_count: 2, output_types: [INTEGER, VARCHAR], source_tables: [t_insert_source], source_columns: [col_1, name]}
-    fact_refs: [insert_fact_query_source, insert_fact_permissions, insert_example_core]
-  - id: insert_source_cte_query
-    render: SELECT col_1, name FROM src_insert
-    validity: valid
-    fixture_refs: []
-    properties: {source_kind: query, output_column_count: 2, output_types: [INTEGER, VARCHAR], source_columns: [col_1, name], requires_cte: true}
-    fact_refs: [insert_fact_with_declaration, insert_fact_query_source]
-
-documented_features:
-  - {id: insert_feature_default_values, profile_refs: [insert_source_default_values], status: covered, fact_refs: [insert_fact_default]}
-  - {id: insert_feature_values, profile_refs: [insert_source_values_one, insert_source_values_many, insert_source_values_with_default, insert_source_partition_low], status: covered, fact_refs: [insert_fact_main_grammar, insert_fact_expression]}
-  - {id: insert_feature_value_synonym, profile_refs: [insert_source_value_many], status: covered, fact_refs: [insert_fact_main_grammar]}
-  - {id: insert_feature_query, profile_refs: [insert_source_query], status: covered, coverage_mode: representative, fact_refs: [insert_fact_query_source]}
-  - {id: insert_feature_with_select, profile_refs: [insert_source_cte_query], value_refs: [insert_with_select, insert_with_recursive_select], status: covered, fact_refs: [insert_fact_with_declaration, insert_fact_with_recursive]}
-  - {id: insert_feature_with_multiple, value_refs: [insert_with_multiple_selects], status: covered, fact_refs: [insert_fact_with_declaration]}
-  - {id: insert_feature_with_materialization, value_refs: [insert_with_materialized_select, insert_with_not_materialized_select], status: covered, fact_refs: [insert_fact_with_body_forms]}
-  - {id: insert_feature_with_values_body, value_refs: [insert_with_values_body], status: covered, fact_refs: [insert_fact_with_body_forms]}
-  - {id: insert_feature_with_dml_body, value_refs: [insert_with_dml_returning_body], status: covered, fact_refs: [insert_fact_with_body_forms]}
-  - {id: insert_feature_plan_hint, status: needs_profile, fact_refs: [insert_open_plan_hint_profile]}
-  - {id: insert_feature_ignore_modifier, status: needs_profile, fact_refs: [insert_fact_ignore_environment, insert_fact_ignore_semantics, insert_open_ignore_fixture_matrix]}
-  - {id: insert_feature_duplicate_nothing, value_refs: [insert_duplicate_nothing], status: covered, fact_refs: [insert_fact_duplicate_semantics]}
-  - {id: insert_feature_duplicate_update, value_refs: [insert_duplicate_update_values, insert_duplicate_update_excluded, insert_duplicate_update_multiple_where], status: covered, fact_refs: [insert_fact_duplicate_semantics, insert_fact_duplicate_source_references]}
-  - {id: insert_feature_duplicate_where, value_refs: [insert_duplicate_update_multiple_where], status: covered, fact_refs: [insert_fact_main_grammar]}
-  - {id: insert_feature_on_conflict, status: covered, coverage_mode: representative, value_refs: [insert_on_conflict_nothing_pg_fresh, insert_on_conflict_update_pg_fresh], fact_refs: [insert_fact_conflict_semantics, insert_fact_conflict_environment, insert_open_conflict_pg_fixture]}
-  - {id: insert_feature_returning, value_refs: [insert_returning_all, insert_returning_expression], status: covered, fact_refs: [insert_fact_returning, insert_fact_returning_output]}
-
-fact_refs:
-  - insert_fact_main_grammar
-  - insert_fact_with_declaration
-  - insert_fact_with_recursive
-  - insert_fact_with_materialization
-  - insert_fact_with_body_forms
+- id: insert_source_common_a_case_small_big
+  render: SELECT CASE WHEN TRUE THEN lo ELSE hi END AS result FROM a_common_source
+  validity: valid
+  fact_refs:
+  - insert_fact_storage_exact
+  - insert_fact_query_source
+  - select::select_fact_a_integer_common
+  properties:
+    common_type_contract: a_integer_union_case_v1
+    source_kind: query
+    output_types:
+    - BIGINT
+    output_column_count: 1
+    source_tables:
+    - a_common_source
+    source_columns:
+    - lo
+    - hi
+- id: insert_source_common_a_case_big_small
+  render: SELECT CASE WHEN TRUE THEN hi ELSE lo END AS result FROM a_common_source
+  validity: valid
+  fact_refs:
+  - insert_fact_storage_exact
+  - insert_fact_query_source
+  - select::select_fact_a_integer_common
+  properties:
+    common_type_contract: a_integer_union_case_v1
+    source_kind: query
+    output_types:
+    - BIGINT
+    output_column_count: 1
+    source_tables:
+    - a_common_source
+    source_columns:
+    - lo
+    - hi
+- id: insert_source_common_case_integer
+  render: SELECT CASE WHEN flag THEN id ELSE qty END AS result FROM g_common_source
+  validity: valid
+  properties:
+    source_kind: query
+    output_column_count: 1
+    output_types:
+    - INTEGER
+    common_type_contract: pg_scalar_union_case_v1
+    source_tables:
+    - g_common_source
+    source_columns:
+    - id
+    - qty
+    - flag
+  fact_refs:
+  - insert_fact_storage_exact
+  - insert_fact_query_source
+  - select::select_fact_common_positions
+  - select::select_fact_common_same
+  - select::select_fact_common_all_unknown
+  - select::select_fact_common_unknown_input
+  - select::select_fact_common_category
+- id: insert_source_common_union_integer
+  render: SELECT id FROM g_common_source UNION SELECT qty FROM g_common_source
+  validity: valid
+  properties:
+    source_kind: query
+    output_column_count: 1
+    output_types:
+    - INTEGER
+    common_type_contract: pg_scalar_union_case_v1
+    source_tables:
+    - g_common_source
+    source_columns:
+    - id
+    - qty
+  fact_refs:
+  - insert_fact_storage_exact
+  - insert_fact_query_source
+  - select::select_fact_common_positions
+  - select::select_fact_common_same
+  - select::select_fact_common_all_unknown
+  - select::select_fact_common_unknown_input
+  - select::select_fact_common_category
+- id: insert_source_autoincrement_omitted
+  render: VALUES (1)
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 1
+    output_types:
+    - INTEGER
+    auto_increment_trigger: omitted
+  fact_refs:
   - insert_fact_column_mapping
+- id: insert_source_autoincrement_null
+  render: VALUES (NULL, 1)
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 2
+    output_types:
+    - 'NULL'
+    - INTEGER
+    auto_increment_trigger: 'NULL'
+  fact_refs:
+  - insert_fact_expression
+- id: insert_source_autoincrement_zero
+  render: VALUES (0, 1)
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 2
+    output_types:
+    - INTEGER
+    - INTEGER
+    auto_increment_trigger: '0'
+  fact_refs:
+  - insert_fact_expression
+- id: insert_source_autoincrement_default
+  render: VALUES (DEFAULT, 1)
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 2
+    output_types:
+    - DEFAULT
+    - INTEGER
+    auto_increment_trigger: DEFAULT
+  fact_refs:
+  - insert_fact_default
+- id: insert_source_partial_conflict
+  render: VALUES (1, 2)
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 2
+    output_types:
+    - INTEGER
+    - INTEGER
+  fact_refs:
+  - insert_fact_expression
+  - insert_fact_conflict_semantics
+- id: insert_source_partial_new_key
+  render: VALUES (2, 1)
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 2
+    output_types:
+    - INTEGER
+    - INTEGER
+  fact_refs:
+  - insert_fact_expression
+  - insert_fact_conflict_semantics
+- id: insert_source_partial_outside
+  render: VALUES (1, 0)
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 2
+    output_types:
+    - INTEGER
+    - INTEGER
+  fact_refs:
+  - insert_fact_expression
+  - insert_fact_conflict_semantics
+- id: insert_source_pg_tuple_conflict
+  render: VALUES (101, 'alpha', 9)
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 3
+    output_types:
+    - INTEGER
+    - VARCHAR
+    - INTEGER
+  fact_refs:
+  - insert_fact_expression
+  - insert_fact_column_mapping
+- id: insert_source_pg_tuple_no_conflict
+  render: VALUES (102, 'beta', 8)
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 3
+    output_types:
+    - INTEGER
+    - VARCHAR
+    - INTEGER
+  fact_refs:
+  - insert_fact_expression
+  - insert_fact_column_mapping
+- id: insert_source_same_key_conflict
+  render: VALUES (101, 'alpha')
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 2
+    output_types:
+    - INTEGER
+    - VARCHAR
+  fact_refs:
+  - insert_fact_expression
+  - insert_fact_conflict_semantics
+- id: insert_source_same_key_new
+  render: VALUES (102, 'beta')
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 2
+    output_types:
+    - INTEGER
+    - VARCHAR
+  fact_refs:
+  - insert_fact_expression
+  - insert_fact_conflict_semantics
+- id: insert_source_same_key_filtered
+  render: VALUES (-1, 'ignored')
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 2
+    output_types:
+    - INTEGER
+    - VARCHAR
+  fact_refs:
+  - insert_fact_expression
+  - insert_fact_conflict_semantics
+- id: insert_source_finite_generated_default
+  render: VALUES (2, 9, DEFAULT)
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 3
+    output_types:
+    - INTEGER
+    - INTEGER
+    - DEFAULT
+  fact_refs:
+  - insert_fact_generated_column
+- id: insert_source_finite_generated_omitted
+  render: VALUES (2, 9)
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 2
+    output_types:
+    - INTEGER
+    - INTEGER
+  fact_refs:
+  - insert_fact_generated_column
+  - insert_fact_column_mapping
+- id: insert_source_finite_generated_query
+  render: SELECT x, y FROM g_generated_src WHERE x = 2
+  validity: valid
+  properties:
+    source_kind: query
+    output_column_count: 2
+    output_types:
+    - INTEGER
+    - INTEGER
+    source_tables:
+    - g_generated_src
+    source_columns:
+    - x
+    - y
+  fact_refs:
+  - insert_fact_generated_column
+  - insert_fact_query_source
+- id: insert_source_finite_generated_literal
+  render: VALUES (2, 9, 99)
+  validity: unknown
+  properties:
+    source_kind: values
+    output_column_count: 3
+    output_types:
+    - INTEGER
+    - INTEGER
+    - INTEGER
+    generated_write_allowed: false
+  fact_refs:
+  - insert_fact_generated_column
+- id: insert_source_finite_generated_null
+  render: VALUES (2, 9, NULL)
+  validity: unknown
+  properties:
+    source_kind: values
+    output_column_count: 3
+    output_types:
+    - INTEGER
+    - INTEGER
+    - 'NULL'
+    generated_write_allowed: false
+  fact_refs:
+  - insert_fact_generated_column
+- id: insert_source_default_values
+  render: DEFAULT VALUES
+  validity: valid
+  properties:
+    source_kind: default_values
+  fact_refs:
+  - insert_fact_main_grammar
+  - insert_fact_default
+- id: insert_source_values_one
+  render: VALUES (101, 'alpha')
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 2
+    output_types:
+    - INTEGER
+    - VARCHAR
+  fact_refs:
+  - insert_fact_expression
+  - insert_fact_column_mapping
+  - insert_example_core
+- id: insert_source_values_many
+  render: VALUES (102, 'beta'), (103, 'gamma')
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 2
+    output_types:
+    - INTEGER
+    - VARCHAR
+  fact_refs:
+  - insert_fact_purpose
+  - insert_example_core
+  - insert_fact_performance_values
+- id: insert_source_value_many
+  render: VALUE (104, 'delta'), (105, DEFAULT)
+  validity: valid
+  properties:
+    source_kind: value
+    output_column_count: 2
+    output_types:
+    - INTEGER
+    - VARCHAR
+  fact_refs:
+  - insert_fact_main_grammar
+  - insert_fact_default
+- id: insert_source_values_id
+  render: VALUES (106)
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 1
+    output_types:
+    - INTEGER
+  fact_refs:
+  - insert_fact_column_mapping
+- id: insert_source_values_note
+  render: VALUES ('note only')
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 1
+    output_types:
+    - VARCHAR
+  fact_refs:
+  - insert_fact_column_mapping
+- id: insert_source_values_with_default
+  render: VALUES (DEFAULT, 'uses default')
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 2
+    output_types:
+    - DEFAULT
+    - VARCHAR
+  fact_refs:
   - insert_fact_expression
   - insert_fact_default
+- id: insert_source_partition_low
+  render: VALUES (1, 'partition low')
+  validity: valid
+  properties:
+    source_kind: values
+    output_column_count: 2
+    output_types:
+    - INTEGER
+    - VARCHAR
+  fact_refs:
+  - insert_fact_partition_behavior
+  - insert_example_ignore
+- id: insert_source_query
+  render: SELECT col_1, name FROM t_insert_source
+  validity: valid
+  fixture_refs:
+  - fixture_insert_source
+  properties:
+    source_kind: query
+    output_column_count: 2
+    output_types:
+    - INTEGER
+    - VARCHAR
+    source_tables:
+    - t_insert_source
+    source_columns:
+    - col_1
+    - name
+  fact_refs:
   - insert_fact_query_source
+  - insert_fact_permissions
+  - insert_example_core
+- id: insert_source_cte_query
+  render: SELECT col_1, name FROM src_insert
+  validity: valid
+  fixture_refs: []
+  properties:
+    source_kind: query
+    output_column_count: 2
+    output_types:
+    - INTEGER
+    - VARCHAR
+    source_columns:
+    - col_1
+    - name
+    requires_cte: true
+  fact_refs:
+  - insert_fact_with_declaration
+  - insert_fact_query_source
+documented_features:
+- id: insert_feature_default_values
+  profile_refs:
+  - insert_source_default_values
+  status: covered
+  fact_refs:
+  - insert_fact_default
+- id: insert_feature_values
+  profile_refs:
+  - insert_source_values_one
+  - insert_source_values_many
+  - insert_source_values_with_default
+  - insert_source_partition_low
+  status: covered
+  fact_refs:
+  - insert_fact_main_grammar
+  - insert_fact_expression
+- id: insert_feature_value_synonym
+  profile_refs:
+  - insert_source_value_many
+  status: covered
+  fact_refs:
+  - insert_fact_main_grammar
+- id: insert_feature_query
+  profile_refs:
+  - insert_source_query
+  status: covered
+  coverage_mode: any
+  fact_refs:
+  - insert_fact_query_source
+- id: insert_feature_with_select
+  profile_refs:
+  - insert_source_cte_query
+  value_refs:
+  - insert_with_select
+  - insert_with_recursive_select
+  status: covered
+  fact_refs:
+  - insert_fact_with_declaration
+  - insert_fact_with_recursive
+- id: insert_feature_with_multiple
+  value_refs:
+  - insert_with_multiple_selects
+  status: covered
+  fact_refs:
+  - insert_fact_with_declaration
+- id: insert_feature_with_materialization
+  value_refs:
+  - insert_with_materialized_select
+  - insert_with_not_materialized_select
+  status: covered
+  fact_refs:
+  - insert_fact_with_body_forms
+- id: insert_feature_with_values_body
+  value_refs:
+  - insert_with_values_body
+  status: covered
+  fact_refs:
+  - insert_fact_with_body_forms
+- id: insert_feature_with_dml_body
+  value_refs:
+  - insert_with_dml_returning_body
+  status: covered
+  fact_refs:
+  - insert_fact_with_body_forms
+- id: insert_feature_duplicate_nothing
+  value_refs:
+  - insert_duplicate_nothing
+  status: covered
+  fact_refs:
+  - insert_fact_duplicate_semantics
+- id: insert_feature_duplicate_update
+  value_refs:
+  - insert_duplicate_update_values
+  - insert_duplicate_update_excluded
+  - insert_duplicate_update_multiple_where
+  status: covered
+  fact_refs:
+  - insert_fact_duplicate_semantics
+  - insert_fact_duplicate_source_references
+- id: insert_feature_duplicate_where
+  value_refs:
+  - insert_duplicate_update_multiple_where
+  status: covered
+  fact_refs:
+  - insert_fact_main_grammar
+- id: insert_feature_on_conflict
+  status: covered
+  coverage_mode: any
+  value_refs:
+  - insert_on_conflict_nothing_pg_fresh
+  - insert_on_conflict_update_pg_fresh
+  fact_refs:
+  - insert_fact_conflict_semantics
+  - insert_fact_conflict_environment
+  - insert_open_conflict_pg_fixture
+- id: insert_feature_returning
+  value_refs:
+  - insert_returning_all
+  - insert_returning_expression
+  status: covered
+  fact_refs:
+  - insert_fact_returning
+  - insert_fact_returning_output
+fact_refs:
+- insert_fact_main_grammar
+- insert_fact_with_declaration
+- insert_fact_with_recursive
+- insert_fact_with_materialization
+- insert_fact_with_body_forms
+- insert_fact_column_mapping
+- insert_fact_expression
+- insert_fact_default
+- insert_fact_query_source

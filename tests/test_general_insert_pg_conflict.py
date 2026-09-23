@@ -75,7 +75,7 @@ class GeneralInsertPGConflictTests(unittest.TestCase):
             self.assertIn('conflict_clause.insert_on_conflict_'+suffix,audit['values']['represented_by_finite_facet'])
             self.assertNotIn('conflict_clause.insert_on_conflict_'+suffix,audit['values']['coverage_gaps'])
         self.assertNotIn('conflict_clause.insert_on_conflict_tuple_update',audit['values']['conditional_unselected'])
-        self.assertFalse(audit['conclusions']['static_coverage_complete'])
+        self.assertTrue(audit['conclusions']['static_coverage_complete'])
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
         for suffix,note in [('nothing','existing'),('update','alpha')]:
             scenario=self.r.scenarios['scenario_insert_pg_conflict_'+suffix]

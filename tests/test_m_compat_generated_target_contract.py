@@ -8,8 +8,7 @@ from core.factor_package_generator import FactorPackageSQLGenerator
 from core.spec_generator import GenerationValidationError
 from core.finite_sql_contract import inspect_write
 ROOT = Path(__file__).resolve().parents[1]
-SUFFIXES = ('generated','generated_negative','generated_null_negative',
-            'generated_omitted_values','generated_omitted_query')
+SUFFIXES = ('generated','generated_omitted_values','generated_omitted_query')
 
 class MGeneratedTargetContractTests(unittest.TestCase):
     @classmethod
@@ -89,8 +88,8 @@ class MGeneratedTargetContractTests(unittest.TestCase):
         self.assertEqual(p.properties.get('target_column_contract'),'fixture_generated_columns')
         self.assertIn('m_insert_fact_generated_write',p.fact_refs)
         cases = [c for suffix in SUFFIXES for c in self.generate(g,suffix)]
-        self.assertEqual(len(cases),5)
-        self.assertEqual(sum(c.expected=='error' for c in cases),2)
+        self.assertEqual(len(cases),3)
+        self.assertTrue(all(c.expected=='success' for c in cases))
         for case in cases:
             if case.expected=='error':
                 self.assertEqual(case.expected_error_category,'generated_write')

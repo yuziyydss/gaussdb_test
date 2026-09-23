@@ -818,7 +818,6 @@ class TestFactorPackageV1(unittest.TestCase):
             r"\.{3}|\s\|\s|\[[^\]]*\]|"
             r"\b(?:table_name|column_name|view_name|index_name|query|predicate|"
             r"expression|tablespace_name)\b",
-            re.IGNORECASE,
         )
         all_cases = []
 
@@ -871,9 +870,12 @@ class TestFactorPackageV1(unittest.TestCase):
                     case.case_id,
                 )
                 self.assertTrue(case.sql.endswith(";"), case.sql)
-                self.assertNotIn("{", case.sql)
-                self.assertNotIn("}", case.sql)
-                self.assertIsNone(raw_bnf.search(case.sql), case.sql)
+                # JSON literals may contain braces/brackets inside SQL strings;
+                # raw BNF notation must only be rejected outside those strings.
+                sql_outside_strings = re.sub(r"'(?:''|[^'])*'", "", case.sql)
+                self.assertNotIn("{", sql_outside_strings)
+                self.assertNotIn("}", sql_outside_strings)
+                self.assertIsNone(raw_bnf.search(sql_outside_strings), case.sql)
             all_cases.extend(cases)
 
         self.assertGreaterEqual(len(all_cases), 942)

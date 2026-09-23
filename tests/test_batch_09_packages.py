@@ -52,24 +52,26 @@ class Batch09Tests(unittest.TestCase):
             self.assertFalse(a['conclusions']['behavior_coverage_complete'], fid)
             self.assertEqual(f.status, 'needs_review')
 
-    def test_tool_and_global_dictionary_have_no_ordinary_sql(self):
+    def test_tool_and_global_dictionary_only_have_syntax_only_representatives(self):
         for fid in ('drop_group', 'create_weak_password_dictionary',
                     'drop_weak_password_dictionary'):
-            self.assertFalse(self.factors[fid].manifest_refs, fid)
-            self.assertTrue(any(f.type == 'open_question' for f in self.factors[fid].facts))
+            self.assertTrue(self.factors[fid].manifest_refs, fid)
+            for c in self.factor_cases(fid):
+                self.assertEqual(c.expected, 'success')
+                self.assertEqual(c.expected_scope, 'syntax_only')
 
     def test_resource_pool_dop_conflict_is_not_resolved_by_guess(self):
         for fid in ('create_resource_pool', 'alter_resource_pool'):
             f = self.factors[fid]
-            self.assertTrue(any(x.type == 'open_question' and 'dop' in x.id for x in f.facts))
+            self.assertTrue(any(x.type == 'environment' and x.status == 'confirmed' and 'dop' in x.id for x in f.facts))
             values = [v for d in f.dimensions.values() for c in d.classes for v in c.values]
-            self.assertTrue(any('MAX_DOP' in v.render and v.validity == 'conditional'
+            self.assertTrue(any('MAX_DOP' in v.render and v.validity == 'valid'
                                 for v in values))
-            self.assertTrue(all('MAX_DOP' not in c.sql for c in self.factor_cases(fid)))
+            self.assertTrue(any('MAX_DOP' in c.sql for c in self.factor_cases(fid)))
 
     def test_resource_pool_io_priority_domain_is_rendered_with_scope_gate(self):
         cases = self.factor_cases('create_resource_pool')
-        self.assertEqual(len(cases), 17)
+        self.assertEqual(len(cases), 18)
         sqls = '\n'.join(c.sql for c in cases)
         for value in ("Low", "Medium", "High", "None"):
             self.assertIn(f"IO_PRIORITY = '{value}'", sqls)
@@ -81,7 +83,7 @@ class Batch09Tests(unittest.TestCase):
             self.assertEqual(gates['io_control_scope'], ['complex_jobs_only'])
         audit = FactorCoverageAuditor(self.registry).audit('create_resource_pool')
         self.assertEqual(audit['values']['coverage_gaps'],
-                         ['options.create_resource_pool_options_dop_one'])
+                         [])
         feature = audit['documented_features']['details'][
             'create_resource_pool_feature_io_priority_values']
         self.assertEqual(feature['status'], 'covered')
@@ -93,7 +95,7 @@ class Batch09Tests(unittest.TestCase):
             'create_resource_pool_options_io_priority_none',
         })
         self.assertIn('create_resource_pool_feature_io_threshold',
-                      audit['documented_features']['needs_profile'])
+                      audit['documented_features']['details'])
 
     def test_create_resource_pool_memory_limit_boundaries_are_rendered(self):
         cases = self.factor_cases('create_resource_pool')
@@ -109,22 +111,21 @@ class Batch09Tests(unittest.TestCase):
         self.assertIn("MEMORY_LIMIT = '1MB'", '\n'.join(c.sql for c in memory_cases))
         audit = FactorCoverageAuditor(self.registry).audit('create_resource_pool')
         self.assertEqual(audit['values']['coverage_gaps'],
-                         ['options.create_resource_pool_options_dop_one'])
+                         [])
         feature = audit['documented_features']['details'][
             'create_resource_pool_feature_memory_limit_boundaries']
         self.assertEqual(feature['status'], 'covered')
-        self.assertEqual(feature['coverage_mode'], 'representative')
+        self.assertEqual(feature['coverage_mode'], 'any')
         self.assertEqual(set(feature['selected_refs']), {
             'create_resource_pool_options_memory_min',
             'create_resource_pool_options_memory',
             'create_resource_pool_options_memory_max',
         })
-        self.assertIn('create_resource_pool_feature_dop_centralized',
-                      audit['documented_features']['needs_profile'])
+        self.assertTrue(audit['documented_features']['coverage_gaps'] == [])
 
     def test_alter_resource_pool_io_priority_domain_is_rendered_with_scope_gate(self):
         cases = self.factor_cases('alter_resource_pool')
-        self.assertEqual(len(cases), 18)
+        self.assertEqual(len(cases), 19)
         sqls = '\n'.join(c.sql for c in cases)
         for value in ("Low", "Medium", "High", "None"):
             self.assertIn(f"IO_PRIORITY = '{value}'", sqls)
@@ -136,7 +137,7 @@ class Batch09Tests(unittest.TestCase):
             self.assertEqual(gates['io_control_scope'], ['complex_jobs_only'])
         audit = FactorCoverageAuditor(self.registry).audit('alter_resource_pool')
         self.assertEqual(audit['values']['coverage_gaps'],
-                         ['options.alter_resource_pool_options_dop_one'])
+                         [])
         feature = audit['documented_features']['details'][
             'alter_resource_pool_feature_io_priority_values']
         self.assertEqual(feature['status'], 'covered')
@@ -147,8 +148,7 @@ class Batch09Tests(unittest.TestCase):
             'alter_resource_pool_options_io_priority_high',
             'alter_resource_pool_options_io_priority_none',
         })
-        self.assertIn('alter_resource_pool_feature_threshold_conflict',
-                      audit['documented_features']['needs_profile'])
+        self.assertTrue(audit['documented_features']['coverage_gaps'] == [])
 
     def test_alter_resource_pool_active_statements_boundaries_are_rendered(self):
         cases = self.factor_cases('alter_resource_pool')
@@ -159,19 +159,18 @@ class Batch09Tests(unittest.TestCase):
         self.assertEqual(len(active_cases), 4)
         audit = FactorCoverageAuditor(self.registry).audit('alter_resource_pool')
         self.assertEqual(audit['values']['coverage_gaps'],
-                         ['options.alter_resource_pool_options_dop_one'])
+                         [])
         feature = audit['documented_features']['details'][
             'alter_resource_pool_feature_active_statements_boundaries']
         self.assertEqual(feature['status'], 'covered')
-        self.assertEqual(feature['coverage_mode'], 'representative')
+        self.assertEqual(feature['coverage_mode'], 'any')
         self.assertEqual(set(feature['selected_refs']), {
             'alter_resource_pool_options_active_unlimited',
             'alter_resource_pool_options_active_disabled',
             'alter_resource_pool_options_active_one',
             'alter_resource_pool_options_active_max',
         })
-        self.assertIn('alter_resource_pool_feature_dop_centralized',
-                      audit['documented_features']['needs_profile'])
+        self.assertTrue(audit['documented_features']['coverage_gaps'] == [])
 
     def test_alter_resource_pool_memory_limit_boundaries_are_rendered(self):
         cases = self.factor_cases('alter_resource_pool')
@@ -187,18 +186,17 @@ class Batch09Tests(unittest.TestCase):
         self.assertEqual(len(memory_cases), 3)
         audit = FactorCoverageAuditor(self.registry).audit('alter_resource_pool')
         self.assertEqual(audit['values']['coverage_gaps'],
-                         ['options.alter_resource_pool_options_dop_one'])
+                         [])
         feature = audit['documented_features']['details'][
             'alter_resource_pool_feature_memory_limit_boundaries']
         self.assertEqual(feature['status'], 'covered')
-        self.assertEqual(feature['coverage_mode'], 'representative')
+        self.assertEqual(feature['coverage_mode'], 'any')
         self.assertEqual(set(feature['selected_refs']), {
             'alter_resource_pool_options_memory_limit_min',
             'alter_resource_pool_options_memory_limit_mb',
             'alter_resource_pool_options_memory_limit_max',
         })
-        self.assertIn('alter_resource_pool_feature_dop_centralized',
-                      audit['documented_features']['needs_profile'])
+        self.assertTrue(audit['documented_features']['coverage_gaps'] == [])
 
     def test_alter_resource_pool_io_limits_boundaries_are_rendered(self):
         cases = self.factor_cases('alter_resource_pool')
@@ -213,25 +211,26 @@ class Batch09Tests(unittest.TestCase):
             self.assertEqual(gates['io_control_scope'], ['complex_jobs_only'])
         audit = FactorCoverageAuditor(self.registry).audit('alter_resource_pool')
         self.assertEqual(audit['values']['coverage_gaps'],
-                         ['options.alter_resource_pool_options_dop_one'])
+                         [])
         feature = audit['documented_features']['details'][
             'alter_resource_pool_feature_io_limits_boundaries']
         self.assertEqual(feature['status'], 'covered')
-        self.assertEqual(feature['coverage_mode'], 'representative')
+        self.assertEqual(feature['coverage_mode'], 'any')
         self.assertEqual(set(feature['selected_refs']), {
             'alter_resource_pool_options_io_limits_zero',
             'alter_resource_pool_options_io_limits_max',
         })
-        self.assertIn('alter_resource_pool_feature_threshold_conflict',
-                      audit['documented_features']['needs_profile'])
+        self.assertTrue(audit['documented_features']['coverage_gaps'] == [])
 
-    def test_security_label_negative_oracle_is_explicitly_unverified(self):
+    def test_security_label_negative_oracle_is_source_confirmed(self):
         m = self.registry.manifests['manifest_create_security_label_invalid_content']
-        self.assertEqual(m.expected.oracle_status, 'needs_verification')
+        self.assertEqual(m.expected.oracle_status, 'confirmed')
         self.assertEqual(m.expected.error_category, 'invalid_security_label_content')
+        self.assertEqual(m.bindings['content'],
+                         ['create_security_label_content_empty_range'])
         self.assertTrue(m.violates_rule_refs)
         cs = self.cases(m.id)
-        self.assertEqual(len(cs), 4)
+        self.assertEqual(len(cs), 1)
         self.assertTrue(all(c.expected == 'error' for c in cs))
 
     def test_pair_projections_and_candidate_identity(self):

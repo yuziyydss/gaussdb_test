@@ -88,10 +88,10 @@ class MInsertViewContractTests(unittest.TestCase):
                  for c in g.generate_with_report(g.registry.manifests[mid])[0]]
         string_cases = [c for c in cases if c.case_id.startswith('manifest_m_insert_string_utf8_')]
         original_cases = [c for c in cases if c not in string_cases]
-        self.assertEqual(len(original_cases),29)
+        self.assertEqual(len(original_cases),26)
         self.assertEqual(len(string_cases),9)
         view = [c for c in cases if c.params['target_profile']=='m_insert_target_profile_view']
-        self.assertEqual(len(view),10)
+        self.assertEqual(len(view),9)
         self.assertTrue(all(any(r['key']=='compatibility_mode' and r['allowed_values']==['M']
                                for r in c.environment_requirements) for c in view))
 

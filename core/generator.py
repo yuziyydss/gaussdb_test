@@ -138,9 +138,14 @@ def validate_sql_syntax(sql: str) -> tuple:
     if not sql.strip():
         issues.append("空 SQL 语句")
 
-    # 4. 未解析的占位符 (模板渲染遗漏)
-    if '{' in sql or '}' in sql:
-        issues.append("SQL 含未解析的占位符 { 或 }")
+    # 4. 未解析的占位符 (模板渲染遗漏)。单引号字符串内的 JSON 大括号是数据。
+    in_string = False
+    for ch in sql:
+        if ch == "'":
+            in_string = not in_string
+        elif not in_string and ch in "{}":
+            issues.append("SQL 含未解析的占位符 { 或 }")
+            break
 
     return (len(issues) == 0, issues)
 

@@ -14,7 +14,10 @@
 -- fixture_setup:
 BEGIN;
 CREATE DIRECTORY dir_b7 AS '/tmp/gaussdb_b7_directory';
+CREATE ROLE b7_directory_owner NOLOGIN PASSWORD DISABLE;
+GRANT b7_directory_owner TO CURRENT_USER;
 -- test_sql:
 ALTER DIRECTORY dir_b7 OWNER TO b7_directory_owner;
 -- fixture_teardown:
+ROLLBACK;
 ROLLBACK;

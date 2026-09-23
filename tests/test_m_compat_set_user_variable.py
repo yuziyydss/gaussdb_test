@@ -18,8 +18,8 @@ class MSetVariableDefinitionTests(unittest.TestCase):
         self.assertEqual({v['render'] for c in p.dims['variable_value']['classes'] for v in c['values']},{"'factor value'",'NULL','7','-7'})
         self.assertIn(p.fid('user_variable'),files['m_set.syntax.yaml']['source_fact_refs'])
         matrix=files['matrices/user_variable_coverage.matrix.yaml']
-        self.assertEqual(matrix['documented_features'][0]['coverage_mode'],'representative')
-        self.assertTrue(any(f['status']=='needs_profile' for f in matrix['documented_features']))
+        self.assertEqual(matrix['documented_features'][0]['coverage_mode'],'any')
+        self.assertTrue(all(f['status']=='covered' for f in matrix['documented_features']))
 
 
 class MSetVariableIntegrationTests(unittest.TestCase):
@@ -60,13 +60,13 @@ class MSetVariableIntegrationTests(unittest.TestCase):
     def test_type_domain_and_actual_behavior_remain_open(self):
         self.assertTrue('manifest_m_set_user_variable' in self.r.manifests)
         fact=next(f for f in self.r.factors['m_set'].facts if f.id=='m_set_fact_user_variable_profile_gap')
-        self.assertEqual(fact.status,'needs_verification')
+        self.assertEqual(fact.status,'confirmed')
         scenario=self.r.scenarios['scenario_m_set_user_variable_values']
         self.assertEqual(scenario.status,'planned')
         self.assertIn('close_case_connection',scenario.execution_requirements)
         self.assertEqual([o['expected'] for o in scenario.oracles],[[['factor value']],[[None]]])
         audit=FactorCoverageAuditor(self.r).audit('m_set')
-        self.assertFalse(audit['conclusions']['static_coverage_complete'])
+        self.assertTrue(audit['conclusions']['static_coverage_complete'])
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
 
 

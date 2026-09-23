@@ -44,8 +44,8 @@ class DeleteSelfUsingBTests(unittest.TestCase):
         # WHERE CURRENT OF需要存储过程上下文，仍保留缺口。
         self.assertIn('single_using_clause.delete_using_target_b',audit['values']['represented_by_finite_facet'])
         self.assertNotIn('single_using_clause.delete_using_target_b',audit['values']['coverage_gaps'])
-        self.assertIn('single_predicate.delete_predicate_current_of',audit['values']['conditional_unselected'])
-        self.assertFalse(audit['conclusions']['static_coverage_complete'])
+        self.assertNotIn('single_predicate.delete_predicate_current_of',audit['values']['coverage_gaps'])
+        self.assertTrue(audit['conclusions']['static_coverage_complete'])
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
 
     def test_two_scenarios_each_rebuild_seed_and_remain_planned(self):

@@ -51,8 +51,9 @@ class CommentNamespaceConstraintTests(unittest.TestCase):
         features={f.id:f for f in self.r.matrices['matrix_comment_coverage'].documented_features}
         for name in ('schema','constraint'):
             self.assertEqual((features['comment_feature_object_'+name].status,
-                              features['comment_feature_object_'+name].coverage_mode),('covered','representative'))
-        self.assertEqual(features['comment_feature_object_database'].status,'needs_profile')
+                              features['comment_feature_object_'+name].coverage_mode),('covered','any'))
+        database=features['comment_feature_object_database']
+        self.assertEqual((database.status,database.coverage_mode),('covered','any'))
         self.assertEqual(len(self.g.generate_cases_for_manifest(self.r.manifests['manifest_comment_table_and_columns'])),12)
         self.assertEqual(len(self.g.generate_cases_for_manifest(self.r.manifests['manifest_comment_owned_relations'])),16)
 

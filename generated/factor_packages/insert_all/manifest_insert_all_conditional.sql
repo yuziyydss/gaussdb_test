@@ -2,14 +2,14 @@
 -- static_only: true
 -- case_count: 6
 
--- case_id: manifest_insert_all_conditional_f725614cdc25
+-- case_id: manifest_insert_all_conditional_000c154dd69e
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"branch_mode": "insert_all_branch_mode_conditional", "match_mode": "insert_all_match_mode_default", "targets": "insert_all_targets_one"}
+-- params: {"branch_mode": "insert_all_branch_mode_conditional", "condition": "insert_all_condition_source_col", "match_mode": "insert_all_match_mode_default", "subquery_alias": "insert_all_subquery_alias_none", "subquery_presence": "insert_all_subquery_presence_present", "targets": "insert_all_targets_one"}
 -- environment_requirements: [{"allowed_values": ["A"], "fact_refs": ["insert_all_fact_body_15"], "key": "sql_compatibility"}]
 -- fixture_setup:
 CREATE SCHEMA fp_cs_one;
@@ -26,14 +26,14 @@ ROLLBACK;
 DROP SCHEMA IF EXISTS fp_cs_two CASCADE;
 DROP SCHEMA IF EXISTS fp_cs_one CASCADE;
 
--- case_id: manifest_insert_all_conditional_909a030c24e9
+-- case_id: manifest_insert_all_conditional_c209991c551e
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"branch_mode": "insert_all_branch_mode_conditional", "match_mode": "insert_all_match_mode_all", "targets": "insert_all_targets_two"}
+-- params: {"branch_mode": "insert_all_branch_mode_conditional", "condition": "insert_all_condition_source_col", "match_mode": "insert_all_match_mode_all", "subquery_alias": "insert_all_subquery_alias_none", "subquery_presence": "insert_all_subquery_presence_present", "targets": "insert_all_targets_two"}
 -- environment_requirements: [{"allowed_values": ["A"], "fact_refs": ["insert_all_fact_body_15"], "key": "sql_compatibility"}]
 -- fixture_setup:
 CREATE SCHEMA fp_cs_one;
@@ -50,14 +50,14 @@ ROLLBACK;
 DROP SCHEMA IF EXISTS fp_cs_two CASCADE;
 DROP SCHEMA IF EXISTS fp_cs_one CASCADE;
 
--- case_id: manifest_insert_all_conditional_74ed36437a52
+-- case_id: manifest_insert_all_conditional_57c21092af19
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"branch_mode": "insert_all_branch_mode_conditional", "match_mode": "insert_all_match_mode_first", "targets": "insert_all_targets_one"}
+-- params: {"branch_mode": "insert_all_branch_mode_conditional", "condition": "insert_all_condition_source_col", "match_mode": "insert_all_match_mode_first", "subquery_alias": "insert_all_subquery_alias_none", "subquery_presence": "insert_all_subquery_presence_present", "targets": "insert_all_targets_one"}
 -- environment_requirements: [{"allowed_values": ["A"], "fact_refs": ["insert_all_fact_body_15"], "key": "sql_compatibility"}]
 -- fixture_setup:
 CREATE SCHEMA fp_cs_one;
@@ -74,14 +74,14 @@ ROLLBACK;
 DROP SCHEMA IF EXISTS fp_cs_two CASCADE;
 DROP SCHEMA IF EXISTS fp_cs_one CASCADE;
 
--- case_id: manifest_insert_all_conditional_df422c597afd
+-- case_id: manifest_insert_all_conditional_8503302991f1
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"branch_mode": "insert_all_branch_mode_conditional", "match_mode": "insert_all_match_mode_default", "targets": "insert_all_targets_two"}
+-- params: {"branch_mode": "insert_all_branch_mode_conditional", "condition": "insert_all_condition_source_col", "match_mode": "insert_all_match_mode_default", "subquery_alias": "insert_all_subquery_alias_none", "subquery_presence": "insert_all_subquery_presence_present", "targets": "insert_all_targets_two"}
 -- environment_requirements: [{"allowed_values": ["A"], "fact_refs": ["insert_all_fact_body_15"], "key": "sql_compatibility"}]
 -- fixture_setup:
 CREATE SCHEMA fp_cs_one;
@@ -98,14 +98,14 @@ ROLLBACK;
 DROP SCHEMA IF EXISTS fp_cs_two CASCADE;
 DROP SCHEMA IF EXISTS fp_cs_one CASCADE;
 
--- case_id: manifest_insert_all_conditional_e8d9db07136d
+-- case_id: manifest_insert_all_conditional_e60ebe5797a1
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"branch_mode": "insert_all_branch_mode_conditional", "match_mode": "insert_all_match_mode_all", "targets": "insert_all_targets_one"}
+-- params: {"branch_mode": "insert_all_branch_mode_conditional", "condition": "insert_all_condition_source_col", "match_mode": "insert_all_match_mode_all", "subquery_alias": "insert_all_subquery_alias_none", "subquery_presence": "insert_all_subquery_presence_present", "targets": "insert_all_targets_one"}
 -- environment_requirements: [{"allowed_values": ["A"], "fact_refs": ["insert_all_fact_body_15"], "key": "sql_compatibility"}]
 -- fixture_setup:
 CREATE SCHEMA fp_cs_one;
@@ -122,14 +122,14 @@ ROLLBACK;
 DROP SCHEMA IF EXISTS fp_cs_two CASCADE;
 DROP SCHEMA IF EXISTS fp_cs_one CASCADE;
 
--- case_id: manifest_insert_all_conditional_036c3bd9cc04
+-- case_id: manifest_insert_all_conditional_d4e216fd6b87
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"branch_mode": "insert_all_branch_mode_conditional", "match_mode": "insert_all_match_mode_first", "targets": "insert_all_targets_two"}
+-- params: {"branch_mode": "insert_all_branch_mode_conditional", "condition": "insert_all_condition_source_col", "match_mode": "insert_all_match_mode_first", "subquery_alias": "insert_all_subquery_alias_none", "subquery_presence": "insert_all_subquery_presence_present", "targets": "insert_all_targets_two"}
 -- environment_requirements: [{"allowed_values": ["A"], "fact_refs": ["insert_all_fact_body_15"], "key": "sql_compatibility"}]
 -- fixture_setup:
 CREATE SCHEMA fp_cs_one;

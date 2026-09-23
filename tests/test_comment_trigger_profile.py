@@ -69,7 +69,7 @@ class CommentTriggerTests(unittest.TestCase):
                             for d in ('create_trigger','create_function','drop_trigger','drop_schema')))
         fs={f.id:f for f in self.r.matrices['matrix_comment_coverage'].documented_features}
         feature=fs['comment_feature_object_trigger']
-        self.assertEqual((feature.status,feature.coverage_mode),('covered','representative'))
+        self.assertEqual((feature.status,feature.coverage_mode),('covered','any'))
         self.assertEqual(feature.value_refs,['comment_target_trigger_fresh'])
         audit=FactorCoverageAuditor(self.r).audit('comment')
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])

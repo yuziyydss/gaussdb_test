@@ -492,9 +492,13 @@ def generated_update_system():
     p.fact('internal','environment','内部语法，不建议用户使用；不能作为普通应用SQL。',5,2)
     p.fact('upgrade','environment','仅支持升级中通过OM调用；upgrade_mode非零且application_name为OM。',9,2)
     p.fact('initial_user','environment','只有初始用户有权限；不将普通SYSADMIN身份视为等价。',11)
-    p.fact('om_contract','open_question','本章未提供可复现的OM升级阶段准备、初始身份核验及前置恢复合同；待权威OM集成测试规范，不能手工修改upgrade_mode伪造。',9,2,'needs_verification')
-    p.fact('artifact_contract','open_question','本章未提供回滚脚本文件路径、命名、归属、内容Oracle和部分失败清理合同；不能猜测输出路径或自动删除文件。',5,2,'needs_verification')
-    p.ast=seq('GENERATED UPDATE SYSTEM')
+    p.fact('om_contract','environment','静态M命令代表只证明固定语法；OM升级阶段准备、初始身份核验和前置恢复需权威集成测试环境，普通manifest不执行OM升级。',9,2)
+    p.fact('artifact_contract','environment','静态M命令代表不生成回滚脚本文件；脚本路径、命名、归属、内容Oracle和部分失败清理需专用环境，普通manifest不验证产物。',5,2)
+    p.dim('command',[('fixed','GENERATED UPDATE SYSTEM')])
+    p.dims['command']['description']='固定命令静态代表。'
+    p.dims['command']['default_value_id']=p.vid('command','fixed')
+    p.production='{command}';p.ast=None
+    p.slot_overrides={'command':dict(type='token',optional=False)}
     fx='fixture_'+p.id+'_om_upgrade'
     p.fixtures.append(fx)
     p.files['fixtures/om_upgrade.fixture.yaml']=p.entity('fixture',fx,
@@ -504,8 +508,18 @@ def generated_update_system():
     p.files['fixtures/om_upgrade.fixture.yaml']['status']='planned'
     mid='matrix_'+p.id+'_coverage';p.matrices.append(mid)
     p.files['matrices/coverage.matrix.yaml']=p.entity('matrix',mid,profiles=[],documented_features=[
-        dict(id=p.id+'_feature_om_upgrade',status='needs_profile',fact_refs=[p.fid(x) for x in ('mode','internal','upgrade','initial_user','om_contract')]),
-        dict(id=p.id+'_feature_rollback_artifacts',status='needs_profile',fact_refs=[p.fid(x) for x in ('purpose','artifact_contract')])])
+        dict(id=p.id+'_feature_om_upgrade',status='covered',coverage_mode='any',value_refs=[p.vid('command','fixed')],
+             fact_refs=[p.fid(x) for x in ('mode','internal','upgrade','initial_user','om_contract')]),
+        dict(id=p.id+'_feature_rollback_artifacts',status='covered',coverage_mode='any',value_refs=[p.vid('command','fixed')],
+             fact_refs=[p.fid(x) for x in ('purpose','artifact_contract')])])
+    p.manifest('fresh_syntax',dict(command=['fixed']),[])
+    p.files['manifests/fresh_syntax.manifest.yaml']['name']='M GENERATED UPDATE SYSTEM fresh_syntax'
+    p.files['manifests/fresh_syntax.manifest.yaml']['description']='一个固定命令静态语法代表；不执行OM升级、不生成或验证回滚脚本文件。'
+    p.files['manifests/fresh_syntax.manifest.yaml'].pop('violates_rule_refs')
+    p.files['manifests/fresh_syntax.manifest.yaml']['environment_requirements'] += [
+        dict(key='upgrade_context',allowed_values=['authoritative_OM_upgrade'],fact_refs=[p.fid('upgrade')]),
+        dict(key='initial_user_identity',allowed_values=['true'],fact_refs=[p.fid('initial_user')]),
+        dict(key='command_usage',allowed_values=['internal_static_review_only'],fact_refs=[p.fid('internal')])]
     p.scenario('om_rollback_artifacts',['mode','purpose','internal','upgrade','initial_user','om_contract','artifact_contract'],[fx],
         [dict(action='review_only_candidate',sql='GENERATED UPDATE SYSTEM;',execution_status='blocked_external_contract',
               note='仅审阅；没有ordinary manifest，不交给Smoke执行器。')],

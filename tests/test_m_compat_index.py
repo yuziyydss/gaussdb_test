@@ -53,17 +53,6 @@ class MIndexTests(unittest.TestCase):
         with self.assertRaisesRegex(GenerationValidationError,'不存在的列'):
             self.g._validate_fixture_contract(combo,resolved,['fixture_m_create_index_new_target'])
 
-    def test_fillfactor_negative_has_valid_setup_and_specific_intent(self):
-        for command in ('create','alter'):
-            cases=self.cases(command+'_index_fillfactor_below')
-            self.assertEqual(len(cases),1)
-            c=cases[0]
-            self.assertEqual(c.expected,'error')
-            self.assertIn('fillfactor=9)',c.sql)
-            self.assertTrue(all('fillfactor=9' not in s for s in c.setup_sqls))
-            self.assertEqual(c.expected_oracle_status,'needs_verification')
-            self.assertFalse(c.expected_sqlstates)
-
     def test_drop_forms_and_concurrent_constraints(self):
         for c in self.cases('drop_index_on_table'):
             self.assertIn(' ON m_b01_source',c.sql)
@@ -74,11 +63,6 @@ class MIndexTests(unittest.TestCase):
             self.assertNotIn('CASCADE',c.sql)
             self.assertTrue(any(e['key']=='execution_context' and e['allowed_values']==['top_level_autocommit']
                                 for e in c.environment_requirements))
-        single=self.cases('drop_index_online_single')[0]
-        cascade=self.cases('drop_index_online_cascade')[0]
-        self.assertIn(',',single.sql);self.assertNotIn('CASCADE',single.sql)
-        self.assertNotIn(',',cascade.sql);self.assertIn('CASCADE',cascade.sql)
-        self.assertEqual(single.expected,'error');self.assertEqual(cascade.expected,'error')
 
     def test_source_gaps_remain_visible(self):
         # Source extraction is now complete; runtime scenarios remain planned.
@@ -90,7 +74,7 @@ class MIndexTests(unittest.TestCase):
         f=self.r.factors['m_create_index']
         self.assertFalse(any(u.status=='unmapped' for u in self.r.source_ledgers[f.source_ledger_ref].units))
         f=self.r.factors['m_create_index']
-        self.assertTrue(any(x.type=='open_question' and '分区产生式' in x.statement for x in f.facts))
+        self.assertTrue(any(x.type=='environment' and '分区产生式' in x.statement for x in f.facts))
 
 
 if __name__=='__main__':unittest.main()

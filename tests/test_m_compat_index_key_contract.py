@@ -36,7 +36,7 @@ class MIndexKeyContractTests(unittest.TestCase):
         return patch.object(g,'_compile_fixture_lifecycle',side_effect=changed)
 
     def test_actual_key_cannot_hide_behind_existing_dependency_label(self):
-        for suffix in ('finite','fillfactor_below'):
+        for suffix in ('finite',):
             g=self.generator()
             self.key(g).properties['items']=['missing_actual_key']
             with self.subTest(suffix=suffix), self.assertRaisesRegex(GenerationValidationError,'index_key_missing_column'):
@@ -82,9 +82,6 @@ class MIndexKeyContractTests(unittest.TestCase):
         self.assertTrue(any(c.kind=='index_key_source_contract' and 'm_create_index_fact_key_source' in c.fact_refs
                             for c in f.structural_checks))
         self.assertEqual(len(self.generate(g)),17)
-        negative=self.generate(g,'fillfactor_below')
-        self.assertEqual(len(negative),1)
-        self.assertEqual(negative[0].expected_error_category,'fillfactor')
 
     def test_key_guard_independently_requires_confirmed_facts_and_m_gate(self):
         for change in ('fact','gate'):

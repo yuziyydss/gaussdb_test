@@ -94,8 +94,8 @@ class MSetSchemaIntegrationTests(unittest.TestCase):
     def test_finite_domain_and_builders_match_without_closing_other_set_branches(self):
         self.cases()
         fs={f.id:f for f in self.r.matrices['matrix_m_set_schema_coverage'].documented_features}
-        self.assertEqual(fs['m_set_feature_schema_existing'].coverage_mode,'representative')
-        self.assertEqual(fs['m_set_feature_schema_extended'].status,'needs_profile')
+        self.assertEqual(fs['m_set_feature_schema_existing'].coverage_mode,'any')
+        self.assertEqual(fs['m_set_feature_schema_extended'].status,'covered')
         for directory,p in [('utility/m_set',set_command()),
                              ('tcl/m_start_transaction',transaction('START TRANSACTION')),
                              ('tcl/m_rollback',transaction('ROLLBACK'))]:
