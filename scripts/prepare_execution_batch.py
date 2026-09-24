@@ -89,6 +89,8 @@ def build_batch(registry, generator, *, profile='baseline'):
     cases_by_manifest, reports = {}, {}
     for _, mids in selection:
         for mid in mids:
+            if mid not in registry.manifests:
+                continue
             if mid not in cases_by_manifest:
                 cases, report = generator.generate_with_report(registry.manifests[mid])
                 cases_by_manifest[mid] = cases

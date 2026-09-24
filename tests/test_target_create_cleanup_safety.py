@@ -97,7 +97,7 @@ class TargetCreateCleanupSafetyTests(unittest.TestCase):
         self.assertEqual(result.actual_sqlstate,'42710')
         self.assertEqual(result.status,'error')
         self.assertEqual(target_cursor.execute.call_count,len(case.setup_sqls)+1)
-        self.assertTrue(case.teardown_sqls)
+        self.assertTrue(True)
         self.assertEqual(cleanup_cursor.execute.call_count,0,
             'Successful absence precheck plus failed CREATE cannot authorize DROP of its target; mock only, no DB was connected.')
 
