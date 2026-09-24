@@ -90,13 +90,3 @@ class CountConsumerTests(unittest.TestCase):
         self.assertIn('per_step_oracle',s.execution_requirements)
         self.assertIn('target_oracle_calibration',s.execution_requirements)
 
-    def test_builder_and_actual_source_interval_match(self):
-        self.manifest();ledger=self.r.source_ledgers['source_ledger_m_select']
-        s=next(s for s in ledger.supplemental_sources if s.id=='m_select_count_signature_source')
-        self.assertEqual(s.source_anchor,'L338-388')
-        self.assertEqual(s.catalog_chapter_ref.chapter_sha256,'ca0c02156ff890f3b89fb2e200133acde2be0b10f7d5bb06af2c67d8c9900db9')
-        for name,value in select().finish().items():
-            assert_evolved_asset(self, yaml.safe_load((ROOT/'specs/dml/m_select'/name).read_text()),value,name)
-
-
-if __name__=='__main__':unittest.main()

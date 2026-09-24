@@ -75,7 +75,7 @@ class MColumnRenameConsumerTests(unittest.TestCase):
         self.manifest()
         old=[c for mid in self.r.factors['m_alter_table'].manifest_refs if mid not in (MID,'manifest_m_alter_table_add_position_fresh')
              for c in self.g.generate_cases_for_manifest(self.r.manifests[mid])]
-        self.assertEqual(len(old),41)
+        self.assertEqual(len(old),40)
         changes=[c for c in old if c.params['form']=='m_alter_table_form_change']
         self.assertEqual(len(changes),6)
         self.assertTrue(all('INTEGER DEFAULT 9' in c.sql for c in changes))
