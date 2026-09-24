@@ -1,0 +1,273 @@
+[[PDF_PAGE physical=2182 printed=2133]]
+2.4.2.9.2 DELETE
+
+功能描述
+              DELETE从指定的表里删除满足WHERE子句的行。如果WHERE子句不存在，将删除表
+              中所有行，结果只保留表结构。
+
+注意事项
+              ●    表的所有者、被授予表DELETE权限的用户或被授予DELETE ANY TABLE权限的用
+                   户有权删除表中数据，当三权分立开关关闭时，系统管理员默认拥有此权限。同
+                   时也必须有USING子句引用的表以及condition上读取表的SELECT权限。
+              ●    对于多表删除语法，暂时不支持对视图进行多表删除。
+              ●    对于子查询是STREAM计划的DELETE语句，不支持删除的行数据同时进行
+                   UPDATE更新操作。
+
+语法格式
+              单表删除：
+[[PDF_PAGE physical=2183 printed=2134]]
+       [ WITH [ RECURSIVE ] with_query [, ...] ]
+       DELETE [/*+ plan_hint */] [IGNORE] FROM {table_name [partition_clause] | view_name}
+          [ WHERE condition ]
+          [ ORDER BY { expression [ ASC | DESC ] } [ NULLS { FIRST | LAST } ] ]
+          [ LIMIT { count } ];
+
+       多表删除：
+       [ WITH [ RECURSIVE ] with_query [, ...] ]
+       DELETE [/*+ plan_hint */] [IGNORE]
+          FROM table_name1[ .* ] [,table_name2[ .* ]] ...
+          USING using_list
+          [ WHERE condition ];
+
+       或：
+       [ WITH [ RECURSIVE ] with_query [, ...] ]
+       DELETE [/*+ plan_hint */] [IGNORE]
+          table_name1[ .* ][,table_name2[ .* ]] ...
+          FROM using_list
+          [ WHERE condition ];
+
+
+参数说明
+       ●     WITH [ RECURSIVE ] with_query [, ...]
+             用于声明一个或多个可以在主查询中通过名称指定的子查询（与临时表的定义类
+             似），该子查询语句结构称为CTE（Common Table Expression）结构。
+                    说明
+
+                  ● 应用CTE结构时，执行计划中将存在CTE SCAN的内容。
+                  ● 如果声明了RECURSIVE，那么允许SELECT子查询通过名称引用其自身。
+             其中with_query的具体形式为：
+             with_query_name [ ( column_name [, ...] ) ] AS ( {select} )
+             –     with_query_name：指定子查询生成的结果集名称，在查询中可使用该名称
+                   访问子查询的结果集。
+             –     column_name：指定子查询结果集中显示的列名。
+             –     每个子查询支持SELECT语句。
+             –     RECURSIVE只能出现在WITH后面，存在多个CTE结构的情况下，只需要在第
+                   一个CTE结构处声明RECURSIVE。
+             –     使用RECURSIVE时，CTE结构中{UNION | EXCEPT ALL}或{UNION | EXCEPT
+                   [DISTINCT]}两侧的子查询结果，其数据类型必须使用cast函数转换成相同的
+                   数据类型，且两侧子查询结果的精度和字符序也要一致。如：WITH
+                   RECURSIVE cte (n) AS ( SELECT cast(id as signed int) from table_1
+                   UNION ALL SELECT cast((n + 1) as signed int) FROM cte WHERE n < 5 )
+                   SELECT * FROM cte。由操作符产生的类型转换具体请参见逻辑操作符规格
+                   约束、位运算操作符规格约束、算术操作符规格约束。
+       ●     plan_hint
+             以/*+ */的形式在DELETE关键字后，用于对DELETE对应的语句块生成的计划进行
+             hint调优。每条语句中只有第一个/*+ plan_hint */注释块会作为hint生效，里面可
+             以写多条hint。
+       ●     IGNORE
+             DELETE语句使用IGNORE关键字时，可将部分ERROR级别的错误降级为
+             WARNING级别，并根据不同的错误场景将无效值调整为最接近的值。GaussDB支
+             持错误降级的场景如下：
+             sql_mode为宽松模式的场景。
+[[PDF_PAGE physical=2184 printed=2135]]
+           说明
+
+         升级观察期不支持IGNORE。
+●   table_name
+    目标表的名称（可以有模式修饰）。
+    取值范围：已存在的表名。
+●   partition_clause
+    指定分区删除操作。
+    PARTITION { ( partition_name | subpartition_name [ , ...] )
+    关键字信息具体请参见SELECT。
+    示例信息具体请参见CREATE TABLE SUBPARTITION。
+●   view_name
+    目标视图的名称。
+           说明
+
+         对视图的删除，有如下约束：
+         ● 只有直接引用基表用户列的列可进行DELETE操作。
+         ● 视图必须至少包含一个可更新列，关于可更新列信息请参见CREATE VIEW。
+         ● 不支持在顶层包含DISTINCT、GROUP BY、HAVING、LIMIT、OFFSET子句的视图。
+         ● 不支持在顶层包含集合运算（UNION、EXCEPT）的视图。
+         ● 不支持目标列表中包含聚集函数、窗口函数、返回集合函数（array_agg、json_agg、
+           generate_series等）的视图。
+         ● 视图中支持的表类型包括普通表、临时表、全局临时表、分区表、二级分区表、ustore
+           表、astore表。
+         ● 连接视图只能对视图中的保留键表做删除操作，如果只存在一张保留键表，则删除该表
+           数据，如果存在多张保留键表，仅删除FROM后的第一张保留键表的数据。关于保留键
+           表信息请参见CREATE VIEW。
+         ● 不支持对系统视图进行DELETE操作。
+         ● 不支持多表删除功能。
+●   NULLS FIRST
+    指定空值在排序中排在非空值之前，当指定DESC排序时，本选项为默认的。
+●   NULLS LAST
+    指定空值在排序中排在非空值之后，未指定DESC排序时，本选项为默认的。
+●   using_list
+    using子句，具体形式如下：
+    table_name [ partition_clause ] | subquery | view_name} [ * ] [ [ AS ] alias ] [index_hint_list]
+
+    其中，index_hint_list由一个或多个索引提示信息index_hint组成，表示索引提示
+    信息列表，在表名之后指定，向优化器提供有关在查询处理期间如何选择索引的
+    信息。具体形式如下：
+    index_hint [index_hint] ...
+
+    index_hint的具体形式：
+        USE {INDEX | KEY} ([index_list])
+        |{IGNORE | FORCE} {INDEX | KEY}(index_list)
+
+    –     index_hint_list描述的索引提示信息与plan_hint中的提示作用相同。
+[[PDF_PAGE physical=2185 printed=2136]]
+         –    index_hint_list索引提示信息和plan_hint可以单独使用或同时使用，其生效优
+              先级按照在SQL中出现的顺序排列。
+         –    index_hint_list索引提示信息不支持在PARTITION后使用。
+
+
+             须知
+
+         当删除多张目标表时，using_list指定关联表的集合时可以同时出现目标表，并且
+         可以定义表的别名并在目标表中使用。其他情况下则目标表不可重复出现在
+         using_list中。
+         设置GUC兼容性参数m_format_dev_version为's2'后，所有目标表需出现在
+         using_list中，且两者的表名、别名、所属库名均相等时才满足匹配条件。匹配规
+         则如下所示，如果不存在唯一匹配，语法执行失败：
+         1. 如果目标表使用库名.表名的形式，则表名字段只能是真实表名，而非别名引
+            用，且只能与using_list中未指定别名的对象进行匹配。
+         2. 如果目标表未指定库名，默认属于当前正在使用的库名；
+         3. 如果using_list中对象指定别名，按别名匹配。
+
+     ●   condition
+         一个返回Boolean值的表达式，用于判断哪些行需要被删除。不建议使用int等数
+         值类型作为condition，因为int等数值类型可以隐式转换为bool值（非0值隐式转
+         换为true，0转换为false），可能导致非预期的结果。
+     ●   ORDER BY
+         具体信息请参见SELECT。
+     ●   LIMIT
+         具体信息请参见SELECT。
+
+示例
+     ●   删除部分数据
+         --建表。
+         m_db=# CREATE TABLE test_t1(col1 INT,col2 INT);
+         m_db=# INSERT INTO test_t1 VALUES (1, 1), (2, 2), (3, 3), (4, 4), (4, 6);
+
+         --删除表中部分记录。
+         m_db=# DELETE FROM test_t1 WHERE col1 = 4;
+
+         --查询。
+         m_db=# SELECT * FROM test_t1;
+          col1 | col2
+         ------+------
+            1| 1
+            2| 2
+            3| 3
+         (3 rows)
+
+     ●   删除所有数据
+         --删除所有的数据。
+         m_db=# DELETE FROM test_t1;
+
+         --查询。
+         m_db=# SELECT * FROM test_t1;
+          col1 | col2
+         ------+------
+         (0 rows)
+[[PDF_PAGE physical=2186 printed=2137]]
+    --删除表。
+    m_db=# DROP TABLE test_t1;
+
+●   删除视图
+    --创建SCHEMA。
+    m_db=# CREATE SCHEMA del_view;
+    CREATE SCHEMA
+    m_db=# SET CURRENT_SCHEMA = 'del_view';
+    SET
+
+    --创建表并插入数据。
+    m_db=# CREATE TABLE t1 (x1 int, y1 int);
+    CREATE TABLE
+    m_db=# CREATE TABLE t2 (x2 int PRIMARY KEY, y2 int);
+    NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "t2_pkey" for table "t2"
+    CREATE TABLE
+    m_db=# CREATE TABLE tdata (x INT PRIMARY KEY, y INT);
+    NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "tdata_pkey" for table "tdata"
+    CREATE TABLE
+    m_db=# CREATE TABLE tinfo (z INT PRIMARY KEY, comm VARCHAR(20));
+    NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "tinfo_pkey" for table "tinfo"
+    CREATE TABLE
+    m_db=# INSERT INTO t1 VALUES (1, 1), (2, 2), (3, 3), (5, 5);
+    INSERT 0 4
+    m_db=# INSERT INTO t2 VALUES (1, 1), (2, 2), (3, 3), (5, 5);
+    INSERT 0 4
+    m_db=# INSERT INTO tdata VALUES (1, 1), (2, 2), (3, 3);
+    INSERT 0 3
+    m_db=# INSERT INTO tinfo VALUES (1,'one'), (2, 'two'), (3, 'three'), (5, 'wrong three');
+    INSERT 0 4
+
+    --创建单表视图。
+    m_db=# CREATE VIEW v_del1 AS SELECT * FROM t1;
+    CREATE VIEW
+
+    --通过视图删除t1中的数据。
+    m_db=# DELETE FROM v_del1 where y1 = 3;
+    DELETE 1
+
+    --创建多表连接视图。
+    m_db=# CREATE VIEW vvt1t2 AS SELECT * FROM t1, t2 WHERE x1 = x2;
+    CREATE VIEW
+    m_db=# CREATE VIEW vv_dup AS SELECT td1.x x1, td1.y y1, td2.x x2, td2.y y2 FROM tdata td1, tdata
+    td2, tinfo WHERE td2.y=tinfo.z AND td1.x=td2.y;
+    CREATE VIEW
+
+    --对多表连接的视图做删除操作。
+    m_db=# SELECT * FROM vvt1t2;
+     x1 | y1 | x2 | y2
+    ----+----+----+----
+      1| 1| 1| 1
+      2| 2| 2| 2
+      5| 5| 5| 5
+    (3 rows)
+
+    m_db=# DELETE FROM vvt1t2 WHERE y2 = 5;
+    DELETE 1
+    m_db=# SELECT * FROM vvt1t2;
+     x1 | y1 | x2 | y2
+    ----+----+----+----
+      1| 1| 1| 1
+      2| 2| 2| 2
+    (2 rows)
+
+    m_db=# SELECT * FROM vv_dup;
+     x1 | y1 | x2 | y2
+    ----+----+----+----
+      1| 1| 1| 1
+      2| 2| 2| 2
+      3| 3| 3| 3
+[[PDF_PAGE physical=2187 printed=2138]]
+           (3 rows)
+
+           m_db=# DELETE FROM vv_dup WHERE y1 = 2;
+           DELETE 1
+           m_db=# SELECT * FROM vv_dup;
+            x1 | y1 | x2 | y2
+           ----+----+----+----
+             1| 1| 1| 1
+             3| 3| 3| 3
+           (2 rows)
+
+           --删除SCHEMA。
+           m_db=# DROP SCHEMA del_view;
+           NOTICE: drop cascades to 7 other objects
+           DETAIL: drop cascades to table t1
+           drop cascades to table t2
+           drop cascades to table tdata
+           drop cascades to table tinfo
+           drop cascades to view v_del1
+           drop cascades to view vvt1t2
+           drop cascades to view vv_dup
+           DROP SCHEMA
+
+
+优化建议
+       delete
+       如果要删除表中的所有记录，建议使用truncate语法。

@@ -1,0 +1,346 @@
+[[PDF_PAGE physical=2300 printed=2251]]
+2.4.2.18.1 UPDATE
+
+功能描述
+             更新表中的数据，UPDATE对满足条件的所有行中指定的字段值进行修改。WHERE子
+             句表示声明条件；SET子句中指定的字段将会被修改，没有出现的字段则保持原有的字
+             段值。
+
+注意事项
+             ●      表的所有者、拥有表UPDATE权限的用户、拥有UPDATE ANY TABLE权限的用
+                    户，皆有权限更新表中的数据，当三权分立开关关闭时，系统管理员默认拥有此
+                    权限。
+             ●      对expression或condition条件里涉及到的任何表需要有SELECT权限。
+             ●      生成列不能被直接写入。在UPDATE命令中不能为生成列指定值，但是可以指定
+                    关键字DEFAULT。
+             ●      对于多表更新语法，暂时不支持对视图进行多表更新。
+             ●      对于子查询是STREAM计划的UPDATE语句，不支持并发更新同一行。
+             ●      不支持用户通过UPDATE系统表的方式对数据库字符编码进行修改，该操作会导
+                    致存在存量数据或其他部分操作异常的情况。如需更改数据库的字符集编码，应
+                    当遵循切库流程，进行相关的数据迁移操作。
+             ●      默认情况下，执行UPDATE语句时，数量统计不会去重，若要去重，则在
+                    m_format_behavior_compat_options内需包含enable_update_tuple_count参
+                    数。
+
+语法格式
+             ●      单表更新：
+                    [ WITH [ RECURSIVE ] with_query [, ...] ]
+                    UPDATE [/*+ plan_hint */] [IGNORE] [ ONLY ] {table_name [ partition_clause ] | subquery |
+                    view_name} [ * ] [ [ AS ] alias ] [index_hint_list]
+                    SET {column_name = { expression | DEFAULT }
+                    }[, ...]
+                       [ WHERE condition ]
+                       [ORDER BY {col_name | expression | position}
+                          [ASC | DESC][ NULLS { FIRST | LAST } ], ...]
+                        [ LIMIT { count } ];
+                    其中index_hint_list具体形式为：
+                        index_hint [index_hint] ...
+                    index_hint具体形式为：
+                         USE {INDEX | KEY} ([index_list])
+                        |{IGNORE | FORCE} {INDEX | KEY} (index_list)
+
+             ●      多表更新：
+                    [ WITH [ RECURSIVE ] with_query [, ...] ]
+                    UPDATE [/*+ plan_hint */] [IGNORE] table_list
+                    SET {column_name = { expression | DEFAULT }
+                    }[, ...]
+                        [ WHERE condition ];
+
+
+参数说明
+             ●      WITH [ RECURSIVE ] with_query [, ...]
+                    用于声明一个或多个可以在主查询中通过名称指定的子查询（与临时表的定义类
+                    似），该子查询语句结构称为CTE（Common Table Expression）结构。
+[[PDF_PAGE physical=2301 printed=2252]]
+          说明
+
+         ● 应用CTE结构时，执行计划中将存在CTE SCAN的内容。
+         ● 如果声明了RECURSIVE，那么允许SELECT子查询通过名称引用其自身。
+    其中with_query的具体形式为：
+    with_query_name [ ( column_name [, ...] ) ] AS ( {select} )
+    –    with_query_name：指定子查询生成的结果集名称，在查询中可使用该名称
+         访问子查询的结果集。
+    –    column_name：指定子查询结果集中显示的列名。
+    –    每个子查询支持SELECT语句。
+    –    RECURSIVE只能出现在WITH后面，存在多个CTE结构的情况下，只需要在第
+         一个CTE结构处声明RECURSIVE。
+    –    使用RECURSIVE时，CTE结构中{UNION | EXCEPT ALL}或{UNION | EXCEPT
+         [DISTINCT]}两侧的子查询结果，其数据类型必须使用cast函数转换成相同的
+         数据类型，且两侧子查询结果的精度和字符序也要一致。如：WITH
+         RECURSIVE cte (n) AS ( SELECT cast(id as signed int) from table_1
+         UNION ALL SELECT cast((n + 1) as signed int) FROM cte WHERE n < 5 )
+         SELECT * FROM cte。由操作符产生的类型转换具体请参见逻辑操作符规格
+         约束、位运算操作符规格约束和算术操作符规格约束。
+●   plan_hint
+    以/*+ */的形式在UPDATE关键字后，用于对UPDATE对应的语句块生成的计划进
+    行hint调优。每条语句中只有第一个/*+ plan_hint */注释块会作为hint生效，里面
+    可以写多条hint。
+●   IGNORE
+    UPDATE语句使用IGNORE关键字时，可将部分ERROR级别的错误降级为
+    WARNING级别，并根据不同的错误场景将无效值调整为最接近的值。GaussDB支
+    持错误降级的场景如下：
+    –    破坏NOT NULL约束
+    –    唯一键冲突
+    –    插入的值没有找到对应的分区
+    –    指定分区插入时，插入的数据与指定分区不匹配
+    –    子查询返回多行
+    –    sql_mode为宽松模式的场景
+          说明
+
+         升级观察期不支持IGNORE。
+●   table_name
+    要更新的表名，可以使用模式修饰。如果在表名前指定了ONLY，只会更新表中匹
+    配的行。如果未指定，任何从该表继承得到的表中的匹配行也会被更新。目前
+    ONLY和增加*选项保留语法，功能不支持
+    取值范围：已存在的表名称。
+●   partition_clause
+    指定分区更新操作
+    PARTITION { ( { partition_name | subpartition_name } [, ...] ) | FOR
+    ( partition_value [, ...] ) } |
+    SUBPARTITION { ( subpartition_name ) | FOR ( subpartition_value [, ...] ) }
+[[PDF_PAGE physical=2302 printed=2253]]
+    关键字信息请参见SELECT。
+    示例信息请参见CREATE TABLE SUBPARTITION。
+           说明
+
+         PARTITION指定多个分区名时，一级分区名和二级分区名可同时存在，且可以存在相同的
+         分区名，最终分区范围取其并集。
+●   subquery
+    要更新的子查询，在对子查询进行更新时，会将子查询当成一个临时视图。
+    [ WITH [ RECURSIVE ] with_query [, ...] ]
+    SELECT [/*+ plan_hint */] [ ALL ]
+       { * | {expression [ [ AS ] output_name ]} [, ...] }
+       [ into_option ]
+       [ FROM from_item [, ...] ]
+       [ WHERE condition ]
+       [ORDER BY {col_name | expression | position} [ ASC | DESC ] [ NULLS { FIRST | LAST } ], ...]
+       [ into_option ];
+
+    into_option:
+    INTO {
+      [[[LOCAL | GLOBAL] TEMPORARY] [TABLE] table_name] |
+      OUTFILE file_name [CHARACTER SET encoding_name] [FIELDS fields_items] [LINES lines_items] |
+      DUMPFILE file_name
+    }
+    其中指定子查询源from_item为：
+    {[ ONLY ] {table_name | view_name} [ * ] [ partition_clause ] [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+    [index_hint_list]
+    |( select ) [ AS ] alias [ ( column_alias [, ...] ) ]
+    |with_query_name [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+    |joined_table
+    index_hint_list具体形式为：
+        index_hint [index_hint] ...
+    index_hint具体形式为：
+         USE {INDEX | KEY} ([index_list])
+        |{IGNORE | FORCE} {INDEX | KEY} (index_list)
+    joined_table具体形式为：
+    joined_table: {
+       table_reference [INNER | CROSS] JOIN table_factor [join_specification]
+      | table_reference {LEFT|RIGHT} [OUTER] JOIN table_reference join_specification
+      | table_reference NATURAL [{LEFT|RIGHT} [OUTER]] JOIN table_factor
+    }
+    join_specification: {
+       ON join_condition
+      | USING (join_column_list)
+    }
+    join_column_list:
+        column_name [, column_name] ...
+    如果子查询中只有一张表，则对该表更新数据；如果子查询中有多张表或有嵌套
+    关系，则通过判断是否有保留键表确定是否可更新。关于保留键表请参见CREATE
+    VIEW。
+●   view_name
+    要更新的目标视图。
+[[PDF_PAGE physical=2303 printed=2254]]
+            说明
+
+         对视图和子查询的更新，有如下约束：
+         ● 只有直接引用基表用户列的列可进行UPDATE操作。
+         ● 子查询或视图必须至少包含一个可更新列，关于可更新列请参见CREATE VIEW。
+         ● 不支持在顶层包含DISTINCT、GROUP BY、HAVING、LIMIT、OFFSET子句的视图和子
+           查询。
+         ● 不支持在顶层包含集合运算（UNION、EXCEPT）的视图和子查询。
+         ● 不支持目标列表中包含聚集函数、窗口函数、返回集合函数（array_agg、json_agg、
+           generate_series等）的视图和子查询。
+         ● 视图和子查询中支持的表类型包括普通表、临时表、全局临时表、分区表、二级分区
+           表、ustore表、astore表。
+         ● 多表连接视图或连接子查询中一次只能更新一张基表。
+         ● 连接视图或子查询只能更新保留键表。关于保留键表请参见CREATE VIEW。
+         ● 不支持更新系统视图。
+●   alias
+    目标表的别名。
+    取值范围：字符串，要符合标识符说明。
+●   table_list
+    一个表的表达式列表，与from_list类似，但可以同时声明目标表和关联表，仅在
+    多表更新语法中使用。
+●   index_hint_list
+    索引提示信息列表，在表名之后指定，向优化器提供有关在查询处理期间如何选
+    择索引的信息。
+    index_hint_list由一个或多个索引提示信息index_hint组成，具体形式如下：
+    index_hint [index_hint] ...
+    其中，index_hint的具体形式：
+        USE {INDEX | KEY} ([index_list])
+        |{IGNORE | FORCE} {INDEX | KEY}(index_list)
+    –     index_hint_list描述的索引提示信息与plan_hint中的提示作用相同。
+    –     index_hint_list索引提示信息和plan_hint可以单独使用或同时使用，其生效优
+          先级按照在SQL中出现的顺序排列。
+    –     index_hint_list索引提示信息不支持在PARTITION后使用。
+●   column_name
+    要修改的字段名。
+    支持使用目标表的别名加字段名来引用这个字段。例如：UPDATE foo AS f SET
+    f.col_name = 'namecol'。
+    支持使用库名.别名或库名.表名加字段名来引用这个字段。例如：UPDATE foo AS
+    f SET public.f.col_name = 'namecol'。
+    取值范围：已存在的字段名。
+    设置GUC兼容性参数m_format_dev_version为's2'后：
+    –     如果table_name指定了别名，且只能通过别名引用此表。
+    –     仅在单表场景多个字段下，各字段的表达式计算会按从左到右的顺序；如果
+          有引用前面的字段名，则使用其更新后的数据，且支持同一字段名可被修改
+          多次。
+[[PDF_PAGE physical=2304 printed=2255]]
+     ●   expression
+         赋给字段的值或表达式。
+     ●   DEFAULT
+         用对应字段的缺省值填充该字段。
+         如果没有缺省值，则为NULL。
+     ●   from_list
+         一个表的表达式列表，允许在WHERE条件里使用其他表的字段。与在一个SELECT
+         语句的FROM子句里声明表列表类似。
+
+
+             须知
+
+         目标表不能出现在from_list里，除非在使用一个自连接（此时它必须以from_list
+         的别名出现）。
+
+     ●   condition
+         一个返回Boolean类型结果的表达式。只有这个表达式返回true的行才会被更新。
+         不建议使用int等数值类型作为condition，因为int等数值类型可以隐式转换为bool
+         值（非0值隐式转换为true，0转换为false），可能导致非预期的结果。
+     ●   ORDER BY
+         具体请参见SELECT章节介绍。
+     ●   LIMIT
+         具体请参见SELECT章节介绍。
+
+示例
+     ●   修改表中所有数据。
+         --创建tbl_test1表并插入数据。
+         m_db=# CREATE TABLE tbl_test1(id int, info varchar(10));
+         m_db=# INSERT INTO tbl_test1 VALUES (1, 'A'), (2, 'B');
+
+         --查询。
+         m_db=# SELECT * FROM tbl_test1;
+          id | info
+         ----+------
+           1|A
+           2|B
+         (2 rows)
+
+         --修改tbl_test1表中info列的信息。
+         m_db=# UPDATE tbl_test1 SET info = 'aa';
+
+         --查询tbl_test1表。
+         m_db=# SELECT * FROM tbl_test1;
+          id | info
+         ----+------
+           1 | aa
+           2 | aa
+         (2 rows)
+
+     ●   修改表中部分数据。
+         --修改tbl_test1表中id=2的数据。
+         m_db=# UPDATE tbl_test1 SET info = 'bb' WHERE id = 2;
+
+         --查询tbl_test1表。
+         m_db=# SELECT * FROM tbl_test1;
+          id | info
+[[PDF_PAGE physical=2305 printed=2256]]
+    ----+------
+      1 | aa
+      2 | bb
+    (2 rows)
+
+●   修改数据，并返回修改后的数据。
+    --修改tbl_test1表中id=1的数据，并指定返回info列。
+    m_db=# UPDATE tbl_test1 SET info = 'ABC' WHERE id = 1;
+    UPDATE 1
+
+    --删除tbl_test1表。
+    m_db=# DROP TABLE tbl_test1;
+
+●   更新子查询
+    --创建SCHEMA。
+    m_db=# CREATE SCHEMA upd_subqry;
+    CREATE SCHEMA
+    m_db=# SET CURRENT_SCHEMA = 'upd_subqry';
+    SET
+
+    --创建表并插入数据。
+    m_db=# CREATE TABLE t1 (x1 int, y1 int);
+    CREATE TABLE
+    m_db=# CREATE TABLE t2 (x2 int PRIMARY KEY, y2 int);
+    NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "t2_pkey" for table "t2"
+    CREATE TABLE
+    m_db=# INSERT INTO t1 VALUES (1, 1), (2, 2), (3, 3), (5, 5);
+    INSERT 0 4
+    m_db=# INSERT INTO t2 VALUES (1, 1), (2, 2), (3, 3), (5, 5);
+    INSERT 0 4
+
+    --通过子查询更新t1。
+    m_db=# UPDATE (SELECT * FROM t1) SET y1 = 13 where y1 = 3;
+    UPDATE 1
+    m_db=# UPDATE (SELECT * FROM t1 WHERE y1 < 2) SET y1 = 12 WHERE y1 = 2;
+    UPDATE 0
+
+    --插入多表连接的子查询。
+    m_db=# UPDATE (SELECT * FROM t1, t2 WHERE x1 = x2) SET y1 = 11 WHERE y2 = 1;
+    UPDATE 1
+
+    --删除SCHEMA。
+    m_db=# DROP SCHEMA upd_subqry;
+    NOTICE: drop cascades to 2 other objects
+    DETAIL: drop cascades to table t1
+    drop cascades to table t2
+    DROP SCHEMA
+
+●   更新视图
+    --创建SCHEMA。
+    m_db=# CREATE SCHEMA upd_view;
+    CREATE SCHEMA
+    m_db=# SET CURRENT_SCHEMA = 'upd_view';
+    SET
+
+    --创建表并插入数据。
+    m_db=# CREATE TABLE t1 (x1 int, y1 int);
+    CREATE TABLE
+    m_db=# CREATE TABLE t2 (x2 int PRIMARY KEY, y2 int);
+    NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "t2_pkey" for table "t2"
+    CREATE TABLE
+    m_db=# INSERT INTO t1 VALUES (1, 1), (2, 2), (3, 3), (5, 5);
+    INSERT 0 4
+    m_db=# INSERT INTO t2 VALUES (1, 1), (2, 2), (3, 3), (5, 5);
+    INSERT 0 4
+
+    --创建单表视图。
+    m_db=# CREATE VIEW v_upd1 AS SELECT * FROM t1;
+    CREATE VIEW
+[[PDF_PAGE physical=2306 printed=2257]]
+--通过视图对t1更新。
+m_db=# UPDATE v_upd1 SET y1 = 13 where y1 = 3;
+UPDATE 1
+
+--创建多表视图。
+m_db=# CREATE VIEW vv_upd AS SELECT * FROM t1, t2 WHERE x1 = x2;
+CREATE VIEW
+
+--通过连接视图对t1更新。
+m_db=# UPDATE vv_upd SET y1 = 1 WHERE y2 = 1;
+UPDATE 1
+
+--删除SCHEMA。
+m_db=# DROP SCHEMA upd_view;
+NOTICE: drop cascades to 4 other objects
+DETAIL: drop cascades to table t1
+drop cascades to table t2
+drop cascades to view v_upd1
+drop cascades to view vv_upd
+DROP SCHEMA

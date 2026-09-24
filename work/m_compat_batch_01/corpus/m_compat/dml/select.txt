@@ -1,0 +1,1225 @@
+[[PDF_PAGE physical=2249 printed=2200]]
+2.4.2.16.2 SELECT
+
+功能描述
+              SELECT用于从表或视图中取出数据。
+              SELECT语句就像叠加在数据库表上的过滤器，利用SQL关键字从数据表中过滤出用户
+              需要的数据。
+
+注意事项
+              ●     表的所有者、拥有表SELECT权限的用户或拥有SELECT ANY TABLE权限的用户，
+                    有权读取表或视图中数据，当三权分立开关关闭时，系统管理员默认拥有此权
+                    限。
+              ●     必须对每个在SELECT命令中使用的字段有SELECT权限。
+
+              ●     使用FOR UPDATE、FOR SHARE还要求UPDATE权限。
+
+语法格式
+              查询数据
+              [ WITH [ RECURSIVE ] with_query [, ...] ]
+              SELECT [/*+ plan_hint */]
+                 [ALL | DISTINCT | DISTINCTROW]
+                 [STRAIGHT_JOIN]
+                 [SQL_CACHE]
+                 [SQL_NO_CACHE]
+                 [SQL_CALC_FOUND_ROWS]
+                 select_expr [, select_expr] ...
+                 [into_option]
+                 [FROM from_item [,...]]
+                 [WHERE where_condition]
+                 [GROUP BY {col_name | expr | position} [WITH ROLLUP]]
+                 [HAVING condition]
+                 [WINDOW {window_name AS (window_definition)} [, ...]]
+                 [ORDER BY {col_name | expression | position}
+                 [ASC | DESC][ NULLS { FIRST | LAST } ], ...]
+                 [[LIMIT {[offset,] row_count | row_count OFFSET offset}] | FETCH {FIRST | NEXT} [(expr)] {ROW| ROWS}
+              ONLY]
+                 [into_option]
+                 [ FOR READ ONLY |
+                    [ {FOR { UPDATE | SHARE } [ OF table_name [, ...] ] [ NOWAIT | WAIT N | SKIP LOCKED ]} [...] ] |
+                    LOCK IN SHARE MODE]
+[[PDF_PAGE physical=2250 printed=2201]]
+select_expr：
+   expression [ [AS] output_name ]
+
+with_clause:
+   WITH [ RECURSIVE ]
+     cte_name [(col_name [, col_name] ...)] AS (subquery)
+     [, cte_name [(col_name [, col_name] ...)] AS (subquery)] ...
+
+where_condition:
+expr
+
+into_option:
+INTO {
+  [[[LOCAL | GLOBAL] TEMPORARY] [TABLE] table_name] |
+  OUTFILE file_name [CHARACTER SET encoding_name] [FIELDS fields_items] [LINES lines_items] |
+  DUMPFILE file_name
+}
+
+SELECT.. UNION/EXCEPT语法：
+SELECT ...
+   UNION [ALL | DISTINCT] SELECT ...
+   [UNION [ALL | DISTINCT] SELECT ...]
+SELECT ...
+   EXCEPT[ALL | DISTINCT] SELECT ...
+   [EXCEPT[ALL | DISTINCT] SELECT ...]
+
+      说明
+
+     WHERE子句、HAVING子句、GROUP BY子句中使用SELECT子句中的别名，存在如下限制：
+     ● 初始化建表语句。
+         m_db=# DROP TABLE IF EXISTS t0, t1;
+         m_db=# CREATE TABLE t0 (c0 INT, c1 INT);
+         m_db=# CREATE TABLE t1 (c0 INT, c1 INT);
+     ● 只能同一层引用。
+         m_db=# SELECT r FROM t0 WHERE (select c0 as r from t0) = 1; -- error
+     ● 只能引用targetlist中的别名。
+         m_db=# SELECT * FROM t0 WHERE (SELECT c0 AS r FROM t0) = 1 AND r = 2; -- error
+     ● 只能是后面的表达式引用前面的表达式。
+         m_db=# SELECT r AS d, c0 AS r FROM t0; -- error
+     ● 不能包含volatile函数。
+         m_db=# SELECT uuid() AS r FROM t0 WHERE r = 1; -- error
+     ● 不能包含Window function函数。
+         m_db=# SELECT pg_catalog.rank() over(PARTITION BY c0 ORDER BY c1) AS r FROM t0 WHERE r =
+         1; -- error
+     ● 不支持在join on条件中引用别名。
+         m_db=# SELECT uuid() AS r FROM t0 JOIN t1 ON r = 1; -- error
+     ● targetlist中有多个要引用的别名则报错。
+         m_db=# SELECT c0 AS r AS u AS v FROM t0; -- error
+
+●    其中子查询with_query为：
+     with_query_name [ ( column_name [, ...] ) ]
+        AS ( {select} )
+
+●    其中INTO子句为：
+     into_option: {
+            INTO [[[LOCAL | GLOBAL] TEMPORARY] [TABLE]] table_name
+      | INTO OUTFILE 'file_name'
+       [CHARACTER SET charset_name]
+       export_options
+      | INTO DUMPFILE 'file_name'
+     }
+     export_options:
+         [FIELDS
+[[PDF_PAGE physical=2251 printed=2202]]
+            [TERMINATED BY 'string']
+            [[OPTIONALLY] ENCLOSED BY 'char']
+            [ESCAPED BY 'char' ]
+              ]
+              [LINES
+            [STARTING BY 'string']
+            [TERMINATED BY 'string']
+              ]
+           }
+
+       ●   其中指定查询源from_item为：
+           table_name [ partition_clause ] [ [ AS ] alias [ ( column_alias [, ...] ) ] ] [index_hint_list]
+           [ TIMECAPSULE {TIMESTAMP | CSN} expression ]
+           |( select ) [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+           |with_query_name [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+           |function_name ( [ argument [, ...] ] ) [ AS ] alias [ ( column_alias [, ...] | column_definition [, ...] ) ]
+           |function_name ( [ argument [, ...] ] ) AS ( column_definition [, ...] )
+           |joined_table
+
+                   说明
+
+                 table_name包含dual虚拟表。M-Compatibility允许在没有引用表的情况下，将dual指定
+                 为虚拟表名。
+       ●   其中joined_table为：
+           joined_table: {
+              table_reference [INNER | CROSS] JOIN table_factor [join_specification]
+             | table_reference STRAIGHT_JOIN table_factor [join_specification]
+             | table_reference {LEFT|RIGHT} [OUTER] JOIN table_reference join_specification
+             | table_reference NATURAL [{LEFT|RIGHT} [OUTER]] JOIN table_factor
+           }
+           join_specification: {
+              ON join_condition
+             | USING (join_column_list)
+           }
+           join_column_list:
+               column_name [, column_name] ...
+
+       ●   其中group子句为：
+           | expression
+           | ( expression [, ...] )
+
+       ●   from_item中指定分区partition_clause为：
+           PARTITION { ( { partition_name | subpartition_name } [, ...] ) | FOR ( partition_value [, ...] ) } |
+           SUBPARTITION { ( subpartition_name ) | FOR ( subpartition_value [, ...] )}
+
+                   说明
+
+                 ● 指定分区只适合分区表。
+                 ● PARTITION指定多个分区名时，一级分区名和二级分区名可同时存在，且可以存在相同
+                   的分区名，最终分区范围取其并集。
+
+
+参数说明
+       ●   plan_hint
+           以/*+ */的形式在SELECT关键字后，用于对SELECT对应的语句块生成的计划进行
+           hint调优。每条语句中只有第一个/*+ plan_hint */注释块会作为hint生效，里面可
+           以写多条hint。
+       ●   WITH [ RECURSIVE ] with_query [, ...]
+           用于声明一个或多个可以在主查询中通过名称引用的子查询，相当于临时表。这
+           种子查询语句结构称为CTE（Common Table Expression）结构，应用这种结构
+           时，执行计划中将存在CTE SCAN的内容。
+           如果声明了RECURSIVE，那么允许SELECT子查询通过名称引用它自己。
+[[PDF_PAGE physical=2252 printed=2203]]
+    其中with_query的详细格式为：with_query_name [ ( column_name [, ...] ) ] AS
+    ( {select} )
+    –     with_query_name指定子查询生成的结果集名称，在查询中可使用该名称访
+          问子查询的结果集。
+    –     column_name指定子查询结果集中显示的列名。
+    –     每个子查询支持SELECT语句。
+    –     RECURSIVE只能出现在WITH后面，多个CTE的情况下，只需要在第一个CTE
+          处声明RECURSIVE。
+    –     使用RECURSIVE时，CTE子查询中UNION ALL和EXCEPT ALL或UNION
+          [DISTINCT]和EXCEPT [DISTINCT]两侧的子查询结果，其数据类型必须使用
+          cast函数转换成相同的数据类型。如：WITH RECURSIVE cte (n) AS
+          ( SELECT cast(id as signed int) from table_1 UNION ALL SELECT cast((n +
+          1) as signed int) FROM cte WHERE n < 5 ) SELECT * FROM cte。由操作符
+          产生的类型转换详见逻辑操作符规格约束、位运算操作符规格约束、算术操
+          作符规格约束。
+●   ALL
+    声明返回所有符合条件的行，是默认行为，可以省略该关键字。
+●   DISTINCT | DISTINCTROW
+    从SELECT的结果集中删除所有重复的行，使结果集中的每行都是唯一的。
+
+
+        须知
+
+    DISTINCT|DISTINCTROW表达式是使用与ORDER BY相同的规则进行解释的。除
+    非使用了ORDER BY来保证需要的行首先出现，否则，"第一行" 是不可预测的。
+
+●   STRAIGHT_JOIN
+    对于内联接，可改变优化器对于联表查询的执行顺序，使左边的表始终在右右边
+    表之前读取。
+●   SQL_CALC_FOUND_ROWS
+    使用found_rows函数计算结果集中有多少行时，忽略任何LIMIT子句。
+●   SQL_CACHE | SQL_NO_CACHE
+    缓存功能。目前仅支持语法兼容，不支持其功能。
+●   SELECT列表
+    指定查询表中列名，可以是部分列或者是全部（使用通配符*表示）。
+    通过使用子句AS output_name可以为输出字段取个别名，这个别名通常用于输出
+    字段的显示。支持关键字name、value和type作为列别名。
+    列名可以用下面几种形式表达：
+    –     手动输入列名，多个列之间用英文逗号“,”分隔。
+    –     可以是FROM子句里面计算出来的字段。
+●   INTO子句
+    将SELECT出的结果输出到指定用户自定义变量或文件。
+    –     OUTFILE
+
+          ▪   CHARACTER SET 指定编码格式。
+[[PDF_PAGE physical=2253 printed=2204]]
+        ▪    FIELDS 指定每个字段的属性：
+             TERMINATED 指定间隔符。
+             [OPTIONALLY] ENCLOSED 指定引号符，指定OPTIONALLY时只对字符
+             串数据类型起作用。
+             ESCAPED 指定转义符。
+
+        ▪    LINES 指定行属性：
+             STARTING 指定行开头。
+             TERMINATED 指定行结尾。
+    –   DUMPFILE
+        导出无间隔符，无换行符的单行数据到文件。
+    –   file_name
+        指定文件的绝对路径。
+        导出到文件：
+        m_db=# SELECT * FROM t;
+         a|b
+        ---+---
+         1|a
+        (1 row)
+        --导出数据到outfile文件。
+        m_db=# SELECT * FROM t INTO OUTFILE '/home/gaussdb/t.txt' FIELDS TERMINATED BY '~'
+        ENCLOSED BY 't' ESCAPED BY '^' LINES STARTING BY '$' TERMINATED BY '&\n';
+        文件内容：$t1t~tat&，其中LINES STARTING BY($),FIELDS TERMINATED BY(~),ENCLOSED
+        BY(t),LINES TERMINATED BY(&\n)。
+        --导出数据到dumpfile文件。
+        m_db=# SELECT * FROM t INTO DUMPFILE '/home/gaussdb/t.txt';
+        文件内容：1a
+
+●   FROM子句
+    为SELECT声明一个或多个源表。
+    FROM子句涉及的元素如下所示：
+    –   table_name
+        表名或视图名，名称前可加上模式名，如：schema_name.table_name。
+    –   alias
+        给表或复杂的表引用起一个临时的表别名，以便被其余的查询引用。
+        别名用于缩写或者在自连接中消除歧义。如果提供了别名，它就会完全隐藏
+        表的实际名称。
+    –   TIMECAPSULE { TIMESTAMP | CSN } expression
+        查询指定CSN点或者指定时间点上表的内容。
+        目前不支持闪回查询的表：系统表、DFS表、全局临时表、本地临时表、
+        UNLOGGED表、视图、序列表、hashbucket表、共享表以及继承表。
+
+        ▪    TIMECAPSULE TIMESTAMP
+             闪回查询的标识，根据date日期，闪回查找指定时间点上的结果集。
+             date日期必须为一个有效的过去时间的时间戳。
+
+        ▪    TIMECAPSULE CSN
+             闪回查询的标识，根据表的CSN闪回查询指定CSN点上的结果集。CSN
+             可以通过查询gs_txn_snapshot记录的snpcsn号进行获取。
+[[PDF_PAGE physical=2254 printed=2205]]
+    ▪     expression
+          常量、函数或SQL表达式。
+           说明
+
+         ● 闪回查询操作不能跨越影响表结构或物理存储的语句，否则会报错。即闪回点和
+           当前点之间，如果执行过修改表结构或影响物理存储的语句（TRUNCATE、
+           DDL、DCL或VACUUM FULL），则闪回查询操作失败。
+             ●     执行过DDL语句的表进行闪回操作时会报错：“ERROR：The table
+                   definition of %s has been changed.”。
+             ●     涉及namespace、表名改变等操作的DDL语句执行闪回操作报错：
+                   “ERROR: recycle object %s desired does not exist.”。
+         ● 闪回查询支持PCR类型的UBTree索引进行索引扫描。如果没有创建PCR类型的
+           UBTree索引，则闪回查询只能通过seqScan进行全表扫描。
+         ● 闪回点过旧时（指定过去时间的时间戳可能无效），因闪回版本被回收等导致无
+           法获取旧版本会导致闪回失败报错：“Restore point too old”。
+         ● 通过时间方式指定闪回点，闪回数据和实际时间点数据可能存在偏差，最多偏差
+           为3秒。
+         ● 对表执行TRUNCATE之后，再进行闪回查询或进行闪回表操作：
+             ●     通过时间点进行的闪回操作会报错：“Snapshot too old”。
+             ●     通过CSN进行的闪回操作会找不到数据，或者报错：“Snapshot too
+                   old”。
+–   column_alias
+    列别名。
+–   index_hint_list
+    索引提示信息列表，在表名之后指定，向优化器提供有关在查询处理期间如
+    何选择索引的信息。
+    index_hint_list由一个或多个索引提示信息index_hint组成，具体形式如下：
+    index_hint [index_hint] ...
+
+    其中，index_hint的具体形式：
+        USE {INDEX | KEY} ([index_list])
+        |{IGNORE | FORCE} {INDEX | KEY}(index_list)
+
+    ▪     index_hint_list描述的索引提示信息与plan_hint中的提示作用相同。
+
+    ▪     index_hint_list索引提示信息和plan_hint可以单独使用或同时使用，其生
+          效优先级按照在SQL中出现的顺序排列。
+
+    ▪     index_hint_list索引提示信息不支持在PARTITION后使用。
+–   PARTITION
+    查询分区表的某个分区的数据。
+–   partition_name
+    分区名。
+–   partition_value
+    指定的分区键值。在创建分区表时，如果指定了多个分区键，可以通过
+    PARTITION FOR子句指定的这一组分区键的值，唯一确定一个分区。
+–   SUBPARTITION
+    查询分区表的某个二级分区的数据。
+[[PDF_PAGE physical=2255 printed=2206]]
+–   subpartition_name
+    二级分区名。
+–   subpartition_value
+    指定的一级分区和二级分区键值。可以通过SUBPARTITION FOR子句指定的
+    两个分区键的值，唯一确定一个二级分区。
+–   subquery
+    FROM子句中可以出现子查询，创建一个临时表保存子查询的输出。
+–   with_query_name
+    WITH子句同样可以作为FROM子句的源，可以通过WITH查询的名称对其进
+    行引用。
+–   function_name
+    函数名称。函数调用也可以出现在FROM子句中。
+–   join有以下类型：
+
+    ▪   [ INNER ] JOIN
+        一个JOIN子句组合两个FROM项。可使用圆括弧以决定嵌套的顺序。如
+        果没有圆括弧，JOIN从左向右嵌套。
+        在任何情况下，JOIN都比逗号分隔的FROM项绑定得更紧。
+
+    ▪   LEFT [ OUTER ] JOIN
+        返回笛卡尔积中所有符合连接条件的行，再加上左表中通过连接条件没
+        有匹配到右表行的那些行。这样，左边的行将扩展为生成表的全长，方
+        法是在那些右表对应的字段位置填上NULL。请注意，只在计算匹配的时
+        候，才使用JOIN子句的条件，外层的条件是在计算完毕之后施加的。
+
+    ▪   RIGHT [ OUTER ] JOIN
+        返回所有内连接的结果行，加上每个不匹配的右边行（左边用NULL扩
+        展）。
+        这只是一个符号上的方便，因为总是可以把它转换成一个LEFT OUTER
+        JOIN，只要把左边和右边的输入互换位置即可。
+
+    ▪   CROSS JOIN
+        CROSS JOIN等效于INNER JOIN ON(TRUE)，即没有被条件删除的行。
+        这种连接类型与简单的FROM和WHERE的效果相同，相对来说在符号使
+        用上更加便捷。
+               说明
+
+            必须为INNER和OUTER连接类型声明一个连接条件，即NATURAL ON、
+            join_condition、USING (join_column [， ...]) 之一。
+
+    ▪   STRAIGHT_JOIN
+        与INNER JOIN功能相似。STRAIGHT_JOIN场景下，左边的表始终在右
+        右边的表之前读取，可改变优化器对于联表查询的执行顺序。
+    其中CROSS JOIN和INNER JOIN生成一个简单的笛卡尔积，和在FROM的顶
+    层列出两个项的结果相同。
+    允许连续使用多次JOIN。
+–   ON join_condition
+[[PDF_PAGE physical=2256 printed=2207]]
+        连接条件，用于限定连接中的哪些行是匹配的。如：ON left_table.a =
+        right_table.a。不建议使用int等数值类型作为join_condition，因为int等数值
+        类型可以隐式转换为bool值（非0值隐式转换为true，0转换为false），可能
+        导致非预期的结果。
+    –   USING(join_column[，...])
+        ON left_table.a = right_table.a AND left_table.b = right_table.b ... 的简
+        写。要求对应的列必须同名。
+    –   NATURAL
+        NATURAL是具有相同名称的两个表的所有列的USING列表的简写。
+    –   from item
+        用于连接的查询源对象的名称。
+●   WHERE子句
+    WHERE子句构成一个行选择表达式，用来缩小SELECT查询的范围。condition是
+    返回值为布尔型的任意表达式，任何不满足该条件的行都不会被检索。不建议使
+    用int等数值类型作为condition，因为int等数值类型可以隐式转换为bool值（非0
+    值隐式转换为true，0转换为false），可能导致非预期的结果。
+
+
+        须知
+
+    对于WHERE子句的LIKE操作符，当LIKE中要查询特殊字符“%”、“_”、“\”
+    的时候需要使用反斜杠“\”来进行转义。
+
+●   GROUP BY子句
+    将查询结果按某一列或多列的值分组，值相等的为一组。
+    WITH ROLLUP :
+    若想对分组的查询结果进行统计，GROUP BY语句结尾添加WITH ROLLUP语句。
+    WITH ROLLUP也可以对多列分组查询结果进行统计
+[[PDF_PAGE physical=2257 printed=2208]]
+        须知
+
+    若sql_mode中包含ONLY_FULL_GROUP_BY选项。
+    1. SELECT列表中非聚合函数列与GROUP BY字段一致时，不会报错。
+    2. SELECT列表中非聚合函数列与GROUP BY字段不一致时，分两种情况：
+       1）GROUP BY列表包含主键或唯一非空键时，SQL语句不会报错
+       2）SELECT列表中非聚合函数列，都出现GROUP BY列表或WHERE列表中。且
+       WHERE子句中的列需要等于某一常量的形式，不会报错
+    3. 对于同时含有join子句和GROUP BY子句时，
+       1）LEFT JOIN
+       语法的ON子句中，若条件为两列等值判断，如t1.col1=t2.col2 ...，则GROUP
+       BY子句中可无右连接表列，不报错。如t1 LEFT JOIN t2，GROUP BY 子句只
+       需包含t1.col1
+       2）RIGHT JOIN
+       语法的ON子句中，若条件为两列等值判断，如t1.col1=t2.col2 ...，则GROUP
+       BY子句中可无左连接表列，不报错。如t1 RIGHT JOIN t2，GROUP BY 子句只
+       需包含t2.col2
+       3）INNER JOIN/CROSS JOIN/STRAIGHT_JOIN
+       语法的ON子句中，若条件为两列等值判断，如t1.col1=t2.col2 ...，则GROUP
+       BY子句中包含任一列即可，不报错。
+    若sql_mode中不包含ONLY_FULL_GROUP_BY选项。无上述约束，以上报错场景
+    均不报错。
+
+●   HAVING子句
+    与GROUP BY子句配合用来选择特殊的组。HAVING子句将组的一些属性与一个常
+    数值比较，只有满足HAVING子句中的逻辑表达式的组才会被提取出来。HAVING
+    必须且只能引用GROUP BY子句中的列或聚合函数中使用的列。
+●   WINDOW子句
+    [WINDOW {window_name AS (window_definition)} [, ...]]
+
+    window_name：可以被窗口函数定义所引用的名称，window_definition的具体
+    形式如下：
+    [ existing_window_name ]
+    [ PARTITION BY expression [, ...] ]
+    [ ORDER BY expression [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...] ]
+    [ frame_clause ]
+
+    frame_clause：为窗口函数定义一个窗口框架window frame，窗口函数（并非所
+    有）依赖于该框架，窗口框架window frame是当前查询行的一组相关行。
+    frame_clause可以为以下的形式：
+    [ RANGE | ROWS ] frame_start
+    [ RANGE | ROWS ] BETWEEN frame_start AND frame_end
+
+    其中，frame_start和frame_end形式为：
+    UNBOUNDED PRECEDING
+    VALUE PRECEDING
+    CURRENT ROW
+    VALUE FOLLOWING
+    UNBOUNDED FOLLOWING
+[[PDF_PAGE physical=2258 printed=2209]]
+          说明
+
+        针对使用到VALUE场景存在如下约束：
+        ● VALUE的值一定为非负数。
+        ● VALUE PRECEDING及VALUE FOLLOWING仅支持与ROWS连用，不支持与RANGE连
+          用。
+●   UNION子句
+    UNION计算多个SELECT语句返回行集合的并集。
+    UNION子句有如下约束条件：
+    –    除非声明了ALL子句，否则缺省的UNION结果不包含重复的行。
+    –    同一个SELECT语句中的多个UNION操作符是从左向右计算的，除非用圆括弧
+         进行了标识。
+    –    FOR UPDATE，FOR SHARE不能在UNION的结果或输入中声明。
+    –    通过GUC参数enable_union_all_order控制UNION ALL子查询是否保序：
+
+         ▪     开启方式：set enable_union_all_order to on。
+
+         ▪     关闭方式：set enable_union_all_order to off。
+
+         ▪     查询方式：show enable_union_all_order。
+         在开启enable_union_all_order参数时，在UNION声明了ALL并且主查询未排
+         序的情况下，支持子查询保序。其他情况均不支持子查询保序。
+    一般表达式：
+    select_statement UNION [ALL] select_statement
+    –    select_statement可以是任何没有ORDER BY、LIMIT、FOR UPDATE，FOR
+         SHARE子句的SELECT语句。
+    –    如果用圆括弧包围，ORDER BY和LIMIT可以附着在子表达式里。
+●   EXCEPT子句
+    从第一个查询结果中去除两个查询结果的交集。
+    EXCEPT子句有以下约束条件:
+    –    仅在声明了ALL子句情况下，查询的结果不进行去重操作；缺省的EXCEPT会
+         对查询结果进行去重操作。
+    –    同一个SELECT语句中，如果包含多个EXCEPT操作符，运算逻辑从左向右计
+         算。仅当在语句中使用圆括号进行标识后，运算逻辑会根据优先级进行查
+         询。
+    –    EXCEPT的查询结果或输入中，不能指定FOR UPDATE或FOR SHARE操作。
+    一般表达式：
+    select_statement EXCEPT [ALL | DISTINCT] select_statement
+
+    –    select_statement可以是任何没有ORDER BY、LIMIT、FOR UPDATE或FOR
+         SHARE子句的SELECT语句。
+    –    当select_statement中包含ORDER BY或LIMIT子句时，需在select_statement
+         前后添加圆括号。
+●   ORDER BY子句
+    对SELECT语句检索得到的数据进行升序或降序排序。对于ORDER BY表达式中包
+    含多列的情况：
+[[PDF_PAGE physical=2259 printed=2210]]
+    –    首先根据最左边的列进行排序，如果这一列的值相同，则根据下一个表达式
+         进行比较。
+    –    如果对于所有声明的表达式都相同，则按随机顺序返回。
+    –    在与DISTINCT关键字一起使用的情况下，ORDER BY中排序的列必须包括在
+         SELECT语句所检索的结果集的列中。
+    –    在与GROUP BY子句一起使用的情况下，ORDER BY中排序的列必须包括在
+         GROUP BY子句所分组的列中。
+    对于不与GROUP BY子句一起使用，且在SELECT结果集中包含聚合函数时，
+    ORDER BY只对 返回集合的函数 所在的列生效：
+    m_db=# CREATE TABLE t1(c1 int, c2 int);
+    m_db=# EXPLAIN SELECT sum(c1) c FROM t1 ORDER BY c, c2; --忽略orderby。
+    m_db=# EXPLAIN SELECT sum(c1) c, generate_series(1,5) s FROM t1 ORDER BY c, c2; --忽略orderby。
+    m_db=# EXPLAIN SELECT sum(c1) c, generate_series(1,5) s FROM t1 ORDER BY c, s; --结果对s列进行排
+    序。
+
+    –    NULLS FIRST
+         指定空值在排序中排在非空值之前，当指定DESC排序时，本选项为默认的。
+    –    NULLS LAST
+         指定空值在排序中排在非空值之后，未指定DESC排序时，本选项为默认的。
+
+
+        须知
+
+    如果要支持中文拼音排序，需要在初始化M-Compatibility数据库时指定
+    gb18030、gbk、gb18030_2022字符集，详见：库级字符集和字符序；并在比较
+    时指定gb18030_chinese_ci、gbk_chinese_ci、gb18030_2022_chinese_ci字符
+    序。命令如下：
+    SELECT '中国' > '西安' collate gb18030_chinese_ci;
+
+●   LIMIT子句
+    LIMIT子句由两个独立的子句组成：
+    LIMIT { count | ALL } 限制返回行数，count为指定行数，LIMIT ALL的效果和省
+    略LIMIT子句一样。
+    LIMIT start, count声明返回的最大行数，而start声明开始返回行之前忽略的行
+    数。如果两个都指定了，会在开始计算count个返回行之前先跳过start行。
+    LIMIT子句不支持ROWNUM作为count或者offset。
+●   FETCH {FIRST | NEXT} [(expr)] {ROW| ROWS} ONLY
+    如果不指定count，默认值为1，FETCH子句限定返回查询结果从第一行开始的总
+    行数。
+          说明
+
+        该属性在数据库M-Compatibility模式兼容控制开关s1及以上版本时不支持（如
+        m_format_dev_version = 's1'）。
+●   OFFSET子句
+    SQL：2008开始提出一种不同的语法：
+    OFFSET start { ROW | ROWS }
+    start声明开始返回行之前忽略的行数。
+●   锁定子句
+[[PDF_PAGE physical=2260 printed=2211]]
+            FOR UPDATE子句将对SELECT检索出来的行进行加锁。这样避免它们在当前事务
+            结束前被其他事务修改或者删除，即其他企图UPDATE、 DELETE、 SELECT FOR
+            UPDATE、SELECT FOR SHARE这些行的事务将被阻塞，直到当前事务结束。任何
+            在一行上的DELETE命令也会获得FOR UPDATE锁模式，在主键列上修改值的
+            UPDATE也会获得该锁模式。反过来，SELECT FOR UPDATE将等待已经在相同行
+            上运行以上这些命令的并发事务，并且接着锁定并且返回被更新的行（或者没有
+            行，因为行可能已被删除）。
+            FOR SHARE的行为类似，只是它在每个检索出来的行上要求一个共享锁，而不是
+            一个排他锁。一个共享锁阻塞其它事务执行UPDATE、DELETE、SELECT FOR
+            UPDATE，不阻塞SELECT FOR SHARE。
+            为了避免操作等待其他事务提交，可使用NOWAIT选项，如果被选择的行不能立
+            即被锁住，将会立即汇报一个错误，而不是等待；WAIT n选项，如果被选择的行
+            不能立即被锁住，等待n秒（其中，n为int类型，取值范围：0 <= n <=
+            2147483），n秒内获取锁则正常执行，否则报错；SKIP LOCKED选项，对表加锁
+            时跳过已经加锁的行，SKIP LOCKED只能跳过行锁，对不同事务中锁与锁不互相
+            阻塞的场景（如SELECT FOR SHARE - SELECT FOR SHARE, 指定SKIP LOCKED
+            时）不会跳过锁。
+            如果在锁定子句中明确指定了表名称，则只有这些指定的表被锁定，其他在
+            SELECT中使用的表将不会被锁定。否则，将锁定该命令中所有使用的表。
+            如果锁定子句应用于一个视图或者子查询，它同样将锁定所有该视图或子查询中
+            使用到的表。
+            多个锁定子句可以用于为不同的表指定不同的锁定模式。
+            如果一个表中同时出现（或隐含同时出现）在多个子句中，则按照最强的锁处
+            理。类似的，如果影响一个表的任意子句中出现了NOWAIT，该表将按照
+            NOWAIT处理。
+
+
+                须知
+
+            ● 对ustore表的查询只支持FOR SHARE/FOR UPDATE/FOR READ ONLY/LOCK
+              IN SHARE MODE。
+            ● 对于子查询是stream计划的FOR UPDATE/SHARE语句，不支持加锁的同一行
+              被并发更新。
+            ● SELECT FOR UPDATE、SELECT FOR SHARE不支持与UNION/EXCEPT/
+              DISTINCT/GROUP BY/HAVING一起使用。
+
+       ●    PARTITION子句
+            查询某个分区表中相应分区的数据。
+
+简单查询
+       简单查询指从一个或多个表或视图中检索一个或多个列数据的操作。
+       示例：
+       --建表并插入数据。
+       m_db=# CREATE TABLE student(
+          sid INT PRIMARY KEY,
+          class INT,
+          name VARCHAR(50),
+          gender INT CHECK(gender = 0 OR gender = 1) --性别，1为男，0为女
+       );
+       m_db=# INSERT INTO student (sid, class, name, gender) VALUES (1, 1, 'Michael', 0);
+[[PDF_PAGE physical=2261 printed=2212]]
+       m_db=# INSERT INTO student (sid, class, name, gender) VALUES (2, 2, 'Bob', 1);
+       m_db=# INSERT INTO student (sid, class, name, gender) VALUES (3, 2, 'Gary', 0);
+
+       --查询部分列。
+       m_db=# SELECT sid,name FROM student;
+        sid | name
+       -----+---------
+          1 | michael
+          2 | bob
+          3 | Gary
+       (3 rows)
+
+       --查询所有列。
+       m_db=# SELECT * FROM student;
+        sid | class | name | gender
+       -----+-------+---------+-----
+          1|     1 | michael | 0
+          2|     2 | bob   | 1
+          3|     2 | Gary | 0
+       (3 rows)
+
+       --给列取别名。
+       m_db=# SELECT sid student_id, name FROM student;
+        student_id | name
+       ------------+---------
+               1 | michael
+               2 | bob
+               3 | Gary
+       (3 rows)
+
+       --删除。
+       m_db=# DROP TABLE student;
+
+
+条件查询
+       条件查询指查询出符合条件的数据。
+
+       示例：
+       -- 建表并插入数据
+       m_db=# CREATE TABLE test_grade(
+          id INT,
+          name VARCHAR(20),
+          score FLOAT   -- 成绩
+       );
+       m_db=# INSERT INTO test_grade VALUES (1,'Scott',90),(2,'Jack',87.5),(3,'Ben',48);
+
+       -- 查询出成绩不及格的学生信息
+       m_db=# SELECT * FROM test_grade WHERE score < 60;
+        id | name | score
+       ----+------+-------
+         3 | Ben | 48
+       (1 row)
+
+       -- 删除
+       m_db=# DROP TABLE test_grade;
+
+             说明
+
+            条件查询中允许使用列别名。
+
+
+分组查询
+       分组查询通常用于配合聚合函数，查询分类统计的信息。常见的聚合函数有总行数
+       count()、求和sum()、平均值avg()、最小值min()、最大值max()，一般和GROUP BY
+       联合使用。
+[[PDF_PAGE physical=2262 printed=2213]]
+若想对分组的查询结果进行统计，则可以将WITH ROLLUP添加到GROUP BY语句中，
+WITH ROLLUP可以对多列分组查询结果进行统计。
+示例：
+-- 建表并插入数据。
+m_db=# CREATE TABLE student (id INT,name VARCHAR(20),class INT);
+m_db=# INSERT INTO student VALUES (1, 'Scott', 1), (2, 'Ben', 1);
+m_db=# INSERT INTO student VALUES (3, 'Jack', 2),(4, 'Anna', 2),(5, 'Judy', 2);
+m_db=# INSERT INTO student VALUES (6, 'Sally', 3), (7, 'Jordan', 3);
+
+--使用聚合函数COUNT()统计每个班级有多少人。
+m_db=# SELECT class, count(*) AS cnt FROM student GROUP BY class;
+ class | cnt
+-------+-----
+    2| 3
+    1| 2
+    3| 2
+(3 rows)
+
+--使用WITH ROLLUP语法对按班级分组统计后的人数进行汇总，汇总数据在最后一列。
+m_db=# SELECT class, count(*) AS cnt FROM student GROUP BY class WITH ROLLUP;
+ class | cnt
+-------+-----
+    1| 2
+    2| 3
+    3| 2
+      | 7
+(4 rows)
+
+--使用WITH ROLLUP语法对按班级,姓名分组统计后的人数进行汇总，汇总数据在最后一列。
+解释输出：对每个班级的姓名分组的后面，产生一个额外的统计行，意为每个班的人数。最后在其他行后面，产
+生一个额外的统计行，意为所有班的总人数。
+m_db=# SELECT class,name, count(*) AS cnt FROM student GROUP BY class,name WITH ROLLUP;
+ class | name | cnt
+-------+--------+-----
+    1 | Ben | 1
+    1 | Scott | 1
+    1|        | 2
+    2 | Anna | 1
+    2 | Jack | 1
+    2 | Judy | 1
+    2|        | 3
+    3 | Jordan | 1
+    3 | Sally | 1
+    3|        | 2
+      |      | 7
+(11 rows)
+
+--使用HAVING子句过滤人数少于3个的班级数据。
+m_db=# SELECT class, COUNT(*) AS num FROM student GROUP BY class HAVING COUNT(*) < 3;
+ class | num
+-------+-----
+    1| 2
+    3| 2
+(2 rows)
+
+--删除。
+m_db=# DROP TABLE student;
+
+sql_mode中包含ONLY_FULL_GROUP_BY选项，用于校验GROUP BY 列表与SELECT列
+表。
+-- 建表并插入数据。
+m_db=# CREATE TABLE test (
+     id int primary key NOT NULL,
+     id_2 int NOT NULL,
+     s1 varchar(10),
+     s2 int,
+     s3 varchar(12)
+[[PDF_PAGE physical=2263 printed=2214]]
+    );
+m_db=# ALTER TABLE test ADD CONSTRAINT unique_id_2 UNIQUE(id_2);
+m_db=# INSERT INTO test value(1,101,'a',1000,'aa');
+m_db=# INSERT INTO test value(2,102,'b',2000,'aaa');
+m_db=# INSERT INTO test value(3,103,'c',3000,'aaaa');
+m_db=# INSERT INTO test value(4,104,'b',4000,'aaa');
+m_db=# INSERT INTO test value(5,105,'c',5000,'aaaaa');
+m_db=# CREATE TABLE tb1(a int, b int, c int);
+m_db=# INSERT INTO tb1 VALUES(1, 4, 11);
+m_db=# INSERT INTO tb1 VALUES(2, 5, 12);
+m_db=# INSERT INTO tb1 VALUES(2, 6, 13);
+m_db=# INSERT INTO tb1 VALUES(2, 2, 13);
+m_db=# CREATE TABLE tb2(a int, b int);
+m_db=# INSERT INTO tb2 VALUES(2, 7);
+m_db=# INSERT INTO tb2 VALUES(2, 8);
+m_db=# INSERT INTO tb2 VALUES(3, 9);
+
+-- 设置SQL MODE。
+m_db=# SET SQL_MODE =
+'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_
+BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
+
+-- SELECT列表中非聚合函数列与GROUP BY字段一致时，不会报错。
+m_db=# SELECT s1, s3 FROM test GROUP BY s1,s3;
+ s1 | s3
+----+-------
+ c | aaaaa
+ b | aaa
+ c | aaaa
+ a | aa
+(4 rows)
+
+m_db=# SELECT s1, s3 FROM test GROUP BY s3;
+ERROR: Column test.s1 must appear in the GROUP BY clause or be used in an aggregate function.
+LINE 1: SELECT s1, s3 FROM test GROUP BY s3;
+           ^
+-- SELECT列表中非聚合函数列与GROUP BY字段不一致时，分两种情况：
+-- 1）GROUP BY列表包含主键或唯一非空键时，SQL语句不会报错。
+m_db=# SELECT s1, MAX(LENGTH(s3)) FROM test GROUP BY id;
+ s1 | max
+----+-----
+ c | 4
+ c | 5
+ a | 2
+ b | 3
+ b | 3
+(5 rows)
+
+-- 2）SELECT列表中非聚合函数列，都出现GROUP BY列表或WHERE列表中。且WHERE子句中的列需要等于某
+一常量。
+m_db=# SELECT s1, SUM(s2) FROM test WHERE s1 = 'b' GROUP BY s1;
+ s1 | sum
+----+------
+ b | 6000
+(1 row)
+
+-- 对于同时含有JOIN子句和GROUP BY子句时：
+-- 1）LEFT JOIN语法的ON子句中，若条件为两列等值判断，如t1.col1=t2.col2 ...，则GROUP BY子句中可无右连
+接表列，不报错。如t1 LEFT JOIN t2，GROUP BY 子句只需包含t1.col1。
+m_db=# SELECT tb1.a, tb2.a FROM tb1 LEFT JOIN tb2 ON tb1.a = tb2.a GROUP BY tb1.a;
+ a|a
+---+---
+ 1|
+ 2|2
+(2 rows)
+
+m_db=# SELECT tb1.a, tb2.a FROM tb1 LEFT JOIN tb2 ON tb1.a = tb2.a GROUP BY tb2.a;
+ERROR: Column tb1.a must appear in the GROUP BY clause or be used in an aggregate function.
+LINE 1: SELECT tb1.a, tb2.a FROM tb1 LEFT JOIN tb2 ON tb1.a = tb2.a ...
+[[PDF_PAGE physical=2264 printed=2215]]
+                ^
+       -- 2）RIGHT JOIN语法的ON子句中，若条件为两列等值判断，如t1.col1=t2.col2 ...，则GROUP BY子句中可无左
+       连接表列，不报错。如t1 RIGHT JOIN t2，GROUP BY 子句只需包含t2.col2。
+       m_db=# SELECT tb1.a, tb2.a FROM tb1 RIGHT JOIN tb2 ON tb1.a = tb2.a GROUP BY tb2.a;
+        a|a
+       ---+---
+         |3
+        2|2
+       (2 rows)
+
+       m_db=# SELECT tb1.a, tb2.a FROM tb1 RIGHT JOIN tb2 ON tb1.a = tb2.a GROUP BY tb1.a;
+       ERROR: Column tb2.a must appear in the GROUP BY clause or be used in an aggregate function.
+       LINE 1: SELECT tb1.a, tb2.a FROM tb1 RIGHT JOIN tb2 ON tb1.a = tb2.a...
+                       ^
+       -- 3）INNER JOIN/CROSS JOIN/STRAIGHT_JOIN语法的ON子句中，若条件为两列等值判断，如
+       t1.col1=t2.col2 ...，则GROUP BY子句中包含任一列即可，不报错。
+       m_db=# SELECT tb1.a, tb2.a FROM tb1 INNER JOIN tb2 ON tb1.a = tb2.a GROUP BY tb1.a;
+        a|a
+       ---+---
+        2|2
+       (1 row)
+
+       m_db=# SELECT tb1.a, tb2.a FROM tb1 INNER JOIN tb2 ON tb1.a = tb2.a GROUP BY tb2.a;
+        a|a
+       ---+---
+        2|2
+       (1 row)
+
+       -- 删除。
+       m_db=# DROP TABLE test, tb1, tb2;
+
+
+分页查询
+       语法如下：
+       SELECT query_list FROM table_name [ LIMIT { [offset,] count | ALL } ]
+
+       ●    offset ：表示从第几行向后开始。
+       ●    count：表示向后查询几条数据。
+       ●    ALL：表示向后查询所有的数据。
+       -- 建表并插入100条数据。
+       m_db=# CREATE TABLE test1(id int PRIMARY KEY, flag varchar(10));
+       m_db=# INSERT INTO test1 (id, flag) VALUES (generate_series(1,100),generate_series(1,100));
+
+       -- 查询前5条数据。
+       m_db=# SELECT * FROM test1 ORDER BY 1 LIMIT 5;
+        id | flag
+       ----+-------
+         1|1
+         2|2
+         3|3
+         4|4
+         5|5
+       (5 rows)
+
+       -- 从第20条向后查询4条数据。
+       m_db=# SELECT * FROM test1 ORDER BY 1 LIMIT 20,4;
+        id | flag
+       ----+--------
+        21 | 21
+        22 | 22
+        23 | 23
+        24 | 24
+       (4 rows)
+
+       -- 从第96条向后查询出所有数据。
+       m_db=# SELECT * FROM test1 ORDER BY 1 LIMIT 96,ALL;
+[[PDF_PAGE physical=2265 printed=2216]]
+        id | flag
+       -----+---------
+         97 | 97
+         98 | 98
+         99 | 99
+        100 | 100
+       (4 rows)
+
+       -- 删除。
+       m_db=# DROP TABLE test1;
+
+
+分区查询
+       查询指定分区的数据。
+
+       示例：
+       -- 创建范围分区表
+       m_db=# CREATE TABLE test_range1(
+          id INT,
+          info VARCHAR(20)
+       ) PARTITION BY RANGE (id) (
+          PARTITION p1 VALUES LESS THAN (200),
+          PARTITION p2 VALUES LESS THAN (400),
+          PARTITION p3 VALUES LESS THAN (600),
+          PARTITION p4 VALUES LESS THAN (800),
+          PARTITION pmax VALUES LESS THAN (MAXVALUE)
+       );
+       -- 插入1000数据
+       m_db=# INSERT INTO test_range1 VALUES(GENERATE_SERIES(1,1000),'abcd');
+
+       -- 查询p1分区有多少条数据
+       m_db=# SELECT COUNT(*) FROM test_range1 PARTITION (p1);
+        count
+       -------
+         199
+       (1 row)
+
+       -- 删除。
+       m_db=# DROP TABLE test_range1;
+
+
+连接查询
+       连接查询也可称为跨表查询，需要关联多个表进行查询。
+       -- 建表并插入数据。
+       m_db=# CREATE TABLE emp(
+          id int,      --员工编号
+          name varchar(20), --员工姓名
+          deptno int     --所属部门编号
+       );
+
+       m_db=# CREATE TABLE dept(
+          deptno int,    --部门编号
+          depname varchar(20) --部门名
+       );
+
+       m_db=# INSERT INTO emp VALUES (1, 'Joe', 10), (2, 'Scott', 20), (3, 'Ben', 999); --Ben还没有确认是哪一个部
+       门所以部门编号是999
+       m_db=# INSERT INTO dept VALUES (10, 'hr'), (20, 'it'), (30, 'sal');          --sal部门没有员工
+
+       ●     内连接（INNER JOIN）
+             m_db=# SELECT t1.id,t1.name,t2.depname FROM emp t1 JOIN dept t2 ON t1.deptno = t2.deptno;
+              id | name | depname
+             ----+-------+---------
+               1 | Joe | hr
+               2 | Scott | it
+             (2 rows)
+[[PDF_PAGE physical=2266 printed=2217]]
+        ●    左连接（LEFT JOIN）
+             m_db=# SELECT t1.id,t1.name,t2.depname FROM emp t1 LEFT JOIN dept t2 ON t1.deptno = t2.deptno;
+              id | name | depname
+             ----+-------+---------
+               1 | Joe | hr
+               2 | Scott | it
+               3 | Ben |
+             (3 rows)
+
+        ●    右连接（RIGHT JOIN）
+             m_db=# SELECT t1.id,t1.name,t2.depname FROM emp t1 RIGHT JOIN dept t2 ON t1.deptno =
+             t2.deptno;
+              id | name | depname
+             ----+-------+---------
+               1 | Joe | hr
+               2 | Scott | it
+                |     | sal
+             (3 rows)
+
+
+子查询
+        ●    按照子查询的返回记录数分类可分为单行子查询，多行子查询。
+        ●    按照子查询是否被执行多次分类可分为关联子查询，非关联子查询。
+             一个查询可以嵌套在另一个查询中，其结果作为另一个查询的数据来源或判断条
+             件。其中外层查询也叫父查询，内层查询也叫子查询。
+        ●    子查询允许不添加别名。
+              说明
+
+             M-Compatibility模式数据库不支持子查询结果包含多列，当包含多列时执行会报错。
+             m_db=# SELECT row(1,2) = (SELECT 1,2);
+             ERROR: The subquery must return only one column of result.
+             LINE 1: SELECT row(1,2) = (SELECT 1,2);
+                              ^
+
+
+单行子查询
+        单行子查询操作符有>=、>、<=、<、<>。
+        -- 创建学生表并插入数据。
+        m_db=# CREATE TABLE student(
+           sid VARCHAR(5),     -- 学号
+           grade INT,      -- 年级
+           name VARCHAR(20), -- 姓名
+           height INT      -- 身高
+        );
+        m_db=# INSERT INTO student VALUES ('00001',1,'Scott',135),('00002',1,'Jack',95),('00003',1,'Ben',100);
+        m_db=# INSERT INTO student VALUES ('00004',2,'Henry',115),('00005',2,'Jordan',130),('00006',2,'Bob',126);
+        m_db=# INSERT INTO student VALUES ('00007',3,'Bella',128),('00008',3,'Alicia',136);
+        -- 创建老师表并插入数据。
+        m_db=# CREATE TABLE teacher (
+           name VARCHAR(20), -- 教师姓名
+           grade INT        -- 班级
+        );
+        -- 插入数据
+        m_db=# INSERT INTO teacher VALUES ('Bill',1),('Sally',2),('Luke',3);
+
+        -- 查询出身高比Bella高的学生。
+        m_db=# SELECT * FROM student
+        WHERE height > (SELECT height FROM student WHERE name = 'Bella');
+          sid | grade | name | height
+        -------+-------+--------+--------
+         00001 |     1 | Scott | 135
+         00005 |     2 | Jordan | 130
+[[PDF_PAGE physical=2267 printed=2218]]
+         00008 |   3 | Alicia |   136
+        (3 rows)
+
+
+多行子查询
+        多行子查询操作符：
+
+        ●    IN：等于列表中的任意一个｡
+        ●    ANY：需要和单行比较符一起使用，和子查询返回的任意值比较｡
+        ●    ALL：需要和单行比较符一起使用，和子查询返回的所有值比较｡
+        ●    SOME：ANY的别名，作用相同｡
+        示例：查询出Sally和Luke的学生
+        m_db=# SELECT * FROM student t1 WHERE t1.grade IN (
+            SELECT grade FROM teacher WHERE name = 'Sally' OR name = 'Luke'
+        );
+          sid | grade | name | height
+        -------+-------+--------+--------
+         00004 |     2 | Henry | 115
+         00005 |     2 | Jordan | 130
+         00006 |     2 | Bob | 126
+         00007 |     3 | Bella | 128
+         00008 |     3 | Alicia | 136
+        (5 rows)
+
+        示例：查询出2年级比3年级任意一个人都高的学生。
+        m_db=# SELECT * FROM student
+        WHERE grade = 2 AND
+             height > ANY (SELECT height FROM student WHERE grade = 3);
+          sid | grade | name | height
+        -------+-------+--------+--------
+         00005 |     2 | Jordan | 130
+        (1 row)
+
+        --查询结果相当于：
+        m_db=# SELECT * FROM student
+        WHERE grade = 2 AND
+           height > (SELECT MIN(height) FROM student WHERE grade = 3);
+
+        示例：查询出1年级比2年级所有人都高的学生。
+        m_db=# SELECT * FROM student
+        WHERE grade = 1 AND
+             height > ALL (SELECT height FROM student WHERE grade = 2);
+          sid | grade | name | height
+        -------+-------+-------+--------
+         00001 |     1 | Scott | 135
+        (1 row)
+
+        --查询结果相当于：
+        m_db=# SELECT * FROM student
+        WHERE grade = 1 AND
+           height > (SELECT MAX(height) FROM student WHERE grade = 2);
+
+
+关联子查询
+        特点：子查询不能单独运行，是和父查询相关的。先执行父查询，再执行子查询。每
+        执行一次父查询，子查询都要重新计算一次。
+        示例：查询身高大于本班级平均身高的学生。
+        m_db=# SELECT * FROM student out
+        WHERE height > (SELECT AVG(height) FROM student
+[[PDF_PAGE physical=2268 printed=2219]]
+                       WHERE grade = out.grade);
+             sid | grade | name | height
+           -------+-------+--------+--------
+            00001 |     1 | Scott | 135
+            00005 |     2 | Jordan | 130
+            00006 |     2 | Bob | 126
+            00008 |     3 | Alicia | 136
+           (4 rows)
+
+
+非关联子查询
+           特点：子查询先将值查询出来，再返回给外层查询。
+           示例：查询身高大于本班级平均身高的学生。
+           m_db=# SELECT t1.*
+           FROM student t1,
+               (SELECT grade, AVG(height) avg_hei FROM student GROUP BY grade) t2
+           WHERE t1.grade = t2.grade AND
+                t1.height > t2.avg_hei;
+             sid | grade | name | height
+           -------+-------+--------+--------
+            00001 |     1 | Scott | 135
+            00005 |     2 | Jordan | 130
+            00006 |     2 | Bob | 126
+            00008 |     3 | Alicia | 136
+           (4 rows)
+           -- 删除
+           m_db=# DROP TABLE student;
+           m_db=# DROP TABLE teacher;
+
+
+复合查询
+           包含复合运算符的查询，即复合查询。所有的复合查询都具有相同的优先级，参加集
+           合操作的各查询结果的列数、表达式的数量都必须一致，类型必须兼容。
+
+UNION
+           常见的集合运算有：
+
+           ●    UNION：两个查询结果集的并集，对结果进行去重。
+           ●    UNION ALL：两个查询的并集，只将两个查询的结果合并。
+
+UNION 示例
+           -- 建表并插入数据
+           m_db=# CREATE TABLE test1(c11 INT, c12 VARCHAR(20));
+           m_db=# INSERT INTO test1 VALUES (1,'a'),(2,'b'),(4,'d');
+
+           m_db=# CREATE TABLE test2(c21 INT, c22 VARCHAR(20));
+           m_db=# INSERT INTO test2 VALUES (1,'a'),(3,'c');
+
+           ●    UNION
+                m_db=# SELECT * FROM test1 UNION SELECT * FROM test2;
+                 c11 | c12
+                -----+-----
+                  4|d
+                  3|c
+                  1|a
+                  2|b
+                (4 rows)
+
+           ●    UNION ALL
+                m_db=# SELECT * FROM test1 UNION ALL SELECT * FROM test2;
+                c11 | c12
+[[PDF_PAGE physical=2269 printed=2220]]
+                 -----+-----
+                   1|a
+                   2|b
+                   4|d
+                   1|a
+                   3|c
+                 (5 rows)
+
+
+EXCEPT
+            常见的交集运算有：
+
+            ●    EXCEPT：在第一个查询结果中去除两个查询结果的交集，并对结果进行去重。
+            ●    EXCEPT ALL：在第一个查询结果中去除两个查询结果的交集，不进行去重。
+            ●    EXCEPT DISTINCT：在第一个查询结果中去除两个查询结果的交集，并对结果进
+                 行去重。
+
+EXCEPT 示例
+            -- 建表并插入数据
+            m_db=# CREATE TABLE a(m int,n int);
+            m_db=# INSERT INTO a(m,n) VALUES(1,2);
+            m_db=# INSERT INTO a(m,n) VALUES(2,3);
+            m_db=# INSERT INTO a(m,n) VALUES(3,4);
+
+            m_db=# CREATE TABLE b(m int,n int);
+            m_db=# INSERT INTO b(m,n) VALUES(1,2);
+            m_db=# INSERT INTO b(m,n) VALUES(1,3);
+            m_db=# INSERT INTO b(m,n) VALUES(3,4);
+
+            m_db=# CREATE TABLE c(m int,n int);
+            m_db=# INSERT INTO c(m,n) VALUES(1,3);
+            m_db=# INSERT INTO c(m,n) VALUES(1,3);
+            m_db=# INSERT INTO c(m,n) VALUES(3,4);
+
+            ●    EXCEPT
+                 m_db=# SELECT * FROM a EXCEPT SELECT * FROM b;
+                  m|n
+                 ---+---
+                  2|3
+                 (1 row)
+
+                 m_db=# SELECT * FROM a EXCEPT SELECT * FROM c;
+                  m|n
+                 ---+---
+                  2|3
+                  1|2
+                 (2 rows)
+
+                 m_db=# SELECT * FROM b EXCEPT SELECT * FROM a;
+                  m|n
+                 ---+---
+                  1|3
+                 (1 row)
+                 -- 对查询结果进行去重。
+                 m_db=# SELECT * FROM c EXCEPT SELECT * FROM a;
+                  m|n
+                 ---+---
+                  1|3
+                 (1 row)
+
+            ●    EXCEPT ALL
+                 m_db=# SELECT * FROM a EXCEPT ALL SELECT * FROM b;
+                  m|n
+                 ---+---
+                  2|3
+[[PDF_PAGE physical=2270 printed=2221]]
+    (1 row)
+
+    m_db=# SELECT * FROM a EXCEPT ALL SELECT * FROM c;
+     m|n
+    ---+---
+     2|3
+     1|2
+    (2 rows)
+
+    m_db=# SELECT * FROM b EXCEPT ALL SELECT * FROM a;
+     m|n
+    ---+---
+     1|3
+    (1 row)
+
+    m_db=# SELECT * FROM c EXCEPT ALL SELECT * FROM a;
+     m|n
+    ---+---
+     1|3
+     1|3
+    (2 rows)
+
+●   EXCEPT DISTINCT
+    m_db=# SELECT * FROM a EXCEPT DISTINCT SELECT * FROM b;
+     m|n
+    ---+---
+     2|3
+    (1 row)
+
+    m_db=# SELECT * FROM a EXCEPT DISTINCT SELECT * FROM c;
+     m|n
+    ---+---
+     2|3
+     1|2
+    (2 rows)
+
+    m_db=# SELECT * FROM b EXCEPT DISTINCT SELECT * FROM a;
+     m|n
+    ---+---
+     1|3
+    (1 row)
+    -- 对查询结果进行去重。
+    m_db=# SELECT * FROM c EXCEPT DISTINCT SELECT * FROM a;
+     m|n
+    ---+---
+     1|3
+    (1 row)
+
+    m_db=# DROP TABLE a,b,c;
