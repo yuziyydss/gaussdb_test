@@ -429,6 +429,15 @@ async def coverage_api_summary():
     return JSONResponse(_factor_package_coverage_report())
 
 
+@app.get("/runtime", response_class=HTMLResponse)
+async def runtime_status_page(request: Request):
+    """Runtime readiness page; reads local artifacts only."""
+    return templates.TemplateResponse(request, "_runtime_status.html", {
+        "request": request,
+        "status": build_runtime_status(BASE_DIR).model_dump(),
+    })
+
+
 @app.get("/api/runtime/status")
 async def runtime_status_api():
     """JSON API：聚合当前 runtime 计划、回执、审计与预检状态。"""
