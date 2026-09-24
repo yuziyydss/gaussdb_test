@@ -1,0 +1,161 @@
+[[PDF_PAGE physical=1784 printed=1735]]
+1.13.18.5 REINDEX
+
+功能描述
+            为表中的数据重建索引。
+            在以下几种情况下需要使用REINDEX重建索引：
+
+            ●   索引崩溃，并且不再包含有效的数据。
+            ●   索引变得“臃肿”，包含大量的空页或接近空页。
+            ●   为索引更改了存储参数（例如填充因子），并且希望这个更改完全生效。
+            ●   使用CONCURRENTLY选项创建索引失败，留下了一个“非法”索引。
+
+注意事项
+            ●   REINDEX DATABASE和SYSTEM这种形式的重建索引不能在事务块中执行。目前
+                不支持对物化视图进行REINDEX操作。
+            ●   若索引带有lpi_parallel_method选项，取值为PARTITION且表的parallel_workers
+                选项大于0时，不支持对该索引并行重建；无该选项或选项取值为AUTO时，并行
+                重建时会默认走页面级并行重建索引。
+            ●   REINDEX CONCURRENTLY在线重建索引导致表上索引顺序改变时，可能会导致
+                查询计划改变。
+            ●   REINDEX [CONCURRENTLY]当前不支持修改ubtree索引的RCR和PCR类型，即
+                REINDEX后的索引类型与创建索引时的类型保持一致。
+            ●   REINDEX CONCURRENTLY在线重建索引操作，不支持对基于rowid系统列的索引
+                进行重建。
+
+语法格式
+            ●   重建普通索引。
+                REINDEX { INDEX | [INTERNAL] TABLE | DATABASE | SYSTEM } [ CONCURRENTLY ] name [ FORCE ];
+
+
+
+
+            ●   重建索引并进行类型转换。
+                REINDEX [ ( option [, ...] ) ] { INDEX } [ CONCURRENTLY ] name [ FORCE ];
+[[PDF_PAGE physical=1785 printed=1736]]
+       ●   重建索引分区。
+           REINDEX { INDEX | [INTERNAL] TABLE } name
+             PARTITION partition_name [ FORCE ];
+
+
+
+
+参数说明
+       ●   INDEX
+           重新建立指定的索引。
+       ●   TABLE
+           重新建立指定表的所有索引，如果表有从属的“TOAST”表，则这个表也会重建
+           索引。如果表上有索引已经被alter unusable失效，则这个索引无法被重新创建。
+           当指定CONCURRENTLY选项时，暂不支持重建从属“TOAST”表上的索引。
+       ●   DATABASE
+           重建当前数据库里的所有索引。当指定CONCURRENTLY选项时，暂不支持重建数
+           据库中表的从属“TOAST”表上的索引。
+       ●   SYSTEM
+           在当前数据库上重建所有系统表上的索引。不会处理在用户表上的索引。
+       ●   option
+           当前仅支持CROSSBUCKET一种option，且值只能为ON或OFF，用来控制
+           hashbucket表的索引是否在REINDEX过程中转换为跨bucket索引（cross-bucket-
+           index，CBI）或（local-bucket-index，LBI）索引。此项转换不支持集中式
+           hashbucket表的索引，不支持GSI索引。
+       ●   CONCURRENTLY
+           以不阻塞DML的方式重建索引（加ShareUpdateExclusiveLock锁）。重建索引
+           时，一般会阻塞其他语句对该索引所依赖表的访问。指定此关键字，可以实现重
+           建过程中不阻塞DML。不支持在线重建系统表上的索引。不支持REINDEX
+           INTERNAL TABLE CONCURRENTLY和REINDEX SYSTEM CONCURRENTLY，不支
+           持REINDEX INVALID INDEX CONCURRENTLY。当执行REINDEX DATABASE
+           CONCURRENTLY时，在线重建当前数据库中用户表上的所有索引（不会处理系统
+           表上的索引）。REINDEX CONCURRENTLY不可以在事务内执行。在线重建索引
+           只支持B-tree索引和UB-tree索引，只支持普通索引、GLOBAL索引、LOCAL索
+           引，不支持PCR ubtree索引，不支持二级分区与GSI。在线并行重建索引只支持
+           Astore及Ustore的普通索引、GLOBAL索引、LOCAL索引，其他继承当前版本在线
+           重建索引规格约束。如果在线重建索引失败，对于用户手动取消、唯一索引键值
+           重复、资源不足、启动线程失败、锁超时等场景，为避免占用资源，系统会自动
+           清理新索引，本次清理会进入DROP INDEX CONCURRENTLY流程，因此有清理
+           失败的可能，具体请参见DROP INDEX章节中的CONCURRENTLY。在系统无法
+[[PDF_PAGE physical=1786 printed=1737]]
+          自动清理失败新索引的情况下（比如数据库宕机、FATAL、PANIC），需要尽快手
+          动清除（使用DROP INDEX语句）非法新索引及（使用DROP TABLE语句）临时
+          表，以防占用更多资源。一般来说，非法的新索引的后缀名为_ccnew。REINDEX
+          INDEX CONCURRENTLY对表加4级会话锁，且其前几个阶段与CREATE INDEX
+          CONCURRENTLY相似，因此也可能产生卡住或死锁的问题，具体场景与CREATE
+          INDEX CONCURRENTLY相似（比如两个会话同时对同一个索引或表进行
+          REINDEX CONCURRENTLY操作，会引发死锁问题）。
+                 说明
+
+                重建索引时指定此关键字，Astore需要执行先后两次对全表的扫描来完成build，第一次扫
+                描时创建新索引，不阻塞读写操作，第二次扫描时合并更新第一次扫描到目前为止发生的
+                变更；Ustore需完成一次全表扫描，在扫描过程中并发DML产生的数据会被插入到以
+                “index_oid_cctmp“命名的临时表中，扫描结束后合并临时表到以“_ccnew{n}“为后缀
+                名的新索引中并删除临时表，交换新旧索引，旧索引标记为死亡，启用新索引，重建索引
+                完成。
+     ●    name
+          需要重建索引的索引、表、数据库的名称。表和索引可以有模式修饰。
+                 说明
+
+                REINDEX DATABASE和SYSTEM只能重建当前数据库的索引，所以name必须和当前数据库
+                名称相同。
+     ●    FORCE
+          仅为语法兼容，并无实际含义。
+     ●    partition_name
+          需要重建索引的索引名称或者表名称。
+          取值范围：
+          –     如果前面是REINDEX INDEX，则这里应该指定索引的名称。
+          –     如果前面是REINDEX TABLE，则这里应该指定表的名称。
+
+
+         须知
+
+     REINDEX DATABASE和SYSTEM这种形式的重建索引不能在事务块中执行。
+
+
+示例
+     --创建表tbl_test，并插入数据。
+     gaussdb=# CREATE TABLE tbl_test(c1 int,c2 varchar) WITH (storage_type = ustore);
+     gaussdb=# INSERT INTO tbl_test VALUES (1, 'AAAAAAA'),(5, 'AAAAAAB'),(10, 'AAAAAAC');
+
+     --创建索引,并查看索引大小
+     gaussdb=# CREATE INDEX idx_test_c1 ON tbl_test(c1);
+     gaussdb=# SELECT pg_size_pretty(pg_total_relation_size('idx_test_c1')) AS size;
+      size
+     -------
+      64 kB
+     (1 row)
+
+     --插入一万条数据，然后删除数据，发现索引变大。
+     gaussdb=# INSERT INTO tbl_test VALUES (generate_series(1,10000),'test');
+     gaussdb=# DELETE FROM tbl_test WHERE c2 = 'test';
+     gaussdb=# SELECT pg_size_pretty(pg_total_relation_size('idx_test_c1')) AS size;
+       size
+     --------
+[[PDF_PAGE physical=1787 printed=1738]]
+        376 kB
+       (1 row)
+
+       --重建一个单独索引之后，查看索引信息索引大小变回初始大小。
+       gaussdb=# REINDEX INDEX idx_test_c1;
+       gaussdb=# SELECT pg_size_pretty(pg_total_relation_size('idx_test_c1')) AS size;
+        size
+       -------
+        64 kB
+       (1 row)
+
+       --在线重建一个单独索引。
+       gaussdb=# REINDEX INDEX CONCURRENTLY idx_test_c1;
+
+       --重建表tbl_test上的所有索引。
+       gaussdb=# REINDEX TABLE tbl_test;
+
+       --在线重建表tbl_test上的所有索引。
+       gaussdb=# REINDEX TABLE CONCURRENTLY tbl_test;
+
+       --删除tbl_test表。
+       gaussdb=# DROP TABLE tbl_test;
+
+
+优化建议
+       ●    INTERNAL TABLE
+            此种情况大多用于故障恢复，不建议进行并发操作。
+       ●    DATABASE
+            不能在事务中REINDEX DATABASE。
+       ●    SYSTEM
+            不能在事务中REINDEX系统表。

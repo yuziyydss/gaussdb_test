@@ -1,0 +1,280 @@
+[[PDF_PAGE physical=1887 printed=1838]]
+1.13.22.1 VACUUM
+
+功能描述
+           VACUUM回收表或B-Tree索引中已经删除的行所占据的存储空间。在一般的数据库操
+           作里，那些已经DELETE的行并没有从它们所属的表中物理删除；在完成VACUUM之前
+           它们仍然存在。因此有必要周期地运行VACUUM，特别是在经常更新的表上。
+
+注意事项
+           ●   如果没有参数，VACUUM处理当前数据库里用户拥有相应权限的每个表。如果参
+               数指定了一个表，VACUUM只处理指定的表。
+           ●   要对一个表进行VACUUM操作，通常用户必须是表的所有者或者被授予了指定表
+               VACUUM权限的用户，三权分立开关关闭时，默认系统管理员有该权限。数据库
+[[PDF_PAGE physical=1888 printed=1839]]
+    的所有者允许对数据库中除了共享目录以外的所有表进行VACUUM操作（该限制
+    意味着只有系统管理员才能真正对一个数据库进行VACUUM操作）。VACUUM命
+    令会跳过那些用户没有权限的表进行垃圾回收操作。
+●   VACUUM不能在事务块内执行。
+●   建议生产数据库经常清理（至少每晚一次），以保证不断地删除失效的行。尤其
+    是在增删了大量记录之后，对受影响的表执行VACUUM ANALYZE命令是一个很好
+    的习惯。这样将更新系统目录为最近的更改，并且允许查询优化器在规划用户查
+    询时有更好地选择。
+●   不建议日常使用FULL选项，但是可以在特殊情况下使用。例如在用户删除了一个
+    表的大部分行之后，希望从物理上缩小该表以减少磁盘空间占用。VACUUM
+    FULL通常要比单纯的VACUUM收缩更多的表尺寸。如果执行此命令后所占用物理
+    空间无变化（未减少），请确认是否有其他活跃事务（删除数据事务开始之前开
+    始的事务，并在VACUUM FULL执行前未结束）存在，如果有等其他活跃事务退
+    出进行重试。
+●   VACUUM FULL通过重建表的方式将表内空闲空间归还给表空间，重建过程需要
+    额外申请表中有效数据相当的存储空间。对于非段页式表，VACUUM FULL执行
+    结束后，原表所占物理文件会被删除，原表所占的物理文件的空间会归还给操作
+    系统；对于段页式表，VACUUM FULL执行结束后，原表所占的物理空间，会被
+    归还给段页式数据文件，不会归还给操作系统。
+●   VACUUM会导致I/O流量的大幅增加，这可能会影响其他活动会话的性能。因此，
+    有时候会建议使用基于开销的VACUUM延迟特性。
+●   如果指定了VERBOSE选项，VACUUM将打印处理过程中的信息，以表明当前正在
+    处理的表。各种有关当前表的统计信息也会打印出来。
+●   当含有带括号的选项列表时，选项可以以任何顺序写入。如果没有括号，则选项
+    必须按语法显示的顺序给出。
+●   VACUUM和VACUUM FULL时，会根据参数vacuum_defer_cleanup_age延迟清理
+    行存表记录，即不会立即清理刚刚删除的元组。
+●   VACUUM ANALYZE先执行一个VACUUM操作，然后给每个选定的表执行一个
+    ANALYZE。对于日常维护脚本而言，这是一个很方便的组合。
+●   简单的VACUUM（不带FULL选项）只是简单地回收空间并且令其可以再次使用。
+    这种形式的命令可以和对表的普通读写并发操作，因为没有请求排他锁。
+    VACUUM FULL执行更广泛的处理，包括跨块移动行，以便把表压缩到最少的磁
+    盘块数目里。这种形式要慢许多并且在处理的时候需要在表上施加一个排他锁。
+●   同时执行多个VACUUM FULL可能出现死锁。
+●   如果没有打开xc_maintenance_mode参数，那么VACUUM FULL操作将跳过所有
+    系统表。
+●   执行DELETE后立即执行VACUUM FULL命令不会回收空间。执行DELETE后再执行
+    1000个非SELECT事务，或者等待1s后再执行1个事务，之后再执行VACUUM
+    FULL命令空间才会回收。
+●   VACUUM FULL期间会对表加排他锁，不建议在业务高峰期运行VACUUM FULL，
+    可能导致等待时间过长或者业务中断。
+●   Ustore手动VACUUM与Astore手动VACUUM行为一致、会对堆表、索引等进行加
+    锁清理；而Ustore的AUTOVACUUM仅做分区表GPI清理、堆表FSM更新以及索引
+    页面回收。
+●   VACUUM FULL分区表时，会遍历分区进行清理，并在分区清理后重建GPI，因此
+    当分区较多时，建议先删除GPI，在VACUUM FULL执行完成后重新创建索引，以
+    此降低VACUUM FULL的执行时间。对于在线VACUUM FULL，对象为分区表时，
+[[PDF_PAGE physical=1889 printed=1840]]
+           会在进行分区清理的同时重建GPI；仅当对象为单分区时，才会在分区清理后再重
+           建GPI。故在线VACUUM FULL无需先删除GPI。
+       ●   在线VACUUM FULL不支持对于数据库级、索引级、二级分区表、段页式表、
+           hash bucket表、临时表、unlogged表、HTAP表对象执行在线VACUUM FULL。
+           如对象涉及以上不支持的类型，ONLINE关键字将不会生效，VACUUM FULL默认
+           以离线方式执行，并提示当前VACUUM FULL语句不支持在线执行。
+       ●   执行在线VACUUM FULL操作时，需预留足够的磁盘空间，即剩余空间是所操作
+           的表（及其上索引等附属品）总和。
+       ●   如果用户取消在线VACUUM FULL执行过程，首先进入残留清理流程，如果用户
+           再次取消，则会结束清理流程导致残留。
+       ●   在线VACUUM FULL与用户业务之间存在资源争抢，不适合大业务背景下做在线
+           VACUUM FULL。对于资源有限的场景，建议采用细粒度资源管控进行操作，且
+           不建议使用并行加速功能。
+       ●   M-Compatibility模式下不支持在线VACUUM FULL操作。
+       ●   在线VACUUM FULL不支持FREEZE关键字，若同时指定FREEZE关键字与ONLINE
+           关键字，VACUUM FULL默认以离线方式执行，并提示当前VACUUM FULL语句不
+           支持在线执行。
+       ●   在线VACUUM FULL不支持在事务内执行（通过JDBC驱动执行多条SQL时会隐式
+           启动事务，禁止多条SQL一起执行），不支持在存储过程中执行。
+       ●   若在线VACUUM FULL操作失败，表上可能会有明显存储空间膨胀。其中膨胀程
+           度与在线VACUUM FULL执行时长以及并发写操作量成正比。长事务可能会阻塞
+           在线VACUUM FULL，建议避免在长事务存在时进行在线VACUUM FULL。
+       ●   在线VACUUM FULL执行后期将阻塞DQL、DML操作。
+       ●   在线VACUUM FULL执行期间，应尽量避免与其他DDL并发执行，否则可能会出
+           现死锁、报错等；若出现此类情况，可以重新连接客户端进行重试。
+       ●   在线VACUUM FULL过程中会生成名为online$$ddl$$[hash值]的模式。
+           –    模式的属主默认为初始用户，不建议在线VACUUM FULL执行中操作此模
+                式，可能会导致中止在线VACUUM FULL并产生未知错误。不建议用户对该
+                模式下的表格进行查询。gs_dump导出会默认不导出此Schema。
+           –    用户不可创建online$$为前缀的模式，会有报错提示。若已存在同名模式冲
+                突，在线VACUUM FULL将不会生效，在线VACUUM FULL默认以离线方式执
+                行，并提示当前VACUUM FULL语句是因为模式名冲突不可在线。
+
+语法格式
+       ●   回收空间并更新统计信息，对关键字顺序无要求。
+           VACUUM [ ( { FULL | FREEZE | VERBOSE | { ANALYZE | ANALYSE } } [, ... ] ) ]
+              [ table_name [ (column_name [, ... ] ) ] [ PARTITION ( partition_name ) | SUBPARTITION
+           ( subpartition_name ) ] ]
+              [ OFFLINE | [ ONLINE [ WITH ( { online_parameter = value } [, ... ] ) ] ] ];
+
+       ●   仅回收空间，不更新统计信息。
+           VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ]
+             [ table_name [ PARTITION ( partition_name ) | SUBPARTITION ( subpartition_name ) ] ]
+             [ OFFLINE | [ ONLINE [ WITH ( { online_parameter = value } [, ... ] ) ] ] ];
+
+       ●   回收空间并更新统计信息，且对关键字顺序有要求。
+           VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] { ANALYZE | ANALYSE } [ VERBOSE ]
+             [ table_name [ ( column_name [, ... ] ) ] ] [ PARTITION ( partition_name ) ]
+             [ OFFLINE | [ ONLINE [ WITH ( { online_parameter = value } [, ... ] ) ] ] ];
+
+       ●   仅回收指定bucket的空间，更新pg_hashbucket系统表的bucketxid列，不更新统
+           计信息。当前版本暂不支持。
+[[PDF_PAGE physical=1890 printed=1841]]
+           VACUUM FREEZE BUCKETS (bucketid [, ... ]);
+
+
+参数说明
+       ●   FULL
+           选择“FULL”清理，这样可以恢复更多的空间，但是需要耗时更多，并且在表上
+           施加了排他锁。
+
+                 说明
+
+               使用FULL参数会导致统计信息丢失，如果需要收集统计信息，请在VACUUM FULL语句中
+               加上analyze关键字。
+       ●   FREEZE
+           指定FREEZE相当于执行VACUUM时将vacuum_freeze_min_age参数设为0。
+       ●   VERBOSE
+           为每个表打印一份详细的清理工作报告。
+       ●   ANALYZE | ANALYSE
+           更新用于优化器的统计信息，以决定执行查询的最有效方法。
+                 说明
+
+               ustore分区表在autovacuum=analyze的时候也会触发vacuum。
+       ●   table_name
+           要清理的表的名称（可以有模式修饰）。
+           取值范围：要清理的表的名称。缺省时为当前数据库中的所有表。
+       ●   column_name
+           要分析的具体的字段名称，需要配合analyze选项使用。
+           取值范围：要分析的具体的字段名称。缺省时为所有字段。
+                 说明
+
+               由于VACUUM ANALYZE语句的机制是依次执行VACUUM和ANALYZE，因此当
+               column_name错误时，会存在VACUUM执行成功但ANALYZE执行失败的情况；对于分区
+               表，则会出现对某个分区VACUUM执行成功之后ANALYZE执行失败的情况。
+       ●   partition_name
+           要清理的表的一级分区名称。缺省时为所有一级分区。
+       ●   subpartition_name
+           要清理的表的二级分区名称。缺省时为所有二级分区。
+       ●   ONLINE | OFFLINE
+           以在线或者离线方式执行VACUUM。主要用于在线执行VACUUM FULL，使
+           VACUUM FULL期间不会长时间阻塞读写业务。
+           使用ONLINE | OFFLINE关键字：
+           –    ONLINE：以在线方式执行。此时若VACUUM FULL语句包含当前特性不支持
+                的场景（如FREEZE关键字等），则以离线方式执行，并通过NOTICE提示忽
+                略ONLINE关键字。
+           –    OFFLINE：以离线方式执行。
+           取值范围：关键字OFFLINE或ONLINE，分别对应离线方式执行和在线方式执行。
+           缺省时为OFFLINE。
+[[PDF_PAGE physical=1891 printed=1842]]
+               说明
+
+             在线VACUUM FULL执行失败时，如用户指令终止命令、锁超时、数据库故障等，系统会
+             对残留对象进行自动清理。自动清理过程可能由于等锁超时等原因而失败，无法进行自动
+             清理，需要手动清理恢复。对于严重故障，如FATAL、PANIC、数据库故障等场景时，可能
+             会残留临时模式对象，影响后续在线VACUUM FULL和在线DDL的执行，需要使用
+             online_ddl_cleanup()函数进行手动执行清理。若无故障残留，不建议使用
+             online_ddl_cleanup()函数，否则可能导致在线VACUUM FULL中止并产生未知错误。
+     ●   online_parameter
+         当指定ONLINE关键字时，用于指定在线VACUUM FULL选项。若未指定ONLINE
+         关键字或不满足在线VACUUM FULL的条件，该参数不生效。
+         取值范围：
+         –    parallel_threads：控制多线程并行，用于在资源充足的情况下追求更高性
+              能。1-32之间的整数值，缺省时默认值为1。
+
+              ▪     当用户开启资源管控时，如IO资源管控 (io_limits>0或io_priority =
+                    high/medium/low)，parallel_threads将忽略用户/会话下的资源管控，
+                    并给出提示当前资源管控无效并开启多线程加速。在线VACUUM FULL
+                    多线程执行实际遵循初始用户的资源管控。
+
+              ▪     可以与索引并行参数parallel_workers共同生效。parallel_workers控制
+                    VACUUM FULL期间索引构建的并行度，parallel_threads参数控制
+                    VACUUM FULL期间追增的并行度。
+         –    max_catchup_times：控制最大追增轮次，用于防止VACUUM FULL执行时
+              间过长。1-50之间的整数值，缺省时默认值为50。
+
+              ▪     在线VACUUM FULL会记录数据重建过程中的IUD增量数据到临时表，并
+                    采用多轮次循环追增，将增量数据进行重建。为防止由于IUD并发数据
+                    量过大，VACUUM FULL无法完成追增的情况，用户可以设置该参数，
+                    以限制追增次数。
+
+示例
+     ●   VACUUM
+         --创建表tbl_test，并插入数据。
+         gaussdb=# CREATE TABLE tbl_test(c1 int);
+         gaussdb=# INSERT INTO tbl_test VALUES (1);
+
+         --查看数据，和数据的ctid。
+         gaussdb=# SELECT ctid,* FROM tbl_test;
+          ctid | c1
+         -------+----
+          (0,1) | 1
+         (1 row)
+
+         --删除该数据。
+         gaussdb=# DELETE FROM tbl_test;
+
+         --重新插入一条数据，发现使用了一个新的ctid。
+         gaussdb=# INSERT INTO tbl_test VALUES (2);
+         gaussdb=# SELECT ctid,* FROM tbl_test;
+          ctid | c1
+         -------+----
+          (0,2) | 2
+         (1 row)
+
+         --使用VACUUM命令之后，在插入数据，发现复用了旧的空间。
+         gaussdb=# VACUUM ANALYZE tbl_test;
+         gaussdb=# INSERT INTO tbl_test VALUES (3);
+[[PDF_PAGE physical=1892 printed=1843]]
+           gaussdb=# SELECT ctid,* FROM tbl_test;
+            ctid | c1
+           -------+----
+            (0,1) | 3
+            (0,2) | 2
+           (2 rows)
+
+           --删除表。
+           gaussdb=# DROP TABLE tbl_test;
+
+       ●   VACUUM FULL
+           --建表。
+           gaussdb=# CREATE TABLE tbl_test2(c1 int);
+
+           --插入10万条数据并查看表的大小。
+           gaussdb=# INSERT INTO tbl_test2 VALUES (generate_series(1,100000));
+           gaussdb=# SELECT 'tbl_test2' AS tablename, pg_size_pretty(pg_relation_size('tbl_test2')) AS size;
+            tablename | size
+           -----------+---------
+            tbl_test2 | 3048 kB
+           (1 row)
+
+           --删除数据并查看表大小。
+           gaussdb=# DELETE FROM tbl_test2;
+           gaussdb=# SELECT 'tbl_test2' AS tablename, pg_size_pretty(pg_relation_size('tbl_test2')) AS size;
+            tablename | size
+           -----------+---------
+            tbl_test2 | 3048 kB
+           (1 row)
+
+           --执行SELECT获取当前事务的ID。
+           gaussdb=# SELECT TXID_CURRENT();
+           txid_current
+           -------------
+                 55196
+
+           --使用VACUUM FULL回收空间,并查看表的大小。
+           gaussdb=# VACUUM FULL ANALYZE tbl_test2;
+           gaussdb=# SELECT 'tbl_test2' AS tablename, pg_size_pretty(pg_relation_size('tbl_test2')) AS size;
+            tablename | size
+           -----------+---------
+            tbl_test2 | 0 bytes
+           (1 row)
+
+           --使用在线VACUUM FULL回收空间。
+           gaussdb=# VACUUM FULL ANALYZE tbl_test2 ONLINE;
+
+           --删除。
+           gaussdb=# DROP TABLE tbl_test2;
+
+
+优化建议
+       ●   VACUUM
+           –    VACUUM不能在事务块内执行。
+           –    建议生产数据库经常清理（至少每晚一次），以保证不断地删除失效的行。
+                尤其是在增删了大量记录后，对相关表执行VACUUM ANALYZE命令。
+           –    不建议日常使用FULL选项，但是可以在特殊情况下使用。例如，一个例子就
+                是在用户删除了一个表的大部分行之后，希望从物理上缩小该表以减少磁盘
+                空间占用。

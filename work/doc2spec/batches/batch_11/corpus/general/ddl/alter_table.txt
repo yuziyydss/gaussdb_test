@@ -1,0 +1,1636 @@
+[[PDF_PAGE physical=1272 printed=1223]]
+1.13.7.36 ALTER TABLE
+
+功能描述
+            修改表的属性。包括修改表的定义、重命名表、重命名表中指定的列、重命名表的约
+            束、设置表的所属模式、添加/更新多个列以及打开/关闭行访问控制开关等。
+
+注意事项
+            ●   表的所有者、被授予了表ALTER权限的用户或被授予ALTER ANY TABLE权限的用
+                户有权限执行ALTER TABLE命令，系统管理员默认拥有此权限。但要修改表的所
+                有者或者修改表的模式，当前用户必须是该表的所有者或者系统管理员，且在三
+                权分立打开时，该用户必须是新所有者角色的成员。
+            ●   不能修改分区表的TABLESPACE，但可以修改分区的TABLESPACE。
+            ●   不支持修改存储参数ORIENTATION。
+            ●   SET SCHEMA操作不支持修改为系统内部模式，当前仅支持用户模式之间的修
+                改。
+            ●   不支持对分区表的分区键字段改变和转换字符集。
+
+            ●   不支持增加DEFAULT值中包含nextval()表达式的列。
+            ●   不支持对外表、临时表开启行访问控制开关。
+            ●   不支持对系统列添加约束。
+            ●   rowid和rowno系统列不支持重命名、删除、设置默认值、修改列定义。
+            ●   通过约束名删除PRIMARY KEY约束时，不会删除NOT NULL约束，如果有需要，
+                请手动删除NOT NULL约束。
+            ●   使用JDBC时，支持通过PreparedStatement对DEFAULT值进行参数化设置。
+[[PDF_PAGE physical=1273 printed=1224]]
+●   如果用ADD COLUMN增加一个字段，那么所有表中现有行都初始化为该字段的缺
+    省值（如果没有声明DEFAULT子句，那么默认为NULL）。
+●   当新增列的字段默认值为NULL时，不会触发全表更新。
+●   新增列如果有DEFAULT值，必须符合以下所有要求，否则会带来全表更新开销，
+    影响在线业务：
+    –   新增列的DEFAULT值长度不超过128个字节。
+    –   新增列DEFAULT值不包含易变（volatile）函数，如果不确定是否包含易变函
+        数，可通过PG_PROC系统表查看函数的provolatile属性是否为v进行判断是否
+        存在volatile函数
+    –   在开启PG兼容模式下，支持新增列数据类型为SERIAL、BIGSERIAL和
+        SMALLSERIAL，且仅只支持普通表，不支持分区表、临时表、unlogged
+        permanent table、支持astore和ustore存储引擎。
+●   使用FIRST | AFTER column_name新增列或修改列，或修改字段的字符集，会带
+    来全表更新开销，影响在线业务。
+●   在为数据对象增加或者变更ILM策略的时候，如果追加了行级表达式，需要注意行
+    表达式目前只支持白名单中列出的函数。具体白名单函数列表请参见行表达式函
+    数白名单。
+        说明
+
+        在ILM策略的ON(EXPR)行级表达式支持的函数中，有部分函数的输出可能会受兼容性参数
+        影响。例如，upper函数在B兼容模式下设置b_format_version='5.7'和
+        b_format_dev_version='s2'后，将无法转大写。
+●   表约束个数不能超过32767个。
+●   执行在线DDL操作时，需预留足够的磁盘空间，即剩余空间是所操作的表（及其
+    上索引等附属品）总和。
+●   在线DDL不支持在事务内执行（通过JDBC驱动执行多条SQL时会隐式启动事务，
+    禁止多条SQL一起执行），不支持在存储过程中执行。
+●   如果用户取消在线DDL执行过程，首先进入残留清理流程，如果用户再次取消，
+    则会结束清理流程导致残留。
+●   在线DDL与用户业务之间存在资源争抢，不适合大业务背景下做在线DDL。对于
+    资源有限的场景，建议采用细粒度资源管控进行操作，且不建议使用并行加速功
+    能。
+●   M-Compatibility模式下不支持在线DDL操作。
+●   以下情况中，在线DDL将不会生效，DDL默认以离线方式执行，若有ONLINE关键
+    字则NOTICE提示忽略ONLINE关键字。
+    –   使用MODIFY [ COLUMN ] column_name data_type [ CHARACTER SET |
+        CHARSET charset ] [{[ COLLATE collation ] | [ column_constraint ]}
+        [ ... ] ] [FIRST | AFTER column_name]或MODIFY ( { column_name
+        data_type | column_name [ CONSTRAINT constraint_name ] NOT NULL
+        [ ENABLE ] | column_name [ CONSTRAINT constraint_name ] NULL }
+        [, ...] ) 语法在线修改列类型、精度、长度时，若子句包含CHARSET、
+        COLLATE、FIRST、AFTER等任何一个关键字或column_constraint。
+    –   使用CHANGE [ COLUMN ] column_name new_column_name data_type
+        [ CHARACTER SET | CHARSET charset ] [{[ COLLATE collation ] |
+        [ column_constraint ]} [ ... ] ] [FIRST | AFTER column_name]语法在线修改
+        列类型、精度、长度。
+    –   在线将列类型修改、转换为SET数据类型。
+[[PDF_PAGE physical=1274 printed=1225]]
+           –    若ALTER TABLE语句包含当前在线DDL特性支持操作（包含在线修改列类型/
+                精度/长度缩减、表级在线移动表空间、在线加非空/检查/主键/唯一约束）以
+                外的操作。
+       ●   对数据库级、索引级、二级分区表、段页式表、hash bucket表、临时表、
+           unlogged表、HTAP表上进行在线DDL（包含在线修改列类型/精度/长度、表级在
+           线移动表空间、在线加非空/检查/主键/唯一约束）时，在线DDL将不会生效，
+           DDL默认以离线方式执行，并提示当前DDL语句不支持在线执行。
+       ●   长事务可能会阻塞在线DDL（包含在线修改列类型/精度/长度、表级在线移动表空
+           间、在线加非空/检查/主键/唯一约束），建议避免在长事务存在时进行在线
+           DDL。
+       ●   在线DDL（包含在线修改列类型/精度/长度、表级在线移动表空间、在线加非空/
+           检查/主键/唯一约束）本特性执行后期将阻塞DQL、DML操作。因此，对于存在
+           超时报错机制的业务模型可能出现阻塞导致的请求失败，若出现此类情况，可以
+           进行重试。
+       ●   在线DDL执行期间，应尽量避免与其他DDL并发执行，否则可能可能会出现死
+           锁、报错等；若出现此类情况，可以重新连接客户端进行重试。
+       ●   在线DDL（包含在线修改列类型/精度/长度、表级在线移动表空间、在线加非空/
+           检查/主键/唯一约束）从不支持在线DDL的版本升级至支持的版本，升级待观察期
+           间不支持使用在线DDL，在线DDL将不会生效，DDL默认以离线方式执行，并
+           NOTICE提示升级期间不支持。
+       ●   在线DDL（包含在线修改列类型/精度/长度、表级在线移动表空间、在线加非空/
+           检查/主键/唯一约束）过程中会生成名为online$$ddl$$[（表所在的模式+表名）
+           的hash值]的Schema。
+           –    Schema的属主默认为初始用户，不建议在线DDL执行中操作此Schema，可
+                能会导致中止在线DDL并产生未知错误。不建议用户对该Schema下的表格进
+                行查询。gs_dump导出会默认不导出此Schema。
+           –    用户不可创建online$$为前缀的Schema，会有报错提示。若已存在同名
+                Schema冲突，在线DDL将不会生效，DDL默认以离线方式执行，并提示当前
+                DDL语句是因为Schema名冲突不可在线。
+       ●   若在线DDL（包含在线修改列类型/精度/长度、表级在线移动表空间）操作失败，
+           表上可能会有明显存储空间膨胀。在线加非空/检查/主键/唯一约束操作无论失败
+           与否， 表上可能会有明显存储空间膨胀。其中膨胀程度与DDL执行时长以及并发
+           写操作量成正比，避免在长事务存在时进行在线DDL。
+       ●   若在线DDL操作包含加非空/检查/主键/唯一约束，当出现违反约束的数据进行报
+           错时，报错信息会存在区别于离线DDL的情况。
+       ●   在线DDL涉及添加主键/唯一约束时，若约束包含表达式则默认以离线方式执行，
+           若有ONLINE关键字则通过NOTICE提示不支持在线执行。
+       ●   在线DDL（包含在线修改列类型/精度/长度、表级在线移动表空间、在线加非空/
+           检查/主键/唯一约束）操作继承CREATE TABLE的使用约束。
+
+语法格式
+       ●   修改表的定义。
+           ALTER TABLE [ OFFLINE | [ ONLINE [ WITH ( { online_parameter = value } [, ... ] ) ] ] ] [ IF EXISTS ]
+              { table_name [*] | ONLY table_name | ONLY ( table_name ) }
+              action [, ... ];
+           ALTER TABLE [ OFFLINE | [ ONLINE [ WITH ( { online_parameter = value } [, ... ] ) ] ] ] [ IF EXISTS ]
+           table_name
+              ADD ( { column_name data_type [ COLLATE collation ] [ column_constraint [ ... ] ] } [, ... ] );
+           ALTER TABLE [ OFFLINE | [ ONLINE [ WITH ( { online_parameter = value } [, ... ] ) ] ] ] [ IF EXISTS ]
+           table_name
+[[PDF_PAGE physical=1275 printed=1226]]
+   MODIFY ( { column_name data_type | column_name [ CONSTRAINT constraint_name ] NOT NULL
+[ ENABLE ] | column_name [ CONSTRAINT constraint_name ] NULL } [, ... ] );
+ALTER TABLE [ OFFLINE | [ ONLINE [ WITH ( { online_parameter = value } [, ... ] ) ] ] ] [ IF EXISTS ]
+table_name
+   RENAME [ TO | AS | = ] new_table_name;
+ALTER TABLE [ OFFLINE | [ ONLINE [ WITH ( { online_parameter = value } [, ... ] ) ] ] ] [ IF EXISTS ]
+   { table_name [*] | ONLY table_name | ONLY ( table_name ) }
+   RENAME [ COLUMN ] column_name TO new_column_name;
+ALTER TABLE [ OFFLINE | [ ONLINE [ WITH ( { online_parameter = value } [, ... ] ) ] ] ] [ IF EXISTS ]
+   { table_name [*] | ONLY table_name | ONLY ( table_name ) }
+   RENAME CONSTRAINT constraint_name TO new_constraint_name;
+ALTER TABLE [ OFFLINE | [ ONLINE [ WITH ( { online_parameter = value } [, ... ] ) ] ] ] [ IF EXISTS ]
+table_name
+   SET SCHEMA new_schema;
+ALTER TABLE [ OFFLINE | [ ONLINE [ WITH ( { online_parameter = value } [, ... ] ) ] ] ] [ IF EXISTS ]
+table_name
+   GSIWAITALL;
+其中具体表操作action可以是以下子句之一：
+column_clause
+   | ADD table_constraint [ NOT VALID ]
+   | ADD table_constraint_using_index
+   | VALIDATE CONSTRAINT constraint_name
+   | DROP CONSTRAINT [ IF EXISTS ] constraint_name [ RESTRICT | CASCADE ]
+   | DROP PRIMARY KEY
+   | DROP FOREIGN KEY fk_symbol
+   | CLUSTER ON index_name
+   | SET WITHOUT CLUSTER
+   | SET WITH ROWID
+   | SET ( {storage_parameter = value} [, ... ] )
+   | RESET ( storage_parameter [, ... ] )
+   | OWNER TO new_owner
+   | SET TABLESPACE new_tablespace
+   | TO { GROUP groupname | NODE ( nodename [, ... ] ) }
+   | ADD NODE ( nodename [, ... ] )
+   | DELETE NODE ( nodename [, ... ] )
+   | UPDATE SLICE LIKE table_name
+   | DISABLE TRIGGER { trigger_name | ALL | USER }
+   | ENABLE TRIGGER { trigger_name | ALL | USER }
+   | ENABLE REPLICA TRIGGER trigger_name
+   | ENABLE ALWAYS TRIGGER trigger_name
+   | ENABLE ROW LEVEL SECURITY
+   | DISABLE ROW LEVEL SECURITY
+   | FORCE ROW LEVEL SECURITY
+   | NO FORCE ROW LEVEL SECURITY
+   | ENCRYPTION KEY ROTATION
+   | REPLICA IDENTITY { DEFAULT | USING INDEX index_name | FULL | NOTHING }
+   | AUTO_INCREMENT [ = ] value
+   | COMMENT [ = ] 'string'
+   | [ [ DEFAULT ] CHARACTER SET | CHARSET [ = ] default_charset ] [ [ DEFAULT ] COLLATE [ = ]
+default_collation ]
+   | CONVERT TO CHARACTER SET | CHARSET charset [ COLLATE collation ]
+   | ILM ADD POLICY ROW STORE COMPRESS ADVANCED [ MEDIUM | HIGH ] ROW AFTER n { day |
+days | month | months | year | years } OF NO MODIFICATION [ ON ( EXPR )]
+   | [ MODIFY { PARTITION partition_name | SUBPARTITION subpartition_name }] ILM { ENABLE |
+DISABLE | DELETE } POLICY policy_name
+   | [ MODIFY { PARTITION partition_name | SUBPARTITION subpartition_name }] ILM { ENABLE_ALL
+| DISABLE_ALL | DELETE_ALL}
+   | [ COLVIEW | COLVIEW NOCOLVIEW | NOCOLVIEW COLVIEW] [ ( { column_name [, ... ]} ) ]
+[ PRIORITY { HIGH | LOW | NONE } ]
+   | NOCOLVIEW
+[[PDF_PAGE physical=1276 printed=1227]]
+ 说明
+
+● ADD table_constraint [ NOT VALID ]
+   给表增加一个新的约束。
+● ADD table_constraint_using_index
+   根据已有唯一索引为表增加主键约束或唯一约束。
+● VALIDATE CONSTRAINT constraint_name
+   验证一个使用NOT VALID选项创建的检查类约束，通过扫描全表来保证所有记录都符
+   合约束条件。如果约束已标记为有效时，什么操作也不会发生。
+● DROP CONSTRAINT [ IF EXISTS ] constraint_name [ RESTRICT | CASCADE ]
+   删除一个表上的约束。
+● DROP PRIMARY KEY
+   删除一个表上的主键约束。该语法仅在A兼容模式以及B兼容模式下支持使用。
+● DROP FOREIGN KEY fk_symbol
+   删除一个表上的外键约束，fk_symbol表示待删除的外键约束名。该语法仅在
+   sql_compatibility='B'时有效。
+● CLUSTER ON index_name
+   为将来的CLUSTER（聚簇）操作选择默认索引。实际上并没有重新盘簇化处理该表。
+● SET WITHOUT CLUSTER
+   从表中删除最新使用的CLUSTER索引。这样会影响将来那些没有声明索引的CLUSTER
+   （聚簇）操作。
+● SET WITH ROWID
+   为表添加rowid、rowno系统列，并设置表的存储选项hasrowid = on。
+   ●    该语法不支持用于系统表、本地临时表、全局临时表、Unlogged表、外表。
+   ●    该语法不支持用于启用oid系统列或gs_tuple_uid系统列的表，即指定oids存储选
+        项（或WITH OIDS子句）、hasuids存储选项的表。
+   ●    该语法不支持用于包含列名为rowid或者rowno的表。
+   ●    该语法仅在A兼容性下有效。
+   ●    对处于压缩状态的数据执行SET WITH ROWID操作后，该部分数据将被自动解
+        压。
+● SET ( {storage_parameter = value} [, ... ] )
+   修改表的一个或多个存储参数。当table_name为索引名时，ACTIVE_PAGES表示索引的
+   页面数量，可能比实际的物理文件页面少，可以用于优化器调优。目前只对Ustore的分
+   区表LOCAL索引生效，且会被VACUUM、ANALYZE更新（包括 AUTO VACUUM）。不
+   建议用户手动设置该参数。
+● RESET ( storage_parameter [, ... ] )
+   重置表的一个或多个存储参数。与SET一样，根据参数的不同可能需要重写表才能获得
+   想要的效果。
+● OWNER TO new_owner
+   将表、序列、视图的属主改变成指定的用户。
+   以下操作不被允许，若执行将会报错：
+   1.系统管理员将表的owner更改为初始用户；
+   2.三权分立模式下，系统管理员将表的owner更改为安全管理员或审计管理员。
+● SET TABLESPACE new_tablespace
+   这种形式将表空间修改为指定的表空间并将相关的数据文件移动到新的表空间。但是表
+   上的所有索引都不会被移动，索引可以通过ALTER INDEX语法的SET TABLESPACE选项
+   来修改索引的表空间。
+● TO { GROUP groupname | NODE ( nodename [, ... ] ) }
+[[PDF_PAGE physical=1277 printed=1228]]
+   此语法仅在扩展模式（GUC参数support_extended_features为on时）下可用。该模式
+   谨慎打开，主要供内部扩容工具使用，一般用户不应使用该模式。
+● ADD NODE ( nodename [, ... ] )
+   此语法主要供内部扩容工具使用，一般用户不建议使用。
+● DELETE NODE ( nodename [, ... ] )
+   此语法主要供内部缩容工具使用，一般用户不建议使用。
+● DISABLE TRIGGER { trigger_name | ALL | USER }
+   禁用trigger_name所表示的单个触发器，或禁用所有触发器，或仅禁用用户触发器（此
+   选项不包括内部生成的约束触发器，例如，可延迟唯一性和排除约束的约束触发器）。
+   应谨慎使用此功能，因为如果不执行触发器，则无法保证原先期望的约束的完整性。
+● ENABLE TRIGGER { trigger_name | ALL | USER }
+   启用trigger_name所表示的单个触发器，或启用所有触发器，或仅启用用户触发器。
+● ENABLE REPLICA TRIGGER trigger_name
+   触发器的触发机制受GUC配置参数session_replication_role的影响。在会话处于
+   “replica”模式时，仅会触发配置为ENABLE REPLICA的触发器；在会话处于
+   “origin”（默认值）或“local”模式时，仅会触发没有配置ENABLE REPLICA的触发
+   器。
+● ENABLE ALWAYS TRIGGER trigger_name
+   无论当前复制模式如何，配置为ENABLE ALWAYS的触发器都将触发。
+● { DISABLE | ENABLE } ROW LEVEL SECURITY
+   开启或关闭表的行访问控制开关。
+   当开启行访问控制开关时，如果未在该数据表定义相关行访问控制策略，数据表的行级
+   访问将不受影响；如果关闭表的行访问控制开关，即使定义了行访问控制策略，数据表
+   的行访问也不受影响。详细信息请参见CREATE ROW LEVEL SECURITY POLICY章
+   节。
+● { NO FORCE | FORCE } ROW LEVEL SECURITY
+   强制开启或关闭表的行访问控制开关。
+   默认情况，表所有者不受行访问控制特性影响，但当强制开启表的行访问控制开关时，
+   表的所有者（不包含系统管理员用户）会受影响。系统管理员可以绕过所有的行访问控
+   制策略，不受影响。
+● ENCRYPTION KEY ROTATION
+   透明数据加密密钥轮转。
+   只有在数据库开启透明加密功能，并且表的enable_tde选项为on时才可以进行表的数
+   据加密密钥轮转。执行密钥轮转操作后，系统会自动向KMS申请创建新的密钥。密钥轮
+   转后，使用旧密钥加密的数据仍使用旧密钥解密，新写入的数据使用新密钥加密。为保
+   证加密数据安全，用户可根据加密表的新增数据量大小定期更新密钥，建议更新周期为
+   两到三年。
+● REPLICA IDENTITY { DEFAULT | USING INDEX index_name | FULL | NOTHING |
+  UNIQUE}
+   在逻辑复制场景下，指定该表的UPDATE和DELETE操作中旧元组的记录级别。
+   ●   DEFAULT记录主键的列的旧值，没有主键则不记录。
+   ●   USING INDEX记录命名索引覆盖的列的旧值，这些值必须是唯一的、不局部的、
+       不可延迟的，并且仅包括标记为NOT NULL的列。
+   ●   FULL记录该行中所有列的旧值。
+   ●   NOTHING不记录有关旧行的信息。
+   ●   UNIQUE记录主键和唯一键的列的旧值。
+   在逻辑复制场景，解析该表的UPDATE和DELETE操作语句时，解析出的旧元组由以此
+   方法记录的信息组成。对于有主键表该选项可设置为DEFAULT或FULL。对于无主键表
+   该选项需设置为FULL，否则解码时旧元组将解析为空。一般场景不建议设置为
+   NOTHING，旧元组会始终解析为空。建议用户表定义主键或唯一约束，以保证回放的
+   确定性，否则回放SQL语句时可能会导致多行修改影响数据正确性。
+[[PDF_PAGE physical=1278 printed=1229]]
+       针对ustore表，选项NOTHING无效，实际效果等同于FULL；DEFAULT没有主键时，记
+       录该行所有列。
+    ● AUTO_INCREMENT [ = ] value
+       设置自动增长列下一次的自增值。设置的值只有大于当前自增计数器时才会生效。
+       value必须是非负数，且不得大于2127-1。
+       此子句仅在参数sql_compatibility='B'时生效。
+    ● [ [ DEFAULT ] CHARACTER SET | CHARSET [ = ] default_charset ] [ [ DEFAULT ]
+      COLLATE [ = ] default_collation ]
+       修改表的默认字符集和默认字符序为指定的值。修改不会影响表中当前已经存在的列。
+    ● CONVERT TO CHARACTER SET | CHARSET charset [ COLLATE collation ]
+       修改表的默认字符集和默认字符序为指定的值，同时将表中的所有字符类型的字段的字
+       符集和字符序设置为指定的值，并将字段里的数据转换为新字符集编码。
+    ● ILM ADD POLICY ROW STORE COMPRESS ADVANCED [ MEDIUM | HIGH ]
+      ROW AFTER n { day | days | month | months | year | years } OF NO
+      MODIFICATION [ ON ( EXPR )]
+       在表上追加一个ILM策略，一个完整的ILM策略由两部分构成，ILM动作和ILM条件。
+       ILM动作用于定义具体的数据压缩或移动行为，ILM条件用于定义数据满足什么条件时
+       会触发ILM动作，ILM条件为行级条件，即ILM条件作用于堆表中的每一行，当前行一
+       段时间内未发生修改时，会满足ILM条件，从而触发ILM动作。EXPR仅支持表字段及白
+       名单中列出的函数行表达式函数白名单。在闪回点与当前点之间添加ILM策略，不影响
+       闪回功能。
+    ● [ MODIFY { PARTITION partition_name | SUBPARTITION subpartition_name }]
+      ILM { ENABLE | DISABLE | DELETE } POLICY policy_name
+       修改表（分区或子分区）的单个ILM策略，policy_name是通过系统视图
+       GS_ADM_ILMOBJECTS或GS_MY_ILMOBJECTS查询得到的POLICY_NAME。
+    ● [ MODIFY { PARTITION partition_name | SUBPARTITION subpartition_name }]
+      ILM { ENABLE_ALL | DISABLE_ALL | DELETE_ALL}
+       修改表（分区或子分区）的所有ILM策略。
+–   其中列相关的操作column_clause可以是以下子句之一：
+    ADD [ COLUMN ] [ IF NOT EXISTS ] column_name data_type [ CHARACTER SET | CHARSET
+    charset ] [ COLLATE collation ] [ column_constraint [ ... ] ] [ FIRST | AFTER column_name ]
+    | MODIFY column_name data_type
+    | MODIFY column_name [ CONSTRAINT constraint_name ] NOT NULL [ ENABLE ]
+    | MODIFY column_name [ CONSTRAINT constraint_name ] NULL
+    | MODIFY [ COLUMN ] column_name data_type [ CHARACTER SET | CHARSET charset ]
+    [{[ COLLATE collation ] | [ column_constraint ]} [ ... ] ] [ FIRST | AFTER column_name ]
+    | CHANGE [ COLUMN ] column_name new_column_name data_type [ CHARACTER SET |
+    CHARSET charset ] [{[ COLLATE collation ] | [ column_constraint ]} [ ... ] ] [ FIRST | AFTER
+    column_name ]
+    | DROP [ COLUMN ] [ IF EXISTS ] column_name [ RESTRICT | CASCADE ]
+    | ALTER [ COLUMN ] column_name [ SET DATA ] TYPE data_type [ ENCRYPTED WITH
+    ( COLUMN_ENCRYPTION_KEY = column_encryption_key, ENCRYPTION_TYPE =
+    encryption_type_value ) ] [ COLLATE collation ] [ USING expression ]
+    | ALTER [ COLUMN ] column_name { SET DEFAULT expression | DROP DEFAULT }
+    | ALTER [ COLUMN ] column_name { SET | DROP } NOT NULL
+    | ALTER [ COLUMN ] column_name SET STATISTICS [ PERCENT ] integer
+    | ADD STATISTICS (( column_1_name, column_2_name [, ...] ))
+    | DELETE STATISTICS (( column_1_name, column_2_name [, ...] ))
+    | DISABLE STATISTICS (( column_1_name, column_2_name [, ...] ))
+    | ENABLE STATISTICS (( column_1_name, column_2_name [, ...] ))
+    | ALTER [ COLUMN ] column_name SET ( {attribute_option = value} [, ... ] )
+    | ALTER [ COLUMN ] column_name RESET ( attribute_option [, ... ] )
+    | ALTER [ COLUMN ] column_name SET STORAGE { PLAIN | EXTERNAL | EXTENDED | MAIN }
+    | MODIFY column_name DROP IDENTITY
+    | MODIFY column_name GENERATED [ ALWAYS | BY DEFAULT [ ON NULL ] ] AS IDENTITY
+    [ ( identity_options ) ]
+    | ALTER [ COLUMN ] column_name ADD GENERATED [ ALWAYS | BY DEFAULT [ON NULL] ] AS
+    IDENTITY [ [ SEQUENCE NAME sequence_name] | ( identity_options ) ]
+[[PDF_PAGE physical=1279 printed=1230]]
+ 说明
+
+● ADD [ COLUMN ] [ IF NOT EXISTS ] column_name data_type
+  [ CHARACTER SET | CHARSET charset ] [ COLLATE collation ]
+  [ column_constraint [ ... ] ] [ FIRST | AFTER column_name]
+   向表中增加一个新的字段。用ADD COLUMN增加一个字段，所有表中现有行都初
+   始化为该字段的缺省值（如果没有声明DEFAULT子句，值为NULL）。其中FIRST |
+   AFTER column_name表示新增字段到某个位置。如果指定IF NOT EXISTS关键
+   字，如果存在相同名称的列，返回NOTICE提示，告知列已存在。未指定IF NOT
+   EXISTS关键字时，如果存在相同名称的列，返回ERROR报错。
+● ADD ( { column_name data_type } [, ...] )
+   向表中增加多列。
+● MODIFY ( { column_name data_type | column_name [ CONSTRAINT
+  constraint_name ] NOT NULL [ ENABLE ] | column_name [ CONSTRAINT
+  constraint_name ] NULL } [, ...] )
+   修改表已存在字段的数据类型。此命令会导致该字段的统计信息清空，建议在修
+   改后重新收集该列的统计信息。
+● MODIFY [ COLUMN ] column_name data_type [ CHARACTER SET |
+  CHARSET charset ] [{[ COLLATE collation ] | [ column_constraint ]} [ ... ] ]
+  [FIRST | AFTER column_name]
+   修改表已存在字段的定义，将用新定义替换字段原定义，原字段上的索引、独立
+   对象约束（例如：主键、唯一键、CHECK约束等）不会被删除。[FIRST | AFTER
+   column_name]语法表示修改字段定义的同时修改字段在表中的位置。
+   此语法只能在参数sql_compatibility='B'时使用。不支持外表、仅支持在密态内存
+   加解密模式且传输密钥到服务端内存时支持修改加密字段、不支持修改分区键字
+   段的数据类型和排序规则、不支持修改规则引用的字段的数据类型和排序规则、
+   不支持修改物化视图引用的字段的数据类型和排序规则。
+   被修改数据类型或排序规则的字段如果被一个生成列引用，这个生成列的数据将
+   会重新生成。
+   如果为被修改的字段指定了IDENTITY属性，当被修改字段修改前没有IDENTITY属
+   性时，会为被修改字段添加IDENTITY属性。不支持使用该语法修改字段上已有的
+   IDENTITY属性。
+   被修改字段若被一些对象依赖（比如：索引、独立对象约束、视图、触发器、行
+   级访问控制策略等），修改字段过程中将会重建这些对象。若被修改后字段定义
+   违反此类对象的约束，修改操作会失败，比如：修改作为视图结果列的字段的数
+   据类型。请修改字段前评估这类影响。
+   被修改字段若被一些对象调用（比如：自定义函数、存储过程等），修改字段不
+   会处理这些对象。修改字段完毕后，这些对象有可能出现不可用的情况，请修改
+   字段前评估这类影响。
+   修改字段的字符集或字符序会将字段中的数据转换为新的字符集进行编码。
+   此子句与上一子句中“MODIFY column_name data_type”部分语法相同，语义
+   功能不同，当GUC参数b_format_behavior_compat_options含有
+   ‘enable_modify_column’选项时，将按照此子句功能处理。
+   此命令会导致该字段的统计信息清空，建议在修改后重新收集该列的统计信息。
+   该命令会刷新统计信息/历史统计信息，当统计信息记录越多，该命令的开销也会
+   越大，因此在多分区多历史统计信息的场景下请谨慎使用该命令。
+● CHANGE [ COLUMN ] column_name new_column_name data_type
+  [ CHARACTER SET | CHARSET charset ] [{[ COLLATE collation ] |
+  [ column_constraint ]} [ ... ] ] [FIRST | AFTER column_name]
+   修改表已存在字段的名称和定义，字段新名称不能是已有字段的名称，将用新名
+   称和定义替换字段原名称和定义原字段上的索引、独立对象约束（例如：主键、
+   唯一键、CHECK约束）等不会被删除。[FIRST | AFTER column_name]语法表示
+   修改字段名称和定义的同时修改字段在表中的位置。
+   此语法只能在参数sql_compatibility='B'时使用。不支持外表、仅支持在密态内存
+   加解密模式且传输密钥到服务端内存时支持修改加密字段、不支持修改分区键字
+[[PDF_PAGE physical=1280 printed=1231]]
+   段的数据类型和排序规则、不支持修改规则引用的字段的数据类型和排序规则、
+   不支持修改物化视图引用的字段的数据类型和排序规则。
+   被修改数据类型或排序规则的字段如果被一个生成列引用，这个生成列的数据将
+   会重新生成。
+   被修改字段若被一些对象依赖（比如：索引、独立对象约束、视图、触发器、行
+   级访问控制策略等），修改字段过程中将会重建这些对象。若被修改后字段定义
+   违反此类对象的约束，修改操作会失败，比如：修改作为视图结果列的字段的数
+   据类型。请修改字段前评估这类影响。
+   被修改字段若被一些对象调用（比如：自定义函数、存储过程等），修改字段不
+   会处理这些对象。修改字段名称后，这些对象有可能出现不可用的情况，请修改
+   字段前评估这类影响。
+   修改字段的字符集或字符序会将字段中的数据转换为新的字符集进行编码。
+● DROP [ COLUMN ] [ IF EXISTS ] column_name [ RESTRICT | CASCADE ]
+   从表中删除一个字段，和这个字段相关的索引和表约束也会被自动删除。如果任
+   何表之外的对象依赖于这个字段，必须声明CASCADE ，比如视图。
+   DROP COLUMN命令并不是物理上把字段删除，而只是简单地把它标记为对SQL
+   操作不可见。随后对该表的插入和更新将在该字段存储一个NULL。因此，删除一
+   个字段是很快的，但是它不会立即释放表在磁盘上的空间，因为被删除了的字段
+   占据的空间还没有回收。这些空间将在执行VACUUM时而得到回收。
+● ALTER [ COLUMN ] column_name [ SET DATA ] TYPE data_type
+  [ ENCRYPTED WITH ( COLUMN_ENCRYPTION_KEY =
+  column_encryption_key, ENCRYPTION_TYPE = encryption_type_value ) ]
+  [ COLLATE collation ] [ USING expression ]
+   改变表字段的数据类型。该字段涉及的索引和简单的表约束将被自动地转换为使
+   用新的字段类型，方法是重新分析最初提供的表达式。
+   当字段的原始数据类型和修改后的数据类型二进制兼容时，执行该语句不需要对
+   整表进行重写，其他场景下会进行整表重写。原类型和目标类型是否二进制兼容
+   可以在PG_CAST系统表中查看，如果castmethod为‘b’则二进制兼容。例如源
+   表中数据类型是text类型，如果转为int类型则会触发表重写，转为clob类型则不
+   会触发表重写。如果表重写被触发，该表上被删除的空间也将被立刻回收。
+   仅支持在密态内存加解密模式且传输密钥到服务端内存时支持修改加密字段，明
+   密文类型转换会触发表重写。
+   此命令会导致该字段的统计信息清空，建议在修改后重新收集该列的统计信息。
+● ALTER [ COLUMN ] column_name { SET DEFAULT expression | DROP
+  DEFAULT }
+   为一个字段设置或者删除缺省值。请注意缺省值只应用于随后的INSERT命令，它
+   们不会修改表中已经存在的行。也可以为视图创建缺省，这个时候它们是在视图
+   的ON INSERT规则应用之前插入到INSERT句中的。
+● ALTER [ COLUMN ] column_name { SET | DROP } NOT NULL
+   修改一个字段是否允许NULL值或者拒绝NULL值。如果表在字段中包含非NULL，
+   则只能使用SET NOT NULL。
+● ALTER [ COLUMN ] column_name SET STATISTICS [PERCENT] integer
+   为随后的ANALYZE操作设置针对每个字段的统计收集目标。目标的范围可以在0
+   到10000之内设置。设置为-1时表示重新恢复到使用系统缺省的统计目标。
+● { ADD | DELETE } STATISTICS ((column_1_name, column_2_name [, ...]))
+   用于添加和删除多列统计信息声明（不实际进行多列统计信息收集），以便在后
+   续进行全表或全库analyze时进行多列统计信息收集。如果关闭GUC参数
+   enable_functional_dependency，每组多列统计信息最多支持32列；如果开启
+   GUC参数enable_functional_dependency，每组多列统计信息最多支持4列。不支
+   持添加/删除多列统计信息声明的表：系统表、外表。
+● {DISABLE | ENABLE} STATISTICS ((column_1_name, column_2_name
+  [, ...]))
+   用于设置多列统计信息的状态。如果多列统计信息被禁用，则相关的统计信息不
+   被收集，优化器在生成计划的阶段也不使用该多列统计信息。
+[[PDF_PAGE physical=1281 printed=1232]]
+        ● ALTER [ COLUMN ] column_name SET ( {attribute_option = value} [, ... ] )
+            ALTER [ COLUMN ] column_name RESET ( attribute_option [, ... ] )
+            设置/重置属性选项。
+            目前，属性选项只定义了n_distinct和n_distinct_inherited。n_distinct影响表本身
+            的统计值，而n_distinct_inherited影响表及其继承子表的统计。目前，只支持
+            SET/RESET n_distinct参数，禁止SET/RESET n_distinct_inherited参数。
+        ● ALTER [ COLUMN ] column_name SET STORAGE { PLAIN | EXTERNAL |
+          EXTENDED | MAIN }
+            为一个字段设置存储模式。这个设置控制这个字段是内联保存还是保存在一个附
+            属的表里，以及数据是否要压缩。SET STORAGE本身并不改变表上的任何东西，
+            只是设置将来的表操作时，建议使用的策略。
+        ● MODIFY column_name DROP IDENTITY
+            取消一个IDENTITY列，该操作仅删除该列的identity属性和相关隐式序列。
+        ● MODIFY column_name GENERATED [ ALWAYS | BY DEFAULT [ ON
+          NULL ] ] AS IDENTITY [ ( identity_options ) ]
+            修改IDENTITY列的属性和序列参数，当未指定identity列属性时，保留原有
+            identity列属性。可选的identity_options子句可用于覆盖序列选项。
+        ● ALTER [ COLUMN ] column_name ADD GENERATED [ ALWAYS | BY
+          DEFAULT [ON NULL] ] AS IDENTITY [ [ SEQUENCE NAME
+          sequence_name ] | ( identity_options ) ]
+            将已有的列设置为IDENTITY列，该列必须为smallint、integer、bigint、
+            decimal、numeric、float、double precision和real数字类型（在A兼容模式下为
+            decimal、numeric、float、double precision和real数字类型）， 且该列没有设
+            置default属性。sequence_name可指定该隐式序列名字。IDENTITY列会默认增
+            加NOT NULL约束，当列内存在NULL值时，修改失败。
+
+    ▪   其中列约束column_constraint为：
+        [ CONSTRAINT constraint_name ]
+           { NOT NULL |
+             NULL |
+             CHECK ( expression ) |
+             DEFAULT default_expr |
+             ON UPDATE update_expr |
+             GENERATED ALWAYS AS ( generation_expr ) [STORED] |
+             GENERATED [ ALWAYS | BY DEFAULT [ ON NULL ] ] AS IDENTITY
+        [ ( identity_options ) ] |
+             AUTO_INCREMENT |
+             COMMENT 'string' |
+             COLVIEW |
+             NOCOLVIEW |
+             UNIQUE [KEY] index_parameters |
+             PRIMARY KEY index_parameters |
+             ENCRYPTED WITH ( COLUMN_ENCRYPTION_KEY = column_encryption_key,
+        ENCRYPTION_TYPE = encryption_type_value ) |
+             REFERENCES reftable [ ( refcolumn ) ] [ MATCH FULL | MATCH PARTIAL | MATCH
+        SIMPLE ]
+                [ ON DELETE action ] [ ON UPDATE action ] }
+           [ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ]
+
+        ○     其中identity_options为：
+              [ INCREMENT [ BY ] increment ] [ MINVALUE minvalue | NO MINVALUE |
+              NOMINVALUE] [ MAXVALUE maxvalue | NO MAXVALUE | NOMAXVALUE ] [ START
+              { [ WITH ] start | WITH LIMIT VALUE } ]
+              [ CACHE cache | NOCACHE ] [ [ NO ] CYCLE | NOCYCLE] [ SCALE [ EXTEND |
+              NOEXTEND] | NOSCALE ]
+
+        ○     其中update_expr为：
+              { CURRENT_TIMESTAMP | LOCALTIMESTAMP | NOW() }
+
+–   其中根据已有唯一索引为表增加主键约束或唯一约束
+    table_constraint_using_index为：
+[[PDF_PAGE physical=1282 printed=1233]]
+         [ CONSTRAINT constraint_name ]
+            { UNIQUE | PRIMARY KEY } USING INDEX index_name
+            [ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ]
+
+    –    其中表约束table_constraint为：
+         [ CONSTRAINT [ constraint_name ] ]
+             { CHECK ( expression ) |
+                UNIQUE [ idx_name ] [ USING method ] ( { { column_name [ ( length ) ] | ( expression ) }
+         [ ASC | DESC ] } [, ... ] ) index_parameters |
+                PRIMARY KEY [ USING method ] ( { column_name [ ASC | DESC ] }[, ... ] ) index_parameters
+         |
+           |
+                FOREIGN KEY [ idx_name ] ( column_name [, ... ] ) REFERENCES reftable [ ( refcolumn
+         [, ... ] ) ]
+                 [ MATCH FULL | MATCH PARTIAL | MATCH SIMPLE ] [ ON DELETE action ] [ ON UPDATE
+         action ] }
+             [ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ]
+             { [ COMMENT 'string' ] [ ... ] }
+
+         其中索引参数index_parameters为：
+         [ WITH ( {storage_parameter = value} [, ... ] ) ]
+            [ USING INDEX TABLESPACE tablespace_name ]
+
+●   重命名表。对名称的修改不会影响所存储的数据。
+    ALTER TABLE [ IF EXISTS ] table_name
+      RENAME [ TO | AS | = ] new_table_name;
+
+          说明
+
+        在B模式库中的5.7版本下指定（即sql_compatibility = 'B'、b_format_version='5.7'、
+        b_format_dev_version='s2'）,会出现以下特殊现象：
+        ● 新表名对应字符串的开头为"#mysql50#"，且其后还有其他字符，"#mysql50#"将被忽
+          略。
+        ● 如果新旧表名一致，不会报错。
+●   重命名表中指定的列。
+    ALTER TABLE [ IF EXISTS ] { table_name [*] | ONLY table_name | ONLY ( table_name ) }
+      RENAME [ COLUMN ] column_name TO new_column_name;
+
+●   重命名表的约束。
+    ALTER TABLE [ IF EXISTS ] { table_name [*] | ONLY table_name | ONLY ( table_name ) }
+      RENAME CONSTRAINT constraint_name TO new_constraint_name;
+
+●   设置表的所属模式。
+    ALTER TABLE [ IF EXISTS ] table_name
+      SET SCHEMA new_schema;
+
+          说明
+
+        ● 这种形式把表移动到另外一个模式。相关的索引、约束都跟着移动。目前序列不支持改
+          变schema。 若该表拥有序列，需要将序列删除，重建，或者取消拥有关系， 才能将表
+          schema更改成功。
+        ● 要修改一个表的模式，用户必须在新模式上拥有CREATE权限。要把该表添加为一个父
+          表的新子表，用户必须同时又是父表的所有者。要修改所有者，用户还必须是新的所有
+          角色的直接或间接成员，并且该成员必须在此表的模式上有CREATE权限。这些限制规
+          定了该用户不能做出了重建和删除表之外的事情。不过，系统管理员可以以任何方式修
+          改任意表的所有权限。
+        ● 除了RENAME和SET SCHEMA之外所有动作都可以捆绑在一个经过多次修改的列表中并
+          行使用。比如，可以在一个命令里增加几个字段或修改几个字段的类型。对于大表，此
+          种操作带来的效率提升更明显，原因在于只需要对该大表做一次处理。
+        ● 增加一个CHECK或NOT NULL约束将会扫描该表，以保证现有的行符合约束要求。
+        ● 用一个非空缺省值增加一个字段或者改变一个字段的现有类型会重写整个表。对于大表
+          来说，这个操作可能会花很长时间，并且它还临时需要两倍的磁盘空间。
+●   添加多个列。
+[[PDF_PAGE physical=1283 printed=1234]]
+           ALTER TABLE [ IF EXISTS ] table_name
+             ADD ( { column_name data_type [ COLLATE collation ] [ column_constraint [ ... ] ]} [, ...] );
+
+       ●   更新多个列。
+           ALTER TABLE [ IF EXISTS ] table_name
+              MODIFY ( { column_name data_type | column_name [ CONSTRAINT constraint_name ] NOT NULL
+           [ ENABLE ] | column_name [ CONSTRAINT constraint_name ] NULL } [, ...] );
+
+       ●   等待执行该SQL时刻，表上所有的DML事务提交。
+           ALTER TABLE [ IF EXISTS ] table_name GSIWAITALL;
+
+                 说明
+
+                此语法主要用于CREATE GLOBAL INDEX CONCURRENTLY功能内部调用，同步全局二级
+                索引在线创建过程中的锁等待。当前版本不支持全局二级索引，因此不支持此语法。
+
+
+参数说明
+       ●   ONLINE | OFFLINE
+           该关键字用于控制是否开启在线DDL。
+           使用ONLINE | OFFLINE关键字：
+           –    ONLINE：DDL以在线方式执行。此时，若ALTER TABLE语句中包含当前DDL
+                特性不支持的场景时，DDL以离线方式执行，并通过NOTICE提示忽略
+                ONLINE关键字。
+           –    OFFLINE：DDL以离线方式执行。
+                 说明
+
+                ● 在线DDL修改列类型、精度、长度或在线添加非空、检查、主键、唯一约束时，会检查
+                  数据是否满足数据类型转换、长度修改或约束条件。若检查结果为不满足，DDL操作则
+                  会报错。在线DDL可并发DML，可能会出现并发DML将不满足转换或违反约束的数据
+                  删除，但DDL仍然报错的情况。
+                    例如：在线DDL扫描表修改列类型时，若表上元组A的数据并不满足数据转换，在线
+                    DDL的事务扫描到元组A时，会立即报错。如果在同一时间使用并行事务DELETE把元组
+                    A删除，但在线DDL扫描检查的事务早于并行事务DELETE，因此不会认为元组A已被删
+                    除。
+                ● 在线DDL错误故障处理：包含在线DDL修改列类型、精度、长度或在线添加非空、检
+                  查、主键、唯一约束时，系统会自动创建临时模式作为DDL实现工具并将表设置为追加
+                  （append_mode）状态。若在线DDL正常执行完成，则临时模式会自动清理和恢复。
+                  自动清理过程可能由于等锁超时等原因而失败，无法进行自动清理，需要手动清理恢
+                  复。若发生严重故障，如FATAL、PANIC、数据库故障和节点断连等故障时，创建的临
+                  时模式和表的追加状态可能残留，需要手动清理和恢复。包含如下情况：
+                    ●     取消执行在线DDL：执行过程中取消在线DDL，系统会自动清理。用户取消执行
+                          后首先进入残留清理流程，此时如果用户再次取消，则会结束清理流程导致残
+                          留。
+                    ●     操作报错：当DDL命令执行过程中出现需要报错场景，如类型转换无法执行或长
+                          度修改损伤数据等，系统会报错并自动清理。
+                    ●     严重故障：用户待集群正常后通过online_ddl_cleanup()进行手动清理。
+                    ●     对于在线添加主键和唯一约束：若在线创建索引期间发生异常情况（如用户手动
+                          取消、唯一索引键值重复、资源不足、启动线程失败、锁超时等失败场景）导致
+                          在线创建索引失败。这种情况下可能会残留索引以及临时表，占用系统资源，具
+                          体请参见CREATE INDEX章节中CONCURRENTLY对异常情况的处理。
+                ● 不建议在线DDL执行中online_ddl_cleanup()清理操作，可能会导致中止在线DDL或
+                  产生未知错误。
+                ● 在线修改列类型char类型扩展时，不会修改重写底层数据。在线DDL操作后，已有的数
+                  据底层存储仍保有旧的长度，DML带来的新增修改数据的底层存储则会服从扩展长
+                  度。
+[[PDF_PAGE physical=1284 printed=1235]]
+●   online_parameter
+    当指定ONLINE关键字时，用于指定在线DDL选项。若未指定ONLINE关键字或不
+    满足在线DDL的条件，该参数不生效。
+    取值范围：
+    –   parallel_threads：表示开启并行时的线程数。取值范围：1-32之间的整数
+        值，缺省时默认值为1。
+
+        ▪   当parallel_threads设置为大于1时，开启多线程，采用线程数为指定线
+            程数。
+
+        ▪   当不设置parallel_threads或设置1，关闭多线程加速。
+            当用户开启资源负载管理时，比如启用IO资源管理 (如io_limits>0或
+            io_priority = high/medium/low)，parallel_threads将忽略用户/会话下
+            的资源负载管理，并给出提示当前资源负载管理无效并开启多线程加
+            速。在线DDL多线程执行过程实际遵循初始用户的资源负载管理。
+
+        ▪   其中关于索引并行parallel_workers参数和parallel_threads参数共同作用
+            加速时，parallel_workers参数控制（最大）索引内并行线程数，
+            parallel_threads参数控制（最大）索引间并行数。
+    –   max_catchup_times：表示在线DDL的最大追增轮次，防止在线DDL执行时
+        间过长。1-50之间的整数值，缺省时默认值为50。
+
+        ▪   在线DDL会记录数据重建过程中的DML增量数据到临时表，并采用多轮
+            次循环追增，将增量数据进行重建。为防止由于DML并发数据量过大，
+            在线DDL无法完成追增的情况，用户可以设置该参数，以限制追增次
+            数。
+●   IF EXISTS
+    如果不存在相同名称的表，不会抛出一个错误，而会发出一个通知，告知表不存
+    在。
+●   table_name [*] | ONLY table_name | ONLY ( table_name )
+    table_name是需要修改的表名。
+    若声明了ONLY选项，则只有该表被更改。若未声明ONLY，该表及其所有子表都
+    将会被更改。另外，可以在表名称后面显式地增加*选项来指定包括子表，即表示
+    所有后代表都被扫描，这是默认行为。
+●   constraint_name
+    –   在DROP CONSTRAINT操作中表示要删除的现有约束的名称。
+    –   在ADD CONSTRAINT操作中表示新增的约束名称。
+
+
+
+            须知
+
+        对于新增约束，在B模式数据库下（即sql_compatibility = 'B'）
+        constraint_name为可选项，在其他模式数据库下，必须加上
+        constraint_name。
+
+●   index_name
+    索引名称。
+[[PDF_PAGE physical=1285 printed=1236]]
+      须知
+
+    在ADD CONSTRAINT操作中：
+    ● index_name仅在B模式数据库下（即sql_compatibility = 'B'）支持，其他模式
+      数据库下不支持。
+    ● 对于外键约束，constraint_name和index_name同时指定时，索引名为
+      constraint_name。
+    ● 对于唯一键约束，constraint_name和index_name同时指定时，索引名为
+      index_name。
+
+●   USING method
+    指定创建索引的方法。
+    取值范围：请参见CREATE INDEX章节中的USING method。
+
+
+      须知
+
+    在ADD CONSTRAINT操作中：
+    ● USING method仅在B模式数据库下（即sql_compatibility = 'B'）支持，其他模
+      式数据库下不支持。
+    ● 在B模式下，未指定USING method时，对于ASTORE的存储方式，默认索引方
+      法为btree；对于USTORE的存储方式，默认索引方法为ubtree。
+    ● 当表的存储方式为USTORE时，SQL语句中约束指定为using btree，底层会自
+      动将约束建立为using ubtree。
+
+●   ASC | DESC
+    ASC表示指定按升序排序（默认）。DESC指定按降序排序。
+
+
+      须知
+
+    在ADD CONSTRAINT中，ASC | DESC只在B模式数据库（即sql_compatibility =
+    'B'）和M模式数据库（即sql_compatibility = 'M'）下支持，其他模式数据库不支
+    持。M-Compatibility模式数据库的具体行为请参见ALTER TABLE章节。
+
+●   expression
+    创建一个基于该表的一个或多个字段的表达式索引约束，必须写在圆括弧中。
+
+
+      须知
+
+    UNIQUE约束中的表达式索引只在B模式数据库下支持（即sql_compatibility =
+    'B'），其他模式数据库不支持。
+
+●   storage_parameter
+    表的存储参数的名称。
+    透明数据加密选项：
+[[PDF_PAGE physical=1286 printed=1237]]
+–   enable_tde（bool类型）
+    是否将表设置为加密表。本参数仅支持行存表、段页式表、hashbucket表
+    （当前集中式版本暂不支持hashbucket表）、临时表和unlogged表。设置
+    enable_tde=on时，请确保已通过GUC参数enable_tde开启透明加密功能，并
+    通过GUC参数tde_key_info设置访问密钥服务的信息。在《开发指南》中“特
+    性使用指导 > 透明数据加密”章节可获取该参数的详细使用方法。
+    取值范围：on/off。
+    on：表示开启透明数据加密。
+    off：表示关闭透明数据加密。
+         说明
+
+        ● 从on切换为off后，插入或更新数据在写入旧页面时仍加密，写入切换后新生成的
+          页面时会不加密。
+        ● 从off切换为on后，插入或更新数据在写入旧页面时不加密，写入切换后新生成的
+          页面时会自动加密。
+        即：加密开关切换后，生成的新数据页面加密状态与开关切换后状态保持一致，旧数
+        据页面加密状态与开关切换前状态保持一致。建议用户在切换加密开关后，手动对表
+        执行VACUUM FULL操作，使所有数据页面加密状态保持一致。
+    默认值：off
+–   encrypt_algo（string类型）
+    指定加密表的加密算法。
+    取值范围：字符串，有效值为：AES_128_CTR，SM4_CTR、
+    AES_128_CTR_SHA256_HMAC、SM4_CTR_SM3_HMAC或AES_128_GCM。
+    默认值：如果enable_tde=on，GUC参数tde_encrypt_config中子参数
+    table_algorithm不为空，默认值与table_algorithm相同；如果
+    table_algorithm为空，默认值为AES_128_CTR。如果enable_tde=off，默认
+    值为空。
+         说明
+
+        ● 类似于enable_tde，切换encrypt_algo后，插入或更新数据在写入旧页面时仍使
+          用旧加密算法，写入切换后新生成的页面时则使用新加密算法。
+        ● 同样可通过手动对表执行VACUUM FULL操作，使所有数据页面均使用新算法加
+          密。
+创建索引新增一个选项：
+–   parallel_workers（int类型）
+    表示创建索引时起的bgworker线程数量，例如2就表示将会起2个bgworker线
+    程并发创建索引。
+    取值范围：[0,32]，0表示关闭并行建索引。
+    默认值：不设置该参数，表示未开启并行建索引功能。
+–   hasuids（bool类型）
+    默认值：off
+    参数开启：更新表元组时，为元组分配表级唯一标识id。
+–   statistic_granularity
+    记录该表在分析统计信息时的默认partition_mode。partition_mode说明请
+    参见ANALYZE | ANALYSE章节中的PARTITION_MODE，此参数对非分区表
+    设置无效。
+    取值范围：请参见partition_mode取值范围。
+[[PDF_PAGE physical=1287 printed=1238]]
+    默认值：AUTO
+ROWID特性新增选项：
+–   hasrowid
+    指定表是否包含ROWID、ROWNO系统列。设置hasrowid = on时，该表会
+    增加rowid系统列和rowno系统列，且会在rowno系统列上关联创建序列和索
+    引。
+    取值范围：on、off
+    默认值：off
+         说明
+
+        ● 此参数只支持A兼容模式数据库（即sql_compatibility = 'A'）。
+        ● 此参数不支持本地临时表、Unlogged表、全局临时表、物化视图。
+        ● 此参数不支持和hasuids参数同时指定。
+        ● 开启此参数时，不支持定义普通列名为rowno、rowid。
+        ● 不支持通过SET ( {storage_parameter = value} [, ... ] )或RESET
+          ( storage_parameter [, ... ] )子句变更表的hasrowid存储选项为不同值。
+在线DDL新增的选项：
+–   online_ddl_status（枚举类型）
+    本参数用于更新目标表在线DDL执行状态。
+    仅支持在线DDL内部调用，不建议用户使用。
+
+    ▪   on：开启在线DDL状态。
+
+    ▪   off：关闭在线DDL状态。
+
+    ▪   init：进行在线DDL临时对象初始化。
+
+    ▪   catchup：进行在线DDL操作的并发新增数据追增同步。
+
+    ▪   catchup_basedata: 进行在线ddl操作的基础数据同步。
+
+    ▪   scan_catchup：进行在线添加非空/检查约束操作的数据追增。
+
+    ▪   scan_catchup_basedata：进行在线添加非空/检查约束操作的基础数据
+        检查。
+
+    ▪   vacuum_catchup：进行在线VACUUM FULL操作的数据追增。
+
+    ▪   vacuum_verbose_catchup：进行在线VACUUM FULL VERBOSE操作的
+        数据追增。
+
+    ▪   last_catchup：进入在线DDL最后一轮追增的写报错模式。
+
+    ▪   switch：进行在线DDL最后一轮追增的临时表交换。
+
+    ▪   copy_switch：进行在线移动表空间操作最后一轮追增的临时表交换。
+
+    ▪   record_toast_oid：记录在线DDL操作目标表附带的TOAST表的OID。
+
+    ▪   abort：在线DDL进入abort状态。
+[[PDF_PAGE physical=1288 printed=1239]]
+        ▪     flush_buffer：用于在线移动表空间操作中强制buffer落盘。
+
+        ▪     tmp_rel：用于标识该表为在线DDL过程创建的临时表。
+
+        ▪     validate_constr：用于对NOT VALID选项创建的检查类约束进行约束验
+              证
+
+        ▪     vacuum_switch: 进行在线vacuum full最后一轮追增的临时表交换。
+    –   online_ddl_lock_tag（int类型）
+        用于记录在线DDL目标表的唯一标识（“表所在的Schema+表名”的hash
+        值），用于生成临时对象。
+        仅支持在线DDL内部调用，不建议用户使用。
+    VACUUM新增的选项：
+    –   vacuum_truncate
+        表示是否开启表的VACUUM TRUNCATE功能。
+        取值范围：on/off
+        默认值：on
+●   new_owner
+    表新拥有者的名称。
+●   new_tablespace
+    表所属新的表空间名称。
+●   column_name，column_1_name， column_2_name
+    现存的或新字段的名称。
+●   data_type
+    新字段的类型，或者现存字段的新类型。
+●   charset
+    指定表字段的字符集。单独指定时会将字段的字符序设置为指定的字符集的默认
+    字符序。
+    仅在B模式数据库下（即sql_compatibility = 'B'）支持该语法，其他模式数据库不
+    支持。
+●   collation
+    字段排序规则（字符序）名称。可选字段COLLATE指定了新字段的排序规则，如
+    果省略，排序规则为新字段的默认类型。排序规则可以使用“select * from
+    pg_collation;”命令从pg_collation系统表中查询，默认的排序规则为查询结果中
+    以default开始的行。
+    对于B模式数据库下（即sql_compatibility = 'B'）还支持utf8mb4_bin、
+    utf8mb4_general_ci、utf8mb4_unicode_ci、binary、gbk_chinese_ci、
+    gbk_bin、gb18030_chinese_ci、gb18030_bin字符序，部分说明见表字段的字符
+    集说明请参见表1-379。
+[[PDF_PAGE physical=1289 printed=1240]]
+         说明
+
+        ● 仅字符类型支持指定字符集，指定为binary字符集或字符序实际是将字符类型转化为对
+          应的二进制类型，若类型映射不存在则报错。当前仅有TEXT类型转化为BLOB的映射。
+        ● 除binary字符集和字符序外，当前仅支持指定与数据库编码相同的字符集。
+        ● 字段字符集或字符序未显式指定时，若指定了表的默认字符集或字符序，字段字符集和
+          字符序将从表上继承。若表的默认字符集或字符序不存在，当
+          b_format_behavior_compat_options包含‘default_collation’时，字段的字符集和字
+          符序将继承当前数据库的字符集及其对应的默认字符序。
+        ● 当修改的字符集或字符序对应的字符集与当前字段字符集不同时，会将字段中的数据转
+          换为指定的字符集进行编码。
+●   USING expression
+    USING子句声明如何从旧的字段值里计算新的字段值；如果省略，缺省从旧类型
+    向新类型的赋值转换。如果从旧数据类型到新类型没有隐含或者赋值的转换，则
+    必须提供一个USING子句。
+         说明
+
+        ALTER TYPE的USING选项实际上可以声明涉及该行旧值的任何表达式，即它可以引用除了
+        正在被转换的字段之外其他的字段。这样，就可以用ALTER TYPE语法做非常普遍性的转
+        换。因为这个灵活性，USING表达式并没有作用于该字段的缺省值（如果有的话），结果
+        可能不是缺省表达式要求的常量表达式。这就意味着如果从旧类型到新类型没有隐含或者
+        赋值转换的话，即使存在USING子句，ALTER TYPE也可能无法把缺省值转换成新的类型。
+        在这种情况下，应该用DROP DEFAULT先删除缺省，执行ALTER TYPE，然后使用SET
+        DEFAULT增加一个合适的新缺省值。类似的考虑也适用于涉及该字段的索引和约束。
+●   NOT NULL | NULL
+    设置列是否允许空值。
+●   ENABLE
+    表示启动该约束，缺省时默认启用。
+●   integer
+    带符号的整数常值。当使用PERCENT时表示按照表数据的百分比收集统计信息，
+    integer的取值范围为0-100。
+●   attribute_option
+    属性选项。
+●   PLAIN | EXTERNAL | EXTENDED | MAIN
+    字段存储模式。
+    –   PLAIN必须用于定长的数值（比如integer）并且是内联的、不压缩的。
+    –   MAIN用于内联、可压缩的数据。
+    –   EXTERNAL用于外部保存、不压缩的数据。使用EXTERNAL将令在text和
+        bytea字段上的子字符串操作更快，但付出的代价是增加了存储空间。
+    –   EXTENDED用于外部的压缩数据，EXTENDED是大多数支持非PLAIN存储的
+        数据的缺省。
+●   CHECK ( expression )
+    每次将要插入的新行或者将要被更新的行必须使表达式结果为真才能成功，否则
+    会抛出一个异常并且不会修改数据库。
+    声明为字段约束的检查约束应该只引用该字段的数值，而在表约束里出现的表达
+    式可以引用多个字段。
+    目前，CHECK表达式不能包含子查询也不能引用除当前行字段之外的变量。
+[[PDF_PAGE physical=1290 printed=1241]]
+●   DEFAULT default_expr
+    给字段指定缺省值。
+    缺省表达式的数据类型必须和字段类型匹配。
+    缺省表达式将被用于任何未声明该字段数值的插入操作。如果没有指定缺省值则
+    缺省值为NULL 。
+●   ON UPDATE update_expr
+    ON UPDATE子句为字段的一种属性约束。
+    当对表中某元组执行UPDATE操作时，若更新字段的新值和表中旧值不相同，则
+    表中该元组上具有该属性且不在更新字段内的字段值自动更新为当前时间戳；若
+    更新字段的新值和表中旧值相同，则表中该元组上具有该属性且不在更新字段内
+    的字段值不变，保持原有值；若具有该属性的字段在更新字段内，则对应这些字
+    段值直接按指定更新的值更新。
+
+        说明
+
+       ● 该属性支持在B模式库中的5.7版本下指定（即sql_compatibility = 'B'、
+         b_format_version='5.7'、b_format_dev_version='s1'）和PG模式库中指定（升级观察
+         期间不支持该语法）。
+       ● 语法上update_expr支持CURRENT_TIMESTAMP 、LOCALTIMESTAMP 、NOW()三种
+         关键字，也支持关键字带括号指定或不指定精度。三种关键字互为同义词，属性效果相
+         同。例如：ON UPDATE CURRENT_TIMESTAMP( )、ON UPDATE
+         CURRENT_TIMESTAMP(5)、ON UPDATE LOCALTIMESTAMP()、ON UPDATE
+         LOCALTIMESTAMP(6)等。不带括号或空括号时精度为0，其中NOW关键字不支持不带
+         括号。PG模式库中不支持ON UPDATE CURRENT_TIMESTAMP()、ON UPDATE
+         LOCALTIMESTAMP()和ON UPDATE NOW(5)。
+       ● 该属性仅支持在如下类型的列上指定: timestamp、datetime、date、time without
+         time zone、smalldatetime、abstime，其中PG模式库中不支持datetime类型。
+       ● CREATE TABLE AS语法不会继承该列属性。
+       ● CREATE TABLE LIKE语法可通过INCLUDING UPDATE或EXCLUDING UPDATE来选择继
+         承或排除该约束，PG模式库中只支持EXCLUDING UPDATE选项排除该约束。新增
+         INCLUDING ILM选项来复制旧表的ilm策略信息，结合INCLUDING PARTITION选项使
+         用可以复制旧表上分区对象的策略信息。
+       ● 该属性指定的精度和对应列上类型指定的精度可以不一致，通过该属性更新字段值后显
+         示结果按最小精度显示。例如：ALTER TABLE t1 ADD col1 timestamp(6) ON
+         UPDATE CURRENT_TIMESTAMP(3)；若UPDATE语法触发该属性生效，则本次更新后
+         col1字段值小数位显示3位。
+       ● 该属性和生成列约束不能同时指定同一列。
+       ● 分区表中的分区键不支持指定该属性。
+●   COLUMN_ENCRYPTION_KEY = column_encryption_key
+    为ENCRYPTED WITH约束中列加密密钥的名称。
+    取值范围：字符串，要符合标识符命名规范。
+●   ENCRYPTION_TYPE = encryption_type_value
+    为ENCRYPTED WITH约束中的加密类型，encryption_type_value的值为
+    [ DETERMINISTIC | RANDOMIZED ]。
+●   GENERATED ALWAYS AS ( generation_expr ) [STORED]
+    该子句将字段创建为生成列，生成列的值在写入（插入或更新）数据时由
+    generation_expr计算得到，STORED表示像普通列一样存储生成列的值。
+[[PDF_PAGE physical=1291 printed=1242]]
+        说明
+
+        ● STORED关键字可省略，与不省略STORED语义相同。
+        ● 生成表达式不能以任何方式引用当前行以外的其他数据。生成表达式不能引用其他生成
+          列，不能引用系统列。生成表达式不能返回结果集，不能使用子查询，不能使用聚集函
+          数，不能使用窗口函数。生成表达式调用的函数只能是不可变（IMMUTABLE）函数。
+        ● 不能为生成列指定默认值。
+        ● 生成列不能作为分区键的一部分。
+        ● 生成列不能和ON UPDATE约束子句的CASCADE,SET NULL,SET DEFAULT动作同时指
+          定。生成列不能和ON DELETE约束子句的SET NULL,SET DEFAULT动作同时指定。
+        ● 修改和删除生成列的方法和普通列相同。删除生成列依赖的普通列，生成列被自动删
+          除。不能改变生成列所依赖的列的类型。
+        ● 生成列不能被直接写入。在INSERT或UPDATE命令中, 不能为生成列指定值, 但是可以
+          指定关键字DEFAULT。
+        ● 生成列的权限控制和普通列一样。
+        ● 不支持生成列。外表中仅postgres_fdw支持生成列。
+●   GENERATED [ ALWAYS | BY DEFAULT [ ON NULL ] ] AS IDENTITY
+    [ ( identity_options ) ]
+    该子句将列创建为IDENTITY列。会根据identity_options自动创建一个隐式序列附
+    加到指定列，在插入数据时将序列中获取的值自动分配给该列。
+    –   GENERATED [ ALWAYS ] AS IDENTITY：该列仅接受插入由序列生成器提供
+        的IDENTITY值，不能接受用户指定值。
+    –   GENERATED BY DEFAULT AS IDENTITY：该列优先插入用户提供值，若用户
+        不指定值，将插入由序列生成器提供的IDENTITY值。
+    –   GENERATED BY DEFAULT ON NULL AS IDENTITY：该列优先插入用户提供
+        值，若用户指定NULL值或用户不指定值，将插入由序列生成器提供的
+        IDENTITY值。
+    可选的identity_options子句可用于覆盖序列选项。
+    –   increment：指定隐式序列步长。为正数时将生成一个递增的序列，为负数时
+        将生成一个递减的序列，缺省值为1。
+    –   MINVALUE minvalue | NO MINVALUE | NOMINVALUE：执行序列的最小
+        值，如果没有声明minvalue或者声明了NO MINVALUE，则递增序序列缺省
+        值为1，递减序列的缺省值为-10^27+1。NOMINVALUE等价于NO
+        MINVALUE。
+    –   MAXVALUE maxvalue | NO MAXVALUE | NOMAXVALUE：执行序列的最大
+        值，如果没有声明maxvalue或者声明了NO MAXVALUE，则递增序序列缺省
+        值为10^28-1，递减序列的缺省值为-1。NOMAXVALUE等价于NO
+        MAXVALUE。
+    –   [ START { [ WITH ] start | WITH LIMIT VALUE } ]：start为指定隐式序列的
+        起始值。缺省值：对于递增序列为minvalue，递减序列为maxvalue；如果声
+        明START WITH LIMIT VALUE，则将表中的最大（对于递增序列）或最小值
+        （对于递减序列）指定为隐式序列的起始值。
+    –   cache：为了快速访问，而在内存中预先存储序列号的个数。缺省值为1，表
+        示一次只能生成一个值，即没有缓存。
+    –   NOCACHE：未预先存储序列的值。
+    –   CYCLE：用于使序列达到maxvalue或者minvalue后可循环并继续下去。如果
+        声明了NO CYCLE，则在序列达到其最大或最小值之后任何对nextval的调用
+        都会返回一个错误。NOCYCLE等价于NO CYCLE，缺省值为NO CYCLE。
+[[PDF_PAGE physical=1292 printed=1243]]
+    –   SCALE：用于启用序列的可伸缩性。如果指定，则会在序列的开头附加一个
+        数字偏移量，防止生成值中有重复项。如果声明了NOSCALE，则禁止序列的
+        可伸缩性。缺省值为NOSCALE。
+    –   EXTEND：扩展数字偏移量长度（默认值为6），将序列生成值对齐到x（默
+        认为6）+y（最大位数）位，指定EXTEND时必须指定SCALE。如果声明了
+        NOEXTEND，则不扩展数字偏移量长度。缺省值为NOEXTEND。
+
+         说明
+
+        ● IDENTITY列只能为smallint、integer、bigint、decimal、numeric、float、double
+          precision或real数字类型。
+        ● 在A兼容模式下，当创建IDENTITY列为整数数字类型时，将默认创建为numeric数字类
+          型。
+        ● 修改IDENTITY列的字段类型和普通列相同，但仅限于修改为smallint、integer、
+          bigint、decimal、numeric、float、double precision和real数字类型。
+        ● IDENTITY列默认有NOT NULL约束。
+        ● 一张表里只允许有一个IDENTITY列。
+        ● 删除IDENTITY列的方法和删除普通列相同，删除列时，IDENTITY的隐式序列将会被自
+          动删除。
+        ● IDENTITY列不能和SET DEFAULT动作同时指定。
+        ● 自动创建的隐式序列的类型为LARGE SEQUENCE。
+        ● 用户不能执行DROP LARGE SEQUENCE或ALTER LARGE SEQUENCE对IDENTITY的隐
+          式序列进行修改。
+        ● [ SCALE [ EXTEND | NOEXTEND ] | NOSCALE ]子句仅用于A兼容模式的集中式下创建
+          IDENTITY列时可用。
+        ● 在全密态数据库下，不支持创建表时指定加密IDENTITY列。
+●   AUTO_INCREMENT
+    指定列为自动增长列。
+    具体请参见CREATE TABLE章节中的AUTO_INCREMENT。
+●   COMMENT [ = ] 'string'
+    –   COMMENT [ = ] 'string'子句表示给表添加注释。
+    –   在column_constraint中的COMMENT 'string'表示给列添加注释。
+    –   在table_constraint中的COMMENT 'string'表示给主键和唯一键对应的索引添
+        加注释。
+    具体请参见CREATE TABLE章节中的COMMENT [ = ] 'string'。
+●   UNIQUE [KEY] index_parameters
+    UNIQUE KEY只能在B模式数据库下（即sql_compatibility = 'B'）支持使用，与
+    UNIQUE语义相同。
+    UNIQUE约束表示表里的一个或多个字段的组合必须在全表范围内唯一。
+●   UNIQUE [ index_name ][ USING method ]( {{ column_name [ ( length ) ]
+    | ( expression ) } [ ASC | DESC ] }[, ... ] ) index_parameters
+    UNIQUE约束表示表里的一个或多个字段的组合必须在全表范围内唯一。
+    –   column_name (length)为前缀键，具体请参见CREATE INDEX章节的
+        column_name ( length )。
+    –   index_name为索引名。
+[[PDF_PAGE physical=1293 printed=1244]]
+        须知
+
+    ● index_name仅在B模式数据库下（即sql_compatibility = 'B'）支持，其他模式
+      数据库下不支持。
+    ● 对于唯一键约束，constraint_name和index_name同时指定时，索引名为
+      index_name。
+
+●   PRIMARY KEY index_parameters
+    PRIMARY KEY [ USING method ] ( { column_name [ ASC | DESC ] }
+    [, ... ] ） index_parameters
+    主键约束表明表中的一个或者一些字段只能包含唯一（不重复）的非NULL值。
+●   REFERENCES reftable [ ( refcolum ) ] [ MATCH matchtype ] [ ON DELETE
+    action ] [ ON UPDATE action ] (column constraint)
+    FOREIGN KEY ( column_name [, ... ] ) REFERENCES reftable [ ( refcolumn
+    [, ... ] ) ] [ MATCH matchtype ] [ ON DELETE action ] [ ON UPDATE
+    action ] (table constraint)
+    外键约束要求新表中一列或多列构成的组应该只包含、匹配被参考表中被参考字
+    段值。若省略refcolumn，则将使用reftable的主键。被参考列应该是被参考表中
+    的唯一字段或主键。外键约束不能被定义在临时表和永久表之间。
+    参考字段与被参考字段之间存在三种类型匹配，分别是：
+    –   MATCH FULL：不允许一个多字段外键的字段为NULL，除非全部外键字段都
+        是NULL。
+    –   MATCH SIMPLE（缺省）：允许任意外键字段为NULL。
+    –   MATCH PARTIAL：目前暂不支持。
+    另外，当被参考表中的数据发生改变时，某些操作也会在新表对应字段的数据上
+    执行。ON DELETE子句声明当被参考表中的被参考行被删除时要执行的操作。
+    ON UPDATE子句声明当被参考表中的被参考字段数据更新时要执行的操作。对于
+    ON DELETE子句、ON UPDATE子句的可能动作：
+    –   NO ACTION（缺省）：删除或更新时，创建一个表明违反外键约束的错误。
+        若约束可推迟，且若仍存在任何引用行，那这个错误将会在检查约束的时候
+        产生。
+    –   RESTRICT：删除或更新时，创建一个表明违反外键约束的错误。与NO
+        ACTION相同，只是动作不可推迟。
+    –   CASCADE：删除新表中任何引用了被删除行的行，或更新新表中引用行的字
+        段值为被参考字段的新值。
+    –   SET NULL：设置引用字段为NULL。
+    –   SET DEFAULT：设置引用字段为它们的缺省值。
+●   DEFERRABLE | NOT DEFERRABLE
+    这两个关键字用于设置约束是否可推迟。不可推迟的约束将在每条命令执行后立
+    即检查。可推迟约束可以延迟到事务结尾通过SET CONSTRAINTS命令检查，缺省
+    值为NOT DEFERRABLE。目前UNIQUE约束、主键约束、外键约束可以接受该子
+    句，其他约束类型均不可推迟。
+●   INITIALLY IMMEDIATE | INITIALLY DEFERRED
+    若约束可推迟，该子句声明检查约束的缺省时间。不可推迟的约束始终为
+    INITIALLY IMMEDIATE且不可声明为INITIALLY DEFERRED。
+[[PDF_PAGE physical=1294 printed=1245]]
+    –    如果约束是INITIALLY IMMEDIATE（缺省），则在每条语句执行后立即检
+         查。
+    –    如果约束是INITIALLY DEFERRED ，则仅在事务结束时进行检查。
+●   WITH ( {storage_parameter = value} [, ... ] )
+    为表或索引指定一个可选的存储参数。
+●   tablespace_name
+    索引所在表空间的名称。
+●   new_table_name
+    修改后新的表名称。
+●   new_column_name
+    表中指定列修改后新的列名称。
+●   new_constraint_name
+    修改后表约束的新名称。
+●   new_schema
+    修改后新的模式名称。
+●   CASCADE
+    级联删除依赖于被依赖字段或者约束的对象（比如引用该字段的视图）。
+●   RESTRICT
+    如果该列还被其他字段或者约束引用，则拒绝删除该列。RESTRICT为CASCADE的
+    缺省选项，如果未指定则为RESTRICT。语句示例如下：
+    ALTER TABLE table_name [DROP [column] col_name [CASCADE | RESTRICT]];
+    其中：table_name表示表名，col_name表示列名。
+
+●   FIRST
+    新增列或修改列到第一位。
+●   AFTER column_name
+    新增列或修改列到column_name之后。
+         说明
+
+        ● 仅在B模式数据库下（即sql_compatibility = 'B'）支持，其他模式数据库不支持。
+        ● 加密列不支持FIRST | AFTER column_name。
+        ● 有规则依赖的表不支持改变表列的位置（包括新增和修改导致列位置的变化）。
+        ● 外表不支持FIRST | AFTER column_name。
+        ● SET类型的字段不支持修改到指定位置。
+●   schema_name
+    表所在的模式名称。
+●   IF NOT EXISTS
+    如果指定IF NOT EXISTS，如果存在相同名称的列，返回NOTICE提示，告知列已
+    存在。未指定IF NOT EXISTS时，如果存在相同名称的列，返回ERROR报错。
+●   [DEFAULT] CHARACTER SET | CHARSET [ = ] default_charset
+    修改表的默认字符集。单独指定时会将表的默认字符序设置为指定的字符集的默
+    认字符序。
+●   [DEFAULT] COLLATE [ = ] default_collation
+[[PDF_PAGE physical=1295 printed=1246]]
+            修改表的默认字符序。单独指定时会将表的默认字符集设置为指定的字符序对应
+            的字符集。
+            仅在B模式数据库下（即sql_compatibility='B'）支持该语法。字符序请参见表
+            1-379。
+                  说明
+
+                表的字符集或字符序未显式指定时，若指定了模式的默认字符集或字符序，表字符集和字
+                符序将从模式上继承。若模式的默认字符集或字符序不存在，当
+                b_format_behavior_compat_options包含‘default_collation’时，表的字符集和字符序
+                将继承当前数据库的字符集及其对应的默认字符序。
+
+        ●   COLVIEW | NOCOLVIEW
+            声明表为IMCV表或声明表为非IMCV表，详情请参见《开发指南》中“特性使用
+            指导 > HTAP混合负载”章节。
+
+修改表示例
+        ●   重命名表。
+            gaussdb=# CREATE TABLE aa(c1 int, c2 int);
+            gaussdb=# ALTER TABLE IF EXISTS aa RENAME TO test_alt1;
+
+        ●   修改表所属模式。
+            --创建模式test_schema。
+            gaussdb=# CREATE SCHEMA test_schema;
+
+            --把表test_alt1的所属模式修改为test_schema。
+            gaussdb=# ALTER TABLE test_alt1 SET SCHEMA test_schema;
+
+            --查询表信息。
+            gaussdb=# SELECT schemaname,tablename FROM pg_tables WHERE tablename = 'test_alt1';
+             schemaname | tablename
+            -------------+-----------
+             test_schema | test_alt1
+            (1 row)
+
+        ●   修改表的所有者。
+            --创建用户test_user。
+            gaussdb=# CREATE USER test_user PASSWORD '********';
+
+            --修改test_alt1表的所有者为test_user。
+            gaussdb=# ALTER TABLE IF EXISTS test_schema.test_alt1 OWNER TO test_user;
+
+            --查看。
+            gaussdb=# SELECT tablename, schemaname, tableowner FROM pg_tables WHERE tablename =
+            'test_alt1';
+             tablename | schemaname | tableowner
+            -----------+-------------+------------
+             test_alt1 | test_schema | test_user
+            (1 row)
+
+        ●   修改表的表空间。
+            --创建表空间tbs_data1。
+            gaussdb=# CREATE TABLESPACE tbs_data1 RELATIVE LOCATION 'tablespace1/tbs_data1';
+
+            --修改test_alt1表的空间为tbs_data1。
+            gaussdb=# ALTER TABLE test_schema.test_alt1 SET TABLESPACE tbs_data1;
+
+            --查看。
+            gaussdb=# SELECT tablename, tablespace FROM pg_tables WHERE tablename = 'test_alt1';
+             tablename | tablespace
+            -----------+------------
+             test_alt1 | tbs_data1
+            (1 row)
+
+            --创建表
+[[PDF_PAGE physical=1296 printed=1247]]
+            gaussdb=# CREATE TABLE test(c1 int, c2 int);
+            --在线修改test表的空间为tbs_data1。
+            gaussdb=# ALTER TABLE ONLINE test SET TABLESPACE tbs_data1;
+
+            --查看。
+            gaussdb=# SELECT tablename, tablespace FROM pg_tables WHERE tablename = 'test';
+             tablename | tablespace
+            -----------+------------
+             test| tbs_data1
+            (1 row)
+
+            --删除。
+            gaussdb=# DROP TABLE test ;
+            gaussdb=# DROP TABLE test_schema.test_alt1;
+            gaussdb=# DROP TABLESPACE tbs_data1;
+            gaussdb=# DROP SCHEMA test_schema;
+            gaussdb=# DROP USER test_user;
+
+
+修改列示例
+        ●   修改列名。
+            --建表。
+            gaussdb=# CREATE TABLE test_alt2(c1 INT,c2 INT);
+
+            --修改列名。
+            gaussdb=# ALTER TABLE test_alt2 RENAME c1 TO id;
+            gaussdb=# ALTER TABLE test_alt2 RENAME COLUMN c2 to areaid;
+
+            --查看。
+            gaussdb=# \d test_alt2
+               Table "public.test_alt2"
+             Column | Type | Modifiers
+            --------+---------+-----------
+             id    | integer |
+             areaid | integer |
+
+        ●   增加列。
+            --表test_alt2增加列。
+            gaussdb=# ALTER TABLE IF EXISTS test_alt2 ADD COLUMN name VARCHAR(20);
+
+            --查看。
+            gaussdb=# \d test_alt2
+                     Table "public.test_alt2"
+              Column |          Type         | Modifiers
+            ----------+-----------------------+-----------
+             id     | integer            |
+             areaid | integer              |
+             name       | character varying(20) |
+
+        ●   增加AUTO_INCREMENT自增列。
+            --建表，新增自增列。
+            gaussdb=# CREATE DATABASE test DBCOMPATIBILITY = 'B';
+            gaussdb=# \c test
+            test=# CREATE TABLE test_autoinc(col1 int);
+
+            --插入一条数据。
+            test=# INSERT INTO test_autoinc(col1) VALUES(1);
+
+            --添加一个本地自增列，从1开始自增。
+            test=# ALTER TABLE test_autoinc ADD COLUMN col int primary key AUTO_INCREMENT;
+            test=# SELECT col,col1 FROM test_autoinc ORDER BY 2,1;
+             col | col1
+            -----+------
+              1| 1
+            (1 row)
+
+            --将下一个自增值设为10。
+            test=# ALTER TABLE test_autoinc AUTO_INCREMENT = 10;
+[[PDF_PAGE physical=1297 printed=1248]]
+    --NULL触发自增，自增值为10。
+    test=# INSERT INTO test_autoinc(col, col1) VALUES(NULL,2);
+
+    --0触发自增，自增值为11。
+    test=# INSERT INTO test_autoinc(col, col1) VALUES(0,3);
+
+    test=# SELECT col,col1 FROM test_autoinc ORDER BY 2,1;
+     col | col1
+    -----+------
+       1| 1
+      10 | 2
+      11 | 3
+    (3 rows)
+
+    --删除。
+    test=# DROP TABLE test_autoinc;
+
+    --切换至默认数据库（请根据实际情况修改数据库名）。
+    test=# \c postgres;
+    gaussdb=# DROP DATABASE test;
+
+●   修改列的数据类型。
+    --修改test_alt2表中name字段的类型。
+    gaussdb=# ALTER TABLE test_alt2 MODIFY name VARCHAR(50);
+
+    --查看。
+    gaussdb=# \d test_alt2
+             Table "public.test_alt2"
+     Column |         Type          | Modifiers
+    --------+-----------------------+-----------
+     id    | integer            |
+     areaid | integer             |
+     name | character varying(50) |
+
+    --在线修改test_alt2表中name字段的类型。
+    gaussdb=# ALTER TABLE ONLINE test_alt2 MODIFY name VARCHAR(60);
+
+    --查看。
+    gaussdb=# \d test_alt2
+             Table "public.test_alt2"
+     Column |         Type          | Modifiers
+    --------+-----------------------+-----------
+     id    | integer            |
+     areaid | integer             |
+     name | character varying(60) |
+    --修改test_alt2表中name字段的类型。
+    gaussdb=# ALTER TABLE test_alt2 ALTER COLUMN name TYPE VARCHAR(25);
+
+    --查看。
+    gaussdb=# \d test_alt2
+             Table "public.test_alt2"
+     Column |         Type          | Modifiers
+    --------+-----------------------+-----------
+     id    | integer            |
+     areaid | integer             |
+     name | character varying(25) |
+
+    --在线修改test_alt2表中name字段的类型。
+    gaussdb=# ALTER TABLE ONLINE test_alt2 ALTER COLUMN name TYPE VARCHAR(35);
+
+    --查看。
+    gaussdb=# \d test_alt2
+             Table "public.test_alt2"
+     Column |         Type          | Modifiers
+    --------+-----------------------+-----------
+     id    | integer            |
+     areaid | integer             |
+     name | character varying(35) |
+
+●   删除列。
+[[PDF_PAGE physical=1298 printed=1249]]
+    --删除test_alt2中areaid字段。
+    gaussdb=# ALTER TABLE test_alt2 DROP COLUMN areaid;
+
+    --查看。
+    gaussdb=# \d test_alt2
+             Table "public.test_alt2"
+     Column |         Type         | Modifiers
+    --------+-----------------------+-----------
+     id    | integer            |
+     name | character varying(25) |
+
+●   修改列的存储模式
+    --查看表详细信息。
+    gaussdb=# \d+ test_alt2
+                           Table "public.test_alt2"
+     Column |         Type         | Modifiers | Storage | Stats target | Description
+    --------+-----------------------+-----------+----------+--------------+-------------
+     id    | integer            |        | plain |            |
+     name | character varying(25) |              | extended |            |
+    Has OIDs: no
+    Options: orientation=row, compression=no, storage_type=USTORE, segment=off
+
+    --修改test_alt2表中name字段的存储模式。
+    gaussdb=# ALTER TABLE test_alt2 ALTER COLUMN name SET STORAGE PLAIN;
+
+    --查看。
+    gaussdb=# \d+ test_alt2
+                           Table "public.test_alt2"
+     Column |         Type         | Modifiers | Storage | Stats target | Description
+    --------+-----------------------+-----------+---------+--------------+-------------
+     id    | integer            |        | plain |           |
+     name | character varying(25) |              | plain |            |
+    Has OIDs: no
+    Options: orientation=row, compression=no, storage_type=USTORE, segment=off
+
+    --删除。
+    gaussdb=# DROP TABLE test_alt2;
+
+●   修改字段到指定位置
+    --创建B模式数据库。
+    gaussdb=# CREATE DATABASE test DBCOMPATIBILITY 'B';
+
+    --连接至test数据库并创建表tbl_test。
+    gaussdb=# \c test
+    test=# CREATE TABLE tbl_test(id int, name varchar(20));
+
+    --修改tbl_test表中字段name类型，并指定位置到最前面。
+    test=# ALTER TABLE tbl_test MODIFY COLUMN name varchar(25) FIRST;
+
+    --查看。
+    test=# \d tbl_test;
+             Table "public.tbl_test"
+     Column |         Type         | Modifiers
+    --------+-----------------------+-----------
+     name | character varying(25) |
+     id    | integer            |
+
+    --修改tbl_test字段name的类型，并指定位置在id字段的后面。
+    test=# ALTER TABLE tbl_test MODIFY COLUMN name varchar(10) AFTER id;
+
+    --查看。
+    test=# \d tbl_test;
+             Table "public.tbl_test"
+     Column |         Type         | Modifiers
+    --------+-----------------------+-----------
+     id    | integer            |
+     name | character varying(10) |
+
+    --删除表tbl_test。
+    test=# DROP TABLE tbl_test;
+[[PDF_PAGE physical=1299 printed=1250]]
+             --切换至默认数据库删除数据库test(根据实际情况切换至相应的数据库)。
+             test=# \c postgres
+             gaussdb=# DROP DATABASE test;
+
+
+修改约束示例
+         ●   为列添加非空约束。
+             --建表。
+             gaussdb=# CREATE TABLE test_alt3(pid INT, areaid CHAR(5), name VARCHAR(20));
+
+             --为pid添加非空约束。
+             gaussdb=# ALTER TABLE test_alt3 MODIFY pid NOT NULL;
+
+             --查看。
+             gaussdb=# \d test_alt3
+                     Table "public.test_alt3"
+              Column |         Type          | Modifiers
+             --------+-----------------------+-----------
+              pid | integer               | not null
+              areaid | character(5)           |
+              name | character varying(20) |
+
+             --取消列的非空约束。
+             gaussdb=# ALTER TABLE test_alt3 MODIFY pid NULL;
+
+             --在线为pid添加非空约束。
+             gaussdb=# ALTER TABLE ONLINE test_alt3 MODIFY pid NOT NULL;
+
+             --查看。
+             gaussdb=# \d test_alt3
+                     Table "public.test_alt3"
+              Column |         Type          | Modifiers
+             --------+-----------------------+-----------
+              pid | integer               | not null
+              areaid | character(5)           |
+              name | character varying(20) |
+
+         ●   取消列的非空约束。
+             gaussdb=# ALTER TABLE test_alt3 MODIFY pid NULL;
+             --查看。
+             gaussdb=# \d test_alt3
+                     Table "public.test_alt3"
+              Column |         Type         | Modifiers
+             --------+-----------------------+-----------
+              pid | integer               |
+              areaid | character(5)          |
+              name | character varying(20) |
+
+         ●   修改字段默认值。
+             --修改test_alt3表中id的默认值。
+             gaussdb=# ALTER TABLE test_alt3 ALTER COLUMN areaid SET DEFAULT '00000';
+
+             --查看。
+             gaussdb=# \d test_alt3
+                          Table "public.test_alt3"
+              Column |         Type         |       Modifiers
+             --------+-----------------------+-------------------------
+              pid | integer               |
+              areaid | character(5)           | default '00000'::bpchar
+              name | character varying(20) |
+             --删除id的默认值。
+             gaussdb=# ALTER TABLE test_alt3 ALTER COLUMN areaid DROP DEFAULT;
+
+             --查看。
+             gaussdb=# \d test_alt3
+                     Table "public.test_alt3"
+              Column |         Type         | Modifiers
+             --------+-----------------------+-----------
+[[PDF_PAGE physical=1300 printed=1251]]
+    pid | integer          |
+    areaid | character(5)    |
+    name | character varying(20) |
+
+●   添加表级约束。
+    –    直接添加约束。
+         --给表添加主键约束。
+         gaussdb=# ALTER TABLE test_alt3 ADD CONSTRAINT pk_test3_pid PRIMARY KEY (pid);
+
+         --查看。
+         gaussdb=# \d test_alt3
+                 Table "public.test_alt3"
+          Column |         Type          | Modifiers
+         --------+-----------------------+-----------
+          pid | integer               | not null
+          areaid | character(5)           |
+          name | character varying(20) |
+         Indexes:
+            "pk_test3_pid" PRIMARY KEY, ubtree (pid) WITH (storage_type=USTORE) TABLESPACE
+         pg_default
+
+         --删除表
+         gaussdb=# DROP TABLE IF EXISTS test_alt3;
+
+         --建表。
+         gaussdb=# CREATE TABLE test_alt3(pid INT, areaid CHAR(5), name VARCHAR(20));
+
+         --在线给表添加主键约束。
+         gaussdb=# ALTER TABLE ONLINE test_alt3 ADD CONSTRAINT pk_test3_pid PRIMARY KEY (pid);
+
+         --查看。
+         gaussdb=# \d test_alt3
+                 Table "public.test_alt3"
+          Column |         Type          | Modifiers
+         --------+-----------------------+-----------
+          pid | integer               | not null
+          areaid | character(5)           |
+          name | character varying(20) |
+         Indexes:
+            "pk_test3_pid" PRIMARY KEY, ubtree (pid) WITH (storage_type=USTORE) TABLESPACE
+         pg_default
+    –    先创建索引然后再添加约束。
+         --建表。
+         gaussdb=# CREATE TABLE test_alt4(c1 INT, c2 INT);
+
+         --建索引。
+         gaussdb=# CREATE UNIQUE INDEX pk_test4_c1 ON test_alt4(c1);
+
+         --添加约束时关联已经创建的索引。
+         gaussdb=# ALTER TABLE test_alt4 ADD CONSTRAINT pk_test4_c1 PRIMARY KEY USING INDEX
+         pk_test4_c1;
+
+         --查看。
+         gaussdb=# \d test_alt4
+           Table "public.test_alt4"
+          Column | Type | Modifiers
+         --------+---------+-----------
+          c1    | integer | not null
+          c2    | integer |
+         Indexes:
+            "pk_test4_c1" PRIMARY KEY, ubtree (c1) WITH (storage_type=USTORE) TABLESPACE
+         pg_default
+
+         --删除。
+         gaussdb=# DROP TABLE test_alt4;
+
+●   删除表级约束。
+    --删除约束。
+    gaussdb=# ALTER TABLE test_alt3 DROP CONSTRAINT IF EXISTS pk_test3_pid;
+[[PDF_PAGE physical=1301 printed=1252]]
+           --查看。
+           gaussdb=# \d test_alt3
+                   Table "public.test_alt3"
+            Column |         Type          | Modifiers
+           --------+-----------------------+-----------
+            pid | integer               | not null
+            areaid | character(5)           |
+            name | character varying(20) |
+
+           --删除。
+           gaussdb=# DROP TABLE test_alt3;
+
+           --删除主键约束（该语法仅在A兼容模式以及B兼容模式下支持使用）。
+           gaussdb=# CREATE TABLE test_drop_primary_key (id int PRIMARY KEY);
+           NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "test_drop_primary_key_pkey" for
+           table "test_drop_primary_key"
+           CREATE TABLE
+           gaussdb=# \d test_drop_primary_key
+           Table "public.test_drop_primary_key"
+            Column | Type | Modifiers
+           --------+---------+-----------
+            id    | integer | not null
+           Indexes:
+               "test_drop_primary_key_pkey" PRIMARY KEY, ubtree (id) WITH (storage_type=USTORE)
+           TABLESPACE pg_default
+
+           gaussdb=# ALTER TABLE test_drop_primary_key DROP PRIMARY KEY;
+           ALTER TABLE
+           gaussdb=# \d test_drop_primary_key
+           Table "public.test_drop_primary_key"
+            Column | Type | Modifiers
+           --------+---------+-----------
+            id    | integer | not null
+
+           gaussdb=# DROP TABLE test_drop_primary_key;
+           DROP TABLE
+
+       ●   重命名约束。
+           --创建表tbl_test1,指定主键约束。
+           gaussdb=# CREATE TABLE tbl_test1(
+              id int,
+              name varchar(50),
+              CONSTRAINT aaa PRIMARY KEY (id)
+           );
+
+           --重命名约束。
+           gaussdb=# ALTER TABLE tbl_test1 RENAME CONSTRAINT aaa TO pk_test1_id;
+
+           --查看信息。
+           gaussdb=# \d tbl_test1;
+                    Table "public.tbl_test1"
+            Column |         Type         | Modifiers
+           --------+-----------------------+-----------
+            id    | integer            | not null
+            name | character varying(50) |
+           Indexes:
+               "pk_test1_id" PRIMARY KEY, ubtree (id) WITH (storage_type=USTORE) TABLESPACE pg_default
+
+           --删除表。
+           gaussdb=# DROP TABLE tbl_test1;
+
+
+相关链接
+       CREATE TABLE，DROP TABLE

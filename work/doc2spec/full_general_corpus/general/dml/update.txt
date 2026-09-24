@@ -1,0 +1,432 @@
+[[PDF_PAGE physical=1880 printed=1831]]
+1.13.21.1 UPDATE
+
+功能描述
+            更新表中的数据，UPDATE对满足条件的所有行中指定的字段值进行修改；WHERE子
+            句表示声明条件；SET子句中指定的字段将会被修改，没有出现的字段则保持原有的字
+            段值。
+
+注意事项
+            ●     表的所有者、拥有表UPDATE权限的用户或拥有UPDATE ANY TABLE权限的用
+                  户，皆有权限更新表中的数据，当三权分立开关关闭时，系统管理员默认拥有此
+                  权限。
+            ●     对expression或condition条件里涉及到的任何表需要有SELECT权限。
+            ●     生成列不能被直接写入。在UPDATE命令中不能为生成列指定值，但是可以指定
+                  关键字DEFAULT。
+            ●     对于多表更新语法，暂时不支持对视图及含有RULE的表进行多表更新。
+            ●     对于子查询是STREAM计划的UPDATE语句，不支持并发更新同一行。
+            ●     不支持用户通过UPDATE系统表的方式对数据库字符编码进行修改，该操作会导
+                  致存在存量数据或其他部分操作异常的情况。如需更改数据库的字符集编码，应
+                  当遵循切换数据库流程，进行相关的数据迁移操作。
+
+语法格式
+            单表更新：
+            [ WITH [ RECURSIVE ] with_query [, ...] ]
+            UPDATE [/*+ plan_hint */] [ ONLY ] {table_name [ partition_clause ] | subquery | view_name} [ * ] [ [ AS ]
+            alias ]
+            SET {column_name = { expression | DEFAULT }
+               |( column_name [, ...] ) = {( { expression | DEFAULT } [, ...] ) |sub_query }}[, ...]
+               [ FROM from_list] [ WHERE condition | WHERE CURRENT OF cursor_name ]
+               [ ORDER BY {expression [ [ ASC | DESC | USING operator ]
+               [ LIMIT { count } ]
+               [ RETURNING {*
+                       | {output_expression [ [ AS ] output_name ]} [, ...] }];
+
+            多表更新：
+            [ WITH [ RECURSIVE ] with_query [, ...] ]
+            UPDATE [/*+ plan_hint */] table_list
+            SET {column_name = { expression | DEFAULT }
+               |( column_name [, ...] ) = {( { expression | DEFAULT } [, ...] ) |sub_query }}[, ...]
+               [ FROM from_list] [ WHERE condition ];
+
+            where sub_query can be:
+            SELECT [ ALL | DISTINCT [ ON ( expression [, ...] ) ] ]
+[[PDF_PAGE physical=1881 printed=1832]]
+       { * | {expression [ [ AS ] output_name ]} [, ...] }
+       [ FROM from_item [, ...] ]
+       [ WHERE condition ]
+       [ GROUP BY grouping_element [, ...] ]
+       [ HAVING condition [, ...] ]
+       [ ORDER BY {expression [ [ ASC | DESC | USING operator ] | nlssort_expression_clause ] [ NULLS { FIRST |
+       LAST } ]} [, ...] ]
+       [ LIMIT { [offset,] count | ALL } ]
+
+       ●    其中子查询with_query为：
+            with_query_name [ ( column_name [, ...] ) ]
+               AS [ [ NOT ] MATERIALIZED ] ( {select | values | insert | update | delete} )
+
+       ●    subquery为：
+            [ WITH [ RECURSIVE ] with_query [, ...] ]
+            SELECT [/*+ plan_hint */] [ ALL ]
+            { * | {expression [ [ AS ] output_name ]} [, ...] }
+            [ into_option ]
+            [ FROM from_item [, ...] ]
+            [ WHERE condition ]
+            [ [ START WITH condition ] CONNECT BY [NOCYCLE] condition [ ORDER SIBLINGS BY expression ] ]
+            [ ORDER BY {expression [ [ ASC | DESC | USING operator ] | nlssort_expression_clause ] [ NULLS
+            { FIRST | LAST } ]} [, ...] ]
+            [ FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } ONLY ]
+            [ into_option ];
+
+       ●    其中指定子查询源from_item为：
+            {[ ONLY ] {table_name | view_name} [ * ] [ partition_clause ] [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+            |( select ) [ AS ] alias [ ( column_alias [, ...] ) ]
+            |with_query_name [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+            |from_item [ NATURAL ] join_type from_item [ ON join_condition | USING ( join_column [, ...] ) ]}
+
+       ●    partition_clause为：
+            PARTITION { ( { partition_name | subpartition_name } [, ...] ) | FOR ( partition_value [, ...] ) } |
+            SUBPARTITION { ( subpartition_name ) | FOR ( subpartition_value [, ...] )}
+
+
+参数说明
+       ●    WITH [ RECURSIVE ] with_query [, ...]
+            用于声明一个或多个可以在主查询中通过名称引用的子查询，相当于临时表。这
+            种子查询语句结构称为CTE（Common Table Expression）结构，应用这种结构
+            时，执行计划中将存在CTE SCAN的内容。
+            如果声明了RECURSIVE，那么允许SELECT子查询通过名称引用它自己。
+            –     with_query_name指定子查询生成的结果集名称，在查询中可使用该名称访
+                  问子查询的结果集。
+            –     column_name指定子查询结果集中显示的列名。
+            –     每个子查询可以是SELECT、VALUES、INSERT、UPDATE或DELETE语句。
+            –     用户可以使用MATERIALIZED或NOT MATERIALIZED对CTE进行修饰。
+
+                  ▪     如果声明为MATERIALIZED，WITH查询将被物化，生成一个子查询结果
+                        集的复制，在引用处直接查询该复制，因此WITH子查询无法和主干
+                        SELECT语句进行联合优化（如谓词下推、等价类传递等），对于此类场
+                        景可以使用NOT MATERIALIZED进行修饰，如果WITH查询语义上可以
+                        作为子查询内联执行，则可以进行上述优化。
+
+                  ▪     如果用户没有显示声明物化属性则遵守以下规则：如果CTE只在所属
+                        SELECT主干中被引用一次，且语义上支持内联执行，则会被改写为子查
+                        询内联执行，否则以CTE Scan的方式物化执行。
+       ●    plan_hint
+[[PDF_PAGE physical=1882 printed=1833]]
+    以/*+ */的形式在UPDATE关键字后，用于对UPDATE对应的语句块生成的计划进
+    行hint调优。每条语句中只有第一个/*+ plan_hint */注释块会作为hint生效，里面
+    可以写多条hint。
+●   table_name
+    要更新的表名，可以使用模式修饰。如果在表名前指定了ONLY，只会更新表中匹
+    配的行。如果未指定，任何从该表继承到的表中的匹配行也会被更新。
+    取值范围：已存在的表名称。
+
+         说明
+
+       支持使用DATABASE LINK方式对远端表进行操作，具体的使用方式请参见《开发指南》中
+       “特性使用指导 > DATABASE LINK”章节。
+●   subquery
+    要更新的子查询，在对子查询进行更新时，会将子查询当成一个临时视图，支持
+    在子查询后面加CHECK OPTION选项。
+    如果子查询中只有一张表，则对该表更新数据；如果子查询中有多张表或有嵌套
+    关系，则通过判断是否有保留键表确定是否可更新。关于保留键表和WITH
+    CHECK OPTION请参见CREATE VIEW。
+●   view_name
+    要更新的目标视图。
+
+         说明
+
+       对视图和子查询的更新，有如下约束：
+       ● 只有直接引用基表用户列的列可进行UPDATE操作。
+       ● 子查询或视图必须至少包含一个可更新列，关于可更新列请参见CREATE VIEW。
+       ● 不支持在顶层包含DISTINCT、GROUP BY、HAVING、LIMIT、OFFSET子句的视图和子
+         查询。
+       ● 不支持在顶层包含集合运算（UNION、INTERSECT、EXCEPT、MINUS）的视图和子查
+         询。
+       ● 不支持目标列表中包含聚集函数、窗口函数、返回集合函数（array_agg、json_agg、
+         generate_series等）的视图和子查询。
+       ● 不支持仅带有BEFORE/AFTER触发器，没有INSTEAD OF触发器或INSTEAD规则的视
+         图。
+       ● 视图和子查询中支持的表类型包括普通表、临时表、全局临时表、分区表、二级分区
+         表、ustore表、astore表。
+       ● 多表连接视图或连接子查询中一次只能更新一张基表。
+       ● 连接视图或子查询只能更新保留键表，如果指定了CHECK OPTION选项，则无法对连
+         接列做更新操作。关于保留键表请参见CREATE VIEW。
+       ● 不支持更新系统视图。
+●   partition_clause
+    指定分区更新操作
+    PARTITION { ( { partition_name | subpartition_name } [, ...] ) | FOR
+    ( partition_value [, ...] ) } |
+    SUBPARTITION { ( subpartition_name ) | FOR ( subpartition_value [, ...] ) }
+    关键字请参见SELECT。
+    示例请参见CREATE TABLE SUBPARTITION。
+[[PDF_PAGE physical=1883 printed=1834]]
+            说明
+
+        PARTITION指定多个分区名时，一级分区名和二级分区名可同时存在，且可以存在相同的
+        分区名，最终分区范围取其并集。
+●   alias
+    目标表的别名。
+    取值范围：字符串，要符合标识符命名规范。
+●   table_list
+    一个表的表达式列表，与from_list类似，但可以同时声明目标表和关联表，仅在
+    多表更新语法中使用，table_list的item可以是subquery。
+●   column_name
+    要修改的字段名。
+    支持使用目标表的别名加字段名来引用这个字段。例如：UPDATE foo AS f SET
+    f.col_name = 'namecol'。
+    取值范围：已存在的字段名。
+●   expression
+    赋给字段的值或表达式。
+●   DEFAULT
+    用对应字段的缺省值填充该字段。
+    如果没有缺省值，则为NULL。
+●   sub_query
+    子查询。
+    使用同一数据库里其他表的信息来更新一个表可以使用子查询的方法。其中
+    SELECT子句具体介绍请参考SELECT。
+    在update单列时，支持使用order by子句与limit子句；而在update多列时，则不
+    支持使用order by子句与limit子句。
+            说明
+
+        ● 当使用子查询更新多个列时，如果关闭GUC参数enable_shared_set_update开关，则优
+          化器会为每个被更新列分别生成一个subplan；开启GUC参数
+          enable_shared_set_update开关时，多个列可以共享使用一个subplan以提升查询效
+          率，减少查询优化和执行开销。此GUC设置请联系管理员。
+        ● 使用子查询更新多个列时，不推荐在子查询的targetlist中使用*代替具体的列名。请明
+          确指定列名，否则可能导致更新列不明确。
+        ● 当SET子句中子查询的WHERE语句使用“+”操作符时，需在兼容性参数
+          behavior_compat_options中增加配置项enable_ora_joinop_in_updatestmt才能生效。
+●   from_list
+    一个表的表达式列表，允许在WHERE条件里使用其他表的字段。与在一个SELECT
+    语句的FROM子句里声明表列表类似。
+
+
+       须知
+
+    目标表不能出现在from_list里，除非在使用一个自连接（此时它必须以from_list
+    的别名出现）。
+[[PDF_PAGE physical=1884 printed=1835]]
+     ●   condition
+         一个返回Boolean类型结果的表达式。只有这个表达式返回true的行才会被更新。
+         不建议使用int等数值类型作为condition，因为int等数值类型可以隐式转换为
+         Boolean值（非0值隐式转换为true，0转换为false），可能导致非预期的结果。
+     ●   WHERE CURRENT OF cursor_name
+         当cursor指向表的某一行时，可以使用此语法更新cursor当前指向的行。
+         cursor_name：指定游标的名称。
+
+
+             须知
+
+         ● B兼容模式的数据库不支持使用此语法。
+         ● 此语法仅支持普通表，不支持分区表。
+         ● 仅支持在存储过程中使用。
+         ● 不支持与其他WHERE条件组合使用。
+         ● 不支持多表更新。
+         ● 不支持与WITH、USING、ORDER BY、FROM组合使用。
+         ● CURSOR对应的SELECT语句必须声明为FOR UPDATE。
+         ● CURSOR对应的SELECT语句仅支持单表，不支持LIMIT/OFFSET，不支持带有
+           子查询、子链接。
+         ● 存储过程中声明为FOR UPDATE的CURSOR，在COMMIT/ROLLBACK后，将无
+           法再次使用。
+         ● 若cursor指向的行已经不存在，在A兼容性模式下将报错指定的行不存在（仅
+           UPDATE时报错，DELETE不报错），其他兼容模式下不报错。
+
+     ●   ORDER BY
+         请参见SELECT章节介绍。
+     ●   LIMIT
+         请参见SELECT章节介绍。
+     ●   RETURNING output_expression
+         在所有需要更新的行都被更新之后，UPDATE命令用于计算返回值的表达式。
+         取值范围：使用任何TABLE以及FROM中列出的表的字段。*表示返回所有字段。
+     ●   output_name
+         字段的返回名称。
+
+示例
+     ●   修改表中所有数据。
+         --创建tbl_test1表并插入数据。
+         gaussdb=# CREATE TABLE tbl_test1(id int, info varchar(10));
+         gaussdb=# INSERT INTO tbl_test1 VALUES (1, 'A'), (2, 'B');
+
+         --查询。
+         gaussdb=# SELECT * FROM tbl_test1;
+          id | info
+         ----+------
+           1|A
+           2|B
+[[PDF_PAGE physical=1885 printed=1836]]
+    (2 rows)
+
+    --修改tbl_test1表中所有数据的info列。
+    gaussdb=# UPDATE tbl_test1 SET info = 'aa';
+
+    --查询tbl_test1表。
+    gaussdb=# SELECT * FROM tbl_test1;
+     id | info
+    ----+------
+      1 | aa
+      2 | aa
+    (2 rows)
+
+●   修改表中部分数据。
+    --修改tbl_test1表中id=2的数据。
+    gaussdb=# UPDATE tbl_test1 SET info = 'bb' WHERE id = 2;
+
+    --查询tbl_test1表。
+    gaussdb=# SELECT * FROM tbl_test1;
+     id | info
+    ----+------
+      1 | aa
+      2 | bb
+    (2 rows)
+
+●   修改数据，并返回修改后的数据。
+    --修改tbl_test1表中id=1的数据，并指定返回info列。
+    gaussdb=# UPDATE tbl_test1 SET info = 'ABC' WHERE id = 1 RETURNING info;
+     info
+    ------
+     ABC
+    (1 row)
+
+    UPDATE 1
+
+    --删除tbl_test1表。
+    gaussdb=# DROP TABLE tbl_test1;
+
+●   使用子查询，在修改数据的同时，根据已有数据，插入新的数据。
+    --建表。
+    gaussdb=# CREATE TABLE test_grade (
+       sid int,        --学号
+       name varchar(50),     --姓名
+       score char,       --成绩
+       examtime date,       --考试时间
+       last_exam boolean     --是否是最后一次考试
+    );
+
+    --插入数据。
+    gaussdb=# INSERT INTO test_grade VALUES (1,'Scott','A','2008-07-08',1),(2,'Ben','D','2008-07-08',1),
+    (3,'Jack','D','2008-07-08',1);
+
+    --查询。
+    gaussdb=# SELECT * FROM test_grade;
+     sid | name | score | examtime | last_exam
+    -----+-------+-------+------------+-----------
+       3 | Jack | D    | 2008-07-08 | t
+       1 | Scott | A   | 2008-07-08 | t
+       2 | Ben | D      | 2008-07-08 | t
+    (3 rows)
+
+    --2008-08-25 Ben参加了补考,成绩为B，正常步骤需要先修改last_exam为否,然后插入2008-08-25这一天
+    的成绩。
+    gaussdb=# WITH old_exam AS ( UPDATE test_grade SET last_exam = 0 WHERE sid = 2 AND
+    examtime = '2008-07-08' RETURNING sid, name )
+                 INSERT INTO test_grade VALUES ( ( SELECT sid FROM old_exam ), ( SELECT name FROM
+    old_exam ), 'B', '2008-08-25', 1 );
+
+    --查询。
+    gaussdb=# SELECT * FROM test_grade;
+[[PDF_PAGE physical=1886 printed=1837]]
+     sid | name | score | examtime | last_exam
+    -----+-------+-------+------------+-----------
+       3 | Jack | D    | 2008-07-08 | t
+       1 | Scott | A   | 2008-07-08 | t
+       2 | Ben | D      | 2008-07-08 | f
+       2 | Ben | B     | 2008-08-25 | t
+    (4 rows)
+
+    --删除。
+    gaussdb=# DROP TABLE test_grade;
+●   更新视图或子查询
+    示例1：更新子查询
+    --创建SCHEMA
+    gaussdb=# CREATE SCHEMA upd_subqry;
+    CREATE SCHEMA
+    gaussdb=# SET CURRENT_SCHEMA = 'upd_subqry';
+    SET
+
+    --创建表并插入数据
+    gaussdb=# CREATE TABLE t1 (x1 int, y1 int);
+    CREATE TABLE
+    gaussdb=# CREATE TABLE t2 (x2 int PRIMARY KEY, y2 int);
+    NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "t2_pkey" for table "t2"
+    CREATE TABLE
+    gaussdb=# INSERT INTO t1 VALUES (1, 1), (2, 2), (3, 3), (5, 5);
+    INSERT 0 4
+    gaussdb=# INSERT INTO t2 VALUES (1, 1), (2, 2), (3, 3), (5, 5);
+    INSERT 0 4
+
+    --通过子查询更新t1
+    gaussdb=# UPDATE (SELECT * FROM t1) SET y1 = 13 where y1 = 3;
+    UPDATE 1
+    gaussdb=# UPDATE (SELECT * FROM t1 WHERE y1 < 2) SET y1 = 12 WHERE y1 = 2;
+    UPDATE 0
+
+    --插入子查询带READ ONLY
+    gaussdb=# UPDATE (SELECT * FROM t1 WITH READ ONLY) SET y1 = 1 WHERE y1 = 11;
+    ERROR: DML operation cannot be performed on a read-only view.
+
+    --插入多表连接的子查询
+    gaussdb=# UPDATE (SELECT * FROM t1, t2 WHERE x1 = x2) SET y1 = 11 WHERE y2 = 1;
+    UPDATE 1
+
+    --插入带CHECK OPTION的多表连接子查询，连接列x1, x2不可更新
+    gaussdb=# UPDATE (SELECT * FROM t1, t2 WHERE x1 = x2 WITH CHECK OPTION) SET y1 = 1 WHERE
+    y2 = 1;
+    UPDATE 1
+    gaussdb=# UPDATE (SELECT * FROM t1, t2 WHERE x1 = x2 WITH CHECK OPTION) SET x1 = 6 WHERE
+    y2 = 5;
+    ERROR: This operation is not allowed on virtual column.
+
+    --删除SCHEMA
+    gaussdb=# RESET CURRENT_SCHEMA;
+    RESET
+    gaussdb=# DROP SCHEMA upd_subqry CASCADE;
+    NOTICE: drop cascades to 2 other objects
+    DETAIL: drop cascades to table upd_subqry.t1
+    drop cascades to table upd_subqry.t2
+    DROP SCHEMA
+
+    示例2： 更新视图
+    --创建SCHEMA
+    gaussdb=# CREATE SCHEMA upd_view;
+    CREATE SCHEMA
+    gaussdb=# SET CURRENT_SCHEMA = 'upd_view';
+    SET
+
+    --创建表并插入数据
+[[PDF_PAGE physical=1887 printed=1838]]
+gaussdb=# CREATE TABLE t1 (x1 int, y1 int);
+CREATE TABLE
+gaussdb=# CREATE TABLE t2 (x2 int PRIMARY KEY, y2 int);
+NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "t2_pkey" for table "t2"
+CREATE TABLE
+gaussdb=# INSERT INTO t1 VALUES (1, 1), (2, 2), (3, 3), (5, 5);
+INSERT 0 4
+gaussdb=# INSERT INTO t2 VALUES (1, 1), (2, 2), (3, 3), (5, 5);
+INSERT 0 4
+
+--创建单表视图
+gaussdb=# CREATE VIEW v_upd1 AS SELECT * FROM t1;
+CREATE VIEW
+gaussdb=# CREATE VIEW v_upd_read AS SELECT * FROM t1 WITH READ ONLY;
+CREATE VIEW
+
+--通过视图对t1更新
+gaussdb=# UPDATE v_upd1 SET y1 = 13 where y1 = 3;
+UPDATE 1
+gaussdb=# UPDATE v_upd_read SET y1 = 1 WHERE y1 = 11;
+ERROR: DML operation cannot be performed on a read-only view.
+
+--创建多表视图
+gaussdb=# CREATE VIEW vv_upd AS SELECT * FROM t1, t2 WHERE x1 = x2;
+CREATE VIEW
+gaussdb=# CREATE VIEW vv_upd_wco AS SELECT * FROM t1, t2 WHERE x1 = x2 WITH CHECK OPTION;
+CREATE VIEW
+
+--通过连接视图对t1更新
+gaussdb=# UPDATE vv_upd SET y1 = 1 WHERE y2 = 1;
+UPDATE 1
+gaussdb=# UPDATE vv_upd_wco SET x1 = 6 WHERE y2 = 5;
+ERROR: This operation is not allowed on virtual column.
+
+--删除SCHEMA
+gaussdb=# RESET CURRENT_SCHEMA;
+RESET
+gaussdb=# DROP SCHEMA upd_view CASCADE;
+NOTICE: drop cascades to 6 other objects
+DETAIL: drop cascades to table upd_view.t1
+drop cascades to table upd_view.t2
+drop cascades to view upd_view.v_upd1
+drop cascades to view upd_view.v_upd_read
+drop cascades to view upd_view.vv_upd
+drop cascades to view upd_view.vv_upd_wco
+DROP SCHEMA

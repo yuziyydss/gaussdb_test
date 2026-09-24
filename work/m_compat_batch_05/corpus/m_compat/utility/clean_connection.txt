@@ -1,0 +1,75 @@
+[[PDF_PAGE physical=2074 printed=2025]]
+2.4.2.8.1 CLEAN CONNECTION
+
+功能描述
+            用来清理数据库连接。允许在节点上清理指定数据库的指定用户的相关连接。
+
+注意事项
+            ●    M-Compatibility下不支持指定节点，仅支持TO ALL。
+            ●    该功能仅在force模式下，可以清理正在使用的正常连接。
+
+语法格式
+            CLEAN CONNECTION
+               TO { COORDINATOR ( nodename [, ... ] ) | NODE ( nodename [, ... ] )| ALL [ CHECK ] [ FORCE ] }
+               [ FOR DATABASE dbname ]
+               [ TO USER username ];
+
+
+参数说明
+            ●    CHECK
+                 仅在节点列表为TO ALL时可以指定。如果指定该参数，会在清理连接之前检查数
+                 据库是否被其他会话连接访问。此参数主要用于DROP DATABASE之前的连接访
+                 问检查，如果发现有其他会话连接，则将报错并停止删除数据库。
+            ●    FORCE
+                 仅在节点列表为TO ALL时可以指定，如果指定该参数，所有和指定dbname和
+                 username相关的线程都会收到SIGTERM信号，然后被强制关闭。
+            ●    COORDINATOR ( nodename [, ... ] ) | NODE ( nodename [, ... ] ) | ALL
+                 仅支持TO ALL，必须指定该参数，节点上的指定连接会被全部删除。
+            ●    dbname
+                 删除指定数据库上的连接。如果不指定，则删除所有数据库的连接。
+                 取值范围：已存在数据库名。
+            ●    username
+                 删除指定用户上的连接。如果不指定，则删除所有用户的连接。
+                 取值范围：已存在的用户。
+[[PDF_PAGE physical=2075 printed=2026]]
+示例
+     --创建数据库test_clean_connection。
+     m_db=# CREATE DATABASE test_clean_connection;
+
+     --创建jack用户。
+     m_db=# CREATE USER jack PASSWORD '********';
+
+     --在另一个会话用jack用户登录该数据库之后，通过视图查询到该连接信息。
+     m_db=# SELECT datname,usename,application_name,waiting,state
+             FROM pg_stat_activity
+             WHERE datname = 'test_clean_connection';
+           datname          | usename | application_name | waiting | state
+     -----------------------+---------+------------------+---------+-------
+      test_clean_connection | jack | gsql                |f     | idle
+     (1 row)
+
+     --此时直接删除数据库test_clean_connection会有如下报错：
+     m_db=# DROP DATABASE test_clean_connection;
+     ERROR: Database "test_clean_connection" is being accessed by other users. You can stop all connections by
+     command: "clean connection to all force for database XXXX;" or wait for the sessions to end by querying
+     view: "pg_stat_activity".
+     DETAIL: There is 1 other session using the database.
+
+     --删除登录数据库数据库test_clean_connection的所有节点的连接。
+     --如果不使用FORCE参数是无法删除stat状态为其他的状态的连接。
+     m_db=# CLEAN CONNECTION TO ALL FORCE FOR DATABASE test_clean_connection;
+
+     --查询登录数据库test_clean_connection的连接。
+     m_db=# SELECT datname,usename,application_name,waiting,state
+             FROM pg_stat_activity
+             WHERE datname = 'test_clean_connection';
+      datname | usename | application_name | waiting | state
+     ---------+---------+------------------+---------+-------
+     (0 rows)
+
+
+     --删除数据库test_clean_connection。
+     m_db=# DROP DATABASE test_clean_connection;
+
+     --删除用户jack。
+     m_db=# DROP USER jack;

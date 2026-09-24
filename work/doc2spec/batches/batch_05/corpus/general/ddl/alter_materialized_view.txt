@@ -1,0 +1,116 @@
+[[PDF_PAGE physical=1237 printed=1188]]
+1.13.7.20 ALTER MATERIALIZED VIEW
+
+功能描述
+            修改一个现有物化视图的多个辅助属性。
+
+注意事项
+            ●   只有物化视图的所有者有权执行ALTER MATERIALIZED VIEW命令，系统管理员默
+                认拥有此权限。
+            ●   不支持更改物化视图结构。
+
+语法格式
+            ●   修改物化视图的所有者
+                ALTER MATERIALIZED VIEW [ IF EXISTS ] mv_name
+                  OWNER TO new_owner;
+
+
+
+
+            ●   重命名物化视图的列
+                ALTER MATERIALIZED VIEW [ IF EXISTS ] mv_name
+                  RENAME [ COLUMN ] column_name TO new_column_name;
+
+
+
+            ●   重命名物化视图
+                ALTER MATERIALIZED VIEW [ IF EXISTS ] mv_name
+                  RENAME TO new_name;
+
+
+
+
+参数说明
+            ●   mv_name
+                现有物化视图的名称，可以使用模式进行具体指定。
+                取值范围：字符串，要符合标识符命名规范。
+            ●   column_name
+                新的或者现有的列的名称。
+[[PDF_PAGE physical=1238 printed=1189]]
+         取值范围：字符串，要符合标识符命名规范。
+     ●   new_column_name
+         现有列的新名称。
+     ●   new_owner
+         该物化视图的新拥有者的用户名。
+     ●   new_name
+         该物化视图的新名称。
+
+示例
+     ●   修改物化视图所有者
+         --创建表。
+         gaussdb=# CREATE TABLE my_table (c1 int, c2 int) WITH(STORAGE_TYPE=ASTORE);
+
+         --创建全量物化视图。
+         gaussdb=# CREATE MATERIALIZED VIEW foo AS SELECT * FROM my_table;
+
+         --创建用户。
+         gaussdb=# CREATE USER test PASSWORD '********';
+
+         --修改全量物化视图的所有者。
+         gaussdb=# ALTER MATERIALIZED VIEW foo OWNER TO test;
+
+         --查看物化视图信息。
+         gaussdb=# \dm foo
+                                List of relations
+          Schema | Name |         Type        | Owner |           Storage
+         --------+------+-------------------+-------+----------------------------------
+          public | foo | materialized view | test | {orientation=row,compression=no}
+         (1 row)
+
+     ●   重命名物化视图的列
+         --查询物化视图的列。
+         gaussdb=# \d foo;
+         Materialized view "public.foo"
+          Column | Type | Modifiers
+         --------+---------+-----------
+          c1    | integer |
+          c2    | integer |
+         Rules:
+            "_RETURN" AS
+            ON SELECT TO foo DO INSTEAD SELECT my_table.c1, my_table.c2
+           FROM my_table
+         Replica Identity: NOTHING
+
+         --将物化视图foo的列c1修改为col1，c2修改为col2。
+         gaussdb=# ALTER MATERIALIZED VIEW foo RENAME c1 to col1;
+         gaussdb=# ALTER MATERIALIZED VIEW foo RENAME c2 to col2;
+
+         --通过SELECT查看该物化视图的列。
+         gaussdb=# SELECT * FROM foo WHERE 1=2;
+          col1 | col2
+         ------+------
+         (0 rows)
+
+     ●   重命名物化视图
+         --将物化视图foo重命名为my_mview。
+         gaussdb=# ALTER MATERIALIZED VIEW foo RENAME TO my_mview;
+
+         --查询信息。
+         gaussdb=# \dm my_mview
+                                 List of relations
+          Schema | Name |            Type        | Owner |           Storage
+         --------+----------+-------------------+-------+----------------------------------
+          public | my_mview | materialized view | test | {orientation=row,compression=no}
+[[PDF_PAGE physical=1239 printed=1190]]
+          (1 row)
+
+          --删除。
+          gaussdb=# DROP MATERIALIZED VIEW my_mview;
+          gaussdb=# DROP TABLE my_table ;
+          gaussdb=# DROP USER test;
+
+
+相关链接
+       CREATE MATERIALIZED VIEW，CREATE INCREMENTAL MATERIALIZED VIEW，
+       DROP MATERIALIZED VIEW，REFRESH INCREMENTAL MATERIALIZED VIEW，
+       REFRESH MATERIALIZED VIEW

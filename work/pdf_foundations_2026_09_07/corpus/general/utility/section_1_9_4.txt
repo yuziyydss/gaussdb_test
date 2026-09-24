@@ -1,0 +1,107 @@
+[[PDF_PAGE physical=1139 printed=1090]]
+1.9.4 值存储
+
+值存储数据类型解析
+        1.     查找与目标字段精确匹配的项。
+        2.     尝试将表达式直接转换为目标类型：如果这两种类型之间存在已注册的转换函
+               数，那么将直接调用该转换函数；如果表达式为未知类型（unknown、
+               unspecified类型）文本，该文本字符串的内容将转换为目标类型。
+        3.     检查目标类型是否支持长度转换（长度转换指从某类型到其自身的转换）。如果
+               在pg_cast表里面检索到对应的长度转换规则，那么在表达式存储到目标字段前，
+               先对其应用该转换。这类转换函数需要接收一个integer类型的必选参数，用于标
+               识目标字段的atttypmod值（即字段声明长度，atttypmod的解释因数据类型而
+               异）；此外，这类转换函数还可以接收一个Boolean类型的可选参数，用于标识转
+               换是显式的还是隐式的。转换函数需要负责实现与长度相关的语义逻辑，例如长
+               度检查、内容截断等。
+
+A 兼容模式常用类型支持的类型转换
+
+        表 1-308 常用类型转换支持
+
+            源类型                    支持转换的目标类型
+
+            int1                   int2, int4, int8, float4, float8, numeric,
+                                   bpchar, varchar, nvarchar2, clob
+
+            int2                   int1, int4, int8, float4, float8, numeric,
+                                   bpchar, varchar, nvarchar2, clob
+
+            int4                   int1, int2, int8, float4, float8, numeric,
+                                   bpchar, varchar, nvarchar2, clob
+
+            int8                   int1, int2, int4, float4, float8, numeric,
+                                   bpchar, varchar, nvarchar2, clob
+
+            float4                 int1, int2, int4, int8, float8, numeric,
+                                   bpchar, varchar, nvarchar2, clob
+
+            float8                 int1, int2, int4, int8, float4, numeric,
+                                   bpchar, varchar, nvarchar2, clob
+
+            numeric                int1, int2, int4, int8, float4, float8,
+                                   bpchar, varchar, nvarchar2, clob
+
+            date                   timestamp, timestamptz, bpchar,
+                                   varchar
+
+            datea                  timestamp, timestamptz, bpchar,
+                                   varchar, nvarchar2, clob
+
+            timestamp              datea, timestamptz, varchar,
+                                   nvarchar2, clob
+[[PDF_PAGE physical=1140 printed=1091]]
+      源类型                                              支持转换的目标类型
+
+      timestamptz                                      timestamp, datea, clob
+
+      bpchar                                           int4, int8, float4, float8, numeric, date,
+                                                       datea, timestamp, varchar, nvarchar2,
+                                                       clob
+
+      varchar                                          int4, int8, float4, float8, numeric, date,
+                                                       datea, timestamp, bpchar, nvarchar2,
+                                                       clob, raw, blob
+
+      nvarchar2                                        int4, numeric, datea, timestamp,
+                                                       bpchar, varchar, clob
+
+      clob                                             int1, int2, int4, int8, float4, float8,
+                                                       numeric, datea, timestamp, bpchar,
+                                                       varchar, nvarchar2
+
+      raw                                              varchar, blob
+
+      blob                                             raw
+
+      xml                                              bpchar, varchar, nvarchar2, clob
+
+      xmltype                                          -
+
+
+
+
+示例
+     character存储类型转换。对一个目标列定义为character(20)的语句，下面的语句显示
+     存储值的长度正确：
+     gaussdb=# CREATE SCHEMA tpcds;
+     gaussdb=# CREATE TABLE tpcds.value_storage_t1 (
+        VS_COL1 CHARACTER(20)
+     );
+     gaussdb=# INSERT INTO tpcds.value_storage_t1 VALUES('abcdef');
+     gaussdb=# SELECT VS_COL1, octet_length(VS_COL1) FROM tpcds.value_storage_t1;
+           vs_col1       | octet_length
+     ----------------------+--------------
+      abcdef             |        20
+     (1 row)
+     )
+
+     gaussdb=# DROP TABLE tpcds.value_storage_t1;
+     gaussdb=# DROP SCHEMA tpcds;
+
+            说明
+
+         两个unknown文本缺省解析成text，这样就允许||操作符解析成text连接。然后操作符的text结果
+         转换成bpchar("空白填充的字符型"，character类型内部名称)以匹配目标字段类型。从text到
+         bpchar的转换是二进制兼容的，这样的转换是隐含的并且实际上不做任何函数调用。在系统表
+         里找到长度转换函数bpchar(bpchar, integer, Boolean)并且应用于该操作符的结果和存储的字段
+         长。这个类型相关的函数执行所需的长度检查和额外的空白填充。

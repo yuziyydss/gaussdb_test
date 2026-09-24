@@ -1,0 +1,149 @@
+[[PDF_PAGE physical=1520 printed=1471]]
+1.13.9.43 CREATE SCHEMA
+
+功能描述
+           创建模式。
+
+注意事项
+           ●   数据库有CREATE权限的用户可以创建模式。
+           ●   系统管理员在普通用户同名Schema下创建的对象，其所有者为Schema的同名用
+               户（非系统管理员）。
+           ●   访问命名对象时可以使用模式名作为前缀进行访问，如果无模式名前缀，则访问
+               当前模式下的命名对象。创建命名对象时也可用模式名作为前缀进行具体指定。
+           ●   CREATE SCHEMA可以包括在新模式中创建对象的子命令，这种子命令和先进行
+               创建模式再执行子命令的方式没有区别。如果使用了AUTHORIZATION子句，则
+               所有创建的对象都将被该用户所拥有。
+
+语法格式
+           ●   根据指定的名称创建模式。
+               CREATE SCHEMA schema_name
+                 [ AUTHORIZATION user_name ] [WITH BLOCKCHAIN] [ schema_element [ ... ] ];
+
+
+
+
+           ●   根据用户名创建模式。
+               CREATE SCHEMA AUTHORIZATION user_name [ schema_element [ ... ] ];
+
+
+
+
+           ●   创建模式并指定默认字符集和字符序。
+               CREATE SCHEMA schema_name
+                 [ [DEFAULT] CHARACTER SET | CHARSET [ = ] default_charset ] [ [ DEFAULT] COLLATE [ = ]
+               default_collation ];
+[[PDF_PAGE physical=1521 printed=1472]]
+参数说明
+       ●   schema_name
+           模式名称。
+           取值范围：字符串，要符合标识符命名规范。
+           模式新名称规则如下：
+           –   新名称不能和当前数据库里其他的模式重名。
+           –   新名称不能和当前数据库的初始用户重名。
+           –   请勿使用“pg_”或“gs_role_”开头或“data_redis”命名新名称。
+       ●   AUTHORIZATION user_name
+           指定模式的所有者。当不指定schema_name时（即根据用户名创建模式的方
+           式），将user_name当作模式名，此时user_name只能是角色名。
+           取值范围：已存在的用户名/角色名。
+       ●   WITH BLOCKCHAIN
+           指定模式的防篡改属性。
+
+                说明
+
+               ● 创建防篡改模式，需设置GUC参数enable_ledger为on，该参数默认值为off，级别为
+                 SIGHUP。
+               ● 防篡改模式下的行存普通用户表将自动扩展为防篡改用户表。
+       ●   schema_element
+           在模式里创建对象的SQL语句。
+           当前仅支持CREATE TABLE、CREATE VIEW、CREATE INDEX、CREATE TABLE
+           PARTITION、CREATE SEQUENCE、CREATE TRIGGER、GRANT子句。
+
+                说明
+
+               ● schema_element所创建的对象都被AUTHORIZATION user_name子句指定的
+                 user_name所拥有。
+               ● 如果当前搜索路径上的模式中存在同名对象时，需要明确指定引用对象所在的模式。可
+                 以通过命令SHOW search_path查看当前搜索路径上的模式。
+       ●   default_charset
+           指定模式的默认字符集。
+           取值范围：支持设置的字符集请参见表1-379。
+
+                说明
+
+               ● 仅在B模式下或M-Compatibility模式数据库下（即sql_compatibility = 'B'或
+                 sql_compatibility = 'M'）支持该语法。以上行为是在sql_compatibility = 'B'时的表
+                 现，sql_compatibility = 'M'的行为请参见CREATE SCHEMA的内容。
+               ● 未指定默认字符序时，模式的默认字符序为指定的字符集的默认字符序。
+       ●   default_collation
+           指定模式的默认字符序。单独指定时会将模式的默认字符集设置为指定的字符序
+           对应的字符集。
+           取值范围：支持设置的字符序请参见表1-379。
+[[PDF_PAGE physical=1522 printed=1473]]
+                 说明
+
+               ● 仅在B模式下或M-Compatibility模式数据库下（即sql_compatibility = 'B'或
+                 sql_compatibility = 'M'）支持该语法。以上行为是在sql_compatibility = 'B'时的表
+                 现，sql_compatibility = 'M'的行为请参见CREATE SCHEMA的内容。
+               ● 未指定默认字符集时，模式的默认字符集为指定的字符序的默认字符集。
+
+
+示例
+     --创建并切换至测试数据库。
+     gaussdb=# CREATE DATABASE test1 WITH DBCOMPATIBILITY = 'B' ENCODING = 'UTF8' LC_COLLATE =
+     'zh_CN.utf8' LC_CTYPE = 'zh_CN.utf8';
+     gaussdb=# \c test1
+
+     --创建一个角色role1。
+     test1=# CREATE ROLE role1 IDENTIFIED BY '********';
+
+     --为用户role1创建一个同名schema，子命令创建的表films和winners的拥有者为role1。
+     test1=# CREATE SCHEMA AUTHORIZATION role1
+                 CREATE TABLE films (title text, release date, awards text[])
+                 CREATE VIEW winners AS SELECT title, release FROM films WHERE awards IS NOT NULL;
+
+     --创建一个schema ds，指定schema的默认字符集为utf8mb4，默认字符序为utf8mb4_bin。仅在B模式下（即
+     sql_compatibility='B'）支持该语法。
+     test1=# CREATE SCHEMA ds CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
+
+     --创建角色role2。
+     test1=# CREATE ROLE role2 IDENTIFIED BY '********';
+
+     --根据名称创建schema。
+     test1=# CREATE SCHEMA schema1 AUTHORIZATION role2;
+     CREATE SCHEMA
+
+     --在进行防篡改属性属性修改前，需要对enable_ledger参数进行设置，enable_ledger参数默认为off,所以通过
+     gs_guc来设置其为on。
+     gs_guc reload -Z coordinator -Z datanode -N all -I all -c "enable_ledger=on";
+
+     --设置完之后查看其参数状态为on说明设置成功，就可以进行防篡改属性属性配置。
+     test1=# SHOW enable_ledger;
+      enable_ledger
+     ---------------
+      on
+     (1 row)
+
+     --指定防篡改属性创建schema。
+     test1=# CREATE SCHEMA ledgernsp WITH BLOCKCHAIN;
+     CREATE SCHEMA
+
+     --创建防篡改用户表。
+     test1=# CREATE TABLE ledgernsp.usertable(id int, name text);
+     CREATE TABLE
+
+     --删除schema。
+     test1=# DROP SCHEMA role1 CASCADE;
+     test1=# DROP SCHEMA ds CASCADE;
+     test1=# DROP SCHEMA schema1 CASCADE;
+     test1=# DROP SCHEMA ledgernsp CASCADE;
+
+     --删除用户。
+     test1=# DROP USER role1 CASCADE;
+     test1=# DROP USER role2 CASCADE;
+
+     --切换至默认数据库，请根据实际情况修改数据库名字。
+     test1=# \c postgres
+     gaussdb=# DROP DATABASE test1;
+[[PDF_PAGE physical=1523 printed=1474]]
+相关链接
+       ALTER SCHEMA，DROP SCHEMA

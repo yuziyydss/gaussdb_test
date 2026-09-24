@@ -1,0 +1,1140 @@
+[[PDF_PAGE physical=2397 printed=2348]]
+2.5.11 聚合函数
+        聚合函数对一组值进行计算，并返回单个的值。除了COUNT(*)外，聚合函数都会忽略
+        NULL值。聚合函数通常与GROUP BY子句一起使用。
+[[PDF_PAGE physical=2398 printed=2349]]
+说明
+
+● 聚合函数的结果与数据输入顺序相关，不同的数据输入顺序会导致结果的精度差异。
+ m_db=# CREATE TABLE IF NOT EXISTS t1 (name VARCHAR(20), c1 INT(100), c2 FLOAT(7,5));
+ CREATE TABLE
+ m_db=# INSERT INTO t1 VALUES
+ m_db-# ('计算机', 666,-55.155),
+ m_db-# ('计算机', 789,-15.593),
+ m_db-# ('计算机', 928,-53.963),
+ m_db-# ('计算机', 666,-54.555),
+ m_db-# ('计算机', 666,-55.555),
+ m_db-# ('数据库', 666,-55.155),
+ m_db-# ('数据库', 789,-15.593),
+ m_db-# ('数据库', 928,-53.963),
+ m_db-# ('数据库', 666,-54.555),
+ m_db-# ('数据库', 666,-55.555);
+ INSERT 0 10
+
+ m_db=# select std(c1/c2) from t1;
+       std
+ -------------------
+  15.02396266299967
+ (1 row)
+
+ # ORDER BY改变了聚合函数的执行顺序，导致结果精度差异
+ m_db=# select std(c1/c2 order by c2) from t1;
+       std
+ --------------------
+  15.023962662999669
+ (1 row)
+
+ m_db=# select std(c1/c2) from t1 group by name;
+       std
+ --------------------
+  15.023962662999669
+  15.023962662999669
+ (2 rows)
+
+ # 与WITH ROLLUP使用，也会改变聚合函数的执行顺序，导致结果精度差异
+ m_db=# select std(c1/c2) from t1 group by name with rollup;
+       std
+ --------------------
+   15.02396266299967
+  15.023962662999669
+   15.02396266299967
+ (3 rows)
+● 聚合函数与GROUP BY同时使用时，若推导类型为DECIMAL场景时，GaussDB保留完整精度
+  的数据。
+ 例如：
+ m_db=# SELECT avg(col_znumeric3/col_znumeric2) FROM fun_op_case_tb_1 WHERE id<=10
+ GROUP BY name;
+ avg
+ ---------------
+ 1.45980942957
+ 1.45980942957
+ 1.45980942957
+ (3 rows)
+ m_db=# SELECT sum(col_bit1/col_time2) FROM fun_op_case_tb_1 WHERE id<=10 GROUP BY
+ name;
+ sum
+ --------
+ 0.0006
+ 0.0006
+ 0.0006
+ (3 rows)
+[[PDF_PAGE physical=2399 printed=2350]]
+AVG
+      AVG([ALL | DISTINCT] expr) [over_clause]
+      描述：返回输入expr的平均值，NULL值将被忽略。如果指定了over_clause，此函数将
+      作为窗口函数进行执行。over_clause参数说明请参见窗口函数。
+      参数类型：可以是TINYINT、SMALLINT、MEDIUMINT、INT、BIGINT、DECIMAL、
+      FLOAT、DOUBLE。
+      返回值类型：
+
+      ●    返回值类型视入参数据类型而定。当入参为精确值（INT、DECIMAL）时，返回
+           DECIMAL；当入参为近似值（FLOAT、DOUBLE）时返回DOUBLE类型。
+      ●    如果expr中的值均为NULL，则AVG()返回NULL。
+      ●    如果指定ALL或者不指定ALL与DISTINCT，则返回expr中所有非空值的平均值。
+      ●    如果指定DISTINCT，则返回expr中不同值的平均值。
+      示例：
+      m_db=# CREATE TABLE m_test(age INT, salary INT);
+      CREATE TABLE
+
+      m_db=# INSERT INTO m_test VALUES(1, NULL), (1, 1), (1, 2), (1, 2), (2, NULL), (2, NULL);
+      INSERT 0 6
+
+      m_db=# SELECT * FROM m_test;
+       age | salary
+      -----+--------
+        1|
+        1|      1
+        1|      2
+        1|      2
+        2|
+        2|
+      (6 rows)
+
+      m_db=# SELECT age, AVG(salary) FROM m_test GROUP BY (age);
+       age | avg
+      -----+--------
+        1 | 1.6667
+        2|
+      (2 rows)
+
+      m_db=# SELECT age, AVG(DISTINCT salary) FROM m_test GROUP BY (age);
+       age | avg
+      -----+--------
+        1 | 1.5000
+        2|
+      (2 rows)
+
+      m_db=# SELECT age, AVG(salary) OVER(PARTITION BY age ORDER by salary RANGE BETWEEN
+      UNBOUNDED PRECEDING AND CURRENT ROW) FROM m_test;
+       age | avg
+      -----+--------
+        1 | 1.0000
+        1 | 1.6667
+        1 | 1.6667
+        1 | 1.6667
+        2|
+        2|
+      (6 rows)
+
+      m_db=# DROP TABLE m_test;
+      DROP TABLE
+[[PDF_PAGE physical=2400 printed=2351]]
+                说明
+
+               当输入是字符类型时，会触发字符类型到数值类型的隐式转换，并输出WARNING日志，导致性
+               能变差。
+               m_db=# SELECT AVG('xxxx');
+               WARNING: The double value 'xxxx' is incorrect.'
+                avg
+               -----
+                 0
+               (1 row)
+
+
+BIT_AND
+          BIT_AND([ALL] expr) [over_clause]
+          描述：返回expr中所有值的按位与，忽略NULL。如果指定了over_clause，此函数将作
+          为窗口函数进行执行。over_clause参数说明请参见窗口函数。
+          参数类型：BIT_AND需要使用BIGINT作为参数，其他类型的参数会被转换为BIGINT，
+          并且可能发生截断。
+          返回值类型：
+
+          ●    返回值类型为BIGINT。
+          ●    如果expr中的值均为NULL，则BIT_AND()返回一个中性值（所有位都被设置为
+               1）。
+          ●    ALL为可选项，不影响结果。
+          示例：
+          m_db=# CREATE TABLE m_test(age INT, salary INT);
+          CREATE TABLE
+
+          m_db=# INSERT INTO m_test VALUES(1, NULL), (1, 1), (1, 2), (1, 2), (2, NULL), (2, NULL);
+          INSERT 0 6
+
+          m_db=# SELECT * FROM m_test;
+           age | salary
+          -----+--------
+            1|
+            1|      1
+            1|      2
+            1|      2
+            2|
+            2|
+          (6 rows)
+
+          m_db=# SELECT BIT_AND(ALL salary) FROM m_test GROUP BY age;
+                bit_and
+          ----------------------
+           0
+           18446744073709551615
+          (2 rows)
+
+          m_db=# SELECT age, BIT_AND(salary) OVER(PARTITION BY age ORDER by salary ROWS CURRENT ROW)
+          FROM m_test;
+           age |      bit_and
+          -----+----------------------
+            1|1
+            1|2
+            1|2
+            1 | 18446744073709551615
+            2 | 18446744073709551615
+            2 | 18446744073709551615
+[[PDF_PAGE physical=2401 printed=2352]]
+         (6 rows)
+
+         m_db=# DROP TABLE m_test;
+         DROP TABLE
+
+               说明
+
+              当输入是字符类型时，会触发字符类型到数值类型的隐式转换，并输出WARNING日志，导致性
+              能变差。
+              m_db=# SELECT BIT_AND('xxxx');
+              WARNING: The INTEGER value 'xxxx' is incorrect.
+               bit_and
+              ---------
+               0
+              (1 row)
+
+
+BIT_OR
+         BIT_OR([ALL] expr) [over_clause]
+         描述：返回expr中所有值的按位或，忽略NULL。如果指定了over_clause，此函数将作
+         为窗口函数进行执行。over_clause参数说明请参见窗口函数。
+         参数类型：BIT_OR需要使用BIGINT作为参数，其他类型的参数会被转换为BIGINT，并
+         且可能发生截断。
+         返回值类型：
+
+         ●    返回值类型为BIGINT。
+         ●    如果expr中的值均为NULL，则BIT_OR()返回一个中性值（所有位都被设置为
+              0）。
+         ●    ALL为可选项，不影响结果。
+         示例：
+         m_db=# CREATE TABLE m_test(age INT, salary INT);
+         CREATE TABLE
+
+         m_db=# INSERT INTO m_test VALUES(1, NULL), (1, 1), (1, 2), (1, 2), (2, NULL), (2, NULL);
+         INSERT 0 6
+
+         m_db=# SELECT * FROM m_test;
+          age | salary
+         -----+--------
+           1|
+           1|      1
+           1|      2
+           1|      2
+           2|
+           2|
+         (6 rows)
+
+         m_db=# SELECT BIT_OR(ALL salary) FROM m_test GROUP BY age;
+          bit_or
+         --------
+          3
+          0
+         (2 rows)
+
+         m_db=# SELECT age, BIT_OR(salary) OVER(PARTITION BY age ORDER by salary ROWS CURRENT ROW)
+         FROM m_test;
+          age | bit_or
+         -----+--------
+           1|1
+[[PDF_PAGE physical=2402 printed=2353]]
+            1|2
+            1|2
+            1|0
+            2|0
+            2|0
+          (6 rows)
+
+          m_db=# DROP TABLE m_test;
+          DROP TABLE
+
+                说明
+
+               当输入是字符类型时，会触发字符类型到数值类型的隐式转换，并输出WARNING日志，导致性
+               能变差。
+               m_db=# SELECT BIT_OR('xxxx');
+               WARNING: The INTEGER value 'xxxx' is incorrect.
+                bit_or
+               --------
+                0
+               (1 row)
+
+
+BIT_XOR
+          BIT_XOR([ALL] expr) [over_clause]
+          描述：返回expr中所有值的按位异或，忽略NULL。如果指定了over_clause，此函数将
+          作为窗口函数进行执行。over_clause参数说明请参见窗口函数。
+          参数类型：BIT_XOR需要使用BIGINT作为参数，其他类型的参数会被转换为BIGINT，
+          并且可能发生截断。
+          返回值类型：
+
+          ●    返回值类型为BIGINT。
+          ●    如果expr中的值均为NULL，则BIT_OR()返回一个中性值（所有位都被设置为
+               0）。
+          ●    ALL为可选项，不影响结果。
+          示例：
+          m_db=# CREATE TABLE m_test(age INT, salary INT);
+          CREATE TABLE
+
+          m_db=# INSERT INTO m_test VALUES(1, NULL), (1, 1), (1, 2), (1, 2), (2, NULL), (2, NULL);
+          INSERT 0 6
+
+          m_db=# SELECT * FROM m_test;
+           age | salary
+          -----+--------
+            1|
+            1|      1
+            1|      2
+            1|      2
+            2|
+            2|
+          (6 rows)
+
+          m_db=# SELECT BIT_XOR(ALL salary) FROM m_test GROUP BY age;
+           bit_xor
+          ---------
+           1
+           0
+          (2 rows)
+[[PDF_PAGE physical=2403 printed=2354]]
+        m_db=# SELECT age, BIT_XOR(salary) OVER(PARTITION BY age ORDER by salary ROWS CURRENT ROW)
+        FROM m_test;
+         age | bit_xor
+        -----+---------
+          1|1
+          1|2
+          1|2
+          1|0
+          2|0
+          2|0
+        (6 rows)
+
+        m_db=# DROP TABLE m_test;
+        DROP TABLE
+
+             说明
+
+            当输入是字符类型时，会触发字符类型到数值类型的隐式转换，并输出WARNING日志，导致性
+            能变差。
+            m_db=# SELECT BIT_XOR('xxxx');
+            WARNING: The INTEGER value 'xxxx' is incorrect.
+             bit_xor
+            ---------
+             0
+            (1 row)
+
+
+COUNT
+        ●   COUNT([ALL] expr)
+            描述：返回expr中非空值的数量。
+            参数类型：入参可以是任意类型。
+            返回值类型：
+            –     返回值类型为BIGINT。
+            –     如果expr中的值均为NULL，则COUNT()返回0。
+            –     ALL为可选项，不影响结果。
+            –     COUNT(*)比较特殊，它返回expr中所有值的数量，无论其是否为NULL。
+            示例：
+            m_db=# CREATE TABLE m_test(age INT, salary INT);
+            CREATE TABLE
+
+            m_db=# INSERT INTO m_test VALUES(1, NULL), (1, 1), (1, 2), (1, 2), (2, NULL), (2, NULL);
+            INSERT 0 6
+
+            m_db=# SELECT * FROM m_test;
+             age | salary
+            -----+--------
+              1|
+              1|      1
+              1|      2
+              1|      2
+              2|
+              2|
+            (6 rows)
+
+            m_db=# SELECT COUNT(ALL salary) FROM m_test GROUP BY age;
+             count
+            -------
+                3
+                0
+            (2 rows)
+
+            m_db=# SELECT COUNT(*) FROM m_test GROUP BY age;
+[[PDF_PAGE physical=2404 printed=2355]]
+     count
+    -------
+        4
+        2
+    (2 rows)
+
+    m_db=# DROP TABLE m_test;
+    DROP TABLE
+
+●   COUNT(DISTINCT expr1 [, expr2, ..., exprN] )
+    描述：返回expr中不同非空值的数量。
+    参数类型：入参可以是任意类型。
+    返回值类型：
+    –    返回值类型为BIGINT。
+    –    如果expr中的值均为NULL，则返回0。
+    示例：
+    m_db=# CREATE TABLE m_test(age INT, salary INT);
+    CREATE TABLE
+
+    m_db=# INSERT INTO m_test VALUES(1, NULL), (1, 1), (1, 2), (1, 2), (2, NULL), (2, NULL);
+    INSERT 0 6
+
+    m_db=# SELECT * FROM m_test;
+     age | salary
+    -----+--------
+      1|
+      1|      1
+      1|      2
+      1|      2
+      2|
+      2|
+    (6 rows)
+
+    m_db=# SELECT COUNT(DISTINCT salary) FROM m_test GROUP BY age;
+     count
+    -------
+        2
+        0
+    (2 rows)
+
+    m_db=# DROP TABLE m_test;
+    DROP TABLE
+
+●   COUNT(expr) over_clause
+    描述：返回根据over_clause分区的expr的非空总行数，若输入为空，输出NULL。
+    指定了over_clause，此函数作为窗口函数进行执行。over_clause参数说明请参见
+    窗口函数说明。
+    返回值类型：
+    –    返回值类型为BIGINT。
+    –    如果expr中的值均为NULL，则返回0。
+    示例：
+    m_db=# CREATE TABLE count_t1(group_id INT, val INT);
+    CREATE TABLE
+    m_db=# INSERT INTO count_t1 VALUES(1,1),(1,2),(1, 3),(2, 4),(2, 5),(2, 6),(3,7),(3,8);
+    INSERT 0 8
+    m_db=# SELECT group_id, val, COUNT(val) OVER(partition by group_id) FROM count_t1;
+     groupid | val | count
+    ---------+-----+-------
+          1| 1|      3
+          1| 2|      3
+          1| 3|      3
+[[PDF_PAGE physical=2405 printed=2356]]
+                    2| 4|      3
+                    2| 5|      3
+                    2| 6|      3
+                    3| 7|      2
+                    3| 8|      2
+               (8 rows)
+
+               m_db=# DROP TABLE count_t1;
+               DROP TABLE
+
+
+GROUP_CONCAT
+         GROUP_CONCAT语法如下：
+         GROUP_CONCAT([DISTINCT] expr [,expr ...]
+               [ORDER BY {unsigned_integer | col_name | expr}
+                  [ASC | DESC] [,col_name ...]]
+               [SEPARATOR str_val])
+
+         描述：将expr中的各个值进行拼接，返回一个字符串结果，NULL值会被忽略。
+
+         ●     指定DISTINCT时消除expr中的重复值。
+         ●     ORDER BY：通过指定列对expr中的值进行排序。
+         ●     ASC | DESC：ASC为升序排序，DESC为倒序排序，默认为升序排序。
+         ●     SEPARATOR：拼接字符串时使用的分隔符，默认为逗号","。
+         ●     当同时指定DISTINCT和ORDER BY关键字时，支持ORDER BY后面的表达式不在
+               DISTINCT后面的表达式之中。存在以下约束：
+               –     当ORDER BY后面的表达式不在DISTINCT后面的表达式之中，DISTINCT表达
+                     式存在重复数据时，ORDER BY结果与底层DISTINCT结果有关，DISTINCT结
+                     果不同会导致拼接的结果不稳定。
+               –     当ORDER BY后面的表达式不在DISTINCT后面的表达式之中时，对于ORDER
+                     BY表达式中值相等的两条记录，排序顺序不稳定，排序顺序不同会导致拼接
+                     的结果不稳定。
+         ●     GROUP_CONCAT(... ORDER BY 数字）不代表按照第几个参数的顺序，数字只是
+               一个常量表达式，相当于不排序。
+         ●     使用参数group_concat_max_len限制GROUP_CONCAT最大返回长度，超长截
+               断，目前能返回的最大长度是1073741823。
+         返回值类型：TEXT或BLOB
+         示例：
+         m_db=# CREATE TABLE m_test(id INT, name CHAR);
+         CREATE TABLE
+
+         m_db=# INSERT INTO m_test VALUES (1, 'a'), (1, 'b'), (2, 'd'), (2, 'c'), (3, 'a'), (3, NULL);
+         INSERT 0 6
+
+         m_db=# SELECT * FROM m_test;
+          id | name
+         ----+------
+           1|a
+           1|b
+           2|d
+           2|c
+           3|a
+           3|
+         (6 rows)
+
+         m_db=# SELECT GROUP_CONCAT(name SEPARATOR '') FROM m_test;
+[[PDF_PAGE physical=2406 printed=2357]]
+           group_concat
+          --------------
+           abdca
+          (1 row)
+
+          m_db=# SELECT GROUP_CONCAT(DISTINCT id, name ORDER BY id DESC) FROM m_test;
+            group_concat
+          ------------------
+           3a,2c,2d,1a,1b
+          (1 row)
+
+          m_db=# SELECT GROUP_CONCAT(DISTINCT id ORDER BY name DESC) FROM m_test;
+           group_concat
+          --------------
+           2,1,3
+          (1 row)
+
+          m_db=# DROP TABLE m_test;
+          DROP TABLE
+
+
+JSON_ARRAYAGG
+          JSON_ARRAYAGG(col_or_expr)
+          描述：将结果集聚合为单个JSON数组，作用于列或计算结果为单个值的表达式。
+          ●    当列中存在NULL时，对应的JSON数组元素为NULL。
+          ●    当表中是空行时，返回NULL。
+          参数：col_or_expr表示一个列或计算结果为单个值的表达式。
+          返回值：JSON
+          示例：
+          m_db=# CREATE TABLE json_test(id int);
+          m_db=# INSERT INTO json_test values(3);
+          m_db=# INSERT INTO json_test values(1);
+          m_db=# INSERT INTO json_test values(2);
+          m_db=# INSERT INTO json_test values(4);
+          m_db=# SELECT json_arrayagg(id ORDER BY id) FROM json_test;
+           json_arrayagg
+          ---------------
+           [1, 2, 3, 4]
+          (1 row)
+          m_db=# DROP TABLE json_test;
+
+
+JSON_OBJECTAGG
+          JSON_OBJECTAGG(key，value)
+          描述：以两个列名或表达式作为参数，其中第一个用作键，第二个用作值，并返回包
+          含键值对的JSON对象。
+          ●    当列中存在NULL时，对应的JSON数组元素为NULL。
+          ●    当表中是空行时，返回NULL。
+          ●    如果参数数量不等于2时会产生报错。
+          ●    当key为NULL时会产生报错。
+          参数：key表示一个可以隐式转换为text类型的参数，表示JSON对象中的键；value表
+          示一个任意类型的参数，表示JSON对象中的值。
+          返回值：JSON
+[[PDF_PAGE physical=2407 printed=2358]]
+      示例：
+      m_db=# CREATE TABLE json_test(id int, col1 text, col2 text);
+      m_db=# INSERT INTO json_test values(1,'111','222');
+      m_db=# INSERT INTO json_test values(2,'333','444');
+      m_db=# INSERT INTO json_test values(3,'555','666');
+      m_db=# INSERT INTO json_test values(4,'777','888');
+      m_db=# SELECT json_objectagg(col1, col2) FROM json_test;
+                       json_objectagg
+      ----------------------------------------------------------
+       {"111": "222", "333": "444", "555": "666", "777": "888"}
+      (1 row)
+      m_db=# DROP TABLE json_test;
+
+      m_db=# CREATE TABLE json_test(id int, col1 text, col2 text);
+      m_db=# INSERT INTO json_test values(1,'111','222');
+      m_db=# INSERT INTO json_test values(1,'333','444');
+      m_db=# INSERT INTO json_test values(2,'555','666');
+      m_db=# INSERT INTO json_test values(2,'777','888');
+      m_db=# SELECT json_objectagg(col1, col2) FROM json_test GROUP BY id;
+            json_objectagg
+      ------------------------------
+       {"111": "222", "333": "444"}
+       {"555": "666", "777": "888"}
+      (2 rows)
+      m_db=# DROP TABLE json_test;
+
+
+MAX
+      MAX([ALL | DISTINCT] expr) [over_clause]
+      描述：返回输入expr的最大值，NULL值将被忽略。如果指定了over_clause，此函数将
+      作为窗口函数进行执行。over_clause参数说明请参见窗口函数。
+      参数类型：任意数值、字符串、日期时间类型。
+      返回值类型：
+
+      ●    如果expr中的值均为NULL，则MAX()返回NULL。
+      ●    如果指定ALL或者不指定ALL与DISTINCT，则返回expr中所有非空值的最大值。
+      ●    如果指定了DISTINCT，则返回expr中不同非空值的最大值，与不指定DISTINCT的
+           结果相同。
+               说明
+
+           返回值类型说明：
+           ●    当expr为表字段时，入参数据类型为FLOAT类型时返回DOUBLE类型；入参数据类型为集
+                合类型时返回TEXT类型；入参数据类型为其他类型时返回值类型与入参数据类型保持一
+                致。
+           ●    当expr为非表字段时，返回值类型和MySQL 8.0保持一致。
+
+      示例：
+      m_db=# CREATE TABLE m_test(age INT, salary INT);
+      CREATE TABLE
+
+      m_db=# INSERT INTO m_test VALUES(1, NULL), (1, 1), (1, 2), (1, 2), (2, NULL), (2, NULL);
+      INSERT 0 6
+
+      m_db=# SELECT * FROM m_test;
+       age | salary
+      -----+--------
+        1|
+        1|      1
+[[PDF_PAGE physical=2408 printed=2359]]
+        1|     2
+        1|     2
+        2|
+        2|
+      (6 rows)
+
+      m_db=# SELECT MAX(DISTINCT salary) FROM m_test GROUP BY age;
+       max
+      -----
+        2
+
+      (2 rows)
+
+      m_db=# SELECT age, MAX(salary) OVER(PARTITION BY age ORDER by salary ROWS CURRENT ROW)
+      FROM m_test;
+       age | max
+      -----+-----
+        1| 1
+        1| 2
+        1| 2
+        1|
+        2|
+        2|
+      (6 rows)
+
+      m_db=# DROP TABLE m_test;
+      DROP TABLE
+
+
+MIN
+      MIN([ALL | DISTINCT] expr) [over_clause]
+      描述：返回输入expr的最小值，NULL值将被忽略。如果指定了over_clause，此函数将
+      作为窗口函数进行执行。over_clause参数说明请参见窗口函数。
+      参数类型：任意数值、字符串、日期时间类型。
+      返回值类型：
+
+      ●    如果expr中的值均为NULL，则MIN()返回NULL。
+      ●    如果指定ALL或者不指定ALL与DISTINCT，则返回expr中所有非空值的最小值。
+      ●    如果指定了DISTINCT，则返回expr中不同非空值的最小值，与不指定DISTINCT的
+           结果相同。
+               说明
+
+           返回值类型说明：
+           ●       当expr为表字段时，入参数据类型为FLOAT类型时返回DOUBLE类型；入参数据类型为集
+                   合类型时返回TEXT类型；入参数据类型为其他类型时返回值类型与入参数据类型保持一
+                   致。
+           ●       当expr为非表字段时，返回值类型和MySQL 8.0保持一致。
+
+      示例：
+      m_db=# CREATE TABLE m_test(age INT, salary INT);
+      CREATE TABLE
+
+      m_db=# INSERT INTO m_test VALUES(1, NULL), (1, 1), (1, 2), (1, 2), (2, NULL), (2, NULL);
+      INSERT 0 6
+
+      m_db=# SELECT * FROM m_test;
+       age | salary
+      -----+--------
+        1|
+[[PDF_PAGE physical=2409 printed=2360]]
+         1|     1
+         1|     2
+         1|     2
+         2|
+         2|
+       (6 rows)
+
+       m_db=# SELECT MIN(DISTINCT salary) FROM m_test GROUP BY age;
+        min
+       -----
+         1
+
+       (2 rows)
+
+       m_db=# SELECT age, MIN(salary) OVER(PARTITION BY age ORDER by salary ROWS CURRENT ROW) FROM
+       m_test;
+        age | min
+       -----+-----
+         1| 1
+         1| 2
+         1| 2
+         1|
+         2|
+         2|
+       (6 rows)
+
+       m_db=# DROP TABLE m_test;
+       DROP TABLE
+
+
+MODE
+       mode() within group (order by value anyelement)
+       描述：对给定的列，返回出现频率最高的值，如果多个值频率相同，返回这些值中最
+       小的值。
+       参数：参照如表2-51所示。
+       返回值类型：anyelement
+
+       表 2-51 mode 函数参数说明
+        参数名                               类型                 描述
+
+        value                             anyelement         查询列。
+
+
+
+
+             说明
+
+            ● 需要与within group一起使用，无within group语句，会报错，该函数参数放在group的
+              order by后面。
+            ● 不能和over子句一起使用。
+
+       示例：
+       m_db=# DROP TABLE if exists test;
+       DROP TABLE
+       m_db=# CREATE TABLE test(a int, b int);
+       CREATE TABLE
+       m_db=# INSERT INTO test VALUES(1, 2);
+       INSERT 0 1
+       m_db=# INSERT INTO test VALUES(1, 3);
+       INSERT 0 1
+[[PDF_PAGE physical=2410 printed=2361]]
+          m_db=# INSERT INTO test VALUES(1, NULL);
+          INSERT 0 1
+          m_db=# INSERT INTO test VALUES(1,1);
+          INSERT 0 1
+          m_db=# INSERT INTO test VALUES(1, NULL);
+          INSERT 0 1
+          m_db=# INSERT INTO test VALUES(2, 4);
+          INSERT 0 1
+          m_db=# INSERT INTO test VALUES(3, NULL);
+          INSERT 0 1
+          m_db=# SELECT mode() within group (order by a) FROM test;
+           mode
+          ------
+             1
+          (1 row)
+
+
+PERCENTILE_CONT
+          描述：对给定的列按照序列排序并返回百分位值。需要与within group (order by) 结
+          合使用，指定分位值的列，且该列类型需要为数值型或interval。
+          参数：参数说明如表2-52所示。
+          返回值类型：float或interval，取决于within group (order by)指定列的值为数值型或
+          interval。
+
+          表 2-52 percentile_cont 参数说明
+           参数名                             类型                         描述
+
+           percentile                      float                      指定百分位，取值范围[0，1]，精
+                                                                      度为浮点值，例如0.95为95分位
+                                                                      值。
+
+
+
+
+                说明
+
+              ● percentile为[0,1]之间的小数，精度为浮点值类型，不支持95%写法。
+
+          示例：
+          m_db=# DROP TABLE if exists test;
+          DROP TABLE
+          m_db=# CREATE TABLE test(a int, b int);
+          CREATE TABLE
+          m_db=# INSERT INTO test VALUES(1, 2);
+          INSERT 0 1
+          m_db=# INSERT INTO test VALUES(1, 3);
+          INSERT 0 1
+          m_db=# INSERT INTO test VALUES(1, NULL);
+          INSERT 0 1
+          m_db=# INSERT INTO test VALUES(1,1);
+          INSERT 0 1
+          m_db=# INSERT INTO test VALUES(1, NULL);
+          INSERT 0 1
+          m_db=# INSERT INTO test VALUES(2, 4);
+          INSERT 0 1
+          m_db=# INSERT INTO test VALUES(3, NULL);
+          INSERT 0 1
+          m_db=# SELECT
+          m_db-#      percentile_cont(0.5) WITHIN GROUP (ORDER BY a)
+          m_db-# FROM test;
+           percentile_cont
+[[PDF_PAGE physical=2411 printed=2362]]
+         -----------------
+                     1
+         (1 row)
+
+
+STD
+         STD(expr) [over_clause]
+         描述：计算所有expr总体标准差并返回结果。如果指定了over_clause，此函数将作为
+         窗口函数进行执行。over_clause参数说明请参见窗口函数。
+         返回值类型：DOUBLE
+         示例：
+         m_db=# CREATE TABLE students (name VARCHAR(20) NOT NULL, math INT);
+         CREATE TABLE
+         m_db=# INSERT INTO students (name, math) VALUES('a', 80),('b', 85),('c', 90),('d', 95),('e', 88),('f', 92),('g',
+         86),('h', 89),('i', 91),('j', 87);
+         INSERT 0 10
+         m_db=# SELECT STD(math) AS std_math FROM students;
+              std_math
+         --------------------
+          3.9509492530276824
+         (1 row)
+
+         m_db=# SELECT name, STD(math) OVER(ORDER by math ROWS BETWEEN UNBOUNDED PRECEDING
+         AND CURRENT ROW) FROM students;
+          name |        std
+         ------+--------------------
+          a |                0
+          b |               2.5
+          g | 2.6246692913372693
+          j | 2.6925824035672505
+          e | 2.7856776554368228
+          h | 2.9107081994288277
+          c | 3.063944369932457
+          i | 3.2403703492039275
+          f | 3.4354721852756214
+          d | 3.9509492530276806
+         (10 rows)
+
+         m_db=# DROP TABLE students;
+         DROP TABLE
+
+
+STDDEV
+         STDDEV(expr) [over_clause]
+         描述：STD的同义函数，该函数的功能用法与STD完全相同。
+         返回值类型：DOUBLE
+
+                说明
+
+              该函数的行为描述：当GUC参数m_format_behavior_compat_options值中包含
+              'enable_samename_funcs'的情况下为M-Compatibility模式数据库实现行为，即当前实现行
+              为；当GUC参数m_format_behavior_compat_options值中不包含'enable_samename_funcs'
+              时，具体的实现行为请参见聚集函数章节的内容介绍。
+
+         示例：
+         m_db=# CREATE TABLE students (name VARCHAR(20) NOT NULL, math INT);
+         CREATE TABLE
+         m_db=# INSERT INTO students (name, math) VALUES('a', 80),('b', 85),('c', 90),('d', 95),('e', 88),('f', 92),('g',
+[[PDF_PAGE physical=2412 printed=2363]]
+             86),('h', 89),('i', 91),('j', 87);
+             INSERT 0 10
+             m_db=# SELECT STDDEV(math) AS std_math FROM students;
+                  std_math
+             --------------------
+              3.9509492530276824
+             (1 row)
+
+             m_db=# SELECT name, STDDEV(math) OVER(ORDER by math ROWS BETWEEN UNBOUNDED PRECEDING
+             AND CURRENT ROW) FROM students;
+              name |       stddev
+             ------+--------------------
+              a |                0
+              b |              2.5
+              g | 2.6246692913372693
+              j | 2.6925824035672505
+              e | 2.7856776554368228
+              h | 2.9107081994288277
+              c | 3.063944369932457
+              i | 3.2403703492039275
+              f | 3.4354721852756214
+              d | 3.9509492530276806
+             (10 rows)
+
+             m_db=# DROP TABLE students;
+             DROP TABLE
+
+
+
+STDDEV_POP
+             STDDEV_POP(expr) [over_clause]
+
+             描述：STD的同义函数，该函数的功能用法与STD完全相同。
+
+             返回值类型：DOUBLE
+
+             示例：
+             m_db=# CREATE TABLE students (name VARCHAR(20) NOT NULL, math INT);
+             CREATE TABLE
+             m_db=# INSERT INTO students (name, math) VALUES('a', 80),('b', 85),('c', 90),('d', 95),('e', 88),('f', 92),('g',
+             86),('h', 89),('i', 91),('j', 87);
+             INSERT 0 10
+             m_db=# SELECT STDDEV_POP(math) AS std_math FROM students;
+                  std_math
+             --------------------
+              3.9509492530276824
+             (1 row)
+
+             m_db=# SELECT name, STDDEV_POP(math) OVER(ORDER by math ROWS BETWEEN UNBOUNDED
+             PRECEDING AND CURRENT ROW) FROM students;
+              name |     stddev_pop
+             ------+--------------------
+              a |                0
+              b |              2.5
+              g | 2.6246692913372693
+              j | 2.6925824035672505
+              e | 2.7856776554368228
+              h | 2.9107081994288277
+              c | 3.063944369932457
+              i | 3.2403703492039275
+              f | 3.4354721852756214
+              d | 3.9509492530276806
+             (10 rows)
+
+             m_db=# DROP TABLE students;
+             DROP TABLE
+[[PDF_PAGE physical=2413 printed=2364]]
+STDDEV_SAMP
+          STDDEV_SAMP(expr) [over_clause]
+          描述：计算所有expr的样本标准差并返回结果。如果指定了over_clause，此函数将作
+          为窗口函数进行执行。over_clause参数说明请参见窗口函数。
+          返回值类型：DOUBLE
+          示例：
+          m_db=# CREATE TABLE students (name VARCHAR(20) NOT NULL, math INT);
+          CREATE TABLE
+          m_db=# INSERT INTO students (name, math) VALUES('a', 80),('b', 85),('c', 90),('d', 95),('e', 88),('f', 92),('g',
+          86),('h', 89),('i', 91),('j', 87);
+          INSERT 0 10
+          m_db=# SELECT STDDEV_SAMP(math) AS std_math FROM students;
+              std_math
+          -------------------
+           4.164666186436129
+          (1 row)
+
+          m_db=# SELECT name, STDDEV_SAMP(math) OVER(ORDER by math ROWS BETWEEN UNBOUNDED
+          PRECEDING AND CURRENT ROW) FROM students;
+           name | stddev_samp
+          ------+--------------------
+           a |
+           b | 3.5355339059327378
+           g | 3.214550253664317
+           j | 3.1091263510296034
+           e | 3.114482300479486
+           h | 3.1885210782848294
+           c | 3.3094381626464835
+           i | 3.464101615137752
+           f | 3.6438685181792385
+           d | 4.1646661864361265
+          (10 rows)
+
+          m_db=# DROP TABLE students;
+          DROP TABLE
+
+
+SUM
+          SUM([ALL | DISTINCT] expr) [over_clause]
+          描述：返回输入expr的和，NULL值将被忽略。如果指定了over_clause，此函数将作为
+          窗口函数进行执行。over_clause参数说明请参见窗口函数。
+          参数类型：可以是TINYINT、SMALLINT、MEDIUMINT、INT、BIGINT、DECIMAL、
+          FLOAT、DOUBLE。
+          返回值类型：
+
+          ●     返回值类型视入参数据类型而定。当入参为精确值（INT、DECIMAL）时，返回
+                DECIMAL；当入参为近似值（FLOAT、DOUBLE）时返回DOUBLE类型。
+          ●     如果expr中的值均为NULL，则SUM()返回NULL。
+          ●     如果指定ALL或者不指定ALL与DISTINCT，则返回expr中所有非空值的和。
+          ●     如果指定DISTINCT，则返回expr中不同非空值的和。
+          示例：
+          m_db=# CREATE TABLE m_test(age INT, salary INT);
+          CREATE TABLE
+[[PDF_PAGE physical=2414 printed=2365]]
+           m_db=# INSERT INTO m_test VALUES(1, NULL), (1, 1), (1, 2), (1, 2), (2, NULL), (2, NULL);
+           INSERT 0 6
+
+           m_db=# SELECT * FROM m_test;
+            age | salary
+           -----+--------
+             1|
+             1|      1
+             1|      2
+             1|      2
+             2|
+             2|
+           (6 rows)
+
+           m_db=# SELECT age, SUM(salary) FROM m_test GROUP BY (age);
+            age | sum
+           -----+-----
+             1| 5
+             2|
+           (2 rows)
+
+           m_db=# SELECT age, SUM(DISTINCT salary) FROM m_test GROUP BY (age);
+            age | sum
+           -----+-----
+             1| 3
+             2|
+           (2 rows)
+
+           m_db=# SELECT age, SUM(salary) OVER(PARTITION BY age ORDER by salary ROWS BETWEEN
+           UNBOUNDED PRECEDING AND CURRENT ROW) FROM m_test;
+            age | sum
+           -----+-----
+             1| 1
+             1| 3
+             1| 5
+             1| 5
+             2|
+             2|
+           (6 rows)
+
+           m_db=# DROP TABLE m_test;
+           DROP TABLE
+
+                 说明
+
+                当输入是字符类型时，会触发字符类型到数值类型的隐式转换，并输出WARNING日志，导致性
+                能变差。
+                m_db=# SELECT SUM('xxxx');
+                WARNING: The INTEGER value 'xxxx' is incorrect.
+                 sum
+                -----
+                  0
+                (1 row)
+
+
+VARIANCE
+           VARIANCE(expr) [over_clause]
+
+           描述：计算所有expr的总体方差并返回结果。如果指定了over_clause，此函数将作为
+           窗口函数进行执行。over_clause参数说明请参见窗口函数。该函数的功能用法与
+           VAR_POP相同。
+
+           参数类型：入参可以是任意类型。
+
+           返回值类型：DOUBLE
+[[PDF_PAGE physical=2415 printed=2366]]
+          m_db=# CREATE TABLE students (name VARCHAR(20) NOT NULL, math INT);
+          CREATE TABLE
+          m_db=# INSERT INTO students (name, math) VALUES('a', 80),('b', 85),('c', 90),('d', 95),('e', 88),('f', 92),('g',
+          86),('h', 89),('i', 91),('j', 87);
+          INSERT 0 10
+          m_db=# SELECT VARIANCE(math) FROM students;
+               variance
+          --------------------
+           15.610000000000003
+          (1 row)
+
+          m_db=# SELECT name, VARIANCE(math) OVER(ORDER by math ROWS BETWEEN UNBOUNDED
+          PRECEDING AND CURRENT ROW) FROM students;
+           name |      variance
+          ------+--------------------
+           a |                0
+           b |             6.25
+           g | 6.888888888888883
+           j | 7.249999999999993
+           e | 7.759999999999993
+           h | 8.472222222222209
+           c | 9.3877551020408
+           i | 10.499999999999984
+           f | 11.802469135802454
+           d | 15.609999999999989
+          (10 rows)
+
+          m_db=# DROP TABLE students;
+          DROP TABLE
+
+
+VAR_POP
+          VAR_POP(expr) [over_clause]
+          描述：计算所有expr的总体方差并返回结果。如果指定了over_clause，此函数将作为
+          窗口函数进行执行。over_clause参数说明请参见窗口函数。
+          参数类型：expr可以为任意类型。
+          返回值类型：DOUBLE
+          m_db=# CREATE TABLE students (name VARCHAR(20) NOT NULL, math INT);
+          CREATE TABLE
+          m_db=# INSERT INTO students (name, math) VALUES('a', 80),('b', 85),('c', 90),('d', 95),('e', 88),('f', 92),('g',
+          86),('h', 89),('i', 91),('j', 87);
+          INSERT 0 10
+          m_db=# SELECT VAR_POP(math) FROM students;
+               var_pop
+          --------------------
+           15.610000000000003
+          (1 row)
+
+          m_db=# SELECT name, VAR_POP(math) OVER(ORDER by math ROWS BETWEEN UNBOUNDED
+          PRECEDING AND CURRENT ROW) FROM students;
+           name |      var_pop
+          ------+--------------------
+           a |                0
+           b |             6.25
+           g | 6.888888888888883
+           j | 7.249999999999993
+           e | 7.759999999999993
+           h | 8.472222222222209
+           c | 9.3877551020408
+           i | 10.499999999999984
+           f | 11.802469135802454
+           d | 15.609999999999989
+          (10 rows)
+[[PDF_PAGE physical=2416 printed=2367]]
+           m_db=# DROP TABLE students;
+           DROP TABLE
+
+
+VAR_SAMP
+           VAR_SAMP(expr) [over_clause]
+
+           描述：计算所有expr的样本方差并返回结果。如果指定了over_clause，此函数将作为
+           窗口函数进行执行。over_clause参数说明请参见窗口函数。
+
+           参数类型：expr可以为任意类型。
+
+           返回值类型：DOUBLE
+           m_db=# CREATE TABLE students (name VARCHAR(20) NOT NULL, math INT);
+           CREATE TABLE
+           m_db=# INSERT INTO students (name, math) VALUES('a', 80),('b', 85),('c', 90),('d', 95),('e', 88),('f', 92),('g',
+           86),('h', 89),('i', 91),('j', 87);
+           INSERT 0 10
+           m_db=# SELECT VAR_SAMP(math) FROM students;
+               var_samp
+           -------------------
+            17.34444444444445
+           (1 row)
+
+           m_db=# SELECT name, VAR_SAMP(math) OVER(ORDER by math ROWS BETWEEN UNBOUNDED
+           PRECEDING AND CURRENT ROW) FROM students;
+            name |      var_samp
+           ------+--------------------
+            a |
+            b |             12.5
+            g | 10.333333333333325
+            j | 9.666666666666657
+            e | 9.69999999999999
+            h | 10.16666666666665
+            c | 10.952380952380933
+            i | 11.999999999999982
+            f | 13.27777777777776
+            d | 17.34444444444443
+           (10 rows)
+
+           m_db=# DROP TABLE students;
+           DROP TABLE

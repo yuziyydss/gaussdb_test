@@ -1,0 +1,133 @@
+[[PDF_PAGE physical=1399 printed=1350]]
+1.13.9.10 CREATE AGGREGATE
+
+功能描述
+           创建一个新的聚集函数。
+
+语法格式
+           CREATE AGGREGATE name ( input_data_type [ , ... ] ) (
+             SFUNC = sfunc,
+             -- SFUNC1 = sfunc,
+             STYPE = state_data_type
+             -- STYPE1 = state_data_type,
+             [ , FINALFUNC = ffunc ]
+             [ , INITCOND = initial_condition ]
+             -- [ , INITCOND1 = initial_condition ]
+             [ , SORTOP = sort_operator ]
+             [ , CFUNC = collection_func ]
+             [ , INITCOLLECT = initial_collection_condition ]
+[[PDF_PAGE physical=1400 printed=1351]]
+            [ , IFUNC = init_func ]
+            [ , SHIPPABLE = is_shippable ]
+       );
+
+       原语法/较早的语法格式：
+       CREATE AGGREGATE name (
+          BASETYPE = base_type,
+          SFUNC = sfunc,
+          -- SFUNC1 = sfunc,
+          STYPE = state_data_type
+          -- STYPE1 = state_data_type,
+          [ , FINALFUNC = ffunc ]
+          [ , INITCOND = initial_condition ]
+          -- [ , INITCOND1 = initial_condition ]
+          [ , SORTOP = sort_operator ]
+          [ , CFUNC = collection_func ]
+          [ , INITCOLLECT = initial_collection_condition ]
+          [ , IFUNC = init_func ]
+       );
+
+
+参数说明
+       ●       name
+               要创建的聚集函数名，可以使用模式进行具体指定。
+       ●       input_data_type
+               该聚集函数要处理的输入数据类型。
+               需要创建一个无入参的聚集函数，可以使用*代替输入数据类型列表，count(*)即
+               为零参数的聚集函数的一个实例。
+       ●       base_type
+               在CREATE AGGREGATE语法中直接指定BASETYPE关键字的方式定义输入的数据
+               类型，而并非直接将输入类型写在聚集函数名称后面（即指定input_data_type的
+               方式）。
+               当通过指定具体base_type的方式进行定义聚集函数的输入数据类型时，聚集函数
+               应为具有一个输入参数的聚集函数，当创建的聚集函数为一个零参数聚集函数，
+               请将BASETYPE指定为ANY（而并非*）。
+       ●       sfunc
+               将在每一个输入行上调用的状态转换函数的名称。对于有N个参数的聚集函数，
+               sfunc必须有N+1个参数，其中的第一个参数类型为state_data_type，其余的匹配
+               已声明的输入数据类型。函数必须返回一个state_data_type类型的值。这个函数
+               接受当前状态值和当前输入数据，并返回下个状态值。Oracle数据库的转换函数
+               默认行为是STRICT，即会跳过NULL输入值。GaussDB需要用户自行定义转换函数
+               STRICT属性。
+       ●       state_data_type
+               聚集的状态值的数据类型。
+       ●       ffunc
+               在转换完所有输入行后调用的最终处理函数，计算聚集的结果。此函数必须接受
+               一个类型为state_data_type的参数。聚集的输出数据类型被定义为此函数的返回
+               类型。如果没有声明ffunc则使用聚集结果的状态值作为聚集的结果，且输出类型
+               为state_data_type。
+       ●       initial_condition
+               状态值的初始设置（值）。initial_condition必须为一个state_data_type类型可以
+               接受的文本常量值。如果没有声明，状态值的初始设置（值）为null。
+[[PDF_PAGE physical=1401 printed=1352]]
+     ●       sort_operator
+             用于MIN或MAX类型聚集的排序操作符。仅表示一个操作符名（可以有模式修
+             饰）。
+     ●       collection_func
+             当前形态下该参数不生效。
+     ●       initial_collection_condition
+             collection_func状态值的初始设置（值）。initial_collection_condition必须是一
+             个state_data_type类型可以接受的文本常量值。如果没有声明，状态值的初始设
+             置（值）为null。
+     ●       init_func
+             sfunc状态值的初始设置函数。不能返回null值，必须返回state_data_type类型并
+             且没有入参。如果同时设置init_func和initial_condition，init_func的返回值将会
+             优先作为初始状态值。
+     ●       is_shippable
+             标记该聚集函数是否能够下推执行，仅可以取值true或者false。目前该参数不影
+             响系统内置聚集函数的下推行为，仅影响用户自定义聚集函数的行为，默认值为
+             false。
+             当前形态下该参数不生效。
+
+示例
+     --创建自定义函数。
+     gaussdb=# CREATE OR REPLACE FUNCTION int_add(int,int)
+      returns int as $BODY$
+     declare
+     begin
+      return $1 + $2;
+     end;
+     $BODY$ language plpgsql;
+
+     --创建聚集函数。
+     gaussdb=# CREATE AGGREGATE sum_add(int)
+     (
+       sfunc = int_add,
+
+          stype = int,
+
+          initcond = '0'
+
+     );
+
+     --创建测试表和添加数据。
+     gaussdb=# CREATE TABLE test_sum(a int,b int,c int);
+     gaussdb=# INSERT INTO test_sum VALUES(1,2),(2,3),(3,4),(4,5);
+
+     --执行聚集函数。
+     gaussdb=# SELECT sum_add(a) FROM test_sum;
+       sum_add
+     -----------
+       10
+
+     --删除聚集函数。
+     gaussdb=# DROP AGGREGATE sum_add(int);
+
+     --删除自定义函数。
+     gaussdb=# DROP FUNCTION int_add(int,int);
+
+     --删除测试表。
+     gaussdb=# DROP TABLE test_sum;
+[[PDF_PAGE physical=1402 printed=1353]]
+相关链接
+       ALTER AGGREGATE，DROP AGGREGATE

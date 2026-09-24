@@ -1,0 +1,134 @@
+[[PDF_PAGE physical=1877 printed=1828]]
+1.13.20.3 TIMECAPSULE DATABASE
+
+功能描述
+           在人为操作或应用程序错误时，使用TIMECAPSULE DATABASE语句可将库回收站中的
+           数据库对象恢复。
+
+
+注意事项
+           ●   TIMECAPSULE DATABASE语句的用法支持库级回收站对象从回收站中闪回，不支
+               持M兼容库下创建的Schema库对象闪回。
+           ●   不适用闪回DROP功能的场景：
+               –   回收站关闭场景：enable_db_recyclebin = off。
+[[PDF_PAGE physical=1878 printed=1829]]
+           –    系统处于维护态（xc_maintenance_mode = on）或从不支持的基线版本升级
+                到支持的版本的升级场景。
+           –    回收站对象被清理后无法闪回DROP，dbrecyclebin_retention_time参数用于
+                设置回收站对象保留时间。
+           –    回收站中的数据库，不支持连接、DQL、DML、DDL、DCL操作。
+       ●   数据库DROP闪回约束：
+           可以指定原始用户指定的数据库名称，或对象删除时系统分配的生成名称。
+           –    回收站中的数据库，在没有恢复前需要占用额外的存储空间。
+           –    支持包含Astore、Ustore数据表的数据库场景，不支持Dstore场景。
+           –    对齐DROP DATABASE的报错场景。
+           –    不支持PDB闪回。
+           –    数据库所在表空间的磁盘达到容量阈值，被设置为磁盘只读后，无法进行闪
+                回。
+           –    回收站中系统生成的对象名称是唯一的。因此，如果指定系统生成名称，那
+                么数据库将在回收站检索指定的对象。使用“SELECT * FROM
+                gs_db_recyclebin;”语句查看回收站中的内容。
+           –    如果指定了用户指定的名称，且回收站中包含多个该名称的对象，那么数据
+                库检索回收站中最近移动的对象。如果需要检索更早版本的表，请按以下步
+                骤执行：
+
+                ▪    指定需要检索的库的系统生成名称。
+
+                ▪    执行TIMECAPSULE DATABASE ... TO BEFORE DROP语句，直到找到要
+                     检索的表。
+           –    dbrecyclebin_retention_time配置参数用于设置回收站对象保留时间，超过
+                该时间的回收站对象将被自动清理。
+           –    若表空间的DML操作导致表空间容量不足，会自动清理库回收站中此表空间
+                关联的数据库对象。
+           –    用户需持有管理员权限或者目标库的创建权限。
+           –    TIMECAPSULE DATABASE支持在事务块内运行。
+
+
+语法格式
+       TIMECAPSULE DATABASE database_name TO BEFORE DROP [RENAME TO new_name];
+
+
+
+
+参数说明
+       ●   database_name
+           指定需要闪回的库名。
+       ●   TO BEFORE DROP
+           使用这个子句检索回收站中已删除的数据库。
+       ●   RENAME TO
+           为从回收站中检索的库指定一个新名称。
+[[PDF_PAGE physical=1879 printed=1830]]
+示例
+     ●   从库回收站中闪回数据库
+         前提条件：
+         –     开启enable_db_recyclebin参数，启用回收站，参数使用请参见数据库运行参
+               数说明。
+         –     dbrecyclebin_retention_time参数用于设置回收站对象保留时间，超过该时
+               间的回收站对象将被自动清理，参数使用请参见数据库运行参数说明。
+         –     dbrecyclebin_maxsize参数用于设置回收站最大容量，参数使用请参见数据库
+               运行参数说明。
+         示例一：闪回数据库不重命名。
+         --建库。
+         gaussdb=# create database flashback_test;
+         CREATE DATABASE
+         --删除库。
+         gaussdb=# drop database flashback_test;
+         DROP DATABASE
+         --查看回收站。
+         gaussdb=# select * from gs_db_recyclebin;
+          rcydbid |        rcyname           | rcyoriginname | rcyrecyclecsn |         rcyrecycletime          |
+         rcytablespaces | rcydbsize
+         ---------+---------------------------+----------------+---------------+-------------------------------
+         +----------------+-----------
+            82513 | BIN$1425167F$2F524358==$0 | flashback_test |                 13888 | 2024-12-11
+         08:55:18.631069-05 | 1663               |   26272
+         (1 row)
+         --通过回收站对象名闪回已删除的库。
+         gaussdb=# timecapsule database "BIN$1425167F$2F524358==$0" to before drop;
+         TimeCapsule Database
+         --或通过原名闪回已删除的库。
+         gaussdb=# timecapsule database flashback_test to before drop;
+         TimeCapsule Database
+         gaussdb=# select * from gs_db_recyclebin;
+          rcydbid | rcyname | rcyoriginname | rcyrecyclecsn | rcyrecycletime | rcytablespaces | rcydbsize
+         ---------+---------+---------------+---------------+----------------+----------------+-----------
+         (0 rows)
+         --连接库。
+         gaussdb=# \c flashback_test
+         Non-SSL connection (SSL connection is recommended when requiring high-security)
+         You are now connected to database "flashback_test" as user "omm".
+         flashback_test=#
+
+         示例二：闪回数据库并重命名。
+         --建库。
+         gaussdb=# create database flashback_test;
+         CREATE DATABASE
+         --删除库。
+         gaussdb=# drop database flashback_test;
+         DROP DATABASE
+         --查看回收站。
+         gaussdb=# select * from gs_db_recyclebin;
+          rcydbid |        rcyname           | rcyoriginname | rcyrecyclecsn |         rcyrecycletime          |
+         rcytablespaces | rcydbsize
+         ---------+---------------------------+----------------+---------------+-------------------------------
+         +----------------+-----------
+            82513 | BIN$1425167F$2F524358==$0 | flashback_test |                 13888 | 2024-12-11
+         08:55:18.631069-05 | 1663               |   26272
+         (1 row)
+         --通过回收站对象名闪回已删除的库并重命名。
+         gaussdb=# timecapsule database "BIN$1425167F$2F524358==$0" to before drop rename to
+         flashback_test2;
+         TimeCapsule Database
+         --或者通过原名闪回已删除的库并重命名。
+         gaussdb=# timecapsule database flashback_test to before drop rename to flashback_test2;
+[[PDF_PAGE physical=1880 printed=1831]]
+TimeCapsule Database
+gaussdb=# select * from gs_db_recyclebin;
+ rcydbid | rcyname | rcyoriginname | rcyrecyclecsn | rcyrecycletime | rcytablespaces | rcydbsize
+---------+---------+---------------+---------------+----------------+----------------+-----------
+(0 rows)
+--连接库。
+gaussdb=# \c flashback_test2
+Non-SSL connection (SSL connection is recommended when requiring high-security)
+You are now connected to database "flashback_test2" as user "omm".
+flashback_test2=#

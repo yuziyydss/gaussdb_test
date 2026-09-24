@@ -1,0 +1,148 @@
+[[PDF_PAGE physical=1211 printed=1162]]
+1.13.7.10 ALTER EVENT
+
+功能描述
+            修改已创建的定时任务中的属性。
+
+注意事项
+            ●    定时任务相关操作仅在sql_compatibility = 'B'时支持。
+            ●    只有定时任务的所有者有权修改对应的定时任务，系统管理员默认拥有修改所有
+                 定时任务的权限。
+            ●    可以通过SHOW EVENTS或在PG_JOB表中查看log_user列，进行获得任务的所有
+                 者信息。
+            ●    每次修改定时任务成功后，被修改的定时任务的所有者会更新为当前用户，若修
+                 改定时任务时指定了definer，则定时任务的所有者会更新为被指定的definer。
+            ●    definer选项场景限制与CREATE EVENT章节中definer选项的限制场景一致。
+            ●    系统管理员修改其他用户创建的定时任务后，被修改定时任务的所有者将切换为
+                 系统管理员，待执行语句将使用系统管理员的权限执行。
+
+语法格式
+            ALTER
+              [DEFINER = user]
+            EVENT event_name
+              [ON SCHEDULE schedule]
+              [ON COMPLETION [NOT] PRESERVE]
+              [RENAME TO new_event_name]
+              [ENABLE | DISABLE | DISABLE ON SLAVE]
+              [COMMENT 'string']
+              [DO event_body];
+
+            ●    schedule：
+                 {
+                       AT timestamp [+ INTERVAL interval] ...
+                     | EVERY interval
+                       [STARTS timestamp [+ INTERVAL interval] ...]
+                       [ENDS timestamp [+ INTERVAL interval] ...]
+                 }
+
+            ●    interval：
+                 quantity
+                       {YEAR | MONTH | DAY | HOUR | MINUTE | SECOND |
+                        YEAR TO MONTH | DAY TO HOUR | DAY TO MINUTE |
+                        DAY TO SECOND | HOUR TO MINUTE | HOUR TO SECOND |
+                        MINUTE TO SECOND}
+
+
+参数说明
+            ●    DEFINER
+                 定时任务待执行语句在执行时使用的权限。默认情况下使用当前创建定时任务者
+                 的权限，当指定definer参数时，将使用被指定用户user的用户权限。
+                 definer参数只有具有sysadmin权限的用户有权指定。
+            ●    ON SCHEDULE
+                 定时任务执行时刻。
+                 具体请参见CREATE EVENT中ON SCHEDULE schedule。
+[[PDF_PAGE physical=1212 printed=1163]]
+     ●     RENAME TO
+           更新定时任务名。
+     ●     ON COMPLETION [NOT] PRESERVE
+           默认情况下，一旦事务处于完成状态，系统表中就会立刻删除该定时任务。用户
+           可以通过设置ON COMPLETION PRESERVE进行覆盖默认行为。
+     ●     ENABLE | DISABLE | DISABLE ON SLAVE
+           创建定时任务后，定时任务默认处于ENABLE状态，即到规定时间立即执行待执行
+           语句。用户可以使用DISABLE关键字，改变定时任务的活动状态。DISABLE ON
+           SLAVE表现与DISABLE一致。
+     ●     COMMENT
+           为定时任务添加注释，注释内容可在GS_JOB_ATTRIBUTE表中查看。
+     ●     DO
+           定时任务待执行语句。
+     ●     interval
+           时间间隔。interval的取值可以使用下划线代替TO。例如，YEAR_MONTH、
+           DAY_HOUR等。
+                  说明
+
+                 该参数仅在B兼容模式下，且GUC参数b_format_version = '5.7'、b_format_dev_version =
+                 's1'时才可使用。
+
+
+示例
+     --创建并切换至测试数据库。
+     gaussdb=# CREATE DATABASE test_event WITH DBCOMPATIBILITY = 'B';
+     gaussdb=# \c test_event
+
+     --创建表。
+     test_event=# CREATE TABLE t_ev(num int);
+
+     --创建一个状态为DISABLE的定时任务，表示此定时任务不开启。
+     test_event=# CREATE EVENT IF NOT EXISTS event_e1 ON SCHEDULE AT sysdate + interval 5 second
+     DISABLE DO insert into t_ev values(0);
+
+     --查询定时任务，ENABLE值为'f'。
+     test_event=# SHOW EVENTS;
+      job_name | schema_name | log_user | priv_user | job_status |           start_date      | interval |    end_date      |
+     enable | failure_msg
+     ----------+-------------+----------+-----------+------------+---------------------+----------+---------------------
+     +--------+-------------
+      event_e1 | public      | omm       | omm       |s         | 2023-11-28 09:10:58 | null       | 3999-12-31 16:00:00 |
+     f     |
+     (1 row)
+
+     --修改定时任务状态为ENABLE,并五秒后查询表。
+     test_event=# ALTER EVENT event_e1 ENABLE;
+     test_event=# SELECT * FROM t_ev;
+      num
+     -----
+       0
+     (1 row)
+
+     --创建一个每隔一分钟执行一次的定时任务。
+     test_event=# CREATE EVENT IF NOT EXISTS event_e2 ON SCHEDULE EVERY 1 minute DO insert into t_ev
+     values(1);
+
+     --每隔一分钟查询表，会看到新增一条数据。
+     test_event=# SELECT * FROM t_ev;
+[[PDF_PAGE physical=1213 printed=1164]]
+        num
+       -----
+         0
+         1
+         1
+       (3 rows)
+
+       --修改定时任务中待执行语句并查询表。
+       test_event=# ALTER EVENT event_e2 DO insert into t_ev values(3);
+
+       test_event=# SELECT * FROM t_ev;
+        num
+       -----
+         0
+         1
+         1
+         3
+       (4 rows)
+
+       --修改定时任务名称。
+       test_event=# ALTER EVENT event_e2 RENAME TO event_ee;
+
+       --删除定时任务。
+       test_event=# DROP EVENT event_ee;
+
+       --删除表。
+       test_event=# DROP TABLE t_ev;
+
+       --切换回初始数据库，并删除测试数据库。请用真实的数据库名替换postgres。
+       test_event=# \c postgres
+       gaussdb=# DROP DATABASE test_event;
+
+
+相关链接
+       CREATE EVENT，DROP EVENT，SHOW EVENTS

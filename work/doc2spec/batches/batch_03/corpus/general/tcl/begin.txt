@@ -1,0 +1,93 @@
+[[PDF_PAGE physical=1362 printed=1313]]
+1.13.8.1 BEGIN
+
+功能描述
+             BEGIN可以用于开始一个匿名块，也可以用于开始一个事务。
+             匿名块是能够动态地创建和执行过程代码的结构，而不需要以持久化的方式将代码作
+             为数据库对象储存在数据库中。
+
+语法格式
+             ●   开启匿名块
+                 [DECLARE [declare_statements]]
+                 BEGIN
+                 execution_statements
+                 END;
+                 /
+
+
+
+
+             ●   开启事务
+                 BEGIN [ WORK | TRANSACTION ]
+                  [
+                    {
+                       ISOLATION LEVEL { READ COMMITTED | READ UNCOMMITTED | SERIALIZABLE | REPEATABLE
+                 READ }
+                       | { READ WRITE | READ ONLY }
+                      } [, ...]
+                  ];
+
+
+
+
+参数说明
+             ●   declare_statements
+                 声明变量，包括变量名和变量类型，如“sales_cnt int”。
+             ●   execution_statements
+                 匿名块中需要执行的语句。
+[[PDF_PAGE physical=1363 printed=1314]]
+           取值范围：DML操作（SELECT、INSERT、DELETE、UPDATE）或系统表中已注
+           册的函数名称。
+       ●   WORK | TRANSACTION
+           BEGIN语法格式中的可选关键字，没有实际作用。
+       ●   ISOLATION LEVEL
+           指定事务隔离级别，用于控制并发事务之间的数据可见性。
+
+                 说明
+
+                在事务中第一个数据修改语句（INSERT、DELETE、UPDATE、FETCH或COPY）执行之
+                后，事务隔离级别无法再次设置。
+           取值范围：
+           –     READ COMMITTED：读已提交隔离级别，仅能读取已提交的数据，不会读
+                 取到未提交的数据。未指定隔离级别时，默认为READ COMMITTED。
+           –     READ UNCOMMITTED：读未提交隔离级别，指定后的行为和READ
+                 COMMITTED行为一致。
+           –     REPEATABLE READ：可重复读隔离级别，仅可看到事务开始之前提交的数
+                 据，不能看到未提交的数据，以及在事务执行期间由其它并发事务提交的修
+                 改。
+           –     SERIALIZABLE：目前功能上不支持此隔离级别，设置该隔离级别时，等价于
+                 REPEATABLE READ。
+       ●   READ WRITE | READ ONLY
+           指定事务访问模式（读/写模式或者只读模式）。
+
+
+示例
+       ●   开启事务
+           --建表并插入数据。
+           gaussdb=# CREATE TABLE tbl_test1(col1 int, col2 int);
+           gaussdb=# INSERT INTO tbl_test1 VALUES (1,1), (2,2), (3,3);
+
+           --以默认方式启动事务。
+           gaussdb=# BEGIN;
+           INSERT INTO tbl_test1 VALUES (4,4);
+           END;
+
+           --以隔离级别为REPEATABLE READ方式启动事务。
+           gaussdb=# BEGIN ISOLATION LEVEL REPEATABLE READ;
+           SELECT * FROM tbl_test1;
+           END;
+
+           --删除表。
+           gaussdb=# DROP TABLE tbl_test1;
+
+       ●   匿名块
+           --使用匿名块输出字符串。
+           gaussdb=# BEGIN
+           dbe_output.print_line('Hello');
+           END;
+           /
+
+
+
+相关链接
+       START TRANSACTION

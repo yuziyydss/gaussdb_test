@@ -1,0 +1,364 @@
+[[PDF_PAGE physical=99 printed=50]]
+1.3.4 字符类型
+        GaussDB支持的字符类型如表1-8所示。字符串操作符和相关的内置函数请参见字符处
+        理函数和操作符。
+
+        表 1-8 字符类型
+        名称        描述                                              存储空间
+
+        CHAR(n)   定长字符串，长度不足时补充空格。其中，n表示                          n最大为10485760
+        CHARAC    字节长度，若未指定精度n，则默认为1。                             （即10MB）。
+        TER(n)    当sql_compatibility = 'B'时，设置参数                  最大为10485760
+        NCHAR(    b_format_version = '5.7'、b_format_dev_version   个字符。
+        n)        = 's1'后：
+                  ● 类型：n指字符长度，区间[0,10485760]，若未
+                    指定精度n，则默认为1。定长字符串，长度不
+                    足时补充空格。
+                  ● 输入：
+                    – 作为表列和临时变量的数据类型：输入字符
+                      串字符个数在范围内可以正常输入，
+                      sql_mode参数值包含“strict_trans_tables”
+                      时，超过范围直接报错，否则按n最大字符长
+                      度截断处理并告警。
+                  ● 输出：
+                    – 作为表列和临时变量的数据类型：sql_mode
+                      参数值包含“pad_char_to_full_length”
+                      时，输出带有尾部空格的字符串，否则输出
+                      不带尾部空格的字符串。
+                    – 作为函数参数和返回值，存储过程的参数：
+                      不支持长度校验（例如：自定义函数入参为
+                      CHAR(5)类型，输入一个字符串'123456'，
+                      不校验长度，可以直接传入参数）。
+[[PDF_PAGE physical=100 printed=51]]
+名称       描述                                     存储空间
+
+         当sql_compatibility = 'A'时：             最大为10MB。
+         ● CHAR(n)和CHARACTER(n)可以在长度参数n后
+           面显式指定n的单位，仅支持指定byte或char作
+           为单位，其中byte表示n的单位为字节，char表
+           示n的单位为字符，默认为byte，详情请参见示
+           例。
+         ● NCHAR(n)不支持指定长度参数n单位的用法。
+         ● 在单字节字符集下，即使指定char作为单位，n
+           的单位仍为字节，例如在SQL_ASCII字符集下，
+           指定CHAR(1 char)，输入一个中文字符时会报
+           错。
+         ● 由于类型存储空间限制为10MB，因此当指定
+           CHAR(n char)或CHARACTER(n char)时，并不
+           代表类型实际可以容纳下n个字符。
+           – 触发存储空间限制时，类型实际可以容纳的
+             字符数取决于当前字符集，例如在GBK字符
+             集下，指定CHAR(10485760 char)时，实际
+             最多可以容纳5242880个中文字符。
+           – 定长字符串补足空格时，将至多补至存储空
+             间上限。
+
+VARCHA   变长字符串。PG兼容模式下，n表示字符长度。其                n最大为10MB。
+R(n)     他兼容模式下，n表示字节长度。                        不带n时，最大存
+CHARAC                                          储字节长度为
+TER                                             1GB-85-4(存储长
+VARYIN                                          度参数的空间)-其
+G(n)                                            余列长度，比如(a
+                                                int, b varchar, c
+                                                int)，varchar最大
+                                                长度为
+                                                1GB-85-4(存储长
+                                                度参数的空
+                                                间)-4(a列int的长
+                                                度)-4(c列int的长
+                                                度)=1,073,741,72
+                                                7。详情请参见变
+                                                长类型最大存储长
+                                                度说明示例。
+[[PDF_PAGE physical=101 printed=52]]
+名称   描述                                              存储空间
+
+     当sql_compatibility = 'B'时，设置参数                  n最大为
+     b_format_version = '5.7'、b_format_dev_version   10485760。
+     = 's1'后：                                        不带n时，最大存
+     ● n指字符长度，区间[0,10485760]，若未指定精                   储字节长度为
+       度n，默认不限制长度，长度与TEXT类型相同。                       1GB-85-4(存储长
+                                                     度参数的空间)-其
+     ● 输入：
+                                                     余列长度，比如(a
+       – 作为表列和临时变量的数据类型：输入字符                         int, b varchar, c
+         串字符个数在范围内可以正常输入，                            int)，varchar最大
+         sql_mode参数值包含“strict_trans_tables”          长度为
+         时，超过范围直接报错，否则按n最大字符长                        1GB-85-4(存储长
+         度截断处理并告警。                                   度参数的空
+     ● 输出：原字符串输出。                                    间)-4(a列int的长
+                                                     度)-4(c列int的长
+                                                     度)=1,073,741,72
+                                                     7。详情请参见变
+                                                     长类型最大存储长
+                                                     度说明示例。
+
+     当sql_compatibility = 'A'时：                      最大为10MB。
+     ● 可以在长度参数n后面显式指定n的单位，仅支
+       持指定byte或char作为单位，其中byte表示n的
+       单位为字节，char表示n的单位为字符，默认为
+       byte，详情请参见示例。
+     ● 在单字节字符集下，即使指定char作为单位，n
+       的单位仍为字节，例如在SQL_ASCII字符集下，
+       指定VARCHAR(1 char)，插入一个中文字符时
+       会报错。
+     ● 由于类型存储空间限制为10MB，因此当指定
+       VARCHAR(n char)或CHARACTER VARYING(n
+       char)时，并不代表类型实际可以容纳下n个字
+       符。
+       触发存储空间限制时，类型实际可以容纳的字符
+       数取决于当前字符集，例如在GBK字符集下，指
+       定VARCHAR(10485760 char)时，实际最多可
+       以容纳5242880个中文字符。
+[[PDF_PAGE physical=102 printed=53]]
+名称       描述                            存储空间
+
+VARCHA   变长字符串。是VARCHAR(n)类型的别名。       n最大为10485760
+R2(n)                                  （即10MB）。
+                                       不带n时，最大存
+                                       储字节长度为
+                                       1GB-85-4(存储长
+                                       度参数的空间)-其
+                                       余列长度，比如(a
+                                       int, b varchar2, c
+                                       int)，varchar2最
+                                       大长度为
+                                       1GB-85-4(存储长
+                                       度参数的空
+                                       间)-4(a列int的长
+                                       度)-4(c列int的长
+                                       度)=1,073,741,72
+                                       7。详情请参见变
+                                       长类型最大存储长
+                                       度说明示例。
+
+NVARCH   变长字符串。在SQL_ASCII字符集下，n表示的是字   n最大为10MB。
+AR2(n)   节；在非SQL_ASCII字符集下，n表示的是字符。    不带n时，最大存
+                                       储字节长度为
+                                       1GB-85-4(存储长
+                                       度参数的空间)-其
+                                       余列长度，比如(a
+                                       int, b nvarchar2, c
+                                       int)，nvarchar2最
+                                       大长度为
+                                       1GB-85-4(存储长
+                                       度参数的空
+                                       间)-4(a列int的长
+                                       度)-4(c列int的长
+                                       度)=1,073,741,72
+                                       7。详情请参见变
+                                       长类型最大存储长
+                                       度说明示例。
+[[PDF_PAGE physical=103 printed=54]]
+名称        描述                                              存储空间
+
+TEXT      变长字符串。                                          最大存储字节长度
+                                                          为1GB-85-4(存储
+                                                          长度参数的空间)-
+                                                          其余列长度，比如
+                                                          (a int, b text, c
+                                                          int)，text最大长
+                                                          度为1GB-85-4(存
+                                                          储长度参数的空
+                                                          间)-4(a列int的长
+                                                          度)-4(c列int的长
+                                                          度)=1,073,741,72
+                                                          7。详情请参见变
+                                                          长类型最大存储长
+                                                          度说明示例。
+
+CLOB      文本大对象。                                          在astore下，最大
+                                                          为32TB-1，但还
+                                                          需要考虑到列描述
+                                                          头信息的大小，以
+                                                          及列所在元组的大
+                                                          小限制（也小于
+                                                          32TB-1），因此
+                                                          CLOB类型最大值
+                                                          可能小于
+                                                          32TB-1。
+                                                          在ustore下，最大
+                                                          为1GB-1，但还需
+                                                          要考虑到列描述头
+                                                          信息的大小，以及
+                                                          列所在元组的大小
+                                                          限制（也小于
+                                                          1GB-1），因此
+                                                          CLOB类型最大值
+                                                          可能小于1GB-1。
+
+TINYTEX   当sql_compatibility = 'B'时，设置参数                  最大为1GB-1，但
+T         b_format_version = '5.7'、b_format_dev_version   还需要考虑到列描
+MEDIUM    = 's1'后有效。                                      述头信息的大小，
+TEXT      类型转换成TEXT类型，使用场景与TEXT类型相                        以及列所在元组的
+          同。                                              大小限制（也小于
+LONGTE                                                    1GB-1），因此类
+XT                                                        型最大值可能小于
+                                                          1GB-1。
+[[PDF_PAGE physical=104 printed=55]]
+            说明
+
+          ● 除了每列的大小限制以外，每个元组的总大小也不可超过1GB-1字节，主要受列的控制头信
+            息、元组控制头信息以及元组中是否存在NULL字段等影响。
+          ● NCHAR为bpchar类型的别名，VARCHAR2(n)为VARCHAR(n)类型的别名。
+          ● 超过1GB的clob只有dbe_lob相关高级包支持，系统函数不支持大于1GB clob。
+          ● 在A兼容模式下，默认将接收到的空字符串转换为null。
+
+      在GaussDB里另外还有两种定长字符类型。在表1-9里显示。name类型只用在内部系
+      统表中，作为存储标识符，不建议普通用户使用。该类型长度当前定为64字节（63可
+      用字符加结束符）。类型“char”只用了一个字节的存储空间，在系统内部主要用于
+      系统表，主要作为简单化的枚举类型使用。
+
+      表 1-9 特殊字符类型
+       名称                         描述                                               存储空间
+
+       name                       用于对象名的内部类型。                                      64字节。
+
+       "char"                     单字节内部类型。                                         1字节。
+
+
+
+
+变长类型最大存储长度说明示例
+      此示例以varchar为例，varchar2/nvarchar2/text同理。
+      -- 创建表，表中有三列，分别为int、varchar、int，根据计算规则，varchar最大存储长度为
+      1GB-85-4-4-4=1073741727
+      gaussdb=# CREATE TABLE varchar_maxlength_test1 (a int, b varchar, c int);
+
+      -- varchar为1073741728，超过规定长度，插入失败
+      gaussdb=# INSERT INTO varchar_maxlength_test1 VALUES(1, repeat('a', 1073741728), 1);
+      ERROR: invalid memory alloc request size 1073741824 in tuplesort.cpp:219
+
+      -- varchar为1073741727，长度符合要求，插入成功
+      gaussdb=# insert into varchar_maxlength_test1 VALUES(1, repeat('a', 1073741727), 1);
+
+      -- 创建表，表中仅varchar一列，根据计算规则，varchar最大存储长度为1GB-85-4=1073741735
+      gaussdb=# CREATE TABLE varchar_maxlength_test2 (a varchar);
+
+      -- varchar为1073741736，超过规定长度，插入失败
+      gaussdb=# INSERT INTO varchar_maxlength_test2 VALUES(repeat('a', 1073741736));
+      ERROR: invalid memory alloc request size 1073741824 in tuplesort.cpp:219
+
+      -- varchar为1073741735，长度符合要求，插入成功
+      gaussdb=# INSERT INTO varchar_maxlength_test2 VALUES(repeat('a', 1073741735));
+
+
+示例
+      --创建表。
+      gaussdb=# CREATE TABLE char_type_t1
+      (
+         CT_COL1 CHARACTER(4)
+      );
+
+      --插入数据。
+      gaussdb=# INSERT INTO char_type_t1 VALUES('ok');
+
+      --查询表中的数据。
+      gaussdb=# SELECT ct_col1, char_length(ct_col1) FROM char_type_t1;
+       ct_col1 | char_length
+[[PDF_PAGE physical=105 printed=56]]
+---------+-------------
+ ok     |        4
+(1 row)
+
+--删除表。
+gaussdb=# DROP TABLE char_type_t1;
+
+--创建表。
+gaussdb=# CREATE TABLE char_type_t2
+(
+   CT_COL1 VARCHAR(5)
+);
+
+--插入数据。
+gaussdb=# INSERT INTO char_type_t2 VALUES('ok');
+
+gaussdb=# INSERT INTO char_type_t2 VALUES('good');
+
+--插入的数据长度超过类型规定的长度报错。
+gaussdb=# INSERT INTO char_type_t2 VALUES('too long');
+ERROR: value too long for type character varying(5)
+CONTEXT: referenced column: ct_col1
+
+--明确类型的长度，超过数据类型长度后会自动截断。
+gaussdb=# INSERT INTO char_type_t2 VALUES('too long'::varchar(5));
+
+--查询数据。
+gaussdb=# SELECT ct_col1, char_length(ct_col1) FROM char_type_t2;
+ ct_col1 | char_length
+---------+-------------
+ ok     |        2
+ good |            4
+ too l |         5
+(3 rows)
+
+--删除数据。
+gaussdb=# DROP TABLE char_type_t2;
+
+--A兼容模式下创建表。
+gaussdb=# CREATE TABLE char_type_t3
+(
+   a CHAR(4 char),
+   b VARCHAR(5 char)
+);
+
+--插入数据。
+gaussdb=# INSERT INTO char_type_t3 VALUES('A你好', '你a好+');
+
+--查询数据。
+gaussdb=# SELECT * FROM char_type_t3;
+   a | b
+---------+--------
+ A你好 | 你a好+
+(1 rows)
+
+--删除表。
+gaussdb=# DROP TABLE char_type_t3;
+
+-- 示例：char和varchar类型。
+-- 创建B兼容模式下的数据库。
+gaussdb=# CREATE DATABASE gaussdb_m WITH DBCOMPATIBILITY 'b';
+gaussdb=# \c gaussdb_m
+-- 设置兼容版本控制参数。
+gaussdb_m=# SET b_format_version='5.7';
+gaussdb_m=# SET b_format_dev_version='s1';
+-- 创建表。
+gaussdb_m=# CREATE TABLE t1(a char(5), b varchar(5));
+-- 插入数据。
+gaussdb_m=# INSERT INTO t1 VALUES('一二三四五','一二三四五');
+[[PDF_PAGE physical=106 printed=57]]
+-- 查看数据。
+gaussdb_m=# SELECT char_length(a),char_length(b) FROM t1;
+ char_length | char_length
+-------------+-------------
+         5|         5
+(1 row)
+gaussdb_m=# SELECT length(a),length(b) FROM t1;
+ length | length
+--------+--------
+    15 |    15
+(1 row)
+gaussdb_m=# SELECT * FROM t1;
+    a     |   b
+------------+------------
+ 一二三四五 | 一二三四五
+(1 row)
+-- 删除表。
+gaussdb_m=# DROP TABLE t1;
+-- 示例：tinytext，mediumtext，longtext类型。
+-- 创建表。
+gaussdb_m=# CREATE TABLE t2(a tinytext, b mediumtext, c longtext);
+-- 插入数据。
+gaussdb_m=# INSERT INTO t2 VALUES('abcde','abcde','abcde');
+-- 查看数据。
+gaussdb_m=# SELECT * FROM t2;
+   a | b | c
+-------+-------+-------
+ abcde | abcde | abcde
+(1 row)
+-- 删除表和数据库。
+gaussdb_m=# DROP TABLE t2;
+gaussdb_m=# \c postgres;
+gaussdb=# DROP DATABASE gaussdb_m;
+-- 重置参数。
+gaussdb=# RESET all;

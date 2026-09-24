@@ -1,0 +1,187 @@
+[[PDF_PAGE physical=1331 printed=1282]]
+1.13.7.40 ALTER TEXT SEARCH CONFIGURATION
+
+功能描述
+           用于更改文本搜索配置的定义。用户可以将映射从字符串类型调整为字典，或者改变
+           配置的名称、所有者，或者修改搜索配置的配置参数。
+
+注意事项
+           ●   当一个搜索配置已经被引用（如被用来创建索引），则不允许用户修改此文本搜
+               索配置。
+           ●   要使用ALTER TEXT SEARCH CONFIGURATION，用户必须是配置的所有者。
+           ●   ADD MAPPING FOR选项为文本搜索配置增加字符串类型映射；如果ADD
+               MAPPING FOR后面任何一个字符串类型的映射已经存在于此文本搜索配置中，那
+               么系统将会报错。
+[[PDF_PAGE physical=1332 printed=1283]]
+       ●   ALTER MAPPING FOR选项会首先清除已有的字符串类型映射，然后添加指定的
+           字符串类型映射。
+       ●   ALTER MAPPING REPLACE ... WITH ... 与ALTER MAPPING FOR ... REPLACE ...
+           WITH ...选项会直接使用new_dictionary替换old_dictionary。需要注意的是，只
+           有pg_ts_config_map系统表中存在maptokentype与old_dictionary对应关系的元
+           组时，才能更新成功，否则不会成功，也不会有任何提示信息返回。
+       ●   DROP MAPPING FOR选项会删除当前文本搜索配置中指定的字符串类型映射。
+           如果没有指定IF EXISTS选项，当DROP MAPPING FOR选项指定的字符串类型映
+           射在文本搜索配置中不存在时，数据库会报错。
+       ●   在使用全文检索功能时，文本检索函数的返回结果会受到文本搜索配置的直接影
+           响，当对文本搜索配置进行修改后，由于已缓存的查询计划不会立即更新，再次
+           调用函数进行查询时可能会导致函数返回结果未同步更新，请进行清空计划缓存
+           操作。如，相关函数存在于参数化绑定执行（PBE）场景或启用自动参数化等含有
+           计划缓存的场景。
+
+
+语法格式
+       ●   增加文本搜索配置字符串类型映射语法。
+           ALTER TEXT SEARCH CONFIGURATION name
+             ADD MAPPING FOR { token_type } [, ... ] WITH { dictionary_name } [, ... ];
+
+
+
+
+       ●   修改文本搜索配置字典语法。
+           ALTER TEXT SEARCH CONFIGURATION name
+             ALTER MAPPING FOR { token_type } [, ... ] REPLACE old_dictionary WITH new_dictionary;
+
+
+
+
+       ●   修改文本搜索配置字符串类型语法。
+           ALTER TEXT SEARCH CONFIGURATION name
+             ALTER MAPPING FOR { token_type } [, ... ] WITH { dictionary_name } [, ... ];
+
+
+
+
+       ●   更改文本搜索配置字典语法。
+           ALTER TEXT SEARCH CONFIGURATION name
+             ALTER MAPPING REPLACE old_dictionary WITH new_dictionary;
+
+
+
+
+       ●   删除文本搜索配置字符串类型映射语法。
+           ALTER TEXT SEARCH CONFIGURATION name
+             DROP MAPPING [ IF EXISTS ] FOR { token_type } [, ... ];
+[[PDF_PAGE physical=1333 printed=1284]]
+       ●   重命名文本搜索配置所有者语法。
+           ALTER TEXT SEARCH CONFIGURATION name OWNER TO new_owner;
+
+
+
+
+       ●   重命名文本搜索配置名称语法。
+           ALTER TEXT SEARCH CONFIGURATION name RENAME TO new_name;
+
+
+
+
+       ●   重命名文本搜索配置命名空间语法。
+           ALTER TEXT SEARCH CONFIGURATION name SET SCHEMA new_schema;
+
+
+
+
+       ●   修改文本搜索配置属性语法。
+           ALTER TEXT SEARCH CONFIGURATION name SET ( { configuration_option = value } [, ...] );
+
+
+
+
+       ●   重置文本搜索配置属性语法。
+           ALTER TEXT SEARCH CONFIGURATION name RESET ( {configuration_option} [, ...] );
+
+
+
+
+参数说明
+       ●   name
+           已有文本搜索配置的名称（可以有模式修饰）。
+       ●   token_type
+           与配置的语法解析器关联的字符串类型的名称。
+       ●   dictionary_name
+           文本搜索字典名称。如果有多个字典，则它们会按指定的顺序搜索。
+       ●   old_dictionary
+           映身中拟被替换的文本搜索字典名称。
+       ●   new_dictionary
+           替换old_dictionary的文本搜索字典的名称。
+[[PDF_PAGE physical=1334 printed=1285]]
+     ●    new_owner
+          文本搜索配置的新所有者。
+     ●    new_name
+          文本搜索配置的新名称。
+     ●    new_schema
+          文本搜索配置的新模式名。
+     ●    configuration_option
+          文本搜索配置项。
+          详细介绍请参见CREATE TEXT SEARCH CONFIGURATION章节的
+          configuration_option。
+     ●    value
+          文本搜索配置项的值。
+
+示例
+     --创建文本搜索配置english_1。
+     gaussdb=# CREATE TEXT SEARCH CONFIGURATION english_1 (parser=default);
+     CREATE TEXT SEARCH CONFIGURATION
+
+     --创建文本搜索配置english_2。
+     gaussdb=# CREATE TEXT SEARCH CONFIGURATION english_2 (parser=default);
+     CREATE TEXT SEARCH CONFIGURATION
+
+     --增加文本搜索配置字符串类型映射语法。
+     gaussdb=# ALTER TEXT SEARCH CONFIGURATION english_1 ADD MAPPING FOR word WITH
+     simple,english_stem;
+     ALTER TEXT SEARCH CONFIGURATION
+
+     gaussdb=# ALTER TEXT SEARCH CONFIGURATION english_1 ADD MAPPING FOR email WITH english_stem,
+     french_stem;
+     ALTER TEXT SEARCH CONFIGURATION
+
+     --查询文本搜索配置相关信息。
+     gaussdb=# SELECT b.cfgname,a.maptokentype,a.mapseqno,a.mapdict,c.dictname FROM pg_ts_config_map
+     a,pg_ts_config b, pg_ts_dict c WHERE a.mapcfg=b.oid AND a.mapdict=c.oid AND b.cfgname='english_1'
+     ORDER BY 1,2,3,4,5;
+       cfgname | maptokentype | mapseqno | mapdict | dictname
+     -----------+--------------+----------+---------+--------------
+      english_1 |          2|       1 | 3765 | simple
+      english_1 |          2|       2 | 12960 | english_stem
+      english_1 |          4|       1 | 12960 | english_stem
+      english_1 |          4|       2 | 12964 | french_stem
+     (4 rows)
+
+     --修改文本搜索配置字符串类型映射语法。
+     gaussdb=# ALTER TEXT SEARCH CONFIGURATION english_1 ALTER MAPPING REPLACE french_stem with
+     german_stem;
+     ALTER TEXT SEARCH CONFIGURATION
+
+     --查询文本搜索配置相关信息。
+     gaussdb=# SELECT b.cfgname,a.maptokentype,a.mapseqno,a.mapdict,c.dictname FROM pg_ts_config_map
+     a,pg_ts_config b, pg_ts_dict c WHERE a.mapcfg=b.oid AND a.mapdict=c.oid AND b.cfgname='english_1'
+     ORDER BY 1,2,3,4,5;
+       cfgname | maptokentype | mapseqno | mapdict | dictname
+     -----------+--------------+----------+---------+--------------
+      english_1 |          2|       1 | 3765 | simple
+      english_1 |          2|       2 | 12960 | english_stem
+      english_1 |          4|       1 | 12960 | english_stem
+      english_1 |          4|       2 | 12966 | german_stem
+     (4 rows)
+[[PDF_PAGE physical=1335 printed=1286]]
+--将文本搜索配置名称english_2重命名为english_3。
+gaussdb=# ALTER TEXT SEARCH CONFIGURATION english_2 RENAME TO english_3;
+
+--创建用户joe。
+gaussdb=# CREATE USER joe IDENTIFIED BY '********';
+
+--重命名文本搜索配置所有者为joe。
+gaussdb=# ALTER TEXT SEARCH CONFIGURATION english_3 OWNER TO joe;
+
+--重命名文本搜索配置命名空间。
+gaussdb=# ALTER TEXT SEARCH CONFIGURATION english_3 set schema joe;
+
+--删除Schema。
+gaussdb=# DROP SCHEMA IF EXISTS joe CASCADE;
+
+--删除用户joe
+gaussdb=# DROP ROLE IF EXISTS joe;
+
+--删除文本搜索配置。
+gaussdb=# DROP TEXT SEARCH CONFIGURATION english_1;
+DROP TEXT SEARCH CONFIGURATION

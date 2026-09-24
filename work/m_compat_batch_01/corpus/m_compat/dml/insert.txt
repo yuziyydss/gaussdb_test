@@ -1,0 +1,441 @@
+[[PDF_PAGE physical=2218 printed=2169]]
+2.4.2.12.1 INSERT
+
+功能描述
+              向表中插入一行或多行数据。
+
+注意事项
+              ●     只有拥有表INSERT权限的用户，才可以向表中插入数据。用户被授予insert any
+                    table权限，相当于用户对除系统模式之外的任何模式具有USAGE权限，并且拥有
+                    这些模式下表的INSERT权限。
+              ●     如果使用ON DUPLICATE KEY UPDATE，用户必须要有该表的INSERT、UPDATE
+                    权限，UPDATE子句中列的SELECT权限。
+              ●     如果使用query子句插入来自查询里的数据行，用户还需要拥有在查询里使用的表
+                    的SELECT权限。
+              ●     生成列不能被直接写入。在INSERT命令中不能为生成列指定值，但是可以指定关
+                    键字DEFAULT。
+[[PDF_PAGE physical=2219 printed=2170]]
+语法格式
+       INSERT [/*+ plan_hint */] [IGNORE]
+       [INTO] tbl_name
+       [PARTITION (partition_name [, partition_name] ...)]
+          [(column_name [, column_name] ...)]
+          {VALUES | VALUE} ([value_list]) [, (value_list)] ...
+          [AS row_alias[(col_alias [, col_alias] ...)]]
+          [ON DUPLICATE KEY UPDATE column_name = {expression | DEFAULT}[, ...]];
+
+       INSERT [/*+ plan_hint */] [IGNORE] [INTO] tbl_name
+         [PARTITION (partition_name [, partition_name] ...)]
+         SET column_name = {expression | DEFAULT}[, ...]
+         [AS row_alias[(col_alias [, col_alias] ...)]]
+         [ON DUPLICATE KEY UPDATE column_name = {expression | DEFAULT}[, ...]];
+
+       INSERT [/*+ plan_hint */] [IGNORE] [INTO] tbl_name
+         [PARTITION (partition_name [, partition_name] ...)]
+         [(column_name [, column_name] ...)]
+         query
+         [ON DUPLICATE KEY UPDATE column_name = {expression | DEFAULT}[, ...]];
+
+       INSERT [/*+ plan_hint */] [IGNORE] [INTO] view_name
+         [(column_name [, column_name] ...)]
+         {VALUES | VALUE} ([value_list]) [, (value_list), ...];
+
+       INSERT [/*+ plan_hint */] [IGNORE] [INTO] view_name
+         SET column_name = {expression | DEFAULT}[, ...];
+
+       INSERT [/*+ plan_hint */] [IGNORE] [INTO] view_name
+         [(column_name [, column_name] ...)]
+         query;
+
+
+参数说明
+       ●    plan_hint子句
+            以/*+ */的形式在INSERT关键字后，用于对INSERT对应的语句块生成的计划进行
+            hint调优。每条语句中只有第一个/*+ plan_hint */注释块会作为hint生效，里面可
+            以写多条hint。
+       ●    IGNORE
+            INSERT语句使用IGNORE关键字时，可将部分ERROR级别的错误降级为
+            WARNING级别，并根据不同的错误场景将无效值调整为最接近的值。GaussDB支
+            持错误降级的场景如下：
+            –     破坏NOT NULL约束。
+            –     唯一键冲突。
+            –     插入的值无法匹配对应的分区。
+            –     指定分区插入时，插入的数据与指定分区不匹配。
+            –     子查询返回多行。
+            –     sql_mode为宽松模式的场景。
+       ●    table_name
+            要插入数据的目标表名。
+            取值范围：已存在的表名。
+       ●    partition_name
+            分区名。
+       ●    column_name
+            目标表中的字段名称，具体形式为：
+[[PDF_PAGE physical=2220 printed=2171]]
+        [[schema.]table.]column
+    –     字段名可以由子字段名或者数组下标进行修饰。
+    –     没有在字段列表中出现的字段，将由系统对其设置默认值，或者设置声明时
+          的默认值进行填充。若没有默认值或声明值则用NULL填充。
+    –     目标字段（column_name）可以按顺序排列。如果没有列出任何字段，则默
+          认全部字段，且顺序为表声明时的顺序。
+    –     如果value子句和query中只提供了N个字段，则目标字段为前N个字段。
+    –     value子句和query提供的值在表中从左到右关联到对应列。
+    取值范围：已存在的字段名。
+●   row_alias | col_alias
+    目标表和字段的别名。
+●   expression
+    赋予对应column的一个有效表达式或值：
+    –     如果是在INSERT ON DUPLICATE KEY UPDATE语句下，expression可以为
+          VALUES(column_name)，用来表示引用冲突行对应的column_name字段的
+          值。其中VALUES(column_name)支持嵌套在复合表达式中，例如：
+          VALUES(column_name) +1、VALUES(column_name) +
+          VALUES(column_name)、function_name(VALUES(column_name))等。
+                说明
+
+               VALUES(column_name)特性仅支持在ON DUPLICATE KEY UPDATE子句中使用。
+    –     向表中字段插入单引号 " ' "时需要使用单引号自身进行转义。
+    –     如果插入行的表达式不是正确的数据类型，系统试图进行类型转换，若转换
+          不成功，则插入数据失败，系统返回错误信息。
+●   DEFAULT
+    对应字段名的缺省值。如果没有缺省值，则为NULL。
+●   query
+    一个查询语句（SELECT语句），将查询结果作为插入的数据。
+●   row_alias | col_alias
+    目标表和字段的别名。
+●   ON DUPLICATE KEY UPDATE
+    对于带有唯一约束（UNIQUE INDEX或PRIMARY KEY）的表，如果插入数据违反
+    唯一约束，则对冲突行执行UPDATE子句完成更新，对于不带唯一约束的表，则
+    仅执行插入。UPDATE时，可通过"VALUES()" 来选择源数据相应的列。
+    –     如果表中存在多个唯一约束，如果所插入数据违反多个唯一约束，对于检测
+          到冲突的第一行进行更新，其他冲突行不更新（检查顺序与索引维护具有强
+          相关性，一般先创建的索引先进行冲突检查）。
+    –     如果插入多行，这些行均与表中同一行数据存在唯一约束冲突，则按照顺
+          序，第一条执行插入或更新，之后依次执行更新。
+    –     expression不支持使用子查询表达式。
+    –     将GUC兼容性参数m_format_dev_version设置为's2'后，UPDATE子句在更新
+          多列时，如果存在引用前面的字段名，则使用其更新后的数据，并且支持同
+          一字段名可被修改多次。
+    –     如果query为子查询，SQL语句满足以下条件时，UPDATE子句支持引用子查
+          询中的列名：
+[[PDF_PAGE physical=2221 printed=2172]]
+              ▪     子查询为UNION查询或EXCEPT操作时，不支持引用子查询中的列。
+
+              ▪     第一层子查询中包含聚集函数或GROUP BY聚集操作时，不支持引用子
+                    查询中的列。
+
+              ▪     仅支持引用子查询中第一个FROM返回的所有字段，不支持引用子查询
+                    投影列或多层嵌套子查询的列。
+
+              ▪     子查询FROM子句的字段存在列别名时，UPDATE子句只能引用列别名。
+
+              ▪     子查询FROM子句的表存在表别名时，UPDATE子句只能引用表别名。
+
+              ▪     子查询投影列为函数或表达式场时，支持引用子查询列。
+
+              ▪     支持“列名”、“表名.列名”以及“模式名.表名.列名”的格式引用子查
+                    询列。
+     ●   view_name
+         要插入的目标视图。
+               说明
+
+             对视图的插入，有如下约束：
+             1. 只有直接引用基表用户列的列可插入。
+             2. 视图必须至少包含一个可更新列，关于可更新列请参见CREATE VIEW。
+             3. 不支持在顶层包含DISTINCT、GROUP BY、HAVING、LIMIT、OFFSET子句的视图。
+             4. 不支持在顶层包含集合运算（UNION、EXCEPT）的视图。
+             5. 不支持目标列表中包含聚集函数、窗口函数、返回集合函数（array_agg、json_agg、
+                generate_series等）的视图。
+             6. 不支持ON DUPLICATE KEY UPDATE功能。
+             7. 视图中支持的表类型包括普通表、临时表、全局临时表、分区表、二级分区表、ustore
+                表、astore表。
+             8. 对多表连接视图，一次只能对一张基表做插入。
+             9. 对连接视图插入时显式指定的插入列或隐式指定（即创建视图中指定的列）不能引用非
+                保留键表的列。关于保留键表请参见CREATE VIEW。
+             10. 不支持对系统视图插入。
+
+
+示例
+     ●   插入一条数据
+         -- 建表。
+         m_db=# CREATE TABLE test_t1(col1 INT,col2 VARCHAR(20));
+
+         -- 插入数据。
+         m_db=# INSERT INTO test_t1 (col1, col2) VALUES (1,'AB');
+
+         -- 只给表中部分列插入数据。
+         m_db=# INSERT INTO test_t1 (col1) VALUES (2);
+
+         -- VALUES关键字左边没有括号，右边括号里面必须严格按照表结构的顺序给所有的字段添加值。
+         m_db=# INSERT INTO test_t1 VALUES (3,'AC');
+
+         -- 查询表。
+         m_db=# SELECT * FROM test_t1;
+          col1 | col2
+         ------+------
+            1 | AB
+            2|
+[[PDF_PAGE physical=2222 printed=2173]]
+       3 | AC
+    (3 rows)
+
+    -- 删除表。
+    m_db=# DROP TABLE test_t1;
+
+●   插入多条数据
+    -- 建表。
+    m_db=# CREATE TABLE test_t2(col1 INT,col2 VARCHAR(20));
+    m_db=# CREATE TABLE test_t3(col1 INT,col2 VARCHAR(20));
+
+    -- 插入多条数据。
+    m_db=# INSERT INTO test_t2 (col1, col2) VALUES (10,'AA'),(20,'BB'),(30,'CC');
+
+    -- 查询表。
+    m_db=# SELECT * FROM test_t2;
+     col1 | col2
+    ------+------
+      10 | AA
+      20 | BB
+      30 | CC
+    (3 rows)
+
+    -- 把test_t2中的数据插入到test_t3中。
+    m_db=# INSERT INTO test_t3 SELECT * FROM test_t2;
+
+    -- 查询表。
+    m_db=# SELECT * FROM test_t3;
+     col1 | col2
+    ------+------
+      10 | AA
+      20 | BB
+      30 | CC
+    (3 rows)
+
+    -- 删除表。
+    m_db=# DROP TABLE test_t2;
+    m_db=# DROP TABLE test_t3;
+
+●   插入数据指定别名
+    -- 建表。
+    m_db=# CREATE TABLE test_t1(col1 INT,col2 VARCHAR(20));
+
+    -- 插入数据指定别名。
+    m_db=# INSERT INTO test_t1 (col1, col2) VALUES (1,'AB') AS new_t1(new_col1, new_col2);
+    m_db=# INSERT INTO test_t1 SET col1 = 3, col2 = 'AC' AS new_t1(new_col1, new_col2);
+
+    -- 查询表。
+    m_db=# SELECT * FROM test_t1;
+     col1 | col2
+    ------+------
+       1 | AB
+       3 | AC
+    (2 rows)
+
+    -- 删除表。
+    m_db=# DROP TABLE test_t1;
+
+●   ON DUPLICATE KEY UPDATE
+    -- 建表。
+    m_db=# CREATE TABLE test_t4 (id INT PRIMARY KEY, info VARCHAR(10));
+    m_db=# INSERT INTO test_t4 VALUES (1, 'AA'), (2,'BB'), (3, 'CC');
+
+    -- 使用ON DUPLICATE KEY UPDATE关键字。
+    m_db=# INSERT INTO test_t4 VALUES (3, 'DD'), (4, 'EE') ON DUPLICATE KEY UPDATE info =
+    VALUES(info);
+
+    -- 查询表。
+    m_db=# SELECT * FROM test_t4;
+     id | info
+[[PDF_PAGE physical=2223 printed=2174]]
+    ----+------
+      1 | AA
+      2 | BB
+      4 | EE
+      3 | DD
+
+    -- 删除表。
+    m_db=# DROP TABLE test_t4;
+
+    -- 如果query为子查询，ON DUPLICATE KEY UPDATE子句支持使用子查询中的列名。
+    m_db=# CREATE TABLE t1(a INT PRIMARY KEY, b INT);
+    m_db=# CREATE TABLE t2(c INT, d INT);
+
+    m_db=# INSERT INTO t1 VALUES(2, 3), (5, 6);
+    m_db=# INSERT INTO t2 VALUES(2, 4), (5, 7);
+
+    m_db=# INSERT INTO t1 (a, b) SELECT c, d FROM t2 ON DUPLICATE KEY UPDATE b = b + d;
+    m_db=# SELECT * FROM t1;
+     a|b
+    ---+----
+     2| 7
+     5 | 13
+    (2 rows)
+
+    m_db=# DROP TABLE t1;
+    m_db=# DROP TABLE t2;
+
+●   INSERT IGNORE
+    示例1：破坏NOT NULL约束
+    -- 建表。
+    m_db=# CREATE TABLE test_t5(f1 INT NOT NULL);
+    CREATE TABLE
+
+    -- 使用IGNORE关键字。
+    m_db=# INSERT IGNORE INTO test_t5 VALUES(NULL);
+    WARNING: The null value in column "f1" violates not-null constraint.
+    DETAIL: Failing row contains (null).
+    INSERT 0 1
+
+    -- 查询表。
+    m_db=# SELECT * FROM test_t5;
+     f1
+    ----
+      0
+    (1 row)
+
+    -- 删除表。
+    m_db=# DROP TABLE test_t5;
+    示例2：唯一键冲突
+    -- 建表。
+    m_db=# CREATE TABLE test_t6(f1 INT PRIMARY KEY);
+    NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "test_t6_pkey" for table "test_t6"
+    CREATE TABLE
+
+    -- 插入数据。
+    m_db=# INSERT INTO test_t6 VALUES(1);
+    INSERT 0 1
+
+    -- 使用IGNORE关键字。
+    m_db=# INSERT IGNORE INTO test_t6 VALUES(1);
+    WARNING: duplicate key value violates unique constraint "test_t6_pkey"
+    INSERT 0 0
+
+    -- 查询表。
+    m_db=# SELECT * FROM test_t6;
+     f1
+    ----
+      1
+[[PDF_PAGE physical=2224 printed=2175]]
+(1 row)
+
+-- 删除表。
+m_db=# DROP TABLE test_t6;
+DROP TABLE
+示例3：插入的值没有找到对应的分区
+-- 建表。
+m_db=# CREATE TABLE test_t7(f1 INT, f2 INT) PARTITION BY LIST(f1) (PARTITION p0 VALUES(1, 4,
+7), PARTITION p1 VALUES (2, 5, 8));
+CREATE TABLE
+
+-- 使用IGNORE关键字。
+m_db=# INSERT IGNORE INTO test_t7 VALUES(3, 5);
+WARNING: inserted partition key does not map to any table partition
+INSERT 0 0
+
+-- 查询表。
+m_db=# SELECT * FROM test_t7;
+ f1 | f2
+----+----
+(0 rows)
+
+-- 删除表。
+m_db=# DROP TABLE test_t7;
+DROP TABLE
+示例4：指定分区插入时，插入的数据与指定的分区不匹配
+-- 建表。
+m_db=# CREATE TABLE test_t8(f1 INT NOT NULL, f2 TEXT, f3 INT) PARTITION BY RANGE(f1)
+(PARTITION p0 VALUES LESS THAN(5), PARTITION p1 VALUES LESS THAN(10), PARTITION p2
+VALUES LESS THAN(15), PARTITION p3 VALUES LESS THAN(MAXVALUE));
+CREATE TABLE
+
+-- 使用IGNORE关键字。
+m_db=# INSERT IGNORE INTO test_t8 PARTITION(p2) VALUES(20, 'Jan', 1);
+WARNING: inserted partition key does not map to the table partition
+DETAIL: N/A.
+INSERT 0 0
+
+-- 查询表。
+m_db=# SELECT * FROM test_t8;
+ f1 | f2 | f3
+----+----+----
+(0 rows)
+
+-- 删除表。
+m_db=# DROP TABLE test_t8;
+DROP TABLE
+示例5：子查询返回多行
+-- 建表。
+m_db=# CREATE TABLE test_t9(f1 INT, f2 INT);
+CREATE TABLE
+
+-- 插入数据。
+m_db=# INSERT INTO test_t9 VALUES(1, 1), (2, 2), (3, 3);
+INSERT 0 3
+
+-- 使用IGNORE关键字。
+m_db=# INSERT IGNORE INTO test_t9 VALUES((SELECT f1 FROM test_t9), 0);
+WARNING: The subquery in the expression returns more than one row of result.
+CONTEXT: referenced column: f1
+INSERT 0 1
+
+-- 查询表。
+m_db=# SELECT * FROM test_t9 WHERE f2 = 0;
+ f1 | f2
+----+----
+   | 0
+[[PDF_PAGE physical=2225 printed=2176]]
+           (1 row)
+
+           -- 删除表。
+           m_db=# DROP TABLE test_t9;
+           DROP TABLE
+
+       ●   插入视图
+           -- 创建Schema。
+           m_db=# CREATE SCHEMA ins_view;
+           CREATE SCHEMA
+           m_db=# SET CURRENT_SCHEMA = 'ins_view';
+           SET
+
+           -- 创建表。
+           m_db=# CREATE TABLE t1 (x1 int, y1 int);
+           CREATE TABLE
+           m_db=# CREATE TABLE t2 (x2 int PRIMARY KEY, y2 int);
+           NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "t2_pkey" for table "t2"
+           CREATE TABLE
+
+           -- 创建单表视图。
+           m_db=# CREATE VIEW v_ins1 AS SELECT * FROM t1;
+           CREATE VIEW
+           m_db=# CREATE VIEW v_ins2 AS SELECT * FROM t1 WHERE y1 < 3;
+           CREATE VIEW
+
+           -- 通过视图对t1插入。
+           m_db=# INSERT INTO v_ins1 VALUES (1, 1);
+           INSERT 0 1
+           m_db=# INSERT INTO v_ins2 VALUES (5, 5);
+           INSERT 0 1
+
+           -- 创建多表视图。
+           m_db=# CREATE VIEW vv_ins AS SELECT * FROM t1, t2 WHERE x1 = x2;
+           CREATE VIEW
+
+           -- 通过多表视图对t1插入。
+           m_db=# INSERT INTO vv_ins (x1, y1) VALUES (2, 2);
+           INSERT 0 1
+
+           -- 删除Schema。
+           m_db=# DROP SCHEMA ins_view;
+           NOTICE: drop cascades to 5 other objects
+           DETAIL: drop cascades to table t1
+           drop cascades to table t2
+           drop cascades to view v_ins1
+           drop cascades to view v_ins2
+           drop cascades to view vv_ins
+           DROP SCHEMA
+
+
+优化建议
+       VALUES
+       通过insert语句批量插入数据时，建议将多条记录合并入一条语句中执行插入，以提高
+       数据加载性能。
+       例如：INSERT INTO sections VALUES (30, 'Administration', 31, 1900),(40,
+       'Development', 35, 2000), (50, 'Development' , 60 , 2001);

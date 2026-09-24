@@ -1,0 +1,91 @@
+[[PDF_PAGE physical=1405 printed=1356]]
+1.13.9.12 CREATE CAST
+
+功能描述
+            创建一个用户自定义的类型转换。
+
+注意事项
+            CAST转换是以调用转换操作的用户的权限进行执行，高权限用户在调用其他用户创建
+            的转换时，需要检查转换函数的执行内容，以免转换的创建者借用执行者的权限执行
+            越权的操作。
+[[PDF_PAGE physical=1406 printed=1357]]
+语法格式
+       ●   定义通过函数转换的CAST：
+           CREATE CAST (source_type AS target_type)
+             WITH FUNCTION function_name (argument_type [, ...])
+             [ AS ASSIGNMENT | AS IMPLICIT ];
+
+
+
+
+       ●   定义不通过函数转换的CAST：
+           CREATE CAST (source_type AS target_type)
+             WITHOUT FUNCTION
+             [ AS ASSIGNMENT | AS IMPLICIT ];
+
+
+
+
+       ●   定义通过I/O转换的CAST：
+           CREATE CAST (source_type AS target_type)
+             WITH INOUT
+             [ AS ASSIGNMENT | AS IMPLICIT ];
+
+
+
+
+参数说明
+       ●   source_type
+           转换的源数据类型。
+       ●   target_type
+           转换的目标数据类型。
+       ●   function_name (argument_type [, ...])
+           用于实现转换的函数，可以使用模式进行具体指定。如果未指定模式名，该函数
+           将从模式搜索路径中进行查找。转换函数的结果的数据类型必须与转换的目标类
+           型相同/匹配，或者可二进制强制转换到对应转换的目标数据类型。
+           转换实现函数可以有1个~3个参数：
+           –    第一个参数，参数类型必须与转换的源类型相同，或者可以从源类型二进制
+                强制转换得到。
+[[PDF_PAGE physical=1407 printed=1358]]
+            –    第二个参数（如果存在），必须为INTEGER类型，用于接收与目标类型相关
+                 联的类型修饰符，如果没有类型修饰符，则会收到-1。
+            –    第三个参数（如果存在），必须为Boolean类型，如果转换为一个显式类型转
+                 换，则为true，否则为false。
+       ●    WITHOUT FUNCTION
+            源类型到目标类型是通过二进制强制转换的，不通过转换函数进行转换。
+       ●    WITH INOUT
+            源类型到目标类型的转换是I/O转换，通过调用源数据类型的输出函数实现，并将
+            结果传递给目标数据类型的输入函数。
+       ●    AS ASSIGNMENT
+            表示转换可以在赋值的情况下隐式调用。
+       ●    AS IMPLICIT
+            表示转换可以在任何上下文中隐式调用。
+            通常，转换必须有不同的源数据类型和目标数据类型。但是，如果一个转换中含
+            有多个参数的转换实现函数，则允许声明一个有相同的源数据类型和目标类型的
+            转换。主要用于表示系统目录中的特定类型的长度转换函数。命名函数用于将类
+            型的值强制转换为第二个参数指定的类型修饰符的值。
+            如果一个类型转换的源类型和目标类型不同，并且一个转换实现函数使用多个参
+            数时，支持从一种类型转换成另外一种类型，并在单个步骤中同时应用长度转
+            换。如果没有这样的项可用，那么转换为使用类型修饰符的类型将涉及两个强制
+            转换步骤，一个是在数据类型之间进行转换，另一个是使用修饰符指定的转换。
+            对域类型的转换目前没有作用。转换一般是针对域相关的所属数据类型。
+
+示例
+       为了从类型double precision到类型timestamp with time zone的转换，创建一个指派
+       映射，要通过使用函数double_to_timestamp(double precision):
+       --创建函数。
+       gaussdb=# CREATE OR REPLACE FUNCTION double_to_timestamp(double precision) RETURNS TIMESTAMP
+       WITH TIME ZONE AS $$
+       SELECT to_timestamp($1);
+       $$ LANGUAGE SQL STRICT;
+
+       --创建类型转换。
+       gaussdb=# CREATE CAST(double precision AS timestamp with time zone) WITH FUNCTION
+       double_to_timestamp(double precision) AS IMPLICIT;
+
+       --删除类型转换。
+       gaussdb=# DROP CAST (double precision AS timestamp with time zone);
+
+
+相关链接
+       DROP CAST

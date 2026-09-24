@@ -1,0 +1,100 @@
+[[PDF_PAGE physical=1607 printed=1558]]
+1.13.9.54 CREATE TEXT SEARCH CONFIGURATION
+
+功能描述
+           创建新的文本搜索配置。一个文本搜索配置指定一个文本搜索解析器以及对应的词典
+           列表。
+
+
+
+               须知
+
+           该功能为内部使用功能，不建议用户使用。
+
+
+
+注意事项
+           ●    如果仅声明PARSER，那么新创建的文本搜索配置没有从字符串类型到词典的映
+                射，必须调用ALTER TEXT SEARCH CONFIGURATION命令创建词典映射使配置
+                生效。如果声明了COPY选项，会自动复制指定的文本搜索配置的解析器、映射、
+                配置选项等信息。
+           ●    若指定模式名称，文本搜索配置会在声明的模式中创建，否则会在当前模式中创
+                建。
+           ●    创建自定义文本搜索配置的用户将自动成为其所有者。
+           ●    PARSER和COPY选项互相排斥，因为当一个现有的文本搜索配置被复制，其文本
+                搜索配置解析器也会被复制。
+
+
+语法格式
+           CREATE TEXT SEARCH CONFIGURATION name
+             ( PARSER = parser_name | COPY = source_config )
+             [ WITH ( {configuration_option = value} [, ...] )];
+
+
+
+参数说明
+           ●    name
+                创建的文本搜索配置的名称，可以使用模式进行具体指定。
+           ●    parser_name
+                用于该文本搜索配置的文本搜索解析器的名称。
+           ●    source_config
+                要复制的现有文本搜索配置的名称。
+           ●    configuration_option
+                文本搜索配置的配置参数。
+                取值范围：目前支持default、ngram两种类型的解析器，具体配置参数
+                configuration_option如表1-380所示。
+[[PDF_PAGE physical=1608 printed=1559]]
+          表 1-380 不同类型解析器对应的配置参数
+            解析器          配置参数               参数描述                取值范围
+
+            default      -                  -                   -
+
+            ngram        gram_size          分词长度。               正整数，1~4
+                                                                默认值：2
+
+                         punctuation        是否忽略标点符号。           ● true（默认值）：忽略标
+                         _ignore                                  点符号。
+                                                                ● false：不忽略标点符号。
+
+                         grapsymbol_        是否忽略图形化字            ● true：忽略图形化字符。
+                         ignore             符。
+                                                                ● false（默认值）：不忽略
+                                                                  图形化字符。
+
+
+
+示例
+     --创建文本搜索配置ngram2。
+     gaussdb=# CREATE TEXT SEARCH CONFIGURATION ngram2 (PARSER=ngram) WITH (GRAM_SIZE = 2,
+     GRAPSYMBOL_IGNORE = false);
+
+     --创建文本搜索配置ngram3。
+     gaussdb=# CREATE TEXT SEARCH CONFIGURATION ngram3 (COPY=ngram2) WITH (GRAM_SIZE = 2,
+     GRAPSYMBOL_IGNORE = false);
+
+     --添加类型映射。
+     gaussdb=# ALTER TEXT SEARCH CONFIGURATION ngram2 ADD MAPPING FOR multisymbol WITH simple;
+
+     --创建用户joe。
+     gaussdb=# CREATE USER joe IDENTIFIED BY '********';
+
+     --修改文本搜索配置的所有者。
+     gaussdb=# ALTER TEXT SEARCH CONFIGURATION ngram2 OWNER TO joe;
+
+     --修改文本搜索配置的schema。
+     gaussdb=# ALTER TEXT SEARCH CONFIGURATION ngram2 SET SCHEMA joe;
+
+     --重命名文本搜索配置。
+     gaussdb=# ALTER TEXT SEARCH CONFIGURATION joe.ngram2 RENAME TO ngram_2;
+
+     --删除类型映射。
+     gaussdb=# ALTER TEXT SEARCH CONFIGURATION joe.ngram_2 DROP MAPPING IF EXISTS FOR
+     multisymbol;
+
+     --删除文本搜索配置。
+     gaussdb=# DROP TEXT SEARCH CONFIGURATION joe.ngram_2;
+     gaussdb=# DROP TEXT SEARCH CONFIGURATION ngram3;
+
+     --删除Schema及用户joe。
+     gaussdb=# DROP SCHEMA IF EXISTS joe CASCADE;
+     gaussdb=# DROP ROLE IF EXISTS joe;

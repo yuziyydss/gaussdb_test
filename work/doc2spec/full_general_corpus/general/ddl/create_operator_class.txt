@@ -1,0 +1,96 @@
+[[PDF_PAGE physical=1487 printed=1438]]
+1.13.9.34 CREATE OPERATOR CLASS
+
+功能描述
+           创建一个新的操作符类。
+           一个操作符类定义了一种特定的数据类型如何与一种索引一起使用，并声明了特定的
+           操作符可以为这种数据类型以及索引方法提供特定的角色或者操作策略。当索引列选
+           择定义的操作符类时，操作符类还声明了索引方法使用的支持函数。所有操作符类使
+           用的函数和操作符都必须在创建操作符类之前定义。
+[[PDF_PAGE physical=1488 printed=1439]]
+注意事项
+       ●    该功能为内部使用功能，不建议用户直接使用。
+       ●    同一个模式中的两个操作符类可以重名，但必须用于不同的索引方法。
+       ●    定义操作符类的用户将成为其所有者。当前，具有系统管理员权限的用户可以创
+            建操作符类。
+       ●    CREATE OPERATOR CLASS既不检查这个类定义是否包含所有索引方法需要的操
+            作符以及函数，也不检查这些操作符和函数是否形成一个自包含的集合。
+
+
+语法格式
+       CREATE OPERATOR CLASS
+       name [ DEFAULT ] FOR TYPE data_type
+       USING index_method [
+       FAMILY family_name ] AS
+       { OPERATOR strategy_number operator_name [ (
+       op_type, op_type ) ] [ FOR SEARCH | FOR ORDER BY sort_family_name ]
+       | FUNCTION
+       support_number [ ( op_type [ , op_type ] ) ] function_name ( argument_type [,
+       ...] )
+       | STORAGE storage_type
+       } [, ... ];
+
+
+
+参数说明
+       ●    name
+            需要创建的操作符类的名字，可以使用模式进行具体指定，如果未指定模式，则
+            在当前模式中创建操作符类。
+       ●    DEFAULT
+            可选，表示该操作符类将成为其操作的数据类型的默认操作符类。对于某个数据
+            类型和访问方式而言，最多存在一个默认操作符类。
+       ●    data_type
+            操作符类处理的字段的数据类型。
+       ●    index_method
+            操作符类处理的索引方法的名字。
+       ●    family_name
+            操作符类添加到的现有操作符族的名字。
+            相关的操作符类可以集合成操作符族。如果指定该选项，新创建的操作符类将添
+            加到一个已经存在的操作符族中；如果未指定该选项，新建的操作符类会放置到
+            与其同名的操作符族中（如果不存在则会自动创建同名的操作符族）。
+       ●    strategy_number
+            与操作符类关联的索引方法的策略编号。
+       ●    operator_name
+            与操作符类关联的操作符的名字，可以使用模式进行具体指定。
+       ●    op_type
+            –     在OPERATOR子句中，表示该操作符的操作数的数据类型，默认情况下，表
+                  示左一元运算符或右一元运算符。在与运算符类的数据类型相同的正常情况
+                  下，可以省略操作数数据类型。
+[[PDF_PAGE physical=1489 printed=1440]]
+            –    在FUNCTION子句中，如果函数的操作数数据类型与函数的输入数据类型
+                 （对于B-Tree比较函数和哈希函数）或类的数据类型不同时，则需要在该子
+                 句中指定该函数需要支持的操作数类型。
+       ●    sort_family_name
+            与排序操作符关联的排序顺序的现有B-Tree操作符族的名字。
+            未指定时默认为FOR SEARCH。
+       ●    support_number
+            与运算符类关联的函数的索引方法的编号。
+       ●    function_name
+            运算符类的索引方法的函数名称。
+       ●    argument_type
+            函数参数的数据类型。
+       ●    storage_type
+            实际存储在索引里的数据类型。通常与索引使用的存储类型相同，但在一些索引
+            方法中允许存在数据类型不同的情况。仅在索引方法允许使用不同的类型时进行
+            指定，其他情况下STORAGE子句无法指定。
+
+示例
+       --定义一个函数。
+       gaussdb=# CREATE FUNCTION func_add_sql(num1 integer, num2 integer) RETURN integer AS BEGIN
+       RETURN num1 + num2;
+       END;
+       /
+
+       --新建一个操作符类，将上述函数作为其关联的函数。
+       gaussdb=# CREATE OPERATOR CLASS oc1 DEFAULT FOR TYPE _int4 USING btree AS FUNCTION 1
+       func_add_sql (integer, integer);
+
+       --删除操作符。
+       gaussdb=# DROP OPERATOR CLASS oc1 USING btree;
+
+       --删除函数。
+       gaussdb=# DROP FUNCTION func_add_sql;
+
+
+相关链接
+       ALTER OPERATOR，CREATE OPERATOR，DROP OPERATOR

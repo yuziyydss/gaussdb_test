@@ -1,0 +1,104 @@
+[[PDF_PAGE physical=2016 printed=1967]]
+2.4.2.6.3 ALTER DEFAULT PRIVILEGES
+
+功能描述
+             修改数据库中用户在特定对象上默认拥有的权限。此操作不会影响已分配给现有对象
+             的权限。
+
+注意事项
+             目前只支持表（包括视图）以及序列的权限变更。
+
+语法格式
+             ALTER DEFAULT PRIVILEGES
+               [ FOR { ROLE | USER } target_role [, ...] ]
+               [ IN SCHEMA schema_name [, ...] ]
+               abbreviated_grant_or_revoke;
+
+             其中，abbreviated_grant_or_revoke子句：用于指定进行授权或回收权限的对象。
+             grant_on_tables_clause
+              | grant_on_sequences_clause
+              | revoke_on_tables_clause
+              | revoke_on_sequences_clause
+
+             ●     grant_on_tables_clause子句：用于对表进行授权。
+                   GRANT { { SELECT | INSERT | UPDATE | DELETE | TRUNCATE | REFERENCES | ALTER | DROP |
+                   COMMENT | INDEX | VACUUM }
+                     [, ...] | ALL [ PRIVILEGES ] }
+                     ON TABLES
+                     TO { [ GROUP ] role_name | PUBLIC } [, ...]
+                     [ WITH GRANT OPTION ]
+
+             ●     grant_on_sequences_clause子句：用于对序列进行授权。
+                   GRANT { { SELECT | UPDATE | USAGE | ALTER | DROP | COMMENT }
+                     [, ...] | ALL [ PRIVILEGES ] }
+                     ON SEQUENCES
+                     TO { [ GROUP ] role_name | PUBLIC } [, ...]
+                     [ WITH GRANT OPTION ]
+
+             ●     revoke_on_tables_clause子句：用于回收表对象的权限。
+                   REVOKE [ GRANT OPTION FOR ]
+                     { { SELECT | INSERT | UPDATE | DELETE | TRUNCATE | REFERENCES | ALTER | DROP | COMMENT |
+                   INDEX | VACUUM }
+                     [, ...] | ALL [ PRIVILEGES ] }
+                     ON TABLES
+                     FROM { [ GROUP ] role_name | PUBLIC } [, ...]
+                     [ CASCADE | RESTRICT | CASCADE CONSTRAINTS ]
+
+             ●     revoke_on_sequences_clause子句：用于回收序列对象的权限。
+                   REVOKE [ GRANT OPTION FOR ]
+                     { { SELECT | UPDATE | USAGE | ALTER | DROP | COMMENT }
+                     [, ...] | ALL [ PRIVILEGES ] }
+                     ON SEQUENCES
+                     FROM { [ GROUP ] role_name | PUBLIC } [, ...]
+                     [ CASCADE | RESTRICT | CASCADE CONSTRAINTS ]
+
+
+参数说明
+             ●     target_role
+                   已有角色的名称。如果未指定FOR { ROLE | USER }，则默认为当前角色/用户。
+[[PDF_PAGE physical=2017 printed=1968]]
+            取值范围：已有角色的名称。
+       ●    schema_name
+            现有模式的名称。target_role对象必须拥有schema_name的CREATE权限。
+            取值范围：现有模式的名称。
+       ●    role_name
+            被授予或者取消权限角色的名称。
+            取值范围：已存在的角色名称。
+
+
+           须知
+
+       如果要删除一个被赋予了默认权限的角色，有必要恢复已更改的默认权限，或者使用
+       DROP OWNED BY命令对该角色的默认权限记录进行清理。
+
+
+示例
+       -- 创建Schema。
+       m_db=# CREATE SCHEMA tpcds;
+
+       -- 将创建在模式tpcds里的所有表（和视图）的SELECT权限授予每一个用户。
+       m_db=# ALTER DEFAULT PRIVILEGES IN SCHEMA tpcds GRANT SELECT ON TABLES TO PUBLIC;
+
+       -- 创建用户普通用户jack。
+       m_db=# CREATE USER jack PASSWORD '********';
+
+       -- 将模式tpcds下的所有表的插入权限授予用户jack。
+       m_db=# ALTER DEFAULT PRIVILEGES IN SCHEMA tpcds GRANT INSERT ON TABLES TO jack;
+
+       -- 将模式tpcds下由jack创建的所有表的插入权限授予用户jack。
+       m_db=# GRANT USAGE,CREATE ON SCHEMA tpcds TO jack;
+       m_db=# ALTER DEFAULT PRIVILEGES FOR ROLE jack IN SCHEMA tpcds GRANT INSERT ON TABLES TO jack;
+
+       -- 撤销已赋予的权限。
+       m_db=# ALTER DEFAULT PRIVILEGES IN SCHEMA tpcds REVOKE SELECT ON TABLES FROM PUBLIC;
+       m_db=# ALTER DEFAULT PRIVILEGES IN SCHEMA tpcds REVOKE INSERT ON TABLES FROM jack;
+
+       -- 删除用户jack。
+       m_db=# DROP USER jack CASCADE;
+
+       -- 删除Schema。
+       m_db=# DROP SCHEMA tpcds;
+
+
+相关链接
+       GRANT，REVOKE

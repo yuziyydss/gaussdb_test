@@ -1,0 +1,132 @@
+[[PDF_PAGE physical=1213 printed=1164]]
+1.13.7.11 ALTER EXTENSION
+
+
+                须知
+
+            ● 扩展功能为内部使用功能，只允许修改数据库内部的高级包或扩展。
+            ● 要使用该功能，需要设置support_extended_features为true。
+
+
+功能描述
+            修改已安装扩展的属性。
+
+注意事项
+            ●   UPDATE
+                更新指定扩展到一个新的版本。该扩展必须提供一个适用的更新脚本（或者一系
+                列脚本），才能修改当前安装版本到所指定的版本。
+            ●   SET SCHEMA
+                移动扩展对象到另一个模式。该扩展必须relocatable才能使命令成功。
+            ●   ADD member_object
+                添加一个已存在对象到扩展。主要适用于扩展更新脚本上。这个对象接着会被视
+                为扩展的成员，该对象只能通过取消扩展来取消。
+[[PDF_PAGE physical=1214 printed=1165]]
+       ●   DROP member_object
+           从扩展上移除一个成员对象。主要适用于扩展更新脚本上，这个对象没有被删
+           除，只是从扩展里被移除。使用 ALTER EXTENSION时需要拥有该扩展的权限。
+           在指定ADD/DROP时，还需要拥有被添加/删除对象的相应权限。
+
+语法格式
+       ●   修改扩展的版本。
+           ALTER EXTENSION name UPDATE [ TO new_version ];
+
+
+
+
+       ●   修改扩展的模式。
+           ALTER EXTENSION name SET SCHEMA new_schema;
+
+
+
+
+       ●   添加或删除扩展的成员对象。
+           ALTER EXTENSION name { ADD | DROP } member_object;
+
+
+
+
+           其中成员对象member_object写法为：
+           {AGGREGATE agg_name (agg_type [, ...] ) |
+            CAST (source_type AS target_type) |
+            COLLATION object_name |
+            CONVERSION object_name |
+            DOMAIN object_name |
+            EVENT TRIGGER object_name |
+            FOREIGN DATA WRAPPER object_name |
+            FOREIGN TABLE object_name |
+            FUNCTION function_name ( [ [ argname ] [ argmode ] argtype [, ...] ] ) |
+            MATERIALIZED VIEW object_name |
+            OPERATOR operator_name (left_type, right_type) |
+            OPERATOR CLASS object_name USING index_method |
+            OPERATOR FAMILY object_name USING index_method |
+            [ PROCEDURAL ] LANGUAGE object_name |
+            SCHEMA object_name |
+            SEQUENCE object_name |
+            SERVER object_name |
+            TABLE object_name |
+            TEXT SEARCH CONFIGURATION object_name |
+            TEXT SEARCH DICTIONARY object_name |
+            TEXT SEARCH PARSER object_name |
+            TEXT SEARCH TEMPLATE object_name |
+            TYPE object_name |
+            VIEW object_name}
+[[PDF_PAGE physical=1215 printed=1166]]
+参数说明
+       ●   name
+           已安装扩展的名称。
+       ●   new_version
+           扩展的新版本。可以通过被标识符和字面字符重写。如果不指定的扩展的新版
+           本，ALTER EXTENSION UPDATE会更新到扩展的控制文件中显示的默认版本。
+       ●   new_schema
+           扩展的新模式。
+       ●   object_name | agg_name | function_name | operator_name
+           从扩展里被添加或移除的对象的名称。包含表、聚合、域、外链表、函数、操作
+           符、操作符类、操作符族、序列、文本搜索对象、类型和能被模式合格的视图的
+           名称。
+       ●   agg_type
+           在聚合函数操作上的一个输入数据类型。当引用一个零参数聚合函数，使用*代替
+           这些零参数聚合函数的输入数据类型列表。
+       ●   source_type
+           强制转换的源数据类型的名称。
+       ●   target_type
+           强制转换的目标数据类型的名称。
+[[PDF_PAGE physical=1216 printed=1167]]
+       ●    argmode
+            这个函数参数的模型。
+            取值范围：IN、OUT、INOUT或者VARIADIC。未指定时默认值为IN。
+                  说明
+
+                ALTER EXTENSION操作中，并不关心OUT参数，由于确认函数的一致性只需要输入参数，
+                因此仅指定IN、INOUT和VARIADIC参数即可。
+       ●    argname
+            函数参数的名称。
+                  说明
+
+                ALTER EXTENSION操作中，并不关心参数名称，确认函数的一致性只需要确认参数数据类
+                型即可。
+       ●    argtype
+            函数参数的数据类型（可以有模式修饰）。
+       ●    left_type | right_type
+            操作符参数的数据类型，可以使用模式进行具体指定，为前缀或后缀运算符的丢
+            失参数写NONE。
+
+示例
+       更新plpgsql扩展到版本2.0：
+       gaussdb=# ALTER EXTENSION plpgsql UPDATE TO '2.0';
+
+       更新plpgsql扩展的模式为utils：
+       --创建SCHEMA。
+       gaussdb=# CREATE SCHEMA utils;
+
+       --更新 plpgsql 扩展的模式为utils。
+       gaussdb=# ALTER EXTENSION plpgsql SET SCHEMA utils;
+
+       --删除SCHEMA。
+       gaussdb=# DROP SCHEMA utils;
+
+       添加一个已存在的函数给 plpgsql 扩展：
+       gaussdb=# ALTER EXTENSION plpgsql ADD FUNCTION populate_record(anyelement, plpgsql);
+
+
+相关链接
+       CREATE EXTENSION，DROP EXTENSION

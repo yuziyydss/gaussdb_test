@@ -1,0 +1,265 @@
+[[PDF_PAGE physical=1338 printed=1289]]
+1.13.7.43 ALTER TYPE
+
+功能描述
+            修改一个类型的定义。
+
+注意事项
+            类型的所有者、被授予了类型ALTER权限的用户、或者被授予了ALTER ANY TYPE权限
+            的用户可以执行ALTER TYPE命令，三权分立开关关闭时，系统管理员默认拥有此权
+            限。若要修改类型的所有者或者修改类型的模式，当前用户必须是该类型的所有者或
+            者系统管理员，且该用户是新所有者角色的成员。
+[[PDF_PAGE physical=1339 printed=1290]]
+语法格式
+       ●   修改类型。
+           ALTER TYPE name action [, ... ];
+
+
+
+
+           其中action对应的子句如下:
+           –    给复合类型增加新的属性。
+                ADD ATTRIBUTE attribute_name data_type [ COLLATE collation ] [ CASCADE | RESTRICT ]
+
+
+
+
+           –    从复合类型中删除一个属性。
+                DROP ATTRIBUTE [ IF EXISTS ] attribute_name [ CASCADE | RESTRICT ]
+
+
+
+
+           –    改变一种复合类型中某个属性的类型。
+                ALTER ATTRIBUTE attribute_name [ SET DATA ] TYPE data_type [ COLLATE collation ]
+                [ CASCADE | RESTRICT ]
+
+
+
+
+       ●   改变类型的所有者。
+           ALTER TYPE name OWNER TO { new_owner | CURRENT_USER | SESSION_USER };
+
+
+
+
+       ●   改变类型的名称。
+           ALTER TYPE name RENAME TO new_name;
+
+
+
+
+       ●   改变一个复合类型中一个属性的名称。
+           ALTER TYPE name RENAME ATTRIBUTE attribute_name TO new_attribute_name [ CASCADE |
+           RESTRICT ];
+
+
+
+
+       ●   将类型移至一个新的模式中。
+           ALTER TYPE name SET SCHEMA new_schema;
+
+
+
+
+       ●   为枚举类型增加一个新值。
+           ALTER TYPE name ADD VALUE [ IF NOT EXISTS ] new_enum_value [ { BEFORE | AFTER }
+           neighbor_enum_value ];
+
+
+
+
+       ●   重命名枚举类型的一个标签值。
+           ALTER TYPE name RENAME VALUE existing_enum_value TO new_enum_value;
+[[PDF_PAGE physical=1340 printed=1291]]
+参数说明
+       ●   name
+           一个需要修改的现有类型的名称(可以有模式修饰) 。
+       ●   new_name
+           该类型的新名称。
+       ●   new_owner
+           新所有者的用户名 。
+       ●   new_schema
+           该类型的新模式 。
+       ●   attribute_name
+           拟增加、更改或删除的属性的名称。
+       ●   new_attribute_name
+           拟改名的属性的新名称。
+       ●   data_type
+           拟新增属性的数据类型或是拟更改的属性的新类型名。
+       ●   new_enum_value
+           枚举类型新增加的标签值，是一个非空的长度不超过63个字节的字符串。
+       ●   neighbor_enum_value
+           一个已有枚举标签值，新值应该增加在紧接着该枚举值之前或者之后的位置上。
+       ●   existing_enum_value
+           现有的要重命名的枚举值，是一个非空的长度不超过63个字节的字符串
+       ●   CASCADE
+           自动级联更新需更新类型以及相关联的记录和继承它们的子表。
+       ●   RESTRICT
+           如果需联动更新类型是已更新类型的关联记录，则拒绝更新，这是缺省选项。
+
+
+             须知
+
+           ● ADD ATTRIBUTE、DROP ATTRIBUTE和ALTER ATTRIBUTE选项可以组合成一
+             个列表同时处理多个属性更改。 例如，在一条命令中同时增加几个属性或是更
+             改几个属性的类型。
+           ● 要修改一个类型的模式，必须在新模式上拥有CREATE权限。 要修改所有者，
+             必须是新的所有角色的直接或间接成员， 并且该成员必须在此类型的模式上有
+             CREATE权限。 （这些限制了修改所有者不会做任何通过删除和重建类型不能
+             做的事情。 但是，三权分立关闭时系统管理员可以以任何方式修改任意类型的
+             所有权。） 要增加一个属性或是修改一个属性的类型，也必须有该类型的
+             USAGE权限。
+
+       ●   CURRENT_USER
+           当前用户。
+[[PDF_PAGE physical=1341 printed=1292]]
+     ●   SESSION_USER
+         当前系统用户。
+     ●   COLLATE collation
+         COLLATE子句为该列（必须是一种可排序数据类型）赋予一个排序规则。 如果没
+         有指定，将使用该列数据类型的默认排序规则。
+
+示例
+     ●   对复合类型的修改。
+         --创建复合类型。
+         gaussdb=# CREATE TYPE typ_stu AS (name varchar(10),age int);
+
+         --创建表并插入数据，其中info字段数据类型为typ_stu。
+         gaussdb=# CREATE TABLE tbl_test (id int PRIMARY KEY,info typ_stu);
+         gaussdb=# INSERT INTO tbl_test VALUES (1,('Jim',16));
+
+         --查看tbl_test数据。
+         gaussdb=# SELECT * FROM tbl_test;
+          id | info
+         ----+----------
+           1 | (Jim,16)
+         (1 row)
+
+         --为复合类型增加一个新的属性。
+         gaussdb=# ALTER TYPE typ_stu ADD ATTRIBUTE year int CASCADE;
+
+         --再次查看tbl_test数据，info多了一个属性。
+         gaussdb=# SELECT * FROM tbl_test;
+          id | info
+         ----+-----------
+           1 | (Jim,16,)
+         (1 row)
+
+         --从复合类型删除一个属性。
+         gaussdb=# ALTER TYPE typ_stu DROP ATTRIBUTE year;
+
+     ●   修改类型所有者。
+         --创建用户test。
+         gaussdb=# CREATE ROLE test PASSWORD '********';
+
+         --修改typ_stu的所有者为test。
+         gaussdb=# ALTER TYPE typ_stu OWNER TO test;
+
+         --查询typ_stu拥有者。
+         gaussdb=# SELECT t1.typname, t2.rolname AS owner
+         FROM pg_type t1, gs_roles t2
+         WHERE t1.typname = 'typ_stu' AND
+              t1.typowner = t2.oid;
+          typname | owner
+         ---------+--------
+          typ_stu | test
+         (1 row)
+
+     ●   修改类型或是一个复合类型中的一个属性的名称。
+         --将typ_stu的其中一个属性age重命名为age1。
+         gaussdb=# ALTER TYPE typ_stu RENAME ATTRIBUTE age to age1;
+
+         --通过如下SQL查询tbl_test表中年龄为16的数据。
+         gaussdb=# SELECT id,(info).name,(info).age1 FROM tbl_test WHERE (info).age1 = 16;
+          id | name | age1
+         ----+------+------
+           1 | Jim | 16
+         (1 row)
+
+     ●   将类型移至一个新的模式中。
+         --创建模式sctest。
+         gaussdb=# CREATE SCHEMA sctest;
+[[PDF_PAGE physical=1342 printed=1293]]
+    --将typ_stu移至模式sc_test中。
+    gaussdb=# ALTER TYPE typ_stu SET SCHEMA sctest;
+
+    --查询typ_stu的所属模式。
+    gaussdb=# \dT sctest.*
+            List of data types
+     Schema |       Name       | Description
+    --------+----------------+-------------
+     sctest | sctest.typ_stu |
+    (1 row)
+
+    -- 删除表。
+    gaussdb=# DROP TABLE tbl_test;
+    gaussdb=# DROP TYPE sctest.typ_stu;
+    gaussdb=# DROP ROLE test;
+    gaussdb=# DROP SCHEMA sctest;
+
+●   为枚举类型增加一个新值。
+    --创建一个枚举类型typ_bugstatus
+    gaussdb=# CREATE TYPE typ_bugstatus AS ENUM ('create', 'modify', 'closed');
+
+    --创建表tbl_test1。
+    gaussdb=# CREATE TABLE tbl_test1 (id serial, bugstat typ_bugstatus);
+
+    --插入数据时bugstat字段必须是枚举类型中的值，否则报错。
+    gaussdb=# INSERT INTO tbl_test1 (bugstat) VALUES ('closed');
+    gaussdb=# INSERT INTO tbl_test1 (bugstat) VALUES ('deleted');
+    ERROR: invalid input value for enum typ_bugstatus: "deleted"
+    LINE 1: INSERT INTO tbl_test1 (bugstat) VALUES ('deleted');
+                                    ^
+    CONTEXT: referenced column: bugstat
+
+    --查看tbl_test1数据。
+    gaussdb=# SELECT * FROM tbl_test1;
+     id | bugstat
+    ----+---------
+      1 | closed
+    (1 row)
+
+    --为枚举类型增加一个标签值。
+    gaussdb=# ALTER TYPE typ_bugstatus ADD VALUE IF NOT EXISTS 'regress' BEFORE 'closed';
+    --查询。
+    gaussdb=# \dT+ typ_bugstatus
+                                 List of data types
+     Schema |      Name       | Internal name | Size | Elements | Access privileges | Description
+    --------+---------------+---------------+------+----------+-------------------+-------------
+     public | typ_bugstatus | typ_bugstatus | 4 | create +|                     |
+          |           |            |    | modify +|                  |
+          |           |            |    | regress +|               |
+          |           |            |    | closed |               |
+    (1 row)
+
+●   重命名枚举类型的一个标签值。
+    --将类型typ_bugstatus中closed修改为close。
+    gaussdb=# ALTER TYPE typ_bugstatus RENAME VALUE 'closed' TO 'close';
+
+    --查看表tbl_test1数据,其中closed的数据也都改成了close。
+    gaussdb=# SELECT * FROM tbl_test1;
+     id | bugstat
+    ----+---------
+      1 | close
+    (1 row)
+
+    --查询。
+    gaussdb=# \dT+ typ_bugstatus;
+                                 List of data types
+     Schema |      Name       | Internal name | Size | Elements | Access privileges | Description
+    --------+---------------+---------------+------+----------+-------------------+-------------
+     public | typ_bugstatus | typ_bugstatus | 4 | create +|                     |
+[[PDF_PAGE physical=1343 printed=1294]]
+               |        |         |   | modify +|            |
+               |        |         |   | regress +|       |
+               |        |         |   | close |      |
+          (1 row)
+
+          --删除。
+          gaussdb=# DROP TABLE tbl_test1;
+          gaussdb=# DROP TYPE typ_bugstatus;
+
+
+相关链接
+       CREATE TYPE，DROP TYPE

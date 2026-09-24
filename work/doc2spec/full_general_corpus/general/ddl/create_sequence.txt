@@ -1,0 +1,199 @@
+[[PDF_PAGE physical=1524 printed=1475]]
+1.13.9.45 CREATE SEQUENCE
+
+功能描述
+           向当前数据库增加一个新的序列。
+
+注意事项
+           ●   序列是一个存放等差数列的特殊表，该表没有实际意义，通常用于为行或者表生
+               成唯一的标识符。
+           ●   序列的所有者为创建此序列的用户。
+           ●   创建序列时，如果指定模式名，则该序列在指定的模式中创建，否则会在当前模
+               式中创建。序列名必须和同一个模式中的其他序列、表、索引、视图或外表的名
+               称不同。
+           ●   创建序列后，在表中使用序列的nextval()函数和generate_series(1,N)函数对表插
+               入数据，请保证nextval的可调用次数大于等于N+1次，否则会因为
+               generate_series()函数会调用N+1次而导致报错。
+           ●   被授予CREATE ANY SEQUENCE权限的用户，可以在PUBLIC模式和用户模式下创
+               建序列。
+           ●   不支持将序列与rowid，rowno系统列关联。
+[[PDF_PAGE physical=1525 printed=1476]]
+语法格式
+       CREATE [ LARGE | TEMPORARY | TEMP ] SEQUENCE [ IF NOT EXISTS ] name [ INCREMENT [ BY ]
+       increment ]
+          [ MINVALUE minvalue | NO MINVALUE | NOMINVALUE ] [ MAXVALUE maxvalue | NO MAXVALUE |
+       NOMAXVALUE]
+          [ START [ WITH ] start ] [ CACHE cache ] [ [ NO ] CYCLE | NOCYCLE ]
+          [ OWNED BY { table_name.column_name | NONE } ];
+
+
+
+
+参数说明
+       ●   LARGE
+           如果指定LARGE关键字，会创建int128位的序列；未指定LARGE关键字，则默认
+           创建int64的序列。
+           SEQUENCE默认最大值为263-1，如果使用了LARGE标识，最大值可以支持到
+           2127-1。
+       ●   TEMPORARY | TEMP
+           可选。临时序列关键字。
+                 说明
+
+                ● 创建临时序列需要数据库启用PG兼容。
+                ● 临时序列的生命周期是会话级的，临时序列对象是会话隔离的。序列在会话退出后会自
+                  动删除清理。
+                ● 临时序列存在于一个特殊的模式中，每个会话有且仅有一个临时模式，若提前创建了临
+                  时模式，则在创建临时序列时可给出模式名，若未提前创建，则在创建临时序列时不能
+                  给出模式名，并且每个会话只能访问自己的临时模式中的对象，无法访问其他会话的临
+                  时模式中的对象。如果访问的临时模式不属于本会话，会报告错误。
+                ● 当临时序列存在时，已有的同名永久序列（在这个会话中） 会变得不可见，不过可以
+                  用模式限定的名称来引用同名永久序列。
+       ●   IF NOT EXISTS
+           如果指定IF NOT EXISTS关键字，创建序列前会在当前Schema中查找是否存在同
+           名的relation，若存在则不会新建，返回NOTICE提示。
+           未指定IF NOT EXISTS关键字时，若Schema中存在同名relation，返回ERROR告
+           警。
+       ●   name
+           创建的序列名称。
+           取值范围：字符串，要符合标识符命名规范且最大长度不超过63个字符。
+       ●   increment
+           可选。指定序列的步长。
+           –    正数：将生成一个递增的序列。
+[[PDF_PAGE physical=1526 printed=1477]]
+    –   负数：将生成一个递减的序列。
+    默认值为1。
+
+            说明
+
+        在B兼容模式下，步长为浮点数时会自动转为整型。其他模式下，该参数不支持输入浮点
+        数。
+●   MINVALUE minvalue | NO MINVALUE| NOMINVALUE
+    可选，执行序列的最小值。NOMINVALUE等价于NO MINVALUE。
+    如果没有声明minvalue或者声明了NO MINVALUE时：
+    –   对于未声明LARGE关键字的序列，递增序列的默认值为1，递减序列的默认值
+        为-263-1。
+    –   对于声明了LARGE关键字的序列，递增序列的默认值为1，递减序列的默认值
+        为-2127-1。
+●   MAXVALUE maxvalue | NO MAXVALUE| NOMAXVALUE
+    可选。执行序列的最大值。NOMAXVALUE等价于NO MAXVALUE。
+    如果没有声明maxvalue或者声明了NO MAXVALUE时：
+    –   对于未声明LARGE关键字的序列，递增序列的默认值为263-1，递减序列的默
+        认值为-1。
+    –   对于声明了LARGE关键字的序列，递增序列的默认值为2127-1，递减序列的
+        默认值为-1。
+●   start
+    可选。指定序列的起始值。
+    默认值：对于递增序列为minvalue，递减序列为maxvalue。
+●   cache
+    可选。为了快速访问，而在内存中预先存储序列号的个数。
+    默认值为1，表示一次只能生成一个值，即没有缓存。
+
+            说明
+
+        不建议同时定义cache和maxvalue/minvalue。定义cache后无法保证序列的连续性，可能
+        会产生空洞，造成序列号段浪费。
+●   [ NO ] CYCLE | NOCYCLE
+    可选。使序列达到maxvalue或者minvalue后可循环并继续循环。
+    如果声明了NO CYCLE，则在序列达到其最大值后任何对nextval的调用都会返回
+    一个错误。
+    –   NOCYCLE的作用等价于NO CYCLE。默认值为NO CYCLE。
+    –   若定义序列为CYCLE，则不能保证序列的唯一性。
+●   OWNED BY
+    可选。将序列和一个表的指定字段进行关联。在删除该字段或其所在表的时候，
+    将自动删除已关联的序列。关联的表和序列的所有者必须是同一个用户，并且在
+    同一个模式中。需要注意的是，通过指定OWNED BY，仅仅是建立了表的对应列
+    和序列之间关联关系，并不会在插入数据时在该列上产生自增序列。
+    缺省值为OWNED BY NONE，表示不存在这样的关联。
+[[PDF_PAGE physical=1527 printed=1478]]
+             须知
+
+         通过OWNED BY创建的序列不建议用于其他表，如果希望多个表共享序列，该系
+         列不应该从属于特定表。
+
+
+示例
+     ●   创建一个名为seq1的递增序列，从101开始，步长为10。
+         gaussdb=# CREATE SEQUENCE seq1
+           START 101
+           INCREMENT 10;
+
+         --从序列中选出下一个数字：
+         gaussdb=# SELECT nextval('seq1');
+          nextval
+         ---------
+             101
+         (1 row)
+         gaussdb=# SELECT nextval('seq1');
+          nextval
+         ---------
+             111
+
+         --删除序列。
+         gaussdb=# DROP SEQUENCE seq1;
+
+     ●   表自增列的一种实现。
+         --创建表。
+         gaussdb=# CREATE TABLE test1(id int PRIMARY KEY, name varchar(20));
+
+         --创建与表关联的序列。
+         gaussdb=# CREATE SEQUENCE test_seq2
+           START 1
+           NO CYCLE
+           OWNED BY test1.id;
+
+         --设置字段的默认值。
+         gaussdb=# ALTER TABLE test1 ALTER COLUMN id SET DEFAULT nextval('test_seq2'::regclass);
+
+         -- 插入数据。
+         gaussdb=# INSERT INTO test1 (name) values ('Joe'),('Scott'),('Ben');
+
+         --查询表的数据。
+         gaussdb=# SELECT * FROM test1;
+          id | name
+         ----+-------
+           1 | Joe
+           2 | Scott
+           3 | Ben
+         (3 rows)
+
+         --删除序列和表。
+         gaussdb=# DROP SEQUENCE test_seq2 CASCADE;
+         gaussdb=# DROP TABLE test1;
+
+     ●   序列的循环。
+         --创建一个递增序列seq_test1，最大值为3，且可以循环。
+         gaussdb=# CREATE SEQUENCE seq_test1
+           START 1
+           MAXVALUE 3
+           CYCLE;
+
+         --建表，并插数据。
+         gaussdb=# CREATE TABLE tbl_test1(
+            c1 int DEFAULT nextval('seq_test1'),
+            c2 varchar
+         );
+[[PDF_PAGE physical=1528 printed=1479]]
+          gaussdb=# INSERT INTO tbl_test1 (c2) values ('test');
+          gaussdb=# INSERT INTO tbl_test1 (c2) values ('test');
+          gaussdb=# INSERT INTO tbl_test1 (c2) values ('test');
+          gaussdb=# INSERT INTO tbl_test1 (c2) values ('test');
+          gaussdb=# INSERT INTO tbl_test1 (c2) values ('test');
+
+          --查询表数据，当递增序列seq_test的值达到最大值后会重新从最小值开始。
+          gaussdb=# SELECT * FROM tbl_test1;
+           c1 | c2
+          ----+------
+            1 | test
+            2 | test
+            3 | test
+            1 | test
+            2 | test
+          (5 rows)
+
+          --删除表和序列。
+          gaussdb=# DROP TABLE tbl_test1;
+          gaussdb=# DROP SEQUENCE seq_test1;
+
+
+相关链接
+       DROP SEQUENCE，ALTER SEQUENCE

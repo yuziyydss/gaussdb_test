@@ -1,0 +1,82 @@
+[[PDF_PAGE physical=1662 printed=1613]]
+1.13.10.10 DROP DATABASE
+
+功能描述
+           删除一个数据库。
+
+
+注意事项
+           ●    仅数据库所有者或者被授予了数据库DROP权限的用户可以执行该操作，系统管理
+                员默认拥有此权限。
+           ●    无法对系统默认安装的模板数据库和用户数据库（postgres、template0、
+                template1、templatea和templatem）执行删除操作。如果需要查看当前服务中
+                存在的数据库，可以用gsql的\l命令查看。
+           ●    当需要删除的数据库存在用户连接时，将无法成功删除数据库。可以通过视图
+                DV_SESSIONS查看当前有哪些数据库连接。
+           ●    不能在事务块中执行该操作。
+           ●    如果执行DROP DATABASE失败，事务回滚，需要再次执行一次DROP DATABASE
+                IF EXISTS。
+           ●    在不开启库级回收站的情况下，DROP DATABASE一旦执行将无法撤销，请谨慎
+                使用。
+           ●    在开启库级回收站的情况下，执行DROP DATABASE，数据库对象将加入回收站
+                中。当数据库内的表级回收站含有对象时，将无法删除数据库对象。
+
+
+语法格式
+           DROP DATABASE [ IF EXISTS ] database_name [PURGE];
+[[PDF_PAGE physical=1663 printed=1614]]
+参数说明
+       ●     IF EXISTS
+             判断指定的数据库是否存在，使用该参数可以避免出现报错。
+             –      如果指定的数据库存在，则成功删除。
+             –      如果指定的数据库不存在，不会进行删除操作，仅产生一个NOTICE提示，用
+                    于告知指定的数据库不存在。
+       ●     database_name
+             指定删除的数据库名称。
+             取值范围：字符串，已存在的数据库名称。
+       ●     PURGE
+             可选，在开启库级回收站情况下，未指定该关键字，表示放入库回收站。
+
+示例
+       --创建数据库。
+       gaussdb=# CREATE DATABASE testdb1;
+
+       --删除数据库。
+       gaussdb=# DROP DATABASE testdb1;
+
+       --开启库级回收站，删除数据库加入回收站。
+       gaussdb=# create database flashback_db;
+       CREATE DATABASE
+       gaussdb=# show enable_db_recyclebin;
+        enable_db_recyclebin
+       ----------------------
+        on
+       (1 row)
+       gaussdb=# drop database flashback_db;
+       DROP DATABASE
+       gaussdb=# select * from gs_db_recyclebin;
+        rcydbid |         rcyname          | rcyoriginname | rcyrecyclecsn |        rcyrecycletime          | rcytablespaces |
+       rcydbsize
+       ---------+---------------------------+---------------+---------------+-------------------------------+----------------
+       +-----------
+          82516 | BIN$1425467F$2F5D4B88==$0 | flashback_db |                   13896 | 2024-12-11 08:57:25.116542-05 |
+       1663          |     26272
+       (1 row)
+
+       --开启库级回收站，删除数据库不加入回收站。
+       gaussdb=# create database flashback_db;
+       CREATE DATABASE
+       gaussdb=# show enable_db_recyclebin;
+        enable_db_recyclebin
+       ----------------------
+        on
+       (1 row)
+       gaussdb=# drop database flashback_db purge;
+       DROP DATABASE
+       gaussdb=# select * from gs_db_recyclebin;
+        rcydbid | rcyname | rcyoriginname | rcyrecyclecsn | rcyrecycletime | rcytablespaces | rcydbsize
+       ---------+---------+---------------+---------------+----------------+----------------+-----------
+       (0 rows)
+[[PDF_PAGE physical=1664 printed=1615]]
+相关链接
+       ALTER DATABASE，CREATE DATABASE

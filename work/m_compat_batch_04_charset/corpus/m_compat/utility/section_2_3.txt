@@ -1,0 +1,556 @@
+[[PDF_PAGE physical=1992 printed=1943]]
+2.3 字符集与字符序
+     字符集（Character Set）是字符的编码规则，字符序（Collation）是字符的排序规
+     则，本章主要对M-Compatibility下的字符集、字符序进行介绍，以下介绍的字符集、
+     字符序规则和语法仅在M-Compatibility下支持。
+
+     ●   M-Compatibility的字符集和字符序存在以下要求：
+         –   每一个字符集都有一个或多个字符序，只有一个字符序为字符集的默认字符
+             序。
+         –   每一个字符序仅有一个相关联的字符集。
+         –   相同数据使用不同的字符序排序结果可能会不同。
+         –   utf8mb4与utf8为同一字符集。
+         –   建议表字段和server_encoding选择相同字符集，避免转码带来的性能损耗。
+     ●   M-Compatibility的字符集和字符序支持以下功能：
+         –   支持多种字符集存储字符串。
+         –   支持使用字符序比较字符串。
+         –   支持数据库级、模式级、表级、字段级字符集和字符序。
+[[PDF_PAGE physical=1993 printed=1944]]
+               说明
+
+            除SQL_ASCII库外，其他字符集的数据库支持多字符集混用。
+
+
+支持的字符集
+         M-Compatibility下支持的字符集如下：
+
+         表 2-2 M-Compatibility 字符集列表
+
+         字符集                     说明               默认字符序
+
+         utf8                    针对Unicode的可变长度   utf8mb4_general_ci
+                                 字符编码，字符编码长度
+                                 1~4字节。
+
+         utf8mb4                 与utf8为同一字符集。     utf8mb4_general_ci
+
+         gbk                     国标汉字编码扩展字符       gbk_chinese_ci
+                                 集。
+
+         gb18030                 国标汉字编码字符集。       gb18030_chinese_ci
+
+         binary                  二进制伪字符集。         binary
+
+         latin1                  拉丁字符集。           latin1_swedish_ci
+
+         gb18030_2022            国标汉字编码字符集。       gb18030_2022_chinese_c
+                                 gb18030最新标准。     i
+
+
+
+
+               说明
+
+            ● 当前数据库级、模式级、表级和字段级语法，仅支持指定为上述的字符集。
+            ● binary字符集实际通过已有字符集SQL_ASCII实现。
+            ● 当前GaussDB字符集之间的转换逻辑相比于mysql存在差异，因此可能存在一些特殊字符在
+              M-Compatibility下可以转换，而mysql下转换失败；不建议使用这些生僻的特殊字符。
+            ● 目前GaussDB对不属于当前字符集的非法字符未执行严格的编码逻辑校验，可能导致此类非
+              法字符成功输入。
+            ● 字符集名称的输入支持仅字母与数字匹配，如gb180302022能正常识别为gb18030_2022。
+            ● 由于binary字符集与其他字符集不进行编码转换，当使用binary字符集时建议仅输入ASCII范
+              围内的字符。
+
+
+支持的字符序
+         M-Compatibility下支持的字符序如下：
+
+         表 2-3 M-Compatibility 字符序列表
+
+         字符序              所属字符集        说明                  空白填充
+
+         utf8_bin         utf8         使用二进制排序规            支持
+                                       则。
+[[PDF_PAGE physical=1994 printed=1945]]
+      字符序                 所属字符集          说明                    空白填充
+
+      utf8_general_ci     utf8           使用通用排序规则。             支持
+
+      utf8_unicode_ci     utf8           使用基于Unicode           支持
+                                         Collation Algorithm
+                                         (UCA)的排序规则。
+
+      utf8mb4_bin         utf8mb4        同utf8_bin。            支持
+
+      utf8mb4_general_    utf8mb4        同utf8_general_ci。     支持
+      ci
+
+      utf8mb4_unicode_    utf8mb4        同utf8_unicode_ci。     支持
+      ci
+
+      utf8mb4_0900_ai_    utf8mb4        使用基于Unicode           不支持
+      ci                                 Collation Algorithm
+                                         (UCA)的排序规则。
+
+      gbk_bin             gbk            使用二进制排序规              支持
+                                         则。
+
+      gbk_chinese_ci      gbk            使用中文语言（拼              支持
+                                         音）排序规则。
+
+      gb18030_bin         gb18030        使用二进制排序规              支持
+                                         则。
+
+      gb18030_chinese_    gb18030        使用中文语言（拼              支持
+      ci                                 音）排序规则。
+
+      binary              binary         使用二进制排序规              不支持
+                                         则。
+
+      latin1_swedish_ci   latin1         使用瑞典语排序规              支持
+                                         则。
+
+      latin1_bin          latin1         使用二进制排序规              支持
+                                         则。
+
+      gb18030_2022_bi     gb18030_2022   使用二进制排序规              支持
+      n                                  则。
+
+      gb18030_2022_chi    gb18030_2022   使用中文语言（拼              支持
+      nese_ci                            音）排序规则。
+
+
+          说明
+
+        ● 字符序名称是以和它们相关联的字符集的名称作为开头，通常后面加一个或多个表示其他字
+          符序特征的后缀，例如：_bin表示二进制排序规则，_ci表示不区分大小写。
+        ● 当字符序支持空白填充属性时，字符串进行比较时忽略末尾空格，例如：'A ' = 'A'。
+
+2.3.1 客户端连接的字符集和字符序
+      含有字符集属性的数据在服务端和客户端之间传输会自动进行编码转换。当服务端接
+      收到客户端发送的SQL语句后，会将其字符集编码由客户端字符集client_encoding向
+[[PDF_PAGE physical=1995 printed=1946]]
+      数据库字符集server_encoding进行编码转换。查询结果数据发送到客户端之前也会将
+      数据向客户端字符集character_set_results进行编码转换。
+      系统参数说明
+
+      ●    server_encoding
+           创建M-Compatibility时指定的字符集，具体请参见《开发指南》中“数据库使用
+           入门 > 操作数据库 > 管理数据库-非透明多写”章节中“创建M-Compatibility数
+           据库”的内容介绍。
+      ●    client_encoding
+           客户端的字符集。可以通过SET NAMES语句进行修改，具体请参见SET。
+      ●    character_set_connection
+           SQL语句中未指定字符集的字符串常量的默认字符集。
+      ●    collation_connection
+           SQL语句中未指定字符序的字符串常量的默认字符序。
+      ●    character_set_results
+           返回结果的字符集。
+      ●    character_set_database
+           显示当前database、schema的字符集。
+      ●    collation_database
+           显示当前database、schema的字符序。
+      ●    character_set_server
+           用于指定创建database、schema时的字符集。
+      ●    collation_server
+           用于指定创建database、schema时的字符序。
+                说明
+
+               ● 对于一个非字符类型对象转换为字符类型的表达式，其结果的字符集和字符序为
+                 character_set_connection和collation_connection。
+               ● 字符类型的绑定参数的字符集和字符序默认为系统参数character_set_connection和
+                 collation_connection设置的值，绑定参数输入任何值将认作上述字符集。
+               ● 字符数据转换编码的过程中会校验字符的编码，如果不符合，将会上报"invalid byte
+                 sequence for encoding xxx"的异常。
+
+
+2.3.2 库级字符集和字符序
+      创建库/模式并指定默认字符集和字符序。
+      CREATE {DATABASE | SCHEMA} [IF NOT EXISTS] db_name
+          [create_option] ...
+      create_option: [DEFAULT] {
+          CHARACTER SET [=] default_charset
+        | CHAR SET [=] default_charset
+        | CHARSET [=] default_charset
+        | COLLATE [=] default_collation
+      }
+
+      修改库/模式的默认字符集、字符序属性。
+      ALTER {DATABASE | SCHEMA} db_name
+        [create_option] ...
+[[PDF_PAGE physical=1996 printed=1947]]
+      create_option: [DEFAULT] {
+          CHARACTER SET [=] default_charset
+        | CHAR SET [=] default_charset
+        | CHARSET [=] default_charset
+        | COLLATE [=] default_collation
+      }
+
+      语法说明：
+
+      ●    db_name
+           模式名称。
+           取值范围：字符串，要符合标识符的命名规范。
+      ●    default_charset
+           指定模式的默认字符集，单独指定时会将模式的默认字符序设置为指定的字符集
+           的默认字符序。
+      ●    default_collation
+           指定模式的默认字符序，单独指定时会将模式的默认字符集设置为指定的字符序
+           对应的字符集。
+      GaussDB通过以下方式选择模式的字符集和字符序：
+
+      ●    如果同时指定了default_charset和default_collation，则使用字符集
+           default_charset和字符序default_collation，且default_charset和
+           default_collation需要对应，不对应时报错。
+      ●    如果仅指定了default_charset，则使用字符集default_charset及其默认字符序。
+      ●    如果仅指定了default_collation，则使用default_collation字符序和其对应的字符
+           集。
+      ●    如果既不指定default_charset也不指定default_collation，则该库/模式字符集同
+           server_encoding，字符序为该字符集的默认字符序。
+            说明
+
+          ● default_charset仅支持指定为带有默认字符序的字符集，如果指定的字符集没有默认字符序
+            则报错。
+          ● default_collation仅支持支持的字符序章节中的字符序，指定其他字符序会报错。
+          ● 除SQL_ASCII库外，其他字符集的数据库支持多字符集混用。
+
+      示例：
+      -- 仅设置字符集，字符序为字符集的默认字符序
+      m_db=# CREATE SCHEMA test CHARSET utf8;
+
+      -- 仅设置字符序，字符集为字符序关联的字符集
+      m_db=# CREATE SCHEMA test COLLATE utf8_bin；
+
+      -- 同时设置字符集与字符序，字符集和字符序需对应
+      m_db=# CREATE SCHEMA test CHARSET utf8 COLLATE utf8_bin;
+
+      -- 将test的默认字符集修改为utf8mb4，默认字符序修改为utf8mb4_bin。
+      m_db=# ALTER SCHEMA test CHARSET utf8mb4 COLLATE utf8mb4_bin;
+
+
+2.3.3 表级字符集和字符序
+      设置表的默认字符集和默认字符序，创建表操作请参见CREATE TABLE。
+      CREATE TABLE table_name (column_list)
+        [ [DEFAULT] {CHARACTER SET | CHAR SET | CHARSET}[ = ] default_charset ]
+        [ [DEFAULT] COLLATE [ = ] default_collation ]
+[[PDF_PAGE physical=1997 printed=1948]]
+修改表的默认字符集和默认字符序，修改不会影响表中当前已经存在的列，修改表操
+作请参见ALTER TABLE。
+ALTER TABLE table_name
+  [ [DEFAULT] {CHARACTER SET | CHAR SET | CHARSET}[ = ] default_charset ]
+  [ [DEFAULT] COLLATE [ = ] default_collation ]
+
+修改表的默认字符集和默认字符序为指定的值，同时将表中所有字符类型的字段的字
+符集和字符序设置为指定值，并将字段数据转换为新字符集编码。
+ALTER TABLE table_name
+  CONVERT TO {CHARACTER SET | CHAR SET | CHARSET}charset [ COLLATE collation ]
+
+参数说明
+
+●    table_name
+     表名称。
+●    default_charset
+     指定表的默认字符集，单独指定此参数时，表的默认字符序将被设置为指定字符
+     集的默认字符序。
+●    default_collation
+     指定表的默认字符序，单独指定此参数时，表的默认字符集将被设置为指定字符
+     序对应的字符集。
+GaussDB通过以下方式选择表的字符集和字符序：
+
+●    如果同时指定了default_charset和default_collation，则使用字符集
+     default_charset和字符序default_collation，且default_charset和
+     default_collation需要对应，不对应会产生报错。
+●    如果仅指定了default_charset，则使用字符集default_charset及其默认字符序。
+●    如果仅指定了default_collation，则使用default_collation字符序和其对应的字符
+     集。
+●    如果既不指定default_charset也不指定default_collation，则使用该表所在的模式
+     的默认字符集和默认字符序作为表的默认字符集和表的默认字符序。
+      说明
+
+    ● default_charset仅支持指定为带有默认字符序的字符集，如果指定的字符集没有默认字符序
+      则报错。
+    ● default_collation仅支持支持的字符序章节中的字符序，指定其他字符序报错。
+    ● 如果表的默认字符序为BINARY ，则表中未指定字符序的文本类型会转换为对应的二进制类
+      型，且字符序设置为binary。
+    ● 外键与外键引用列字符序不同时，禁止创建外键。
+    ● 如果表或者列上有外键/外键引用列时，无法转换/modify 字符集/字符序。
+    ● 除SQL_ASCII库外，其他字符集的数据库支持多字符集混用。
+
+示例：
+-- 仅设置字符集，字符序为字符集的默认字符序
+m_db=# CREATE TABLE test(c1 text) CHARSET utf8;
+
+-- 仅设置字符序，字符集为字符序关联的字符集
+m_db=# CREATE TABLE test(c1 text) COLLATE utf8_bin;
+
+-- 同时设置字符集与字符序，字符集和字符序需对应
+m_db=# CREATE TABLE test(c1 text) CHARSET utf8 COLLATE utf8_bin;
+[[PDF_PAGE physical=1998 printed=1949]]
+      -- 将表中字符类型字段的数据转化为utf8mb4编码，并设置表和字段的字符序为utf8mb4_bin
+      m_db=# ALTER TABLE test CONVERT TO CHARSET utf8mb4 COLLATE utf8mb4_bin;
+
+      -- 修改表的默认字符集为utf8mb4，默认字符序为utf8mb4_bin
+      m_db=# ALTER TABLE test CHARSET utf8mb4 COLLATE utf8mb4_bin;
+
+
+2.3.4 列级字符集和字符序
+      每个字符串类型（即类型为CHAR、VARCHAR、TEXT等字符串类型）的列都可以配置
+      列级字符集和字符序。
+      CREATE TABLE table_name (
+        column_name data_type
+        [ {CHARACTER SET | CHAR SET | CHARSET} charset ]
+        [ COLLATE collation ]);
+
+      语法说明：
+
+      ●    table_name
+           表名称。
+      ●    data_type
+           字段的数据类型，字符串类型支持字符集、字符序语法。
+      ●    CHARACTER SET | CHAR SET | CHARSET charset
+           指定表字段的字符集，单独指定时会将字段的字符序设置为指定的字符集的默认
+           字符序。
+      ●    COLLATE collation
+           COLLATE子句指定列的字符序（该列的数据类型必须支持字符序）。如果没有指
+           定，则使用默认的排序规则。
+      设置方式：
+      M-Compatibility通过以下方式选择表字段的字符集和字符序：
+
+      ●    如果同时指定了charset和collation ，则使用字符集charset和字符序collation，且
+           charset和collation需要一一对应，不对应会产生报错。
+      ●    如果仅指定了charset，则使用字符集charset及其默认字符序。
+      ●    如果仅指定了collation，则使用与collation关联的字符集和指定的字符序。
+      ●    如果既不指定charset也不指定collation，则使用表的默认字符集和默认字符序。
+            说明
+
+          ● charset仅支持指定为带有默认字符序的字符集，如果指定的字符集没有默认字符序则报错。
+          ● collation仅支持支持的字符序章节中的字符序，指定其他字符序时会提示报错。
+          ● 如果列的字符序为BINARY ，则表中未指定字符序的文本类型会转换为对应的二进制类型，
+            且字符序设置为binary。
+          ● 分区表的分区键的字符集必须与数据库字符集相同。
+          ● 除SQL_ASCII库外，其他字符集的数据库支持多字符集混用。
+
+      示例：
+      -- 仅设置字符集，字符序为字符集的默认字符序
+      m_db=# CREATE TABLE test(c1 text CHARSET utf8);
+
+      -- 仅设置字符序，字符集为字符序关联的字符集
+      m_db=# CREATE TABLE test(c1 text COLLATE utf8_bin);
+[[PDF_PAGE physical=1999 printed=1950]]
+         -- 同时设置字符集与字符序，字符集和字符序需对应
+         m_db=# CREATE TABLE test(c1 text CHARSET utf8 COLLATE utf8_bin);
+
+
+
+2.3.5 字符类型表达式的字符集和字符序
+         每一个字符类型的表达式含有字符集和字符序属性。字符串常量的默认字符集与字符
+         序由系统参数character_set_connection和collation_connection决定。
+         字符集语法：
+         [_charset_name]'string'
+
+         语法说明：
+         charset_name
+         指定一个字符集，解析后面的string表达式，charset_name为合法的字符集名。
+         示例：
+         --指定一个字符集，解析后面的string表达式
+         m_db=# select _utf8'GaussDB';
+
+         字符序语法：
+         其他字符串类型的表达式也可以指定字符序。
+         EXPRESSION [COLLATE collation_name]
+
+         语法说明：
+         COLLATE collation_name
+         指定字符序的名称，用于设置这个字符串的字符序属性。指定的字符序必须是表达式
+         的字符集允许的字符序。表达式的数据类型只能是支持字符序的数据类型。
+         示例：
+         --使用collate语句指定字符序
+         m_db=# SELECT 'a' COLLATE utf8mb4_general_ci = 'A';
+
+               说明
+
+              如不支持则会隐式转换成字符串类型，没有隐式转换路径则报错。
+
+
+2.3.6 字符集和字符序合并规则
+         不同字符集字符序的表达式按一定优先级处理，来确定字符串比较运算时的使用的字
+         符序和表达式的字符集。
+
+字符序优先级
+         不同表达式字符序优先级由高到低排列如下：
+
+         ●    COLLATE语法拥有最高优先级。
+         ●    存在字符序冲突的表达式（如：两个不同字符序的字符串拼接表达式）。
+         ●    支持字符序的数据类型的列、用户自定义变量、存储过程参数、CASE表达式等。
+         ●    特定的系统函数（如：version()和opengauss_version()函数表达式）。
+         ●    字符串常量和绑定参数。
+[[PDF_PAGE physical=2000 printed=1951]]
+●    NULL表达式。
+●    如果一个表达式的数据类型不支持字符序，那么这个表达式的优先级最低。
+
+当两个表达式字符序不同时，使用字符序优先级最高的表达式的字符序。
+
+示例：
+m_db=# CREATE TABLE t_utf8(c1 varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin);
+m_db=# INSERT INTO t_utf8 VALUES('STRING');
+
+-- 比较时使用utf8mb4_bin字符序，结果为false。
+m_db=# SELECT c1 = 'string' AS result FROM t_utf8;
+ result
+--------
+ f
+(1 row)
+
+-- 比较时使用utf8mb4_general_ci字符序，结果为true。
+m_db=# SELECT c1 = 'string' COLLATE utf8mb4_general_ci AS result FROM t_utf8;
+ result
+--------
+ t
+(1 row)
+
+-- 将绑定参数“?”的字符序定义为collation_connection。
+m_db=# PREPARE test_collation FROM 'SELECT c1 = ? AS result FROM t_utf8';
+
+-- 绑定参数字符序与字符串常量同级别，在上一步prepare时已经确定了执行时使用c1的字符序，因此结果为
+false。
+m_db=# SET @aa = 'string' COLLATE utf8mb4_general_ci;
+m_db=# EXECUTE test_collation using @aa;
+ result
+--------
+ f
+(1 row)
+
+-- CASE表达式与c1列同级别，即使表达式含有显式的字符序，比较时仍然采用c1的字符序，二者不相等，输出
+“same level”。
+m_db=# SELECT CASE 'string' COLLATE utf8mb4_general_ci WHEN c1 THEN 'different level' ELSE 'same
+level' END AS result FROM t_utf8;
+  result
+------------
+ same level
+(1 row)
+
+-- IN子查询与c1列同级别，即使表达式含有显式的字符序，比较时仍然采用c1的字符序，二者不相等。
+m_db=# SELECT c1 FROM t_utf8 WHERE c1 in (SELECT 'string' COLLATE utf8mb4_general_ci);
+ c1
+----
+(0 rows)
+
+当两个相同优先级的表达式字符序不同时，采用以下方式处理：
+
+●    如果两者字符集相同，优先使用后缀为_bin的字符序。
+●    如果两者字符集相同，优先不使用default字符序。
+●    如果两者字符集不同，优先使用BINARY字符序。
+●    如果两者字符集不同，且一个为Unicode字符集，另一个不为Unicode字符集，非
+     Unicode字符集的表达式需要转码为Unicode字符集，最终使用Unicode字符集的
+     表达式的字符序。
+●    如果不符合上述情况，两表达式将被标记为字符序冲突，字符序将被标记为无
+     效。
+     –     因COLLATE语法指定同字符集不同字符序产生的冲突，将提示异常。
+[[PDF_PAGE physical=2001 printed=1952]]
+            –     若两个表达式属于同一字符集下不同的字符序，且该字符序不为二进制字符
+                  序，则在部分函数表达式（包括普通函数、聚合函数GROUP_CONCAT和
+                  JSON_OBJECTAGG，以及窗口函数LAG和LEAD）中，函数的结果将直接使用
+                  该字符集中的二进制字符序。但对于二进制字符序仅限于字符串拼接操作，
+                  其他使用场景将触发异常提示。
+
+       示例：
+       m_db=# CREATE TABLE t_utf8mb4_charset(
+         c_utf8_bin varchar(16) character set utf8mb4 collate utf8mb4_bin,
+         c_utf8_uni varchar(16) character set utf8mb4 collate utf8mb4_unicode_ci,
+         c_utf8_gen varchar(16) character set utf8mb4 collate utf8mb4_general_ci);
+       m_db=# INSERT INTO t_utf8mb4_charset VALUES('STRING', 'String', 'string');
+
+       -- 优先使用utf8mb4_bin字符序比较，结果为false。
+       m_db=# SELECT c_utf8_bin = c_utf8_uni FROM t_utf8mb4_charset;
+        ?column?
+       ----------
+        f
+       (1 row)
+
+       -- 字符序冲突，进行二进制比较，结果为false。
+       m_db=# SELECT c_utf8_uni = c_utf8_gen FROM t_utf8mb4_charset;
+       ERROR: Collation mismatch between collations "utf8mb4_unicode_ci" and "utf8mb4_general_ci".
+       LINE 1: SELECT c_utf8_uni = c_utf8_gen FROM t_utf8mb4_charset;
+                         ^
+
+       -- 显式指定的字符序冲突，抛出异常。
+       m_db=# SELECT c_utf8_uni COLLATE utf8mb4_unicode_ci = c_utf8_gen COLLATE utf8mb4_general_ci FROM
+       t_utf8mb4_charset;
+       ERROR: collation mismatch between explicit collations "utf8mb4_unicode_ci" and "utf8mb4_general_ci"
+       LINE 1: ..._utf8_uni COLLATE utf8mb4_unicode_ci = c_utf8_gen COLLATE ut...
+                                               ^
+
+             说明
+
+           ● 只有字符串类型（包括SET、ENUM类型）的对象和表达式的字符集可以和数据库的字符集
+             不同。
+           ● 在字符集和字符序合并规则中，认为 C、POSIX、DEFAULT字符序对应的字符集为
+             server_encoding。
+
+
+2.3.7 字符集间转码规则
+       GaussDB可以通过设置GUC参数m_format_behavior_compat_options的配置项
+       enable_convert_charset开关，控制字符集间的转码规则：
+       ●    当GUC参数m_format_behavior_compat_options值中包含
+            enable_convert_charset时，GaussDB支持表2-2中的任意两个字符集之间进行转
+            码，支持的字符集间转码路径不会记录到pg_conversion系统表中。
+       ●    当GUC参数m_format_behavior_compat_options值中不包含
+            enable_convert_charset时，其字符集转码规按照GaussDB原生行为（即GaussDB
+            的非M-Compatibility模式数据库的字符集转码规则）进行转换，可以通过
+            pg_conversion系统表查看全量支持的字符集间转码路径。
+
+
+注意事项
+       ●    对于表2-2中的字符集间转码，支持的转码路径范围存在差异：
+            –     GaussDB原生行为（即GaussDB的非M-Compatibility模式数据库的字符集转
+                  码规则）的字符集转码范围，仅支持pg_conversion系统表中的转码路径。
+[[PDF_PAGE physical=2002 printed=1953]]
+          –    当前版本GaussDB的M-Compatibility模式数据库的字符集转码规则范围，仅
+               支持UTF8(UTF8MB4)/GBK/GB18030/LATIN1/BINARY/GB18030_2022间的
+               字符集两两转码。
+     ●    对于两字符集间不支持转码的字符处理存在差异：
+          –    GaussDB原生行为（即GaussDB的非M-Compatibility模式数据库的字符集转
+               码规则）：不支持转码的字符会报ERROR级别错误提示。
+          –    当前版本GaussDB的M-Compatibility模式数据库：对于需要存储（如
+               INSERT/UPDATE表字段）的字符转码，严格模式下不支持的字符转码报
+               ERROR级别错误提示，宽松模式下不支持的转码字符会被转换为 '?'，报
+               WARNING级别错误提示。对于不用于存储的场景（如SELECT），不支持转
+               码的字符转换为 '?'，报WARNING级别错误提示。
+     ●    部分数字符的转码结果可能存在差异，如：欧元符（€）。
+
+
+示例
+     -- 以下为兼容MySQL字符集转码用例。
+     m_db=# SET m_format_behavior_compat_options = 'enable_convert_charset';
+
+     -- 插入表字段，字符串向表字段字符集转码，hex函数可以查看数据库实际存储的编码数据。
+     m_db=# CREATE TABLE t1(c1 TEXT CHARSET UTF8, c2 TEXT CHARSET GBK);
+     m_db=# INSERT INTO t1 VALUES('汉字','汉字');
+     m_db=# SELECT c1, c2, HEX(c1), HEX(c2) FROM t1;
+       c1 | c2 |     hex      | hex
+     ------+------+--------------+----------
+      汉字 | 汉字 | E6B189E5AD97 | BABAD7D6
+     (1 row)
+
+     -- 删除表格。
+     m_db=# DROP TABLE t1;
+
+     -- 使用convert系统函数转码。
+     m_db=# CREATE TABLE t2(c1 TEXT CHARSET UTF8);
+     m_db=# INSERT INTO t2 VALUES('汉字');
+     m_db=# SELECT c1, HEX(c1), CONVERT(c1 USING GB18030), HEX(CONVERT(c1 USING GB18030)) FROM
+     t2;
+       c1 |    hex      | convert | hex
+     ------+--------------+---------+----------
+      汉字 | E6B189E5AD97 | 汉字 | BABAD7D6
+     (1 row)
+
+     -- LATIN1字符集没有‘汉字’这两个字符，转码失败，替换为‘?’。
+     m_db=# SELECT c1, HEX(c1), CONVERT(c1 USING LATIN1), HEX(CONVERT(c1 USING LATIN1)) FROM t2;
+       c1 |    hex      | convert | hex
+     ------+--------------+---------+------
+      汉字 | E6B189E5AD97 | ??           | 3F3F
+     (1 row)
+
+     -- 删除表格。
+     m_db=# DROP TABLE t2;

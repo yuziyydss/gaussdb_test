@@ -1,0 +1,87 @@
+[[PDF_PAGE physical=1893 printed=1844]]
+1.13.22.2 VALUES
+
+功能描述
+            根据给定的值表达式计算一个或一组行的值。它通常用于在一个较大的命令内生成一
+            个常数表。
+
+注意事项
+            ●    应当避免使用VALUES返回数量非常大的结果行，否则可能会出现内存耗尽或者性
+                 能低下的情况。出现在INSERT中的VALUES是一个特殊情况，因为目标字段类型
+                 可以从INSERT的目标表获知，并不需要通过扫描VALUES列表来推测，所以在此
+                 情况下可以处理非常大的结果行。
+            ●    如果指定了多行，那么每一行都必须拥有相同的元素个数。
+            ●    在使用IN表达式进行多列条件查询时，IN LIST和IN VALUES LIST虽然功能相似，
+                 但其内部处理机制存在本质差异。为确保查询性能和数据准确性，在替换时，需
+                 特别关注以下关键区别：
+                 –     逻辑结构差异：IN LIST会将多列条件解析为多条OR条件的组合，例如：(a,
+                       b) IN ((1, 2), (2, 3))会被转化为(a = 1 AND b = 2) OR (a = 2 AND b = 3)，
+                       当IN后的列表长度极大时，生成的OR条件链将异常冗长，查询优化器需遍历
+                       整条条件链，可能导致查询性能显著下降。
+                 –     查询优化机制：IN VALUES LIST会将VALUES子句视为派生表，将IN表达式解
+                       析为ANY类型的子查询，并通过查询改写阶段将其转换为JOIN操作。该机制
+                       有效避免了处理长OR条件链的性能开销。
+                 –     类型处理差异：IN LIST对每组数据单独进行类型检查和隐式转换，而IN
+                       VALUES LIST则先为VALUES子句中各列统一推导公共数据类型，再进行类型
+                       检查和转换。这种统一类型处理方式更为严格，要求VALUES子句中同一列的
+                       数据类型保持一致，确保查询结果的准确性。
+
+语法格式
+            VALUES {( expression [, ...] )} [, ...]
+              [ ORDER BY { sort_expression [ ASC | DESC | USING operator ] } [, ...] ]
+              [ LIMIT { count | ALL } ]
+              [ OFFSET start [ ROW | ROWS ] ]
+              [ FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } ONLY ];
+
+
+参数说明
+            ●    expression
+                 用于计算或插入结果表指定地点的常量或者表达式。
+                 在一个出现在INSERT顶层的VALUES列表中，expression可以被DEFAULT替换以表
+                 示插入目的字段的缺省值。除此以外，当VALUES出现在其他场合的时候是不能使
+                 用DEFAULT的。
+            ●    sort_expression
+                 一个表示如何排序结果行的表达式或者整数常量。
+            ●    ASC
+                 指定按照升序排列。
+            ●    DESC
+                 指定按照降序排列。
+[[PDF_PAGE physical=1894 printed=1845]]
+     ●    operator
+          一个排序操作符。
+     ●    count
+          返回的最大行数。
+     ●    OFFSET start [ ROW | ROWS ]
+          声明返回的最大行数，而start声明开始返回行之前忽略的行数。
+     ●    FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } ONLY
+          FETCH子句限定返回查询结果从第一行开始的总行数，count的缺省值为1。
+
+
+示例
+     --建表。
+     gaussdb=# CREATE TABLE test_t2(col1 INT,col2 VARCHAR);
+     gaussdb=# CREATE TABLE test_t3(col1 INT,col2 VARCHAR);
+
+     --插入多条数据。
+     gaussdb=# INSERT INTO test_t2 (col1, col2) VALUES (10,'AA'),(20,'BB'),(30,'CC');
+
+     --分页查询，返回第一页，每页显示1行数据。
+     gaussdb=# SELECT * FROM test_t2 ORDER BY col1 ASC LIMIT 1 OFFSET 0;
+     col1 | col2
+     ------+------
+       10 | AA
+     (1 row)
+
+     --把test_t2中的数据插入到test_t3中。
+     gaussdb=# INSERT INTO test_t3 SELECT * FROM test_t2;
+
+     --结合FETCH查询,返回第一页，每页显示1行数据。
+     gaussdb=# SELECT * FROM test_t3 ORDER BY col1 ASC OFFSET 0 FETCH FIRST 1 ROWS ONLY;
+      col1 | col2
+     ------+------
+       10 | AA
+     (1 row)
+
+     --删除表test_t2、test_t3。
+     gaussdb=# DROP TABLE test_t2;
+     gaussdb=# DROP TABLE test_t3;

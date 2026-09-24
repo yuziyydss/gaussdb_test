@@ -1,0 +1,147 @@
+[[PDF_PAGE physical=2088 printed=2039]]
+2.4.2.8.6 CREATE AUDIT POLICY
+
+功能描述
+             创建统一审计策略。
+
+注意事项
+             ●    审计策略的创建与维护存在权限限制，仅POLADMIN、SYSADMIN或初始用户可
+                  以执行CREATE AUDIT POLICY命令。
+             ●    在创建审计策略之前，须确保已打开安全策略enable_security_policy开关（即设
+                  置GUC参数enable_security_policy为on），脱敏策略才会生效。
+             ●    系统管理员或安全策略管理员可以访问gs_auditing_policy、
+                  gs_auditing_policy_access、gs_auditing_policy_privileges和
+                  gs_auditing_policy_filters系统表，对已创建的审计策略进行查询。
+             ●    审计策略名称应具有唯一性，避免与现有策略产生冲突。可以使用IF NOT EXISTS
+                  进行检查指定的审计策略是否存在，以避免重复创建。
+
+语法格式
+             CREATE AUDIT POLICY [ IF NOT EXISTS ] policy_name { { privilege_audit_clause | access_audit_clause }
+             [, ... ] [ filter_group_clause ] [ ENABLE | DISABLE ] };
+
+
+
+
+             ●    privilege_audit_clause：表示审计策略中具体的DDL操作类型及目标资源标签，
+                  具体形式为：
+                  PRIVILEGES { PRIVILEGES | ALL } [ ON LABEL ( resource_label_name [, ... ] ) ]
+
+             ●    access_audit_clause：表示审计策略中具体的DML操作类型及目标资源标签，具
+                  体形式为：
+                  ACCESS { ACCESS | ALL } [ ON LABEL ( resource_label_name [, ... ] ) ]
+[[PDF_PAGE physical=2089 printed=2040]]
+●   filter_group_clause：表示审计策略中的过滤条件，具体形式为：
+    FILTER ON { FILTER_TYPE ( filter_value [, ... ] ) } [, ... ]
+
+
+
+
+●   PRIVILEGES：
+    { ALTER | ANALYZE | COMMENT | CREATE | DROP | GRANT | REVOKE | SET | SHOW }
+
+
+
+
+●   ACCESS：
+    { COPY | DEALLOCATE | DELETE | EXECUTE | REINDEX | INSERT | PREPARE | SELECT | TRUNCATE |
+    UPDATE }
+
+
+
+
+●   FILTER_TYPE：表示审计策略过滤的条件类型，具体形式为：
+    { APP | ROLES | IP }
+[[PDF_PAGE physical=2090 printed=2041]]
+参数说明
+       ●   IF NOT EXISTS
+           判断指定的审计策略是否存在，使用该参数可以避免出现报错。
+           –   如果指定的审计策略不存在，直接进行CREATE操作。
+           –   如果指定的审计策略存在，则产生NOTICE，不会抛出错误。
+       ●   policy_name
+           指定审计策略名称，必须确保其唯一性，不可重复。
+           取值范围：字符串，要符合标识符说明。
+           命名规则：
+           –   审计策略名称必须由小写字母（a~z）、大写字母（A~Z）、下划线（_）、
+               数字（0~9）或美元符号（$）组成，且必须以字母或下划线开头。
+           –   审计策略名称的最大长度不超过63个字符。若超过63个字符，数据库会截断
+               并保留前63个字符当作审计策略名称。
+           –   当审计策略名称中包含大写字母时，数据库会自动转换为小写字母，如果需
+               要创建包含大写字母的审计策略名称则需要使用反引号括起来。
+       ●   resource_label_name
+           资源标签名称。
+       ●   PRIVILEGES
+           表示针对数据库执行以下操作时进行审计，目前支持对数据库进行CREATE、
+           ALTER、DROP、ANALYZE、COMMENT、GRANT、REVOKE、SET以及SHOW操
+           作时的审计。
+           取值为ANALYZE时，ANALYZE和VACUUM操作都会被审计。
+       ●   ACCESS
+           表示针对数据库执行以下操作时进行审计，目前支持对数据库进行SELECT、
+           COPY、DEALLOCATE、DELETE、EXECUTE、INSERT、PREPARE、REINDEX、
+           TRUNCATE以及UPDATE操作时的审计。
+       ●   { PRIVILEGES | ALL } | { ACCESS | ALL }
+           表示在DDL或DML中，支持的所有对数据库的操作。
+           –   { PRIVILEGES | ALL }：ALL指所有PRIVILEGES操作；
+           –   { ACCESS | ALL }：ALL指所有ACCESS操作。
+       ●   FILTER_TYPE
+           审计策略过滤的条件类型。过滤类型包括IP、ROLES以及APP。
+       ●   filter_value
+           具体过滤信息内容。
+       ●   ENABLE | DISABLE
+           打开或关闭统一审计策略。若不指定，默认为ENABLE。
+[[PDF_PAGE physical=2091 printed=2042]]
+示例
+       ●   创建对数据库执行CREATE操作的审计策略。
+           -- 创建adt1策略。
+           m_db=# CREATE AUDIT POLICY adt1 PRIVILEGES CREATE;
+
+           -- 查看adt1策略。
+           m_db=# SELECT * FROM gs_auditing_policy;
+            polname | polcomments |            modifydate          | polenabled
+           ---------+-------------+----------------------------+------------
+            adt1 |             | 2023-11-06 16:41:40.947417 | t
+
+           -- 删除审计策略adt1。
+           m_db=# DROP AUDIT POLICY adt1;
+
+       ●   创建仅审计用户可以进行CREATE操作的审计策略。
+           -- 创建dev_audit用户。
+           m_db=# CREATE USER dev_audit PASSWORD '********';
+
+           -- 创建一个表tb_for_audit。
+           m_db=# CREATE TABLE tb_for_audit(col1 text, col2 text, col3 text);
+
+           -- 创建基于tb_for_audit表的adt_lb0资源标签。
+           m_db=# CREATE RESOURCE LABEL adt_lb0 add TABLE(public.tb_for_audit);
+
+           -- 创建针对adt_lb0资源进行CREATE操作的adt2审计策略。
+           m_db=# CREATE AUDIT POLICY adt2 PRIVILEGES CREATE ON LABEL(adt_lb0) FILTER ON
+           ROLES(dev_audit);
+
+           -- 删除审计策略adt2。
+           m_db=# DROP AUDIT POLICY adt2;
+
+           -- 删除表tb_for_audit。
+           m_db=# DROP TABLE tb_for_audit;
+
+           -- 删除dev_audit用户。
+           m_db=# DROP USER dev_audit;
+
+       ●   创建一个仅审计记录用户dev_audit，客户端工具为gsql，IP地址为
+           “10.20.30.40”以及“127.0.0.0/24”，再执行针对adt_lb0资源进行的SELECT、
+           INSERT、DELETE操作数据库的审计策略。
+           -- 创建dev_audit用户。
+           m_db=# CREATE USER dev_audit PASSWORD '********';
+
+           -- 创建审计策略adt3。
+           m_db=# CREATE AUDIT POLICY adt3 ACCESS SELECT ON LABEL(adt_lb0), INSERT ON
+           LABEL(adt_lb0), DELETE FILTER ON ROLES(dev_audit), APP(gsql), IP('10.20.30.40', '127.0.0.0/24');
+
+           -- 删除审计策略adt3。
+           m_db=# DROP AUDIT POLICY adt3;
+
+           -- 删除dev_audit用户。
+           m_db=# DROP USER dev_audit;
+
+
+相关链接
+       ALTER AUDIT POLICY，DROP AUDIT POLICY

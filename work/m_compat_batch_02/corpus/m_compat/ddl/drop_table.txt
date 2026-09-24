@@ -1,0 +1,62 @@
+[[PDF_PAGE physical=2201 printed=2152]]
+2.4.2.9.17 DROP TABLE
+
+功能描述
+             删除指定的表。
+
+注意事项
+             ●    DROP TABLE会强制删除指定的表，删除表后，依赖该表的索引会被删除。删除
+                  分区表，会同时删除分区表中的所有分区。
+             ●    表的所有者、表所在模式的所有者、被授予了表的DROP权限的用户或被授予
+                  DROP ANY TABLE权限的用户，有权删除指定表 ，三权分立关闭时的系统管理员
+                  默认拥有该权限。
+
+语法格式
+             DROP [TEMPORARY] TABLE [ IF EXISTS ]
+               { [schema.]table_name } [, ...] [ CASCADE | RESTRICT ] [ PURGE ];
+
+
+参数说明
+             ●    IF EXISTS
+                  如果指定的表不存在，则发出一个notice而不是抛出一个错误。
+             ●    schema
+                  模式名称。
+             ●    table_name
+                  表名称。
+             ●    CASCADE | RESTRICT
+                  –     CASCADE：表示允许级联删除依赖于该表的对象（比如视图）。
+[[PDF_PAGE physical=2202 printed=2153]]
+            –     RESTRICT（缺省项）：如果存在依赖对象，则拒绝删除该表。这个是缺省。
+                   说明
+
+                 该属性在数据库M-compatibility模式兼容版本控制开关s1及以上版本（如
+                 m_format_dev_version = 's1'）时仅语法支持，但实际不生效。
+       ●    PURGE
+            该参数表示即使开启回收站功能，DROP表时，也会直接物理删除表，而不是将其
+            放入回收站中。
+
+示例
+       --创建test表。
+       m_db=# CREATE TABLE test(c1 int, c2 int);
+       --删除test表。
+       m_db=# DROP TABLE IF EXISTS test;
+
+       --视图依赖表时，删除表失败。
+       m_db=# create schema s1;
+       m_db=# create table s1.t1(a int);
+       m_db=# create view s1.v1 as select * from s1.t1;
+       m_db=# create view s1.v2 as select * from s1.v1;
+       m_db=# drop table s1.t1;
+       ERROR: cannot drop table s1.t1 because other objects depend on it
+       DETAIL: view s1.v1 depends on table s1.t1
+       view s1.v2 depends on view s1.v1
+       HINT: Please drop the dependent first.
+       m_db=# drop table s1.t1 cascade;
+       ERROR: cannot drop table s1.t1 because other objects depend on it
+       DETAIL: view s1.v1 depends on table s1.t1
+       view s1.v2 depends on view s1.v1
+       HINT: Please drop the dependent first.
+
+
+相关链接
+       ALTER TABLE，CREATE TABLE

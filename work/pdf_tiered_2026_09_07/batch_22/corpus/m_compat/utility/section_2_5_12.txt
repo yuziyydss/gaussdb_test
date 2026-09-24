@@ -1,0 +1,953 @@
+[[PDF_PAGE physical=2416 printed=2367]]
+2.5.12 JSON 函数和操作符
+
+2.5.12.1 JSON 函数
+
+JSON_APPEND
+           JSON_APPEND(json_doc, path, val[, path, val] ...)
+
+           描述：向json_doc中path指定的路径追加一个值，并返回修改后的json。
+           JSON_APPEND是JSON_ARRAY_APPEND的别名，行为与JSON_ARRAY_APPEND一
+           致。
+
+           ●   path必须为一个数组或对象。如果指定的是一个数组，会在数组末尾添加新值；
+               如果指定的是一个对象的key，会在对象value的末尾添加新值；如果对象是单独
+               的一个值，则将其转换为一个数组，并在末尾添加新值。
+           ●   如果json_doc或path路径为null，则函数返回null。
+[[PDF_PAGE physical=2417 printed=2368]]
+             ●     如果json_doc中不存在path指定的路径，则不修改。
+             ●     如果json_doc格式错误、path并非是有效的路径表达式或者path中包含*或**时，
+                   会产生报错。
+             ●     如果有null值和格式错误场景同时在可变参数列表中，则按异常的先后顺序处理，
+                   若null值顺序在前则返回null，否则产生报错。
+             ●     如果json_doc深度超过100时，则产生报错
+             参数说明：与表2-53相同。
+             返回值：JSON
+             示例：
+             m_db=# SELECT json_append('[1, [2, 3]]', '$[1]', 4, '$[0]', false, '$[0]', null, '$[0]', 1);
+              json_append
+             ----------------------------------------------------------------
+              [[1, false, null, 1], [2, 3, 4]]
+             (1 row)
+
+
+JSON_ARRAY
+             JSON_ARRAY([val[, val] ...])
+             描述：从一个可变参数列表构造出一个数组，并返回数组形式的JSON。如果该函数没
+             有任何参数，则返回一个空的数组形式的JSON。
+             返回值：JSON
+             示例：
+             -- 不输入入参，返回一个空的数组形式的JSON。
+             m_db=# SELECT json_array();
+              json_array
+             ------------
+              []
+             (1 row)
+
+             m_db=# SELECT json_array(TRUE, FALSE, NULL, 114, 'text');
+              json_array
+             -------------------------------------------------------------------
+              [true, false, null, 114, "text"]
+             (1 row)
+
+
+JSON_ARRAY_APPEND
+             JSON_ARRAY_APPEND(json_doc, path, val[, path, val] ...)
+             描述：向json_doc中path指定的路径添加一个值，并返回修改后的JSON。
+
+             ●     path必须为一个数组或对象。如果指定的是一个数组，会在数组末尾添加新值；
+                   如果指定的是一个对象的key，会在对象value的末尾添加新值；如果对象是单独
+                   的一个值，则将其转换为一个数组，并在末尾添加新值。
+             ●     如果json_doc或path路径为null，则函数返回null。
+             ●     如果json_doc中不存在path指定的路径，则不修改。
+             ●     如果json_doc格式错误、path并非是有效的路径表达式或者path中包含*或**时，
+                   会产生报错。
+             ●     如果有null值和格式错误场景同时在可变参数列表中，则按异常的先后顺序处理，
+                   若null值顺序在前则返回null，否则产生报错。
+[[PDF_PAGE physical=2418 printed=2369]]
+          ●      如果json_doc深度超过100时，则产生报错。
+          参数说明：如表2-53所示。
+
+          表 2-53 JSON_ARRAY_APPEND 参数说明
+
+           名称                        描述
+
+           json_doc                  表示要添加值的JSON。
+
+           path                      表示要向JSON中添加值的位置。用“$”表示通过json_doc输入
+                                     的JSON。
+
+           val                       表示要添加的值。
+
+
+
+
+          返回值：JSON
+          示例：
+          -- 同时向对象和数组追加值。
+          m_db=# SELECT json_array_append('[1, [2, 3]]', '$[1]', 4, '$[0]',3);
+           json_array_append
+          ----------------------
+           [[1, 3], [2, 3, 4]]
+          (1 row)
+
+          -- 向字典对象的value追加值。
+          m_db=# SELECT json_array_append('{"name":"Tom"}','$.name', 2);
+           json_array_append
+          ------------------------------------------------------------------
+           {"name": ["Tom", 2]}
+          (1 row)
+
+          -- 向字典对象本身追加值。
+          m_db=# SELECT json_array_append('{"name":"Tom"}','$', 2);
+           json_array_append
+          ------------------------------------------------------------------
+           [{"name": "Tom"}, 2]
+          (1 row)
+
+
+JSON_ARRAY_INSERT
+          JSON_ARRAY_INSERT(json_doc, path, val[, path, val] ...)
+          描述：向json_doc中path指定的数组中的指定位置插入一个值，并返回修改后的
+          JSON。
+
+          ●      如果指定的路径不是一个JSON数组，则会产生报错。
+          ●      如果指定的路径中已存在值，则在该路径上插入新值并将已存在的值后移。
+          ●      如果json_doc中不存在path指定的路径，则不修改。
+          ●      如果json_doc或path路径为null，则函数返回null。
+          ●      如果json格式错误、path并非是有效的路径表达式或者path路径中包含*或**时，
+                 则会产生报错。
+          ●      如果有null值和格式错误场景同时在可变参数列表中，则按异常的先后顺序处理，
+                 若null值顺序在前则返回null，否则产生报错。
+          ●      如果json_doc深度超过100时，则产生报错。
+[[PDF_PAGE physical=2419 printed=2370]]
+          参数说明：与表2-53相同。
+          返回值：JSON
+          示例：
+          --一对json_path-value用例。
+          m_db=# SELECT json_array_insert('[1, [2, 3]]', '$[1]', 4);
+           json_array_insert
+          -------------------
+           [1, 4, [2, 3]]
+          (1 row)
+
+          --多个json_path-value用例。
+          m_db=# SELECT json_array_insert('[1, [2, 3]]', '$[1]', 4, '$[0]', false, '$[0]', null, '$[0]', 1);
+           json_array_insert
+          ------------------------------------------------------------------
+           [1, null, false, 1, 4, [2, 3]]
+          (1 row)
+
+          -- 指定路径为JSON数组
+          m_db=# select json_array_insert('{"a":[1]}','$.a[1]',2);
+           json_array_insert
+          -------------------
+           {"a": [1, 2]}
+          (1 row)
+
+          -- 指定的路径不存在
+          m_db=# select json_array_insert('{"a":1}','$[1]',2);
+           json_array_insert
+          -------------------
+           {"a": 1}
+          (1 row)
+
+
+JSON_CONTAINS
+          JSON_CONTAINS(target_json_doc, candidate_json_doc[, path])
+          描述：检查target_json_doc是否包含candidate_json_doc。如果指定path参数，则通
+          过path匹配到target_json_doc中的子JSON数据后，再检查target_json_doc是否包含
+          candidate_json_doc。
+
+          ●     若target_json_doc格式错误则报错，若target_json_doc为null则返回null。
+          ●     若candidate_json_doc格式错误则报错，若candidate_json_doc为null则返回
+                null。
+          ●     若path格式错误则报错，若path为null则返回null。
+          ●     如果有null值和格式错误场景同时在可变参数列表中，则按异常的先后顺序处理，
+                若null值顺序在前则返回null，否则产生报错。
+          ●     如果json_doc深度超过100时，则产生报错。
+          返回值：BIGINT
+          示例：
+          m_db=# SELECT json_contains('[1, [2, 3], 4]', '[1, 3]');
+           json_contains
+          ---------------
+                    1
+          (1 row)
+
+          m_db=# SELECT json_contains('{"a": 1, "b": {"c": 3, "d": 4}}', '{"d": 4}', '$.b');
+           json_contains
+          ---------------
+[[PDF_PAGE physical=2420 printed=2371]]
+                       1
+             (1 row)
+
+             m_db=# SELECT json_contains('{"a": 1, "b": {"c": 3, "d": 4}}', '{"e": 4}', '$.b');
+              json_contains
+             ---------------
+                       0
+             (1 row)
+
+
+JSON_CONTAINS_PATH
+             JSON_CONTAINS_PATH(json_doc, one_or_all, path [, path [, path …]])
+
+             描述：在json_doc中查询path指定的位置是否能匹配到子JSON数据。
+
+             ●     当one_or_all为one时，path参数中只要存在一个可以匹配到子JSON的数据，即
+                   返回1。
+             ●     当one_or_all为all时，path参数需要全部匹配到子JSON才可以返回1，否则返回
+                   0。
+             ●     若json_doc格式错误则报错，若为null则返回null。
+             ●     若one_or_all格式错误则报错，若为null则返回null。
+             ●     当one_or_all为one时：
+                   –       如果前面path的格式均正确，且至少含有一个json_doc中存在的路径，则不
+                           会去检查之后的path是否为null或报错，直接返回1。
+                   –       如果前面path的格式均正确，且均为json_doc中不存在的路径，则后面的
+                           path先出现null值则返回null，先出现格式错误则产生报错。
+             ●     在one_or_all为all时：
+                   –       如果前面path的格式均正确，且至少含有一个json_doc中不存在的路径，则
+                           不会去检查之后的path是否为null或报错，直接返回0。
+                   –       如果前面path的格式均正确，且均为json_doc中存在的路径，则后面的path
+                           先出现null值则返回null，先出现格式错误则产生报错。
+             ●     如果json_doc深度超过100时，则产生报错。
+
+             返回值：BIGINT
+
+             示例：
+             m_db=# SELECT json_contains_path('{"a": {"b": 2, "c": 3}, "d": null}', 'one', '$.d', '$.e');
+              json_contains_path
+             --------------------
+                           1
+             (1 row)
+
+
+             m_db=# SELECT json_contains_path('{"a": {"b": 2, "c": 3}, "d": null}', 'all', '$.d', '$.e');
+              json_contains_path
+             --------------------
+                           0
+             (1 row)
+
+
+JSON_DEPTH
+             JSON_DEPTH(json_doc)
+
+             描述：返回一个JSON的最大深度。如果json_doc为null，则返回null。如果json_doc存
+             在不合法、空字符串或JSON深度超过100时，则产生报错。
+[[PDF_PAGE physical=2421 printed=2372]]
+              返回值：BIGINT
+
+              示例：
+              m_db=# SELECT JSON_DEPTH('[]');
+               json_depth
+              ------------
+                      1
+              (1 row)
+
+              m_db=# SELECT JSON_DEPTH('{"s":1}');
+               json_depth
+              ------------
+                      2
+              (1 row)
+
+              m_db=# SELECT JSON_DEPTH('{"s":1, "x":2,"y":3}');
+               json_depth
+              ------------
+                      2
+              (1 row)
+
+              m_db=# SELECT JSON_DEPTH('{"s":1, "x":2,"y":[1]}');
+               json_depth
+              ------------
+                      3
+              (1 row)
+
+
+JSON_EXTRACT
+              JSON_EXTRACT(json_doc, path[, path…])
+
+              描述：在json_doc中根据path提取子JSON数据，path参数可以有多个，该函数会将提
+              取的子JSON数据拼接成JSON数组返回，但若仅匹配到一个子JSON数据，则会直接返
+              回该子JSON数据。
+
+              ●     若json_doc格式错误则报错，若为null则返回null。
+              ●     若path格式错误则报错，为null则返回null。
+              ●     如果有null值和格式错误场景同时在可变参数列表中，若null值顺序在前则返回
+                    null，否则产生报错。
+              ●     如果json_doc深度超过100时，则产生报错。
+
+              返回值：JSON
+
+              示例：
+              m_db=# SELECT json_extract('{"a": {"b": 2, "c": 3}, "d": 4}', '$.a');
+                 json_extract
+              ------------------
+               {"b": 2, "c": 3}
+              (1 row)
+
+              m_db=# SELECT json_extract('{"a": {"b": 2, "c": 3}, "d": 4}', '$.a', '$.a');
+                        json_extract
+              --------------------------------------
+               [{"b": 2, "c": 3}, {"b": 2, "c": 3}]
+              (1 row)
+
+
+JSON_INSERT
+              JSON_INSERT(json_doc, path, val[, path, val] ...)
+[[PDF_PAGE physical=2422 printed=2373]]
+            描述：向json_doc中path指定的路径插入一个值，并返回修改后的JSON。
+            JSON_INSERT只能将数据插入到不存在的路径中，如果指定的路径上有值，则不修
+            改。
+
+            ●     如果json_doc或path路径为null，则返回null。
+            ●     如果json_doc格式错误、path并非是有效的路径表达式或者path中包含*或**时，
+                  则产生报错。
+            ●     如果有null值和格式错误场景同时在可变参数列表中，则按异常的先后顺序处理，
+                  若null值顺序在前则返回null，否则产生报错。
+            ●     如果json_doc深度超过100时，则产生报错。
+
+            参数说明：与表2-53相同。
+
+            返回值：JSON
+
+            示例：
+            -- 如果传入的path路径中，已存在值，则插入不生效。
+            m_db=# SELECT json_insert('{"x": 1, "y": [1, 2]}', '$.x', '2');
+             json_insert
+            -------------------
+             {"x": 1, "y": [1, 2]}
+            (1 row)
+
+            -- 多个路径，按顺序追加。
+            m_db=# SELECT json_insert('[1, [2, 3], {"a": [4, 5]}]', '$[10]', 10,'$[5]', 5);
+             json_insert
+            ------------------------------------------------------------------
+             [1, [2, 3], {"a": [4, 5]}, 10, 5]
+            (1 row)
+
+
+JSON_KEYS
+            JSON_KEYS(json_doc[, path])
+
+            描述：以JSON数组的形式返回json_doc中顶级对象的键key，若存在path参数，则以
+            JSON数组的形式返回用path匹配之后的json_doc中顶级对象的键key。
+
+            ●     json_doc或path路径为null时，或者json_doc中不存在path指定的路径时，
+                  JSON_KEYS返回null。
+            ●     如果JSON格式错误、path并非是有效的路径表达式或者path中包含*或**时，会产
+                  生报错。
+            ●     如果有null值和格式错误场景同时在可变参数列表中，则按异常的先后顺序处理，
+                  若null值顺序在前则返回null，否则产生报错。
+            ●     如果json_doc深度超过100时，则产生报错。
+
+            返回值：JSON
+
+            示例：
+            m_db=# SELECT json_keys('{"a": {"b": 2, "c": 3}, "d": 4}');
+             json_keys
+            ------------
+             ["a", "d"]
+            (1 row)
+
+            m_db=# SELECT json_keys('{"a": {"b": 2, "c": 3}, "d": 4}', '$.a');
+             json_keys
+            ------------
+[[PDF_PAGE physical=2423 printed=2374]]
+              ["b", "c"]
+             (1 row)
+
+
+JSON_LENGTH
+             JSON_LENGTH(json_doc[,path])
+             描述：返回JSON中指定路径的值的长度，如果没有指定路径，则返回JSON的长度。
+
+             ●     如果json_doc或path路径为null时，或者json_doc中不存在path指定的路径时，结
+                   果返回null。
+             ●     如果JSON格式错误、path并非是有效的路径表达式或者path中包含*或**时，会产
+                   生报错。
+             ●     如果有null值和格式错误场景同时在可变参数列表中，则按异常的先后顺序处理，
+                   若null值顺序在前则返回null，否则产生报错。
+             ●     如果json_doc深度超过100时，则产生报错。
+             返回值：BIGINT
+             示例：
+             -- 内嵌的数组或对象不参与计算长度。比如，{“x”: [1, 2]}的长度是1。
+             m_db=# SELECT json_length('{"name":"Tom", "age":24, "like":["football", "basketball"]}');
+              json_length
+             -------------
+                     3
+             (1 row)
+
+             -- 对象的长度是对象成员的数量，比如，{“x”: 1}的长度是1。
+             m_db=# SELECT json_length('{"a":["abc","bcd"],"b":"abc"}','$.a');
+              json_length
+             -------------
+                     2
+             (1 row)
+
+
+JSON_MERGE
+             JSON_MERGE(json_doc, json_doc[, json_doc] ...)
+             描述：入参为多个json_doc，当json_doc的个数大于等于2，JSON对象从可变参数列
+             表中构造。此函数将所有传入的json_doc进行合并，并返回合并后的结果。
+
+             ●     如果入参中有null，结果返回null。
+             ●     如果有null值和格式错误场景同时在可变参数列表中，则按异常的先后顺序处理，
+                   若null值顺序在前则返回null，否则产生报错。
+             ●     如果json_doc深度超过100时，则产生报错。
+             ●     JSON_MERGE是JSON_MERGE_PRESERVE的别名，行为与
+                   JSON_MERGE_PRESERVE一致。每次调用时都会出现“'JSON_MERGE' is
+                   deprecated and will be removed in a future release. Please use
+                   JSON_MERGE_PRESERVE/JSON_MERGE_PATCH instead.”的warning信息。
+             返回值：JSON
+             示例：
+             -- 两个数组合并为一个数组，保留所有数组中的元素。
+             m_db=# SELECT json_merge('[1, 2]','[2]');
+              json_merge
+             ---------------------
+[[PDF_PAGE physical=2424 printed=2375]]
+           [1, 2, 2]
+          (1 row)
+
+          -- 一个纯值会被包装成一个数组并作为数组进行合并，这个纯值作为入参必须用单引号引起来。如果表示字符则
+          需要加双引号。
+          m_db=# SELECT json_merge('[3, 2]','1');
+           json_merge
+          ------------------------------
+           [3, 2, 1]
+          (1 row)
+
+          -- 两个对象合并为一个对象，保留所有的键和值。对象组合时会重新排序。对象和数组合并时，会将对象包装到
+          一个数组中并作为数组进行合并。
+          m_db=# SELECT json_merge('{"b":"2"}','{"a":"1"}','[1,2]');
+           json_merge
+          ------------------------------
+           [{"a": "1", "b": "2"}, 1, 2]
+          (1 row)
+
+
+JSON_MERGE_PATCH
+          JSON_MERGE_PATCH(json_doc, json_doc[, json_doc] ...)
+          描述：对两个或多个json_doc执行符合RFC 7396标准的合并，并返回合并后的结果，
+          不保留具有重复键的成员。
+
+          ●     如果作为参数传递的json_doc中至少有一个无效，则产生报错。
+          ●     如果json_doc深度超过100时，则产生报错。
+          返回值：JSON
+          示例：
+          m_db=# SELECT json_merge_patch('{"b":"2"}','{"a":"1"}');
+             json_merge_patch
+          ----------------------
+           {"a": "1", "b": "2"}
+          (1 row)
+
+          m_db=# SELECT json_merge_patch('{"b":"2"}','{"a":"1"}','[1,2]');
+           json_merge_patch
+          ------------------
+           [1, 2]
+          (1 row)
+
+
+JSON_MERGE_PRESERVE
+          JSON_MERGE_PRESERVE(json_doc, json_doc[, json_doc] ...)
+          描述：入参为多个json_doc，当json_doc的个数大于等于2，JSON对象从可变参数列
+          表中构造；此函数将所有传入的json进行合并，并返回合并后的结果。
+
+          ●     如果入参中有null，返回null。
+          ●     如果有null值和格式错误场景同时在可变参数列表中，则按异常的先后顺序处理，
+                若null值顺序在前则返回null，否则产生报错。
+          ●     如果json_doc深度超过100时，则产生报错。
+          返回值：JSON
+          示例：
+          -- 两个数组合并为一个数组，保留所有数组中的元素。
+          m_db=# SELECT json_merge_preserve('[1, 2]','[2]');
+[[PDF_PAGE physical=2425 printed=2376]]
+           json_merge_preserve
+          ---------------------
+           [1, 2, 2]
+          (1 row)
+
+          -- 一个纯值会被包装成一个数组并作为数组进行合并，这个纯值作为入参必须用单引号引起来。如果表示字符则
+          需要加双引号。
+          m_db=# SELECT json_merge_preserve('[3, 2]','1');
+           json_merge_preserve
+          ---------------------
+           [3, 2, 1]
+          (1 row)
+
+          -- 两个对象合并为一个对象，保留所有的键和值。对象组合时会重新排序。对象和数组合并时，会将对象包装到
+          一个数组中并作为数组进行合并。
+          m_db=# SELECT json_merge_preserve('{"b":"2"}','{"a":"1"}','[1,2]');
+              json_merge_preserve
+          ------------------------------
+           [{"a": "1", "b": "2"}, 1, 2]
+          (1 row)
+
+
+JSON_OBJECT
+          JSON_OBJECT([key, val[, key1, val1] ...])
+          描述：从一个可变参数列表构造出一个JSON对象，入参必须为偶数个，key和val彼此
+          组成键值对。当key为null时或入参个数为奇数个时报错。
+          返回值：JSON
+          示例：
+          m_db=# SELECT json_object('d',2,'c','name','b',true,'a',2,'a',NULL,'d',1);
+           json_object
+          ------------------------------------------
+           {"a": 2, "b": true, "c": "name", "d": 2}
+          (1 row)
+
+          m_db=# SELECT json_object();
+           json_object
+          -------------
+           {}
+          (1 row)
+
+
+JSON_PRETTY
+          JSON_PRETTY(json_val)
+          描述：将JSON格式的字符串或对象格式化为易于阅读的形式。通过添加缩进、换行符
+          和空格等形式，以便更清晰地显示JSON数据。
+
+          ●     若json_val格式错误则报错，若json_val为NULL则返回NULL。
+          ●     如果json_val的深度超过100时，则产生报错。
+          参数：json_val表示一个包含JSON数据的字符串或JSON对象。
+          返回值：TEXT
+          示例：
+          m_db=# SELECT json_pretty('{"name":"Tom", "age":24, "like":"football"}');
+               json_pretty
+          ------------------------
+           {                +
+             "age": 24,         +
+[[PDF_PAGE physical=2426 printed=2377]]
+                 "like": "football", +
+                 "name": "Tom"         +
+              }
+             (1 row)
+
+
+JSON_QUOTE
+             JSON_QUOTE(str)
+             描述：使用双引号将入参str引用后输出，使其成为一个JSON字符串值。
+             返回值：TEXT
+             示例：
+             m_db=# SELECT json_quote('123');
+              json_quote
+             ------------
+              "123"
+             (1 row)
+
+             m_db=# SELECT json_quote('"1"');
+              json_quote
+             ------------
+              "\"1\""
+             (1 row)
+
+             m_db=# SELECT json_quote('"NULL"');
+              json_quote
+             ------------
+              "\"NULL\""
+             (1 row)
+
+
+JSON_REMOVE
+             JSON_REMOVE(json_doc, path[, path] ...)
+             描述：将json_doc中path指定路径上的值删除，并返回修改后的JSON。如果json_doc
+             中不存在指定的路径，则不修改；入参中存在多个path时，较后的path会以删除过的
+             json_doc为基准，继续执行删除操作。
+
+             ●       如果json_doc或path路径为null，则函数返回null。
+             ●       如果json_doc格式错误、path并非是有效的路径表达式或者path中包含*或**时，
+                     则产生报错。
+             ●       如果有path路径不存在、null值和格式错误场景同时在可变参数列表中，则按异
+                     常的先后顺序处理。
+             ●       如果json_doc深度超过100时，则产生报错。
+             参数说明：json_doc、path与表2-53中的参数说明相同。
+             返回值：JSON
+             示例：
+             -- 可以接受多个path路径，并且从左向右依次执行，执行多个path时，以已经删除过的json为基准，来追加
+             json_remove操作。
+             m_db=# SELECT json_remove('[0, 1, 2, [3, 4]]', '$[0]', '$[0]','$[0]');
+              json_remove
+             ----------------------------------------------------------------
+              [[3, 4]]
+             (1 row)
+
+             -- 删除不存在的路径，直接返回。
+[[PDF_PAGE physical=2427 printed=2378]]
+          m_db=# SELECT json_remove('{"A":1, "B":2}', '$.C');
+           json_remove
+          ----------------------------------------------------------------
+           {"A": 1, "B": 2}
+          (1 row)
+
+
+JSON_REPLACE
+          JSON_REPLACE(json_doc, path, val[, path, val] ...)
+          描述：将json_doc中path指定路径上的值替换成新值，并返回修改后的JSON。
+
+          ●     如果path为json_doc中不存在的路径时，则不修改，原样返回json_doc。
+          ●     如果json_doc或path为null，则函数返回null。
+          ●     如果json_doc格式错误、path并非是有效的路径表达式或者path中包含*或**时，
+                则产生报错。
+          ●     如果有null值和格式错误场景同时在可变参数列表中，则按异常的先后顺序处理，
+                若null值顺序在前则返回null，否则产生报错。
+          ●     如果json_doc深度超过100时，则产生报错。
+          参数说明：与表2-53相同。
+          返回值：JSON
+          示例：
+          m_db=# SELECT json_replace('{"x": 1}', '$.x', true);
+           json_replace
+          ----------------------------------------------------------------
+           {"x": true}
+          (1 row)
+
+          -- 如果value为字符串， json_replace()函数会将其作为字符串写入到 JSON 中。
+          m_db=# SELECT json_replace('{"x": 1}', '$.x', 'true');
+           json_replace
+          ----------------------------------------------------------------
+           {"x": "true"}
+          (1 row)
+
+          -- 可以对同一个路径做多次修改，按照参数从左往右的顺序执行，最终的结果以最后一次的处理为准。
+          m_db=# SELECT json_replace('{"x": 1}', '$.x', true, '$.x', 123, '$.x', 'asd', '$.x', null);
+           json_replace
+          ----------------------------------------------------------------
+           {"x": null}
+          (1 row)
+
+          -- 如果path为json_doc中不存在指定的路径时，则不修改，原样返回。
+          m_db=# SELECT json_replace('[1]','$.a',2);
+           json_replace
+          --------------
+           [1]
+          (1 row)
+
+
+JSON_SEARCH
+          JSON_SEARCH(json_doc, one_or_all, search_str[, escape_char[, path]...])
+          描述：返回json_doc中出现指定字符串search_str的位置。
+
+          ●     one_or_all为one时，仅返回search_str第一次出现时的位置。
+          ●     one_or_all为all时，返回search_str所有出现时的位置。
+[[PDF_PAGE physical=2428 printed=2379]]
+           ●     escape_char为单个字符用以转义search_str中出现的通配符，为null时的转义字符
+                 默认为'\'。
+           ●     path表示要返回该路径下search_str出现的位置，且path可以有多个。
+           ●     首先对escape_char进行判断，若格式错误则报错；再对json_doc进行判断，若
+                 json_doc格式错误则报错，若为null则返回null；若one_or_all格式错误则报错，
+                 若为null则返回null；若path格式错误则报错，为null则返回null，如果有null值和
+                 格式错误场景同时在可变参数列表中，若null值顺序在前则返回null，否则产生报
+                 错。
+           ●     如果json_doc深度超过100时，则产生报错。
+           返回值：JSON
+           示例：
+           m_db=# SELECT json_search('{"a": "444%", "d": [[[44, "444%", "4444"]]], "h": {"hh": {"hhh": "4444%"}}}',
+           'all', '44%4\%', null, '$.a', '$.h');
+                 json_search
+           -----------------------
+            ["$.a", "$.h.hh.hhh"]
+           (1 row)
+
+           m_db=# SELECT json_search('{"a": "444%", "d": [[[44, "444%", "4444"]]], "h": {"hh": {"hhh": "4444%"}}}',
+           'one', '44%4\%', null, '$.a', '$.h');
+            json_search
+           -------------
+            "$.a"
+           (1 row)
+
+
+JSON_SET
+           JSON_SET(json_doc, path, val[, path, val] ...)
+           描述：向json_doc中path指定的路径插入一个值，或将指定路径上的值替换成新值，
+           并返回修改后的JSON。如果指定的路径上有值，则将对应的值替换成新值；如果指定
+           的路径不存在，则在对应的路径上插入数据。
+
+           ●     如果json_doc或path路径为null，则函数返回null。
+           ●     如果json_doc格式错误、path并非是有效的路径表达式或者path中包含*或**时，
+                 则产生报错。
+           ●     如果有null值和格式错误场景同时在可变参数列表中，则按异常的先后顺序处理，
+                 若null值顺序在前则返回null，否则产生报错。
+           ●     如果json_doc深度超过100时，则产生报错。
+           参数说明：与表2-53相同。
+           返回值：JSON
+           示例：
+           m_db=# SELECT json_set('{"s":3}','$.s','d');
+            json_set
+           ----------------------------------------------------------------
+            {"s": "d"}
+           (1 row)
+
+           -- 输入多个path-value对时，json_set()函数会按照顺序进行set操作。比如，在同一个不存在的路径进行两次set
+           操作，则在第一次set时新增，第二次set时修改值。
+           m_db=# SELECT json_set('{"s":3}','$.a','d','$.a','1');
+            json_set
+           ----------------------------------------------------------------
+[[PDF_PAGE physical=2429 printed=2380]]
+             {"a": "1", "s": 3}
+            (1 row)
+
+
+JSON_STORAGE_SIZE
+            JSON_STORAGE_SIZE(json_val)
+            描述：用于计算JSON数据类型的二进制大小。
+
+            ●     若json_val格式错误则报错，若json_val为null则返回null。
+            ●     如果json_val深度超过100时，则产生报错。
+            参数：json_val表示一个包含JSON数据的字符串或JSON对象。
+            返回值：BIGINT
+            示例：
+            m_db=# SELECT json_storage_size( '{ "a" : 100, "b" : 200 }' );
+             json_storage_size
+            -------------------
+                         58
+            (1 row)
+
+
+JSON_TYPE
+            JSON_TYPE(json_doc)
+            描述：返回一个给定的JSON值的类型，入参必须带单引号。不接受数值类型的入参，
+            如果入参为字符类型，需要添加双引号。如果json_doc深度超过100时，则产生报错。
+            返回值：TEXT
+            示例：
+            -- JSON对象类型
+            m_db=# SELECT json_type('{"name":"tom"}');
+             json_type
+            ------------
+             OBJECT
+            (1 row)
+
+            -- 数值类型
+            m_db=# SELECT json_type('123');
+             json_type
+            ------------
+             INTEGER
+            (1 row)
+
+            -- 字符串类型
+            m_db=# SELECT json_type('"123"');
+             json_type
+            ------------
+             STRING
+            (1 row)
+
+
+JSON_UNQUOTE
+            JSON_UNQUOTE(json_val)
+            描述：取消双引号引用JSON值，并将结果作为字符串返回。
+            返回值：TEXT
+[[PDF_PAGE physical=2430 printed=2381]]
+             示例：
+             m_db=# SELECT json_unquote('"NULL"');
+              json_unquote
+             --------------
+              NULL
+             (1 row)
+
+             m_db=# SELECT json_unquote('"abc"');
+              json_unquote
+             --------------
+              abc
+             (1 row)
+
+             m_db=# SELECT json_unquote('"');
+              json_unquote
+             --------------
+              "
+             (1 row)
+
+
+JSON_VALID
+             JSON_VALID(str)
+             描述：判断指定入参是否是一个合法的JSON。如果指定的参数是有效的JSON，
+             JSON_VALID函数返回1；如果不是有效的JSON，则返回0；入参为null时，则返回
+             null。
+             返回值：BIGINT
+             示例：
+             m_db=# SELECT json_valid('{"name":"tom"}');
+              json_valid
+             ------------
+                     1
+             (1 row)
+
+             m_db=# SELECT json_valid('[}');
+              json_valid
+             ------------
+                     0
+             (1 row)
+
+             m_db=# SELECT json_valid(1);
+              json_valid
+             ------------
+                     0
+             (1 row)
+
+
+2.5.12.2 JSON 操作符
+
+->操作符
+             描述：查询JSON中指定位置的数据，返回带引号的查询结果。
+             示例：
+             -- 创建数据表。
+             m_db=# CREATE TABLE muscleape
+             (
+               id    TINYINT UNSIGNED NOT NULL AUTO_INCREMENT,
+               category JSON,
+               tags   JSON,
+               PRIMARY KEY (id)
+[[PDF_PAGE physical=2431 printed=2382]]
+         );
+
+         -- 插入数据。
+         m_db=# INSERT INTO muscleape (category, tags) VALUES ('{"id": 1,"name": "muscleape"}','[1,2,3]');
+         m_db=# INSERT INTO muscleape (category, tags) VALUES
+         (JSON_OBJECT("id",2,"name","muscleape_q"),JSON_ARRAY(1,3,5));
+
+         -- 查询表。
+         m_db=# SELECT * FROM muscleape;
+          id |          category           | tags
+         ----+----------------------------------+-----------
+          1 | {"id": 1, "name": "muscleape"} | [1, 2, 3]
+          2 | {"id": 2, "name": "muscleape_q"} | [1, 3, 5]
+         (2 rows)
+
+         -- 查询json中的数据。
+         m_db=# SELECT id,category->'$.id',category->'$.name',tags->'$[0]',tags->'$[2]' FROM muscleape;
+          id | ?column? | ?column? | ?column? | ?column?
+         ----+----------+---------------+----------+----------
+          1 |1        | "muscleape" | 1         |3
+          2 |2        | "muscleape_q" | 1        |5
+         (2 rows)
+
+
+
+         -- 删除表。
+         m_db=# DROP TABLE muscleape;
+
+                说明
+
+              如果->操作符左侧的数据执行了::JSON强制类型转换，其实际转换的JSON类型与GUC参数
+              m_format_behavior_compat_options兼容性选项是否设置了cast_as_new_json有关。
+
+
+->>操作符
+         描述：查询JSON中指定位置的数据，返回不带引号的查询结果。
+         示例：
+         -- 创建数据表。
+         m_db=# CREATE TABLE muscleape
+         (
+           id    TINYINT UNSIGNED NOT NULL AUTO_INCREMENT,
+           category JSON,
+           tags   JSON,
+           PRIMARY KEY (id)
+         );
+
+         -- 插入数据。
+         m_db=# INSERT INTO muscleape (category, tags) VALUES ('{"id": 1,"name": "muscleape"}','[1,2,3]');
+         m_db=# INSERT INTO muscleape (category, tags) VALUES
+         (JSON_OBJECT("id",2,"name","muscleape_q"),JSON_ARRAY(1,3,5));
+
+         -- 查询表。
+         m_db=# SELECT * FROM muscleape;
+          id |          category           | tags
+         ----+----------------------------------+-----------
+          1 | {"id": 1, "name": "muscleape"} | [1, 2, 3]
+          2 | {"id": 2, "name": "muscleape_q"} | [1, 3, 5]
+         (2 rows)
+
+         -- 查询json中的数据。
+
+         m_db=# SELECT id,category->>'$.id',category->>'$.name',tags->>'$[0]',tags->>'$[2]' FROM muscleape;
+          id | ?column? | ?column? | ?column? | ?column?
+         ----+----------+-------------+----------+----------
+          1 |1        | muscleape | 1         |3
+          2 |2        | muscleape_q | 1        |5
+[[PDF_PAGE physical=2432 printed=2383]]
+        (2 rows)
+
+
+        -- 删除表。
+        m_db=# DROP TABLE muscleape;
+
+
+              说明
+
+             如果->>操作符左侧的数据执行了::JSON强制类型转换，其实际转换的JSON类型与GUC参数
+             m_format_behavior_compat_options兼容性选项是否设置了cast_as_new_json有关。
+
+
+比较操作符
+        描述：JSON类型之间的比较操作符支持=、<=>、<>、<、<=、>和>=运算，返回结果
+        为true或false。如果是JSON类型和其他类型进行比较，会将其他类型转换为JSON类
+        型后再进行比较。
+
+        JSON类型的排序规则：
+
+        ●     首先比较JSON数据的类型，OPAQUE > TIMESTAMP = DATETIME > TIME >
+              DATE > BOOL > 数组 > 对象 > 字符串类型 > DOUBLE = UINT = INT =
+              DECIMAL > NULL，结果相等则比较内容。
+        ●     标量之间比较值的大小，OPAQUE先进行类型之间的比较，TYPE_STRING >
+              TYPE_VAR_STRING > TYPE_BLOB > TYPE_BIT > TYPE_VARCHAR >
+              TYPE_YEAR，类型相同时依次比较每个字节的大小。
+        ●     数组之间依次比较元素的大小，当其中一个数组的元素比较完之后，则元素个数
+              多的大。对象之间比较长度，长度相等则依次比较每个键值对，先比较键key，再
+              比较值value。
+
+        示例：
+        mydb=# SELECT CAST(TIME'12:12:00' AS JSON) < CAST(BINARY'100100100' AS JSON);
+         ?column?
+        ----------
+         t
+        (1 row)
+
+        mydb=# SELECT CAST('{"jsnid": [true, "abc"], "tag": {"ab": 1, "b": null, "a": 2}}' AS JSON) > CAST('[1, 2,
+        "json", null, [[]], {}]' AS JSON);
+         ?column?
+        ----------
+         f
+        (1 row)
+
+        mydb=# SELECT CAST('true' AS JSON) <= CAST('-1.5e2' AS JSON);
+         ?column?
+        ----------
+         f
+        (1 row)
+
+        mydb=# SELECT CAST('"abc"' AS JSON) >= CAST('null' AS JSON);
+         ?column?
+        ----------
+         t
+        (1 row)
+
+        mydb=# SELECT CAST('0.5e3' AS JSON) = CAST('500' AS JSON);
+         ?column?
+        ----------
+         t
+        (1 row)
+[[PDF_PAGE physical=2433 printed=2384]]
+算术运算符
+        JSON类型与任意类型的运算操作符支持-、+、*及/运算，返回DOUBLE类型。对于数
+        字类型标量、布尔类型标量和字符串类型标量的JSON类型数据，会转换为相应的
+        DOUBLE类型后进行计算，其他类型的JSON数据无法正常转换。
+
+        示例：
+        mydb=# SELECT CAST('true' AS JSON) + CAST('1.5e2' AS JSON);
+         ?column?
+        ----------
+             151
+        (1 row)
+
+        mydb=# SELECT CAST('"123"' AS JSON) - 1;
+         ?column?
+        ----------
+             122
+        (1 row)
+
+        mydb=# SELECT CAST('5' AS JSON) / 2;
+         ?column?
+        ----------
+          2.5000
+        (1 row)
+
+        mydb=# SELECT CAST('3' AS JSON) * 3.33;
+         ?column?
+        ----------
+            9.99
+        (1 row)

@@ -1,0 +1,61 @@
+[[PDF_PAGE physical=1716 printed=1667]]
+1.13.11.7 EXPLAIN AUTOHINT
+
+功能描述
+           EXPLAIN AUTOHINT用于在正常执行EXPLAIN命令的同时将查询执行的计划信息与执
+           行结果存储于AUTOHINT内存上下文中，以便进行AUTOHINT特性的HINT探索与推
+           荐。
+[[PDF_PAGE physical=1717 printed=1668]]
+注意事项
+       ●    该语句只允许在AUTOHINT任务进行时由内核进行自动调用，用户自行调用无任
+            何效果，或可能会触发AUTOHINT的报错阻拦。
+       ●    AUTOHINT内存上下文中存储的数据是session级生命周期并且session隔离和用户
+            隔离，当前session下调用的AUTOHINT特性功能用户只能访问并调用当前
+            session、当前用户的数据。
+
+语法格式
+       EXPLAIN AUTOHINT cache_id exec_type argument
+       FOR statement ;
+
+
+参数说明
+       ●    statement
+            当前AUTOHINT任务需要进行的计划与执行结果存储的SQL语句。（仅支持
+            SELECT语句）
+       ●    cache_id
+            当前AUTOHINT任务的任务ID，int型。
+       ●    exec_type
+            当前执行该语句所存储的结果类型。
+            取值范围：
+            –     PLAN：存储计划信息。
+            –     EXECUTE：存储执行结果信息。
+       ●    argument
+            当前执行该语句所需的执行参数，json格式文本。
+            若exec_type参数为PLAN类型，则为当前语句所应用的HINT。
+            若exec_type参数为EXECUTE类型，则为当前语句对应的执行计划的HASH值。
+
+示例 1
+       --AUTOHINT执行语句为对应SQL存储计划信息。
+       gaussdb=# EXPLAIN AUTOHINT 2 PLAN
+               '{"hints":[{"type": 0, "name": "enable_seqscan", "value": "true"},
+                {"type": 0, "name": "enable_mergejoin", "value": "false"}]}' FOR
+                   SELECT * FROM t1, t2 WHERE t1.id = t2.id and t1.a > 100 and t2.b < 200;
+       --用户直接执行无效。
+        QUERY PLAN
+       ------------
+       (0 rows)
+       --用户直接执行被报错阻拦。
+       ERROR: Can not get exploration cache for cache id: 2.
+
+
+示例 2
+       --AUTOHINT执行语句为对应SQL存储执行信息。
+       gaussdb=# EXPLAIN AUTOHINT 2 EXECUTE '{"topology": 740798663, "cards": [18936500, 10592, 9308,
+       9308]}' FOR
+                  SELECT * FROM t1, t2 WHERE t1.id = t2.id and t1.a > 100 and t2.b < 200;
+       --用户直接执行无效。
+        QUERY PLAN
+       ------------
+       (0 rows)
+       --用户直接执行被报错阻拦。
+       ERROR: Can not get exploration cache for cache id: 2.

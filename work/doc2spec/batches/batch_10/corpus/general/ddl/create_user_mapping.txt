@@ -1,0 +1,74 @@
+[[PDF_PAGE physical=1634 printed=1585]]
+1.13.9.59 CREATE USER MAPPING
+
+功能描述
+           创建一个用户到一个外部服务器的新映射。一个用户映射通常会包含连接信息，外部
+           数据包装器则会使用连接信息和外部服务器中包含的信息一起进行访问一个外部数据
+           源，外部服务器的所有者可以为任意用户创建服务器的用户映射，如果一个用户被授
+           予了服务器上的USAGE特权，该用户可以为自己的用户名创建用户映射。
+
+注意事项
+           ●   当在OPTIONS中出现password选项时，需要保证GaussDB每个节点的
+               $GAUSSHOME/bin目录下存在usermapping.key.cipher和usermapping.key.rand
+               文件，如果不存在这两个文件，请使用gs_guc工具生成并使用gs_ssh工具发布到
+               GaussDB每个节点的$GAUSSHOME/bin目录下。具体操作请参见OPTIONS
+               ( { option_name ' value ' } [, ...] )。
+[[PDF_PAGE physical=1635 printed=1586]]
+       ●    OPTIONS中的敏感字段（如password）在使用多层引号时，语义和不带引号的场
+            景是不同的，因此不会被识别为敏感字段进行脱敏。
+
+语法格式
+       CREATE USER MAPPING FOR { user_name | USER | CURRENT_USER | PUBLIC }
+         SERVER server_name
+         [ OPTIONS ( option 'value' [ , ... ] ) ];
+
+
+参数说明
+       ●    user_name | USER | CURRENT_USER | PUBLIC
+            需要映射到外部服务器的一个现有用户的名称。
+            CURRENT_USER和USER匹配当前用户的名称。当PUBLIC被指定时，创建一个公
+            共映射，当没有特定用户的映射可用时，将会使用公共映射。
+       ●    server_name
+            创建用户映射的现有服务器的名称。
+       ●    OPTIONS ( { option_name ' value ' } [, ...] )
+            用户映射的选项。用于定义该映射实际的用户名和密码等，选项名必须唯一。允
+            许的选项名和值与该服务器的外部数据包装器有关。
+                  说明
+
+                ● 用户的密码会加密后保存到系统表PG_USER_MAPPING中，加密时需要使用
+                  usermapping.key.cipher和usermapping.key.rand作为加密密码文件和加密因子。首次
+                  使用前需要通过如下命令创建这两个文件，并将这两个文件放入各节点的
+                  $GAUSSHOME/bin目录，且确保具有读权限。gs_ssh工具可以协助您快速将文件放入
+                  各节点对应目录下。
+                    gs_ssh -c "gs_guc generate -o usermapping -S default -D $GAUSSHOME/bin"
+                ● 其中-S参数指定default时会随机生成密码，用户也可为-S参数指定密码，此密码用于保
+                  证生成密码文件的安全性和唯一性，用户无需保存或记忆。其他参数详见gs_guc设置
+                  配置参数章节说明。
+
+
+示例
+       --创建角色。
+       gaussdb=# CREATE ROLE bob PASSWORD '********';
+
+       --创建外部服务器。
+       gaussdb=# CREATE SERVER my_server FOREIGN DATA WRAPPER log_fdw;
+
+       --创建USER MAPPING。
+       gaussdb=# CREATE USER MAPPING FOR bob SERVER my_server OPTIONS (USER 'bob', PASSWORD
+       '********');
+
+       --修改USER MAPPING。
+       gaussdb=# ALTER USER MAPPING FOR bob SERVER my_server OPTIONS (SET PASSWORD '********');
+
+       --删除USER MAPPING。
+       gaussdb=# DROP USER MAPPING FOR bob SERVER my_server;
+
+       --删除外部服务器。
+       gaussdb=# DROP SERVER my_server;
+
+       --删除角色。
+       gaussdb=# DROP ROLE bob;
+
+
+相关链接
+       ALTER USER MAPPING，DROP USER MAPPING

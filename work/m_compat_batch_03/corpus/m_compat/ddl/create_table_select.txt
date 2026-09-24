@@ -1,0 +1,521 @@
+[[PDF_PAGE physical=2162 printed=2113]]
+2.4.2.8.19 CREATE TABLE SELECT
+
+功能描述
+             CREATE TABLE SELECT会创建一个表并且使用来自SELECT命令的结果填充该表。该表
+             的字段名和字段类型来自于自定义列和SELECT输出字段。
+
+             ●   只出现在自定义列中字段排在最前面，否则按照SELECT输出列的顺序依次排列。
+             ●   列名相同但大小写不同会被识别为同一列，如果存在相同列，保留自定义列的数
+                 据类型，保留SELECT列名的大小写。
+[[PDF_PAGE physical=2163 printed=2114]]
+       ●    如果SELECT列和自定义列存在相同字段，始终保留SELECT列的COMMENT。如果
+            SELECT列为直接表列或者视图展开后的直接表列，保留旧表中该列的
+            COMMENT，否则COMMENT设置为NULL。
+       ●    如果SELECT列为直接表列或者视图展开后的直接表列，并且未自定义该字段，保
+            留旧表列的NULL、NOT NULL、DEFAULT VALUE、ON UPDATE、CHARSET和
+            COLLATE。
+                说明
+
+           CREATE TABLE SELECT支持FOR UPDATE选项，锁机制与INSERT SELECT FOR UPDATE保持一
+           致。
+
+
+注意事项
+       ●    不支持创建分区表。
+       ●    不支持REPLACE/IGNORE。
+       ●    如果SELECT列非直接表列，则默认允许NULL且无默认值。如：CREATE TABLE t1
+            SELECT unix_timestamp('2008-01-02 09:08:07.3465') AS a;，创建的新表的字段
+            a允许为NULL且无默认值。
+       ●    如果需要使用完整的功能，需要将GUC参数m_format_behavior_compat_options
+            开启enable_precision_decimal选项，否则由于版本兼容性问题，涉及数据类型精
+            度相关的类型将导致行为报错。如果SELECT列包含非直接表列（表达式、函数、
+            常量等），以及UNION场景（因为涉及结果类型推导），都会报错。
+       ●    如果在建表过程中数据库系统发生故障，系统恢复后可能无法自动清除之前已创
+            建的、大小非0的磁盘文件。此种情况出现概率小，不影响数据库系统的正常运
+            行。
+
+语法格式
+       CREATE [ TEMPORARY | UNLOGGED ] TABLE [ IF NOT EXISTS ] table_name
+          {({ column_name data_type [ {CHARACTER SET | CHAR SET | CHARSET} charset_name ] [ COLLATE
+       collation_name][AUTO_INCREMENT][COMMENT [=] 'string'] [ column_constraint [ ... ] ]
+             | table_constraint
+             | {INDEX | KEY} [ [schema_name.] index_name ] [ USING method ] ({column_name [(length)] | (expr)
+       [ASC | DESC]}[,...]) [[COMMENT 'string' | USING method][...]]
+       }
+             [, ... ])}
+          [ table_option ][[,...]|[...]]
+          [ WITH ( {storage_parameter = value} [, ... ] ) ]
+          [AS] query
+       ;
+
+       ●    其中table_option为：
+            {
+                  AUTO_INCREMENT [=] value
+                | [DEFAULT] {CHARACTER SET | CHAR SET | CHARSET} [=] charset_name
+                | [DEFAULT] COLLATE [=] collation_name
+                | COMMENT [=] 'string'
+                | ENGINE [=] engine_name
+                | ROW_FORMAT [=] {DEFAULT | DYNAMIC | FIXED | COMPRESSED | REDUNDANT | COMPACT}
+            }
+[[PDF_PAGE physical=2164 printed=2115]]
+                 说明
+
+                ● 同一个地方多次设置COMMENT时仅最后一个生效。
+                ● 同一个地方多次设置AUTO_INCREMENT时仅最后一个生效。
+                ● 同一个地方如果多次设置不同的COLLATE，COLLATE对应的字符集必须相同，且只有
+                  最后一个COLLATE生效。
+                ● 不支持同一个地方多次设置不同的CHARSET。
+                ● ENGINE、ROW_FORMAT使用时语法不报错也没有提示，但实际不生效。
+                ● 不支持WITH (ORIENTATION = column)。
+                ● 不支持PREPARE语句中嵌套CREATE TABLE AS。
+       ●   其中列约束column_constraint为：
+           { NOT NULL |
+             NULL |
+             CHECK ( expression ) |
+             DEFAULT default_expr |
+             ON UPDATE now_expr |
+             [ GENERATED ALWAYS ] AS ( generation_expr ) [STORED | VIRTUAL] ] |
+             UNIQUE [KEY] |
+             [ PRIMARY ] KEY |
+             REFERENCES reftable [ ( refcolumn ) ] [ MATCH FULL | MATCH SIMPLE ]
+                [ ON DELETE action ] [ ON UPDATE action ] }
+
+       ●   其中表约束table_constraint为：
+           [ CONSTRAINT [ constraint_name ] ]
+           { CHECK ( expression ) |
+             UNIQUE [ INDEX | KEY ] [ index_name ][ USING method ] ( { { column_name [ ( length ) ] |
+           （ expression） } [ ASC | DESC ] } [, ... ] ) [USING method| COMMENT 'string']|
+             PRIMARY KEY [index_name][ USING method ] ( { column_name }[ ASC | DESC ] } [, ... ] ) [USING
+           method| COMMENT 'string']|
+             FOREIGN KEY [ index_name ] ( column_name [, ... ] ) REFERENCES reftable [ (refcolumn [, ... ] ) ]
+               [ MATCH FULL | MATCH SIMPLE ] [ ON DELETE action ] [ ON UPDATE action ]
+            }
+
+       ●   其中now_expr为：
+           { CURRENT_TIMESTAMP | LOCALTIMESTAMP | LOCALTIME | NOW() }
+
+
+参数说明
+       ●   TEMPORARY
+           如果指定TEMPORARY关键字，则创建的表为本地临时表。
+           本地临时表只在当前会话可见，本会话结束后会自动删除。因此，在除当前会话
+           连接的数据库节点故障时，仍然可以在当前会话上创建和使用临时表。由于临时
+           表只在当前会话创建，对于涉及对临时表操作的DDL语句，会产生DDL失败的报
+           错。因此，建议DDL语句中不要对临时表进行操作。
+
+
+               须知
+
+           ● 本地临时表通过每个会话独立的以pg_temp开头的schema来保证只对当前会
+             话可见，因此，不建议用户在日常操作中手动删除以pg_temp、
+             pg_toast_temp开头的Schema。
+           ● 如果建表时不指定TEMPORARY关键字，而指定表的Schema为当前会话的
+             pg_temp_开头的Schema，则此表会被创建为临时表。
+           ● 临时表只对当前会话可见，因此不支持与\parallel on并行执行一起使用。
+           ● 临时表不支持主备切换。
+[[PDF_PAGE physical=2165 printed=2116]]
+●   UNLOGGED
+    如果指定UNLOGGED关键字，则创建的表为非日志表。
+    –   在非日志表中插入的数据不会被记录到预写日志（WAL）中。当发生操作系
+        统重启、数据库重启、主备切换、电源断电或异常关机等操作时，非日志表
+        上的写入操作会被全部清空，存在数据丢失的风险。非日志表中的内容不会
+        被复制到备服务器，且在非日志表中创建的索引也不会被自动记录。
+    –   在备服务器上不包含任何数据的非日志表中进行查询操作时会发生报错。
+    使用场景：非日志表无法确保数据的安全性，如需保证数据的安全性，用户在使
+    用非日志表前请确认数据已妥善备份，如在系统升级时请确保数据已经进行备
+    份。
+    故障处理：当异常关机等操作导致非日志表上的索引数据丢失时，用户应对受影
+    响的索引进行重建。
+●   IF NOT EXISTS
+    如果已经存在相同名称的表，不会报出错误，而会发出通知，告知通知此表已存
+    在。
+●   table_name
+    要创建的表名。
+●   column_name
+    新表中要创建的字段名。
+●   constraint_name
+    建表时指定的约束名称。
+●   index_name
+    索引名。
+
+
+        须知
+
+    ● 对于外键约束，constraint_name和index_name同时指定时，索引名为
+      constraint_name。
+    ● 对于唯一键约束，constraint_name和index_name同时指定时，索引名为
+      index_name。
+
+●   USING method
+    指定创建索引的方法。
+    取值范围请参见CREATE INDEX章节中的USING method。
+
+
+        须知
+
+    目前只支持索引方法为btree，但是不支持ustore表创建btree索引。
+
+●   ASC | DESC
+    ASC表示指定按升序排序（默认）。DESC指定按降序排序。
+●   expression
+    创建一个基于该表的一个或多个字段的表达式索引约束，必须写在圆括弧中。
+[[PDF_PAGE physical=2166 printed=2117]]
+●   data_type
+    字段的数据类型。
+●   {CHARACTER SET | CHAR SET | CHARSET} charset_name
+    指定表字段的字符集。单独指定时会将字段的字符序设置为指定的字符集的默认
+    字符序。
+●   COLLATE collation_name
+    COLLATE子句指定列的排序规则（字符序）（该列必须是可排列的数据类型）。
+    如果没有指定，则使用默认的排序规则。排序规则可以使用“select * from
+    pg_collation;”命令从pg_collation系统表中查询，默认的排序规则为查询结果中
+    以default开始的行。支持的字符序具体请参见表级字符集和字符序
+         说明
+
+        ● 仅字符类型支持指定字符集。指定为BINARY字符集或字符序实际是将字符类型转化为
+          对应的二进制类型，若类型映射不存在则报错。当前仅有TEXT类型转化为BLOB的映
+          射。
+        ● 字段字符集或字符序未显式指定时，若指定了表的默认字符集或字符序，字段字符集和
+          字符序将从表上继承。
+        ● 除SQL_ASCII库外，其他字符集的数据库支持多字符集混用。
+●   AUTO_INCREMENT [ = ] value
+    这个子句为自动增长列指定一个初始值，value必须为正数，不得超过2127-1。
+●   COMMENT [ = ] 'string'
+    –   COMMENT [ = ] 'string'子句表示给表添加注释。
+    –   在column_constraint中的COMMENT 'string'表示给列添加注释。
+    –   在table_constraint中的COMMENT 'string'表示给主键和唯一键对应的索引添
+        加注释。
+
+
+        须知
+
+    ● 表级注释支持的最大字符串长度为2048字符，列级和索引级注释支持的最大长
+      度为1024字符。
+    ● table_constraint中的COMMENT仅支持主键和唯一键，其他约束不支持。
+
+●   WITH ( { storage_parameter = value } [, ... ] )
+    这个子句为表或索引指定一个可选的存储参数。用于表的WITH子句还可以包含
+    OIDS=FALSE表示不分配OID。
+    参数的详细描述如下所示。
+         说明
+
+        支持透明加密相关存储参数：enable_tde、encrypt_algo、dek_cipher、key_type、
+        cmk_id。
+        详细参数说明请参见CREATE TABLE章节。
+    –   FILLFACTOR
+        一个表的填充因子（fillfactor）是一个介于10和100之间的百分数。在Ustore
+        存储引擎下，该值得默认值为92，在Astore存储引擎下默认值为100（完全填
+        充）。如果指定了较小的填充因子，INSERT操作仅按照填充因子指定的百分
+        率填充表页。每个页上的剩余空间将用于在该页上更新行，这就使得
+[[PDF_PAGE physical=2167 printed=2118]]
+    UPDATE有机会在同一页上放置同一条记录的新版本，这比把新版本放置在
+    其他页上更有效。对于一个从不更新的表将填充因子设为100是最佳选择，但
+    是对于频繁更新的表，选择较小的填充因子则更加合适。
+    取值范围：10~100
+–   ORIENTATION
+    指定表数据的存储方式，该参数设置成功后就不再支持修改，当前M-
+    Compatibility仅支持行存方式。
+    取值范围：
+
+    ▪   ROW，表示表的数据将以行式存储。
+        行存储适合于OLTP业务，适用于点查询或者增删操作较多的场景。
+    默认值：
+    若指定表空间为普通表空间，默认值为ROW。
+–   STORAGE_TYPE
+    指定存储引擎类型，该参数设置成功后就不再支持修改。
+    取值范围：
+
+    ▪   USTORE，表示表支持Inplace-Update存储引擎。特别需要注意，使用
+        UStore表，必须要开启track_counts和track_activities参数，否则会引起
+        空间膨胀。
+
+    ▪   ASTORE，表示表支持Append-Only存储引擎。
+    默认值：
+    不指定ORIENTATION和STORAGE_TYPE时创建表，默认是USTORE存储引擎
+    （表示表支持Inplace-Update存储引擎）。
+–   INIT_TD
+    创建UStore表时，指定初始化的TD个数，该参数可以通过alter table进行修
+    改。特别需要注意，该参数会影响数据页面存放的单个元组的最大大小，具
+    体换算方法为MAX_TUPLE_SIZE = BLCKSZ - INIT_TD * TD_SIZE，例如用户
+    将INIT_TD数量从4修改为8，单个元组最大大小会减小4 * INIT_TD大小。
+    取值范围：2~128，默认值为4。
+–   COMPRESSION
+    指定表数据的压缩级别，它决定了表数据的压缩比以及压缩时间。一般来
+    讲，压缩级别越高，压缩比也越大，压缩时间也越长；反之亦然。实际压缩
+    比取决于加载的表数据的分布特征。行存表不支持压缩。
+    取值范围：行存表不支持压缩，默认值为NO。
+–   COMPRESSLEVEL
+    指定表数据同一压缩级别下的不同压缩水平，它决定了同一压缩级别下表数
+    据的压缩比以及压缩时间。对同一压缩级别进行了更加详细的划分，为用户
+    选择压缩比和压缩时间提供了更多的空间。总体来讲，此值越大，表示同一
+    压缩级别下压缩比越大，压缩时间越长；反之亦然。
+    取值范围：0~3，默认值为0。
+–   segment
+    使用段页式的方式存储。本参数仅支持行存表。不支持1-5号物理文件非法删
+    除破坏场景的防护。
+    取值范围：on/off
+[[PDF_PAGE physical=2168 printed=2119]]
+        默认值：off
+    –   parallel_workers
+        表示创建索引时起的bgworker线程数量，例如2就表示将会起2个bgworker线
+        程并发创建索引。
+        取值范围：[0,32]，int类型，0表示关闭并行建索引。
+        默认值：不设置该参数，表示未开启并行建索引功能。
+    –   hasuids
+        参数开启：更新表元组时，为元组分配表级唯一标识id。
+        取值范围：on/off。
+        默认值：off。
+    –   collate
+        用于记录表的默认字符序，一般只用于内部存储和导入导出，不推荐用户指
+        定或修改。
+        取值范围：支持的字符序的oid。
+        默认值：0。
+    –   stat_state
+        标识该表的统计信息是否被锁定，如果被锁定了，该表的统计信息无法更
+        新。
+        取值范围：locked、unlock。
+        默认值：unlock。
+●   CONSTRAINT constraint_name
+    表约束的名称。可选的约束子句用于声明约束，新行或者更新的行必须满足这些
+    约束才能成功插入或更新。
+    表约束：不和某个列绑在一起，可以作用于多个列。
+●   NOT NULL
+    字段值不允许为NULL。
+●   NULL
+    字段值允许为NULL ，这是缺省值。
+    这个子句只是为和非标准SQL数据库兼容。不建议使用。
+●   CHECK ( expression )
+    CHECK约束声明一个布尔表达式，每次要插入的新行或者要更新的行的新值必须
+    使表达式结果为真或未知才能成功，否则会抛出一个异常并且不会修改数据库。
+        说明
+
+        expression表达式中，如果存在“<>NULL”或“！=NULL”，这种写法不生效，需要修改
+        为“is NOT NULL”。
+●   DEFAULT default_expr
+    为字段指定缺省表达式default_expr，当插入操作中未明确指定字段的值时，将自
+    动使用缺省表达式。如果未指定缺省值则缺省默认值为NULL。
+    缺省表达式可以使用default_expr格式和(default_expr)格式进行限定：
+    –   当使用default_expr（未嵌套括号）格式时，支持指定以下内容：常量、带正
+        负号的数值常量、update_expr。
+    –   当使用(default_expr)（嵌套括号）格式时，支持指定以下内容：常量、带正
+        负号的数值常量、update_expr、CURRENT_TIME/CURTIME函数、
+[[PDF_PAGE physical=2169 printed=2120]]
+        CURRENT_DATE/CURDATE函数（CURRENT_TIME函数/CURRENT_DATE函
+        数支持不带括号调用）。
+    –   仅支持在TIMESTAMP以及DATETIME类型的字段上指定update_expr作为默
+        认值，且字段的精度与update_expr的精度须保持一致。
+         说明
+
+        update_expr的语法格式：
+        CURRENT_TIMESTAMP ['(' [precision_num] ')'] | LOCALTIMESTAMP ['(' [precision_num] ')'] |
+        LOCALTIME ['(' [precision_num] ')'] | NOW '(' [precision_num] ')'
+        precision_num：可选，表示指定的精度，取值范围[0, 6]。
+        不带括号或空括号时精度为0，其中NOW关键字不支持不带括号。
+●   ON UPDATE now_expr
+    ON UPDATE子句为字段的一种属性约束。
+    当对表中某元组执行UPDATE操作时，若更新字段的新值和表中旧值不相同，则
+    表中该元组上具有该属性且不在更新字段内的字段值自动更新为当前时间戳；若
+    更新字段的新值和表中旧值相同，则表中该元组上具有该属性且不在更新字段内
+    的字段值不变，保持原有值；若具有该属性的字段在更新字段内，则对应这些字
+    段值直接按指定更新的值更新。
+         说明
+
+        ● 语法上update_expr支持CURRENT_TIMESTAMP 、LOCALTIMESTAMP 、LOCALTIME
+          和NOW()四种关键字，同时支持关键字带括号指定或不指定精度。例如：ON UPDATE
+          CURRENT_TIMESTAMP()、ON UPDATE CURRENT_TIMESTAMP(5)、ON UPDATE
+          LOCALTIMESTAMP()以及ON UPDATE LOCALTIMESTAMP(6)等。不带括号或空括号时
+          精度为0，其中NOW关键字不支持不带括号。四种关键字互为同义词，属性效果相同。
+        ● 该属性支持在如下类型的列上指定: TIMESTAMP、DATETIME。
+        ● 该属性指定的精度和对应列上类型指定的精度必须一致，否则会触发报错。例如：
+          CREATE TABLE t1 (col1 timestamp(6) ON UPDATE CURRENT_TIMESTAMP(6)); 若精
+          度不一致，会产生ERROR: Invalid ON UPDATE clause for "col1" 报错。
+        ● 该属性和生成列约束不能同时指定同一列。
+●   [GENERATED ALWAYS] AS ( generation_expr ) [STORED | VIRTUAL]
+    该子句将字段创建为生成列，通过指定STORED和VIRTUAL关键字表明生成列的列
+    值存储方式：
+    –   STORED：创建存储生成列，列值需要存储，在插入或更新元组时，由生成列
+        表达式计算存储生成列的列值。
+    –   VIRTUAL：创建虚拟生成列，列值不需要存储，在查询语句涉及虚拟生成列
+        时，由生成列表达式计算列值。
+[[PDF_PAGE physical=2170 printed=2121]]
+       说明
+
+      ● STORED和VIRTUAL关键字可省略，缺省为STORED，在参数m_format_dev_version为
+        s2条件下缺省为VIRTUAL。
+      ● 生成表达式不能以任何方式引用当前行以外的其他数据。生成表达式支持引用早定义于
+        当前生成列的其他生成列，不能引用系统列。生成列表达式不能引用系统变量、用户自
+        定义变量、存储过程中的变量。生成列表达式不支持引用自增列，且生成列不支持定义
+        自增列属性。生成表达式不能返回结果集，不能使用子查询，不能使用聚集函数、窗口
+        函数和自定义函数。生成表达式调用的函数只能是不可变（IMMUTABLE）函数。
+      ● 不支持为生成列指定默认值。
+      ● 虚拟生成列不支持被外键约束引用。
+      ● 存储生成列不能和ON UPDATE约束子句的CASCADE、SET NULL、SET DEFAULT动作
+        同时指定。存储生成列不能和ON DELETE约束子句的SET NULL、SET DEFAULT动作同
+        时指定。
+      ● 在参数m_format_dev_version为s2条件下，存储生成列的基列不能和ON UPDATE或者
+        ON DELETE约束子句的CASCADE、SET NULL、SET DEFAULT动作同时指定。
+      ● 修改和删除生成列的方法和普通列相同。删除生成列依赖的基列，生成列被自动删除。
+        在参数m_format_dev_version为s2条件下，删除生成列依赖的基列之前需要先删除对
+        应的生成列。
+      ● 生成列不能被直接写入。在INSERT或UPDATE命令中, 不能为生成列指定值, 但是可以
+        指定关键字DEFAULT。向可被更新的视图中插入生成列数据时，不能为生成列指定
+        值，但是可以指定关键字DEFAULT。
+      ● 生成列的权限控制和普通列一样。
+●   AUTO_INCREMENT
+    该关键字将字段指定为自动增长列。
+    自动增长列建议设置索引，并需要作为索引的第一个字段，否则建表时产生警
+    告。
+    若在插入时不指定此列的值（或指定此列的值为0、NULL、DEFAULT），此列的
+    值将由自增计数器自动增长得到。
+    若插入或更新此列为一个大于当前自增计数器的值，执行成功后，自增计数器将
+    刷新为此值。
+    自增初始值由“AUTO_INCREMENT [ = ] value”子句设置，若不设置，默认为
+    1。
+[[PDF_PAGE physical=2171 printed=2122]]
+         说明
+
+       ● 自动增长列数据类型只能为整数类型、4字节或8字节浮点类型、布尔类型。当自增值
+         已经达到字段数据类型的最大值时，继续自增将产生错误。
+       ● 每个表只能有一个自动增长列。
+       ● 自动增长列建议设置索引，并需要作为索引的第一个字段，否则建表时产生警告，含有
+         自动增长列的表进行某些操作时会产生错误。
+       ● 自动增长列不能指定DEFAULT缺省值。
+       ● CHECK约束的表达式中不能含有自动增长列，生成列的表达式中不能含有自动增长
+         列。
+       ● 可以指定自动增长列允许NULL，若不指定，默认自动增长列含有NOT NULL约束。
+       ● 含有自动增长列的表创建时，会创建一个依赖于此列的序列作为自增计数器，不允许通
+         过序列相关功能修改或删除此序列，可以查看序列的值。
+       ● 本地临时表中的自动增长列不会创建序列。
+       ● 自增计数器自增和刷新操作不会回滚。
+          ●    数据插入到表之前，0/NULL会触发自增。数据插入或更新到表之后，会更新自增
+               计数器。如果在自增之后出现了报错，数据没有插入或更新到表中，此时自增计
+               数器不会回滚。后续插入语句基于自增计数器触发自增，会出现表中自动增长列
+               的值不连续的情况。
+          ●    批量插入或导入预留自增缓存值也有可能产生自动增长列的值不连续的情况，详
+               见auto_increment_cache参数说明。
+●   [DEFAULT] {CHARACTER SET | CHAR SET | CHARSET} [ = ] default_charset
+    指定表的默认字符集。单独指定时会将表的默认字符序设置为指定的字符集的默
+    认字符序。
+●   [DEFAULT] COLLATE [ = ] default_collation
+    指定表的默认字符序。单独指定时会将表的默认字符集设置为指定的字符序对应
+    的字符集。
+    字符序请参见字符集与字符序。
+         说明
+
+       表的字符集或字符序未显式指定时，若指定了模式的默认字符集或字符序，表字符集和字
+       符序将从模式上继承。
+●   列级唯一约束：UNIQUE [KEY]
+    UNIQUE约束表示表里的一个或多个字段的组合必须在全表范围内唯一。
+    UNIQUE KEY与UNIQUE语义相同。
+●   表级唯一约束：UNIQUE [INDEX | KEY][ index_name ][ USING method ]
+    ( {{ column_name [ ( length ) ] | ( expression ) } [ ASC | DESC ] }[, ... ] )
+    UNIQUE约束表示表里的一个字段或多个字段的组合必须在全表范围内唯一。
+    对于唯一约束，NULL被认为是互不相等的。
+    column_name(length)是前缀键，具体请参见CREATE INDEX章节中的
+    column_name ( length )。
+    index_name为索引名。
+
+
+       须知
+
+    对于唯一键约束，constraint_name和index_name同时指定时，索引名为
+    index_name。
+[[PDF_PAGE physical=2172 printed=2123]]
+     ●    列级主键约束：[PRIMARY] KEY
+          表级主键约束：PRIMARY KEY [index_name] [ USING method ]
+          ( { column_name [ ASC | DESC ] } [, ... ] ）
+          主键约束声明表中的一个或者多个字段只能包含唯一的非NULL值。
+          一个表只能声明一个主键。
+     ●    表列字段约束：REFERENCES reftable [ ( refcolumn ) ] [ MATCH
+          matchtype ] [ ON DELETE action ] [ ON UPDATE action ]
+          表级别约束：FOREIGN KEY ( column_name [, ... ] ) REFERENCES reftable
+          [ ( refcolumn [, ... ] ) ] [ MATCH matchtype ] [ ON DELETE action ] [ ON
+          UPDATE action ]
+                 说明
+
+               表列字段约束REFERENCES在数据库M-compatibility模式兼容版本控制开关s1及以上版本
+               时，语法不报错也没有提示，但实际不生效（如m_format_dev_version = 's1'）。
+          外键约束要求新表中一列或多列构成的组应该只包含、匹配被参考表中被参考字
+          段值。若省略refcolumn，则将使用reftable的主键。被参考列应该是被参考表中
+          的唯一字段或主键。外键约束不能被定义在临时表和永久表之间。
+          参考字段与被参考字段之间存在以下场景，分别是：
+          –     MATCH FULL：不允许一个多字段外键的字段为NULL，除非全部外键字段都
+                是NULL。
+          –     MATCH SIMPLE（缺省）：允许任意外键字段为NULL。
+          另外，当被参考表中的数据发生改变时，某些操作也会在新表对应字段的数据上
+          执行。ON DELETE子句声明当被参考表中的被参考行被删除时要执行的操作。
+          ON UPDATE子句声明当被参考表中的被参考字段数据更新时要执行的操作。对于
+          ON DELETE子句、ON UPDATE子句的可能动作：
+          –     NO ACTION（缺省）：删除或更新时，创建一个表明违反外键约束的错误。
+          –     RESTRICT：删除或更新时，创建一个表明违反外键约束的错误。
+          –     CASCADE：删除新表中任何引用了被删除行的行，或更新新表中引用行的字
+                段值为被参考字段的新值。
+          –     SET NULL：设置引用字段为NULL。
+          –     SET DEFAULT：设置引用字段为它们的缺省值。
+                 说明
+
+               外键约束的完整性检查由GUC参数foreign_key_checks进行控制，foreign_key_checks可以
+               设置为on/off，分别表示启用/关闭外键约束的完整性检查，默认情况下为on。
+     ●    AS query
+          一个SELECT语句。若SELECT语句首部带有CTE结构，需要使用括号包含query。
+
+示例
+     -- 删除表
+     m_db=# DROP TABLE IF EXISTS test1, test2, test3, test4;
+     DROP TABLE
+     m_db=# CREATE TABLE test1(col1 int, col2 int);
+     CREATE TABLE
+
+     -- 无自定义列，仅复制test1字段建表
+     m_db=# CREATE TABLE test2 AS SELECT * FROM test1;
+     INSERT 0 0
+     m_db=# SHOW CREATE TABLE test2;
+[[PDF_PAGE physical=2173 printed=2124]]
+ Table |                         Create Table
+-------+---------------------------------------------------------------------------
+ test2 | SET search_path = public;                                          +
+      | CREATE TABLE test2 (                                              +
+      |   col1 integer,                                             +
+      |   col2 integer                                               +
+      |)                                                         +
+      | CHARACTER SET = "UTF8" COLLATE = "utf8mb4_general_ci"                       +
+      | WITH (orientation=row, compression=no, storage_type=USTORE, segment=off);
+(1 row)
+
+-- 包含自定义列，新表字段包含自定义列和select结果列
+m_db=# CREATE TABLE test3(col0 int, col2 varchar(55) not null) AS SELECT * FROM test1;
+INSERT 0 0
+m_db=# SHOW CREATE TABLE test3;
+ Table |                          Create Table
+-------+-------------------------------------------------------------------------------
+ test3 | SET search_path = public;                                             +
+      | CREATE TABLE test3 (                                                 +
+      |   col0 integer,                                                +
+      |   col1 integer,                                                +
+      |   col2 varchar(55) CHARACTER SET `UTF8` COLLATE utf8mb4_general_ci NOT NULL+
+      |)                                                            +
+      | CHARACTER SET = "UTF8" COLLATE = "utf8mb4_general_ci"                           +
+      | WITH (orientation=row, compression=no, storage_type=USTORE, segment=off);
+(1 row)
+
+-- 包含建表选项示例
+m_db=# CREATE TABLE test4(col0 int, col2 varchar(55)) CHARACTER SET gb18030 COLLATE gb18030_bin
+WITH(storage_type=astore) AS SELECT * FROM test1;
+INSERT 0 0
+m_db=# SHOW CREATE TABLE test4;
+ Table |                     Create Table
+-------+------------------------------------------------------------------
+ test4 | SET search_path = public;                                   +
+      | CREATE TABLE test4 (                                       +
+      |   col0 integer,                                      +
+      |   col1 integer,                                      +
+      |   col2 varchar(55) CHARACTER SET `GB18030` COLLATE gb18030_bin+
+      |)                                                  +
+      | CHARACTER SET = "GB18030" COLLATE = "gb18030_bin"                  +
+      | WITH (orientation=row, storage_type=astore, compression=no);
+(1 row)
+
+-- 删除表
+m_db=# DROP TABLE IF EXISTS test1, test2, test3, test4;
+DROP TABLE

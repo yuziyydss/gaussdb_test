@@ -1,0 +1,323 @@
+[[PDF_PAGE physical=1582 printed=1533]]
+1.13.9.51 CREATE TABLE PARTITION | SUBPARTITION AS
+
+功能描述
+            根据查询结果创建分区表。
+            CREATE TABLE PARTITION | SUBPARTITION AS用于创建一个分区表并且用来自
+            SELECT命令的结果填充该分区表，数据将会按照指定的分区策略进行分区。该分区表
+[[PDF_PAGE physical=1583 printed=1534]]
+       的字段和SELECT输出字段的名称及数据类型相关。用户可以通过指定字段名称列表对
+       SELECT输出字段的名称进行覆盖替换。
+
+语法格式
+       ●   使用CREATE TABLE PARTITION AS创建一级分区表，并填充子查询数据：
+           CREATE TABLE [ IF NOT EXISTS ] partition_table_name
+               [ (column_name [, ...] ) ]
+               [ { ENGINE [ = ] { InnoDB | 'InnoDB' | "InnoDB" } } [ [ , ] ... ] ]
+               [ WITH ( {storage_parameter = value} [, ... ] ) ]
+               [ ILM ADD POLICY ROW STORE COMPRESS
+            { ADVANCED [ MEDIUM | HIGH ] ROW AFTER n { day | month | year } OF NO MODIFICATION [ ON
+           ( EXPR )]
+            | TURBO [ LOW | MEDIUM | HIGH ] UNIT AFTER n { hour | day | month | year } OF NO
+           MODIFICATION
+            | NONE}]
+               [ TABLESPACE tablespace_name ]
+                PARTITION BY partition_clause partition_definition_list
+               AS query
+               [ WITH [ NO ] DATA ];
+
+       ●   使用CREATE TABLE SUBPARTITION AS创建二级分区表，并填充子查询数据：
+           CREATE TABLE [ IF NOT EXISTS ] partition_table_name
+               [ (column_name [, ...] ) ]
+               [ { ENGINE [ = ] { InnoDB | 'InnoDB' | "InnoDB" } } [ [ , ] ... ] ]
+               [ WITH ( {storage_parameter = value} [, ... ] ) ]
+               [ ILM ADD POLICY ROW STORE COMPRESS
+            { ADVANCED [ MEDIUM | HIGH ] ROW AFTER n { day | month | year } OF NO MODIFICATION [ ON
+           ( EXPR )]
+            | TURBO [ LOW | MEDIUM | HIGH ] UNIT AFTER n { hour | day | month | year } OF NO
+           MODIFICATION
+            | NONE}]
+               [ TABLESPACE tablespace_name ]
+                PARTITION BY partition_clause
+                SUBPARTITION BY subpartition_clause
+                partition_subpartition_definition_list
+               AS query
+               [ WITH [ NO ] DATA ];
+
+       各个字段详细信息请参见语法格式。
+
+参数说明
+       ●   IF NOT EXISTS
+           判断是否存在相同名称的relation。
+           如果指定IF NOT EXISTS关键字，创建表前会在当前Schema中查找是否已有名字
+           相同的relation，若存在同名的relation，则不会新建并返回NOTICE提示。未指定
+           IF NOT EXISTS关键字时，若Schema中存在同名relation，返回ERROR告警。
+       ●   partition_table_name
+           要创建的分区表名。
+           取值范围：字符串，要符合标识符命名规范。
+       ●   column_name
+           可选。新表中要创建的字段名。如果没有指定字段名，那么新表的字段名和
+           SELECT语句输入的字段名一致。
+           取值范围：字符串，要符合标识符命名规范。
+       ●   ENGINE
+           B模式下支持，仅语法适配，且只支持设置InnoDB，无实际效果。
+       ●   WITH ( storage_parameter [= value] [, ... ] )
+[[PDF_PAGE physical=1584 printed=1535]]
+为表或索引指定一个可选的存储参数。参数的详细说明如下所示：
+     说明
+
+    支持透明加密相关存储参数：enable_tde、encrypt_algo、dek_cipher、key_type、
+    cmk_id。
+    详细参数说明请参见CREATE TABLE章节。
+–   FILLFACTOR
+    表的填充因子（fillfactor），一个介于10和100之间的百分数。在Ustore存储
+    引擎下，该值的默认值为92，在Astore存储引擎下默认值为100（完全填
+    充）。如果指定了较小的填充因子，INSERT操作仅按照填充因子指定的百分
+    率填充表页，每个页上的剩余空间将用于在该页上更新行。较小的填充因子
+    对于UPDATE操作，可以在同一页上有机会放置同一条记录的新版本，相较
+    于将新版本的数据放置在其他页上更为有效。对于一个从不更新的表，建议
+    将填充因子设为100，对于频繁更新的表，建议选择较小的填充因子。该参数
+    只对行存表有效。
+    取值范围：10~100
+–   ORIENTATION
+    取值范围：ROW，表的数据将以行式存储。
+    默认值：ROW
+–   autovacuum_enabled
+    表示是否开启表的自动清理功能。
+    取值范围：on/off
+    默认值：on
+–   autovacuum_vacuum_threshold
+    开启自动清理功能时，指定在该表中触发VACUUM所需的更新或删除的最小
+    元组数（仅对Astore表生效）。
+    取值范围：0~2147483647
+    默认值：未指定时与GUC参数autovacuum_vacuum_threshold一致。
+–   autovacuum_analyze_threshold
+    开启自动清理功能时，指定在该表中触发ANALYZE所需的插入、更新或删除
+    的最小元组数。
+    取值范围：0~2147483647
+    默认值：未指定时与GUC参数autovacuum_analyze_threshold一致。
+–   autovacuum_vacuum_scale_factor
+    开启自动清理功能时，指定在该表中触发VACUUM所需的插入、更新或删除
+    元组的比例（仅对Astore表生效）。
+    取值范围：0.0~100.0
+    默认值：未指定时与GUC参数autovacuum_vacuum_scale_factor一致。
+–   autovacuum_analyze_scale_factor
+    开启自动清理功能时，指定在该表中触发ANALYZE所需的插入、更新或删除
+    元组的比例。
+    取值范围：0.0~100.0
+    默认值：未指定时与GUC参数autovacuum_analyze_scale_factor一致。
+–   autovacuum_freeze_min_age
+[[PDF_PAGE physical=1585 printed=1536]]
+        开启自动清理功能时，在该表参数指定了一个行版本的最小范围，超过这个
+        范围的行会被冻结。
+        取值范围：0~576460752303423487
+        默认值：未指定时与GUC参数vacuum_freeze_min_age一致。
+    –   autovacuum_freeze_max_age
+        开启自动清理功能时，表pg_class.relfrozenxid字段在超过指定个事务后，就
+        会强制执行VACUUM操作，即使自动清理被禁用，系统也会启动
+        AUTOVACUUM进程。清理操作还允许从pg_clog/子目录中删除旧文件（仅
+        对Astore表生效）。
+        取值范围：100000~576460752303423487
+        默认值：未指定时与GUC参数autovacuum_freeze_max_age一致。
+    –   autovacuum_freeze_table_age
+        开启自动清理功能时，该表被标记为不需要自动清理时，将保持不变的时间
+        （仅对Astore表生效）。
+        取值范围：0~576460752303423487
+        默认值：未指定时与GUC参数vacuum_freeze_table_age一致。
+    –   vacuum_truncate
+        表示是否开启表的VACUUM TRUNCATE功能，在VACUUM时截断末尾空
+        页。
+        取值范围：on/off
+        默认值：on
+            说明
+
+           ● 该参数仅对Astore生效，对hashbucket表和segment表不生效。
+           ● 从不支持该参数版本升级至支持该参数版本时，不支持在升级观察期创建、修改
+             该参数。
+           ● 支持通过toast.vacuum_truncate参数单独控制TOAST表是否截断末尾空页。
+    –   hasrowid
+        指定该表是否为rowid表。设置hasrowid = on时，该表会增加rowid系统列和
+        rowno系统列，且会在rowno系统列上关联创建序列和索引。
+        取值范围：on、off
+        默认值：off
+            说明
+
+           ● 此参数只支持A模式数据库（即sql_compatibility = 'A'）。
+           ● 此参数不支持本地临时表、Unlogged表、全局临时表、物化视图。
+           ● 此参数不支持和hasuids参数、oids参数同时指定。
+           ● 开启此参数时，不支持定义普通列名为rowno、rowid。
+           ● rowid表数据量不能超过9223372036854775807。
+●   ILM ADD POLICY ROW STORE COMPRESS { ADVANCED [ MEDIUM |
+    HIGH ] ROW AFTER n { day | month | year } OF NO MODIFICATION [ ON
+    ( EXPR )] | TURBO [ LOW | MEDIUM | HIGH ] UNIT AFTER n { hour | day |
+    month | year } OF NO MODIFICATION | NONE}
+    –   创建新表时，可以调用ILM ADD POLICY ROW STORE COMPRESS
+        ADVANCED [ MEDIUM | HIGH ] ROW为行存添加高级压缩中/高级别策略。
+[[PDF_PAGE physical=1586 printed=1537]]
+              ▪     AFTER n { day | month | year } OF NO MODIFICATION：表示n天/月/
+                    年没有修改的行，高级压缩不支持hour。
+
+              ▪     ON ( EXPR )：行级表达式，用于判断行的冷热。
+                     说明
+
+                    ● 在ILM策略的ON ( EXPR )行级表达式支持的函数中，部分函数的输出可能会受兼
+                      容性参数影响。例如，upper函数在B兼容模式下设置b_format_version='5.7'和
+                      b_format_dev_version='s2'后，将无法转换为大写。
+                    ● 压缩级别是可选项，不指定时默认使用MEDIUM级别。
+         –    创建新表时，可以调用ILM ADD POLICY ROW STORE COMPRESS TURBO
+              HIGH UNIT为行存添加跨页透明压缩策略。
+              AFTER n { hour | day | month | year } OF NO MODIFICATION：表示n小
+              时/天/月/年没有修改的行。
+              压缩级别不指定时默认为MEDIUM。
+         –    创建新表时，可以调用ILM ADD POLICY ROW STORE COMPRESS NONE显
+              式指定行存表不添加跨页透明压缩策略。
+     ●   TABLESPACE tablespace_name
+         创建新表时指定此关键字，表示新表将要在指定的表空间tablespace_name内创
+         建。如果没有声明，将使用默认表空间。
+     ●   PARTITION BY
+         partition_clause与partition_definition_list的各字段详细信息请参见参数说明。
+     ●   SUBPARTITION BY
+         subpartition_clause与partition_subpartition_definition_list的各字段详细信息请
+         参见参数说明。
+     ●   AS query
+         一个SELECT VALUES命令或者一个运行预备好的SELECT或VALUES查询的
+         EXECUTE命令。
+     ●   [ WITH [ NO ] DATA ]
+         创建分区表时，是否也插入查询到的数据。默认插入，当指定NO时，则表示不插
+         入数据。
+
+示例
+     ●   创建一级分区表，并使用子查询数据填充分区表。
+         -- 创建一个源表t1，并插入3条数据。
+         gaussdb=# CREATE TABLE t1(a int, b int);
+         gaussdb=# INSERT INTO t1 VALUES(8, 2);
+         gaussdb=# INSERT INTO t1 VALUES(18, 3);
+         gaussdb=# INSERT INTO t1 VALUES(28, 4);
+
+         -- 使用CREATE TABLE PARTITION AS创建一级分区表，并使用子查询数据填充分区表。
+         gaussdb=# CREATE TABLE t1_part_dup PARTITION BY RANGE(a)
+         (
+            PARTITION p1 VALUES LESS THAN(10),
+            PARTITION p2 VALUES LESS THAN(20),
+            PARTITION p3 VALUES LESS THAN(MAXVALUE)
+         ) AS SELECT * FROM t1;
+
+         gaussdb=# \d+ t1_part_dup;
+               Table "create_table_as_partition_by.t1_part_dup"
+          Column | Type | Modifiers | Storage | Stats target | Description
+[[PDF_PAGE physical=1587 printed=1538]]
+    --------+---------+-----------+---------+--------------+-------------
+     a     | integer |        | plain |           |
+     b     | integer |        | plain |           |
+    Partition By RANGE(a)
+    Number of partitions: 3 (View pg_partition to check each partition range.)
+    Has OIDs: no
+    Options: orientation=row, compression=no
+
+    gaussdb=# SELECT a, b FROM t1_part_dup PARTITION(p1) ORDER BY a;
+     a|b
+    ---+---
+     8|2
+    (1 row)
+
+    gaussdb=# SELECT a, b FROM t1_part_dup PARTITION(p2) ORDER BY a;
+     a |b
+    ----+---
+     18 | 3
+    (1 row)
+
+    gaussdb=# SELECT a, b FROM t1_part_dup PARTITION(p3) ORDER BY a;
+     a |b
+    ----+---
+     28 | 4
+    (1 row)
+
+    gaussdb=# DROP TABLE t1,t1_part_dup;
+
+●   创建二级分区表，并使用子查询数据填充分区表。
+    -- 创建一个源表t1，并插入6条数据。
+    gaussdb=# CREATE TABLE t1(a int, b int, c int, d varchar, e varchar) PARTITION BY RANGE(a)
+    SUBPARTITION BY RANGE(b)
+    (
+       PARTITION p1 VALUES LESS THAN(200)
+       (SUBPARTITION s1 VALUES LESS THAN (500),
+        SUBPARTITION s2 VALUES LESS THAN (MAXVALUE)
+       ),
+       PARTITION p2 VALUES LESS THAN(500)
+       (SUBPARTITION s3 VALUES LESS THAN (500),
+        SUBPARTITION s4 VALUES LESS THAN (MAXVALUE)
+       ),
+       PARTITION p3 VALUES LESS THAN(MAXVALUE)
+       (SUBPARTITION s5 VALUES LESS THAN (500),
+        SUBPARTITION s6 VALUES LESS THAN (MAXVALUE)
+       )
+    );
+
+    gaussdb=# INSERT INTO t1 VALUES (100, 300, 1, 'aA');
+    gaussdb=# INSERT INTO t1 VALUES (150, 550, 1, 'bB');
+    gaussdb=# INSERT INTO t1 VALUES (250, 150, 1, 'cC');
+    gaussdb=# INSERT INTO t1 VALUES (350, 560, 1, 'dD');
+    gaussdb=# INSERT INTO t1 VALUES (550, 100, 1, 'eE');
+    gaussdb=# INSERT INTO t1 VALUES (650, 600, 1, 'fF');
+
+    -- 使用CREATE TABLE SUBPARTITION AS创建二级分区表，并使用子查询数据填充分区表。
+    gaussdb=# CREATE TABLE t1_part_dup PARTITION BY RANGE(a) SUBPARTITION BY RANGE(b)
+    (
+       PARTITION p1 VALUES LESS THAN(200)
+       (SUBPARTITION s1 VALUES LESS THAN (500),
+        SUBPARTITION s2 VALUES LESS THAN (MAXVALUE)
+       ),
+       PARTITION p2 VALUES LESS THAN(500)
+       (SUBPARTITION s3 VALUES LESS THAN (500),
+        SUBPARTITION s4 VALUES LESS THAN (MAXVALUE)
+       ),
+       PARTITION p3 VALUES LESS THAN(MAXVALUE)
+       (SUBPARTITION s5 VALUES LESS THAN (500),
+        SUBPARTITION s6 VALUES LESS THAN (MAXVALUE)
+       )
+    ) AS SELECT * FROM t1;
+[[PDF_PAGE physical=1588 printed=1539]]
+          gaussdb=# \d+ t1_part_dup;
+                       Table "create_table_as_partition_by.t1_part_dup"
+           Column |        Type       | Modifiers | Storage | Stats target | Description
+          --------+-------------------+-----------+----------+--------------+-------------
+           a     | integer         |        | plain |            |
+           b     | integer         |        | plain |            |
+           c     | integer         |       | plain |             |
+           d     | character varying |          | extended |           |
+           e     | character varying |          | extended |           |
+          Partition By RANGE(a) Subpartition By RANGE(b)
+          Number of partitions: 3 (View pg_partition to check each partition range.)
+          Number of subpartitions: 6 (View pg_partition to check each subpartition range.)
+          Has OIDs: no
+          Options: orientation=row, compression=no
+
+          gaussdb=# SELECT a, b, c, d, e FROM t1_part_dup ORDER BY a;
+            a | b |c|d |e
+          -----+-----+---+----+---
+           100 | 300 | 1 | aA |
+           150 | 550 | 1 | bB |
+           250 | 150 | 1 | cC |
+           350 | 560 | 1 | dD |
+           550 | 100 | 1 | eE |
+           650 | 600 | 1 | fF |
+          (6 rows)
+
+          gaussdb=# SELECT a, b, c, d, e FROM t1_part_dup PARTITION(p1) ORDER BY a;
+            a | b |c|d |e
+          -----+-----+---+----+---
+           100 | 300 | 1 | aA |
+           150 | 550 | 1 | bB |
+          (2 rows)
+
+          gaussdb=# SELECT a, b, c, d, e FROM t1_part_dup PARTITION(s1) ORDER BY a;
+            a | b |c|d |e
+          -----+-----+---+----+---
+           100 | 300 | 1 | aA |
+          (1 row)
+
+          gaussdb=# DROP TABLE t1, t1_part_dup;
+
+
+相关链接
+       CREATE TABLE AS，CREATE TABLE PARTITION，CREATE TABLE SUBPARTITION

@@ -1,0 +1,118 @@
+[[PDF_PAGE physical=1358 printed=1309]]
+1.13.7.48 AUTOHINT
+
+功能描述
+           启用AUTOHINT用于指定SQL探索Hint组合，并输出能提升当前SQL执行速度的推荐
+           Hint组合。
+
+
+注意事项
+           ●   仅支持SELECT语句，并且需要使用者拥有super权限或管理员权限。
+           ●   支持的多种选项中，除ANALYZE选项外，使用其他选项时需将其置于括号内，例
+               如：AUTOHINT (VERBOSE) statement。
+
+
+语法格式
+           ●   使用AUTOHINT为执行SQL进行Hint推荐，支持多种选项，对选项顺序无要求。
+               AUTOHINT [ ( option [, ...] ) ] statement;
+
+               其中选项option子句的语法为。
+               ANALYZE [ boolean ] |
+                 VERBOSE [ boolean ] |
+                 SQLPATCH [ boolean ] |
+                 TEST [ boolean ] |
+                 DEBUG [ boolean ] |
+                 WORKERS [ int ] |
+                 MEMSIZE [ int ] |
+                 IOLIMITS [ int ]
+
+
+参数说明
+           ●   statement
+               指定进行Hint推荐的SQL语句（仅支持SELECT语句）。
+[[PDF_PAGE physical=1359 printed=1310]]
+        须知
+
+    若SQL语句已经自带Hint，AUTOHINT将会无视已有的Hint进行推荐。例如，对
+    于语句SELECT /*+IndexScan(t1)*/* FROM t1, t2 where t1.id = t2.id and t1.a >
+    20;，使用AUTOHINT进行推荐后，得到的推荐结果是基于语句SELECT * FROM
+    t1, t2 where t1.id = t2.id and t1.a > 20;的推荐结果，而非在已有IndexScan(t1)
+    的基础上进行的进一步推荐。
+
+●   ANALYZE boolean
+    在进行Hint推荐前首先进行Hint探索，若关闭则根据历史Hint探索记录直接对当
+    前SQL进行Hint推荐。
+    取值范围：
+    –   TRUE（缺省值）：在推荐前进行HINT探索。
+    –   FALSE：不进行HINT探索。
+●   VERBOSE boolean
+    显示Hint探索与推荐过程的额外信息。
+    取值范围：
+    –   TRUE（缺省值）：显示额外信息。
+    –   FALSE：不显示。
+●   SQLPATCH boolean
+    推荐Hint后输出相应的SQLPATCH指令。
+    取值范围：
+    –   TRUE（缺省值）：输出SQLPATCH指令。
+    –   FALSE：不输出。
+●   TEST boolean
+    推荐Hint后，分别执行初始查询和应用Hint后的查询来验证推荐结果，并输出实
+    际计划执行时间。
+    取值范围：
+    –   TRUE（缺省值）：进行推荐结果验证并输出验证结果。
+    –   FALSE：不进行验证。
+●   DEBUG boolean
+    输出相对于VERBOSE选项更多的细节信息，包括每轮探索时的初始计划树及执行
+    时间，并打印每轮探索结束后得到的探索子图，以及最终合并后总的探索图。
+    取值范围：
+    –   TRUE（缺省值）：输出细节信息。
+    –   FALSE：不输出。
+●   WORKERS int
+    设置AutoHint在验证Hint时的最大的并发验证任务数量。
+    取值范围：2 ~ 当前环境CPU核数（当设置的值超过当前环境CPU核数时，将被自
+    动调整为当前环境CPU核数）。
+    默认值：当前环境CPU核数/3（向下取整），若该值小于2，则会被调整为2。
+●   MEMSIZE int
+    设置AUTOHINT在验证Hint时，单个验证任务所能占用的内存大小上限。
+[[PDF_PAGE physical=1360 printed=1311]]
+            取值范围：0 ~ 2147483647，单位kB。如果设置的值大于32768（即32MB），
+            当任务执行时所使用内存超过该值时，将终止该任务。如果设置的值小于32768
+            （即32M），将设置为默认值0，此时不会限制任务执行的内存使用。
+            默认值：0
+                  说明
+
+                若需要使用该选项，需要开启GUC参数enable_memory_limit，否则该选项不生效。
+       ●    IOLIMITS int
+            设置AUTOHINT在验证Hint时，单个验证任务每秒触发I/O的次数上限。
+            取值范围：0 ~ 1073741823，单位万次。如果设置值为0，此时不会根据该值限
+            制任务执行的I/O使用上限。
+            默认值：0
+
+示例 1
+       使用AUTOHINT为慢SQL语句推荐Hint。以JOB数据集中的语句为例。
+       --导入JOB数据集，使用ANALYZE选项为02a查询进行Hint探索推荐。
+       gaussdb=# AUTOHINT ANALYZE SELECT MIN(t.title) AS movie_title
+       FROM company_name AS cn,
+           keyword AS k,
+           movie_companies AS mc,
+           movie_keyword AS mk,
+           title AS t
+       WHERE cn.country_code ='[de]'
+         AND k.keyword ='character-name-in-title'
+         AND cn.id = mc.company_id
+         AND mc.movie_id = t.id
+         AND t.id = mk.movie_id
+         AND mk.keyword_id = k.id
+         AND mc.movie_id = mk.movie_id;
+       --得到Hint推荐结果与预期提升。
+       gaussdb=#
+                          AUTOHINT
+       --------------------------------------------------------
+        Recommended hintset:
+         MergeJoin(@sel$1 k@sel$1 mk@sel$1 mc@sel$1 cn@sel$1)
+
+        Expected boost:
+         planning:   0%
+         execution: 50%
+         overall:  50%
+       (7 rows)

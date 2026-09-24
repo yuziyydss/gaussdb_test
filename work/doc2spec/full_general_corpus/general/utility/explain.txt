@@ -1,0 +1,333 @@
+[[PDF_PAGE physical=1708 printed=1659]]
+1.13.11.5 EXPLAIN
+
+功能描述
+            显示SQL语句的执行计划。主要包括：
+
+            ●   显示SQL语句所引用的表的扫描方式，如简单的顺序扫描或索引扫描等。
+            ●   如果SQL语句中引用了多个表，执行计划还会显示多表之间的JOIN方式。
+
+
+注意事项
+            ●   执行计划的最主要指标是SQL语句的预计执行开销，这是计划生成器估算执行该
+                语句所需时间的度量。
+            ●   如果指定了ANALYZE选项，该SQL语句将被执行，并根据实际运行结果显示统计
+                数据。统计数据用于作为判断计划生成器的估计值是否接近实际值的依据，主要
+                包括每个计划节点的时间总开销（以毫秒为单位）和实际返回的总行数。
+            ●   在指定ANALYZE选项时，语句会被执行。如果用户需要使用EXPLAIN分析
+                INSERT、UPDATE、DELETE、CREATE TABLE AS或EXECUTE语句但希望不对数
+                据进行改动时（正常情况下，执行这些语句会影响数据），请使用如下方法：
+                START TRANSACTION;
+                EXPLAIN ANALYZE ...;
+                ROLLBACK;
+
+            ●   当使用EXPLAIN查看执行计划时，审计日志记录的审计类型由分析的具体SQL决
+                定。
+[[PDF_PAGE physical=1709 printed=1660]]
+语法格式
+       ●   显示SQL语句的执行计划，支持多种选项，对选项顺序无要求。
+           EXPLAIN [ ( option [, ...] ) ] statement;
+
+
+
+
+           其中选项option子句的语法为。
+           ANALYZE [ boolean ] |
+             ANALYSE [ boolean ] |
+             VERBOSE [ boolean ] |
+             COSTS [ boolean ] |
+             CPU [ boolean ] |
+             DETAIL [ boolean ] |
+             BUFFERS [ boolean ] |
+             TIMING [ boolean ] |
+             PLAN [ boolean ] |
+             BLOCKNAME [ boolean ] |
+             OUTLINE [ boolean ] |
+             ADAPTCOST [ boolean ] |
+             FORMAT { TEXT | XML | JSON | YAML } |
+             OPTEVAL [ boolean ]
+[[PDF_PAGE physical=1710 printed=1661]]
+       ●   显示SQL语句的执行计划，且要按顺序给出选项。
+           EXPLAIN { [ ANALYZE | ANALYSE   ] [ VERBOSE ] | PERFORMANCE } statement;
+
+
+
+
+参数说明
+       ●   statement
+           指定要分析的SQL语句。
+       ●   ANALYZE boolean | ANALYSE boolean
+[[PDF_PAGE physical=1711 printed=1662]]
+    显示实际运行时间和其他统计数据。当两个参数同时使用时，在option中排在后
+    面的一个生效。
+    取值范围：
+    –   TRUE（缺省值）：显示实际运行时间和其他统计数据。
+    –   FALSE：不显示。
+●   VERBOSE boolean
+    显示有关计划的额外信息。
+    取值范围：
+    –   TRUE（缺省值）：显示额外信息。
+    –   FALSE：不显示。
+●   COSTS boolean
+    包括每个规划节点的估计总成本，以及估计的行数和每行的宽度。
+    取值范围：
+    –   TRUE（缺省值）：显示估计总成本和宽度。
+    –   FALSE：不显示。
+●   CPU boolean
+    打印CPU的使用情况的信息。需要结合ANALYZE或ANALYSE选项一起使用。
+    取值范围：
+    –   TRUE（缺省值）：显示CPU的使用情况。
+    –   FALSE：不显示。
+●   DETAIL boolean
+    打印数据库节点上的信息。需要结合ANALYZE或ANALYSE选项一起使用。
+    取值范围：
+    –   TRUE（缺省值）：打印数据库节点的信息。
+    –   FALSE：不打印。
+●   BUFFERS boolean
+    包括缓冲区的使用情况的信息。需要结合ANALYZE或ANALYSE选项一起使用。
+    取值范围：
+    –   TRUE：显示缓冲区的使用情况。
+    –   FALSE（缺省值）：不显示。
+●   TIMING boolean
+    包括实际的启动时间和花费在输出节点上的时间信息。需要结合ANALYZE或
+    ANALYSE选项一起使用。
+    取值范围：
+    –   TRUE（缺省值）：显示启动时间和花费在输出节点上的时间信息。
+    –   FALSE：不显示。
+●   PLAN boolean
+    是否将执行计划存储在plan_table中。当该选项开启时，会将执行计划存储在
+    plan_table中，不打印到当前屏幕，因此该选项为on时，不能与其他选项同时使
+    用。
+    取值范围：
+[[PDF_PAGE physical=1712 printed=1663]]
+    –   ON（缺省值）：将执行计划存储在plan_table中，不打印到当前屏幕。执行
+        成功返回EXPLAIN SUCCESS。
+    –   OFF：不存储执行计划，将执行计划打印到当前屏幕。
+●   BLOCKNAME boolean
+    是否显示计划的每个操作所处于的查询块。当该选项开启时，会将每个操作所处
+    于的查询块的名字输出在Query Block列上，方便用户获取查询块名字，并使用
+    Hint修改执行计划：
+    –   TRUE（缺省值）：显示计划时，将每个操作所处于的查询块的名字输出在新
+        增列Query Block列上。该选项需要在pretty模式下使用。具体使用请参见
+        《SQL调优指南》中“使用Plan Hint进行调优 > 指定Hint所处于的查询块
+        Queryblock”章节。
+    –   FALSE：不对计划显示产生影响。
+●   OUTLINE boolean
+    是否显示计划的Outline Hint信息。
+    –   ON：显示计划时，将Outline Hint显示在计划下方 。该选项需要在pretty模
+        式下使用。具体使用请参见《SQL调优指南》中“使用Plan Hint进行调优 >
+        Outline Hint”章节。
+    –   OFF（缺省值）：不显示计划的Outline Hint信息。
+●   ADAPTCOST boolean
+    在Normal模式下是否显示计划的基数估计方式信息。当使用智能计划管理时，还
+    会输出计划选择情况，包括计划类型以及选择原因。（在部分索引和包含子查询
+    的场景下，aplan可能会失效，此时输出计划为aplan，参数为实际值，实际执行
+    计划为cplan）。
+    –   ON（缺省值）：Normal模式下，在计划节点上展示基数估计的方式，包含
+        默认方式和反馈方式，不对预备语句生效。
+    –   OFF：不展示基数估计的方式信息。
+●   FORMAT
+    指定输出格式。
+    取值范围：TEXT，XML，JSON和YAML。
+    默认值：TEXT。
+●   PERFORMANCE
+    使用此选项时，即打印执行中的所有相关信息。下述为部分信息描述：
+    –   ex c/r：代表平均每行使用cpu周期数，等于（ex cyc）/（ex row）。
+    –   ex row：执行行数。
+    –   ex cyc：代表使用的cpu周期数。
+    –   inc cyc：代表包含子节点使用的总cpu周期数。
+    –   shared hit：代表算子的share buffer命中情况。
+    –   loops：算子循环执行次数。
+    –   total_calls：生成元素总数。
+    –   deserialize time：反序列化所需时间。
+    –   estimated time：估计时间。
+●   OPTEVAL boolean
+    是否显示SCAN算子（当前仅支持seqscan、indexscan、indexonlyscan、
+    bitmapheapscan）的代价淘汰明细，当开启此开关的时候，会在执行计划中显示
+[[PDF_PAGE physical=1713 printed=1664]]
+             一个名字为Cost Evaluation Info (identified by plan id)的计划块，该选项仅仅可
+             以和COSTS、VERBOSE、FORMAT三个选项共存。此计划块中的具体参数明细，
+             请参考示例2。
+             取值范围：
+             –     TRUE：显示SCAN算子的代价淘汰明细。
+             –     FALSE（缺省值）：不显示。
+
+示例 1
+       --创建SCHEMA。
+       gaussdb=# CREATE SCHEMA tpcds;
+
+       --创建表tpcds.customer_address。
+       gaussdb=# CREATE TABLE tpcds.customer_address
+       (
+       ca_address_sk    INTEGER         NOT NULL,
+       ca_address_id    CHARACTER(16)     NOT NULL
+       );
+
+       --向表中插入多条记录。
+       gaussdb=# INSERT INTO tpcds.customer_address VALUES (5000, 'AAAAAAAABAAAAAAA'),(10000,
+       'AAAAAAAACAAAAAAA');
+
+       --创建一个表tpcds.customer_address_p1。
+       gaussdb=# CREATE TABLE tpcds.customer_address_p1 AS TABLE tpcds.customer_address;
+
+       --修改explain_perf_mode为normal。
+       gaussdb=# SET explain_perf_mode=normal;
+
+       --显示表简单查询的执行计划。
+       gaussdb=# EXPLAIN SELECT * FROM tpcds.customer_address_p1;
+                                QUERY PLAN
+       ------------------------------------------------------------------------
+        Seq Scan on customer_address_p1 (cost=0.00..25.13 rows=1513 width=24)
+       (1 row)
+
+       --使用ANALYZE选项,在输出中增加运行时间统计。
+       gaussdb=# EXPLAIN ANALYZE SELECT * FROM tpcds.customer_address_p1;
+                                                QUERY PLAN
+       ---------------------------------------------------------------------------------------------------------------
+       Seq Scan on customer_address_p1 (cost=0.00..25.13 rows=1513 width=24) (actual time=0.015..0.016
+       rows=2 loops=1)
+        Total runtime: 0.108 ms
+       (2 rows)
+
+       --使用ANALYZE选项和CPU选项，输出CPU的使用信息。
+       gaussdb=# EXPLAIN (ANALYZE,CPU)SELECT * FROM tpcds.customer_address_p1;
+                                                QUERY PLAN
+       ---------------------------------------------------------------------------------------------------------------
+       Seq Scan on customer_address_p1 (cost=0.00..25.13 rows=1513 width=24) (actual time=0.011..0.012
+       rows=2 loops=1)
+         (CPU: ex c/r=47397856228403856, ex row=2, ex cyc=94795712456807712, inc cyc=94795712456807712)
+        Total runtime: 0.092 ms
+       (3 rows)
+
+       --以JSON格式输出的执行计划（explain_perf_mode为normal时）。
+       gaussdb=# EXPLAIN(FORMAT JSON) SELECT * FROM tpcds.customer_address_p1;
+                      QUERY PLAN
+       -----------------------------------------------
+        [                                   +
+          {                                 +
+            "Plan": {                         +
+             "Node Type": "Seq Scan",                 +
+             "Relation Name": "customer_address_p1",+
+             "Alias": "customer_address_p1",            +
+             "Startup Cost": 0.00,                +
+[[PDF_PAGE physical=1714 printed=1665]]
+         "Total Cost": 25.13,       +
+         "Plan Rows": 1513,          +
+         "Plan Width": 24           +
+     }                          +
+ }                              +
+ ]
+(1 row)
+
+--以YAML格式输出的执行计划（explain_perf_mode为normal时）。
+gaussdb=# EXPLAIN(FORMAT YAML) SELECT * FROM tpcds.customer_address_p1 WHERE
+ca_address_sk=10000;
+             QUERY PLAN
+------------------------------------------
+ - Plan:                          +
+    Node Type: "Seq Scan"                  +
+    Relation Name: "customer_address_p1"+
+    Alias: "customer_address_p1"             +
+    Startup Cost: 0.00                 +
+    Total Cost: 28.91                 +
+    Plan Rows: 8                      +
+    Plan Width: 24                    +
+    Filter: "(ca_address_sk = 10000)"
+(1 row)
+
+--禁止开销估计的执行计划。
+gaussdb=# EXPLAIN(COSTS FALSE) SELECT * FROM tpcds.customer_address_p1 WHERE
+ca_address_sk=10000;
+          QUERY PLAN
+-----------------------------------
+ Seq Scan on customer_address_p1
+  Filter: (ca_address_sk = 10000)
+(2 rows)
+
+
+--带有聚集函数查询的执行计划。
+gaussdb=# EXPLAIN SELECT SUM(ca_address_sk) FROM tpcds.customer_address_p1 WHERE
+ca_address_sk<10000;
+                          QUERY PLAN
+----------------------------------------------------------------------------
+ Aggregate (cost=30.17..30.18 rows=1 width=12)
+  -> Seq Scan on customer_address_p1 (cost=0.00..28.91 rows=504 width=4)
+       Filter: (ca_address_sk < 10000)
+(3 rows)
+
+--创建一个二级分区表。
+gaussdb=# CREATE TABLE range_list
+(
+    month_code VARCHAR2 ( 30 ) NOT NULL ,
+    dept_code VARCHAR2 ( 30 ) NOT NULL ,
+    user_no VARCHAR2 ( 30 ) NOT NULL ,
+    sales_amt int
+)
+PARTITION BY RANGE (month_code) SUBPARTITION BY LIST (dept_code)
+(
+  PARTITION p_201901 VALUES LESS THAN( '201903' )
+  (
+    SUBPARTITION p_201901_a values ('1'),
+    SUBPARTITION p_201901_b values ('2')
+  ),
+  PARTITION p_201902 VALUES LESS THAN( '201910' )
+  (
+    SUBPARTITION p_201902_a values ('1'),
+    SUBPARTITION p_201902_b values ('2')
+  )
+);
+
+--执行带有二级分区表的查询语句。
+--Iterations 和 Sub Iterations分别标识遍历了几个一级分区和二级分区。
+--Selected Partitions标识哪些一级分区被实际扫描，Selected Subpartitions: (p:s)标识第p个一级分区下s个二级
+[[PDF_PAGE physical=1715 printed=1666]]
+       分区被实际扫描，如果一级分区下所有二级分区都被扫描则s显示为ALL。
+       gaussdb=# EXPLAIN SELECT * FROM range_list WHERE dept_code = '1';
+                                  QUERY PLAN
+       -------------------------------------------------------------------------------
+        Partition Iterator (cost=0.00..17.68 rows=3 width=103)
+         Iterations: 2, Sub Iterations: 2
+         -> Partitioned Seq Scan on range_list (cost=0.00..17.68 rows=3 width=103)
+              Filter: ((dept_code)::text = '1'::text)
+              Selected Partitions: 1..2
+              Selected Subpartitions: 1:1 2:1
+       (6 rows)
+
+       --删除表tpcds.customer_address_p1。
+       gaussdb=# DROP TABLE tpcds.customer_address_p1;
+
+       --删除表tpcds.customer_address。
+       gaussdb=# DROP TABLE tpcds.customer_address;
+
+       --删除表range_list。
+       gaussdb=# DROP TABLE range_list;
+
+       --删除SCHEMA。
+       gaussdb=# DROP SCHEMA tpcds CASCADE;
+
+
+示例 2
+       --创建tb_a，tb_b。
+       gaussdb=# CREATE TABLE tb_a(c1 int);
+       gaussdb=# INSERT INTO tb_a VALUES(1),(2),(3);
+       gaussdb=# CREATE TABLE tb_b AS SELECT * FROM tb_a;
+
+       --显示SCAN算子的代价淘汰明细。
+       gaussdb=# EXPLAIN (OPTEVAL on )SELECT * FROM tb_a a, tb_b b WHERE a.c1=b.c1 AND a.c1=1;
+                              QUERY PLAN
+       --------------------------------------------------------------------
+        Nested Loop (cost=0.00..81.88 rows=144 width=8)
+         -> Seq Scan on tb_a a (cost=0.00..40.03 rows=12 width=4)
+              Filter: (c1 = 1)
+         -> Materialize (cost=0.00..40.09 rows=12 width=4)
+              -> Seq Scan on tb_b b (cost=0.00..40.03 rows=12 width=4)
+                   Filter: (c1 = 1)
+       (6 rows)
+
+       --删除表tb_a，tb_b。
+       gaussdb=# DROP TABLE tb_a;
+       gaussdb=# DROP TABLE tb_b;
+
+
+相关链接
+       ANALYZE | ANALYSE

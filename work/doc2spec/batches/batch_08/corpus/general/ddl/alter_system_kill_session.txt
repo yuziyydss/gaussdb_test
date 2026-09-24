@@ -1,0 +1,54 @@
+[[PDF_PAGE physical=1270 printed=1221]]
+1.13.7.34 ALTER SYSTEM KILL SESSION
+
+功能描述
+            ALTER SYSTEM KILL SESSION命令用于结束一个会话。
+
+语法格式
+            ALTER SYSTEM KILL SESSION 'session_sid, serial' [ IMMEDIATE ];
+[[PDF_PAGE physical=1271 printed=1222]]
+参数说明
+       ●    session_sid, serial
+            会话的SID和SERIAL（获取方法请参考示例）。可通过pg_stat_activity系统表配合
+            查询当前活跃线程（可见示例），但执行ALTER SYSTEM KILL SESSION命令时线
+            程可能已结束。
+            取值范围：通过查看系统表dv_sessions可查看所有会话的SID和SERIAL。
+       ●    IMMEDIATE
+            表明会话将在命令执行后立即结束。
+
+示例
+       --开启两个会话，在第一个会话中建表并开启事务插入数据。
+       gaussdb=# CREATE TABLE tbl_test(id int);
+       gaussdb=# BEGIN;
+       gaussdb=# INSERT INTO tbl_test VALUES (1);
+
+       --在第二个会话中查询会话信息。state为“idle in transaction”表示事务等待提交。
+       gaussdb=# SELECT t1.datname,
+             t1.usename,
+             t1.pid,
+             t2.serial#,
+             t1.state
+       FROM pg_stat_activity t1,
+           dv_sessions t2
+       WHERE t1.query LIKE 'INSERT INTO tbl_test%'
+         AND t1.sessionid = t2.sid;
+        datname | usename |           pid     | serial# |       state
+       ----------+---------+-----------------+---------+---------------------
+        postgres | omm       | 139802072635136 |          0 | idle in transaction
+       (1 row)
+
+       --结束会话，不带IMMEDIATE参数，将会强制结束会话，该会话中的事务也会被强制结束。
+       gaussdb=# ALTER SYSTEM KILL SESSION '139802072635136,0';
+        pg_terminate_backend
+       ----------------------
+        t
+       (1 row)
+
+       --重新连接，查询表tbl_test的数据会发现事务被强制结束后数据回滚。
+       gaussdb=# SELECT * FROM tbl_test;
+        id
+       ----
+       (0 rows)
+
+       --删除表。
+       gaussdb=# DROP TABLE tbl_test;

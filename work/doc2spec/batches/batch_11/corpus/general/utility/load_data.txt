@@ -1,0 +1,226 @@
+[[PDF_PAGE physical=1760 printed=1711]]
+1.13.15.1 LOAD DATA
+
+功能描述
+            将文件中的数据导入到数据库指定表中。
+
+注意事项
+            ●   LOAD DATA语法仅在B兼容模式（sql_compatibility = 'B'）以及M-Compatibility
+                模式数据库（sql_compatibility = 'M'）下支持。
+            ●   LOAD DATA语法仅在开启b_format_version='5.7'和b_format_dev_version='s2'参
+                数后与B数据库功能一致。
+            ●   LOAD DATA语法权限相关GUC参数与COPY FROM语法注意事项一致。
+            ●   LOAD DATA语法需要表的INSERT和DELETE权限。
+            ●   执行LOAD DATA语法写入表中的数据若无法转换为表中数据类型格式时将导致导
+                入失败。
+            ●   LOAD DATA只能用于表，不能用于视图。
+            ●   LOAD DATA与SELECT … INTO OUTFILE可配合使用，实现数据的导出与导入：
+                先通过SELECT … INTO OUTFILE将表数据导出至文件，再通过LOAD DATA将文
+                件数据导入回表中。配合使用时需注意以下事项：
+                –   语句子句必须匹配：LOAD DATA与SELECT … INTO OUTFILE中的FIELDS子
+                    句、LINES子句及CHARACTER SET子句应保持一致，否则可能导致文件内容
+                    无法被正确加载。
+[[PDF_PAGE physical=1761 printed=1712]]
+            –     避免使用空字符串作为特殊字符：不建议将转义符、列分隔符、行分隔符设
+                  置为空字符串。若数据表中包含这类特殊字符，使用空字符串可能导致这些
+                  字符在导回时无法被正确处理。
+            –     避免特殊字符重复：转义符、列分隔符、引号字符和行分隔符不宜设置为相
+                  同字符，否则可能造成部分功能失效，影响数据的准确导入。
+
+语法格式
+       LOAD DATA
+         [LOCAL]
+         INFILE 'file_name'
+         [REPLACE | IGNORE]
+         INTO TABLE tbl_name
+         [PARTITION (partition_name [, ...])]
+         [CHARACTER SET charset_name]
+         [{FIELDS | COLUMNS}
+            [TERMINATED BY 'string']
+            [[OPTIONALLY] ENCLOSED BY 'char']
+            [ESCAPED BY 'char']
+         ]
+         [LINES
+            [STARTING BY 'string']
+            [TERMINATED BY 'string']
+         ]
+         [IGNORE number {LINES | ROWS}]
+         [(col_name_or_user_var [, ...])]
+         [SET col_name={expr | DEFAULT} [, ...])]
+
+
+
+
+参数说明
+       ●    LOCAL
+            指定导入文件的位置。
+            –     不指定LOCAL时，若'file_name'为相对路径，则默认导入路径为数据目录。
+            –     若指定LOCAL参数则需要指定'file_name'为绝对路径，当指定为相对路径时
+                  默认导入路径为数据库二进制所在路径，即$GAUSSHOME/bin/。
+       ●    REPLACE | IGNORE
+            控制导入文件数据冲突及错误处理的行为选项。
+            –     指定REPLACE选项
+                  当导入数据与表中原有数据冲突时，替换冲突行数据；当文件中字段数小于
+                  指定表的字段数时，宽松模式下告警，严格模式下报错。
+            –     指定IGNORE选项
+                  当导入数据与表中原有数据冲突时，跳过冲突行数据；当文件中字段数小于
+                  指定表的字段数时，按默认值填充表中未指定的字段，并产生告警。
+            –     不指定REPLACE与IGNORE选项
+
+                  ▪     不指定LOCAL选项时，当导入数据与表中原有数据冲突时报错；当文件
+                        中字段数小于指定表的字段数时，宽松模式下告警，严格模式下报错。
+[[PDF_PAGE physical=1762 printed=1713]]
+        ▪    指定LOCAL选项时，行为与指定IGNORE选项一致。
+●   PARTITION
+    当导入表为分区表时，此参数用来指定分区。若数据与指定分区范围不一致则报
+    错。
+●   CHARACTER SET
+    指定数据文件的编码格式名称，缺省为当前客户端编码格式。
+●   FIELDS | COLUMNS
+    –   TERMINATED BY
+        指定两列之间分隔符，缺省为'\t'。
+
+             说明
+
+            指定换行符不能与分隔符相同。
+    –   [OPTIONALLY] ENCLOSED BY
+        指定引号字符，缺省为''。
+        OPTIONALLY参数为可选参数，无实际作用。
+        引号符仅支持单字符，不支持字符串。
+    –   ESCAPED BY
+        指定转义符，缺省为'\'。
+
+             说明
+
+            ● 转义字符仅支持单字符，不支持字符串。
+            ● 如果转义符非空，当处理到转义符时，会判断转义符及其后的字符序列是否满足
+              指定的转义序列。如果满足指定的转义序列，则将转义符及其后的字符转义成指
+              定字符。如果不满足指定的转义序列，则会忽略该转义符并继续导入数据。支持
+              的转义序列受GUC参数load_data_behavior_compat_options是否配置
+              new_escape_string选项控制。
+●   LINES
+    –   STARTING BY
+        指定导入数据文件起始字段样式。
+    –   TERMINATED BY
+        指定导入数据文件换行符样式。
+
+             说明
+
+            GUC参数load_data_behavior_compat_options的配置选项new_escape_string，控
+            制是否对指定的行终结符做转义处理。
+●   IGNORE
+    指定数据导入时，跳过数据文件的前 number行。
+●   col_name_or_user_var
+    可选的待复制字段列表。
+    取值范围：如果没有声明字段列表，将使用所有字段。
+[[PDF_PAGE physical=1763 printed=1714]]
+                 说明
+
+                ● 指定列参数不支持重复指定列。
+                ● LOAD DATA语法指定列时，col_name_or_user_var支持指定为表中存在列或用户变
+                  量。若指定为用户变量，需设置GUC参数b_format_behavior_compat_options值包含
+                  enable_set_variables（set b_format_behavior_compat_options =
+                  'enable_set_variables'）。
+     ●    SET
+          指定列值，可以指定为表达式或DEFAULT。
+                 说明
+
+                ● 表达式中不支持列名。
+                ● 若表达式结果类型与被赋值列对应类型之间不存在隐式转换函数则报错。
+
+
+示例
+     -- 环境准备。
+     gaussdb=# CREATE DATABASE test_load WITH DBCOMPATIBILITY = 'b';
+     gaussdb=# \c test_load
+     test_load=# SET b_format_version='5.7';
+     test_load=# SET b_format_dev_version='s2';
+
+     -- 准备待导入的文件。
+     test_load=# CREATE TABLE load_data_tmp1(a int, b int);
+     test_load=# INSERT INTO load_data_tmp1 VALUES(1,1),(2,2),(3,3);
+     test_load=# SELECT * FROM load_data_tmp1 INTO OUTFILE '/tmp/load1.csv';
+     test_load=# CREATE TABLE load_data_tmp2(a int, b int);
+     test_load=# INSERT INTO load_data_tmp2 VALUES(1,2);
+     test_load=# SELECT * FROM load_data_tmp2 INTO OUTFILE '/tmp/load2.csv';
+     test_load=# CREATE TABLE load_data_tmp3(a int, b int);
+     test_load=# INSERT INTO load_data_tmp3 VALUES(4,4),(5,5);
+     test_load=# SELECT * FROM load_data_tmp3 INTO OUTFILE '/tmp/load3.csv';
+     test_load=# CREATE TABLE load_data_tmp4(a char(50));
+     test_load=# INSERT INTO load_data_tmp4 VALUES('"load test quote"'), ('\'load test single_quote\'');
+     test_load=# SELECT * FROM load_data_tmp4 INTO OUTFILE '/tmp/load4.csv';
+
+     -- 创建表。
+     test_load=# CREATE TABLE load_data_tbl1(load_col1 INT UNIQUE, load_col2 INT, load_col3 CHAR(10));
+
+     -- 向表中插入一条数据。
+     test_load=# INSERT INTO load_data_tbl1 VALUES(0,0,'load0');
+
+     -- 从文件/tmp/load1.csv中复制数据到load_data_tbl表,指定列名，设置.load_col3列值统一为"load"。
+     test_load=# LOAD DATA INFILE '/tmp/load1.csv' INTO TABLE load_data_tbl1(load_col1, load_col2) SET
+     load_col3 = 'load';
+     -- 后面导入数据load_col3列值均为'load'。
+     test_load=# SELECT * FROM load_data_tbl1 order by load_col1;
+     load_col1 | load_col2 | load_col3
+     -----------+-----------+-----------
+            0|        0 | load0
+            1|        1 | load
+            2|        2 | load
+            3|        3 | load
+     (4 rows)
+
+     -- 从文件/tmp/load2.csv中复制数据到load_data_tbl表，指定IGNORE忽略冲突。
+     test_load=# LOAD DATA INFILE '/tmp/load2.csv' IGNORE INTO TABLE load_data_tbl1;
+     -- 表load_data_tbl1中数据不变，冲突数据跳过。
+     test_load=# SELECT * FROM load_data_tbl1 order by load_col1;
+     load_col1 | load_col2 | load_col3
+     -----------+-----------+-----------
+            0|        0 | load0
+            1|        1 | load
+            2|        2 | load
+[[PDF_PAGE physical=1764 printed=1715]]
+      3|     3 | load
+(4 rows)
+
+-- 创建分区表。
+test_load=# CREATE TABLE load_data_tbl2
+(
+   load_col_col1 INT,
+   load_col_col2 INT
+) PARTITION BY RANGE (load_col_col2)
+(
+   PARTITION load_p1 VALUES LESS THAN(3),
+   PARTITION load_p2 VALUES LESS THAN(9),
+   PARTITION load_p3 VALUES LESS THAN(MAXVALUE)
+);
+
+-- 从文件/tmp/load3.csv中复制数据到load_data_tbl2表，指定PARTITION。
+test_load=# LOAD DATA INFILE '/tmp/load3.csv' INTO TABLE load_data_tbl2 PARTITION (load_p2);
+-- 数据导入到load_data_tbl2表中指定分区。
+test_load=# SELECT * FROM load_data_tbl2;
+ load_col_col1 | load_col_col2
+---------------+---------------
+          4|           4
+          5|           5
+(2 rows)
+
+-- 创建表。
+test_load=# CREATE TABLE load_data_tbl3(load_col_col1 CHAR(30));
+
+-- 从文件/tmp/load4.csv中复制数据到load_data_tbl3表，指定FIELDS ENCLOSED BY。
+test_load=# LOAD DATA INFILE '/tmp/load4.csv' INTO TABLE load_data_tbl3 FIELDS ENCLOSED BY '"';
+-- 数据"load test quote"双引号被去掉，'load test single_quote'单引号保留。
+test_load=# SELECT * from load_data_tbl3;
+       load_col_col1
+--------------------------------
+ load test quote
+ 'load test single_quote'
+(2 rows)
+-- 删除表。
+test_load=# DROP TABLE load_data_tmp1;
+test_load=# DROP TABLE load_data_tmp2;
+test_load=# DROP TABLE load_data_tmp3;
+test_load=# DROP TABLE load_data_tmp4;
+test_load=# DROP TABLE load_data_tbl1;
+test_load=# DROP TABLE load_data_tbl2;
+test_load=# DROP TABLE load_data_tbl3;

@@ -1,0 +1,192 @@
+[[PDF_PAGE physical=2290 printed=2241]]
+2.4.2.17.1 TABLE
+
+功能描述
+              从表或视图中查询数据，TABLE语法主要为简化SELECT从表或视图中查询数据的操
+              作。
+              TABLE table_name与SELECT * FROM table_name实现功能一致。
+
+注意事项
+              ●    仅表或视图的所有者、拥有表或视图SELECT权限的用户或拥有SELECT ANY
+                   TABLE权限的用户可以执行TABLE命令。当三权分立开关关闭时，系统管理员默认
+                   拥有此权限。
+              ●    执行TABLE命令，当前用户必须拥有TABLE中使用字段的SELECT权限
+[[PDF_PAGE physical=2291 printed=2242]]
+       ●    进行FOR UPDATE或FOR SHARE操作时，当前用户必须拥有字段的UPDATE权
+            限。
+       ●    TABLE和SELECT在两个关键方面存在以下不同：
+            –      TABLE始终显示表的所有列。
+            –      TABLE不允许对行进行任意过滤操作。
+
+语法格式
+       [ WITH [ RECURSIVE ] with_query [, ...] ]
+       TABLE table_name
+          [ORDER BY {col_name | expression | position}
+            [ASC | DESC][ NULLS { FIRST | LAST } ], ...]
+          [[LIMIT {[offset,] row_count | row_count OFFSET offset}] | FETCH {FIRST | NEXT} [(expr)] {ROW| ROWS}
+       ONLY]
+          [into_option]
+          [ FOR READ ONLY |
+             [ {FOR { UPDATE | SHARE } [ OF table_name [, ...] ] [ NOWAIT | WAIT N | SKIP LOCKED ]} [...] ] |
+             LOCK IN SHARE MODE]
+
+       TABLE ... UNION以及TABLE ... EXCEPT语法：
+       TABLE ...
+          UNION [ALL | DISTINCT] TABLE ...
+          [UNION [ALL | DISTINCT] TABLE ...]
+       TABLE ...
+          EXCEPT[ALL | DISTINCT] TABLE ...
+          [EXCEPT[ALL | DISTINCT] TABLE ...]
+
+       ●    其中with_clause子句为：
+                WITH [ RECURSIVE ]
+                  cte_name [(col_name [, col_name] ...)] AS (subquery)
+                  [, cte_name [(col_name [, col_name] ...)] AS (subquery)] ...
+
+       ●    其中子查询with_query为：
+                with_query_name [ ( column_name [, ...] ) ] AS ( {table} )
+
+       ●    其中into_option子句为：
+                    INTO [[[LOCAL | GLOBAL] TEMPORARY] [TABLE]] table_name
+                | INTO OUTFILE 'file_name'
+                    [CHARACTER SET charset_name]
+                    export_options
+                | INTO DUMPFILE 'file_name'
+
+       ●    其中export_options为:
+               [FIELDS
+             [TERMINATED BY 'string']
+             [[OPTIONALLY] ENCLOSED BY 'char']
+             [ESCAPED BY 'char' ]
+               ]
+               [LINES
+             [STARTING BY 'string']
+             [TERMINATED BY 'string']
+               ]
+
+
+参数说明
+       ●    table_name
+            表名或视图名，可以使用模式进行具体指定，如：schema_name.table_name。
+
+
+                 须知
+
+            table_name不包含dual虚拟表。
+[[PDF_PAGE physical=2292 printed=2243]]
+     ●   其他参数
+         因TABLE语法与SELECT * FROM语法功能相同，以上语法涉及的参数均与SELECT
+         相同，具体请参见参数说明。
+
+示例
+     ●   简单查询：简单查询指从一个或多个表或视图中检索所有列数据的操作。
+         -- 建表并插入数据。
+         m_db=# CREATE TABLE student(
+            sid INT PRIMARY KEY,
+            class INT,
+            name VARCHAR(50),
+            gender INT CHECK(gender = 0 OR gender = 1) --性别，1为男，0为女
+         );
+         m_db=# INSERT INTO student (sid, class, name, gender) VALUES (1, 1, 'Michael', 0);
+         m_db=# INSERT INTO student (sid, class, name, gender) VALUES (2, 2, 'Bob', 1);
+         m_db=# INSERT INTO student (sid, class, name, gender) VALUES (3, 2, 'Gary', 0);
+
+         -- 查询。
+         m_db=# TABLE student;
+          sid | class | name | gender
+         -----+-------+---------+-----
+            1|     1 | Michael | 0
+            2|     2 | Bob   | 1
+            3|     2 | Gary | 0
+         (3 rows)
+
+         -- 删除。
+         m_db=# DROP TABLE student;
+
+     ●   分页查询
+         -- 建表并插入100条数据。
+         m_db=# CREATE TABLE test1(id int PRIMARY KEY, flag varchar(10));
+         m_db=# INSERT INTO test1 (id, flag) VALUES (generate_series(1,100),generate_series(1,100));
+
+         -- 查询前5条数据。
+         m_db=# TABLE test1 ORDER BY 1 LIMIT 5;
+          id | flag
+         ----+-------
+           1|1
+           2|2
+           3|3
+           4|4
+           5|5
+         (5 rows)
+
+         -- 从第20条向后查询4条数据。
+         m_db=# TABLE test1 ORDER BY 1 LIMIT 20,4;
+          id | flag
+         ----+--------
+          21 | 21
+          22 | 22
+          23 | 23
+          24 | 24
+         (4 rows)
+
+         -- 从第96条向后查询出所有数据。
+         m_db=# TABLE test1 ORDER BY 1 LIMIT 96,ALL;
+          id | flag
+         -----+---------
+           97 | 97
+           98 | 98
+           99 | 99
+          100 | 100
+         (4 rows)
+
+         -- 删除。
+         m_db=# DROP TABLE test1;
+[[PDF_PAGE physical=2293 printed=2244]]
+●   子查询
+
+          说明
+
+        M-Compatibility模式数据库不支持子查询结果包含多列，当包含多列时执行会报错，所以
+        TABLE语句仅能在表中只含有一列时使用。
+    -- 创建数字表1并插入3条数据。
+    m_db=# CREATE TABLE number1(n int);
+    m_db=# INSERT INTO number1 VALUES(3), (2), (4);
+
+    -- 创建数字表2并插入3条数据。
+    m_db=# CREATE TABLE number2(n int);
+    m_db=# INSERT INTO number2 VALUES(1), (2), (3);
+
+    -- 查询同时出现在两个表中的数字。
+    m_db=# SELECT * FROM number2 WHERE n IN (TABLE number1);
+     n
+    ---
+     2
+     3
+    (2 rows)
+
+    -- 删除。
+    m_db=# DROP TABLE number1;
+    m_db=# DROP TABLE number2;
+
+●   复合查询：包含复合运算符的查询，即复合查询。所有的复合查询都具有相同的
+    优先级，参加集合操作的各查询结果的列数、表达式的数量都必须一致，类型必
+    须兼容。
+    -- 建表并插入数据
+    m_db=# CREATE TABLE test1(c11 INT, c12 VARCHAR(20));
+    m_db=# INSERT INTO test1 VALUES (1,'a'),(2,'b'),(4,'d');
+
+    m_db=# CREATE TABLE test2(c21 INT, c22 VARCHAR(20));
+    m_db=# INSERT INTO test2 VALUES (1,'a'),(3,'c');
+
+    m_db=# TABLE test1 UNION TABLE test2;
+     c11 | c12
+    -----+-----
+      4|d
+      3|c
+      1|a
+      2|b
+    (4 rows)
+
+    -- 删除。
+    m_db=# DROP TABLE test1;
+    m_db=# DROP TABLE test2;

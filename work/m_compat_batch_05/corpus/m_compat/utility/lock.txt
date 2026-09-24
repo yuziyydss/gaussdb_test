@@ -1,0 +1,133 @@
+[[PDF_PAGE physical=2230 printed=2181]]
+2.4.2.13.2 LOCK
+
+功能描述
+              LOCK TABLE获取表级锁。
+              M-Compatibility模式数据库在为一个引用了表的命令自动请求锁时，尽可能选择最小
+              限制的锁模式。如果用户需要一种更为严格的锁模式，可以使用LOCK命令。例如，一
+              个应用是在Read Committed隔离级别上运行事务，并且它需要保证表中的数据在事务
+              的运行过程中不被修改。为实现这个目的，则可以在查询之前对表使用READ锁模式进
+              行锁定。这样将防止数据不被并发修改，从而保证后续的查询可以读到已提交的持久
+              化的数据。因为READ锁模式与任何写操作需要的ROW EXCLUSIVE模式冲突，语句将
+              等到所有当前持有ROW EXCLUSIVE模式锁的事务提交或回滚后才能执行。因此，一旦
+              获得该锁，就不会存在未提交的写操作，并且其他操作也只能等到该锁释放之后才能
+              开始。
+
+注意事项
+              ●     LOCK TABLE只能在一个事务块的内部有用，因为锁在事务结束时就会被释放。出
+                    现在任意事务块外面的LOCK TABLE都会报错。
+              ●     如果没有声明锁模式，缺省为最严格的模式WRITE。
+              ●     没有UNLOCK TABLE命令，锁总是在事务结束时释放。M-Compatibility模式数据
+                    库暂不支持UNLOCK TABLE命令。
+              ●     LOCK TABLE只处理表级的锁，锁与锁之间是否冲突，具体规则如表2-27所示。
+              ●     如果没有打开xc_maintenance_mode参数，那么对系统表申请WRITE级别锁将报
+                    错。
+
+语法格式
+              LOCK [ TABLE | TABLES ]
+                tbl_name [lock_type]
+                 [, tbl_name [lock_type] ] ...
+                 [ NOWAIT] ;
+
+              lock_type: {
+                  READ
+                | WRITE
+                | IN ACCESS SHARE MODE
+              }
+[[PDF_PAGE physical=2231 printed=2182]]
+参数说明
+
+       表 2-27 冲突的锁模式
+       请求的        ACCES   ROW    ROW     SHAR    READ   SHAR    EXCLU   WRITE
+       锁模         S       SHAR   EXCLU   E              E       SIVE
+       式/当        SHAR    E      SIVE    UPDA           ROW
+       前锁模        E                      TE             EXCLU
+       式                                 EXCLU          SIVE
+                                         SIVE
+
+       ACCES      -       -      -       -       -      -       -       X
+       S
+       SHARE
+
+       ROW        -       -      -       -       -      -       X       X
+       SHARE
+
+       ROW        -       -      -       -       X      X       X       X
+       EXCLU
+       SIVE
+
+       SHARE      -       -      -       X       X      X       X       X
+       UPDA
+       TE
+       EXCLU
+       SIVE
+
+       READ       -       -      X       X       -      X       X       X
+
+       SHARE      -       -      X       X       X      X       X       X
+       ROW
+       EXCLU
+       SIVE
+
+       EXCLU      -       X      X       X       X      X       X       X
+       SIVE
+
+       WRITE      X       X      X       X       X      X       X       X
+
+
+
+
+       LOCK的参数说明如下所示：
+
+       ●   table_name
+           要锁定的表的名称，可以有模式修饰。
+           LOCK TABLE命令中声明的表的顺序就是上锁的顺序。
+           取值范围：已存在的表名。
+       ●   READ
+           READ锁允许并发的查询，但是禁止对表进行修改。
+           CREATE INDEX（不带CONCURRENTLY选项）语句会自动请求这种锁。
+       ●   WRITE
+           这个模式保证其所有者（事务）是可以访问该表的唯一事务。
+[[PDF_PAGE physical=2232 printed=2183]]
+          ALTER TABLE、DROP TABLE、TRUNCATE、REINDEX命令会自动请求这种锁。
+          在LOCK TABLE命令没有明确声明需要的锁模式时，它是缺省锁模式。
+     ●    ACCESS SHARE
+          ACCESS SHARE锁只允许对表进行读取，而禁止对表进行修改。所有对表进行读
+          取而不修改的SQL语句都会自动请求这种锁。例如，SELECT命令会自动在被引用
+          的表上请求一个ACCESS SHARE锁。
+     ●    ROW SHARE | ROW EXCLUSIVE | SHARE UPDATE EXCLUSIVE | SHARE ROW
+          EXCLUSIVE | EXCLUSIVE
+          M-Compatibility模式数据库下暂不支持使用LOCK TABLE获取这些模式的锁。
+     ●    NOWAIT
+          声明LOCK TABLE不去等待任何冲突的锁释放，如果无法立即获取该锁，该命令退
+          出并且发出一个错误信息。
+          在不指定NOWAIT的情况下获取表级锁时，如果有其他互斥锁存在的话，则等待
+          其他锁的释放。
+
+示例
+     --创建SCHEMA。
+     m_db=# CREATE SCHEMA tpcds;
+
+     --创建表tpcds.reason。
+     m_db=# CREATE TABLE tpcds.reason
+     (
+     r_reason_sk    INTEGER     NOT NULL,
+     r_reason_id   CHAR(16)     NOT NULL,
+     r_reason_desc   INTEGER
+     );
+
+     --向表中插入多条记录。
+     m_db=# INSERT INTO tpcds.reason VALUES (1, 'AAAAAAAABAAAAAAA', '18'),(5, 'AAAAAAAACAAAAAAA',
+     '362'),(7, 'AAAAAAAADAAAAAAA', '585');
+
+     m_db=# START TRANSACTION;
+
+     m_db=# LOCK TABLE tpcds.reason WRITE;
+
+     m_db=# COMMIT;
+
+     --删除表。
+     m_db=# DROP TABLE tpcds.reason;
+
+     --删除SCHEMA。
+     m_db=# DROP SCHEMA tpcds;

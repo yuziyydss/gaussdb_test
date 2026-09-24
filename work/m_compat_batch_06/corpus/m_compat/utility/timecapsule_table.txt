@@ -1,0 +1,196 @@
+[[PDF_PAGE physical=2293 printed=2244]]
+2.4.2.17.2 TIMECAPSULE TABLE
+
+功能描述
+             在人为操作或应用程序错误时，可以使用TIMECAPSULE TABLE语句将表恢复到指定的
+             早期状态。
+
+
+注意事项
+             ●   TIMECAPSULE TABLE的主要用法分为：闪回旧版本数据和从回收站中进行闪回。
+                 –   通过TO TIMESTAMP或TO CSN可以将表闪回到过去的某个版本，当前仅支持
+                     Ustore存储引擎。
+[[PDF_PAGE physical=2294 printed=2245]]
+    –   回收站记录了DROP和TRUNCATE的对象数据，通过TO BEFORE DROP和TO
+        BEFORE TRUNCATE可以从回收站中进行闪回，当前支持Ustore以及Astore
+        存储引擎。
+●   目前不支持闪回表的对象类型：系统表、DFS表、全局临时表、本地临时表、
+    UNLOGGED表、序列表、hashbucket表以及密态表。
+●   开启闪回后，回收站里的表可以进行表级备份，无法进行表级恢复。
+●   闪回点和当前点之间，如果执行过修改表结构或影响物理存储的语句
+    （TRUNCATE、DDL、DCL或VACUUM FULL），则闪回操作失败。
+●   表可以闪回到过去的时间点，依赖于系统中保存的旧版本数据。数据库无法恢复
+    到通过DDL操作改变了表结构的早期状态。
+●   执行闪回DROP操作，当前用户必须具有闪回对象所在Schema的CREATE和
+    USAGE权限，并且必须是Schema的所有者或者是闪回对象的所有者。
+●   执行闪回TRUNCATE操作，当前用户必须具有闪回对象所在Schema的CREATE和
+    USAGE权限，并且必须是Schema的所有者或者是闪回对象的所有者，另外用户必
+    须具有闪回对象的TRUNCATE权限。
+●   不适用闪回DROP或闪回TRUNCATE功能的场景或表：
+    –   回收站关闭场景enable_recyclebin = off。
+    –   系统处于维护状态（xc_maintenance_mode = on）或从不支持的基线版本升
+        级到支持的版本的升级场景。
+    –   多对象删除场景：DROP TABLE或TRUNCATE TABLE命令同时指定多个对
+        象。
+    –   系统表、DFS表、全局临时表、本地临时表、UNLOGGED表、序列表、
+        hashbucket表以及密态表。
+    –   回收站对象被清理后无法闪回DROP或闪回TRUNCATE，
+        recyclebin_retention_time参数用于设置回收站对象保留时间。
+    –   回收站对象禁止DML、DCL以及DDL等写操作，不支持DQL查询操作。
+    –   TRUNCATE表和闪回TRUNCATE操作之间，如果执行过修改表结构或影响物
+        理文件的语句（DDL、DCL、VACUUM FULL或进行了增加/删除/切割/合成
+        等分区操作），则闪回操作失败。
+    –   整表删除或截断时，分区会随着整表放入回收站。基于数据的一致性原则，
+        单个删除的分区不支持放入回收站。
+    –   如果表依赖的对象为外部对象（如表列为复合类型等），则采用物理删除，
+        不会将表放入回收站。
+●   DROP闪回约束：
+    可以指定原始用户指定的表的名称，或对象删除时数据库分配的系统生成名称。
+    –   回收站中系统生成的对象名称是唯一的。因此，如果指定系统生成名称，那
+        么数据库检索指定的对象。使用SELECT * FROM gs_recyclebin;语句查看回收
+        站中的内容。
+    –   如果指定了用户指定的名称，且回收站中包含多个该名称的对象，那么数据
+        库检索回收站中最近移动的对象。如果需要检索更早版本的表，需明确指定
+        以下内容：
+
+        ▪   指定需要检索的表的系统生成名称。
+
+        ▪   执行TIMECAPSULE TABLE ... TO BEFORE DROP语句，直至匹配到需要
+            检索的表。
+[[PDF_PAGE physical=2295 printed=2246]]
+            –    恢复DROP表时，只恢复基表名，其他子对象名均保持回收站对象名。用户可
+                 根据需要，执行DDL命令手工调整子对象名。
+            –    如果表存在缺省值引用序列和自定义函数，那么闪回DROP表成功但不会恢复
+                 缺省值。
+            –    如果表存在视图引用，DROP表时需要级联删除视图，那么闪回DROP表成功
+                 但不会恢复视图。
+            –    回收站对象不支持DML、DCL、DDL等写操作，当前版本不支持DQL查询操
+                 作。
+            –    recyclebin_retention_time配置参数用于设置回收站对象保留时间，超过该时
+                 间的回收站对象将被自动清理。
+       ●    TRUNCATE闪回约束：
+            –    TRUNCATE闪回后，统计信息无变化，仍显示为0，可以在业务低峰期（降低
+                 性能影响）时候手动执行ANALYZE进行修正统计信息。
+            –    RENAME TO仅支持DROP闪回操作为检索表指定新名称，不支持TRUNCATE
+                 闪回。
+            –    TRUNCATE闪回不能跨越影响表结构或物理存储的语句，否则会报错。即闪
+                 回点和当前点之间，如果执行过修改表结构或影响物理存储的语句（DDL、
+                 DCL、VACUUM FULL以及增加/删除/切割/合成等分区操作），则闪回失
+                 败。
+
+                 ▪    执行过DDL语句的表进行闪回操作时会报错：“ERROR：The table
+                      definition of %s has been modified.”。
+
+                 ▪    涉及表名改变等操作的DDL语句执行闪回操作报错：“ERROR: recycle
+                      object %s desired does not exist.”。
+
+语法格式
+       TIMECAPSULE TABLE
+         [schema.]table_name TO { CSN expr | TIMESTAMP expr | BEFORE { DROP [RENAME TO table_name] |
+       TRUNCATE } };
+
+
+
+
+参数说明
+       ●    schema
+            可选，指定模式包含的表。如未指定模式，则默认为当前模式。
+       ●    table_name
+            指定表名。
+       ●    TO CSN
+            指定要返回表的时间点对应的事务提交序列号（CSN）。expr：表示有效的
+            CSN。
+       ●    TO TIMESTAMP
+            指定要返回表的时间点对应的时间戳。expr：有效的过去时间的时间戳（使用
+            pg_catalog.timestamptz函数将字符串转换为时间类型）。
+[[PDF_PAGE physical=2296 printed=2247]]
+               说明
+
+             ● 闪回点过旧时（指定过去时间的时间戳可能无效），因闪回版本被回收等导致无法获取
+               旧版本会导致闪回失败报错：“Restore point too old”。
+             ● 通过时间方式指定闪回点，闪回数据和实际时间点数据可能存在偏差，大约偏差为3
+               秒。
+     ●   TO BEFORE DROP
+         检索回收站中已删除的表及其子对象。
+     ●   RENAME TO
+         为从回收站中检索的表指定一个新名称。
+     ●   TO BEFORE TRUNCATE
+         闪回到TRUNCATE之前。
+
+示例
+     ●   闪回到某个时间点
+               说明
+
+             需要设置undo_retention_time参数，用于设置旧版本undo的保留时间，参数使用请联系
+             管理员处理。
+         -- 建表并插入数据。
+         m_db=# CREATE TABLE tbl_test(c1 int, c2 int);
+         m_db=# INSERT INTO tbl_test VALUES (1,1),(2,2),(3,3);
+
+         -- 查询当前时间和全局所有节点上的next_csn。
+         m_db=# SELECT now();
+                now
+         ---------------------
+          2024-09-11 15:45:35
+         (1 row)
+
+         m_db=# SELECT int8in(xidout(next_csn)) FROM gs_get_next_xid_csn();
+          int8in
+         --------
+           25391
+         (6 row)
+
+         -- 修改数据。
+         m_db=# UPDATE tbl_test SET c1=111, c2=222 WHERE c1=1;
+
+         -- 查询数据。
+         m_db=# SELECT * FROM tbl_test;
+          c1 | c2
+         -----+-----
+          111 | 222
+           2| 2
+           3| 3
+         (3 rows)
+         -- 将数据闪回至修改之前，需要按照实际情况替换时间
+         m_db=# TIMECAPSULE table tbl_test TO TIMESTAMP pg_catalog.timestamptz('2024-09-11 15:45:35');
+
+         -- 也可以使用如下SQL。
+         m_db=# TIMECAPSULE table tbl_test TO CSN 25391;
+         m_db=# SELECT * FROM tbl_test;
+          c1 | c2
+         ----+----
+           2| 2
+           3| 3
+           1| 1
+         (3 rows)
+[[PDF_PAGE physical=2297 printed=2248]]
+    -- 删除。
+    m_db=# DROP TABLE tbl_test;
+
+●   从回收站中闪回数据
+
+          说明
+
+        ● 开启enable_recyclebin参数，启用回收站，参数使用请联系管理员处理。
+        ● recyclebin_retention_time参数用于设置回收站对象保留时间，超过该时间的回收站对
+          象将被自动清理，参数使用请联系管理员处理。
+    -- 建表并插入数据。
+    m_db=# CREATE TABLE tbl_test1(c1 int, c2 varchar(10));
+    m_db=# INSERT INTO tbl_test1 VALUES (1,'AAA'),(2,'BBB');
+
+    -- 删除表。
+    m_db=# DROP TABLE tbl_test1;
+
+    -- 闪回至表删除之前。
+    m_db=# TIMECAPSULE TABLE tbl_test1 TO BEFORE DROP;
+
+    -- 查询数据。
+    m_db=# SELECT * FROM tbl_test1;
+     c1 | c2
+    ----+-----
+      1 | AAA
+      2 | BBB
+    (2 rows)
+
+    -- 删除表（添加PURGE参数,级联删除回收站该表数据）。
+    m_db=# DROP TABLE tbl_test1 PURGE;

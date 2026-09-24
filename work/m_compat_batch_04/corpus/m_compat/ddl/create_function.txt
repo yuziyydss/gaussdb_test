@@ -1,0 +1,290 @@
+[[PDF_PAGE physical=2094 printed=2045]]
+2.4.2.8.9 CREATE FUNCTION
+
+功能描述
+             创建一个函数。
+
+                 说明
+
+                 内部使用功能，不支持用户使用。
+
+
+注意事项
+             ●   如果创建函数时参数或返回值带有精度，不进行精度检测。
+             ●   创建函数时，函数定义中对表对象的操作建议都显式指定模式，否则可能会导致
+                 函数执行异常。
+             ●   如果函数参数中带有出参，想要出参生效，必须打开guc参数 set
+                 behavior_compat_options = 'proc_outparam_override'； SELECT、CALL调用函
+                 数时，必须要在出参位置提供实参进行调用，否则函数调用失败。
+             ●   兼容PostgreSQL风格的函数支持重载。
+             ●   不能创建仅形参名字不同（函数名和参数列表类型都一样）的重载函数。
+             ●   不支持形参仅在自定义ref cursor类型和sys_refcursor类型不同的重载。
+             ●   不支持仅返回的数据类型不同的函数重载。
+             ●   不支持仅默认值不同的函数重载。
+             ●   重载的函数在调用时变量需要明确具体的类型。
+             ●   在函数内部使用未声明的变量，函数被调用时会报错。
+[[PDF_PAGE physical=2095 printed=2046]]
+●   SELECT调用可以指定不同参数来进行同名函数调用。
+●   在创建function时，不能在avg函数外面嵌套其他agg函数，或者其他系统函数。
+●   新创建的函数默认会给PUBLIC授予执行权限。用户默认继承PUBLIC角色权限，因
+    此其他用户也会有函数的执行权限并可以查看函数的定义，另外执行函数时还需
+    要具备函数所在schema的USAGE权限。用户在创建函数时可以选择收回PUBLIC
+    默认执行权限，然后根据需要将执行权限授予其他用户，为了避免出现新函数能
+    被所有人访问的时间窗口，应在一个事务中创建函数并且设置函数执行权限。开
+    启数据库对象隔离属性后，普通用户只能查看有权限执行的函数定义。
+●   在函数内部调用其它无参数的函数时，可以省略括号，直接使用函数名进行调
+    用。
+●   在函数内部调用其他有出参的函数，如果在赋值表达式中调用时，需要打开guc参
+    数 set behavior_compat_options = 'proc_outparam_override' ，并提前定义与出
+    参类型相同的变量，然后将变量作为出参调用带有出参的其他函数，出参才能生
+    效。否则，被调函数的出参会被忽略。
+●   被授予CREATE ANY FUNCTION权限的用户，可以在用户模式下创建/替换函数。
+●   函数默认为AUTHID CURRENT_USER权限，如果想将默认行为改为AUTHID
+    DEFINER权限，需要设置guc参数
+    behavior_compat_options='plsql_security_definer'。
+●   对于PL/SQL函数，打开参数
+    behavior_compat_options='proc_outparam_override'后，out/inout的行为会改
+    变，函数中同时返回return和out/inout，而参数打开前仅返回return。
+●   对于PL/SQL函数，打开参数
+    behavior_compat_options='proc_outparam_override'后，有以下限制：
+    –     如果同一Schema和package中已存在带有out/inout参数函数，不能再次创建
+          带有out/inout参数的同名函数。
+    –     部分场景不支持函数参与表达式（与参数打开前相比），如CALL function
+          等。
+    –     不支持调用无RETURN的函数、PERFORM function调用。
+    –     打开GUC参数proc_outparam_override后，函数返回值为SETOF类型时，out
+          出参不会生效。
+
+●   创建函数时，不支持使用函数自身作为入参默认值。
+●   带OUT模式参数的函数不能在SQL语句中被调用。
+●   带OUT模式参数的函数不能被SELECT INTO语法调用。
+●   带OUT模式参数的函数不支持嵌套调用。
+    比如：
+    b := func(a,func(c,1));
+
+    建议改为：
+    tmp := func(c,1); b := func(a,tmp);
+
+●   在创建函数时，不会检查函数内返回值的类型。
+●   如果将定义者权限的函数创建到其他用户Schema下，则会以其他用户的权限执行
+    该函数，有越权风险，请谨慎使用。
+●   在运维管理员的Schema下，只允许初始用户，系统管理员和Schema的属主自己
+    创建对象，不允许其他用户在运维管理员的Schema下创建对象或修改对象的
+    Schema为运维管理员的Schema。
+[[PDF_PAGE physical=2096 printed=2047]]
+       ●     在表达式中使用out参数作为出参时，如下情况不会生效，例如：使用execute
+             immediate sqlv using func语法执行函数、使用select func into语法执行函数、
+             使用insert、update等DML语句执行、使用select where a=func()；带out出参的
+             函数，作为入参时，fun（func（out b），a），out出参b未生效等。
+       ●     在FUNCTION的RETURN语句中，返回复合类型的构造器的调用时，实际返回类
+             型与定义返回类型不一致时，可以隐式转换为定义返回类型时则对结果进行类型
+             转换，支持跨schema调用，如：RETURN schema.record；不支持跨database调
+             用，如：RETURN package.schema.record；在FUNCTION的RETURN语句中，返
+             回FUNCTION的调用时，不支持在运算操作的表达式中带OUT参数的
+             FUNCTION，如RETURN func(c out) + 1。
+       ●     函数复杂调用，如：func(x).a，函数调用返回复合类型，支持跨schema调用，不
+             支持通过database.schema.package.func(x).b的方式调用。
+       ●     函数中存在通过GUC参数控制特性的语法、函数等，如果在会话内更改相关guc参
+             数，可能存在与预期结果不符，修改参数后，调用函数可能会维持修改前的行
+             为，请谨慎变更GUC参数。
+
+语法格式
+       CREATE OR REPLACE FUNCTION function_name
+         ( [ { argname [ argmode ] argtype [ { DEFAULT | := | = } expression ]} [, ...] ] )
+         [ RETURNS rettype | RETURNS TABLE ( { column_name column_type } [, ...] ) ]
+         LANGUAGE lang_name
+         [
+            {IMMUTABLE | STABLE | VOLATILE}
+             | {SHIPPABLE | NOT SHIPPABLE}
+             | [ NOT ] LEAKPROOF
+             | STRICT
+             | {AUTHID DEFINER | AUTHID CURRENT_USER}
+             | not fenced
+             | COST execution_cost
+             | ROWS result_rows
+          ][...]
+         {
+             AS 'definition'
+         };
+
+
+参数说明
+       ●     function_name
+             要创建的函数名称（可以用模式修饰）。
+             取值范围：字符串，要符合标识符说明且最多为63个字符。
+                   说明
+
+                  ● 建议不要创建和系统函数重名的函数，否则调用时需要指定函数的Schema。
+                  ● 若函数名称超过63个字符，数据库会截断并保留前63个字符当作函数名称。
+       ●     argname
+             函数参数的名称。
+             取值范围：字符串，要符合标识符说明且最多为63个字符。
+                   说明
+
+                  若函数参数的名称超过63个字符，数据库会截断并保留前63个字符当做函数参数名称。
+       ●     argmode
+             函数参数的模式。
+[[PDF_PAGE physical=2097 printed=2048]]
+    取值范围：IN，OUT，INOUT或VARIADIC。缺省值是IN。只有OUT模式的参数
+    后面能跟VARIADIC。并且OUT和INOUT模式的参数不能用在RETURNS TABLE的
+    函数定义中。
+
+        说明
+
+       VARIADIC用于声明数组类型的参数。
+●   argtype
+    函数参数的类型。可以使用%TYPE或%ROWTYPE间接引用变量或表的类型。
+●   expression
+    参数的默认表达式。
+
+        说明
+
+       ● 在参数a_format_version值为10c和a_format_dev_version值为s2的情况下，函数参数
+         为INOUT模式时不支持默认表达式。
+       ● 推荐使用方式：将所有默认值参数定义在所有非默认值参数后。
+       ● 调用带有默认参数的函数时，入参从左往右排入函数，如果有非默认参数的入参缺失则
+         报错。
+       ● 打开 proc_uncheck_default_param 参数，调用带有默认参数的函数时，入参从左往右
+         排入函数，允许缺省默认参数个入参，如果有非默认参数的入参缺失，则会用错位的默
+         认值填充该参数。
+       ● 在参数a_format_version值为10c、a_format_dev_version值为s1和关闭
+         proc_outparam_override，函数参数同时包括out出参和default时，默认值不可缺省。
+●   rettype
+    函数返回值的数据类型。与argtype相同，同样可以使用%TYPE或%ROWTYPE间
+    接引用类型。
+    如果存在OUT或INOUT参数，可以省略RETURNS子句。如果没有省略，则该子句
+    必须和输出参数所表示的结果类型一致，如果有多个输出参数，则为RECORD，
+    否则与单个输出参数的类型相同。
+    SETOF修饰词表示该函数将返回一个集合，而不是单独一项。
+
+        说明
+
+       PACKAGE外FUNCTION argtype和rettype中%TYPE不支持引用PACKAGE变量的类型。
+●   column_name
+    字段名称。
+●   column_type
+    字段类型。
+●   definition
+    一个定义函数的字符串常量，含义取决于语言。它可以是一个内部函数名称、一
+    个指向某个目标文件的路径、一个SQL查询、一个过程语言文本。
+●   LANGUAGE lang_name
+    用以实现函数的语言的名称。可以是SQL，internal，或者是用户定义的过程语言
+    名称。为了保证向下兼容，该名称可以用单引号（包围）。若采用单引号，则引
+    号内必须为大写。
+[[PDF_PAGE physical=2098 printed=2049]]
+                说明
+
+              ● internal函数在定义时，如果AS指定为内部系统函数，则新创建函数的参数类型，参数
+                个数，与返回值类型需要与内部系统函数保持一致，且需要有执行此内部系统函数的权
+                限。
+              ● internal函数只支持拥有sysadmin权限的用户创建。
+     ●    IMMUTABLE
+          表示该函数在给出同样的参数值时总是返回同样的结果。
+     ●    STABLE
+          表示该函数不能修改数据库，对相同参数值，在同一次表扫描里，该函数的返回
+          值不变，但是返回值可能在不同SQL语句之间变化。
+     ●    VOLATILE
+          表示该函数值可以在一次表扫描内改变，因此不会做任何优化。
+     ●    SHIPPABLE|NOT SHIPPABLE
+          表示该函数是否可以下推执行。预留接口，不推荐使用。
+     ●    NOT FENCED
+          声明用户定义的C函数是否在非保护模式下执行。预留接口，不推荐使用。
+     ●    LEAKPROOF
+          指出该函数的参数只包括返回值。LEAKPROOF只能由系统管理员设置。
+     ●    STRICT
+          STRICT用于指定如果函数的某个参数是NULL，此函数总是返回NULL。如果声明
+          了这个参数，当有NULL值参数时该函数不会被执行；而只是自动返回一个NULL
+          结果。
+     ●    AUTHID CURRENT_USER
+          表明该函数将带着调用它的用户的权限执行。该参数可以省略。
+     ●    AUTHID DEFINER
+          声明该函数将以创建它的用户的权限执行。
+     ●    COST execution_cost
+          用来估计函数的执行成本。
+          execution_cost以cpu_operator_cost为单位。
+          取值范围：>=0的数值
+     ●    ROWS result_rows
+          估计函数返回的行数。用于函数返回的是一个集合。
+          取值范围：>=0的数值，默认值是1000行。
+
+
+             须知
+
+          当在函数体中进行创建用户、修改密码或加解密等涉及密码或密钥相关操作时，
+          系统表及日志中会记录密码或密钥的明文信息。为防止敏感信息泄露，不建议用
+          户在函数体中进行涉及密码或密钥等敏感信息的相关操作。
+
+
+示例
+     --定义函数为SQL查询。
+     m_db=# CREATE OR REPLACE FUNCTION func_add_sql(integer, integer) RETURNS bigint
+[[PDF_PAGE physical=2099 printed=2050]]
+         AS 'select $1 + $2;'
+         LANGUAGE SQL
+         IMMUTABLE
+         SHIPPABLE
+         STRICT
+         AUTHID DEFINER
+         not fenced
+         COST 10000;
+
+       --利用参数名用plpgsql自增一个整数。
+       m_db=# CREATE OR REPLACE FUNCTION func_increment_plsql(i integer) RETURNS integer AS $$
+         BEGIN
+            RETURN i + 1;
+         END;
+         $$ LANGUAGE plpgsql;
+
+       --创建internal函数。
+       m_db=# CREATE OR REPLACE FUNCTION func_test(name) RETURNS text LANGUAGE INTERNAL AS
+       'series_internal';
+
+       --创建同名函数。
+       m_db=# CREATE OR REPLACE FUNCTION func_add(int) RETURNS int AS $$
+         BEGIN
+            RETURN $1+10;
+         END;
+         $$ LANGUAGE PLPGSQL;
+
+       m_db=# CREATE OR REPLACE FUNCTION func_add(int,int) RETURNS int AS $$
+         BEGIN
+            RETURN $1+$2;
+         END;
+         $$ LANGUAGE PLPGSQL;
+
+       --调用函数。
+       m_db=# SELECT func_add_sql(3, 7);
+        func_add_sql
+       --------------
+                10
+       (1 row)
+
+       m_db=# SELECT func_increment_plsql(5);
+        func_increment_plsql
+       ----------------------
+                       6
+       (1 row)
+
+       m_db=# SELECT func_add(4);
+        func_add
+       ----------
+             14
+       (1 row)
+
+       m_db=# SELECT func_add(2,7);
+        func_add
+       ----------
+             9
+       (1 row)
+
+       --删除函数。
+       m_db=# DROP FUNCTION func_add_sql;
+       m_db=# DROP FUNCTION IF EXISTS func_increment_plsql;
+       m_db=# DROP FUNCTION func_test() CASCADE;
+       m_db=# DROP FUNCTION func_add(int);
+       m_db=# DROP FUNCTION IF EXISTS func_add(int,int) RESTRICT;
+
+
+
+相关链接
+       DROP FUNCTION

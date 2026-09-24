@@ -1,0 +1,137 @@
+[[PDF_PAGE physical=1266 printed=1217]]
+1.13.7.32 ALTER SESSION
+
+功能描述
+            定义或修改对当前会话有影响的条件或参数。修改后的会话参数会一直保持，直到断
+            开当前会话。
+
+
+注意事项
+            ●   如果执行SET TRANSACTION之前没有执行START TRANSACTION，则事务立即结
+                束，命令无法显示效果。
+            ●   可以用START TRANSACTION里面声明所需要的transaction_mode(s)的方法进行
+                避免使用SET TRANSACTION。具体请参见START TRANSACTION。
+[[PDF_PAGE physical=1267 printed=1218]]
+语法格式
+       ●   设置会话的事务参数
+           ALTER SESSION SET [ SESSION CHARACTERISTICS AS ] TRANSACTION
+             { ISOLATION LEVEL { READ COMMITTED | READ UNCOMMITTED } | { READ ONLY | READ
+           WRITE } } [, ...] ;
+
+
+
+
+       ●   设置会话的其他运行时参数
+           ALTER SESSION SET
+              {{config_parameter { { TO | = } { value | DEFAULT } | FROM CURRENT }}
+                | CURRENT_SCHEMA { TO | = } { schema | DEFAULT }
+                | TIME ZONE time_zone
+                | SCHEMA 'schema'
+           | NAMES encoding_name
+                | ROLE role_name PASSWORD 'password'
+                | SESSION AUTHORIZATION { role_name PASSWORD 'password' | DEFAULT }
+                | XML OPTION { DOCUMENT | CONTENT }
+              };
+
+
+
+
+参数说明
+       ●   config_parameter
+           可设置的运行时参数的名称。可用的运行时参数可以使用SHOW ALL命令查看。
+           –    value
+                config_parameter的新值。可以声明为字符串常量、标识符、数字或者逗号
+                分隔的列表。DEFAULT用于将这些参数设置为其对应的默认值。
+
+                ▪    DEFAULT
+
+                ▪    OFF
+
+                ▪    RESET
+[[PDF_PAGE physical=1268 printed=1219]]
+             ▪    用户指定的值：需要满足修改参数的取值限制
+         –   FROM CURRENT
+             取当前会话中的值设置为configuration_parameter的值。
+     ●   TIME ZONE timezone
+         用于指定当前会话的本地时区。
+         取值范围：有效的本地时区。该选项对应的运行时参数名称为TimeZone，
+         DEFAULT缺省值为PRC。
+     ●   CURRENT_SCHEMA { TO | = } { schema | DEFAULT }
+         用于指定当前的模式。
+         取值范围：已存在模式名称。如果模式名不存在，会导致CURRENT_SCHEMA值
+         为空。
+     ●   SCHEMA schema
+         同CURRENT_SCHEMA。此处的schema为字符串。
+     ●   NAMES encoding_name
+         用于设置客户端的字符编码。等价于set client_encoding to encoding_name。
+         取值范围：有效的字符编码。该选项对应的运行时参数名称为client_encoding，
+         默认编码为UTF8。
+     ●   role_name
+         角色的名称。
+         取值范围：字符串，要符合标识符命名规范。
+     ●   password
+         角色的密码。
+     ●   SESSION AUTHORIZATION
+         当前会话的用户表示符。
+     ●   XML OPTION { DOCUMENT | CONTENT }
+         用于设置XML的解析方式。
+         取值范围：CONTENT（默认值）、DOCUMENT
+     ●   ISOLATION LEVEL
+         指定事务隔离级别，事务的隔离级别决定了该事务在存在并发事务时，可以读取
+         到哪些数据（即数据的可见性）
+         取值范围：
+         –   READ COMMITTED（默认值）：读已提交隔离级别，只能读到已经提交的
+             数据，而不会读到未提交的数据。
+         –   READ UNCOMMITTED：读未提交隔离级别，指定后的行为和READ
+             COMMITTED行为一致。
+
+示例
+     ●   设置会话的事务参数。
+         示例中关键字ALTER SESSION可以省略。
+         --开启事务，设置事务级别。
+         gaussdb=# START TRANSACTION;
+         gaussdb=# ALTER SESSION SET TRANSACTION READ ONLY;
+         gaussdb=# END;
+[[PDF_PAGE physical=1269 printed=1220]]
+       ●     设置会话的其他运行时参数。
+             示例中关键字ALTER SESSION可以省略。
+             --创建模式ds。
+             gaussdb=# CREATE SCHEMA ds;
+
+             --设置模式搜索路径。
+             gaussdb=# SET SEARCH_PATH TO ds, public;
+
+             --设置日期时间风格为传统的POSTGRES风格（日在月前）。
+             gaussdb=# SET DATESTYLE TO postgres, dmy;
+
+             --设置当前会话的字符编码为UTF8。
+             gaussdb=# ALTER SESSION SET NAMES 'UTF8';
+
+             --设置时区为加州伯克利。
+             gaussdb=# SET TIME ZONE 'PST8PDT';
+
+             --设置时区为意大利。
+             gaussdb=# SET TIME ZONE 'Europe/Rome';
+
+             --设置当前模式。
+             gaussdb=# ALTER SESSION SET CURRENT_SCHEMA TO tpcds;
+
+             --设置XML OPTION为DOCUMENT。
+             gaussdb=# ALTER SESSION SET XML OPTION DOCUMENT;
+
+             --创建角色joe，并设置会话的角色为joe。
+             gaussdb=# CREATE ROLE joe WITH PASSWORD '********';
+             gaussdb=# ALTER SESSION SET SESSION AUTHORIZATION joe PASSWORD '********';
+
+             --切换到默认用户。
+             gaussdb=> ALTER SESSION SET SESSION AUTHORIZATION default;
+
+             --删除ds模式。
+             gaussdb=# DROP SCHEMA ds;
+
+             --删除joe。
+             gaussdb=# DROP ROLE joe;
+
+
+相关链接
+       SET

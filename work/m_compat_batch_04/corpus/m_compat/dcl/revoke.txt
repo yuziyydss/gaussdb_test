@@ -1,0 +1,112 @@
+[[PDF_PAGE physical=2244 printed=2195]]
+2.4.2.15.6 REVOKE
+
+功能描述
+             REVOKE用于撤销一个或多个角色的权限。
+
+注意事项
+             非对象所有者试图在对象上REVOKE权限，命令按照以下规则执行：
+             ●      如果授权用户没有该对象上的权限，则命令立即失败。
+             ●      如果授权用户有部分权限，则只撤销那些有授权选项的权限。
+             ●      如果授权用户没有授权选项，REVOKE ALL PRIVILEGES形式将发出一个错误信
+                    息，而对于其他形式的命令而言，如果是命令中指定名称的权限没有相应的授权
+                    选项，该命令将发出一个警告。
+
+语法格式
+             ●      回收指定表或视图上权限。
+                    REVOKE [ GRANT OPTION FOR ]
+                      { { SELECT | INSERT | UPDATE | DELETE | TRUNCATE | REFERENCES | ALTER | DROP | COMMENT |
+                    INDEX | VACUUM }[, ...]
+                      | ALL [ PRIVILEGES ] }
+                      ON { [ TABLE ] table_name [, ...]
+                         | ALL TABLES IN SCHEMA schema_name [, ...] }
+                      FROM { [ GROUP ] role_name | PUBLIC } [, ...]
+                      [ CASCADE | RESTRICT ];
+
+             ●      回收表上指定字段权限。
+                    REVOKE [ GRANT OPTION FOR ]
+                      { {{ SELECT | INSERT | UPDATE | REFERENCES | COMMENT } ( column_name [, ...] )}[, ...]
+                      | ALL [ PRIVILEGES ] ( column_name [, ...] ) }
+                      ON [ TABLE ] table_name [, ...]
+                      FROM { [ GROUP ] role_name | PUBLIC } [, ...]
+                      [ CASCADE | RESTRICT ];
+[[PDF_PAGE physical=2245 printed=2196]]
+       ●   回收指定序列上权限。
+           REVOKE [ GRANT OPTION FOR ]
+             { { SELECT | UPDATE | ALTER | DROP | COMMENT }[, ...]
+             | ALL [ PRIVILEGES ] }
+             ON { [ SEQUENCE ] sequence_name [, ...] }
+             FROM { [ GROUP ] role_name | PUBLIC } [, ...]
+             [ CASCADE | RESTRICT ];
+
+       ●   回收指定数据库上权限。
+           REVOKE [ GRANT OPTION FOR ]
+             { { CREATE | CONNECT | TEMPORARY | TEMP | ALTER | DROP | COMMENT } [, ...]
+             | ALL [ PRIVILEGES ] }
+             ON DATABASE database_name [, ...]
+             FROM { [ GROUP ] role_name | PUBLIC } [, ...]
+             [ CASCADE | RESTRICT ];
+
+                 说明
+
+                GUC参数m_format_behavior_compat_options开启grant_database_nomapping选项时该
+                语法生效，回收指定的用户或角色对数据库层级对象的访问权限；未开启
+                grant_database_nomapping选项时，REVOKE ON DATABASE映射为REVOKE ON
+                SCHEMA，回收指定的用户或角色对模式层级对象的访问权限，REVOKE ON DATABASE
+                也仅支持REVOKE ON SCHEMA支持的语法选项。
+       ●   回收指定模式上权限。
+           REVOKE [ GRANT OPTION FOR ]
+             { { CREATE | USAGE | ALTER | DROP | COMMENT } [, ...] | ALL [ PRIVILEGES ] }
+             ON SCHEMA schema_name [, ...]
+             FROM { [ GROUP ] role_name | PUBLIC } [, ...]
+             [ CASCADE | RESTRICT ];
+
+       ●   按角色回收角色上的权限。
+           REVOKE [ ADMIN OPTION FOR ]
+             role_name [, ...] FROM role_name [, ...]
+             [ CASCADE | RESTRICT ];
+
+       ●   回收角色上的sysadmin权限。
+           REVOKE ALL PRIVILEGES FROM role_name;
+
+       ●   回收ANY权限。
+           REVOKE [ ADMIN OPTION FOR ]
+             { CREATE ANY TABLE | ALTER ANY TABLE | DROP ANY TABLE | SELECT ANY TABLE | INSERT ANY
+           TABLE | UPDATE ANY TABLE |
+             DELETE ANY TABLE | TRUNCATE ANY TABLE | CREATE ANY SEQUENCE | CREATE ANY INDEX |
+           ALTER ANY SEQUENCE | DROP ANY SEQUENCE |
+             SELECT ANY SEQUENCE | ALTER ANY INDEX | DROP ANY INDEX
+           } [, ...]
+             FROM [ GROUP ] role_name [, ...];
+
+
+参数说明
+       关键字PUBLIC表示一个隐式定义的拥有所有角色的组。
+       权限类别和参数说明，请参见GRANT章节中的参数说明。
+       任何特定角色拥有的特权包括直接授予该角色的特权、从该角色作为其成员的角色中
+       得到的权限以及授予给PUBLIC的权限。因此，从PUBLIC收回SELECT特权并不一定会
+       意味着所有角色都会失去在该对象上的SELECT特权，那些直接被授予的或者通过另一
+       个角色被授予的角色仍然会拥有它。类似地，从一个用户收回SELECT后，如果PUBLIC
+       仍有SELECT权限，该用户还是可以使用SELECT。
+       指定GRANT OPTION FOR时，只撤销对该权限授权的权力，而不撤销该权限本身。
+       如用户A拥有某个表的UPDATE权限，及WITH GRANT OPTION选项，同时A把这个权
+       限赋予了用户B，则用户B持有的权限称为依赖性权限。当用户A持有的权限或者授权
+       选项被撤销时，必须声明CASCADE，将所有依赖性权限都撤销。
+[[PDF_PAGE physical=2246 printed=2197]]
+       一个用户只能撤销由它自己直接赋予的权限。例如，如果用户A被指定授权（WITH
+       ADMIN OPTION）选项，且把一个权限赋予了用户B，然后用户B又赋予了用户C，则
+       用户A不能直接将C的权限撤销。但是，用户A可以撤销用户B的授权选项，并且使用
+       CASCADE。这样，用户C的权限就会自动被撤销。另外一个例子：如果A和B都赋予了
+       C同样的权限，则A可以撤销他自己的授权选项，但是不能撤销B的，因此C仍然拥有该
+       权限。
+
+       如果执行REVOKE的角色持有的权限是通过多层成员关系获得的，则具体是哪一个包含
+       的角色执行的该命令是不确定的。在这种场合下，建议使用SET ROLE成为特定角色，
+       然后执行REVOKE，否则可能导致删除了不想删除的权限，或者是任何权限都没有删
+       除。
+
+示例
+       请参见示例。
+
+相关链接
+       GRANT

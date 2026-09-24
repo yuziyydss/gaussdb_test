@@ -1,0 +1,64 @@
+[[PDF_PAGE physical=1692 printed=1643]]
+1.13.10.41 DROP TABLE
+
+功能描述
+            删除指定的表。
+
+注意事项
+            ●    对表进行删除后，依赖该表的索引会被删除，而使用到该表的函数和存储过程将
+                 无法执行。删除分区表，会同时删除分区表中的所有分区。
+            ●    仅表的所有者、表所在模式的所有者、被授予了表的DROP权限的用户或被授予
+                 DROP ANY TABLE权限的用户可以执行该操作，三权分立关闭时，系统管理员默
+                 认拥有该权限。
+            ●    对表进行删除时，如果被指删除的表作为外键表引用了另一张表，会级联删除被
+                 引用表上的触发器，此时需要对被引用表加八级锁，可能造成业务的阻塞。
+
+语法格式
+            DROP TABLE [ IF EXISTS ]
+              { [schema.]table_name } [, ...] [ CASCADE | RESTRICT ] [ PURGE ];
+[[PDF_PAGE physical=1693 printed=1644]]
+参数说明
+       ●    IF EXISTS
+            判断指定的表是否存在。
+            –     如果指定的表存在，则删除成功。
+            –     如果指定的表不存在，不会进行删除操作，仅产生一个NOTICE提示，用于告
+                  知指定的表不存在。
+       ●    schema
+            模式名称。可选，用于对表进行指定限制。
+       ●    table_name
+            表名称。
+       ●    CASCADE | RESTRICT
+            可选，是否级联删除依赖于该表的对象。未指定时，默认为RESTRICT。
+            –     CASCADE：表示允许级联删除依赖于该表的对象（如视图、触发器、索引；
+                  注：关联的表对象无法被级联删除）。
+            –     RESTRICT：表示有依赖于该表的对象存在时，该表无法被删除。
+       ●    PURGE
+            该参数表示即使开启回收站功能，使用DROP TABLE删除表时，也会直接物理删
+            除表，而不是将其放入回收站中。
+
+
+示例
+       --创建test表。
+       gaussdb=# CREATE TABLE test(c1 int, c2 int);
+       --删除test表。
+       gaussdb=# DROP TABLE IF EXISTS test;
+
+       --创建test1表。
+       gaussdb=# CREATE TABLE test1(c1 int, c2 int);
+       --创建v_test1视图。
+       gaussdb=# CREATE VIEW v_test1 AS SELECT * FROM test1 WHERE c1 < 20;
+       --删除表报错。
+       gaussdb=# DROP TABLE test1;
+       ERROR: table test1 cannot be dropped because other objects depend on it.
+       DETAIL: view v_test1 depends on table test1
+       HINT: Use DROP ... CASCADE to drop the dependent objects.
+
+       --使用CASCADE参数删除test1表，会级联删除掉视图。
+       gaussdb=# DROP TABLE test1 CASCADE;
+       NOTICE: drop cascades to view v_test1
+       DROP TABLE
+
+
+
+相关链接
+       ALTER TABLE，CREATE TABLE

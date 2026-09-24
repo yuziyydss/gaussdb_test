@@ -1,0 +1,176 @@
+[[PDF_PAGE physical=1489 printed=1440]]
+1.13.9.35 CREATE PACKAGE
+
+功能描述
+            创建一个新的PACKAGE。
+
+注意事项
+            ●   在包头（PACKAGE SPECIFICATION）中声明过的函数或者存储过程，必须在包体
+                （PACKAGE BODY）明确定义。
+            ●   创建存储过程时，仅对CREATE的存储过程或PACKAGE本身加写锁，对于执行过
+                程中的编译以及执行会对函数和函数依赖的PACKAGE加读锁。
+            ●   在实例化中，无法调用含有COMMIT或ROLLBACK的存储过程。
+[[PDF_PAGE physical=1490 printed=1441]]
+●   不能在触发器中调用PACKAGE函数。
+●   不能在外部SQL中直接使用PACKAGE中的变量。
+●   不允许在PACKAGE外部调用PACKAGE的私有变量和存储过程。
+●   不支持Schema与PACKAGE同名。
+●   只支持兼容Oracle数据库的存储过程和函数定义。
+●   不支持PACKAGE内有同名变量，包括包内同名参数。
+●   PACKAGE的全局变量为session级，不同session之间PACKAGE的变量不共享。
+●   PACKAGE中调用自治事务的函数，不允许使用PACKAGE中的游标变量，以及不允
+    许递归的使用PACKAGE中游标变量的函数。
+●   PACKAGE中不支持声明REF CURSOR变量。
+●   PACKAGE默认为SECURITY INVOKER权限，如果想将默认行为改为SECURITY
+    DEFINER权限，需要设置GUC参数
+    behavior_compat_options='plsql_security_definer'。
+●   被授予CREATE ANY PACKAGE权限的用户，可以在PUBLIC模式和用户模式下创建
+    PACKAGE。
+●   如果需要创建带有特殊字符的PACKAGE名，特殊字符中不能含有空格，且需设置
+    GUC参数behavior_compat_options='skip_insert_gs_source'，否则可能引起报
+    错。
+●   PACKAGE创建时依赖未定义对象，如参数enable_force_create_obj打开，创建可
+    执行，通过WARNING提示；如参数未打开，PACKAGE创建不可执行。
+●   创建PACKAGE函数时，其参数默认值支持含有PACKAGE内变量，不支持跨
+    PACKAGE变量。
+●   PACKAGE中函数复杂调用，如：func(x).a，函数调用返回复合类型，支持跨
+    Schema调用，不支持通过database.schema.package.func(x).b的方式调用。
+●   在创建PACKAGE内的存储过程时，如果存储过程名称为schema.func或
+    package.func形式，只会获取func的名称，不会对Schema声明以及PACKAGE声
+    明进行获取，如果需要禁止该行为，可以设置GUC参数
+    behavior_compat_options='forbid_package_function_with_prefix'。
+●   在创建PACKAGE内的存储过程时，如果存储过程的入参包含伪类型（如：
+    anyelement），不支持调用时传入变长类型的参数。
+●   PACKAGE内创建的带参数游标，可以跨PACKAGE进行类型引用（%RowType）和
+    打开使用，存在以下限制：
+    –   暂不支持通过database.schema.package.cursor的方式调用游标。
+    –   当游标定义为函数参数时，需要提前设置参数
+        behavior_compat_options='allow_procedure_compile_check'，以支持解析
+        游标的具体类型。
+    –   当未设置参数behavior_compat_options='allow_procedure_compile_check'
+        时，cursor%RowType处理成复合类型（即record）。设置参数后，支持解析
+        游标的具体类型。
+●   在PACKAGE SPECIFICATION或PACKAGE BODY SPECIFICATION中声明自治事务
+    PRAGMA AUTONOMOUS_TRANSACTION语法，可成功创建PACKAGE，但自治
+    事务不生效。
+●   仅初始用户可以对初始用户的PACKAGE进行REPLACE操作。
+●   创建PACKAGE时，仅对包头（PACKAGE SPECIFICATION）、包体（PACKAGE
+    BODY）内变量默认值进行有效性检查（检查默认值依赖函数是否存在、是否有
+[[PDF_PAGE physical=1491 printed=1442]]
+           效），不执行相关语句，包头、包体变量初始化及包体实例化部分（PACKAGE
+           BODY ANONYMOUS BLOCK）仅在第一次调用时执行一次。
+       ●   在PACKAGE创建、重编译及相关嵌套编译过程中，PACKAGE实例化（包头、包体
+           变量初始化及包体实例化部分）均不会被执行。
+
+语法格式
+       ●   CREATE PACKAGE SPECIFICATION（创建包头）语法格式。
+           CREATE [ OR REPLACE ] PACKAGE [ schema ] package_name
+             [ invoker_rights_clause ] { IS | AS } item_list_1 END [ package_name ];
+
+
+
+
+           –    invoker_rights_clause：可以使用AUTHID DEFINER或AUTHID
+                CURRENT_USER进行声明包头的调用者权限，其中，AUTHID DEFINER表示
+                创建者权限，AUTHID CURRENT_USER表示调用者权限。包头内的变量、函
+                数或存储过程按照声明时指定的权限（AUTHID DEFINER或AUTHID
+                CURRENT_USER）执行，而包头内的游标则以调用者权限（AUTHID
+                CURRENT_USER）执行。
+           –    item_list_1：可以是声明的变量或者存储过程以及函数。
+           –    END后的package_name可省略（gs_dump生成的SQL文件，PACKAGE定义
+                会自动补充END后名称），若未指定该package_name，则CREATE
+                PACKAGE SPECIFICATION（创建包头）语法格式的结尾必须添加结束符
+                （/）。
+                 说明
+
+                PACKAGE SPECIFICATION声明了包内的公有变量、函数以及异常等，可以被外部函数或者
+                存储过程调用。在PACKAGE SPECIFICATION中只能声明存储过程以及函数，不能定义存储
+                过程或者函数。
+       ●   CREATE PACKAGE BODY（创建包体）语法格式。
+           CREATE [ OR REPLACE ] PACKAGE BODY [ schema ] package_name
+             { IS | AS } declare_section [ initialize_section ] END [ package_name ];
+
+
+
+
+           END后的package_name可省略（gs_dump生成的SQL文件，PACKAGE定义会自
+           动补充END后名称），若未指定该package_name，则CREATE PACKAGE BODY
+           （创建包体）语法格式的结尾必须添加结束符（/）。
+                 说明
+
+                ● PACKAGE BODY定义了包的私有变量以及函数等。如果变量或者函数没有在PACKAGE
+                  SPECIFICATION中声明过，那么这个变量或者函数则为私有变量或者私有函数。
+                ● PACKAGE BODY也可以声明实例化部分，用于初始化PACKAGE。
+
+
+示例
+       ●   CREATE PACKAGE示例
+           --创建测试表tbl_test。
+           gaussdb=# CREATE TABLE tbl_test(uid varchar(6) PRIMARY KEY, area_id varchar(5), level int);
+
+           --创建包头。
+[[PDF_PAGE physical=1492 printed=1443]]
+           gaussdb=# CREATE OR REPLACE PACKAGE pkg_test AS
+             --公有存储过程可以被外部调用。
+             PROCEDURE proc_ist_tbl_test(v_uid in varchar, v_area_id varchar, v_level int);
+             PROCEDURE proc_del_tbl_test(v_uid in varchar);
+             PROCEDURE proc_upd_tbl_test(v_uid in varchar, v_area_id varchar, v_level int);
+           END pkg_test;
+           /
+
+           --创建包体。
+           gaussdb=# CREATE OR REPLACE PACKAGE BODY pkg_test AS
+             PROCEDURE proc_ist_tbl_test(v_uid in varchar, v_area_id varchar, v_level int) AS
+             BEGIN
+                INSERT INTO tbl_test VALUES (v_uid, v_area_id, v_level);
+             END;
+             PROCEDURE proc_del_tbl_test(v_uid in varchar) AS
+             BEGIN
+                DELETE FROM tbl_test WHERE uid = v_uid;
+             END;
+             PROCEDURE proc_upd_tbl_test(v_uid in varchar, v_area_id varchar, v_level int) AS
+             BEGIN
+                UPDATE tbl_test SET area_id = v_area_id, level = v_level WHERE uid = v_uid;
+             END;
+             var4 int := 10;
+           --实例化开始。
+           BEGIN
+             var4 := 10;
+             dbe_output.print_line(var4);
+           END pkg_test;
+           /
+
+       ●   调用PACKAGE示例
+           --使用CALL调用PACKAGE的存储过程。
+           gaussdb=# CALL pkg_test.proc_ist_tbl_test('0A00B1','01001',24);
+           gaussdb=# SELECT * FROM tbl_test;
+             uid | area_id | level
+           --------+---------+---------
+            0A00B1 | 01001 |         24
+           (1 row)
+
+           --使用SELECT调用PACKAGE的存储过程。
+           gaussdb=# SELECT pkg_test.proc_upd_tbl_test('0A00B1','01001','26');
+           gaussdb=# SELECT * FROM tbl_test;
+             uid | area_id | level
+           --------+---------+-------
+            0A00B1 | 01001 | 26
+           (1 row)
+
+           --使用匿名块调用PACKAGE的存储过程。
+           gaussdb=# BEGIN
+           pkg_test.proc_del_tbl_test('0A00B1');
+           END;
+           /
+           gaussdb=# SELECT * FROM tbl_test;
+            uid | area_id | level
+           -----+---------+-------
+           (0 rows)
+
+           --删除创建的对象。
+           gaussdb=# DROP TABLE tbl_test;
+           gaussdb=# DROP PACKAGE pkg_test;
+
+
+相关链接
+       ALTER PACKAGE，DROP PACKAGE

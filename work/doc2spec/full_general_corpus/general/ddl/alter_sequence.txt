@@ -1,0 +1,105 @@
+[[PDF_PAGE physical=1262 printed=1213]]
+1.13.7.30 ALTER SEQUENCE
+
+功能描述
+            修改指定序列的参数。
+
+
+注意事项
+            ●   序列的所有者、被授予了序列ALTER权限的用户或者被授予了ALTER ANY
+                SEQUENCE权限的用户才能执行ALTER SEQUENCE命令，三权分立开关关闭时，
+                系统管理员默认拥有该权限。但要修改序列的所有者，当前用户必须是该序列的
+                所有者或者系统管理员，且该用户是新所有者角色的成员。
+            ●   当前版本仅支持修改拥有者、归属列、最大值和cache缓存值。若要修改其他参
+                数，可以删除重建，并用setval函数恢复当前值。
+            ●   ALTER SEQUENCE MAXVALUE不支持在事务、函数和存储过程中使用。
+            ●   修改序列的最大值后，会清空该序列在所有会话的缓存值。
+            ●   如果创建序列时指定了LARGE标识，则在进行ALTER操作时，也需指定LARGE标
+                识。
+            ●   ALTER SEQUENCE会阻塞nextval、setval、currval和lastval的调用。
+
+
+语法格式
+            ●   修改序列最大值、归属列和缓存值
+                ALTER [ LARGE ] SEQUENCE [ IF EXISTS ] name
+                  [MAXVALUE maxvalue | NO MAXVALUE | NOMAXVALUE | CACHE cache]
+                  [ OWNED BY { table_name.column_name | NONE } ] ;
+[[PDF_PAGE physical=1263 printed=1214]]
+       ●   修改序列的拥有者
+           ALTER [ LARGE ] SEQUENCE [ IF EXISTS ] name OWNER TO new_owner;
+
+
+
+
+参数说明
+       ●   LARGE
+           LARGE标识，如果创建序列时指定了LARGE标识，则在进行ALTER操作时，也需
+           指定LARGE标识。
+       ●   name
+           将要修改的序列名称。
+       ●   IF EXISTS
+           当序列不存在时使用该选项，不会显示ERROR，而是返回一个NOTICE信息。
+       ●   MAXVALUE maxvalue | NO MAXVALUE | NOMAXVALUE
+           执行序列的最大值。新修改的最大值必须大于当前的last_value；如果没有指定，
+           将保持旧的最大值。
+           取值范围：(last_value, 263-1]，last_value表示序列中已经被申请的序列最大值，
+           可以使用“\d 序列名”命令进行查询。若创建序列时指定了LARGE标识，取值范
+           围应为(last_value, 2127-1]。
+       ●   CACHE cache
+           为了快速访问，而在内存中预先存储序列号的个数。如果没有指定，将保持旧的
+           缓存值。
+           取值范围：[1, 263-1]，若创建序列时指定了LARGE标识，取值范围应为[1,
+           2127-1]。
+       ●   OWNED BY { table_name.column_name | NONE }
+           将序列和一个表的指定字段进行关联，当进行删除该字段或其所在表的时候，会
+           自动删除已关联的序列。
+           –    如果序列已经和表有关联后，使用这个选项后新的关联关系会覆盖旧的关
+                联。
+           –    关联的表和序列的所有者必须是同一个用户，并且在同一个模式中。
+           –    使用OWNED BY NONE将删除任何已经存在的关联。
+       ●   new_owner
+           序列新所有者的用户名称。修改序列的所有者，执行者必须是新角色的直接或者
+           间接成员，并且该角色必须拥有序列所在模式上的CREATE权限。
+[[PDF_PAGE physical=1264 printed=1215]]
+示例
+       --创建一个名为serial的递增序列，从101开始。
+       gaussdb=# CREATE SEQUENCE serial START 101;
+
+       --创建一个表，定义默认值。
+       gaussdb=# CREATE TABLE t1(c1 bigint default nextval('serial'));
+
+       --将序列serial的归属列变为t1.c1。
+       gaussdb=# ALTER SEQUENCE serial OWNED BY t1.c1;
+
+       --删除序列和表。
+       gaussdb=# DROP SEQUENCE serial CASCADE;
+       gaussdb=# DROP TABLE t1;
+
+       --创建一个序列seq_test。
+       gaussdb=# CREATE SEQUENCE seq_test;
+
+       --查询序列信息。
+       gaussdb=# \ds
+                   List of relations
+        Schema | Name | Type | Owner | Storage
+       --------+----------+----------+-------+---------
+        public | seq_test | sequence | omm |
+       (1 row)
+
+       --创建用户u_test并修改序列所有者。
+       gaussdb=# CREATE USER u_test PASSWORD '********';
+       gaussdb=# ALTER SEQUENCE seq_test OWNER TO u_test;
+       gaussdb=# \ds
+                   List of relations
+        Schema | Name | Type | Owner | Storage
+       --------+----------+----------+--------+---------
+        public | seq_test | sequence | u_test |
+       (1 row)
+
+       --删除用户和序列。
+       gaussdb=# DROP SEQUENCE seq_test;
+       gaussdb=# DROP USER u_test;
+
+
+相关链接
+       CREATE SEQUENCE，DROP SEQUENCE

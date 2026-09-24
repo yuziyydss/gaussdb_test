@@ -1,0 +1,110 @@
+[[PDF_PAGE physical=1850 printed=1801]]
+1.13.19.4 SELECT INTO
+
+功能描述
+            SELECT INTO用于根据查询结果创建一个新表，并且将查询到的数据插入到新表中。
+            和普通的SELECT不同，SELECT INTO数据并不返回给客户端。新表的字段具有和
+            SELECT的输出字段相同的名称和数据类型。
+
+
+注意事项
+            CREATE TABLE AS的作用和SELECT INTO类似，且提供了SELECT INTO所提供功能的
+            超集。建议使用CREATE TABLE AS语法替代SELECT INTO，因为SELECT INTO不能在
+            存储过程中使用。
+
+
+语法格式
+            [ WITH [ RECURSIVE ] with_query [, ...] ]
+            SELECT [ ALL | DISTINCT [ ON ( expression [, ...] ) ] ]
+               { * | {expression [ [ AS ] output_name ]} [, ...] }
+               INTO [ [ GLOBAL | LOCAL ] { TEMPORARY | TEMP } | UNLOGGED ] [ TABLE ] new_table
+               [ FROM from_item [, ...] ]
+               [ WHERE condition ]
+               [ GROUP BY expression [, ...] ]
+               [ HAVING condition [, ...] ]
+               [ WINDOW {window_name AS ( window_definition )} [, ...] ]
+               [ { UNION | INTERSECT | EXCEPT | MINUS } [ ALL | DISTINCT ] select ]
+               [ ORDER BY {expression [ [ ASC | DESC | USING operator ] | nlssort_expression_clause ] [ NULLS { FIRST |
+            LAST } ]} [, ...] ]
+               [ LIMIT { count | ALL } ]
+               [ OFFSET start [ ROW | ROWS ] ]
+               [ FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } ONLY ]
+               [ {FOR { UPDATE | SHARE } [ OF table_name [, ...] ] [ NOWAIT |WAIT N]} [...] ];
+[[PDF_PAGE physical=1851 printed=1802]]
+参数说明
+       ●   new_table
+           new_table指定新建表的名称。
+       ●   UNLOGGED
+           指定表为非日志表。非日志表中写入的数据不会被写入到预写日志中，比普通表
+           快很多。但是，非日志表在冲突、执行操作系统重启、数据库重启、主备切换、
+           切断电源操作或异常关机后会被全部清空，会造成数据丢失的风险，非日志表中
+           的内容也不会被复制到备用服务器中，在该类表中创建的索引也不会被自动记
+           录。
+           –   使用场景：非日志表不能保证数据的安全性，用户应该在确保数据已经做好
+               备份的前提下使用，例如系统升级时进行数据的备份。
+           –   故障处理：当异常关机等操作导致非日志表上的索引发生数据丢失时，用户
+               应该对发生错误的索引进行重建。
+       ●   GLOBAL | LOCAL
+           创建临时表时可以在TEMP或TEMPORARY前指定GLOBAL或LOCAL关键字。如果
+           指定GLOBAL关键字，GaussDB会创建全局临时表，否则GaussDB会创建本地临
+           时表。
+       ●   TEMPORARY | TEMP
+           如果指定TEMP或TEMPORARY关键字，则创建的表为临时表。临时表分为全局临
+           时表和本地临时表两种类型。创建临时表时如果指定GLOBAL关键字则为全局临时
+           表，否则为本地临时表。
+           全局临时表的元数据对所有会话可见，会话结束后元数据继续存在。会话与会话
+           之间的用户数据、索引和统计信息相互隔离，每个会话只能看到和更改自己提交
+           的数据。全局临时表有两种模式：一种是基于会话级别的（ON COMMIT
+           PRESERVE ROWS），当会话结束时自动清空用户数据；一种是基于事务级别的
+           （ON COMMIT DELETE ROWS），当执行commit或rollback时自动清空用户数
+           据。建表时如果没有指定ON COMMIT选项，则缺省为会话级别。与本地临时表
+           不同，全局临时表建表时可以指定非pg_temp_开头的schema。
+           本地临时表只在当前会话可见，本会话结束后会自动删除。由于临时表只在当前
+           会话创建，对于涉及对临时表操作的DDL语句，会产生DDL失败的报错。因此，
+           建议DDL语句中不要对临时表进行操作。TEMP和TEMPORARY等价。
+
+
+               须知
+
+           ● 本地临时表通过每个会话独立的以pg_temp_开头的Schema来保证只对当前会
+             话可见，因此，不建议用户在日常操作中手动删除以pg_temp_、
+             pg_toast_temp_开头的schema。
+           ● 如果建表时不指定TEMPORARY | TEMP关键字，而指定表的Schema为当前会
+             话的pg_temp_开头的Schema，则此表会被创建为临时表。
+           ● 如果其它会话正在使用全局临时表或索引，则无法对其执行ALTER/DROP操
+             作。
+           ● 全局临时表的DDL只会影响当前会话的用户数据和索引。例如truncate、
+             reindex、analyze只对当前会话有效。
+
+           说明
+
+           SELECT INTO的其他参数可参见参数说明。
+[[PDF_PAGE physical=1852 printed=1803]]
+示例
+       --建表并插入数据。
+       gaussdb=# CREATE TABLE tbl_person (
+         id     integer,
+         name varchar(20),
+         gender varchar(5) CHECK(gender = '男' or gender = '女')
+       );
+       gaussdb=# INSERT INTO tbl_person VALUES (1, 'Bob', '男'),(2, 'Anne', '女'),(3, 'Jack', '男'),(4, 'Danny', '男'),(5,
+       'Alice', '女'),(6, 'Susan', '女');
+
+       --将person表中所有男生的信息加入到新表中
+       gaussdb=# SELECT * INTO tbl_man FROM tbl_person WHERE gender = '男';
+
+       --查询tbl_man数据。
+       gaussdb=# SELECT * FROM tbl_man;
+        id | name | gender
+       ----+-------+-----
+         1 | Bob | 男
+         3 | Jack | 男
+         4 | Danny | 男
+       (3 rows)
+
+       --删除表。
+       gaussdb=# DROP TABLE tbl_person, tbl_man;
+
+
+相关链接
+       SELECT
