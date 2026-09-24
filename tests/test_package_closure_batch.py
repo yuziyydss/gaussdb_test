@@ -46,7 +46,7 @@ class PackageClosureBatchTests(unittest.TestCase):
         factor = self.registry.factors['create_model']
         fid = 'fixture_create_model_training_input'
         self.assertIn(fid, factor.fixture_refs)
-        self.assertEqual(factor.manifest_refs, [])
+        self.assertTrue(factor.manifest_refs)
         fixture = self.registry.fixtures[fid]
         self.assertEqual(fixture.status, 'needs_review')
         setup = fixture.execution.setup_sqls

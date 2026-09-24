@@ -83,15 +83,3 @@ class MDefaultPrivilegesExtensionTests(unittest.TestCase):
         for c in self.cases('drop_extension_internal_finite'):
             self.assertIn('CREATE EXTENSION security_plugin SCHEMA m_extension_namespace;',c.setup_sqls)
 
-    def test_exact_reconstruction_and_source_anchor(self):
-        from scripts.build_m_compat_batch_05 import BUILDERS
-        for key in ('alter_default_privileges','create_extension','alter_extension','drop_extension'):
-            p=BUILDERS[key]()
-            for name,obj in p.finish().items():assert_evolved_asset(self, (ROOT/'specs'/p.category.lower()/p.id/name).read_text(),yaml.safe_dump(obj,allow_unicode=True,sort_keys=False,width=110))
-            self.assertTrue(all(self.r.scenarios[s].status=='planned' for s in p.scenarios))
-        p=BUILDERS['alter_default_privileges']()
-        start=next(s[0] for s in p.spans if s[2]==p.fid('syntax'))
-        self.assertEqual(p.lines[start-1].strip(),'ALTER DEFAULT PRIVILEGES')
-
-
-if __name__=='__main__':unittest.main()

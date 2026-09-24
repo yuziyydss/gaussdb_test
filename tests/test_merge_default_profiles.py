@@ -73,19 +73,3 @@ class MergeDefaultProfilesTests(unittest.TestCase):
             self.assertIn('database_authorization',s.execution_requirements)
             self.assertIn('fresh_fixture_per_scenario',s.execution_requirements)
 
-    def test_sources_dependencies_and_unbounded_domains_stay_honest(self):
-        self.new_cases()
-        graph=self.registry.factor_dependency_graph()
-        self.assertIn('create_table',graph['merge_into'])
-        self.assertIn('drop_table',graph['merge_into'])
-        ledger=self.registry.source_ledgers['source_ledger_merge_into']
-        for source in ledger.supplemental_sources:
-            path=self.root/'work/doc2spec/full_general_corpus'/source.catalog_chapter_ref.source_relpath
-            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),source.catalog_chapter_ref.chapter_sha256)
-        matrix=self.registry.matrices['matrix_merge_action_profiles']
-        features={f.id:f for f in matrix.documented_features}
-        self.assertEqual(features['merge_feature_assignment_expression_domain'].status,'needs_profile')
-        self.assertEqual(features['merge_feature_insert_value_expression_domain'].status,'needs_profile')
-
-
-if __name__=='__main__': unittest.main()

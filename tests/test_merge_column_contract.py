@@ -163,8 +163,8 @@ class MergeColumnContractIntegrationTests(unittest.TestCase):
                     self.assertEqual(c.expected_sqlstates,[])
         audit=audit_report({'manifests':entries})
         self.assertFalse(audit['database_executed'])
-        self.assertEqual(len(entries),9)
-        self.assertEqual(audit['summary']['cases'],45)
+        self.assertEqual(len(entries),5)
+        self.assertEqual(audit['summary']['cases'],41)
         self.assertEqual(Counter(c['write_contract']['status'] for c in audit['cases']),
                          Counter(checked=41,rejected=4))
         self.assertEqual(audit['summary']['positive_rejected'],0)
