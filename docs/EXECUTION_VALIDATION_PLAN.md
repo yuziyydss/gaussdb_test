@@ -78,6 +78,21 @@ python scripts/auto_validate.py \
 
 该文件只是执行计划，不是执行回执。
 
+该文件只是执行计划，不是执行回执。
+
+生成计划后，可以使用同一份计划执行 Phase 1：
+
+```bash
+python scripts/auto_validate.py \
+  --plan generated/runtime_validation_pilot/phase1_dry_run.json \
+  --host HOST \
+  --port PORT \
+  --db DATABASE \
+  --user USER
+```
+
+`--plan` 会拒绝包含执行声明、runtime claim 或单元 ID 不匹配的文件。
+
 ## Phase 2: 100条（1个完整manifest）
 
 如果Phase 1通过，扩展到完整manifest：
