@@ -113,6 +113,44 @@ python scripts/audit_runtime_receipt.py \
 
 没有提供原始 plan 时，审计不会通过。
 
+## 状态汇总
+
+查看当前 runtime 产物状态：
+
+```bash
+python scripts/runtime_status.py
+```
+
+也可以写出 JSON：
+
+```bash
+python scripts/runtime_status.py \
+  --output generated/runtime_validation_pilot/status.json
+```
+
+状态汇总会检查：
+
+- runtime pilot dry-run
+- runtime receipt
+- runtime receipt audit
+- Phase 1 dry-run
+- Phase 1 report
+- Phase 1 report audit
+- read-only preflight
+
+并输出：
+
+- `offline_ready`
+- `preflight_ready`
+- `runtime_executed`
+- `runtime_audit_valid`
+- `phase1_executed`
+- `phase1_audit_valid`
+- `all_modeled_runtime_evidence_complete`
+- 下一步动作
+
+状态汇总只读取既有产物，不连接数据库，不执行 SQL，也不把文件存在当作行为验证。
+
 ## 不是已完成的事
 
 - 当前没有可用 GaussDB 连接
