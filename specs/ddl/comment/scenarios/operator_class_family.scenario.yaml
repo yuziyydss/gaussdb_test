@@ -1,0 +1,36 @@
+schema_version: 1
+kind: scenario
+id: scenario_comment_operator_class_family
+name: COMMENT OPERATOR CLASS/FAMILY目录身份待校准
+factor_ref: comment
+status: planned
+description: 只观察事务内非默认btree操作符类及自动同名操作符族注释的设置与回滚；不验证索引比较契约或目录身份。
+fixture_refs: [fixture_comment_operator_class_family]
+fact_refs:
+  - comment_fact_authority
+  - create_operator_class::create_operator_class_fact_internal
+  - create_operator_class::create_operator_class_fact_privilege
+  - create_operator_class::create_operator_class_fact_contract
+  - create_operator_class::create_operator_class_fact_family
+preconditions:
+  - 独占测试会话与隔离连接
+  - 当前用户具有系统管理员权限
+  - 初始schema、函数、操作符类和同名操作符族不存在
+  - 事务开始前记录操作符类与操作符族注释初始值
+steps:
+  - id: comment_operator_class
+    candidate:
+      manifest_ref: manifest_comment_operator_class_family
+      params: {target: comment_target_operator_class_fresh, text: comment_text_plain}
+  - id: comment_operator_family
+    candidate:
+      manifest_ref: manifest_comment_operator_class_family
+      params: {target: comment_target_operator_family_fresh, text: comment_text_plain}
+oracles:
+  - kind: manual_assertion
+    step_id: comment_operator_class
+    expected: 校准目录中该操作符类注释的事务内设置与回滚；不得用目标SQL成功或回滚成功替代目录Oracle。
+  - kind: manual_assertion
+    step_id: comment_operator_family
+    expected: 校准目录中该操作符族注释的事务内设置与回滚；不得用目标SQL成功或回滚成功替代目录Oracle。
+execution_requirements: [database_authorization, target_oracle_calibration, isolated_connection, preserve_stage_failures]

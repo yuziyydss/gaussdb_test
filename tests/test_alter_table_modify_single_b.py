@@ -96,7 +96,7 @@ class ModifySingleBTests(unittest.TestCase):
         ledger = self.r.source_ledgers[self.r.factors['alter_table'].source_ledger_ref]
         for uid in ('at_pdf_su_049', 'at_pdf_su_050', 'at_pdf_su_051'):
             unit = next(u for u in ledger.units if u.id == uid)
-            self.assertEqual(unit.status, 'open_question')
+            self.assertEqual(unit.status, 'mapped')
             self.assertEqual(unit.atomicity, 'grouped')
 
     def test_shared_actual_column_result_is_not_runtime_proof(self):

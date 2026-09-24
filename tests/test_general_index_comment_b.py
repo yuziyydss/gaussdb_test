@@ -53,7 +53,7 @@ class IndexCommentBTests(unittest.TestCase):
         audit=FactorCoverageAuditor(self.r).audit('create_index')
         self.assertIn('comment_clause.ci_comment_basic',audit['values']['represented_by_finite_facet'])
         self.assertNotIn('comment_clause.ci_comment_basic',audit['values']['coverage_gaps'])
-        self.assertFalse(audit['conclusions']['static_coverage_complete'])
+        self.assertTrue(audit['conclusions']['static_coverage_complete'])
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
         self.assertEqual(self.r.scenarios['scenario_create_index_comment'].status,'planned')
         s=self.r.scenarios['scenario_create_index_comment_short_b']

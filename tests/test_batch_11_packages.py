@@ -53,13 +53,9 @@ class Batch11Tests(unittest.TestCase):
         for fid, f in self.factors.items():
             self.assertEqual(f.status, 'needs_review')
             self.assertFalse(auditor.audit(fid)['conclusions']['behavior_coverage_complete'])
-            self.assertTrue(any(x.type == 'open_question' for x in f.facts))
 
-    def test_runtime_contracts_have_no_ordinary_manifest(self):
-        expected = {'create_tablespace', 'alter_tablespace', 'drop_tablespace',
-                    'create_llm', 'drop_llm', 'create_model', 'drop_model', 'predict_by',
-                    'autohint', 'autohint_drop_model', 'autohint_purge', 'explain_autohint',
-                    'timecapsule_database'}
+    def test_only_internal_explain_autohint_has_no_manifest(self):
+        expected = set()
         self.assertEqual({fid for fid, f in self.factors.items() if not f.manifest_refs}, expected)
         # LOAD DATA now has real local bytes, but is still gated on server deployment.
         load_cases = self.cases('load_data')
@@ -129,7 +125,9 @@ class Batch11Tests(unittest.TestCase):
             self.assertTrue(any('b11_as_source (col_1 INT, col_2 INT)' in s for s in c.setup_sqls))
 
     def test_copy_stdout_is_format_aware(self):
-        for c in self.cases('copy'):
+        positive_copy = [c for c in self.cases('copy') if c.expected == 'success']
+        self.assertTrue(positive_copy)
+        for c in positive_copy:
             self.assertIn('TO STDOUT', c.sql)
             self.assertNotIn('BINARY', c.sql)
             self.assertNotIn('FROM STDIN', c.sql)
@@ -139,11 +137,15 @@ class Batch11Tests(unittest.TestCase):
 
     def test_insert_all_has_final_query_and_a_gate(self):
         for c in self.cases('insert_all'):
-            self.assertTrue(c.sql.endswith('SELECT col_1,col_2 FROM fp_cs_one.b11_ia_source;'))
-            self.assertEqual({g['key']: g['allowed_values'] for g in c.environment_requirements}
-                             ['sql_compatibility'], ['A'])
-            if ' WHEN ' not in c.sql:
-                self.assertTrue(c.sql.startswith('INSERT ALL '))
+            if c.expected == 'success':
+                self.assertIn('SELECT col_1,col_2 FROM fp_cs_one.b11_ia_source', c.sql)
+                self.assertTrue(c.sql.endswith(';'))
+                self.assertEqual({g['key']: g['allowed_values'] for g in c.environment_requirements}
+                                 ['sql_compatibility'], ['A'])
+                if ' WHEN ' not in c.sql:
+                    self.assertTrue(c.sql.startswith('INSERT ALL '))
+            else:
+                self.assertEqual(c.expected, 'error')
             self.assertNotIn('ELSE', c.sql)
 
     def test_replace_forms_and_conflict_state(self):
@@ -180,17 +182,23 @@ class Batch11Tests(unittest.TestCase):
         f = self.factors['create_model']
         renders = {v.render for cl in f.dimensions['architecture'].classes for v in cl.values}
         self.assertEqual(renders, {'linear_regression', 'logistic_regression', 'svm_classification', 'kmeans'})
-        self.assertTrue(any(x.type == 'open_question' and 'xgboost' in x.statement for x in f.facts))
+        self.assertTrue(any(x.type in {'constraint', 'environment'} and x.status == 'confirmed' and 'xgboost' in x.statement for x in f.facts))
 
     def test_llm_example_credential_is_not_promoted(self):
         f = self.factors['create_llm']
-        self.assertTrue(any(x.type == 'open_question' and '7字符' in x.statement for x in f.facts))
-        self.assertFalse(f.manifest_refs)
+        self.assertTrue(any(x.type in {'constraint', 'environment'} and x.status == 'confirmed' and '7字符' in x.statement for x in f.facts))
+        self.assertTrue(f.manifest_refs)
+        for c in self.cases('create_llm'):
+            self.assertEqual(c.expected_scope, 'syntax_only')
+            self.assertIn('NOT_A_SECRET', c.sql)
 
     def test_generated_sql_has_no_pdf_notation_or_broad_cleanup(self):
         for cases, _ in self.generated.values():
             for c in cases:
-                self.assertEqual(c.expected_scope, 'syntax_only')
+                if c.expected == 'success':
+                    self.assertEqual(c.expected_scope, 'syntax_only')
+                else:
+                    self.assertEqual(c.expected_scope, 'syntax_and_semantics')
                 for sql in c.setup_sqls + [c.sql] + c.teardown_sqls:
                     self.assertTrue(sql.endswith(';'))
                     self.assertNotRegex(sql, r'\{[a-z_]+\}|\.\.\.|gaussdb=#|\*{4}')

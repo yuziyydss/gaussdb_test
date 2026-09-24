@@ -88,22 +88,24 @@ class CommentRelationProfileTests(unittest.TestCase):
         features = {f.id:f for f in self.registry.matrices['matrix_comment_coverage'].documented_features}
         for suffix in ('index', 'view'):
             f = features['comment_feature_object_'+suffix]
-            self.assertEqual((f.status, f.coverage_mode), ('covered', 'representative'))
+            self.assertEqual((f.status, f.coverage_mode), ('covered', 'any'))
         view_column = features['comment_feature_object_view_column']
         self.assertEqual((view_column.status,view_column.coverage_mode),('covered','all'))
         self.assertEqual(view_column.value_refs,
                          ['comment_target_view_column_fresh','comment_target_view_column_2_fresh'])
         function = features['comment_feature_object_function']
-        self.assertEqual((function.status,function.coverage_mode),('covered','representative'))
+        self.assertEqual((function.status,function.coverage_mode),('covered','any'))
         self.assertEqual(function.value_refs,['comment_target_function_fresh'])
-        self.assertEqual(features['comment_feature_object_database'].status, 'needs_profile')
+        database = features['comment_feature_object_database']
+        self.assertEqual((database.status, database.coverage_mode), ('covered', 'any'))
+        self.assertEqual(database.value_refs, ['comment_target_database_fresh'])
         role=features['comment_feature_object_role']
-        self.assertEqual((role.status,role.coverage_mode),('covered','representative'))
+        self.assertEqual((role.status,role.coverage_mode),('covered','any'))
         foreign_table=features['comment_feature_object_foreign_table']
-        self.assertEqual((foreign_table.status,foreign_table.coverage_mode),('covered','representative'))
+        self.assertEqual((foreign_table.status,foreign_table.coverage_mode),('covered','any'))
         server=features['comment_feature_object_server']
-        self.assertEqual((server.status,server.coverage_mode),('covered','representative'))
-        self.assertEqual(features['comment_feature_other_objects'].status, 'needs_profile')
+        self.assertEqual((server.status,server.coverage_mode),('covered','any'))
+        self.assertEqual(features['comment_feature_other_objects'].status, 'covered')
 
     def test_lifecycle_is_planned_and_directory_oracle_requires_calibration(self):
         self.cases()

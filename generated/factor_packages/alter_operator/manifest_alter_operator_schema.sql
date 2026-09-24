@@ -2,14 +2,14 @@
 -- static_only: true
 -- case_count: 3
 
--- case_id: manifest_alter_operator_schema_f8ed793a70c4
+-- case_id: manifest_alter_operator_schema_628e2a5c52c1
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"signature": "alter_operator_signature_binary"}
+-- params: {"action": "alter_operator_action_schema", "signature": "alter_operator_signature_binary"}
 -- environment_requirements: [{"allowed_values": ["true"], "fact_refs": ["alter_operator_fact_owner_privilege"], "key": "operator_owner_authorized"}, {"allowed_values": ["true"], "fact_refs": ["create_operator::create_operator_fact_privilege"], "key": "operator_creator_authorized"}]
 -- fixture_setup:
 CREATE FUNCTION fp_cf_callable(num1 INTEGER, num2 INTEGER) RETURNS INTEGER LANGUAGE SQL IMMUTABLE RETURNS NULL ON NULL INPUT AS 'SELECT $1 + $2;';
@@ -27,14 +27,14 @@ ROLLBACK;
 ROLLBACK;
 DROP FUNCTION IF EXISTS fp_cf_callable(INTEGER, INTEGER) CASCADE;
 
--- case_id: manifest_alter_operator_schema_cb5024a1de12
+-- case_id: manifest_alter_operator_schema_7214ffd09562
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"signature": "alter_operator_signature_prefix"}
+-- params: {"action": "alter_operator_action_schema", "signature": "alter_operator_signature_prefix"}
 -- environment_requirements: [{"allowed_values": ["true"], "fact_refs": ["alter_operator_fact_owner_privilege"], "key": "operator_owner_authorized"}, {"allowed_values": ["true"], "fact_refs": ["create_operator::create_operator_fact_privilege"], "key": "operator_creator_authorized"}]
 -- fixture_setup:
 CREATE FUNCTION fp_cf_callable(num1 INTEGER, num2 INTEGER) RETURNS INTEGER LANGUAGE SQL IMMUTABLE RETURNS NULL ON NULL INPUT AS 'SELECT $1 + $2;';
@@ -52,14 +52,14 @@ ROLLBACK;
 ROLLBACK;
 DROP FUNCTION IF EXISTS fp_cf_callable(INTEGER, INTEGER) CASCADE;
 
--- case_id: manifest_alter_operator_schema_01d638a07571
+-- case_id: manifest_alter_operator_schema_3d152cefb254
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"signature": "alter_operator_signature_postfix"}
+-- params: {"action": "alter_operator_action_schema", "signature": "alter_operator_signature_postfix"}
 -- environment_requirements: [{"allowed_values": ["true"], "fact_refs": ["alter_operator_fact_owner_privilege"], "key": "operator_owner_authorized"}, {"allowed_values": ["true"], "fact_refs": ["create_operator::create_operator_fact_privilege"], "key": "operator_creator_authorized"}]
 -- fixture_setup:
 CREATE FUNCTION fp_cf_callable(num1 INTEGER, num2 INTEGER) RETURNS INTEGER LANGUAGE SQL IMMUTABLE RETURNS NULL ON NULL INPUT AS 'SELECT $1 + $2;';

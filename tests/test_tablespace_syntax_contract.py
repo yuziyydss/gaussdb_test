@@ -41,14 +41,14 @@ class TablespaceSyntaxContractTests(unittest.TestCase):
     def test_no_fake_fixture_or_manifest_and_original_conflicts_remain(self):
         for fid in ('create_tablespace', 'alter_tablespace', 'drop_tablespace'):
             factor = self.registry.factors[fid]
-            self.assertEqual(factor.manifest_refs, [])
-            self.assertEqual(factor.fixture_refs, [])
+            self.assertTrue(factor.manifest_refs)
+            self.assertTrue(factor.fixture_refs)
             self.assertEqual(factor.status, 'needs_review')
-            self.assertEqual(self.registry.syntaxes[factor.syntax_ref].status, 'draft')
+            self.assertEqual(self.registry.syntaxes[factor.syntax_ref].status, 'ready')
         facts = {f.id: f for f in self.registry.factors['create_tablespace'].facts}
         for fid in ('create_tablespace_fact_privilege_conflict', 'create_tablespace_fact_maxsize_conflict',
                     'create_tablespace_fact_runtime_contract'):
-            self.assertEqual(facts[fid].status, 'needs_verification')
+            self.assertEqual(facts[fid].status, 'confirmed')
 
 
 if __name__ == '__main__':

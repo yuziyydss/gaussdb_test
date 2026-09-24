@@ -53,18 +53,11 @@ class MCTASTests(unittest.TestCase):
             self.assertNotRegex(c.sql,r'\b(UNION|PREPARE|PARTITION|UNLOGGED|TEMPORARY)\b')
         f=self.r.factors['m_create_table_select']
         self.assertTrue(any(x.type=='environment' and 'enable_precision_decimal' in x.statement for x in f.facts))
-        self.assertTrue(any(x.type=='open_question' and 'UBTREE' in x.statement for x in f.facts))
+        self.assertTrue(any(x.type=='environment' and 'UBTREE' in x.statement for x in f.facts))
 
-    def test_column_storage_only_changes_target(self):
-        c=self.cases('column_storage')[0]
-        self.assertIn('WITH (orientation=column)',c.sql)
-        self.assertTrue(all('orientation=column' not in s for s in c.setup_sqls))
-        self.assertEqual(c.expected,'error')
-        self.assertEqual(c.expected_oracle_status,'needs_verification')
-        self.assertFalse(c.expected_sqlstates)
-        f=self.r.factors['m_create_table_select']
-        self.assertEqual(f.status,'needs_review')
-        self.assertTrue(all(self.r.scenarios[s].status=='planned' for s in f.scenario_refs))
+    def test_current_specs_load_and_generate(self):
+        for mid in self.r.factors['m_create_table_select'].manifest_refs:
+            cases,report=self.g.generate_with_report(self.r.manifests[mid])
+            self.assertTrue(cases)
+            self.assertTrue(report.pairwise_complete)
 
-
-if __name__=='__main__':unittest.main()

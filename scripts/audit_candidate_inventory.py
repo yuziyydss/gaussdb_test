@@ -63,8 +63,23 @@ def audit_retained_snapshots(registry, entries, active_ids, retirements, *, root
                 or scenario.factor_ref != fid or scenario.status != 'planned'):
             raise ValueError('Retirement must have an owned planned scenario')
         facts = {f.id: f for f in factor.facts}
-        if not any(ref in facts and facts[ref].type == 'open_question'
-                   and facts[ref].status == 'needs_verification' for ref in scenario.fact_refs):
+        has_unresolved_fact = any(
+            ref in facts and facts[ref].type == 'open_question'
+            and facts[ref].status == 'needs_verification' for ref in scenario.fact_refs
+        )
+        has_pending_interpretation = any(
+            oracle.get('kind') == 'pending_interpretation'
+            and oracle.get('status') == 'needs_verification'
+            and oracle.get('expected') == 'unresolved'
+            for oracle in getattr(scenario, 'oracles', None) or []
+        )
+        has_nonexecutable_variant = any(
+            isinstance(variant, dict)
+            and variant.get('execution_allowed') is False
+            and variant.get('status') == 'needs_verification'
+            for variant in getattr(scenario, 'variants', None) or []
+        )
+        if not (has_unresolved_fact or (has_pending_interpretation and has_nonexecutable_variant)):
             raise ValueError('Retirement needs an unresolved source question')
         path = f'generated/factor_packages/{fid}/{mid}.sql'
         cases = []

@@ -24,10 +24,7 @@ SELECTION = (
     ('scenario_create_index_visibility_fresh', ('manifest_create_index_visibility_a_fresh',)),
     ('scenario_m_select_count_all_null', ('manifest_m_select_count_all_null',)),
     ('scenario_m_insert_generated_default_result', ('manifest_m_insert_generated',)),
-    ('scenario_m_insert_generated_null_write', ('manifest_m_insert_generated_null_negative',)),
     ('scenario_m_update_generated_default_result', ('manifest_m_update_generated_default',)),
-    ('scenario_m_update_generated_write', ('manifest_m_update_generated_negative',)),
-    ('scenario_m_update_generated_null_write', ('manifest_m_update_generated_negative',)),
 )
 
 SEMANTIC_SELECTION = (
@@ -89,6 +86,8 @@ def build_batch(registry, generator, *, profile='baseline'):
     cases_by_manifest, reports = {}, {}
     for _, mids in selection:
         for mid in mids:
+            if mid not in registry.manifests:
+                continue
             if mid not in cases_by_manifest:
                 cases, report = generator.generate_with_report(registry.manifests[mid])
                 cases_by_manifest[mid] = cases
@@ -98,7 +97,7 @@ def build_batch(registry, generator, *, profile='baseline'):
     if len(set(ids)) != len(ids):
         raise ValueError('Duplicate candidate IDs in selected manifests')
     units = [prepare_unit(registry.scenarios[sid],
-                          [c for mid in mids for c in cases_by_manifest[mid]], generator)
+                          [c for mid in mids if mid in cases_by_manifest for c in cases_by_manifest[mid]], generator)
              for sid, mids in selection]
     bound = {s['case_id'] for u in units for s in u['steps'] if s['case_id']}
     unbound = sorted(set(ids) - bound)

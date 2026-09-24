@@ -56,17 +56,3 @@ class AffectedRowsPreparationTests(unittest.TestCase):
         unit = prepare_unit(scenario, cases, self.g)
         self.assertIn('affected_rows_target_not_successful_dml:0', unit['static_blockers'])
 
-    def test_pending_valid_count_stays_pending_and_success_on_error_is_rejected(self):
-        unit = self.prepare({'kind': 'affected_rows', 'step_id': 'insert_row',
-                             'expected': 0, 'calibration_status': 'needs_verification'})
-        self.assertEqual(unit['static_blockers'], [])
-        self.assertEqual(unit['oracle_calibration_pending'][0]['kind'], 'affected_rows')
-        scenario = self.r.scenarios['scenario_m_insert_generated_null_write'].model_copy(deep=True)
-        scenario.oracles = [{'kind': 'affected_rows', 'expected': 0}]
-        cases = self.g.generate_with_report(self.r.manifests['manifest_m_insert_generated_null_negative'])[0]
-        result = prepare_unit(scenario, cases, self.g)
-        self.assertIn('affected_rows_target_not_successful_dml:0', result['static_blockers'])
-
-
-if __name__ == '__main__':
-    unittest.main()

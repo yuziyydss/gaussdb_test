@@ -1,6 +1,6 @@
 # 无普通manifest包：如何理解和继续处理
 
-2026-09-10局部复核。当前317个注册包中，264个有manifest，53个没有。
+2026-09-23当前快照：317个注册包中，309个有manifest，8个没有；最新分类见[剩余无manifest阻断清单](NO_MANIFEST_REMAINING_20260920.md)。以下2026-09-10内容保留为历史复核。
 本页已完成53个包的“不生成原因与资产边界”原文复核；不是全章事实覆盖精审。
 这不是53个包都不支持，也不是264个包都已通过实机测试。
 
@@ -22,7 +22,7 @@
 | 权威升级上下文（3） | 一般GENERATED UPDATE SYSTEM OBJECT、M GENERATED UPDATE SYSTEM、REFRESH SYSTEM OBJECT | 真实OM/升级阶段和初始用户，不是手工设置GUC。M包已有fixture但执行状态not_implemented，属于阻塞声明，不是可用空fixture |
 | 节点级恢复（1） | SHUTDOWN | 关闭当前连接的节点，影响连接与事务；需要可销毁独占节点、带外重启及故障恢复Oracle，独占一个数据库不够 |
 | 外部模型服务登记（2） | CREATE LLM、DROP LLM | 真实HTTPS服务、CA、秘密注入和OBS加密文件；DROP仅删除库内登记，不删除外部模型，也不是CREATE MODEL训练对象 |
-| 远端连接身份（3） | CREATE/ALTER/DROP DATABASE LINK | A库与非初始用户、GaussDB/Oracle后端、PUBLIC/PRIVATE与属主、凭证注入；创建不验证连接，修改选项也不能跨后端混用 |
+| 远端连接身份（2） | CREATE/DROP DATABASE LINK | A库与非初始用户、GaussDB/Oracle后端、PUBLIC/PRIVATE与属主、凭证注入；创建不验证连接 |
 | 多租资源生命周期（3） | CREATE/ALTER/DROP PLUGGABLE DATABASE INCLUDING DATAFILES | 真实多租安装、非PDB控制连接、资源指令、非事务DDL与文件归属；DROP不级联删除资源指令。CREATE允许目标M，但不能从M控制库执行 |
 | 库回收站身份（1） | TIMECAPSULE DATABASE | 回收站实际对象、保留期/清理/磁盘能力；不支持PDB闪回，不能归入PDB恢复。原名找最新、系统名精确定位，且支持事务块 |
 | 全局配置恢复（2） | ALTER/DROP GLOBAL CONFIGURATION | 初始用户与自身key的原始存在性/值、精确恢复；禁止weak_password/undostoragetype，不能作为弱口令字典恢复捷径 |

@@ -6,14 +6,14 @@
 -- M database must be created from a non-M management connection, then reconnect and verify.
 -- Inspection snapshot only: do not execute as one script; negatives and transaction fixtures need staged execution.
 
--- case_id: manifest_m_set_transaction_session_76794ef9fcc4
+-- case_id: manifest_m_set_transaction_session_d0f0640efc0f
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"characteristic": "m_set_transaction_characteristic_committed", "scope": "m_set_transaction_scope_local"}
+-- params: {"access_mode": "m_set_transaction_access_mode_none", "characteristic": "m_set_transaction_characteristic_committed", "scope": "m_set_transaction_scope_local"}
 -- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_set_transaction_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["isolated_connection"], "fact_refs": ["m_set_transaction_fact_local_session"], "key": "session_lifecycle"}, {"allowed_values": ["before_first_data_statement"], "fact_refs": ["m_set_transaction_fact_before_data"], "key": "transaction_stage"}]
 -- fixture_setup:
 START TRANSACTION;
@@ -22,110 +22,14 @@ SET LOCAL TRANSACTION ISOLATION LEVEL READ COMMITTED;
 -- fixture_teardown:
 ROLLBACK;
 
--- case_id: manifest_m_set_transaction_session_7ecc98c77ce7
+-- case_id: manifest_m_set_transaction_session_848ed3ad1208
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"characteristic": "m_set_transaction_characteristic_uncommitted", "scope": "m_set_transaction_scope_local"}
--- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_set_transaction_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["isolated_connection"], "fact_refs": ["m_set_transaction_fact_local_session"], "key": "session_lifecycle"}, {"allowed_values": ["before_first_data_statement"], "fact_refs": ["m_set_transaction_fact_before_data"], "key": "transaction_stage"}]
--- fixture_setup:
-START TRANSACTION;
--- test_sql:
-SET LOCAL TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
--- fixture_teardown:
-ROLLBACK;
-
--- case_id: manifest_m_set_transaction_session_6c411fe2a6b4
--- expected: success
--- expected_error_category: -
--- expected_sqlstates: -
--- expected_error_regex: -
--- expected_oracle_status: confirmed
--- expected_scope: syntax_only
--- params: {"characteristic": "m_set_transaction_characteristic_serializable", "scope": "m_set_transaction_scope_local"}
--- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_set_transaction_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["isolated_connection"], "fact_refs": ["m_set_transaction_fact_local_session"], "key": "session_lifecycle"}, {"allowed_values": ["before_first_data_statement"], "fact_refs": ["m_set_transaction_fact_before_data"], "key": "transaction_stage"}]
--- fixture_setup:
-START TRANSACTION;
--- test_sql:
-SET LOCAL TRANSACTION ISOLATION LEVEL SERIALIZABLE;
--- fixture_teardown:
-ROLLBACK;
-
--- case_id: manifest_m_set_transaction_session_64b48b97dfa8
--- expected: success
--- expected_error_category: -
--- expected_sqlstates: -
--- expected_error_regex: -
--- expected_oracle_status: confirmed
--- expected_scope: syntax_only
--- params: {"characteristic": "m_set_transaction_characteristic_repeatable", "scope": "m_set_transaction_scope_local"}
--- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_set_transaction_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["isolated_connection"], "fact_refs": ["m_set_transaction_fact_local_session"], "key": "session_lifecycle"}, {"allowed_values": ["before_first_data_statement"], "fact_refs": ["m_set_transaction_fact_before_data"], "key": "transaction_stage"}]
--- fixture_setup:
-START TRANSACTION;
--- test_sql:
-SET LOCAL TRANSACTION ISOLATION LEVEL REPEATABLE READ;
--- fixture_teardown:
-ROLLBACK;
-
--- case_id: manifest_m_set_transaction_session_46258240138f
--- expected: success
--- expected_error_category: -
--- expected_sqlstates: -
--- expected_error_regex: -
--- expected_oracle_status: confirmed
--- expected_scope: syntax_only
--- params: {"characteristic": "m_set_transaction_characteristic_write", "scope": "m_set_transaction_scope_local"}
--- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_set_transaction_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["isolated_connection"], "fact_refs": ["m_set_transaction_fact_local_session"], "key": "session_lifecycle"}, {"allowed_values": ["before_first_data_statement"], "fact_refs": ["m_set_transaction_fact_before_data"], "key": "transaction_stage"}]
--- fixture_setup:
-START TRANSACTION;
--- test_sql:
-SET LOCAL TRANSACTION READ WRITE;
--- fixture_teardown:
-ROLLBACK;
-
--- case_id: manifest_m_set_transaction_session_6eb58b4663cc
--- expected: success
--- expected_error_category: -
--- expected_sqlstates: -
--- expected_error_regex: -
--- expected_oracle_status: confirmed
--- expected_scope: syntax_only
--- params: {"characteristic": "m_set_transaction_characteristic_read", "scope": "m_set_transaction_scope_local"}
--- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_set_transaction_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["isolated_connection"], "fact_refs": ["m_set_transaction_fact_local_session"], "key": "session_lifecycle"}, {"allowed_values": ["before_first_data_statement"], "fact_refs": ["m_set_transaction_fact_before_data"], "key": "transaction_stage"}]
--- fixture_setup:
-START TRANSACTION;
--- test_sql:
-SET LOCAL TRANSACTION READ ONLY;
--- fixture_teardown:
-ROLLBACK;
-
--- case_id: manifest_m_set_transaction_session_be8f20ba686f
--- expected: success
--- expected_error_category: -
--- expected_sqlstates: -
--- expected_error_regex: -
--- expected_oracle_status: confirmed
--- expected_scope: syntax_only
--- params: {"characteristic": "m_set_transaction_characteristic_committed", "scope": "m_set_transaction_scope_session"}
--- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_set_transaction_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["isolated_connection"], "fact_refs": ["m_set_transaction_fact_local_session"], "key": "session_lifecycle"}, {"allowed_values": ["before_first_data_statement"], "fact_refs": ["m_set_transaction_fact_before_data"], "key": "transaction_stage"}]
--- fixture_setup:
-START TRANSACTION;
--- test_sql:
-SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
--- fixture_teardown:
-ROLLBACK;
-
--- case_id: manifest_m_set_transaction_session_c61921b3eba4
--- expected: success
--- expected_error_category: -
--- expected_sqlstates: -
--- expected_error_regex: -
--- expected_oracle_status: confirmed
--- expected_scope: syntax_only
--- params: {"characteristic": "m_set_transaction_characteristic_uncommitted", "scope": "m_set_transaction_scope_session"}
+-- params: {"access_mode": "m_set_transaction_access_mode_none", "characteristic": "m_set_transaction_characteristic_uncommitted", "scope": "m_set_transaction_scope_session"}
 -- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_set_transaction_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["isolated_connection"], "fact_refs": ["m_set_transaction_fact_local_session"], "key": "session_lifecycle"}, {"allowed_values": ["before_first_data_statement"], "fact_refs": ["m_set_transaction_fact_before_data"], "key": "transaction_stage"}]
 -- fixture_setup:
 START TRANSACTION;
@@ -134,14 +38,110 @@ SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 -- fixture_teardown:
 ROLLBACK;
 
--- case_id: manifest_m_set_transaction_session_380c0a54a03b
+-- case_id: manifest_m_set_transaction_session_a57d5a677fdf
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"characteristic": "m_set_transaction_characteristic_serializable", "scope": "m_set_transaction_scope_session"}
+-- params: {"access_mode": "m_set_transaction_access_mode_none", "characteristic": "m_set_transaction_characteristic_serializable", "scope": "m_set_transaction_scope_local"}
+-- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_set_transaction_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["isolated_connection"], "fact_refs": ["m_set_transaction_fact_local_session"], "key": "session_lifecycle"}, {"allowed_values": ["before_first_data_statement"], "fact_refs": ["m_set_transaction_fact_before_data"], "key": "transaction_stage"}]
+-- fixture_setup:
+START TRANSACTION;
+-- test_sql:
+SET LOCAL TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+-- fixture_teardown:
+ROLLBACK;
+
+-- case_id: manifest_m_set_transaction_session_b6716f210527
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_only
+-- params: {"access_mode": "m_set_transaction_access_mode_none", "characteristic": "m_set_transaction_characteristic_repeatable", "scope": "m_set_transaction_scope_local"}
+-- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_set_transaction_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["isolated_connection"], "fact_refs": ["m_set_transaction_fact_local_session"], "key": "session_lifecycle"}, {"allowed_values": ["before_first_data_statement"], "fact_refs": ["m_set_transaction_fact_before_data"], "key": "transaction_stage"}]
+-- fixture_setup:
+START TRANSACTION;
+-- test_sql:
+SET LOCAL TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+-- fixture_teardown:
+ROLLBACK;
+
+-- case_id: manifest_m_set_transaction_session_3f44b41f5548
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_only
+-- params: {"access_mode": "m_set_transaction_access_mode_none", "characteristic": "m_set_transaction_characteristic_write", "scope": "m_set_transaction_scope_local"}
+-- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_set_transaction_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["isolated_connection"], "fact_refs": ["m_set_transaction_fact_local_session"], "key": "session_lifecycle"}, {"allowed_values": ["before_first_data_statement"], "fact_refs": ["m_set_transaction_fact_before_data"], "key": "transaction_stage"}]
+-- fixture_setup:
+START TRANSACTION;
+-- test_sql:
+SET LOCAL TRANSACTION READ WRITE;
+-- fixture_teardown:
+ROLLBACK;
+
+-- case_id: manifest_m_set_transaction_session_9b13d83afaaf
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_only
+-- params: {"access_mode": "m_set_transaction_access_mode_none", "characteristic": "m_set_transaction_characteristic_read", "scope": "m_set_transaction_scope_local"}
+-- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_set_transaction_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["isolated_connection"], "fact_refs": ["m_set_transaction_fact_local_session"], "key": "session_lifecycle"}, {"allowed_values": ["before_first_data_statement"], "fact_refs": ["m_set_transaction_fact_before_data"], "key": "transaction_stage"}]
+-- fixture_setup:
+START TRANSACTION;
+-- test_sql:
+SET LOCAL TRANSACTION READ ONLY;
+-- fixture_teardown:
+ROLLBACK;
+
+-- case_id: manifest_m_set_transaction_session_79b2c1a6b3b0
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_only
+-- params: {"access_mode": "m_set_transaction_access_mode_none", "characteristic": "m_set_transaction_characteristic_uncommitted", "scope": "m_set_transaction_scope_local"}
+-- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_set_transaction_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["isolated_connection"], "fact_refs": ["m_set_transaction_fact_local_session"], "key": "session_lifecycle"}, {"allowed_values": ["before_first_data_statement"], "fact_refs": ["m_set_transaction_fact_before_data"], "key": "transaction_stage"}]
+-- fixture_setup:
+START TRANSACTION;
+-- test_sql:
+SET LOCAL TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+-- fixture_teardown:
+ROLLBACK;
+
+-- case_id: manifest_m_set_transaction_session_f80fdc4b9025
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_only
+-- params: {"access_mode": "m_set_transaction_access_mode_none", "characteristic": "m_set_transaction_characteristic_committed", "scope": "m_set_transaction_scope_session"}
+-- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_set_transaction_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["isolated_connection"], "fact_refs": ["m_set_transaction_fact_local_session"], "key": "session_lifecycle"}, {"allowed_values": ["before_first_data_statement"], "fact_refs": ["m_set_transaction_fact_before_data"], "key": "transaction_stage"}]
+-- fixture_setup:
+START TRANSACTION;
+-- test_sql:
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+-- fixture_teardown:
+ROLLBACK;
+
+-- case_id: manifest_m_set_transaction_session_a92fc029d395
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_only
+-- params: {"access_mode": "m_set_transaction_access_mode_none", "characteristic": "m_set_transaction_characteristic_serializable", "scope": "m_set_transaction_scope_session"}
 -- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_set_transaction_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["isolated_connection"], "fact_refs": ["m_set_transaction_fact_local_session"], "key": "session_lifecycle"}, {"allowed_values": ["before_first_data_statement"], "fact_refs": ["m_set_transaction_fact_before_data"], "key": "transaction_stage"}]
 -- fixture_setup:
 START TRANSACTION;
@@ -150,14 +150,14 @@ SET SESSION TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 -- fixture_teardown:
 ROLLBACK;
 
--- case_id: manifest_m_set_transaction_session_2f74bb7bf151
+-- case_id: manifest_m_set_transaction_session_aa685ccd9ee9
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"characteristic": "m_set_transaction_characteristic_repeatable", "scope": "m_set_transaction_scope_session"}
+-- params: {"access_mode": "m_set_transaction_access_mode_none", "characteristic": "m_set_transaction_characteristic_repeatable", "scope": "m_set_transaction_scope_session"}
 -- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_set_transaction_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["isolated_connection"], "fact_refs": ["m_set_transaction_fact_local_session"], "key": "session_lifecycle"}, {"allowed_values": ["before_first_data_statement"], "fact_refs": ["m_set_transaction_fact_before_data"], "key": "transaction_stage"}]
 -- fixture_setup:
 START TRANSACTION;
@@ -166,14 +166,14 @@ SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 -- fixture_teardown:
 ROLLBACK;
 
--- case_id: manifest_m_set_transaction_session_41ad90c3b148
+-- case_id: manifest_m_set_transaction_session_373dabea23d7
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"characteristic": "m_set_transaction_characteristic_write", "scope": "m_set_transaction_scope_session"}
+-- params: {"access_mode": "m_set_transaction_access_mode_none", "characteristic": "m_set_transaction_characteristic_write", "scope": "m_set_transaction_scope_session"}
 -- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_set_transaction_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["isolated_connection"], "fact_refs": ["m_set_transaction_fact_local_session"], "key": "session_lifecycle"}, {"allowed_values": ["before_first_data_statement"], "fact_refs": ["m_set_transaction_fact_before_data"], "key": "transaction_stage"}]
 -- fixture_setup:
 START TRANSACTION;
@@ -182,14 +182,14 @@ SET SESSION TRANSACTION READ WRITE;
 -- fixture_teardown:
 ROLLBACK;
 
--- case_id: manifest_m_set_transaction_session_8b4026f45ac7
+-- case_id: manifest_m_set_transaction_session_2505215e1455
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"characteristic": "m_set_transaction_characteristic_read", "scope": "m_set_transaction_scope_session"}
+-- params: {"access_mode": "m_set_transaction_access_mode_none", "characteristic": "m_set_transaction_characteristic_read", "scope": "m_set_transaction_scope_session"}
 -- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_set_transaction_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["isolated_connection"], "fact_refs": ["m_set_transaction_fact_local_session"], "key": "session_lifecycle"}, {"allowed_values": ["before_first_data_statement"], "fact_refs": ["m_set_transaction_fact_before_data"], "key": "transaction_stage"}]
 -- fixture_setup:
 START TRANSACTION;

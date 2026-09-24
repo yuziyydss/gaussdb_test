@@ -75,7 +75,10 @@ class TestFiniteFacetRepresentation(unittest.TestCase):
         self.assertNotIn("owned_by_clause.cs_owned_rowid_invalid", gaps)
         represented = set(audit["values"]["represented_by_finite_facet"])
         self.assertIn("increment_clause.cs_increment_float_b", represented)
-        self.assertIn("owned_by_clause.cs_owned_rowid_invalid", represented)
+        self.assertIn(
+            "owned_by_clause.cs_owned_rowid_invalid",
+            audit["values"]["unselected_by_validity"]["unknown"],
+        )
 
 
 if __name__ == "__main__":

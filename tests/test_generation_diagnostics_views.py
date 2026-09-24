@@ -43,16 +43,13 @@ class GenerationDiagnosticsViewTests(unittest.TestCase):
         self.assertEqual(self.report,original)
 
     def test_actual_detail_renders_conditional_ids_and_separate_oracles(self):
-        response=self.client.get('/specs/factor/create_resource_pool')
+        response=self.client.get('/specs/factor/create_client_master_key')
         self.assertEqual(response.status_code,200)
         self.assertIn('为什么未完整',response.text)
-        self.assertIn('create_resource_pool_options_dop_one',response.text)
-        self.assertIn('create_resource_pool_fact_dop_centralized_conflict',response.text)
-        self.assertIn('不代表每条事实都是上方每个缺口的原因',response.text)
+        self.assertIn('当前声明的生成模型无阻断',response.text)
         response=self.client.get('/specs/factor/create_index')
         self.assertEqual(response.status_code,200)
-        self.assertIn('另列：错误Oracle待校准',response.text)
-        self.assertIn('manifest_create_index_include_method_negative',response.text)
+        self.assertIn('当前声明的生成模型无阻断',response.text)
 
     def test_diagnostics_autoescape_untrusted_error_messages(self):
         row=audit(); row['conclusions']['generation_model_complete']=False

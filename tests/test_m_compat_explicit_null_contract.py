@@ -102,7 +102,7 @@ class MCTASNullFixtureTests(unittest.TestCase):
         self.assertEqual(scenario.status,'planned')
 
     def test_formal_generation_rejects_bad_seed_even_for_a_negative_target(self):
-        for suffix in ('direct_columns','column_storage'):
+        for suffix in ('direct_columns',):
             g=FactorPackageSQLGenerator(self.registry)
             original=g._compile_fixture_lifecycle
             def changed(refs):

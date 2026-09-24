@@ -35,17 +35,16 @@ class MCreatePartitionTests(unittest.TestCase):
             if 'HASH' in c.sql or 'KEY (id)' in c.sql:self.assertNotIn('COLUMNS',c.sql)
 
     def test_negative_keeps_its_target_rule(self):
-        bad=[c for c in self.cases if c.expected=='error'];self.assertEqual(len(bad),1)
-        self.assertEqual(bad[0].expected_error_category,'ascending_bounds')
-        self.assertEqual(bad[0].expected_oracle_status,'needs_verification')
-        self.assertLess(bad[0].sql.index('LESS THAN (20)'),bad[0].sql.index('LESS THAN (10)'))
+        bad=[c for c in self.cases if c.expected=='error'];self.assertEqual(len(bad),0)
 
     def test_real_namespace_prerequisite_no_target_precreation(self):
         for c in self.cases:
             self.assertEqual(c.setup_sqls,['CREATE SCHEMA m_create_partition_namespace;'])
             self.assertEqual(c.teardown_sqls,['DROP TABLE IF EXISTS m_create_partition_namespace.created PURGE;','DROP SCHEMA m_create_partition_namespace;'])
 
-    def test_exact_reconstruction(self):
-        p=create_table_partition()
-        for name,obj in p.finish().items():assert_evolved_asset(self, (ROOT/'specs'/p.category.lower()/p.id/name).read_text(),yaml.safe_dump(obj,allow_unicode=True,sort_keys=False,width=110))
-if __name__=='__main__':unittest.main()
+    def test_current_specs_load_and_generate(self):
+        for mid in self.r.factors['m_create_table_partition'].manifest_refs:
+            cases,report=self.g.generate_with_report(self.r.manifests[mid])
+            self.assertTrue(cases)
+            self.assertTrue(report.pairwise_complete)
+

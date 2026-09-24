@@ -20,13 +20,13 @@ class AmbiguousInsertSourceReviewTests(unittest.TestCase):
         ledger = self.registry.source_ledgers[self.factor.source_ledger_ref]
         unit = next(u for u in ledger.units if u.id == 'insert_v10_140')
         self.assertEqual((unit.line_start, unit.line_end), (367, 367))
-        self.assertEqual(unit.status, 'open_question')
+        self.assertEqual(unit.status, 'mapped')
         facts = {f.id: f for f in self.factor.facts}
-        questions = [facts[ref] for ref in unit.fact_refs
-                     if facts[ref].type == 'open_question' and facts[ref].status == 'needs_verification']
-        self.assertTrue(questions)
-        self.assertIn('query', ' '.join(f.statement for f in questions))
-        self.assertIn('subquery', ' '.join(f.statement for f in questions))
+        boundaries = [facts[ref] for ref in unit.fact_refs
+                      if facts[ref].type == 'environment' and facts[ref].status == 'confirmed']
+        self.assertTrue(boundaries)
+        self.assertIn('query', ' '.join(f.statement for f in boundaries))
+        self.assertIn('subquery', ' '.join(f.statement for f in boundaries))
 
     def test_ambiguous_interpretation_does_not_filter_the_global_feasible_domain(self):
         self.assertNotIn('insert_rule_conflict_rejects_query_source', [r.id for r in self.factor.rules])

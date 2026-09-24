@@ -2,14 +2,14 @@
 -- static_only: true
 -- case_count: 10
 
--- case_id: manifest_copy_csv_stdout_812d71d868c3
+-- case_id: manifest_copy_csv_stdout_fa06ffd33b5b
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"columns": "copy_columns_inherit", "delimiter": "copy_delimiter_comma", "format": "copy_format_csv", "header": "copy_header_off", "quote_all": "copy_quote_all_off"}
+-- params: {"columns": "copy_columns_inherit", "delimiter": "copy_delimiter_comma", "direction": "copy_direction_stdout", "format": "copy_format_csv", "header": "copy_header_off", "quote_all": "copy_quote_all_off"}
 -- fixture_setup:
 CREATE SCHEMA fp_cs_one;
 CREATE SCHEMA fp_cs_two;
@@ -23,14 +23,14 @@ ROLLBACK;
 DROP SCHEMA IF EXISTS fp_cs_two CASCADE;
 DROP SCHEMA IF EXISTS fp_cs_one CASCADE;
 
--- case_id: manifest_copy_csv_stdout_f5813a5c3f12
+-- case_id: manifest_copy_csv_stdout_d0777e280330
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"columns": "copy_columns_explicit", "delimiter": "copy_delimiter_pipe", "format": "copy_format_csv", "header": "copy_header_on", "quote_all": "copy_quote_all_on"}
+-- params: {"columns": "copy_columns_explicit", "delimiter": "copy_delimiter_pipe", "direction": "copy_direction_stdout", "format": "copy_format_csv", "header": "copy_header_on", "quote_all": "copy_quote_all_on"}
 -- fixture_setup:
 CREATE SCHEMA fp_cs_one;
 CREATE SCHEMA fp_cs_two;
@@ -44,14 +44,14 @@ ROLLBACK;
 DROP SCHEMA IF EXISTS fp_cs_two CASCADE;
 DROP SCHEMA IF EXISTS fp_cs_one CASCADE;
 
--- case_id: manifest_copy_csv_stdout_0d8de41dcd4d
+-- case_id: manifest_copy_csv_stdout_5741a74da005
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"columns": "copy_columns_first", "delimiter": "copy_delimiter_comma", "format": "copy_format_csv", "header": "copy_header_off", "quote_all": "copy_quote_all_on"}
+-- params: {"columns": "copy_columns_first", "delimiter": "copy_delimiter_comma", "direction": "copy_direction_stdout", "format": "copy_format_csv", "header": "copy_header_off", "quote_all": "copy_quote_all_on"}
 -- fixture_setup:
 CREATE SCHEMA fp_cs_one;
 CREATE SCHEMA fp_cs_two;
@@ -65,14 +65,14 @@ ROLLBACK;
 DROP SCHEMA IF EXISTS fp_cs_two CASCADE;
 DROP SCHEMA IF EXISTS fp_cs_one CASCADE;
 
--- case_id: manifest_copy_csv_stdout_08fb7f604410
+-- case_id: manifest_copy_csv_stdout_1308644497d5
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"columns": "copy_columns_second", "delimiter": "copy_delimiter_comma", "format": "copy_format_csv", "header": "copy_header_on", "quote_all": "copy_quote_all_off"}
+-- params: {"columns": "copy_columns_second", "delimiter": "copy_delimiter_comma", "direction": "copy_direction_stdout", "format": "copy_format_csv", "header": "copy_header_on", "quote_all": "copy_quote_all_off"}
 -- fixture_setup:
 CREATE SCHEMA fp_cs_one;
 CREATE SCHEMA fp_cs_two;
@@ -86,14 +86,14 @@ ROLLBACK;
 DROP SCHEMA IF EXISTS fp_cs_two CASCADE;
 DROP SCHEMA IF EXISTS fp_cs_one CASCADE;
 
--- case_id: manifest_copy_csv_stdout_62db8461aa21
+-- case_id: manifest_copy_csv_stdout_dada914cb69a
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"columns": "copy_columns_reversed", "delimiter": "copy_delimiter_pipe", "format": "copy_format_csv", "header": "copy_header_off", "quote_all": "copy_quote_all_off"}
+-- params: {"columns": "copy_columns_reversed", "delimiter": "copy_delimiter_pipe", "direction": "copy_direction_stdout", "format": "copy_format_csv", "header": "copy_header_off", "quote_all": "copy_quote_all_off"}
 -- fixture_setup:
 CREATE SCHEMA fp_cs_one;
 CREATE SCHEMA fp_cs_two;
@@ -107,14 +107,14 @@ ROLLBACK;
 DROP SCHEMA IF EXISTS fp_cs_two CASCADE;
 DROP SCHEMA IF EXISTS fp_cs_one CASCADE;
 
--- case_id: manifest_copy_csv_stdout_f61f3df74bf7
+-- case_id: manifest_copy_csv_stdout_39fa4cc5999a
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"columns": "copy_columns_inherit", "delimiter": "copy_delimiter_pipe", "format": "copy_format_csv", "header": "copy_header_on", "quote_all": "copy_quote_all_on"}
+-- params: {"columns": "copy_columns_inherit", "delimiter": "copy_delimiter_pipe", "direction": "copy_direction_stdout", "format": "copy_format_csv", "header": "copy_header_on", "quote_all": "copy_quote_all_on"}
 -- fixture_setup:
 CREATE SCHEMA fp_cs_one;
 CREATE SCHEMA fp_cs_two;
@@ -128,14 +128,14 @@ ROLLBACK;
 DROP SCHEMA IF EXISTS fp_cs_two CASCADE;
 DROP SCHEMA IF EXISTS fp_cs_one CASCADE;
 
--- case_id: manifest_copy_csv_stdout_b5930305e5d5
+-- case_id: manifest_copy_csv_stdout_63280797f945
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"columns": "copy_columns_explicit", "delimiter": "copy_delimiter_comma", "format": "copy_format_csv", "header": "copy_header_off", "quote_all": "copy_quote_all_off"}
+-- params: {"columns": "copy_columns_explicit", "delimiter": "copy_delimiter_comma", "direction": "copy_direction_stdout", "format": "copy_format_csv", "header": "copy_header_off", "quote_all": "copy_quote_all_off"}
 -- fixture_setup:
 CREATE SCHEMA fp_cs_one;
 CREATE SCHEMA fp_cs_two;
@@ -149,14 +149,14 @@ ROLLBACK;
 DROP SCHEMA IF EXISTS fp_cs_two CASCADE;
 DROP SCHEMA IF EXISTS fp_cs_one CASCADE;
 
--- case_id: manifest_copy_csv_stdout_689bc1b01f51
+-- case_id: manifest_copy_csv_stdout_a731fa80f8c9
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"columns": "copy_columns_first", "delimiter": "copy_delimiter_pipe", "format": "copy_format_csv", "header": "copy_header_on", "quote_all": "copy_quote_all_off"}
+-- params: {"columns": "copy_columns_first", "delimiter": "copy_delimiter_pipe", "direction": "copy_direction_stdout", "format": "copy_format_csv", "header": "copy_header_on", "quote_all": "copy_quote_all_off"}
 -- fixture_setup:
 CREATE SCHEMA fp_cs_one;
 CREATE SCHEMA fp_cs_two;
@@ -170,14 +170,14 @@ ROLLBACK;
 DROP SCHEMA IF EXISTS fp_cs_two CASCADE;
 DROP SCHEMA IF EXISTS fp_cs_one CASCADE;
 
--- case_id: manifest_copy_csv_stdout_f61ca9421069
+-- case_id: manifest_copy_csv_stdout_7a1e78dc40d1
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"columns": "copy_columns_second", "delimiter": "copy_delimiter_pipe", "format": "copy_format_csv", "header": "copy_header_off", "quote_all": "copy_quote_all_on"}
+-- params: {"columns": "copy_columns_second", "delimiter": "copy_delimiter_pipe", "direction": "copy_direction_stdout", "format": "copy_format_csv", "header": "copy_header_off", "quote_all": "copy_quote_all_on"}
 -- fixture_setup:
 CREATE SCHEMA fp_cs_one;
 CREATE SCHEMA fp_cs_two;
@@ -191,14 +191,14 @@ ROLLBACK;
 DROP SCHEMA IF EXISTS fp_cs_two CASCADE;
 DROP SCHEMA IF EXISTS fp_cs_one CASCADE;
 
--- case_id: manifest_copy_csv_stdout_264eefc87164
+-- case_id: manifest_copy_csv_stdout_8b964be8f15c
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"columns": "copy_columns_reversed", "delimiter": "copy_delimiter_comma", "format": "copy_format_csv", "header": "copy_header_on", "quote_all": "copy_quote_all_on"}
+-- params: {"columns": "copy_columns_reversed", "delimiter": "copy_delimiter_comma", "direction": "copy_direction_stdout", "format": "copy_format_csv", "header": "copy_header_on", "quote_all": "copy_quote_all_on"}
 -- fixture_setup:
 CREATE SCHEMA fp_cs_one;
 CREATE SCHEMA fp_cs_two;

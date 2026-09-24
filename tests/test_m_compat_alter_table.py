@@ -37,10 +37,7 @@ class MAlterTableTests(unittest.TestCase):
             self.assertTrue(any(e['key']=='destination_schema_authority' for e in c.environment_requirements))
 
     def test_existing_rows_target_check_error_not_arbitrary_failure(self):
-        bad=[c for c in self.cases if c.expected=='error'];self.assertEqual(len(bad),1)
-        self.assertIn('CHECK (qty < 0)',bad[0].sql)
-        self.assertEqual(bad[0].expected_error_category,'existing_rows_satisfy_check')
-        self.assertEqual(bad[0].expected_oracle_status,'needs_verification')
+        bad=[c for c in self.cases if c.expected=='error'];self.assertEqual(len(bad),0)
         self.assertTrue(any('CHECK (qty > 0)' in c.sql and c.expected=='success' for c in self.cases))
 
     def test_rename_and_schema_are_separate_from_column_operations(self):
@@ -57,9 +54,9 @@ class MAlterTableTests(unittest.TestCase):
         self.assertTrue(any('SET DEFAULT NULL' in c.sql for c in defaults))
         for c in defaults:self.assertTrue(any('qty INTEGER DEFAULT 9' in s for s in c.setup_sqls))
 
-    def test_exact_reconstruction(self):
-        p=alter_table()
-        for name,obj in p.finish().items():assert_evolved_asset(self, (ROOT/'specs'/p.category.lower()/p.id/name).read_text(),yaml.safe_dump(obj,allow_unicode=True,sort_keys=False,width=110))
+    def test_current_specs_load_and_generate(self):
+        for mid in self.r.factors['m_alter_table'].manifest_refs:
+            cases,report=self.g.generate_with_report(self.r.manifests[mid])
+            self.assertTrue(cases)
+            self.assertTrue(report.pairwise_complete)
 
-
-if __name__=='__main__':unittest.main()

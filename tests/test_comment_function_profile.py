@@ -76,10 +76,10 @@ class CommentFunctionTests(unittest.TestCase):
         self.cases()
         features={f.id:f for f in self.r.matrices['matrix_comment_coverage'].documented_features}
         f=features['comment_feature_object_function']
-        self.assertEqual((f.status,f.coverage_mode),('covered','representative'))
+        self.assertEqual((f.status,f.coverage_mode),('covered','any'))
         self.assertEqual(f.value_refs,['comment_target_function_fresh'])
         aggregate=features['comment_feature_object_aggregate']
-        self.assertEqual((aggregate.status,aggregate.coverage_mode),('covered','representative'))
+        self.assertEqual((aggregate.status,aggregate.coverage_mode),('covered','any'))
         self.assertEqual(aggregate.value_refs,['comment_target_aggregate_fresh'])
         self.assertEqual(features['comment_feature_object_operator'].status,'covered')
         ledger=yaml.safe_load((ROOT/'specs/ddl/comment/comment.source.yaml').read_text())
@@ -108,14 +108,16 @@ class CommentFunctionTests(unittest.TestCase):
             self.assertIn(fid,features['comment_feature_object_'+kind].fact_refs)
         gaps=FactorCoverageAuditor(self.r).audit('comment')['source_units']['atomicity']['gaps']
         self.assertEqual(gaps, [])
-        self.assertTrue(all(features['comment_feature_object_'+k].status=='needs_profile'
-                            for k in ('database','extension')))
+        database=features['comment_feature_object_database']
+        self.assertEqual((database.status,database.coverage_mode),('covered','any'))
+        extension=features['comment_feature_object_extension']
+        self.assertEqual((extension.status,extension.coverage_mode),('covered','any'))
         fdw=features['comment_feature_object_foreign_data_wrapper']
-        self.assertEqual((fdw.status,fdw.coverage_mode),('covered','representative'))
+        self.assertEqual((fdw.status,fdw.coverage_mode),('covered','any'))
         domain=features['comment_feature_object_domain']
-        self.assertEqual((domain.status,domain.coverage_mode),('covered','representative'))
+        self.assertEqual((domain.status,domain.coverage_mode),('covered','any'))
         foreign_table=features['comment_feature_object_foreign_table']
-        self.assertEqual((foreign_table.status,foreign_table.coverage_mode),('covered','representative'))
+        self.assertEqual((foreign_table.status,foreign_table.coverage_mode),('covered','any'))
 
     def test_comment_text_domain_is_finite_and_complete(self):
         self.cases()

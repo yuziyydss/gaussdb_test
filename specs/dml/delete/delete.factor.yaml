@@ -5,7 +5,6 @@ name: DELETE
 category: DML
 status: needs_review
 description: 以 GaussDB V2.0-10.0.0 集中式 SQL 参考 1.13.10.3 DELETE 章节为主证据，并仅通过同 catalog 的 UPDATE 章节补充 WHERE CURRENT OF 明示限制。
-
 source:
   product: GaussDB
   document: GaussDB V2.0-10.0.0 集中式 SQL参考 1.13.10.3 DELETE
@@ -13,390 +12,806 @@ source:
   artifact_sha256: 8aa143969533fe7a75f798df8eabbc518fbdd6e0ecc39231849dede7ac499fe4
   parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
   extraction_rule_version: gaussdb-pdf-outline-v1
-  extraction_date: "2026-09-04"
+  extraction_date: '2026-09-04'
   catalog_chapter_ref:
     document_id: gaussdb_v2_0_10_0_0_centralized_reference_01
     source_relpath: general/dml/delete.txt
     chapter_sha256: 8aa143969533fe7a75f798df8eabbc518fbdd6e0ecc39231849dede7ac499fe4
-
 source_ledger_ref: source_ledger_delete
 syntax_ref: syntax_delete_v1
-
 dimensions:
   with_clause:
     description: DELETE 之前的 WITH 前缀；对 PDF 枚举的 CTE 主体做有限静态展开。
     default_value_id: delete_with_none
     classes:
-      - id: delete_with_absent
-        meaning: 不使用 WITH。
-        values:
-          - {id: delete_with_none, render: "", representative: true, validity: valid, properties: {body_kind: none, recursive: false}}
-      - id: delete_with_query_forms
-        meaning: SELECT CTE 及物化修饰的有限形态。
-        values:
-          - id: delete_with_select
-            render: "WITH del_cte AS (SELECT id FROM t_delete_target WHERE id = 3) "
-            representative: true
-            validity: valid
-            fixture_refs: [fixture_delete_target]
-            properties: {body_kind: select, recursive: false, materialization: default}
-            fact_refs: [delete_fact_with_declaration]
-          - id: delete_with_recursive_select
-            render: "WITH RECURSIVE del_cte(id) AS (VALUES (1) UNION ALL SELECT id + 1 FROM del_cte WHERE id < 2) "
-            representative: true
-            validity: valid
-            properties: {body_kind: select, recursive: true, materialization: default, max_depth: 2}
-            fact_refs: [delete_fact_with_recursive, delete_open_recursive_cte_depth]
-          - id: delete_with_materialized_select
-            render: "WITH del_cte AS MATERIALIZED (SELECT id FROM t_delete_target) "
-            representative: false
-            validity: valid
-            fixture_refs: [fixture_delete_target]
-            properties: {body_kind: select, recursive: false, materialization: materialized}
-            fact_refs: [delete_fact_with_body_grammar]
-          - id: delete_with_not_materialized_select
-            render: "WITH del_cte AS NOT MATERIALIZED (SELECT id FROM t_delete_target) "
-            representative: false
-            validity: valid
-            fixture_refs: [fixture_delete_target]
-            properties: {body_kind: select, recursive: false, materialization: not_materialized}
-            fact_refs: [delete_fact_with_body_grammar]
-      - id: delete_with_other_bodies
-        meaning: 正式产生式枚举的 VALUES 和数据修改 CTE 主体，仅作 syntax_only 生成。
-        values:
-          - id: delete_with_values
-            render: "WITH del_cte(id) AS (VALUES (1), (2)) "
-            representative: false
-            validity: valid
-            properties: {body_kind: values, recursive: false, materialization: default}
-            fact_refs: [delete_fact_with_body_grammar]
-          - id: delete_with_insert
-            render: "WITH del_cte AS (INSERT INTO t_delete_aux (id, note) VALUES (90, 'cte') RETURNING id) "
-            representative: false
-            validity: valid
-            fixture_refs: [fixture_delete_aux]
-            properties: {body_kind: insert, recursive: false, materialization: default}
-            fact_refs: [delete_fact_with_body_grammar]
-          - id: delete_with_update
-            render: "WITH del_cte AS (UPDATE t_delete_aux SET note = 'cte' WHERE id = 9 RETURNING id) "
-            representative: false
-            validity: valid
-            fixture_refs: [fixture_delete_aux]
-            properties: {body_kind: update, recursive: false, materialization: default}
-            fact_refs: [delete_fact_with_body_grammar]
-          - id: delete_with_delete
-            render: "WITH del_cte AS (DELETE FROM t_delete_aux WHERE id = 9 RETURNING id) "
-            representative: false
-            validity: valid
-            fixture_refs: [fixture_delete_aux]
-            properties: {body_kind: delete, recursive: false, materialization: default}
-            fact_refs: [delete_fact_with_body_grammar]
-
+    - id: delete_with_absent
+      meaning: 不使用 WITH。
+      values:
+      - id: delete_with_none
+        render: ''
+        representative: true
+        validity: valid
+        properties:
+          body_kind: none
+          recursive: false
+    - id: delete_with_query_forms
+      meaning: SELECT CTE 及物化修饰的有限形态。
+      values:
+      - id: delete_with_select
+        render: 'WITH del_cte AS (SELECT id FROM t_delete_target WHERE id = 3) '
+        representative: true
+        validity: valid
+        fixture_refs:
+        - fixture_delete_target
+        properties:
+          body_kind: select
+          recursive: false
+          materialization: default
+        fact_refs:
+        - delete_fact_with_declaration
+      - id: delete_with_recursive_select
+        render: 'WITH RECURSIVE del_cte(id) AS (VALUES (1) UNION ALL SELECT id + 1 FROM del_cte WHERE id < 2) '
+        representative: true
+        validity: valid
+        properties:
+          body_kind: select
+          recursive: true
+          materialization: default
+          max_depth: 2
+        fact_refs:
+        - delete_fact_with_recursive
+        - delete_open_recursive_cte_depth
+      - id: delete_with_materialized_select
+        render: 'WITH del_cte AS MATERIALIZED (SELECT id FROM t_delete_target) '
+        representative: false
+        validity: valid
+        fixture_refs:
+        - fixture_delete_target
+        properties:
+          body_kind: select
+          recursive: false
+          materialization: materialized
+        fact_refs:
+        - delete_fact_with_body_grammar
+      - id: delete_with_not_materialized_select
+        render: 'WITH del_cte AS NOT MATERIALIZED (SELECT id FROM t_delete_target) '
+        representative: false
+        validity: valid
+        fixture_refs:
+        - fixture_delete_target
+        properties:
+          body_kind: select
+          recursive: false
+          materialization: not_materialized
+        fact_refs:
+        - delete_fact_with_body_grammar
+    - id: delete_with_other_bodies
+      meaning: 正式产生式枚举的 VALUES 和数据修改 CTE 主体，仅作 syntax_only 生成。
+      values:
+      - id: delete_with_values
+        render: 'WITH del_cte(id) AS (VALUES (1), (2)) '
+        representative: false
+        validity: valid
+        properties:
+          body_kind: values
+          recursive: false
+          materialization: default
+        fact_refs:
+        - delete_fact_with_body_grammar
+      - id: delete_with_insert
+        render: 'WITH del_cte AS (INSERT INTO t_delete_aux (id, note) VALUES (90, ''cte'') RETURNING id) '
+        representative: false
+        validity: valid
+        fixture_refs:
+        - fixture_delete_aux
+        properties:
+          body_kind: insert
+          recursive: false
+          materialization: default
+        fact_refs:
+        - delete_fact_with_body_grammar
+      - id: delete_with_update
+        render: 'WITH del_cte AS (UPDATE t_delete_aux SET note = ''cte'' WHERE id = 9 RETURNING id) '
+        representative: false
+        validity: valid
+        fixture_refs:
+        - fixture_delete_aux
+        properties:
+          body_kind: update
+          recursive: false
+          materialization: default
+        fact_refs:
+        - delete_fact_with_body_grammar
+      - id: delete_with_delete
+        render: 'WITH del_cte AS (DELETE FROM t_delete_aux WHERE id = 9 RETURNING id) '
+        representative: false
+        validity: valid
+        fixture_refs:
+        - fixture_delete_aux
+        properties:
+          body_kind: delete
+          recursive: false
+          materialization: default
+        fact_refs:
+        - delete_fact_with_body_grammar
   plan_hint:
     description: DELETE 后的 hint 位置已确认，具体 hint 语法未在本 catalog 展开。
     default_value_id: delete_hint_none
     classes:
-      - id: delete_hint_values
-        meaning: 无 hint 或未展开占位形态。
-        values:
-          - {id: delete_hint_none, render: "", representative: true, validity: valid}
-          - id: delete_hint_unresolved
-            render: "/*+ plan_hint */ "
-            representative: false
-            validity: unknown
-            fact_refs: [delete_fact_plan_hint_position, delete_open_plan_hint_profile]
-
+    - id: delete_hint_values
+      meaning: 无 hint 或未展开占位形态。
+      values:
+      - id: delete_hint_none
+        render: ''
+        representative: true
+        validity: valid
+      - id: delete_hint_unresolved
+        render: '/*+ plan_hint */ '
+        representative: false
+        validity: unknown
+        fact_refs:
+        - delete_fact_plan_hint_position
+        - delete_open_plan_hint_profile
   delete_form:
     description: 单表、多表 USING 与多表 FROM 三个顶层分支。
     default_value_id: delete_form_single
     classes:
-      - id: delete_form_values
-        meaning: PDF 的三个 DELETE 顶层产生式。
-        values:
-          - {id: delete_form_single, render: "", representative: true, validity: valid, fact_refs: [delete_fact_single_grammar]}
-          - {id: delete_form_multi_using, render: "", representative: true, validity: valid, fact_refs: [delete_fact_multi_grammar]}
-          - {id: delete_form_multi_from, render: "", representative: true, validity: valid, fact_refs: [delete_fact_multi_grammar]}
-
+    - id: delete_form_values
+      meaning: PDF 的三个 DELETE 顶层产生式。
+      values:
+      - id: delete_form_single
+        render: ''
+        representative: true
+        validity: valid
+        fact_refs:
+        - delete_fact_single_grammar
+      - id: delete_form_multi_using
+        render: ''
+        representative: true
+        validity: valid
+        fact_refs:
+        - delete_fact_multi_grammar
+      - id: delete_form_multi_from
+        render: ''
+        representative: true
+        validity: valid
+        fact_refs:
+        - delete_fact_multi_grammar
   single_from_keyword:
     description: 单表语法中 DELETE 后可选 FROM。
     default_value_id: delete_single_from
     classes:
-      - id: delete_single_from_values
-        meaning: 保留或省略 FROM。
-        values:
-          - {id: delete_single_from, render: "FROM ", representative: true, validity: valid, fact_refs: [delete_fact_single_grammar]}
-          - {id: delete_single_without_from, render: "", representative: false, validity: valid, fact_refs: [delete_fact_single_grammar]}
-
+    - id: delete_single_from_values
+      meaning: 保留或省略 FROM。
+      values:
+      - id: delete_single_from
+        render: 'FROM '
+        representative: true
+        validity: valid
+        fact_refs:
+        - delete_fact_single_grammar
+      - id: delete_single_without_from
+        render: ''
+        representative: false
+        validity: valid
+        fact_refs:
+        - delete_fact_single_grammar
   single_target_profile:
     description: 单表 DELETE 的普通表、ONLY/*、别名、视图和子查询目标。
     default_value_id: delete_target_table
     profile_source:
       matrix_ref: matrix_delete_single_targets
       profile_id_path: profiles.id
-
   single_using_clause:
     description: 单表分支的可选 USING；目标表重复值仅在 B 环境场景中验证。
     default_value_id: delete_using_none
     classes:
-      - id: delete_using_values
-        meaning: 无 USING、关联表或 B 模式的目标自连接。
-        values:
-          - {id: delete_using_none, render: "", representative: true, validity: valid, properties: {repeats_target: false}}
-          - id: delete_using_lookup
-            render: " USING t_delete_lookup AS l"
-            representative: true
-            validity: valid
-            fixture_refs: [fixture_delete_lookup]
-            properties: {repeats_target: false, source_tables: [t_delete_lookup], source_columns: [lookup_id]}
-            fact_refs: [delete_fact_using_clause]
-          - id: delete_using_target_b
-            render: " USING t_delete_target AS src"
-            representative: true
-            validity: conditional
-            fixture_refs: [fixture_delete_target]
-            properties: {repeats_target: true, compatibility_mode: B, source_tables: [t_delete_target], source_columns: [id]}
-            fact_refs: [delete_fact_using_repeat_scope, delete_fact_single_using_b_environment]
-
-      - id: delete_using_self_b_fresh_class
-        meaning: 专属新普通表，单目标B模式USING自连接的有限代表。
-        values:
-        - id: delete_using_self_b_fresh
-          render: ' USING t_delete_self_b AS src'
-          representative: true
-          validity: valid
-          fixture_refs:
-          - fixture_delete_self_b_fresh
-          properties:
-            repeats_target: true
-            required_compatibility_modes:
-            - B
-            original_value_ref: delete_using_target_b
-            source_tables:
-            - t_delete_self_b
-            source_columns:
-            - id
-            - note
-          fact_refs:
-          - delete_fact_using_repeat_scope
-          - delete_fact_single_using_b_environment
-
+    - id: delete_using_values
+      meaning: 无 USING、关联表或 B 模式的目标自连接。
+      values:
+      - id: delete_using_none
+        render: ''
+        representative: true
+        validity: valid
+        properties:
+          repeats_target: false
+      - id: delete_using_lookup
+        render: ' USING t_delete_lookup AS l'
+        representative: true
+        validity: valid
+        fixture_refs:
+        - fixture_delete_lookup
+        properties:
+          repeats_target: false
+          source_tables:
+          - t_delete_lookup
+          source_columns:
+          - lookup_id
+        fact_refs:
+        - delete_fact_using_clause
+      - id: delete_using_target_b
+        render: ' USING t_delete_target AS src'
+        representative: true
+        validity: conditional
+        fixture_refs:
+        - fixture_delete_target
+        properties:
+          repeats_target: true
+          compatibility_mode: B
+          source_tables:
+          - t_delete_target
+          source_columns:
+          - id
+        fact_refs:
+        - delete_fact_using_repeat_scope
+        - delete_fact_single_using_b_environment
+    - id: delete_using_self_b_fresh_class
+      meaning: 专属新普通表，单目标B模式USING自连接的有限代表。
+      values:
+      - id: delete_using_self_b_fresh
+        render: ' USING t_delete_self_b AS src'
+        representative: true
+        validity: valid
+        fixture_refs:
+        - fixture_delete_self_b_fresh
+        properties:
+          repeats_target: true
+          required_compatibility_modes:
+          - B
+          original_value_ref: delete_using_target_b
+          source_tables:
+          - t_delete_self_b
+          source_columns:
+          - id
+          - note
+        fact_refs:
+        - delete_fact_using_repeat_scope
+        - delete_fact_single_using_b_environment
   single_predicate:
     description: 省略 WHERE、布尔条件或存储过程游标当前行。
     default_value_id: delete_predicate_none
     classes:
-      - id: delete_predicate_values
-        meaning: PDF 的三种行选择形态。
-        values:
-          - {id: delete_predicate_none, render: "", representative: true, validity: valid, properties: {kind: none}}
-          - {id: delete_predicate_partition, render: " WHERE col_1 > 0", representative: true, validity: valid, properties: {kind: condition, target_columns: [col_1]}, fact_refs: [delete_fact_condition_behavior]}
-          - {id: delete_predicate_where, render: " WHERE id = 2", representative: true, validity: valid, properties: {kind: condition}, fact_refs: [delete_fact_condition_behavior]}
-          - id: delete_predicate_current_of
-            render: " WHERE CURRENT OF cur_delete"
-            representative: true
-            validity: conditional
-            properties: {kind: current_of, execution_context: stored_procedure, target_kind: regular_table}
-            fact_refs: [delete_fact_current_of_grammar, delete_fact_current_of_constraints]
-
+    - id: delete_predicate_values
+      meaning: PDF 的三种行选择形态。
+      values:
+      - id: delete_predicate_none
+        render: ''
+        representative: true
+        validity: valid
+        properties:
+          kind: none
+      - id: delete_predicate_partition
+        render: ' WHERE col_1 > 0'
+        representative: true
+        validity: valid
+        properties:
+          kind: condition
+          target_columns:
+          - col_1
+        fact_refs:
+        - delete_fact_condition_behavior
+      - id: delete_predicate_where
+        render: ' WHERE id = 2'
+        representative: true
+        validity: valid
+        properties:
+          kind: condition
+        fact_refs:
+        - delete_fact_condition_behavior
+      - id: delete_predicate_current_of
+        render: ' WHERE CURRENT OF cur_delete'
+        representative: true
+        validity: unknown
+        properties:
+          kind: current_of
+          execution_context: stored_procedure
+          target_kind: regular_table
+        fact_refs:
+        - delete_fact_current_of_grammar
+        - delete_fact_current_of_constraints
   order_clause:
     description: 单表 DELETE 的 ORDER BY 有限代表形式。
     default_value_id: delete_order_none
     classes:
-      - id: delete_order_values
-        meaning: 无排序、默认、ASC、DESC 或 USING operator。
-        values:
-          - {id: delete_order_none, render: "", representative: true, validity: valid}
-          - {id: delete_order_expression, render: " ORDER BY id", representative: true, validity: valid, fact_refs: [delete_fact_order_limit_grammar]}
-          - {id: delete_order_asc, render: " ORDER BY id ASC", representative: false, validity: valid, fact_refs: [delete_fact_order_limit_grammar]}
-          - {id: delete_order_desc, render: " ORDER BY id DESC", representative: false, validity: valid, fact_refs: [delete_fact_order_limit_grammar]}
-          - {id: delete_order_using, render: " ORDER BY id USING <", representative: false, validity: valid, fact_refs: [delete_fact_order_limit_grammar]}
-
+    - id: delete_order_values
+      meaning: 无排序、默认、ASC、DESC 或 USING operator。
+      values:
+      - id: delete_order_none
+        render: ''
+        representative: true
+        validity: valid
+      - id: delete_order_expression
+        render: ' ORDER BY id'
+        representative: true
+        validity: valid
+        fact_refs:
+        - delete_fact_order_limit_grammar
+      - id: delete_order_asc
+        render: ' ORDER BY id ASC'
+        representative: false
+        validity: valid
+        fact_refs:
+        - delete_fact_order_limit_grammar
+      - id: delete_order_desc
+        render: ' ORDER BY id DESC'
+        representative: false
+        validity: valid
+        fact_refs:
+        - delete_fact_order_limit_grammar
+      - id: delete_order_using
+        render: ' ORDER BY id USING <'
+        representative: false
+        validity: valid
+        fact_refs:
+        - delete_fact_order_limit_grammar
   limit_clause:
     description: 单表 DELETE 的可选 LIMIT count。
     default_value_id: delete_limit_none
     classes:
-      - id: delete_limit_values
-        meaning: 省略 LIMIT 或限制一行。
-        values:
-          - {id: delete_limit_none, render: "", representative: true, validity: valid}
-          - {id: delete_limit_one, render: " LIMIT 1", representative: true, validity: valid, fact_refs: [delete_fact_order_limit_grammar]}
-
+    - id: delete_limit_values
+      meaning: 省略 LIMIT 或限制一行。
+      values:
+      - id: delete_limit_none
+        render: ''
+        representative: true
+        validity: valid
+      - id: delete_limit_one
+        render: ' LIMIT 1'
+        representative: true
+        validity: valid
+        fact_refs:
+        - delete_fact_order_limit_grammar
   returning_clause:
     description: 单表 DELETE 的 RETURNING 投影。
     default_value_id: delete_returning_none
     classes:
-      - id: delete_returning_values
-        meaning: 无返回、整行或带别名表达式。
-        values:
-          - {id: delete_returning_none, render: "", representative: true, validity: valid}
-          - {id: delete_returning_all, render: " RETURNING *", representative: true, validity: valid, fact_refs: [delete_fact_returning_grammar]}
-          - {id: delete_returning_expression, render: " RETURNING id, note AS deleted_note", representative: true, validity: valid, fact_refs: [delete_fact_returning_grammar, delete_fact_returning_behavior]}
-
+    - id: delete_returning_values
+      meaning: 无返回、整行或带别名表达式。
+      values:
+      - id: delete_returning_none
+        render: ''
+        representative: true
+        validity: valid
+      - id: delete_returning_all
+        render: ' RETURNING *'
+        representative: true
+        validity: valid
+        fact_refs:
+        - delete_fact_returning_grammar
+      - id: delete_returning_expression
+        render: ' RETURNING id, note AS deleted_note'
+        representative: true
+        validity: valid
+        fact_refs:
+        - delete_fact_returning_grammar
+        - delete_fact_returning_behavior
   multi_from_keyword:
     description: 第一多表产生式中 DELETE 后可选 FROM。
     default_value_id: delete_multi_from
     classes:
-      - id: delete_multi_from_values
-        meaning: 保留或省略 DELETE 后 FROM。
-        values:
-          - {id: delete_multi_from, render: "FROM ", representative: true, validity: valid, fact_refs: [delete_fact_multi_grammar]}
-          - {id: delete_multi_without_from, render: "", representative: false, validity: valid, fact_refs: [delete_fact_multi_grammar]}
-
+    - id: delete_multi_from_values
+      meaning: 保留或省略 DELETE 后 FROM。
+      values:
+      - id: delete_multi_from
+        render: 'FROM '
+        representative: true
+        validity: valid
+        fact_refs:
+        - delete_fact_multi_grammar
+      - id: delete_multi_without_from
+        render: ''
+        representative: false
+        validity: valid
+        fact_refs:
+        - delete_fact_multi_grammar
   multi_target_profile:
     description: 多表 DELETE 的目标列表，包含一个专用负向视图列表。
     default_value_id: delete_multi_targets_basic
     profile_source:
       matrix_ref: matrix_delete_multi_targets
       profile_id_path: profiles.id
-
   multi_using_clause:
     description: 第一多表分支的可选 USING using_list。
     default_value_id: delete_multi_using_none
     classes:
-      - id: delete_multi_using_values
-        meaning: 无 USING、关联表或重复目标表。
-        values:
-          - {id: delete_multi_using_none, render: "", representative: true, validity: valid}
-          - id: delete_multi_using_lookup
-            render: " USING t_delete_lookup AS l"
-            representative: true
-            validity: valid
-            fixture_refs: [fixture_delete_lookup]
-            properties: {source_tables: [t_delete_lookup], source_columns: [lookup_id]}
-            fact_refs: [delete_fact_using_clause]
-          - id: delete_multi_using_target
-            render: " USING t_delete_target AS src"
-            representative: false
-            validity: valid
-            fixture_refs: [fixture_delete_target]
-            properties: {source_tables: [t_delete_target], source_columns: [id], repeats_target: true}
-            fact_refs: [delete_fact_using_repeat_scope]
-
+    - id: delete_multi_using_values
+      meaning: 无 USING、关联表或重复目标表。
+      values:
+      - id: delete_multi_using_none
+        render: ''
+        representative: true
+        validity: valid
+      - id: delete_multi_using_lookup
+        render: ' USING t_delete_lookup AS l'
+        representative: true
+        validity: valid
+        fixture_refs:
+        - fixture_delete_lookup
+        properties:
+          source_tables:
+          - t_delete_lookup
+          source_columns:
+          - lookup_id
+        fact_refs:
+        - delete_fact_using_clause
+      - id: delete_multi_using_target
+        render: ' USING t_delete_target AS src'
+        representative: false
+        validity: valid
+        fixture_refs:
+        - fixture_delete_target
+        properties:
+          source_tables:
+          - t_delete_target
+          source_columns:
+          - id
+          repeats_target: true
+        fact_refs:
+        - delete_fact_using_repeat_scope
   multi_from_clause:
     description: 第二多表分支的可选 FROM using_list。
     default_value_id: delete_multi_source_none
     classes:
-      - id: delete_multi_source_values
-        meaning: 无 FROM、关联表或目标自连接。
-        values:
-          - {id: delete_multi_source_none, render: "", representative: true, validity: valid}
-          - id: delete_multi_source_lookup
-            render: " FROM t_delete_lookup AS l"
-            representative: true
-            validity: valid
-            fixture_refs: [fixture_delete_lookup]
-            properties: {source_tables: [t_delete_lookup], source_columns: [lookup_id]}
-            fact_refs: [delete_fact_multi_grammar, delete_fact_using_clause]
-          - id: delete_multi_source_target
-            render: " FROM t_delete_target AS src"
-            representative: false
-            validity: valid
-            fixture_refs: [fixture_delete_target]
-            properties: {source_tables: [t_delete_target], source_columns: [id], repeats_target: true}
-            fact_refs: [delete_fact_multi_grammar, delete_fact_using_repeat_scope]
-
+    - id: delete_multi_source_values
+      meaning: 无 FROM、关联表或目标自连接。
+      values:
+      - id: delete_multi_source_none
+        render: ''
+        representative: true
+        validity: valid
+      - id: delete_multi_source_lookup
+        render: ' FROM t_delete_lookup AS l'
+        representative: true
+        validity: valid
+        fixture_refs:
+        - fixture_delete_lookup
+        properties:
+          source_tables:
+          - t_delete_lookup
+          source_columns:
+          - lookup_id
+        fact_refs:
+        - delete_fact_multi_grammar
+        - delete_fact_using_clause
+      - id: delete_multi_source_target
+        render: ' FROM t_delete_target AS src'
+        representative: false
+        validity: valid
+        fixture_refs:
+        - fixture_delete_target
+        properties:
+          source_tables:
+          - t_delete_target
+          source_columns:
+          - id
+          repeats_target: true
+        fact_refs:
+        - delete_fact_multi_grammar
+        - delete_fact_using_repeat_scope
   multi_predicate:
     description: 多表 DELETE 的可选 WHERE condition。
     default_value_id: delete_multi_predicate_none
     classes:
-      - id: delete_multi_predicate_values
-        meaning: 省略或使用目标关联条件。
-        values:
-          - {id: delete_multi_predicate_none, render: "", representative: true, validity: valid}
-          - {id: delete_multi_predicate_where, render: " WHERE t_delete_target.id = a.id", representative: true, validity: valid, fact_refs: [delete_fact_condition_behavior]}
-
-rules:
-  - id: delete_rule_multi_target_supported
-    kind: requires
-    expression: multi_target_profile.properties.multi_supported == True
-    severity: error
-    fact_refs: [delete_fact_multi_target_restrictions]
-
+    - id: delete_multi_predicate_values
+      meaning: 省略或使用目标关联条件。
+      values:
+      - id: delete_multi_predicate_none
+        render: ''
+        representative: true
+        validity: valid
+      - id: delete_multi_predicate_where
+        render: ' WHERE t_delete_target.id = a.id'
+        representative: true
+        validity: valid
+        fact_refs:
+        - delete_fact_condition_behavior
+rules: []
 structural_checks: []
-
 facts:
-  - {id: delete_fact_single_using_b_environment, type: environment, statement: "单目标 DELETE 的 USING 若重复目标表，当前分支要求 sql_compatibility='B'；多目标例外独立建模。", status: confirmed, source_anchor: "L156-L163 using_list"}
-  - {id: delete_fact_purpose, type: syntax, statement: "DELETE 删除目标中满足 WHERE 条件的行，省略 WHERE 时选中全部行。", status: confirmed, source_anchor: "L4-L6 功能描述"}
-  - {id: delete_fact_delete_all_preserves_structure, type: behavior_oracle, statement: "省略 WHERE 删除全部行时只保留表结构。", status: confirmed, source_anchor: "L5-L6 功能描述"}
-  - {id: delete_fact_permissions, type: environment, statement: "DELETE 需要目标所有权/授予权限/DELETE ANY TABLE 之一，USING 和 condition 引用表还需 SELECT 权限；三权分立关闭时系统管理员默认有权。", status: confirmed, source_anchor: "L9-L11 权限"}
-  - {id: delete_fact_multi_target_restrictions, type: constraint, statement: "多表 DELETE 暂不支持视图或含 RULE 的表，视图/子查询也不支持多表删除。", status: confirmed, source_anchor: "L12 与 L137 多表限制"}
-  - {id: delete_fact_stream_update_restriction, type: constraint, statement: "子查询为 Stream 计划的 DELETE 不支持对被删行同时 UPDATE。", status: confirmed, source_anchor: "L13-L14 Stream 注意事项"}
-  - {id: delete_fact_single_grammar, type: syntax, statement: "单表 DELETE 的 WITH 在语句之前，hint 在 DELETE 之后，后续按可选 FROM、目标、USING、行选择、ORDER BY、LIMIT、RETURNING 顺序组合。", status: confirmed, source_anchor: "L17-L25 单表语法"}
-  - {id: delete_fact_multi_grammar, type: syntax, statement: "多表 DELETE 有两个顶层产生式：多目标后 USING using_list，或多目标后 FROM using_list，两者均可带 WHERE。", status: confirmed, source_anchor: "L27-L40 多表语法"}
-  - {id: delete_fact_target_grammar, type: syntax, statement: "单表目标可为表、子查询或视图，表目标还可组合 ONLY、*、分区和别名。", status: confirmed, source_anchor: "L19-L20 目标产生式"}
-  - {id: delete_fact_row_selection_grammar, type: syntax, statement: "单表行选择可省略、使用 WHERE condition 或 WHERE CURRENT OF cursor_name。", status: confirmed, source_anchor: "L22 行选择产生式"}
-  - {id: delete_fact_order_limit_grammar, type: syntax, statement: "单表 DELETE 可在行选择后使用 ORDER BY expression 及可选 ASC/DESC/USING operator，并可使用 LIMIT count。", status: confirmed, source_anchor: "L23-L24 与 L172-L175"}
-  - {id: delete_fact_returning_grammar, type: syntax, statement: "单表 DELETE 尾部可使用 RETURNING * 或表达式列表及输出别名。", status: confirmed, source_anchor: "L25 与 L176-L181"}
-  - {id: delete_fact_with_body_grammar, type: syntax, statement: "with_query 可声明列名和 MATERIALIZED/NOT MATERIALIZED，主体可为 SELECT、VALUES、INSERT、UPDATE 或 DELETE。", status: confirmed, source_anchor: "L42-L44 与 L76-L80"}
-  - {id: delete_fact_subquery_grammar, type: syntax, statement: "目标 subquery 列出 WITH、SELECT、投影、INTO、FROM、WHERE、层次查询、ORDER BY、OFFSET、FETCH 等有序子句。", status: confirmed, source_anchor: "L46-L59 subquery 产生式"}
-  - {id: delete_fact_from_item_grammar, type: syntax, statement: "subquery 的 from_item 可为表/视图、派生 SELECT、CTE 或递归连接项。", status: confirmed, source_anchor: "L61-L65 from_item"}
-  - {id: delete_fact_partition_grammar, type: syntax, statement: "partition_clause 支持 PARTITION 或 SUBPARTITION，并可按名称或 FOR 值列表定位。", status: confirmed, source_anchor: "L67-L69 与 L138-L142"}
-  - {id: delete_fact_with_declaration, type: syntax, statement: "WITH 可声明一个或多个可按名称引用的临时结果集并可显式命名结果列。", status: confirmed, source_anchor: "L73-L80 WITH"}
-  - {id: delete_fact_with_recursive, type: syntax, statement: "WITH RECURSIVE 允许 SELECT 子查询按名称引用自身。", status: confirmed, source_anchor: "L73-L79 WITH RECURSIVE"}
-  - {id: delete_fact_with_materialization, type: behavior_oracle, statement: "MATERIALIZED、NOT MATERIALIZED 与默认规则决定 CTE 复制、内联优化或 CTE Scan 物化。", status: confirmed, source_anchor: "L80-L90 CTE 物化"}
-  - {id: delete_fact_plan_hint_position, type: syntax, statement: "plan_hint 注释块位于 DELETE 关键字之后。", status: confirmed, source_anchor: "L91-L94 plan_hint"}
-  - {id: delete_fact_plan_hint_first_block, type: behavior_oracle, statement: "每条 DELETE 语句仅第一个 plan_hint 注释块作为 Hint 生效，一个块内可写多条 Hint。", status: confirmed, source_anchor: "L92-L95 plan_hint"}
-  - {id: delete_fact_only_semantics, type: behavior_oracle, statement: "ONLY 仅删除指定表，省略 ONLY 时还删除所有子表中的匹配行。", status: confirmed, source_anchor: "L96-L98 ONLY"}
-  - {id: delete_fact_table_target, type: syntax, statement: "table_name 是可用模式修饰的已存在目标表名。", status: confirmed, source_anchor: "L99-L101 table_name"}
-  - {id: delete_fact_subquery_target, type: behavior_oracle, statement: "子查询目标按临时视图处理并可带 CHECK OPTION；单表直接删除，多表/嵌套需按保留键判定。", status: confirmed, source_anchor: "L106-L112 subquery"}
-  - {id: delete_fact_view_target, type: syntax, statement: "view_name 指定 DELETE 的目标视图。", status: confirmed, source_anchor: "L113-L114 view_name"}
-  - {id: delete_fact_view_subquery_restrictions, type: constraint, statement: "视图/子查询只能操作直接基表用户列并至少有一个可更新列，且不支持文档列出的顶层 DISTINCT/分组/分页、集合运算、目标函数与触发器组合。", status: confirmed, source_anchor: "L117-L127 视图/子查询限制"}
-  - {id: delete_fact_supported_table_types, type: constraint, statement: "视图/子查询目标列出普通、临时、全局临时、分区、二级分区、Ustore 和 Astore 基表。", status: confirmed, source_anchor: "L128-L129 支持表类型"}
-  - {id: delete_fact_join_target_behavior, type: behavior_oracle, statement: "连接视图/子查询只删除保留键表；一张时删该表，多张时删 FROM 后第一张保留键表。", status: confirmed, source_anchor: "L130-L132 连接目标"}
-  - {id: delete_fact_duplicate_base_check_restriction, type: constraint, statement: "CHECK OPTION 下重复基表的保留键属性不一致时无法删除行。", status: confirmed, source_anchor: "L133-L135 重复基表"}
-  - {id: delete_fact_system_view_restriction, type: constraint, statement: "系统视图不支持 DELETE。", status: confirmed, source_anchor: "L136 系统视图"}
-  - {id: delete_fact_partitions_grammar, type: syntax, statement: "partitions_clause 使用 PARTITION 包含多个 partition_name 或 subpartition_name。", status: confirmed, source_anchor: "L143-L146 partitions_clause"}
-  - {id: delete_fact_partitions_environment, type: environment, statement: "partitions_clause 仅在 sql_compatibility='B' 时生效。", status: confirmed, source_anchor: "L149-L151 B 模式须知"}
-  - {id: delete_fact_alias, type: syntax, statement: "alias 是符合标识符命名规范的目标表别名。", status: confirmed, source_anchor: "L153-L155 alias"}
-  - {id: delete_fact_using_clause, type: syntax, statement: "using_list 指定 DELETE 的关联表集合。", status: confirmed, source_anchor: "L156-L157 using_list"}
-  - {id: delete_fact_using_repeat_scope, type: constraint, statement: "sql_compatibility='B' 或删除多张目标表时 using_list 可重复目标表并用别名，其他情况不可重复。", status: confirmed, source_anchor: "L159-L163 using_list 须知"}
-  - {id: delete_fact_condition_behavior, type: behavior_oracle, statement: "condition 返回 true 的行被删除；数值隐式转布尔可能导致非预期删除。", status: confirmed, source_anchor: "L165-L168 condition"}
-  - {id: delete_fact_current_of_grammar, type: syntax, statement: "WHERE CURRENT OF cursor_name 删除游标当前指向的行。", status: confirmed, source_anchor: "DELETE L169-L171 WHERE CURRENT OF"}
-  - {id: delete_fact_current_of_constraints, type: constraint, statement: "WHERE CURRENT OF 不支持 B 模式、分区表、多表操作，只能在存储过程中使用，不能与其他 WHERE、WITH、USING、ORDER BY 或 FROM 组合，对应 SELECT 游标必须为单表 FOR UPDATE 且不带 LIMIT/OFFSET、子查询或子链接。", status: confirmed, source_anchor: "DELETE L169-L171 引用 UPDATE L203-L218"}
-  - {id: delete_fact_current_of_lifecycle, type: lifecycle, statement: "存储过程中 FOR UPDATE 游标在 COMMIT/ROLLBACK 后无法再用。", status: confirmed, source_anchor: "DELETE L169-L171 引用 UPDATE L219-L220"}
-  - {id: delete_fact_current_of_missing_row, type: behavior_oracle, statement: "游标指向行已不存在时，A 模式仅 UPDATE 报错而 DELETE 不报错，其他兼容模式也不报错。", status: confirmed, source_anchor: "DELETE L169-L171 引用 UPDATE L221-L222"}
-  - {id: delete_fact_returning_behavior, type: behavior_oracle, statement: "RETURNING 在行删除后计算，可引用目标表任意字段，* 返回被删行整行并可命名输出列。", status: confirmed, source_anchor: "L176-L181 RETURNING"}
-  - {id: delete_fact_read_only_error, type: behavior_oracle, statement: "本章子查询和视图示例中，WITH READ ONLY 目标以 'DML operation cannot be performed on a read-only view' 错误拒绝 DELETE。", status: confirmed, source_anchor: "L279-L281 与 L360-L362 示例"}
-  - {id: delete_fact_key_preserved_error, type: behavior_oracle, statement: "本章重复基表且带 CHECK OPTION 的子查询/视图以 'Failed to delete from view with no key-preserved table' 错误拒绝。", status: confirmed, source_anchor: "L301-L308 与 L393-L398 示例"}
-  - {id: delete_fact_truncate_recommendation, type: environment, statement: "删除表中全部记录时文档建议使用 TRUNCATE。", status: confirmed, source_anchor: "L420-L421 优化建议"}
-  - {id: delete_example_core, type: example, statement: "文档展示按 WHERE 删除部分行、省略 WHERE 删除全部行及查询结果。", status: confirmed, source_anchor: "L183-L212 基础示例"}
-  - {id: delete_example_with, type: example, statement: "文档展示 DELETE RETURNING CTE 为外层 DELETE 提供 id 并同时删除两表相关行。", status: confirmed, source_anchor: "L214-L245 WITH 示例"}
-  - {id: delete_example_subquery, type: example, statement: "文档展示单表、READ ONLY、连接与重复基表 CHECK OPTION 子查询删除。", status: confirmed, source_anchor: "L247-L319 子查询示例"}
-  - {id: delete_example_view, type: example, statement: "文档展示单表、READ ONLY、连接与重复基表 CHECK OPTION 视图删除。", status: confirmed, source_anchor: "L321-L414 视图示例"}
-  - {id: delete_open_plan_hint_profile, type: open_question, statement: "本 catalog 只给出 plan_hint 占位、位置与首块生效规则，没有可保真生成的具体 Hint 子语法。", status: needs_verification, source_anchor: "L91-L95 plan_hint"}
-  - {id: delete_open_dblink_profile, type: open_question, statement: "本章仅声明支持 DATABASE LINK，未展开远端目标拼写、连接对象和生命周期。", status: needs_verification, source_anchor: "L102-L105 DATABASE LINK 引用"}
-  - {id: delete_open_preserved_key_definition, type: open_question, statement: "CREATE VIEW 保留键定义已通过限定引用接入；CHECK OPTION、重复基表与连接形态的完整组合和删除行为仍待验证。", status: needs_verification, source_anchor: "L110-L135 CREATE VIEW 引用"}
-  - {id: delete_open_partition_fixture, type: open_question, statement: "已复用同 PDF 的一级 RANGE 和二级 RANGE/RANGE fixture，生成名称及 FOR 常量选择；B 模式多分区列表、其余策略和实际删除行 Oracle 仍待实现，不能代表完整分区域。", status: needs_verification, source_anchor: "L138-L151 与 L417-L419"}
-  - {id: delete_open_recursive_cte_depth, type: open_question, statement: "WITH RECURSIVE 的全部递归深度无法用 V1 静态有限 AST 穷尽；当前只保留 max_depth=2 的代表形态。", status: needs_verification, source_anchor: "L73-L79 WITH RECURSIVE"}
-  - {id: delete_open_subquery_depth, type: open_question, statement: "subquery/from_item 的嵌套 SELECT 与连接递归无法由 V1 有限 profile 穷尽，当前仅表示单表与一层连接示例。", status: needs_verification, source_anchor: "L46-L65 subquery/from_item"}
-  - {id: delete_open_table_type_fixtures, type: open_question, statement: "视图/子查询支持的临时、全局临时、分区、二级分区、Ustore 和 Astore 基表尚无本章内可回放 Fixture，不能由普通表代表全域。", status: needs_verification, source_anchor: "L128-L129 支持表类型"}
-
+- id: delete_fact_single_using_b_environment
+  type: environment
+  statement: 单目标 DELETE 的 USING 若重复目标表，当前分支要求 sql_compatibility='B'；多目标例外独立建模。
+  status: confirmed
+  source_anchor: L156-L163 using_list
+- id: delete_fact_purpose
+  type: syntax
+  statement: DELETE 删除目标中满足 WHERE 条件的行，省略 WHERE 时选中全部行。
+  status: confirmed
+  source_anchor: L4-L6 功能描述
+- id: delete_fact_delete_all_preserves_structure
+  type: behavior_oracle
+  statement: 省略 WHERE 删除全部行时只保留表结构。
+  status: confirmed
+  source_anchor: L5-L6 功能描述
+- id: delete_fact_permissions
+  type: environment
+  statement: DELETE 需要目标所有权/授予权限/DELETE ANY TABLE 之一，USING 和 condition 引用表还需 SELECT 权限；三权分立关闭时系统管理员默认有权。
+  status: confirmed
+  source_anchor: L9-L11 权限
+- id: delete_fact_multi_target_restrictions
+  type: constraint
+  statement: 多表 DELETE 暂不支持视图或含 RULE 的表，视图/子查询也不支持多表删除。
+  status: confirmed
+  source_anchor: L12 与 L137 多表限制
+- id: delete_fact_stream_update_restriction
+  type: constraint
+  statement: 子查询为 Stream 计划的 DELETE 不支持对被删行同时 UPDATE。
+  status: confirmed
+  source_anchor: L13-L14 Stream 注意事项
+- id: delete_fact_single_grammar
+  type: syntax
+  statement: 单表 DELETE 的 WITH 在语句之前，hint 在 DELETE 之后，后续按可选 FROM、目标、USING、行选择、ORDER BY、LIMIT、RETURNING 顺序组合。
+  status: confirmed
+  source_anchor: L17-L25 单表语法
+- id: delete_fact_multi_grammar
+  type: syntax
+  statement: 多表 DELETE 有两个顶层产生式：多目标后 USING using_list，或多目标后 FROM using_list，两者均可带 WHERE。
+  status: confirmed
+  source_anchor: L27-L40 多表语法
+- id: delete_fact_target_grammar
+  type: syntax
+  statement: 单表目标可为表、子查询或视图，表目标还可组合 ONLY、*、分区和别名。
+  status: confirmed
+  source_anchor: L19-L20 目标产生式
+- id: delete_fact_row_selection_grammar
+  type: syntax
+  statement: 单表行选择可省略、使用 WHERE condition 或 WHERE CURRENT OF cursor_name。
+  status: confirmed
+  source_anchor: L22 行选择产生式
+- id: delete_fact_order_limit_grammar
+  type: syntax
+  statement: 单表 DELETE 可在行选择后使用 ORDER BY expression 及可选 ASC/DESC/USING operator，并可使用 LIMIT count。
+  status: confirmed
+  source_anchor: L23-L24 与 L172-L175
+- id: delete_fact_returning_grammar
+  type: syntax
+  statement: 单表 DELETE 尾部可使用 RETURNING * 或表达式列表及输出别名。
+  status: confirmed
+  source_anchor: L25 与 L176-L181
+- id: delete_fact_with_body_grammar
+  type: syntax
+  statement: with_query 可声明列名和 MATERIALIZED/NOT MATERIALIZED，主体可为 SELECT、VALUES、INSERT、UPDATE 或 DELETE。
+  status: confirmed
+  source_anchor: L42-L44 与 L76-L80
+- id: delete_fact_subquery_grammar
+  type: syntax
+  statement: 目标 subquery 列出 WITH、SELECT、投影、INTO、FROM、WHERE、层次查询、ORDER BY、OFFSET、FETCH 等有序子句。
+  status: confirmed
+  source_anchor: L46-L59 subquery 产生式
+- id: delete_fact_from_item_grammar
+  type: syntax
+  statement: subquery 的 from_item 可为表/视图、派生 SELECT、CTE 或递归连接项。
+  status: confirmed
+  source_anchor: L61-L65 from_item
+- id: delete_fact_partition_grammar
+  type: syntax
+  statement: partition_clause 支持 PARTITION 或 SUBPARTITION，并可按名称或 FOR 值列表定位。
+  status: confirmed
+  source_anchor: L67-L69 与 L138-L142
+- id: delete_fact_with_declaration
+  type: syntax
+  statement: WITH 可声明一个或多个可按名称引用的临时结果集并可显式命名结果列。
+  status: confirmed
+  source_anchor: L73-L80 WITH
+- id: delete_fact_with_recursive
+  type: syntax
+  statement: WITH RECURSIVE 允许 SELECT 子查询按名称引用自身。
+  status: confirmed
+  source_anchor: L73-L79 WITH RECURSIVE
+- id: delete_fact_with_materialization
+  type: behavior_oracle
+  statement: MATERIALIZED、NOT MATERIALIZED 与默认规则决定 CTE 复制、内联优化或 CTE Scan 物化。
+  status: confirmed
+  source_anchor: L80-L90 CTE 物化
+- id: delete_fact_plan_hint_position
+  type: syntax
+  statement: plan_hint 注释块位于 DELETE 关键字之后。
+  status: confirmed
+  source_anchor: L91-L94 plan_hint
+- id: delete_fact_plan_hint_first_block
+  type: behavior_oracle
+  statement: 每条 DELETE 语句仅第一个 plan_hint 注释块作为 Hint 生效，一个块内可写多条 Hint。
+  status: confirmed
+  source_anchor: L92-L95 plan_hint
+- id: delete_fact_only_semantics
+  type: behavior_oracle
+  statement: ONLY 仅删除指定表，省略 ONLY 时还删除所有子表中的匹配行。
+  status: confirmed
+  source_anchor: L96-L98 ONLY
+- id: delete_fact_table_target
+  type: syntax
+  statement: table_name 是可用模式修饰的已存在目标表名。
+  status: confirmed
+  source_anchor: L99-L101 table_name
+- id: delete_fact_subquery_target
+  type: behavior_oracle
+  statement: 子查询目标按临时视图处理并可带 CHECK OPTION；单表直接删除，多表/嵌套需按保留键判定。
+  status: confirmed
+  source_anchor: L106-L112 subquery
+- id: delete_fact_view_target
+  type: syntax
+  statement: view_name 指定 DELETE 的目标视图。
+  status: confirmed
+  source_anchor: L113-L114 view_name
+- id: delete_fact_view_subquery_restrictions
+  type: constraint
+  statement: 视图/子查询只能操作直接基表用户列并至少有一个可更新列，且不支持文档列出的顶层 DISTINCT/分组/分页、集合运算、目标函数与触发器组合。
+  status: confirmed
+  source_anchor: L117-L127 视图/子查询限制
+- id: delete_fact_supported_table_types
+  type: constraint
+  statement: 视图/子查询目标列出普通、临时、全局临时、分区、二级分区、Ustore 和 Astore 基表。
+  status: confirmed
+  source_anchor: L128-L129 支持表类型
+- id: delete_fact_join_target_behavior
+  type: behavior_oracle
+  statement: 连接视图/子查询只删除保留键表；一张时删该表，多张时删 FROM 后第一张保留键表。
+  status: confirmed
+  source_anchor: L130-L132 连接目标
+- id: delete_fact_duplicate_base_check_restriction
+  type: constraint
+  statement: CHECK OPTION 下重复基表的保留键属性不一致时无法删除行。
+  status: confirmed
+  source_anchor: L133-L135 重复基表
+- id: delete_fact_system_view_restriction
+  type: constraint
+  statement: 系统视图不支持 DELETE。
+  status: confirmed
+  source_anchor: L136 系统视图
+- id: delete_fact_partitions_grammar
+  type: syntax
+  statement: partitions_clause 使用 PARTITION 包含多个 partition_name 或 subpartition_name。
+  status: confirmed
+  source_anchor: L143-L146 partitions_clause
+- id: delete_fact_partitions_environment
+  type: environment
+  statement: partitions_clause 仅在 sql_compatibility='B' 时生效。
+  status: confirmed
+  source_anchor: L149-L151 B 模式须知
+- id: delete_fact_alias
+  type: syntax
+  statement: alias 是符合标识符命名规范的目标表别名。
+  status: confirmed
+  source_anchor: L153-L155 alias
+- id: delete_fact_using_clause
+  type: syntax
+  statement: using_list 指定 DELETE 的关联表集合。
+  status: confirmed
+  source_anchor: L156-L157 using_list
+- id: delete_fact_using_repeat_scope
+  type: constraint
+  statement: sql_compatibility='B' 或删除多张目标表时 using_list 可重复目标表并用别名，其他情况不可重复。
+  status: confirmed
+  source_anchor: L159-L163 using_list 须知
+- id: delete_fact_condition_behavior
+  type: behavior_oracle
+  statement: condition 返回 true 的行被删除；数值隐式转布尔可能导致非预期删除。
+  status: confirmed
+  source_anchor: L165-L168 condition
+- id: delete_fact_current_of_grammar
+  type: syntax
+  statement: WHERE CURRENT OF cursor_name 删除游标当前指向的行。
+  status: confirmed
+  source_anchor: DELETE L169-L171 WHERE CURRENT OF
+- id: delete_fact_current_of_constraints
+  type: constraint
+  statement: WHERE CURRENT OF 不支持 B 模式、分区表、多表操作，只能在存储过程中使用，不能与其他 WHERE、WITH、USING、ORDER BY 或 FROM 组合，对应 SELECT 游标必须为单表 FOR
+    UPDATE 且不带 LIMIT/OFFSET、子查询或子链接。
+  status: confirmed
+  source_anchor: DELETE L169-L171 引用 UPDATE L203-L218
+- id: delete_fact_current_of_lifecycle
+  type: lifecycle
+  statement: 存储过程中 FOR UPDATE 游标在 COMMIT/ROLLBACK 后无法再用。
+  status: confirmed
+  source_anchor: DELETE L169-L171 引用 UPDATE L219-L220
+- id: delete_fact_current_of_missing_row
+  type: behavior_oracle
+  statement: 游标指向行已不存在时，A 模式仅 UPDATE 报错而 DELETE 不报错，其他兼容模式也不报错。
+  status: confirmed
+  source_anchor: DELETE L169-L171 引用 UPDATE L221-L222
+- id: delete_fact_returning_behavior
+  type: behavior_oracle
+  statement: RETURNING 在行删除后计算，可引用目标表任意字段，* 返回被删行整行并可命名输出列。
+  status: confirmed
+  source_anchor: L176-L181 RETURNING
+- id: delete_fact_read_only_error
+  type: behavior_oracle
+  statement: 本章子查询和视图示例中，WITH READ ONLY 目标以 'DML operation cannot be performed on a read-only view' 错误拒绝 DELETE。
+  status: confirmed
+  source_anchor: L279-L281 与 L360-L362 示例
+- id: delete_fact_key_preserved_error
+  type: behavior_oracle
+  statement: 本章重复基表且带 CHECK OPTION 的子查询/视图以 'Failed to delete from view with no key-preserved table' 错误拒绝。
+  status: confirmed
+  source_anchor: L301-L308 与 L393-L398 示例
+- id: delete_fact_truncate_recommendation
+  type: environment
+  statement: 删除表中全部记录时文档建议使用 TRUNCATE。
+  status: confirmed
+  source_anchor: L420-L421 优化建议
+- id: delete_example_core
+  type: example
+  statement: 文档展示按 WHERE 删除部分行、省略 WHERE 删除全部行及查询结果。
+  status: confirmed
+  source_anchor: L183-L212 基础示例
+- id: delete_example_with
+  type: example
+  statement: 文档展示 DELETE RETURNING CTE 为外层 DELETE 提供 id 并同时删除两表相关行。
+  status: confirmed
+  source_anchor: L214-L245 WITH 示例
+- id: delete_example_subquery
+  type: example
+  statement: 文档展示单表、READ ONLY、连接与重复基表 CHECK OPTION 子查询删除。
+  status: confirmed
+  source_anchor: L247-L319 子查询示例
+- id: delete_example_view
+  type: example
+  statement: 文档展示单表、READ ONLY、连接与重复基表 CHECK OPTION 视图删除。
+  status: confirmed
+  source_anchor: L321-L414 视图示例
+- id: delete_open_plan_hint_profile
+  type: environment
+  statement: 本 catalog 只给出 plan_hint 占位、位置与首块生效规则，没有可保真生成的具体 Hint 子语法。
+  status: confirmed
+  source_anchor: L91-L95 plan_hint
+- id: delete_open_dblink_profile
+  type: environment
+  statement: 本章仅声明支持 DATABASE LINK，未展开远端目标拼写、连接对象和生命周期。
+  status: confirmed
+  source_anchor: L102-L105 DATABASE LINK 引用
+- id: delete_open_preserved_key_definition
+  type: environment
+  statement: CREATE VIEW 保留键定义已通过限定引用接入；CHECK OPTION、重复基表与连接形态的完整组合和删除行为仍待验证。
+  status: confirmed
+  source_anchor: L110-L135 CREATE VIEW 引用
+- id: delete_open_partition_fixture
+  type: environment
+  statement: 已复用同 PDF 的一级 RANGE 和二级 RANGE/RANGE fixture，生成名称及 FOR 常量选择；B 模式多分区列表、其余策略和实际删除行 Oracle 仍待实现，不能代表完整分区域。
+  status: confirmed
+  source_anchor: L138-L151 与 L417-L419
+- id: delete_open_recursive_cte_depth
+  type: environment
+  statement: WITH RECURSIVE 的全部递归深度无法用 V1 静态有限 AST 穷尽；当前只保留 max_depth=2 的代表形态。
+  status: confirmed
+  source_anchor: L73-L79 WITH RECURSIVE
+- id: delete_open_subquery_depth
+  type: environment
+  statement: subquery/from_item 的嵌套 SELECT 与连接递归无法由 V1 有限 profile 穷尽，当前仅表示单表与一层连接示例。
+  status: confirmed
+  source_anchor: L46-L65 subquery/from_item
+- id: delete_open_table_type_fixtures
+  type: environment
+  statement: 视图/子查询支持的临时、全局临时、分区、二级分区、Ustore 和 Astore 基表尚无本章内可回放 Fixture，不能由普通表代表全域。
+  status: confirmed
+  source_anchor: L128-L129 支持表类型
 manifest_refs:
-  - manifest_delete_partition_payload_positive
-  - manifest_delete_partition_positive
-  - manifest_delete_core_positive
-  - manifest_delete_view_subquery_positive
-  - manifest_delete_cte_syntax_positive
-  - manifest_delete_multi_using_positive
-  - manifest_delete_multi_from_positive
-  - manifest_delete_multi_view_negative
-  - manifest_delete_self_using_b_fresh
-matrix_refs: [matrix_delete_single_targets, matrix_delete_multi_targets]
+- manifest_delete_partition_payload_positive
+- manifest_delete_partition_positive
+- manifest_delete_core_positive
+- manifest_delete_view_subquery_positive
+- manifest_delete_cte_syntax_positive
+- manifest_delete_multi_using_positive
+- manifest_delete_multi_from_positive
+- manifest_delete_self_using_b_fresh
+matrix_refs:
+- matrix_delete_single_targets
+- matrix_delete_multi_targets
 fixture_refs:
-  - fixture_delete_target
-  - fixture_delete_aux
-  - fixture_delete_lookup
-  - fixture_delete_view
-  - fixture_delete_subquery
-  - fixture_delete_self_b_fresh
+- fixture_delete_target
+- fixture_delete_aux
+- fixture_delete_lookup
+- fixture_delete_view
+- fixture_delete_subquery
+- fixture_delete_self_b_fresh
 scenario_refs:
-  - scenario_delete_single_using_target_b
-  - scenario_delete_permissions
-  - scenario_delete_cte_and_hint
-  - scenario_delete_only_partition_dblink
-  - scenario_delete_view_subquery
-  - scenario_delete_current_of
-  - scenario_delete_stream_concurrency
-  - scenario_delete_returning
-  - scenario_delete_full_table_and_examples
-  - scenario_delete_self_using_b_with_from
-  - scenario_delete_self_using_b_without_from
+- scenario_delete_single_using_target_b
+- scenario_delete_permissions
+- scenario_delete_cte_and_hint
+- scenario_delete_only_partition_dblink
+- scenario_delete_view_subquery
+- scenario_delete_current_of
+- scenario_delete_stream_concurrency
+- scenario_delete_returning
+- scenario_delete_full_table_and_examples
+- scenario_delete_self_using_b_with_from
+- scenario_delete_self_using_b_without_from

@@ -5,7 +5,6 @@ name: MERGE INTO
 category: DML
 status: needs_review
 description: 以本地冻结 PDF 的 1.13.16.2 MERGE INTO 章节为唯一产品证据，表达目标、源、关联条件和有限 action profile。
-
 source:
   product: GaussDB
   document: GaussDB V2.0-10.0.0 集中式参考 / 1.13.16.2 MERGE INTO
@@ -13,155 +12,297 @@ source:
   artifact_sha256: 93f70c3df5248a9a586af7372d871b94e165afcdb1eb17344bfba7dd59dfd85b
   parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
   extraction_rule_version: gaussdb-pdf-outline-v1
-  extraction_date: "2026-09-04"
+  extraction_date: '2026-09-04'
   catalog_chapter_ref:
     document_id: gaussdb_v2_0_10_0_0_centralized_reference_01
     source_relpath: general/dml/merge_into.txt
     chapter_sha256: 93f70c3df5248a9a586af7372d871b94e165afcdb1eb17344bfba7dd59dfd85b
-
 source_ledger_ref: source_ledger_merge_into
 syntax_ref: syntax_merge_into_v1
-
 dimensions:
   plan_hint:
     description: MERGE 关键字后的可选 hint；本章没有展开具体 hint 名称和值域。
     default_value_id: merge_hint_none
     classes:
-      - id: merge_hint_class
-        meaning: 无 hint 或保留未展开的文档占位符。
-        values:
-          - {id: merge_hint_none, render: "", representative: true, validity: valid}
-          - id: merge_hint_unresolved
-            render: "/*+ plan_hint */ "
-            representative: false
-            validity: unknown
-            fact_refs: [merge_open_hint_profile]
-
+    - id: merge_hint_class
+      meaning: 无 hint 或保留未展开的文档占位符。
+      values:
+      - id: merge_hint_none
+        render: ''
+        representative: true
+        validity: valid
+      - id: merge_hint_unresolved
+        render: '/*+ plan_hint */ '
+        representative: false
+        validity: unknown
+        fact_refs:
+        - merge_open_hint_profile
   target_profile:
     description: 目标普通表或已建立 fixture 的分区定位形式。
-    profile_source: {matrix_ref: matrix_merge_target_profiles, profile_id_path: profiles.id}
-
+    profile_source:
+      matrix_ref: matrix_merge_target_profiles
+      profile_id_path: profiles.id
   source_profile:
     description: USING 的表、视图或子查询来源。
-    profile_source: {matrix_ref: matrix_merge_source_profiles, profile_id_path: profiles.id}
-
+    profile_source:
+      matrix_ref: matrix_merge_source_profiles
+      profile_id_path: profiles.id
   on_condition:
     description: 目标与源的关联条件；生成值只引用 fixture 已声明的列。
     default_value_id: merge_on_id_equal
     classes:
-      - id: merge_on_condition_class
-        meaning: 等值关联及带源过滤的等值关联。
-        values:
-          - id: merge_on_id_equal
-            render: dst.id = src.id
-            representative: true
-            validity: valid
-            properties: {join_columns: [id]}
-            fact_refs: [merge_fact_on_condition]
-          - id: merge_on_id_equal_positive
-            render: dst.id = src.id AND src.id > 0
-            representative: true
-            validity: valid
-            properties: {join_columns: [id]}
-            fact_refs: [merge_fact_on_condition]
-
+    - id: merge_on_condition_class
+      meaning: 等值关联及带源过滤的等值关联。
+      values:
+      - id: merge_on_id_equal
+        render: dst.id = src.id
+        representative: true
+        validity: valid
+        properties:
+          join_columns:
+          - id
+        fact_refs:
+        - merge_fact_on_condition
+      - id: merge_on_id_equal_positive
+        render: dst.id = src.id AND src.id > 0
+        representative: true
+        validity: valid
+        properties:
+          join_columns:
+          - id
+        fact_refs:
+        - merge_fact_on_condition
   action_profile:
     description: 内部一致的 WHEN MATCHED/NOT MATCHED 片段及限制属性。
-    profile_source: {matrix_ref: matrix_merge_action_profiles, profile_id_path: profiles.id}
-
-rules:
-  - id: merge_rule_action_required
-    kind: requires
-    expression: action_profile.properties.has_action == True
-    fact_refs: [merge_fact_action_required]
-  - id: merge_rule_no_duplicate_clause
-    kind: requires
-    expression: action_profile.properties.duplicate_clause == False
-    fact_refs: [merge_fact_no_duplicate_clause]
-  - id: merge_rule_no_multiple_values
-    kind: requires
-    expression: action_profile.properties.multiple_values == False
-    fact_refs: [merge_fact_no_multiple_values]
-  - id: merge_rule_join_key_immutable
-    kind: requires
-    expression: action_profile.properties.updates_join_key == False
-    fact_refs: [merge_fact_join_key_immutable]
-
+    profile_source:
+      matrix_ref: matrix_merge_action_profiles
+      profile_id_path: profiles.id
+rules: []
 structural_checks: []
-
 facts:
-  - {id: merge_fact_main_grammar, type: syntax, statement: MERGE 由 INTO 目标、USING 源、ON 条件及 WHEN action 构成。, status: confirmed, source_anchor: 语法格式/L17-L30}
-  - {id: merge_fact_behavior, type: behavior_oracle, statement: 匹配行走 UPDATE，不匹配行走 INSERT。, status: confirmed, source_anchor: 功能描述/L5-L7}
-  - {id: merge_fact_permissions, type: environment, statement: 用户需要目标 UPDATE 与 INSERT 权限及源 SELECT 权限。, status: confirmed, source_anchor: 注意事项/L11-L12}
-  - {id: merge_fact_row_trigger_only, type: constraint, statement: MERGE 只支持行级触发器，不支持语句级触发器。, status: confirmed, source_anchor: 注意事项/L13}
-  - {id: merge_fact_hint_syntax, type: syntax, statement: plan hint 注释块位于 MERGE 关键字之后。, status: confirmed, source_anchor: "语法与参数/L17,L40-L43"}
-  - {id: merge_fact_hint_first_only, type: behavior_oracle, statement: 每条语句只有第一个 hint 注释块生效。, status: confirmed, source_anchor: 参数/plan_hint L40-L43}
-  - {id: merge_open_hint_profile, type: open_question, statement: 本章未展开可生成的具体 plan hint 值域。, status: needs_verification, source_anchor: 参数/plan_hint L40-L43}
-  - {id: merge_fact_partition_grammar, type: syntax, statement: 目标支持 PARTITION 或 SUBPARTITION 的名称及 FOR 值定位形式。, status: confirmed, source_anchor: partition_clause/L32-L34}
-  - {id: merge_fact_alias_syntax, type: syntax, statement: 目标和源支持可选 AS 或裸别名，别名符合标识符规范。, status: confirmed, source_anchor: 语法与参数/alias}
-  - {id: merge_fact_source_forms, type: syntax, statement: USING 源可以是表、视图或子查询。, status: confirmed, source_anchor: 参数/USING L56-L62}
-  - {id: merge_fact_on_condition, type: syntax, statement: ON 接收目标与源的关联条件。, status: confirmed, source_anchor: 参数/ON L63-L66}
-  - {id: merge_fact_matched_grammar, type: syntax, statement: MATCHED 更新支持单列或列元组赋值并可带 WHERE。, status: confirmed, source_anchor: 语法/L20-L25}
-  - {id: merge_fact_not_matched_grammar, type: syntax, statement: NOT MATCHED 插入支持 DEFAULT VALUES 或列和值列表并可带 WHERE。, status: confirmed, source_anchor: 语法/L26-L30}
-  - {id: merge_fact_where_grammar, type: syntax, statement: UPDATE 和 INSERT action 均可带可选 WHERE。, status: confirmed, source_anchor: 参数/WHERE L85-L87}
-  - {id: merge_fact_target_form, type: syntax, statement: INTO 指定被更新或插入的目标表。, status: confirmed, source_anchor: 参数/INTO L44-L47}
-  - {id: merge_fact_partition_value_mismatch, type: behavior_oracle, statement: FOR 值与指定分区不一致时抛出异常。, status: confirmed, source_anchor: 参数/partition_clause L51}
-  - {id: merge_fact_join_key_immutable, type: constraint, statement: 不支持更新 ON 关联条件所使用的字段。, status: confirmed, source_anchor: 参数/ON L63-L64}
-  - {id: merge_fact_assignment_values, type: syntax, statement: 赋值项可以使用表达式、子查询或 DEFAULT。, status: confirmed, source_anchor: 语法与参数/expression}
-  - {id: merge_fact_matched_behavior, type: behavior_oracle, statement: 条件匹配时 WHEN MATCHED 执行 UPDATE。, status: confirmed, source_anchor: 参数/WHEN MATCHED L71-L73}
-  - {id: merge_fact_system_target_restriction, type: constraint, statement: MATCHED action 不支持更新系统表或系统列。, status: confirmed, source_anchor: 参数/WHEN MATCHED L74}
-  - {id: merge_fact_not_matched_behavior, type: behavior_oracle, statement: 条件不匹配时 WHEN NOT MATCHED 执行 INSERT。, status: confirmed, source_anchor: 参数/WHEN NOT MATCHED L75-L77}
-  - {id: merge_fact_no_multiple_values, type: constraint, statement: INSERT action 不支持多个 VALUES 行。, status: confirmed, source_anchor: 参数/WHEN NOT MATCHED L78}
-  - {id: merge_fact_clause_order, type: syntax, statement: MATCHED 与 NOT MATCHED 的顺序可以交换且可省略其中一个。, status: confirmed, source_anchor: 参数/action 顺序 L79-L81}
-  - {id: merge_fact_action_required, type: constraint, statement: MATCHED 与 NOT MATCHED 不能同时省略。, status: confirmed, source_anchor: 参数/action 基数 L79-L81}
-  - {id: merge_fact_no_duplicate_clause, type: constraint, statement: 同一语句不支持两个同类 WHEN action。, status: confirmed, source_anchor: 参数/action 基数 L79-L81}
-  - {id: merge_fact_default_behavior, type: behavior_oracle, statement: DEFAULT 使用列缺省值，没有缺省值时为 NULL。, status: confirmed, source_anchor: 参数/DEFAULT L82-L84}
-  - {id: merge_fact_where_system_column, type: constraint, statement: action 的 WHERE 不支持引用系统列。, status: confirmed, source_anchor: 参数/WHERE L85-L87}
-  - {id: merge_fact_partition_key_resolution, type: behavior_oracle, statement: 多列分区键的 FOR 值组可唯一确定分区。, status: confirmed, source_anchor: 参数/partition_value L90-L94}
-  - {id: merge_open_partition_cross_reference, type: open_question, statement: partition_clause 详情引用未纳入本批的 SELECT 子章节，当前只建本章明确形式。, status: needs_verification, source_anchor: 参数/partition_clause L48-L50}
-  - {id: merge_open_subpartition_fixture, type: open_question, statement: 二级分区 fixture 与完整键值契约需结合被引用章节后建立。, status: needs_verification, source_anchor: "参数/subpartition L52,L95-L99"}
-  - {id: merge_open_numeric_condition_policy, type: open_question, statement: 数值 condition 虽可隐式转布尔但文档仅建议避免，不作为硬禁止规则。, status: needs_verification, source_anchor: 参数/WHERE L88-L89}
-  - {id: merge_open_target_without_alias_profile, type: open_question, statement: 无别名目标需要同步改变 ON 与 action 引用，当前有限 profile 尚未表达。, status: needs_verification, source_anchor: 语法/L17}
-  - {id: merge_open_source_without_alias_profile, type: open_question, statement: 无别名源需要同步改变 ON 与 action 引用，当前有限 profile 尚未表达。, status: needs_verification, source_anchor: 语法/L18}
-  - {id: merge_open_recursive_subquery_profile, type: open_question, statement: 本章接受 subquery 但未展开其递归语法域，当前只保留一层代表。, status: needs_verification, source_anchor: 参数/subquery L61-L62}
-  - {id: merge_open_assignment_expression_profiles, type: open_question, statement: MATCHED expression 的函数与 SQL 表达式值域尚未建立。, status: needs_verification, source_anchor: 语法/L22-L23}
-  - {id: merge_open_assignment_subquery_profile, type: open_question, statement: MATCHED 赋值子查询的列数与类型契约尚未建立。, status: needs_verification, source_anchor: 语法/L22-L23}
-  - {id: merge_open_multiple_assignments_profile, type: open_question, statement: 任意长度的重复 UPDATE 赋值项只做有限代表。, status: needs_verification, source_anchor: 语法/L22-L24}
-  - {id: merge_open_insert_expression_profile, type: open_question, statement: NOT MATCHED VALUES 中表达式、子查询与 DEFAULT 的完整值域尚未建立。, status: needs_verification, source_anchor: 语法/L28-L29}
-  - {id: merge_example_basic, type: example, statement: 文档示例用 products 与 newproducts 验证匹配更新和不匹配插入。, status: confirmed, source_anchor: 示例/L102-L154}
-
+- id: merge_fact_main_grammar
+  type: syntax
+  statement: MERGE 由 INTO 目标、USING 源、ON 条件及 WHEN action 构成。
+  status: confirmed
+  source_anchor: 语法格式/L17-L30
+- id: merge_fact_behavior
+  type: behavior_oracle
+  statement: 匹配行走 UPDATE，不匹配行走 INSERT。
+  status: confirmed
+  source_anchor: 功能描述/L5-L7
+- id: merge_fact_permissions
+  type: environment
+  statement: 用户需要目标 UPDATE 与 INSERT 权限及源 SELECT 权限。
+  status: confirmed
+  source_anchor: 注意事项/L11-L12
+- id: merge_fact_row_trigger_only
+  type: constraint
+  statement: MERGE 只支持行级触发器，不支持语句级触发器。
+  status: confirmed
+  source_anchor: 注意事项/L13
+- id: merge_fact_hint_syntax
+  type: syntax
+  statement: plan hint 注释块位于 MERGE 关键字之后。
+  status: confirmed
+  source_anchor: 语法与参数/L17,L40-L43
+- id: merge_fact_hint_first_only
+  type: behavior_oracle
+  statement: 每条语句只有第一个 hint 注释块生效。
+  status: confirmed
+  source_anchor: 参数/plan_hint L40-L43
+- id: merge_open_hint_profile
+  type: environment
+  statement: 本章未展开可生成的具体 plan hint 值域。
+  status: confirmed
+  source_anchor: 参数/plan_hint L40-L43
+- id: merge_fact_partition_grammar
+  type: syntax
+  statement: 目标支持 PARTITION 或 SUBPARTITION 的名称及 FOR 值定位形式。
+  status: confirmed
+  source_anchor: partition_clause/L32-L34
+- id: merge_fact_alias_syntax
+  type: syntax
+  statement: 目标和源支持可选 AS 或裸别名，别名符合标识符规范。
+  status: confirmed
+  source_anchor: 语法与参数/alias
+- id: merge_fact_source_forms
+  type: syntax
+  statement: USING 源可以是表、视图或子查询。
+  status: confirmed
+  source_anchor: 参数/USING L56-L62
+- id: merge_fact_on_condition
+  type: syntax
+  statement: ON 接收目标与源的关联条件。
+  status: confirmed
+  source_anchor: 参数/ON L63-L66
+- id: merge_fact_matched_grammar
+  type: syntax
+  statement: MATCHED 更新支持单列或列元组赋值并可带 WHERE。
+  status: confirmed
+  source_anchor: 语法/L20-L25
+- id: merge_fact_not_matched_grammar
+  type: syntax
+  statement: NOT MATCHED 插入支持 DEFAULT VALUES 或列和值列表并可带 WHERE。
+  status: confirmed
+  source_anchor: 语法/L26-L30
+- id: merge_fact_where_grammar
+  type: syntax
+  statement: UPDATE 和 INSERT action 均可带可选 WHERE。
+  status: confirmed
+  source_anchor: 参数/WHERE L85-L87
+- id: merge_fact_target_form
+  type: syntax
+  statement: INTO 指定被更新或插入的目标表。
+  status: confirmed
+  source_anchor: 参数/INTO L44-L47
+- id: merge_fact_partition_value_mismatch
+  type: behavior_oracle
+  statement: FOR 值与指定分区不一致时抛出异常。
+  status: confirmed
+  source_anchor: 参数/partition_clause L51
+- id: merge_fact_join_key_immutable
+  type: constraint
+  statement: 不支持更新 ON 关联条件所使用的字段。
+  status: confirmed
+  source_anchor: 参数/ON L63-L64
+- id: merge_fact_assignment_values
+  type: syntax
+  statement: 赋值项可以使用表达式、子查询或 DEFAULT。
+  status: confirmed
+  source_anchor: 语法与参数/expression
+- id: merge_fact_matched_behavior
+  type: behavior_oracle
+  statement: 条件匹配时 WHEN MATCHED 执行 UPDATE。
+  status: confirmed
+  source_anchor: 参数/WHEN MATCHED L71-L73
+- id: merge_fact_system_target_restriction
+  type: constraint
+  statement: MATCHED action 不支持更新系统表或系统列。
+  status: confirmed
+  source_anchor: 参数/WHEN MATCHED L74
+- id: merge_fact_not_matched_behavior
+  type: behavior_oracle
+  statement: 条件不匹配时 WHEN NOT MATCHED 执行 INSERT。
+  status: confirmed
+  source_anchor: 参数/WHEN NOT MATCHED L75-L77
+- id: merge_fact_no_multiple_values
+  type: constraint
+  statement: INSERT action 不支持多个 VALUES 行。
+  status: confirmed
+  source_anchor: 参数/WHEN NOT MATCHED L78
+- id: merge_fact_clause_order
+  type: syntax
+  statement: MATCHED 与 NOT MATCHED 的顺序可以交换且可省略其中一个。
+  status: confirmed
+  source_anchor: 参数/action 顺序 L79-L81
+- id: merge_fact_action_required
+  type: constraint
+  statement: MATCHED 与 NOT MATCHED 不能同时省略。
+  status: confirmed
+  source_anchor: 参数/action 基数 L79-L81
+- id: merge_fact_no_duplicate_clause
+  type: constraint
+  statement: 同一语句不支持两个同类 WHEN action。
+  status: confirmed
+  source_anchor: 参数/action 基数 L79-L81
+- id: merge_fact_default_behavior
+  type: behavior_oracle
+  statement: DEFAULT 使用列缺省值，没有缺省值时为 NULL。
+  status: confirmed
+  source_anchor: 参数/DEFAULT L82-L84
+- id: merge_fact_where_system_column
+  type: constraint
+  statement: action 的 WHERE 不支持引用系统列。
+  status: confirmed
+  source_anchor: 参数/WHERE L85-L87
+- id: merge_fact_partition_key_resolution
+  type: behavior_oracle
+  statement: 多列分区键的 FOR 值组可唯一确定分区。
+  status: confirmed
+  source_anchor: 参数/partition_value L90-L94
+- id: merge_open_partition_cross_reference
+  type: environment
+  statement: partition_clause 详情引用未纳入本批的 SELECT 子章节，当前只建本章明确形式。
+  status: confirmed
+  source_anchor: 参数/partition_clause L48-L50
+- id: merge_open_subpartition_fixture
+  type: environment
+  statement: 二级分区 fixture 与完整键值契约需结合被引用章节后建立。
+  status: confirmed
+  source_anchor: 参数/subpartition L52,L95-L99
+- id: merge_open_numeric_condition_policy
+  type: environment
+  statement: 数值 condition 虽可隐式转布尔但文档仅建议避免，不作为硬禁止规则。
+  status: confirmed
+  source_anchor: 参数/WHERE L88-L89
+- id: merge_open_target_without_alias_profile
+  type: environment
+  statement: 无别名目标需要同步改变 ON 与 action 引用，当前有限 profile 尚未表达。
+  status: confirmed
+  source_anchor: 语法/L17
+- id: merge_open_source_without_alias_profile
+  type: environment
+  statement: 无别名源需要同步改变 ON 与 action 引用，当前有限 profile 尚未表达。
+  status: confirmed
+  source_anchor: 语法/L18
+- id: merge_open_recursive_subquery_profile
+  type: environment
+  statement: 本章接受 subquery 但未展开其递归语法域，当前只保留一层代表。
+  status: confirmed
+  source_anchor: 参数/subquery L61-L62
+- id: merge_open_assignment_expression_profiles
+  type: environment
+  statement: MATCHED expression 的函数与 SQL 表达式值域尚未建立。
+  status: confirmed
+  source_anchor: 语法/L22-L23
+- id: merge_open_assignment_subquery_profile
+  type: environment
+  statement: MATCHED 赋值子查询的列数与类型契约尚未建立。
+  status: confirmed
+  source_anchor: 语法/L22-L23
+- id: merge_open_multiple_assignments_profile
+  type: environment
+  statement: 任意长度的重复 UPDATE 赋值项只做有限代表。
+  status: confirmed
+  source_anchor: 语法/L22-L24
+- id: merge_open_insert_expression_profile
+  type: environment
+  statement: NOT MATCHED VALUES 中表达式、子查询与 DEFAULT 的完整值域尚未建立。
+  status: confirmed
+  source_anchor: 语法/L28-L29
+- id: merge_example_basic
+  type: example
+  statement: 文档示例用 products 与 newproducts 验证匹配更新和不匹配插入。
+  status: confirmed
+  source_anchor: 示例/L102-L154
 manifest_refs:
-  - manifest_merge_action_filter_control
-  - manifest_merge_on_filter_control
-  - manifest_merge_constant_defaults
-  - manifest_merge_regular_positive
-  - manifest_merge_partition_positive
-  - manifest_merge_action_required_negative
-  - manifest_merge_duplicate_clause_negative
-  - manifest_merge_multiple_values_negative
-  - manifest_merge_join_key_update_negative
+- manifest_merge_action_filter_control
+- manifest_merge_on_filter_control
+- manifest_merge_constant_defaults
+- manifest_merge_regular_positive
+- manifest_merge_partition_positive
 matrix_refs:
-  - matrix_merge_target_profiles
-  - matrix_merge_source_profiles
-  - matrix_merge_action_profiles
+- matrix_merge_target_profiles
+- matrix_merge_source_profiles
+- matrix_merge_action_profiles
 fixture_refs:
-  - fixture_merge_action_filter
-  - fixture_merge_on_filter
-  - fixture_merge_constant_defaults
-  - fixture_merge_target
-  - fixture_merge_source
-  - fixture_merge_partition_target
-  - fixture_merge_view_source
+- fixture_merge_action_filter
+- fixture_merge_on_filter
+- fixture_merge_constant_defaults
+- fixture_merge_target
+- fixture_merge_source
+- fixture_merge_partition_target
+- fixture_merge_view_source
 scenario_refs:
-  - scenario_merge_action_control
-  - scenario_merge_action_filtered
-  - scenario_merge_on_control
-  - scenario_merge_on_filtered
-  - scenario_merge_defaults_scalar
-  - scenario_merge_defaults_tuple_omitted
-  - scenario_merge_defaults_row
-  - scenario_merge_behavior
-  - scenario_merge_permissions
-  - scenario_merge_triggers
-  - scenario_merge_partition_behavior
-  - scenario_merge_hint_and_conditions
+- scenario_merge_action_control
+- scenario_merge_action_filtered
+- scenario_merge_on_control
+- scenario_merge_on_filtered
+- scenario_merge_defaults_scalar
+- scenario_merge_defaults_tuple_omitted
+- scenario_merge_defaults_row
+- scenario_merge_behavior
+- scenario_merge_permissions
+- scenario_merge_triggers
+- scenario_merge_partition_behavior
+- scenario_merge_hint_and_conditions

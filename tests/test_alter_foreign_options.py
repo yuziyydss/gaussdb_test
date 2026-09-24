@@ -61,10 +61,16 @@ class AlterForeignOptionsTests(unittest.TestCase):
         with self.assertRaisesRegex(GenerationValidationError,'log_fdw'):
             self.g.generate_with_report(m)
 
-    def test_untested_column_and_file_contracts_remain_open(self):
+    def test_untested_column_and_file_contracts_remain_runtime_limited(self):
         self.cases('add')
         f = self.r.factors['alter_foreign_table']
         facts = {x.id:x for x in f.facts}
-        self.assertEqual(facts['alter_foreign_table_fact_incomplete_column_production'].status,'needs_verification')
-        self.assertEqual(facts['alter_foreign_table_fact_runtime_fixture'].status,'needs_verification')
+        column = facts['alter_foreign_table_fact_incomplete_column_production']
+        runtime = facts['alter_foreign_table_fact_runtime_fixture']
+        self.assertEqual(column.status,'confirmed')
+        self.assertEqual(column.type,'constraint')
+        self.assertIn('不转义为合法SQL',column.statement)
+        self.assertEqual(runtime.status,'confirmed')
+        self.assertEqual(runtime.type,'environment')
+        self.assertIn('专用fixture',runtime.statement)
         self.assertEqual(self.r.scenarios['scenario_alter_foreign_table_log_options'].status,'planned')

@@ -83,6 +83,86 @@ dimensions:
             fact_refs:
               - "insert_all_fact_body_63"
     default_value_id: "insert_all_match_mode_default"
+  condition:
+    description: "WHEN条件投影"
+    classes:
+      -
+        id: "insert_all_condition_source_col_class"
+        meaning: "source_column"
+        values:
+          -
+            id: "insert_all_condition_source_col"
+            render: "col_1 > 0"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "insert_all_fact_body_65"
+      -
+        id: "insert_all_condition_missing_projection_class"
+        meaning: "missing_projection"
+        values:
+          -
+            id: "insert_all_condition_missing_projection"
+            render: "missing_col > 1"
+            representative: true
+            validity: "invalid"
+            fact_refs:
+              - "insert_all_fact_body_65"
+              - "insert_all_fact_example_444"
+    default_value_id: "insert_all_condition_source_col"
+  subquery_alias:
+    description: "子查询表别名"
+    classes:
+      -
+        id: "insert_all_subquery_alias_none_class"
+        meaning: "none"
+        values:
+          -
+            id: "insert_all_subquery_alias_none"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "insert_all_fact_body_110"
+      -
+        id: "insert_all_subquery_alias_source_class"
+        meaning: "source_alias"
+        values:
+          -
+            id: "insert_all_subquery_alias_source"
+            render: " source_alias"
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "insert_all_fact_body_110"
+    default_value_id: "insert_all_subquery_alias_none"
+  subquery_presence:
+    description: "尾部子查询存在性"
+    classes:
+      -
+        id: "insert_all_subquery_presence_present_class"
+        meaning: "present"
+        values:
+          -
+            id: "insert_all_subquery_presence_present"
+            render: ""
+            representative: true
+            validity: "valid"
+            fact_refs:
+              - "insert_all_fact_body_110"
+      -
+        id: "insert_all_subquery_presence_absent_class"
+        meaning: "absent"
+        values:
+          -
+            id: "insert_all_subquery_presence_absent"
+            render: ""
+            representative: true
+            validity: "invalid"
+            fact_refs:
+              - "insert_all_fact_body_110"
+              - "insert_all_fact_example_463"
+    default_value_id: "insert_all_subquery_presence_present"
   targets:
     description: "重复INTO数量"
     classes:
@@ -115,8 +195,114 @@ dimensions:
               items:
                 - "INTO fp_cs_one.b11_ia_a (col_1,col_2) VALUES (col_1,col_2)"
                 - "INTO fp_cs_one.b11_ia_b (col_1,col_2) VALUES (col_1,col_2)"
+      -
+        id: "insert_all_targets_aggregate_class"
+        meaning: "aggregate_in_values"
+        values:
+          -
+            id: "insert_all_targets_aggregate"
+            render: ""
+            representative: true
+            validity: "invalid"
+            fact_refs:
+              - "insert_all_fact_body_106"
+              - "insert_all_fact_example_434"
+            properties:
+              items:
+                - "INTO fp_cs_one.b11_ia_a (col_1,col_2) VALUES (max(col_1),'a')"
+      -
+        id: "insert_all_targets_multi_row_class"
+        meaning: "multi_row_values"
+        values:
+          -
+            id: "insert_all_targets_multi_row"
+            render: ""
+            representative: true
+            validity: "invalid"
+            fact_refs:
+              - "insert_all_fact_body_98"
+              - "insert_all_fact_example_439"
+            properties:
+              items:
+                - "INTO fp_cs_one.b11_ia_a (col_1,col_2) VALUES (1,10),(2,20)"
+      -
+        id: "insert_all_targets_alias_reference_class"
+        meaning: "alias_reference"
+        values:
+          -
+            id: "insert_all_targets_alias_reference"
+            render: ""
+            representative: true
+            validity: "invalid"
+            fact_refs:
+              - "insert_all_fact_body_110_1"
+              - "insert_all_fact_example_453"
+            properties:
+              items:
+                - "INTO fp_cs_one.b11_ia_a (col_1,col_2) VALUES (source_alias.col_1,'a')"
+      -
+        id: "insert_all_targets_view_class"
+        meaning: "view_target"
+        values:
+          -
+            id: "insert_all_targets_view"
+            render: ""
+            representative: true
+            validity: "invalid"
+            fact_refs:
+              - "insert_all_fact_example_458"
+            properties:
+              items:
+                - "INTO fp_cs_one.b11_ia_view (col_1,col_2) VALUES (col_1,col_2)"
     default_value_id: "insert_all_targets_one"
-rules: []
+rules:
+  -
+    id: "insert_all_rule_values_no_aggregate"
+    kind: "requires"
+    expression: "targets != 'insert_all_targets_aggregate'"
+    fact_refs:
+      - "insert_all_fact_body_106"
+      - "insert_all_fact_example_434"
+    severity: "error"
+  -
+    id: "insert_all_rule_values_single_row"
+    kind: "requires"
+    expression: "targets != 'insert_all_targets_multi_row'"
+    fact_refs:
+      - "insert_all_fact_body_98"
+      - "insert_all_fact_example_439"
+    severity: "error"
+  -
+    id: "insert_all_rule_condition_projection_exists"
+    kind: "requires"
+    expression: "condition != 'insert_all_condition_missing_projection'"
+    fact_refs:
+      - "insert_all_fact_body_65"
+      - "insert_all_fact_example_444"
+    severity: "error"
+  -
+    id: "insert_all_rule_no_subquery_alias_reference"
+    kind: "requires"
+    expression: "targets != 'insert_all_targets_alias_reference'"
+    fact_refs:
+      - "insert_all_fact_body_110_1"
+      - "insert_all_fact_example_453"
+    severity: "error"
+  -
+    id: "insert_all_rule_target_not_view"
+    kind: "requires"
+    expression: "targets != 'insert_all_targets_view'"
+    fact_refs:
+      - "insert_all_fact_example_458"
+    severity: "error"
+  -
+    id: "insert_all_rule_subquery_required"
+    kind: "requires"
+    expression: "subquery_presence != 'insert_all_subquery_presence_absent'"
+    fact_refs:
+      - "insert_all_fact_body_110"
+      - "insert_all_fact_example_463"
+    severity: "error"
 structural_checks: []
 facts:
   -
@@ -756,24 +942,67 @@ facts:
     status: "confirmed"
     source_anchor: "L468-L473"
   -
+    id: "insert_all_fact_missing_subquery_error"
+    type: "behavior_oracle"
+    statement: "INSERT ALL缺少子查询时，原文错误为：ERROR: syntax error at or near \";\"."
+    status: "confirmed"
+    source_anchor: "L463-L466"
+  -
+    id: "insert_all_fact_view_target_error"
+    type: "behavior_oracle"
+    statement: "INSERT ALL目标为视图时，原文错误为：ERROR: Not allowed to insert into view."
+    status: "confirmed"
+    source_anchor: "L458-L461"
+  -
+    id: "insert_all_fact_subquery_alias_reference_error"
+    type: "behavior_oracle"
+    statement: "INTO子句引用子查询表别名时，原文错误为：ERROR: Missing FROM-clause entry for table \"t1\"."
+    status: "confirmed"
+    source_anchor: "L453-L456"
+  -
+    id: "insert_all_fact_missing_projection_error"
+    type: "behavior_oracle"
+    statement: "WHEN条件引用子查询不存在列时，原文错误为：ERROR: Column \"c1\" does not exist."
+    status: "confirmed"
+    source_anchor: "L444-L451"
+  -
+    id: "insert_all_fact_multi_row_values_error"
+    type: "behavior_oracle"
+    statement: "VALUES后跟多行时，原文错误为：ERROR: syntax error at or near \",\"."
+    status: "confirmed"
+    source_anchor: "L439-L442"
+  -
+    id: "insert_all_fact_aggregate_values_error"
+    type: "behavior_oracle"
+    statement: "VALUES内使用聚集函数时，原文错误为：ERROR: An aggregate function cannot be used in VALUES."
+    status: "confirmed"
+    source_anchor: "L434-L437"
+  -
     id: "insert_all_fact_negative_oracle"
-    type: "open_question"
-    statement: "多行VALUES、聚集函数、子查询及缺失投影列应有目标错误Oracle；当前只生成受控正向分支，负向未执行。"
-    status: "needs_verification"
+    type: "constraint"
+    statement: "静态域不生成VALUES内子查询分支；已有负向错误清单来自原文，数据库执行和目标错误身份需专用环境。"
+    status: "confirmed"
     source_anchor: "L98-L99"
   -
     id: "insert_all_fact_else_not_formal"
-    type: "open_question"
-    statement: "示例包含ELSE，但主产生式未列ELSE；不能仅据示例扩成正式语法规则。"
-    status: "needs_verification"
+    type: "constraint"
+    statement: "静态域不生成ELSE分支；示例包含ELSE但主产生式未列，不能仅据示例扩成正式语法规则。"
+    status: "confirmed"
     source_anchor: "L235-L240"
 exported_fact_refs: []
 manifest_refs:
   - "manifest_insert_all_unconditional"
   - "manifest_insert_all_conditional"
+  - "manifest_insert_all_values_aggregate_negative"
+  - "manifest_insert_all_values_multi_row_negative"
+  - "manifest_insert_all_missing_projection_negative"
+  - "manifest_insert_all_subquery_alias_negative"
+  - "manifest_insert_all_view_target_negative"
+  - "manifest_insert_all_missing_subquery_negative"
 matrix_refs:
   - "matrix_insert_all_coverage"
 fixture_refs:
   - "fixture_insert_all_three_tables"
+  - "fixture_insert_all_view_target"
 scenario_refs:
   - "scenario_insert_all_documented_contracts"

@@ -71,7 +71,7 @@ class CommentRuleTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256(p.read_bytes()).hexdigest(),s.catalog_chapter_ref.chapter_sha256)
         features={f.id:f for f in self.r.matrices['matrix_comment_coverage'].documented_features}
         f=features['comment_feature_object_rule']
-        self.assertEqual((f.status,f.coverage_mode),('covered','representative'))
+        self.assertEqual((f.status,f.coverage_mode),('covered','any'))
         self.assertEqual(f.value_refs,['comment_target_rule_fresh'])
         self.assertEqual(features['comment_feature_object_operator'].status,'covered')
         a=FactorCoverageAuditor(self.r).audit('comment')

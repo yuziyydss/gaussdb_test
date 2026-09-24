@@ -10,6 +10,7 @@
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
 -- params: {"if_exists": "drop_procedure_if_exists_none", "name": "drop_procedure_name_existing"}
+-- environment_requirements: [{"allowed_values": ["initial_user"], "fact_refs": ["drop_procedure_fact_initial", "drop_procedure_fact_initial_profile"], "key": "procedure_owner"}, {"allowed_values": ["initial_user"], "fact_refs": ["drop_procedure_fact_initial_profile"], "key": "session_user"}]
 -- fixture_setup:
 CREATE PROCEDURE fp_proc_ready(a INTEGER) IS v INTEGER; BEGIN v := a; END;
 -- test_sql:
@@ -25,6 +26,7 @@ DROP PROCEDURE IF EXISTS fp_proc_ready;
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
 -- params: {"if_exists": "drop_procedure_if_exists_yes", "name": "drop_procedure_name_existing"}
+-- environment_requirements: [{"allowed_values": ["initial_user"], "fact_refs": ["drop_procedure_fact_initial", "drop_procedure_fact_initial_profile"], "key": "procedure_owner"}, {"allowed_values": ["initial_user"], "fact_refs": ["drop_procedure_fact_initial_profile"], "key": "session_user"}]
 -- fixture_setup:
 CREATE PROCEDURE fp_proc_ready(a INTEGER) IS v INTEGER; BEGIN v := a; END;
 -- test_sql:

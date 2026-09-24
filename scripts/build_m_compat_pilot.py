@@ -49,6 +49,9 @@ class Package:
         self.files, self.manifests, self.fixtures, self.scenarios, self.matrices = {}, [], [], [], []
         self.checks, self.exports = [], []
         self.syntax_fact_refs = None
+        self.extra_ignored_lines = []
+        self.production = None
+        self.slot_overrides = {}
         self.ast, self.subgrammars = None, {}
         self.fact('mode', 'environment', '本包只适用于 PDF 第二章 M-Compatibility 语法。', 2, 1)
 
@@ -182,12 +185,19 @@ class Package:
         factor.pop('factor_ref')
         factor['name'] = self.command+' [M]'
         self.files[self.id+'.factor.yaml'] = factor
-        self.files[self.id+'.syntax.yaml'] = self.entity('syntax', 'syntax_'+self.id,
+        syntax = self.entity('syntax', 'syntax_'+self.id,
             category=self.category, ast=self.ast, subgrammars=self.subgrammars,
             rendering=dict(whitespace='collapse', statement_terminator=';'),
             slots={k:dict(type='sql_fragment', optional=True, dimension_ref=self.id+'.'+k) for k in self.dims},
             source_fact_refs=(self.syntax_fact_refs if self.syntax_fact_refs is not None
                               else [f['id'] for f in self.facts if f['type']=='syntax']))
+        if self.production is not None:
+            syntax['production'] = self.production
+            syntax.pop('ast', None)
+            syntax.pop('subgrammars', None)
+        for slot_name, overrides in self.slot_overrides.items():
+            syntax['slots'][slot_name].update(overrides)
+        self.files[self.id+'.syntax.yaml'] = syntax
         # Preserve every line. Unselected paragraphs are explicit gaps, not
         # out_of_scope or bulk "atomic" waivers. Overlapping fact spans share
         # one source unit; detailed atomicity remains visibly unreviewed.
@@ -224,7 +234,7 @@ class Package:
             i = end+1
         self.files[self.id+'.source.yaml'] = self.entity('source_ledger', 'source_ledger_'+self.id,
             artifact_sha256=source['artifact_sha256'], source_line_count=len(self.lines),
-            units=units, ignored_lines=ignored)
+            units=units, ignored_lines=sorted(ignored + self.extra_ignored_lines, key=lambda x: x["line"]))
         if self.id == 'm_select' and any(f['id'] == self.fid('sum_signature') for f in self.facts):
             # The SELECT expression is the consumer anchor, not the source of
             # SUM's mode-specific signature. Keep the actual M chapter explicit.

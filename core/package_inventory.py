@@ -1,7 +1,7 @@
 """Registry denominator and selection inventory, never a support verdict."""
 
 
-def package_inventory(registry, selected_manifest_ids):
+def package_inventory(registry, selected_manifest_ids, dispositions=None):
     selected = set(selected_manifest_ids)
     unknown = selected - set(registry.manifests)
     if unknown:
@@ -16,14 +16,32 @@ def package_inventory(registry, selected_manifest_ids):
         groups[label] = {'registered': len(ids), 'with_manifest': len(ids & with_manifests),
                          'selected': len(ids & selected_factors),
                          'without_manifest': len(ids - with_manifests)}
-    for fid in sorted(set(registry.factors) - with_manifests):
+    missing_refs = set(registry.factors) - with_manifests
+    if dispositions is not None:
+        disposition_refs = set(dispositions)
+        if disposition_refs != missing_refs:
+            missing = sorted(missing_refs - disposition_refs)
+            unexpected = sorted(disposition_refs - missing_refs)
+            raise ValueError(
+                'No-manifest disposition set mismatch: '
+                f'missing={missing}, unexpected={unexpected}'
+            )
+    for fid in sorted(missing_refs):
         factor = registry.factors[fid]
-        missing.append({
+        row = {
             'factor_ref': fid, 'status': 'no_manifest_not_a_support_verdict',
             'scenario_refs': list(factor.scenario_refs), 'fixture_refs': list(factor.fixture_refs),
             'review_fact_refs': [fid+'::'+f.id for f in factor.facts
                                  if f.type == 'open_question' or f.status == 'needs_verification'],
-        })
+        }
+        if dispositions is not None:
+            disposition = dispositions[fid]
+            required = {'blocking_category', 'blocking_reason', 'next_action'}
+            absent = sorted(required - set(disposition))
+            if absent:
+                raise ValueError(f'{fid} no-manifest disposition missing fields: {absent}')
+            row.update({key: disposition[key] for key in required})
+        missing.append(row)
     return {
         'registered_package_count': len(registry.factors),
         'with_manifest_count': len(with_manifests),

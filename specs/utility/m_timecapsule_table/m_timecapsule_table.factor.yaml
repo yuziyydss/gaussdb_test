@@ -45,8 +45,6 @@ dimensions:
         properties: {}
         fact_refs:
         - m_timecapsule_table_fact_syntax
-        fixture_refs:
-        - fixture_m_timecapsule_table_truncate
     default_value_id: m_timecapsule_table_operation_drop
   rename:
     description: rename：有限代表域
@@ -72,6 +70,33 @@ dimensions:
         fact_refs:
         - m_timecapsule_table_fact_rename
     default_value_id: m_timecapsule_table_rename_none
+  intervening_ddl:
+    description: TRUNCATE与闪回间的DDL
+    classes:
+    - id: m_timecapsule_table_intervening_ddl_none_class
+      meaning: none
+      values:
+      - id: m_timecapsule_table_intervening_ddl_none
+        render: ''
+        representative: true
+        validity: valid
+        properties: {}
+        fact_refs:
+        - m_timecapsule_table_fact_ddl_gap
+    - id: m_timecapsule_table_intervening_ddl_alter_class
+      meaning: alter_table
+      values:
+      - id: m_timecapsule_table_intervening_ddl_alter
+        render: ''
+        representative: true
+        validity: invalid
+        properties: {}
+        fact_refs:
+        - m_timecapsule_table_fact_ddl_gap
+        - m_timecapsule_table_fact_ddl_modified_error
+        fixture_refs:
+        - fixture_m_timecapsule_table_truncate_ddl
+    default_value_id: m_timecapsule_table_intervening_ddl_none
 facts:
 - id: m_timecapsule_table_fact_mode
   type: environment
@@ -118,6 +143,11 @@ facts:
   statement: RENAME TO只支持DROP恢复，不支持TRUNCATE。
   status: confirmed
   source_anchor: 2.4.2.17.2 L74-75
+- id: m_timecapsule_table_fact_rename_error
+  type: behavior_oracle
+  statement: 'RENAME TO用于TRUNCATE恢复时，原文错误为“ERROR: recycle object %s desired does not exist.”。'
+  status: confirmed
+  source_anchor: 2.4.2.17.2 L84-85
 - id: m_timecapsule_table_fact_names
   type: lifecycle
   statement: 同原始名选择最新回收对象，系统生成名唯一；本批专用Schema避免重名历史。
@@ -133,6 +163,11 @@ facts:
   statement: TRUNCATE恢复后统计仍为0，不代表数据没有恢复。
   status: confirmed
   source_anchor: 2.4.2.17.2 L72-73
+- id: m_timecapsule_table_fact_ddl_modified_error
+  type: behavior_oracle
+  statement: 'TRUNCATE与闪回间执行过DDL时，原文错误为“ERROR: The table definition of %s has been modified.”。'
+  status: confirmed
+  source_anchor: 2.4.2.17.2 L81-L82
 - id: m_timecapsule_table_fact_version_point
   type: environment
   statement: 历史版本依赖保留的UNDO，必须运行时取得真实CSN/时间点，不能照抄示例。
@@ -169,6 +204,14 @@ rules:
   expression: operation == 'm_timecapsule_table_operation_drop' or rename == 'm_timecapsule_table_rename_none'
   fact_refs:
   - m_timecapsule_table_fact_rename
+  - m_timecapsule_table_fact_rename_error
+  severity: error
+- id: m_timecapsule_table_rule_no_intervening_ddl
+  kind: requires
+  expression: intervening_ddl != 'm_timecapsule_table_intervening_ddl_alter'
+  fact_refs:
+  - m_timecapsule_table_fact_ddl_gap
+  - m_timecapsule_table_fact_ddl_modified_error
   severity: error
 structural_checks: []
 exported_fact_refs: []
@@ -176,10 +219,12 @@ manifest_refs:
 - manifest_m_timecapsule_table_drop
 - manifest_m_timecapsule_table_truncate
 - manifest_m_timecapsule_table_truncate_rename_negative
+- manifest_m_timecapsule_table_truncate_ddl_negative
 matrix_refs: []
 fixture_refs:
 - fixture_m_timecapsule_table_drop
 - fixture_m_timecapsule_table_truncate
+- fixture_m_timecapsule_table_truncate_ddl
 scenario_refs:
 - scenario_m_timecapsule_table_restored_rows
 - scenario_m_timecapsule_table_runtime_restore_point

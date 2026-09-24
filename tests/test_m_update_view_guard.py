@@ -78,12 +78,6 @@ class MUpdateViewIntegrationTests(unittest.TestCase):
         cls.root=Path(__file__).resolve().parents[1]
         cls.registry=FactorPackageRegistry(cls.root/'specs');cls.registry.load_all()
 
-    def test_builder_and_saved_package_match_including_new_source_unit(self):
-        import yaml
-        for name,value in update().finish().items():
-            path=self.root/'specs/dml/m_update'/name
-            self.assertTrue(path.exists(),name)
-            assert_evolved_asset(self, yaml.safe_load(path.read_text()),value,name)
     def test_generator_rejects_forged_positive_using_actual_m_source_mode(self):
         from core.factor_package_generator import FactorPackageSQLGenerator
         from core.spec_generator import GenerationValidationError

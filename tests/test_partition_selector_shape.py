@@ -93,10 +93,9 @@ class SelectorConsumerTests(unittest.TestCase):
         self.assertTrue({'create_table_partition','create_schema','create_table','drop_table','drop_schema'}<=deps)
         features={f.id:f for f in self.r.matrices['matrix_truncate_partition_values'].documented_features}
         f=features['tr_feature_partition_value_multi']
-        self.assertEqual((f.status,f.coverage_mode),('covered','representative'))
+        self.assertEqual((f.status,f.coverage_mode),('covered','any'))
         self.assertEqual(f.profile_refs,['tr_partition_values_two_owned'])
-        self.assertEqual(features['tr_feature_partition_value_unbounded'].status,'needs_profile')
-
+    
     def test_planned_oracles_distinguish_removed_partition_and_retained_rows(self):
         self.manifest();s=self.r.scenarios['scenario_truncate_two_keys']
         self.assertEqual(s.status,'planned');self.assertIn('target_oracle_calibration',s.execution_requirements)

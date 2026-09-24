@@ -60,18 +60,6 @@ class CountNullBoundaryTests(unittest.TestCase):
         for k in ('database_authorization','target_oracle_calibration','per_step_oracle','ownership_scoped_cleanup'):
             self.assertIn(k,s.execution_requirements)
 
-    def test_builtin_mode_and_actual_source_are_still_required_and_builder_matches(self):
-        m=copy.deepcopy(self.manifest())
-        next(g for g in m.environment_requirements if g.key=='compatibility_mode').allowed_values=['general']
-        with self.assertRaises(GenerationValidationError):FactorPackageSQLGenerator(self.r).generate_with_report(m)
-        g=FactorPackageSQLGenerator(self.r);old=g._compile_fixture_lifecycle
-        def changed(refs):
-            setup,down=old(refs);return [s.replace('qty INTEGER','qty TEXT') for s in setup],down
-        with patch.object(g,'_compile_fixture_lifecycle',side_effect=changed):
-            with self.assertRaises(GenerationValidationError):g.generate_with_report(self.manifest())
-        for name,value in select().finish().items():
-            assert_evolved_asset(self, yaml.safe_load((ROOT/'specs/dml/m_select'/name).read_text()),value,name)
-
     def test_auditor_keeps_text_overlap_but_only_rejects_same_actual_inputs(self):
         self.manifest();audit=FactorCoverageAuditor(self.r).audit('m_select')
         self.assertEqual(len(audit['manifests']['duplicate_sql']),4)

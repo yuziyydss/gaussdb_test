@@ -104,7 +104,6 @@ class SchemaPreparedBatchTests(unittest.TestCase):
             if signature["count"]:
                 self.assertEqual(signature["count"], len(args["items"]))
                 self.assertIn(signature["signature"], args["compatible_signatures"])
-        self.assertEqual(self.cases("execute", "rownum_negative")[0].sql, "EXECUTE p_ps_one(ROWNUM);")
 
     def test_prepared_fixture_order_signatures_and_exclusive_gate(self):
         for mid, (cases, _) in self.generated.items():

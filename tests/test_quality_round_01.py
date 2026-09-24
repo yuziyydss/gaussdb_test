@@ -35,7 +35,7 @@ class QualityRound01Tests(unittest.TestCase):
                                  for s in c.setup_sqls + c.teardown_sqls))
 
     def test_copy_format_uses_documented_quoted_option(self):
-        for c in self.cases['copy']:
+        for c in [x for x in self.cases['copy'] if x.expected == 'success']:
             self.assertRegex(c.sql, r"FORMAT '(?:text|csv)'[,)]")
             self.assertIn('TO STDOUT', c.sql)
             if "FORMAT 'text'" in c.sql:
@@ -83,8 +83,9 @@ class QualityRound01Tests(unittest.TestCase):
         self.assertTrue(any(' AS u SET u.note' in c.sql for c in self.cases['update']))
 
     def test_insert_all_conditions_and_single_row_values(self):
-        for c in self.cases['insert_all']:
-            self.assertTrue(c.sql.endswith('SELECT col_1,col_2 FROM fp_cs_one.b11_ia_source;'))
+        for c in [x for x in self.cases['insert_all'] if x.expected == 'success']:
+            self.assertIn('SELECT col_1,col_2 FROM fp_cs_one.b11_ia_source', c.sql)
+            self.assertTrue(c.sql.endswith(';'))
             self.assertNotRegex(c.sql, r'VALUES\s*\([^)]*\)\s*,\s*\(')
             self.assertEqual({g['key']: g['allowed_values'] for g in c.environment_requirements}
                              ['sql_compatibility'], ['A'])

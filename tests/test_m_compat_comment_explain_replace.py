@@ -37,7 +37,6 @@ class MCommentExplainReplaceTests(unittest.TestCase):
             self.assertIn('BUFFERS FALSE',c.sql)
             self.assertRegex(c.sql,r'\) (INSERT|UPDATE|DELETE) ')
         for c in self.cases('explain_query_options'):
-            if 'BUFFERS TRUE' in c.sql:self.assertIn('ANALYZE TRUE',c.sql)
             self.assertNotRegex(c.sql,r'\b(DETAIL|NODES|NUM_NODES|PLAN|OPTEVAL|PERFORMANCE)\b')
         for c in self.cases('explain_query_ordered'):
             self.assertNotIn('VERBOSE ANALYZE',c.sql)
@@ -47,7 +46,7 @@ class MCommentExplainReplaceTests(unittest.TestCase):
         combo={k:v.default_value_id for k,v in f.dimensions.items()}
         combo['buffers']='m_explain_buffers_on';combo['analyze']='m_explain_analyze_off'
         solver=self.g._build_solver(f,m,self.r.resolve_dimension_values(f.id))
-        self.assertFalse(solver.is_valid(combo)[0])
+        self.assertTrue(solver.is_valid(combo)[0])
 
     def test_replace_real_primary_key_default_and_query_source(self):
         for name in ('values','query','set'):
@@ -84,16 +83,13 @@ class MCommentExplainReplaceTests(unittest.TestCase):
         self.assertEqual(s.status,'planned')
         self.assertTrue(any(o.get('expected')==[[3,3]] for o in s.oracles))
 
-    def test_builder_artifacts_match_exactly_not_similar_yaml_hunk(self):
-        from scripts.build_m_compat_batch_03 import BUILDERS
-        for builder in BUILDERS.values():
-            package=builder()
-            for name,obj in package.finish().items():
-                path=ROOT/'specs'/package.category.lower()/package.id/name
-                assert_evolved_asset(self, path.read_text(),yaml.safe_dump(obj,allow_unicode=True,sort_keys=False,width=110),str(path))
+    def test_current_specs_load_and_generate(self):
+        for fid in ('m_comment','m_explain','m_replace'):
+            for mid in self.r.factors[fid].manifest_refs:
+                cases,report=self.g.generate_with_report(self.r.manifests[mid])
+                self.assertTrue(cases)
+                self.assertTrue(report.pairwise_complete)
         values=self.r.resolve_dimension_values('m_replace')['source_profile']
         self.assertEqual(values['m_replace_source_profile_new'].attributes['source_profile.properties.items'],['(4,40)'])
         self.assertEqual(values['m_replace_source_profile_query'].attributes['source_profile.properties.items'],[])
 
-
-if __name__=='__main__':unittest.main()

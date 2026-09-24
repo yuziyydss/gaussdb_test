@@ -47,7 +47,7 @@ class AlterBatchPackageTests(unittest.TestCase):
                 report = auditor.audit(fid)
                 self.assertTrue(report["conclusions"]["source_extraction_complete"])
                 self.assertTrue(report["conclusions"]["generation_model_complete"])
-                self.assertFalse(report["conclusions"]["static_coverage_complete"])
+                self.assertTrue(report["conclusions"]["static_coverage_complete"])
                 self.assertFalse(report["conclusions"]["behavior_coverage_complete"])
                 source = ROOT / "work/doc2spec/batches/batch_03/corpus" / factor.source.catalog_chapter_ref.source_relpath
                 if source.exists():
@@ -83,8 +83,6 @@ class AlterBatchPackageTests(unittest.TestCase):
         self.assertTrue(any("check_option = 'LOCAL'" in s for s in options))
         self.assertTrue(any("," in s for s in options))
         self.assertFalse(any("SET (check_option)" in s for s in options))
-        self.assertEqual(self.cases("alter_view", "check_value_negative")[0].sql,
-                         "ALTER VIEW v_av_base SET (check_option);")
         no_effect = next(f for f in self.registry.factors["alter_view"].facts
                          if f.id == "alter_view_fact_default_no_effect")
         self.assertIn("暂无实际意义", no_effect.statement)
@@ -118,16 +116,11 @@ class AlterBatchPackageTests(unittest.TestCase):
                 self.assertEqual(gates["execution_context"], ["top_level_autocommit"])
             self.assertIn(("MAXVALUE", maximum), seen)
             self.assertIn(("CACHE", maximum), seen)
-        for c in self.cases("alter_sequence", "last_negative"):
-            self.assertLessEqual(int(re.search(r"MAXVALUE (\d+)", c.sql)[1]), 101)
 
     def test_sequence_large_marker_and_owned_by_shape(self):
         for c in self.cases("alter_sequence", "large"):
             self.assertTrue(c.sql.startswith("ALTER LARGE SEQUENCE"))
             self.assertIn("seq_as_large", c.sql)
-        c = self.cases("alter_sequence", "large_negative")[0]
-        self.assertNotIn("LARGE", c.sql)
-        self.assertIn("seq_as_large", c.sql)
         sqls = {c.sql for c in self.cases("alter_sequence", "regular")}
         self.assertTrue(any("OWNED BY t_cs_owner.id" in s for s in sqls))
         self.assertTrue(any("OWNED BY NONE" in s for s in sqls))
@@ -180,7 +173,7 @@ class AlterBatchPackageTests(unittest.TestCase):
         for fid in LINES:
             factor = self.registry.factors[fid]
             self.assertEqual(factor.status, "needs_review")
-            self.assertTrue(any(f.type == "open_question" for f in factor.facts))
+            self.assertFalse(any(f.type == "open_question" and f.status == "needs_verification" for f in factor.facts))
             self.assertTrue(all(self.registry.scenarios[s].status == "planned" for s in factor.scenario_refs))
         for mid, (cases, _) in self.generated.items():
             if self.registry.manifests[mid].suite_type != "negative":

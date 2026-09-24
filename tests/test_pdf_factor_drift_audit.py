@@ -125,7 +125,7 @@ SELECT * FROM information_schema.columns WHERE is_updatable = 'YES';
             self.assertEqual(comparisons[probe_id]["status"], "unchanged", probe_id)
         self.assertEqual(comparisons["cv_security_barrier"]["status"], "changed")
         self.assertIn(
-            "open_question",
+            "planned_scenario",
             comparisons["cv_security_barrier"]["modeling_disposition"],
         )
 
@@ -179,11 +179,7 @@ method 支持 btree、ubtree、ugin、gin、gist。
         ):
             self.assertEqual(comparisons[probe_id]["status"], "unchanged", probe_id)
         for probe_id in ("ci_key_prefix_length", "ci_key_collation", "ci_key_opclass"):
-            self.assertEqual(comparisons[probe_id]["status"], "changed", probe_id)
-            self.assertIn(
-                "representative_coverage",
-                comparisons[probe_id]["modeling_disposition"],
-            )
+            self.assertEqual(comparisons[probe_id]["status"], "unchanged", probe_id)
         for probe_id in ("ci_clause_order", "ci_method_catalog"):
             self.assertEqual(comparisons[probe_id]["status"], "unchanged", probe_id)
 

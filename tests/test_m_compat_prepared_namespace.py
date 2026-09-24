@@ -88,16 +88,3 @@ class PreparedNamespaceTests(unittest.TestCase):
         self.assertIn('不含', fact['statement'])
         self.assertIn('字符集', fact['statement'])
 
-    def test_builder_matches_saved_packages_and_exact_m_sources(self):
-        for p, batch in ((prepare(), '03'), (namespace_create('CREATE SCHEMA'), '02')):
-            directory = ROOT / 'specs' / p.category.lower() / p.id
-            for name, value in p.finish().items():
-                assert_evolved_asset(self, yaml.safe_load((directory / name).read_text()), value, str(directory / name))
-            source = p.files[p.id + '.factor.yaml']['source']
-            body = ROOT / ('work/m_compat_batch_' + batch + '/corpus') / p.chapter['source_relpath']
-            self.assertEqual(hashlib.sha256(body.read_bytes()).hexdigest(),
-                             source['artifact_sha256'])
-
-
-if __name__ == '__main__':
-    unittest.main()

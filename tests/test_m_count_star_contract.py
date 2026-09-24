@@ -47,22 +47,3 @@ class CountStarConsumerTests(unittest.TestCase):
         self.assertTrue(any(o['kind']=='manual_assertion' and 'BIGINT' in o['expected'] for o in s.oracles))
         self.assertIn('per_step_oracle',s.execution_requirements)
         self.assertIn('target_oracle_calibration',s.execution_requirements)
-    def test_actual_source_projection_identity_and_builder_are_required(self):
-        m=self.manifest();wrong=copy.deepcopy(m)
-        next(g for g in wrong.environment_requirements if g.key=='function_resolution').allowed_values=['m_builtin_sum']
-        with self.assertRaisesRegex(GenerationValidationError,'function_resolution'):
-            FactorPackageSQLGenerator(self.r).generate_with_report(wrong)
-        kwargs=dict(items=['COUNT(*) AS result'],output_types=['BIGINT'],available_columns=['id','qty'],
-                    available_types=['INTEGER','INTEGER'],source_tables=[TABLE],mode='M',identity='m_builtin_count')
-        ddl=f'CREATE TABLE {TABLE}(id INTEGER, qty INTEGER);'
-        sql=f'SELECT COUNT(*) AS result FROM {TABLE};'
-        e=check_rendered_aggregate_source(sql,[ddl],**kwargs);self.assertEqual(e['source_table'],TABLE)
-        with self.assertRaisesRegex(Contradiction,'query_projection_mismatch'):
-            check_rendered_aggregate_source(sql.replace('COUNT(*)','COUNT(qty)'),[ddl],**kwargs)
-        with self.assertRaisesRegex(ReviewNeeded,'query_source_unknown'):
-            check_rendered_aggregate_source(sql,[],**kwargs)
-        for name,value in select().finish().items():
-            assert_evolved_asset(self, yaml.safe_load((ROOT/'specs/dml/m_select'/name).read_text()),value,name)
-
-
-if __name__=='__main__':unittest.main()

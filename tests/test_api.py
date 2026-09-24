@@ -74,14 +74,59 @@ class TestApiRoutes(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('全部因子包：四阶段进度', response.text)
         row = next(line for line in response.text.splitlines() if line.startswith('| alter_language |'))
-        self.assertIn('无候选', row)
-        self.assertIn('无用例，不计通过', row)
-        self.assertIn('未接入证据', row)
+        self.assertIn('文档不支持', row)
+        self.assertNotIn('闭环完成', row)
+        self.assertNotIn('全部 100%', row)
         detail = self.client.get('/specs/factor/alter_language')
         self.assertEqual(detail.status_code, 200)
         self.assertIn('无用例，不计通过', detail.text)
         self.assertNotIn('闭环完成', detail.text)
         self.assertNotIn('全部 100%', detail.text)
+
+    def test_no_manifest_dispositions_are_visible_in_web_and_api(self):
+        response = self.client.get("/coverage")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("无普通manifest处置", response.text)
+        self.assertIn("alter_system_kill_session", response.text)
+        self.assertIn("双会话运行时绑定", response.text)
+
+        payload = self.client.get("/api/coverage/summary").json()
+        self.assertEqual(payload["without_manifest_count"], 8)
+        self.assertEqual(len(payload["without_manifest"]), 8)
+        self.assertTrue(all({
+            "blocking_category", "blocking_reason", "next_action", "blocking_category_label"
+        } <= set(row) for row in payload["without_manifest"]))
+        self.assertIsNotNone(payload["factors"]["alter_language"]["no_manifest_disposition"])
+
+        exported = self.client.get("/api/coverage/export-md").text
+        self.assertIn("## 无普通manifest处置", exported)
+        self.assertIn("| alter_language | 文档不支持 |", exported)
+
+        detail = self.client.get("/specs/factor/alter_language")
+        self.assertEqual(detail.status_code, 200)
+        self.assertIn("无普通manifest处置", detail.text)
+        self.assertIn("文档不支持", detail.text)
+        self.assertIn("保留原文证据", detail.text)
+
+    def test_generation_gap_dispositions_are_visible_in_web_and_api(self):
+        response = self.client.get("/coverage")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("生成模型剩余缺口", response.text)
+        
+        payload = self.client.get("/api/coverage/summary").json()
+        self.assertEqual(payload["generation_model_gap_count"], 0)
+        self.assertEqual(len(payload["generation_model_gaps"]), 0)
+        self.assertTrue(all({
+            "blocking_category", "blocking_category_label", "blocking_reason", "next_action"
+        } <= set(row) for row in payload["generation_model_gaps"]))
+
+        exported = self.client.get("/api/coverage/export-md").text
+        self.assertIn("## 生成模型剩余缺口", exported)
+        self.assertNotIn("| alter_package | 文档支持矛盾 |", exported)
+
+        detail = self.client.get("/specs/factor/alter_package")
+        self.assertEqual(detail.status_code, 200)
+        self.assertNotIn("文档支持矛盾", detail.text)
 
     def test_factor_detail_and_generate(self):
         # 因子详情
@@ -102,7 +147,6 @@ class TestApiRoutes(unittest.TestCase):
         detail = self.client.get("/specs/factor/create_view")
         self.assertEqual(detail.status_code, 200)
         self.assertIn("待验证问题", detail.text)
-        self.assertIn("cv_open_security_barrier_bare", detail.text)
         self.assertIn("原文覆盖账本", detail.text)
         self.assertIn("116 / 116", detail.text)
         self.assertIn("406 / 406 行已登记", detail.text)
@@ -115,7 +159,7 @@ class TestApiRoutes(unittest.TestCase):
         self.assertEqual(audit["source_units"]["total"], 116)
         self.assertEqual(audit["source_units"]["line_coverage"]["missing"], [])
         self.assertTrue(audit["conclusions"]["generation_model_complete"])
-        self.assertFalse(audit["conclusions"]["static_coverage_complete"])
+        self.assertTrue(audit["conclusions"]["static_coverage_complete"])
         self.assertFalse(audit["conclusions"]["behavior_coverage_complete"])
 
         manifest_id = "manifest_create_view_basic_positive"
@@ -128,13 +172,13 @@ class TestApiRoutes(unittest.TestCase):
         )
         self.assertEqual(generated_html.status_code, 200)
         self.assertIn("可行 Pair", generated_html.text)
-        self.assertIn("146", generated_html.text)
+        self.assertIn("149", generated_html.text)
         self.assertNotIn("执行并生成报告", generated_html.text)
 
         generated_api = self.client.get(f"/api/specs/v1/generate/{manifest_id}")
         self.assertEqual(generated_api.status_code, 200)
         payload = generated_api.json()
-        self.assertEqual(payload["count"], 18)
+        self.assertEqual(payload["count"], 21)
         self.assertTrue(payload["report"]["pairwise_complete"])
         self.assertEqual(payload["report"]["missing_pairs"], [])
         self.assertTrue(all(case["sql"].endswith(";") for case in payload["cases"]))
@@ -148,8 +192,7 @@ class TestApiRoutes(unittest.TestCase):
         self.assertEqual(detail.status_code, 200)
         self.assertIn("918 / 918 行已登记", detail.text)
         self.assertIn("有候选（非全域覆盖）", detail.text)
-        self.assertIn("有缺口", detail.text)
-        self.assertIn("insert_open_plan_hint_profile", detail.text)
+        self.assertIn("声明范围满足", detail.text)
 
         manifest_id = "manifest_insert_core_positive"
         generated_html = self.client.post(
@@ -173,7 +216,7 @@ class TestApiRoutes(unittest.TestCase):
         self.assertEqual(detail.status_code, 200)
         self.assertIn("2333 / 2333 行已登记", detail.text)
         self.assertIn("有候选（非全域覆盖）", detail.text)
-        self.assertIn("select_open_plan_hint_profile", detail.text)
+        self.assertIn("声明范围满足", detail.text)
 
         manifest_id = "manifest_select_core_positive"
         generated_api = self.client.get(f"/api/specs/v1/generate/{manifest_id}")
@@ -194,8 +237,7 @@ class TestApiRoutes(unittest.TestCase):
         self.assertEqual(detail.status_code, 200)
         self.assertIn("899 / 899 行已登记", detail.text)
         self.assertIn("有候选（非全域覆盖）", detail.text)
-        self.assertIn("有缺口", detail.text)
-        self.assertIn("ci_open_unique_local_missing_partition_key", detail.text)
+        self.assertIn("声明范围满足", detail.text)
 
         manifest_id = "manifest_create_index_regular_positive"
         generated_html = self.client.post(
@@ -204,14 +246,14 @@ class TestApiRoutes(unittest.TestCase):
         self.assertEqual(generated_html.status_code, 200)
         self.assertIn("CREATE", generated_html.text)
         self.assertIn("INDEX", generated_html.text)
-        self.assertIn("708", generated_html.text)
+        self.assertIn("709", generated_html.text)
 
         generated_api = self.client.get(f"/api/specs/v1/generate/{manifest_id}")
         self.assertEqual(generated_api.status_code, 200)
         payload = generated_api.json()
-        self.assertEqual(payload["count"], 229)
-        self.assertEqual(payload["report"]["covered_pair_count"], 708)
-        self.assertEqual(payload["report"]["feasible_pair_count"], 708)
+        self.assertEqual(payload["count"], 230)
+        self.assertEqual(payload["report"]["covered_pair_count"], 709)
+        self.assertEqual(payload["report"]["feasible_pair_count"], 709)
         self.assertTrue(payload["report"]["pairwise_complete"])
         self.assertTrue(all(case["setup_sqls"] for case in payload["cases"]))
 
@@ -224,8 +266,7 @@ class TestApiRoutes(unittest.TestCase):
         self.assertEqual(detail.status_code, 200)
         self.assertIn("1636 / 1636 行已登记", detail.text)
         self.assertIn("有候选（非全域覆盖）", detail.text)
-        self.assertIn("有缺口", detail.text)
-        self.assertIn("at_open_online_environment_fixture", detail.text)
+        self.assertIn("声明范围满足", detail.text)
 
         manifest_id = "manifest_alter_table_core_positive"
         generated_html = self.client.post(

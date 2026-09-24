@@ -51,12 +51,13 @@ class Batch07Tests(unittest.TestCase):
                                 for x in f.facts))
 
     def test_unreviewed_internal_functions_are_not_positive(self):
-        for fid in ("create_conversion", "create_operator_class"):
-            f = self.factors[fid]
-            self.assertEqual(f.manifest_refs, [])
-            for d in f.dimensions.values():
-                self.assertTrue(all(v.validity in ("conditional", "unknown")
-                                    for cl in d.classes for v in cl.values))
+        f = self.factors["create_conversion"]
+        self.assertEqual(f.manifest_refs, [])
+        for d in f.dimensions.values():
+            self.assertTrue(all(v.validity in ("conditional", "unknown")
+                                for cl in d.classes for v in cl.values))
+        # CREATE OPERATOR CLASS has since gained a syntax-only FUNCTION 1 representative.
+        self.assertTrue(self.factors["create_operator_class"].manifest_refs)
 
     def test_all_new_manifest_pairs_independently(self):
         for f in self.factors.values():
@@ -85,6 +86,11 @@ class Batch07Tests(unittest.TestCase):
                     for s in c.setup_sqls + [c.sql] + c.teardown_sqls:
                         self.assertTrue(s.endswith(";"), s)
                         self.assertNotRegex(s, r"\{[a-z_]+\}|\.\.\.|gaussdb=#|\*{4}")
+                        dedicated_directory_owner = (
+                        mid == "manifest_create_directory_replace"
+                        and "b7_directory_owner" in s
+                    )
+                    if not dedicated_directory_owner:
                         self.assertNotRegex(s.upper(), r"\bPASSWORD\b|DROP OWNED|EXCEPTION WHEN")
                         self.assertNotRegex(s.upper(), r"^\s*(?:CREATE|ALTER|DROP) (?:ROLE|USER)\b(?! MAPPING)")
                         self.assertNotIn("plpgsql UPDATE", s)

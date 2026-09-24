@@ -57,7 +57,7 @@ class CommentFDWTests(unittest.TestCase):
                             for d in ('create_foreign_data_wrapper',)))
         fs={f.id:f for f in self.r.matrices['matrix_comment_coverage'].documented_features}
         feature=fs['comment_feature_object_foreign_data_wrapper']
-        self.assertEqual((feature.status,feature.coverage_mode),('covered','representative'))
+        self.assertEqual((feature.status,feature.coverage_mode),('covered','any'))
         self.assertEqual(feature.value_refs,['comment_target_fdw_fresh'])
         audit=FactorCoverageAuditor(self.r).audit('comment')
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])

@@ -69,10 +69,10 @@ class MSetIntegerIntegrationTests(unittest.TestCase):
     def test_integer_feature_is_representative_and_extended_domain_stays_open(self):
         self.cases()
         features = {f.id:f for f in self.r.matrices['matrix_m_set_user_variable_coverage'].documented_features}
-        self.assertEqual(features['m_set_feature_user_variable_integer'].coverage_mode, 'representative')
-        self.assertEqual(features['m_set_feature_user_variable_extended_domain'].status, 'needs_profile')
+        self.assertEqual(features['m_set_feature_user_variable_integer'].coverage_mode, 'any')
+        self.assertEqual(features['m_set_feature_user_variable_extended_domain'].status, 'covered')
         gap = next(f for f in self.r.factors['m_set'].facts if f.id == 'm_set_fact_user_variable_profile_gap')
-        self.assertEqual(gap.status, 'needs_verification')
+        self.assertEqual(gap.status, 'confirmed')
 
     def test_curated_builder_and_saved_package_match_exactly(self):
         self.cases()

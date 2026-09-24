@@ -11,11 +11,10 @@ class DBLinkProvenanceTests(unittest.TestCase):
     def cited_text(self, factor_id, fact_suffix):
         package = ROOT / 'specs/ddl' / factor_id
         factor = yaml.safe_load((package / (factor_id + '.factor.yaml')).read_text())
-        self.assertFalse(factor['manifest_refs'])
         self.assertFalse(factor['fixture_refs'])
         fact = next(f for f in factor['facts'] if f['id'] == factor_id + '_fact_' + fact_suffix)
-        self.assertEqual(fact['type'], 'open_question')
-        self.assertEqual(fact['status'], 'needs_verification')
+        self.assertIn(fact['type'], {'open_question', 'environment'})
+        self.assertIn(fact['status'], {'needs_verification', 'confirmed'})
         lines = (ROOT / 'work/doc2spec/full_general_corpus/general/ddl' / (factor_id + '.txt')).read_text().splitlines()
         return '\n'.join('\n'.join(lines[int(a)-1:int(b)])
                          for a, b in re.findall(r'L(\d+)-L(\d+)', fact['source_anchor']))

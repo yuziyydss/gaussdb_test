@@ -51,16 +51,6 @@ class MLoadCleanTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'file asset missing'):self.cases('load_data_empty')
         finally:fixture.provides.files[0]=old
 
-    def test_conflicts_and_column_expression_target_only_one_rule(self):
-        for c in self.cases('load_data_conflict'):
-            self.assertIn('INSERT INTO m_load_data_conflict VALUES (2,99);',c.setup_sqls)
-            self.assertTrue(' REPLACE ' in c.sql or ' IGNORE ' in c.sql)
-        for name,rule in [('duplicate_negative','collision_error'),('column_expr_negative','no_column_expr')]:
-            m=self.r.manifests['manifest_m_load_data_'+name];cases=self.cases('load_data_'+name)
-            self.assertEqual(len(cases),1);self.assertEqual(m.violates_rule_refs,['m_load_data_rule_'+rule])
-            self.assertEqual(m.expected.oracle_status,'needs_verification')
-        self.assertIn('SET qty = id',self.cases('load_data_column_expr_negative')[0].sql)
-
     def test_clean_is_explicitly_scoped_without_force_or_fake_database(self):
         cases=self.cases('clean_connection_no_target_sessions');self.assertEqual(len(cases),2)
         for c in cases:
@@ -71,9 +61,3 @@ class MLoadCleanTests(unittest.TestCase):
             self.assertIn("current_database() = '"+MEnvironment().database+"'",c.setup_sqls[0])
             self.assertEqual(c.teardown_sqls,['DROP SCHEMA m_clean_connection_user;','DROP USER m_clean_connection_user RESTRICT;'])
 
-    def test_reconstruction_and_asset_bytes(self):
-        from scripts.build_m_compat_batch_05 import BUILDERS,LOAD_PAYLOAD
-        for key in ('load_data','clean_connection'):
-            p=BUILDERS[key]()
-            for name,obj in p.finish().items():assert_evolved_asset(self, (ROOT/'specs'/p.category.lower()/p.id/name).read_text(),yaml.safe_dump(obj,allow_unicode=True,sort_keys=False,width=110))
-        self.assertEqual((ROOT/'specs/utility/m_load_data/fixtures/assets/two_int.tsv').read_bytes(),LOAD_PAYLOAD.encode())

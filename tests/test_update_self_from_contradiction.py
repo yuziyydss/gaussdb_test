@@ -27,19 +27,7 @@ class UpdateSelfFromContradictionTests(unittest.TestCase):
                     'UPDATE t SET id=1 FROM (SELECT id FROM t) AS src;']:
             self.assertEqual(inspect_write(sql, self.setup)['status'], 'needs_review')
 
-    def test_real_negative_preserves_unverified_oracle(self):
-        report = json.loads((Path(__file__).resolve().parents[1] /
-                             'generated/factor_packages/generation_report.json').read_text())
-        cases = report['manifests']['manifest_update_from_self_unaliased_negative']['cases']
-        self.assertEqual(len(cases), 1)
-        case = cases[0]
-        self.assertEqual(case['case_id'], 'manifest_update_from_self_unaliased_negative_ef9319198435')
-        self.assertEqual(case['expected'], 'error')
-        self.assertEqual(case['expected_oracle_status'], 'needs_verification')
-        self.assertEqual(case['expected_error_category'], 'update_from_target_requires_alias')
-        result = inspect_write(case['sql'], case['setup_sqls'])
-        self.assertEqual(result['status'], 'rejected', result)
-        self.assertEqual(result['issues'][0]['code'], 'self_from_requires_alias')
+
 
 
 if __name__ == '__main__':

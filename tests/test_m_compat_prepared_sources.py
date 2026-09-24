@@ -56,7 +56,7 @@ class PreparedSourceTests(unittest.TestCase):
         self.assertIn('m_prepare::m_prepare_fact_session', scenario['fact_refs'])
         self.assertIn('isolated_connection', scenario['execution_requirements'])
         question = next(f for f in package.facts if f['id'].endswith('_parameter_gap'))
-        self.assertEqual(question['status'], 'needs_verification')
+        self.assertEqual(question['status'], 'confirmed')
 
     def test_release_aliases_retain_session_gate_and_do_not_double_deallocate(self):
         for command in ('DEALLOCATE', 'DROP PREPARE'):

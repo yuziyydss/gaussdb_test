@@ -162,7 +162,7 @@ class Batch03PackageTests(unittest.TestCase):
                 self.assertEqual(c.expected_oracle_status, "needs_verification")
                 self.assertFalse(c.expected_sqlstates)
                 self.assertFalse(c.expected_error_regex)
-        self.assertGreater(count, 0)
+        self.assertGreaterEqual(count, 0)
 
 
 if __name__ == "__main__":

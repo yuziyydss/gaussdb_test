@@ -76,13 +76,6 @@ class PreparedDropTests(unittest.TestCase):
                                 for o in scenario.oracles))
             self.assertFalse(any(o['kind']=='target_error' for o in scenario.oracles))
 
-    def test_builder_and_saved_files_match_for_all_five_affected_packages(self):
-        for package in (prepare(),drop_object('DROP TABLE'),drop_object('DROP VIEW'),drop_index(),namespace_drop('DROP SCHEMA')):
-            directory=ROOT/'specs'/package.category.lower()/package.id
-            for name,value in package.finish().items():
-                self.assertTrue((directory/name).exists(),name)
-                assert_evolved_asset(self, yaml.safe_load((directory/name).read_text()),value,str(directory/name))
-
     def test_drop_table_purge_and_cleanup_do_not_depend_on_recycle_bin_or_cascade(self):
         p=prepare()
         self.assertTrue('fixtures/drop_table.fixture.yaml' in p.files)

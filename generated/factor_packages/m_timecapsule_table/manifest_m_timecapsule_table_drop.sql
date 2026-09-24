@@ -6,14 +6,14 @@
 -- M database must be created from a non-M management connection, then reconnect and verify.
 -- Inspection snapshot only: do not execute as one script; negatives and transaction fixtures need staged execution.
 
--- case_id: manifest_m_timecapsule_table_drop_2afa12fa1fb9
+-- case_id: manifest_m_timecapsule_table_drop_951bd1be898d
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"operation": "m_timecapsule_table_operation_drop", "rename": "m_timecapsule_table_rename_none"}
+-- params: {"intervening_ddl": "m_timecapsule_table_intervening_ddl_none", "operation": "m_timecapsule_table_operation_drop", "rename": "m_timecapsule_table_rename_none"}
 -- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_timecapsule_table_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["fixture_table_and_schema_creator_with_truncate"], "fact_refs": ["m_timecapsule_table_fact_authority"], "key": "actor_authority"}, {"allowed_values": ["verified_ordinary_permanent_astore_or_ustore"], "fact_refs": ["m_timecapsule_table_fact_storage"], "key": "table_storage"}, {"allowed_values": ["on"], "fact_refs": ["m_timecapsule_table_fact_switches"], "key": "enable_recyclebin"}, {"allowed_values": ["off"], "fact_refs": ["m_timecapsule_table_fact_switches"], "key": "xc_maintenance_mode"}, {"allowed_values": ["new_case_namespace_retained_object_supported_baseline_no_intervening_ddl"], "fact_refs": ["m_timecapsule_table_fact_switches"], "key": "recyclebin_state"}]
 -- fixture_setup:
 CREATE SCHEMA m_timecapsule_namespace;
@@ -27,14 +27,14 @@ DROP TABLE IF EXISTS m_timecapsule_namespace.source PURGE;
 DROP TABLE IF EXISTS m_timecapsule_namespace.restored PURGE;
 DROP SCHEMA m_timecapsule_namespace;
 
--- case_id: manifest_m_timecapsule_table_drop_0d343e5d3125
+-- case_id: manifest_m_timecapsule_table_drop_a33bb0177302
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"operation": "m_timecapsule_table_operation_drop", "rename": "m_timecapsule_table_rename_yes"}
+-- params: {"intervening_ddl": "m_timecapsule_table_intervening_ddl_none", "operation": "m_timecapsule_table_operation_drop", "rename": "m_timecapsule_table_rename_yes"}
 -- environment_requirements: [{"allowed_values": ["M"], "fact_refs": ["m_timecapsule_table_fact_mode"], "key": "compatibility_mode"}, {"allowed_values": ["fixture_table_and_schema_creator_with_truncate"], "fact_refs": ["m_timecapsule_table_fact_authority"], "key": "actor_authority"}, {"allowed_values": ["verified_ordinary_permanent_astore_or_ustore"], "fact_refs": ["m_timecapsule_table_fact_storage"], "key": "table_storage"}, {"allowed_values": ["on"], "fact_refs": ["m_timecapsule_table_fact_switches"], "key": "enable_recyclebin"}, {"allowed_values": ["off"], "fact_refs": ["m_timecapsule_table_fact_switches"], "key": "xc_maintenance_mode"}, {"allowed_values": ["new_case_namespace_retained_object_supported_baseline_no_intervening_ddl"], "fact_refs": ["m_timecapsule_table_fact_switches"], "key": "recyclebin_state"}]
 -- fixture_setup:
 CREATE SCHEMA m_timecapsule_namespace;

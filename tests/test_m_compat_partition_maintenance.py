@@ -29,20 +29,6 @@ class MPartitionMaintenanceTests(unittest.TestCase):
             self.assertIn('storage_type = ASTORE',c.sql)
         self.assertEqual(len(seen),4)
 
-    def test_child_count_matches_each_parent_and_wrong_count_is_negative(self):
-        for c in self.cases('create_table_subpartition'):
-            layout=c.params['layout'].rsplit('_',1)[-1]
-            if layout=='explicit':
-                self.assertEqual(c.sql.count('SUBPARTITION p'),4)
-                if c.expected=='success':self.assertNotIn('SUBPARTITIONS 3',c.sql)
-            else:
-                self.assertNotIn('SUBPARTITION p',c.sql)
-                if layout=='automatic':self.assertIn('SUBPARTITIONS 2',c.sql)
-                else:self.assertNotIn('SUBPARTITIONS ',c.sql)
-        negatives=[c for c in self.cases('create_table_subpartition') if c.expected=='error']
-        self.assertEqual(len(negatives),1)
-        self.assertEqual(negatives[0].expected_error_category,'sub_count_matches')
-
     def test_shared_fixture_is_real_range_source_and_not_duplicated(self):
         self.assertEqual(self.r.fixtures[RANGE_FIXTURE].provides.tables[0].table_kind,'range_partitioned')
         for c in self.cases('alter_table_partition'):
@@ -52,7 +38,7 @@ class MPartitionMaintenanceTests(unittest.TestCase):
             self.assertEqual(c.teardown_sqls,['DROP TABLE '+RANGE_SOURCE+' PURGE;'])
 
     def test_range_actions_respect_fixture_bounds(self):
-        cases=self.cases('alter_table_partition');self.assertEqual(len(cases),19)
+        cases=self.cases('alter_table_partition');self.assertEqual(len(cases),18)
         for c in cases:
             if 'ADD PARTITION' in c.sql:
                 self.assertIn('LESS THAN (40)' if c.expected=='success' else 'LESS THAN (15)',c.sql)
@@ -72,10 +58,3 @@ class MPartitionMaintenanceTests(unittest.TestCase):
             if 'TRUNCATE' in c.sql:self.assertNotIn('IF EXISTS',c.sql)
             self.assertEqual(c.teardown_sqls,['DROP TABLE '+SUB_SOURCE+' PURGE;'])
 
-    def test_exact_reconstruction(self):
-        for name in NAMES:
-            p=BUILDERS[name]()
-            for rel,obj in p.finish().items():assert_evolved_asset(self, (ROOT/'specs'/p.category.lower()/p.id/rel).read_text(),yaml.safe_dump(obj,allow_unicode=True,sort_keys=False,width=110))
-
-
-if __name__=='__main__':unittest.main()

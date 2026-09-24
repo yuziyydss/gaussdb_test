@@ -1,0 +1,20 @@
+schema_version: 1
+kind: fixture
+id: fixture_create_operator_class_fresh_function
+name: CREATE OPERATOR CLASS事务内函数项
+factor_ref: create_operator_class
+status: needs_review
+description: 事务内创建独占schema与比较函数，供非默认btree操作符类使用；不验证索引契约。
+requires_fixture_refs: []
+provides: {}
+seed: {required: false, rows: []}
+execution:
+  status: ready
+  mode: explicit
+  setup_sqls:
+    - "BEGIN;"
+    - "CREATE SCHEMA g_create_opclass_ns;"
+    - "CREATE FUNCTION g_create_opclass_ns.compare_integer(INTEGER, INTEGER) RETURNS INTEGER LANGUAGE SQL IMMUTABLE AS 'SELECT CASE WHEN $1 = $2 THEN 0 WHEN $1 < $2 THEN -1 ELSE 1 END;';"
+  teardown_sqls:
+    - "ROLLBACK;"
+  note: 仅在预先授权且非事务块外启动的独占测试会话中运行；schema与函数由本case在事务内创建，目标SQL创建非默认操作符类。setup失败阻止目标并保留实际对象清单；目标仅证明语法与静态候选，不验证索引比较契约、操作符类完整性或目录身份。清理使用ROLLBACK，禁止COMMIT、CASCADE、DROP OWNED或吞异常。

@@ -56,9 +56,10 @@ class QualityRound02Tests(unittest.TestCase):
                 self.assertTrue(any('(1,12)' in c.sql and '(3,30)' in c.sql for c in cases))
 
     def test_values_nested_expression_survives_ast_rendering(self):
-        cases = self.cases('manifest_values_fetch')
+        cases = self.cases('manifest_values_single')
+        fetch_cases = self.cases('manifest_values_fetch')
         self.assertTrue(any('(1 + 2) * 3' in c.sql for c in cases))
-        self.assertTrue(any('OFFSET 1 ROW' in c.sql and 'FETCH' in c.sql for c in cases))
+        self.assertTrue(any('OFFSET 1 ROW' in c.sql and 'FETCH' in c.sql for c in fetch_cases))
         self.assertFalse(any('LIMIT' in c.sql and 'FETCH' in c.sql for c in cases))
 
     def test_select_into_expression_has_explicit_distinct_output_names(self):

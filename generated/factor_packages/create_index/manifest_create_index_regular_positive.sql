@@ -1,6 +1,6 @@
 -- generated_from: manifest_create_index_regular_positive
 -- static_only: true
--- case_count: 229
+-- case_count: 230
 
 -- case_id: manifest_create_index_regular_positive_2fdba66c8000
 -- expected: success
@@ -1784,6 +1784,23 @@ CREATE TABLE t_ci_astore (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64
 INSERT INTO t_ci_astore (id, note, name, postcode) VALUES (1, 'one', 'Alpha', '100001'), (2, 'two', 'Beta', '100002');
 -- test_sql:
 CREATE INDEX idx_ci_ast_2c242271 ON t_ci_astore USING ubtree (id) WITH (storage_type = ASTORE);
+-- fixture_teardown:
+DROP TABLE IF EXISTS t_ci_astore CASCADE;
+
+-- case_id: manifest_create_index_regular_positive_4fe8a423802c
+-- expected: success
+-- expected_error_category: -
+-- expected_sqlstates: -
+-- expected_error_regex: -
+-- expected_oracle_status: confirmed
+-- expected_scope: syntax_and_semantics
+-- params: {"comment_clause": "ci_comment_none", "concurrently": "ci_concurrently_none", "if_not_exists": "ci_if_not_exists_none", "ilm_clause": "ci_ilm_none", "include_profile": "ci_include_none", "index_name_presence": "ci_index_name_present", "key_profile": "ci_key_id", "method": "ci_method_ubtree", "predicate_clause": "ci_predicate_none", "scope_clause": "ci_scope_none", "statement_form": "ci_statement_regular", "storage_profile": "ci_deduplication_on", "table_profile": "ci_table_astore_regular", "tablespace_clause": "ci_tablespace_none", "unique_modifier": "ci_unique_none", "visibility_clause": "ci_visibility_none"}
+-- fixture_setup:
+DROP TABLE IF EXISTS t_ci_astore CASCADE;
+CREATE TABLE t_ci_astore (id INTEGER NOT NULL, note VARCHAR(64), name VARCHAR(64), postcode CHAR(6));
+INSERT INTO t_ci_astore (id, note, name, postcode) VALUES (1, 'one', 'Alpha', '100001'), (2, 'two', 'Beta', '100002');
+-- test_sql:
+CREATE INDEX idx_ci_ast_4fe8a423 ON t_ci_astore USING ubtree (id) WITH (deduplication = on);
 -- fixture_teardown:
 DROP TABLE IF EXISTS t_ci_astore CASCADE;
 

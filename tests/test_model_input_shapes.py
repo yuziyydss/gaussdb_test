@@ -49,7 +49,7 @@ class ModelInputShapeTests(unittest.TestCase):
             source = self.registry.factors[fid].source.catalog_chapter_ref
             body = (ROOT/'work/doc2spec/full_general_corpus'/source.source_relpath).read_text()
             self.assertRegex(body,r'FEATURES\s+size,\s*lot\s+TARGET\s+mark')
-            self.assertEqual(self.registry.factors[fid].manifest_refs,[])
+            self.assertTrue(self.registry.factors[fid].manifest_refs)
         self.assertNotIn('models',self.registry.fixtures[FID].provides.model_dump())
 
     def test_training_and_prediction_keep_distinct_ordered_projections(self):
@@ -95,8 +95,11 @@ class ModelInputShapeTests(unittest.TestCase):
             scenario = self.scenario(fid)
             self.assertEqual(scenario.fixture_refs, [FID])
             self.assertEqual(scenario.status, 'planned')
-            self.assertEqual(self.registry.factors[fid].manifest_refs, [])
+            self.assertTrue(self.registry.factors[fid].manifest_refs)
             self.assertEqual(self.registry.factors[fid].status, 'needs_review')
+            for mid in self.registry.factors[fid].manifest_refs:
+                m = self.registry.manifests[mid]
+                self.assertEqual(m.expected.scope, 'syntax_only')
             sqls = [s['sql'] for s in scenario.steps if 'sql' in s] + fixture.execution.setup_sqls
             self.assertNotIn('CREATE MODEL', ' '.join(sqls).upper())
             self.assertNotIn('PREDICT BY', ' '.join(sqls).upper())
@@ -107,7 +110,7 @@ class ModelInputShapeTests(unittest.TestCase):
         self.assertIn('create_model::create_model_fact_body_27', refs)
         self.assertIn('create_model::create_model_fact_example_232', refs)
         values = self.registry.resolve_dimension_values('create_model')['architecture']
-        self.assertTrue(all(v.validity == 'conditional' for v in values.values()))
+        self.assertTrue(all(v.validity == 'valid' for v in values.values()))
 
 
 if __name__ == '__main__':

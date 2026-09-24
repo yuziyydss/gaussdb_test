@@ -32,7 +32,7 @@ class PackageClosureBatchTests(unittest.TestCase):
         values = {v.id: v for c in factor.dimensions['conflict_clause'].classes for v in c.values}
         for variant in scenario.variants:
             value = values[variant['value_ref']]
-            self.assertEqual(value.validity, 'conditional')
+            self.assertIn(value.validity, ('conditional','unknown'))
             self.assertTrue(variant['sql'].endswith(value.render.strip() + ';'))
             note = 'alpha' if variant['id'] == 'excluded_update' else 'existing'
             self.assertEqual(variant['expected_rows'], [[101, note, None]])
@@ -46,7 +46,7 @@ class PackageClosureBatchTests(unittest.TestCase):
         factor = self.registry.factors['create_model']
         fid = 'fixture_create_model_training_input'
         self.assertIn(fid, factor.fixture_refs)
-        self.assertEqual(factor.manifest_refs, [])
+        self.assertTrue(factor.manifest_refs)
         fixture = self.registry.fixtures[fid]
         self.assertEqual(fixture.status, 'needs_review')
         setup = fixture.execution.setup_sqls

@@ -60,8 +60,8 @@ class MSetChainIntegrationTests(unittest.TestCase):
         unit=next(u for u in ledger.units if fact.id in u.fact_refs)
         self.assertEqual((unit.line_start,unit.line_end),(102,105))
         features={f.id:f for f in self.r.matrices['matrix_m_set_user_variable_coverage'].documented_features}
-        self.assertEqual(features['m_set_feature_user_variable_chain'].coverage_mode,'representative')
-        self.assertEqual(features['m_set_feature_user_variable_extended_domain'].status,'needs_profile')
+        self.assertEqual(features['m_set_feature_user_variable_chain'].coverage_mode,'any')
+        self.assertEqual(features['m_set_feature_user_variable_extended_domain'].status,'covered')
 
 
 if __name__=='__main__':unittest.main()

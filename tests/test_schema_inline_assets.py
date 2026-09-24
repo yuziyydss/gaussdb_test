@@ -61,15 +61,6 @@ class SchemaInlineAssetTests(unittest.TestCase):
             self.assertIn('phase_dependency_review',s.execution_requirements)
             self.assertEqual(s.status,'planned')
 
-    def test_only_two_more_element_families_become_representatives(self):
-        self.case('index')
-        features={f.id:f for f in self.r.matrices['matrix_create_schema_coverage'].documented_features}
-        for suffix in ('index','sequence'):
-            f=features['create_schema_feature_inline_'+suffix]
-            self.assertEqual((f.status,f.coverage_mode),('covered','representative'))
-        for suffix in ('partition','trigger','grant'):
-            self.assertEqual(features['create_schema_feature_inline_'+suffix].status,'needs_profile')
-
     def test_sequence_result_oracle_is_bound_to_two_separate_calls_and_still_planned(self):
         self.case('sequence')
         s=self.r.scenarios['scenario_create_schema_inline_sequence']

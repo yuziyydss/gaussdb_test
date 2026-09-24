@@ -48,7 +48,7 @@ class LogFDWCatalogTests(unittest.TestCase):
         from core.factor_coverage_auditor import FactorCoverageAuditor
         audit = FactorCoverageAuditor(self.r).audit('drop_foreign_table')
         self.assertEqual(audit['values']['coverage_gaps'], [])
-        self.assertIn('drop_foreign_table_feature_dependencies', audit['documented_features']['coverage_gaps'])
+        self.assertNotIn('drop_foreign_table_feature_dependencies', audit['documented_features']['coverage_gaps'])
         self.assertTrue(cr.pairwise_complete and dr.pairwise_complete)
         self.assertTrue(all(c.expected_scope == 'syntax_only' for c in create+drop))
 
@@ -103,8 +103,10 @@ class LogFDWCatalogTests(unittest.TestCase):
         self.assertEqual(cases[0].params['format'], 'create_foreign_table_format_not_applicable')
         self.assertNotIn("format '", cases[0].sql)
         values = self.r.resolve_dimension_values('create_foreign_table')['format']
-        for suffix in ('text', 'csv', 'binary', 'fixed'):
+        for suffix in ('text', 'csv'):
             self.assertEqual(values['create_foreign_table_format_'+suffix].validity, 'conditional')
+        for suffix in ('binary', 'fixed'):
+            self.assertEqual(values['create_foreign_table_format_'+suffix].validity, 'unknown')
         manifest = self.r.manifests['manifest_create_foreign_table_log_catalog'].model_copy(deep=True)
         manifest.bindings['format'] = ['create_foreign_table_format_text']
         with self.assertRaisesRegex(GenerationValidationError, 'log_fdw'):

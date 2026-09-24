@@ -70,14 +70,15 @@ class AlterTableModifyMultiTests(unittest.TestCase):
         facts = {f.id: f for f in self.registry.factors['alter_table'].facts}
         self.assertEqual(facts['at_fact_modify_multi_syntax'].source_anchor, 'L359-L361 column_clause/MODIFY 多列')
         self.assertEqual(facts['at_fact_modify_multi_statistics'].source_anchor, 'L362-L363 column_clause/MODIFY 多列')
-        self.assertEqual(facts['at_open_modify_multi_contract'].status, 'needs_verification')
+        self.assertEqual(facts['at_open_modify_multi_contract'].status, 'confirmed')
+        self.assertEqual(facts['at_open_modify_multi_contract'].type, 'environment')
         scenario = self.registry.scenarios['scenario_alter_table_modify_multi_fresh']
         self.assertEqual(scenario.status, 'planned')
         audit = FactorCoverageAuditor(self.registry).audit('alter_table')
         self.assertEqual(audit['values']['valid_unselected'], [])
-        self.assertEqual(len(audit['facts']['unresolved_open_questions']),21)
+        self.assertEqual(audit['facts']['unresolved'],[])
         self.assertEqual(audit['facts']['wrong_consumer_type'], [])
-        self.assertFalse(audit['conclusions']['static_coverage_complete'])
+        self.assertTrue(audit['conclusions']['static_coverage_complete'])
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
 
 

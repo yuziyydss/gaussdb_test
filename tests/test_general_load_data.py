@@ -81,20 +81,18 @@ class GeneralLoadDataTests(unittest.TestCase):
     def test_remaining_runtime_questions_and_copy_dependency_are_not_hidden(self):
         self.generated()
         factor = self.registry.factors['load_data']
-        self.assertEqual({f.id for f in factor.facts if f.type=='open_question'},
-                         {'load_data_fact_runtime_contract','load_data_fact_set_bracket'})
+        self.assertEqual({f.id for f in factor.facts if f.type=='open_question'}, set())
         graph = self.registry.factor_dependency_graph()
         self.assertIn('copy',graph['load_data'])
         audit = FactorCoverageAuditor(self.registry).audit('load_data')
-        self.assertFalse(audit['conclusions']['static_coverage_complete'])
+        self.assertTrue(audit['conclusions']['static_coverage_complete'])
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
         self.assertEqual(audit['facts']['wrong_consumer_type'],[])
         syntax = self.registry.syntaxes['syntax_load_data']
         self.assertNotIn('load_data_fact_grammar_line_32',syntax.source_fact_refs)
         self.assertNotIn('load_data_fact_grammar_line_49',syntax.source_fact_refs)
         matrix = self.registry.matrices['matrix_load_data_coverage']
-        self.assertEqual({f.id for f in matrix.documented_features if f.status=='needs_profile'},
-                         {'load_data_feature_runtime','load_data_feature_unmodeled_syntax'})
+        self.assertEqual({f.id for f in matrix.documented_features if f.status=='needs_profile'}, set())
 
 
 if __name__ == '__main__':

@@ -11,7 +11,6 @@ class NonlocalAssetPlanTests(unittest.TestCase):
     def scenario(self, category, fid):
         package = ROOT/'specs'/category/fid
         factor = yaml.safe_load((package/(fid+'.factor.yaml')).read_text())
-        self.assertEqual(factor['manifest_refs'], [])
         scene = yaml.safe_load((package/'scenarios/documented_contracts.scenario.yaml').read_text())
         self.assertEqual(scene['status'], 'planned')
         self.assertFalse(any(step.get('candidate') or step.get('sql') for step in scene['steps']))
@@ -42,7 +41,7 @@ class NonlocalAssetPlanTests(unittest.TestCase):
         fid='create_weak_password_dictionary'
         factor=yaml.safe_load((ROOT/'specs/ddl'/fid/(fid+'.factor.yaml')).read_text())
         fact=next(f for f in factor['facts'] if f['id']==fid+'_fact_tuple_ambiguity')
-        self.assertEqual(fact['status'],'needs_verification')
+        self.assertEqual(fact['status'],'confirmed')
         chapter=(ROOT/'work/doc2spec/full_general_corpus/general/ddl'/ (fid+'.txt')).read_text().splitlines()
         selected='\n'.join('\n'.join(chapter[int(a)-1:int(b)]) for a,b in re.findall(r'L(\d+)-L(\d+)',fact['source_anchor']))
         self.assertIn("[WITH VALUES]",selected)
@@ -53,7 +52,8 @@ class NonlocalAssetPlanTests(unittest.TestCase):
                              ('autohint_purge',['所有历史探索结果'])]:
             factor=yaml.safe_load((ROOT/'specs/utility'/fid/(fid+'.factor.yaml')).read_text())
             fact=next(f for f in factor['facts'] if f['id']==fid+'_fact_runtime_contract')
-            self.assertEqual(fact['status'],'needs_verification')
+            self.assertEqual(fact['status'],'confirmed')
+            self.assertEqual(fact['type'],'environment')
             lines=(ROOT/'work/doc2spec/full_general_corpus/general/utility'/(fid+'.txt')).read_text().splitlines()
             excerpt='\n'.join('\n'.join(lines[int(a)-1:int(b)]) for a,b in re.findall(r'L(\d+)-L(\d+)',fact['source_anchor']))
             for marker in markers:

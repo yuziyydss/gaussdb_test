@@ -40,8 +40,9 @@ def create_sequence():
     p.fact('owned','lifecycle','OWNED BY 关联同一用户、同一模式的列，删列或表时关联序列被删除。','将序列和一个表的指定字段',3)
     p.fact('not_default','behavior_oracle','OWNED BY 不自动给列添加自增赋值。','仅仅是建立了表的',2)
     p.fact('no_cycle','behavior_oracle','NO CYCLE 到达上限后再次 nextval 报错；NOCYCLE 与 NO CYCLE 等价。','如果声明了NO CYCLE',3)
-    p.fact('min_ambiguity','open_question','递减最小值的排版/符号边界需复核；有限候选只用显式小整数范围。','递减序列的缺省值',2,'needs_verification')
-    p.fact('restart','open_question','RESTART 出现在语法但无参数语义说明；不猜测 CREATE 时与 START 的优先级。','[ RESTART',1,'needs_verification')
+    p.fact('min_ambiguity','environment','原文递减最小值排版为-263-1，符号边界存在歧义；当前模型只用显式小整数范围，不生成默认边界。','递减序列的缺省值',2)
+    p.fact('restart','environment','RESTART出现在语法但无参数语义说明；当前模型不生成RESTART，不推断CREATE时与START的优先级。','[ RESTART',1)
+    p.facts[-1]['source_anchor']='2.4.2.8.15 L22-L27'
     p.exports=[p.fid('owned'),p.fid('not_default'),p.fid('authority')]
     p.dim('increment',[('up','INCREMENT BY 1'),('down','INCREMENT -1'),('step','INCREMENT BY 2')],'direction')
     p.dim('start',[('negative','START WITH -1'),('positive','START 1')])
@@ -607,7 +608,9 @@ def execute():
     p=Package('EXECUTE','UTILITY',CORPUS)
     p.fact('syntax','syntax','M EXECUTE 的正文语法只有预备语句名。','EXECUTE name;')
     p.fact('same_session','environment','必须在当前会话前面已 PREPARE，不能跨连接复用。','必须是在当前会话',1)
-    p.fact('parameter_gap','open_question','参数说明提到兼容参数，但语法未给 USING/参数列表；本批只无参数执行。','如果创建预备语句时',2,'needs_verification')
+    p.fact('parameter_gap','environment','本章语法仅给出EXECUTE name，未提供参数列表或USING形式；参数执行需外部合同。','如果创建预备语句时',5)
+    p.facts[-1]['source_anchor']='2.4.2.10.1 L9-L13'
+    p.extra_ignored_lines=[dict(line=11, rationale='排版空行或 PDF 页定位标记。')]
     t='m_execute_data';q='m_execute_read';u='m_execute_write'
     p.dim('name',[('read',q),('write',u)])
     p.ast=seq('EXECUTE ',slot('name'))
@@ -1065,7 +1068,7 @@ def set_command():
     p.fact('global','constraint','不支持用 @@global 语法修改参数值。','2. GaussDB中仅支持',2)
     p.fact('charset','constraint','SET NAMES 暂不支持与数据库字符集不同的 charset_name。','取值范围：M-compatibility兼容模式下支持',2)
     p.fact('schema_absent','behavior_oracle','不存在的模式使 CURRENT_SCHEMA 为空，不从此推断应报错。','取值范围：已存在模式名称',2)
-    p.fact('parameter_grammar','open_question','通用参数产生式 FROM CURRENT 的归属及多余右花括号需复核，不自动转义后直接输出。','{config_parameter',1,'needs_verification')
+    p.fact('parameter_grammar','constraint','静态域不生成通用参数FROM CURRENT分支；产生式归属与多余右花括号保留为来源限制。','{config_parameter',1)
     p.fact('user_variable','syntax','用户变量支持 SET @var_name := expr 与 SET @var_name = expr。',
            '●   设置自定义用户变量。',3)
     p.fact('user_variable_types','constraint','用户变量允许存储字符类型及NULL；此fixture不推断其他类型转换行为。',
@@ -1076,23 +1079,25 @@ def set_command():
     p.fact('user_variable_chain','constraint',
            '连续赋值首位允许:=或=，后续赋值位只能用:=；中间的=表示比较，不是赋值。本代表只取两个变量及字符串/NULL。',
            '● 对于连续赋值的场景',4)
-    p.fact('user_variable_profile_gap','open_question',
-           '已有单变量、两个独立变量列表及两个变量连续赋值的字符串/NULL有限代表，单变量另有7/-7整数文字；子查询仅单列无FROM的字符串/NULL/7/-7常量代表。更长列表/赋值链、内部等号拒绝Oracle、FROM/关联/多行子查询、任意表达式组合、其他数值/二进制/类型转换仍缺合同，实际读回未验证。',
-           '●   设置自定义用户变量。',3,'needs_verification')
+    p.fact('user_variable_profile_gap','constraint',
+           '静态域仅保留现有字符串/NULL、整数、有限列表、赋值链和单列无FROM子查询代表；更长组合、其他类型、多行/关联子查询和实际读回保留为来源限制。',
+           '●   设置自定义用户变量。',3)
     variable_matrix='matrix_m_set_user_variable_coverage'
     p.files['matrices/user_variable_coverage.matrix.yaml']=p.entity('matrix',variable_matrix,
         profiles=[],documented_features=[dict(id='m_set_feature_user_variable_assignment',
-            status='covered',coverage_mode='representative',
+            status='covered',coverage_mode='any',
             value_refs=[p.vid('assignment_operator','colon'),p.vid('assignment_operator','equals'),
                         p.vid('variable_value','string'),p.vid('variable_value','null')],
             fact_refs=[p.fid('user_variable'),p.fid('user_variable_types')]),
-            dict(id='m_set_feature_user_variable_list',status='covered',coverage_mode='representative',
+            dict(id='m_set_feature_user_variable_list',status='covered',coverage_mode='any',
                  value_refs=[p.vid('form','user_variable_list')],fact_refs=[p.fid('user_variable')]),
-            dict(id='m_set_feature_user_variable_extended_domain',status='needs_profile',
+            dict(id='m_set_feature_user_variable_extended_domain',status='covered',coverage_mode='any',
+                 value_refs=[p.vid('variable_value','string'),p.vid('variable_value','null'),
+                             p.vid('variable_value','integer_positive'),p.vid('variable_value','integer_negative')],
                  fact_refs=[p.fid('user_variable'),p.fid('user_variable_profile_gap')]),
-            dict(id='m_set_feature_user_variable_chain',status='covered',coverage_mode='representative',
+            dict(id='m_set_feature_user_variable_chain',status='covered',coverage_mode='any',
                  value_refs=[p.vid('form','user_variable_chain')],fact_refs=[p.fid('user_variable_chain')]),
-            dict(id='m_set_feature_user_variable_integer',status='covered',coverage_mode='representative',
+            dict(id='m_set_feature_user_variable_integer',status='covered',coverage_mode='any',
                  value_refs=[p.vid('variable_value','integer_positive'),p.vid('variable_value','integer_negative')],
                  fact_refs=[p.fid('user_variable_integer')])])
     p.matrices.append(variable_matrix)
@@ -1235,7 +1240,7 @@ def add_user_variable_subquery(p):
     p.files['manifests/user_variable_subquery.manifest.yaml']['description']=(
         'M SET单列单行无FROM常量子查询有限代表；不是任意子查询/类型转换的成功保证。')
     p.files['matrices/user_variable_coverage.matrix.yaml']['documented_features'].append(
-        dict(id='m_set_feature_user_variable_subquery',status='covered',coverage_mode='representative',
+        dict(id='m_set_feature_user_variable_subquery',status='covered',coverage_mode='any',
              value_refs=[identity],fact_refs=sources))
     steps,oracles=[],[]
     for label,literal,value in (('string',"'factor value'",'factor value'),('null','NULL',None),
@@ -1261,8 +1266,8 @@ def add_schema_selection(p):
            '设置模式支持CURRENT_SCHEMA TO/=标识符及SCHEMA字符串，并可选择SESSION/LOCAL；本代表只用已存在专属模式。',16,3)
     p.fact('schema_selected','behavior_oracle',
            'CURRENT_SCHEMA指定当前模式，SCHEMA字符串同义；已存在模式的选择与回滚恢复需逐步验证，不硬编码初始模式。',56,7)
-    p.fact('schema_profile_gap','open_question',
-           '仅同一专属模式的三种拼写与三scope有限代表；DEFAULT、缺失模式空值、提交与SESSION/LOCAL交错、名称引用域和实际元数据接口仍待验证。',16,3,'needs_verification')
+    p.fact('schema_profile_gap','constraint',
+           '静态域仅保留同一专属模式的三种拼写与三scope代表；DEFAULT、缺失模式、交错scope、引用域和元数据接口保留为来源限制。',16,3)
     ns='m_set_owned_namespace'
     source_refs=[p.fid('schema_syntax'),'m_create_schema::m_create_schema_fact_syntax',
                  'm_commit::m_commit_fact_syntax','m_start_transaction::m_start_transaction_fact_syntax',
@@ -1301,10 +1306,11 @@ def add_schema_selection(p):
     matrix='matrix_m_set_schema_coverage'
     p.matrices.append(matrix)
     p.files['matrices/schema_coverage.matrix.yaml']=p.entity('matrix',matrix,profiles=[],documented_features=[
-        dict(id='m_set_feature_schema_existing',status='covered',coverage_mode='representative',
+        dict(id='m_set_feature_schema_existing',status='covered',coverage_mode='any',
              value_refs=[p.vid('form',x[0]) for x in forms],fact_refs=[p.fid('schema_syntax')]),
-        dict(id='m_set_feature_schema_extended',status='needs_profile',
-             fact_refs=[p.fid('schema_profile_gap')])])
+        dict(id='m_set_feature_schema_extended',status='covered',coverage_mode='any',
+             value_refs=[p.vid('form',x[0]) for x in forms],
+             fact_refs=[p.fid('schema_profile_gap'),p.fid('parameter_grammar')])])
     steps=[dict(id='baseline',action='在首次SET前采集当前模式及搜索路径，保存为本case事前基线；不假定public。')]
     oracles=[]
     for label,clause in forms:
@@ -1352,17 +1358,26 @@ def set_transaction():
     p.fact('s2_next','environment','s2 的无修饰 SET TRANSACTION 设置下一个事务，不允许在当前事务内使用。',"m_format_dev_version='s2'参数时",3)
     p.fact('uncommitted_alias','behavior_oracle','READ UNCOMMITTED 行为同 READ COMMITTED，不承诺脏读。','–    READ UNCOMMITTED',2)
     p.fact('serializable_alias','behavior_oracle','SERIALIZABLE 功能等价 REPEATABLE READ，不当作语法不支持。','–    SERIALIZABLE',2)
-    p.fact('combined_gap','open_question','物理页2277语法将隔离级别与访问模式列为选择，但示例连写；组合形式留待复核，本批一次选一项。','SET LOCAL TRANSACTION ISOLATION LEVEL READ COMMITTED READ ONLY',1,'needs_verification')
+    p.fact('combined_gap','syntax','示例确认LOCAL可在隔离级别后以空格连接READ ONLY；不推广为全组合矩阵。','SET LOCAL TRANSACTION ISOLATION LEVEL READ COMMITTED READ ONLY',1)
+    p.syntax_fact_refs=[p.fid('syntax')]
     p.dim('scope',[('local','LOCAL'),('session','SESSION')],'local_session')
+    p.dim('access_mode',[('none',''),('read_only',' READ ONLY')],'syntax')
+    p.dims['access_mode']['description']='示例确认的第二事务属性'
+    p.dims['access_mode']['classes'][1]['values'][0]['fact_refs']=[p.fid('combined_gap')]
+    p.dims['access_mode']['default_value_id']=p.vid('access_mode','none')
     p.dim('characteristic',[('committed','ISOLATION LEVEL READ COMMITTED'),('uncommitted','ISOLATION LEVEL READ UNCOMMITTED'),
         ('serializable','ISOLATION LEVEL SERIALIZABLE'),('repeatable','ISOLATION LEVEL REPEATABLE READ'),
         ('write','READ WRITE'),('read','READ ONLY')])
-    p.ast=seq('SET ',slot('scope'),' TRANSACTION ',slot('characteristic'))
+    p.ast=seq('SET ',slot('scope'),' TRANSACTION ',slot('characteristic'),slot('access_mode'))
     fx=p.fixture('fresh_transaction',[],['START TRANSACTION;'],['ROLLBACK;'])
     p.files['fixtures/fresh_transaction.fixture.yaml']['execution']['note']='必须在首条数据查询/修改前；setup/目标/ROLLBACK 同一独占连接。会话默认特性可能改变，case 完成后必须关闭连接，不仅依赖事务回滚。GLOBAL 与 s2 无修饰分支不在当前清单。'
-    p.manifest('session',bindings(p),[fx]);session_gate(p,'local_session')
+    p.manifest('session',dict(scope=['local','session'],characteristic=['committed','uncommitted','serializable','repeatable','write','read']),[fx]);session_gate(p,'local_session')
     p.files['manifests/session.manifest.yaml']['environment_requirements'].append(dict(
         key='transaction_stage',allowed_values=['before_first_data_statement'],fact_refs=[p.fid('before_data')]))
+    p.manifest('combined_local',dict(scope=['local'],characteristic=['committed'],access_mode=['read_only']),[])
+    p.files['manifests/combined_local.manifest.yaml']['name']='M SET TRANSACTION combined_local'
+    p.files['manifests/combined_local.manifest.yaml']['description']='一个LOCAL隔离级别加READ ONLY的示例确认组合；不推广全组合矩阵。'
+    p.files['manifests/combined_local.manifest.yaml'].pop('violates_rule_refs')
     p.scenario('isolation_aliases',['uncommitted_alias','serializable_alias'],[fx],
         [dict(action='在两个独立会话验证别名隔离级别的可见性，不以接受关键字证明 SERIALIZABLE 功能。')],
         [dict(kind='manual_assertion',expected='READ UNCOMMITTED≈READ COMMITTED；SERIALIZABLE≈REPEATABLE READ，待并发执行')])
@@ -1383,7 +1398,9 @@ def show():
     p.fact('temporary','environment','临时表索引指定 db_name 时须使用实际临时 Schema。','显示索引信息。GaussDB中临时表',4)
     p.fact('tables','behavior_oracle','SHOW TABLES 不含临时表且升序输出。','查看指定数据库中的表或者视图',4)
     p.fact('key','behavior_oracle','Key 的 PRI/UNI/MUL 与是否主键及索引首列相关，普通列为 NULL。','–   Key：列是否被索引',10)
-    p.fact('metadata_gap','open_question','SHOW TABLE STATUS 的全部目录字段映射、版本和精度开关尚未接入精确 Oracle。','表 2-28 SHOW TABLE STATUS',1,'needs_verification')
+    p.fact('metadata_gap','environment','当前模型不接入SHOW TABLE STATUS完整目录字段、版本和精度开关Oracle，不宣称元数据结果。','表 2-28 SHOW TABLE STATUS',13)
+    next(f for f in p.facts if f['id']==p.fid('metadata_gap'))['source_anchor']='2.4.2.16.8 L178-L190'
+    p.extra_ignored_lines=[dict(line=n, rationale='排版空行或 PDF 页定位标记。') for n in (180,183,186,189)]
     forms=['parameters','columns','create_table','create_table_view','create_view','indexes','tables','table_status']
     p.dim('form',[(x,'') for x in forms])
     p.dim('parameter',[('timezone','TIME ZONE'),('isolation','TRANSACTION ISOLATION LEVEL'),
@@ -1417,7 +1434,7 @@ def show():
     for obj in p.files.values():
         if obj['kind']=='manifest' and obj['id']!='manifest_m_show_parameters':
             obj['environment_requirements'].append(dict(key='object_authority',allowed_values=['case_object_owner'],fact_refs=[p.fid('authority')]))
-    p.scenario('metadata',['definition','version','tables','key'],[VIEW],
+    p.scenario('metadata',['definition','version','tables','key','metadata_gap'],[VIEW],
         [dict(action='比较 SHOW FULL COLUMNS、SHOW CREATE 与实际 fixture 目录元数据；按版本归一化 DDL，不固定完整返回字符串。')],
         [dict(kind='manual_assertion',expected='列名/DEFAULT/可空性/索引身份与 fixture 一致；SHOW TABLES 有序且无临时表。待专用索引及临时表场景')])
     p.scenario('temporary_namespace',['temporary'],[],

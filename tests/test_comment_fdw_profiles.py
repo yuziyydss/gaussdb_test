@@ -72,7 +72,7 @@ class CommentFDWObjectTests(unittest.TestCase):
         fs={f.id:f for f in self.r.matrices['matrix_comment_coverage'].documented_features}
         for fid,target in (('comment_feature_object_foreign_table','comment_target_foreign_table_fresh'),
                            ('comment_feature_object_server','comment_target_server_fresh')):
-            self.assertEqual((fs[fid].status,fs[fid].coverage_mode),('covered','representative'))
+            self.assertEqual((fs[fid].status,fs[fid].coverage_mode),('covered','any'))
             self.assertEqual(fs[fid].value_refs,[target])
         audit=FactorCoverageAuditor(self.r).audit('comment')
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
@@ -128,7 +128,7 @@ class CommentDomainTests(unittest.TestCase):
         fs={f.id:f for f in self.r.matrices['matrix_comment_coverage'].documented_features}
         self.assertEqual((fs['comment_feature_object_domain'].status,
                           fs['comment_feature_object_domain'].coverage_mode),
-                         ('covered','representative'))
+                         ('covered','any'))
         self.assertEqual(fs['comment_feature_object_domain'].value_refs,
                          ['comment_target_domain_fresh'])
         scenario=self.r.scenarios['scenario_comment_domain']

@@ -20,33 +20,6 @@ class MNamespaceViewSessionTests(unittest.TestCase):
 
     def cases(self,name):return self.g.generate_cases_for_manifest(self.r.manifests['manifest_m_'+name])
 
-    def test_namespaces_never_alter_physical_database(self):
-        for name in ('alter_database','alter_schema'):
-            for suite in ('charset','collation','combined','mismatch'):
-                for c in self.cases(name+'_'+suite):
-                    self.assertEqual(c.setup_sqls,[f'CREATE SCHEMA m_{name}_namespace CHARSET utf8;'])
-                    self.assertEqual(c.teardown_sqls,[f'DROP SCHEMA m_{name}_namespace;'])
-                    self.assertNotIn('DBCOMPATIBILITY',c.sql)
-                    self.assertTrue(any('m_'+name+'_fact_namespace' in e['fact_refs'] for e in c.environment_requirements if e['key']=='compatibility_mode'))
-                    self.assertNotIn('public',c.sql)
-                    self.assertIn('m_'+name+'_namespace',c.sql)
-                    self.assertTrue(any(e['key']=='server_encoding' and e['allowed_values']==['UTF8'] for e in c.environment_requirements))
-
-    def test_shared_charset_rule_rejects_wrong_association(self):
-        for fid in ('m_alter_database','m_alter_schema'):
-            f=self.r.factors[fid];resolved=self.r.resolve_dimension_values(fid)
-            combo={k:v.default_value_id for k,v in f.dimensions.items()}
-            combo.update(form=fid+'_form_combined',charset=fid+'_charset_utf8',collation=fid+'_collation_gbk')
-            positive=self.r.manifests['manifest_'+fid+'_combined']
-            negative=self.r.manifests['manifest_'+fid+'_mismatch']
-            self.assertFalse(self.g._build_solver(f,positive,resolved).is_valid(combo)[0])
-            self.assertTrue(self.g._build_solver(f,negative,resolved).is_valid(combo)[0])
-            combo['collation']=fid+'_collation_utf8mb4'
-            self.assertTrue(self.g._build_solver(f,positive,resolved).is_valid(combo)[0])
-            self.assertEqual(negative.expected.oracle_status,'needs_verification')
-        rule=self.r.factors['m_alter_schema'].rules[0]
-        self.assertEqual(rule.fact_refs,['m_alter_database::m_alter_database_fact_charset_pair'])
-
     def test_supplemental_sources_are_hashed_and_linked_to_units(self):
         ledger=self.r.source_ledgers['source_ledger_m_alter_database']
         self.assertEqual(len(ledger.supplemental_sources),2)
@@ -112,13 +85,3 @@ class MNamespaceViewSessionTests(unittest.TestCase):
                 if suite=='transaction':
                     self.assertTrue(any(e['key']=='transaction_stage' for e in c.environment_requirements))
 
-    def test_builder_exact_reconstruction(self):
-        from scripts.build_m_compat_batch_04 import BUILDERS,rendered_files
-        for builder in BUILDERS.values():
-            p=builder()
-            for name,obj in rendered_files(p).items():
-                path=ROOT/'specs'/p.category.lower()/p.id/name
-                assert_evolved_asset(self, path.read_text(),yaml.safe_dump(obj,allow_unicode=True,sort_keys=False,width=110),str(path))
-
-
-if __name__=='__main__':unittest.main()

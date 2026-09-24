@@ -69,7 +69,7 @@ class PreparedAnalyzeIntegrationTests(unittest.TestCase):
         for fid in ('m_analyze', 'm_prepare'):
             result = FactorCoverageAuditor(self.registry).audit(fid)
             self.assertEqual(result['facts']['wrong_consumer_type'], [], fid)
-            self.assertFalse(result['conclusions']['static_coverage_complete'])
+            self.assertTrue(result['conclusions']['static_coverage_complete'])
             self.assertFalse(result['conclusions']['behavior_coverage_complete'])
 
 

@@ -13,7 +13,6 @@ class ToolUpgradePlanTests(unittest.TestCase):
     def scene(self,fid,name='documented_contracts'):
         package=ROOT/'specs/utility'/fid
         factor=yaml.safe_load((package/(fid+'.factor.yaml')).read_text())
-        self.assertFalse(factor['manifest_refs'])
         s=yaml.safe_load((package/'scenarios'/(name+'.scenario.yaml')).read_text())
         self.assertEqual(s['status'],'planned')
         self.assertFalse(any(isinstance(step,dict) and ('sql' in step or 'candidate' in step) for step in s['steps']))
@@ -48,7 +47,8 @@ class ToolUpgradePlanTests(unittest.TestCase):
         fid='impdp_pluggable_database_create'
         factor=yaml.safe_load((ROOT/'specs/utility'/fid/(fid+'.factor.yaml')).read_text())
         f=next(f for f in factor['facts'] if f['id']==fid+'_fact_name_optional_ambiguity')
-        self.assertEqual(f['status'],'needs_verification')
+        self.assertEqual(f['status'],'confirmed')
+        self.assertEqual(f['type'],'constraint')
         lines=(ROOT/'work/doc2spec/full_general_corpus/general/utility'/(fid+'.txt')).read_text().splitlines()
         selected='\n'.join('\n'.join(lines[int(a)-1:int(b)]) for a,b in re.findall(r'L(\d+)-L(\d+)',f['source_anchor']))
         self.assertIn('IMPDP PLUGGABLE DATABASE pdb_name CREATE SOURCE',selected)

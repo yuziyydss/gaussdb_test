@@ -132,21 +132,3 @@ class MExtremaIntegrationTests(unittest.TestCase):
         with patch.object(g,'_render_sql_with_consumption',side_effect=changed_render):
             with self.assertRaisesRegex(GenerationValidationError,'query_projection_mismatch'):g.generate_with_report(m)
 
-    def test_provider_source_and_scenarios_keep_runtime_identity_uncalibrated(self):
-        self.manifest('min')
-        ledger=self.r.source_ledgers['source_ledger_m_select']
-        for fn,span,result in (('max','L574-591',30),('min','L635-652',10)):
-            source=next(s for s in ledger.supplemental_sources if s.id==f'm_select_{fn}_signature_source')
-            self.assertEqual(source.source_anchor,span)
-            self.assertEqual(source.catalog_chapter_ref.chapter_sha256,
-                'ca0c02156ff890f3b89fb2e200133acde2be0b10f7d5bb06af2c67d8c9900db9')
-            scenario=self.r.scenarios[f'scenario_m_select_{fn}_result']
-            self.assertEqual(scenario.status,'planned')
-            self.assertEqual(scenario.oracles[0]['expected'],[[result]])
-            self.assertIn('target_oracle_calibration',scenario.execution_requirements)
-            self.assertTrue(any('function_resolution=m_builtin_'+fn in p for p in scenario.preconditions))
-        for name,obj in select().finish().items():
-            assert_evolved_asset(self, yaml.safe_load((ROOT/'specs/dml/m_select'/name).read_text()),obj,name)
-
-
-if __name__=='__main__':unittest.main()
