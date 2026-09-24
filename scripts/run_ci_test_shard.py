@@ -18,10 +18,14 @@ def collect_test_ids() -> list[str]:
     result = subprocess.run(
         [sys.executable, "-m", "pytest", "--collect-only", "-q", "tests"],
         cwd=ROOT,
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
     )
+    if result.returncode != 0:
+        print(result.stdout, end="")
+        print(result.stderr, end="", file=sys.stderr)
+        raise RuntimeError(f"pytest collection failed with exit code {result.returncode}")
     return sorted(
         line.strip()
         for line in result.stdout.splitlines()
