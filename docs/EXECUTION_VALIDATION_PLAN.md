@@ -114,6 +114,23 @@ python scripts/audit_phase1_report.py \
 
 只有 setup、10 个 target 和 cleanup 全部通过时，才标记 `runtime_verified=true`。
 
+## Runtime 状态汇总
+
+Phase 1 与 runtime pilot 的所有产物可以用一个命令汇总：
+
+```bash
+python scripts/runtime_status.py
+```
+
+该命令不连接数据库，只读取当前 JSON 产物并报告：
+
+- 离线计划是否齐备
+- preflight 是否完成
+- runtime pilot 是否执行
+- runtime receipt 是否通过独立审计
+- Phase 1 是否执行
+- Phase 1 报告是否通过独立审计
+
 ## Phase 2: 100条（1个完整manifest）
 
 如果Phase 1通过，扩展到完整manifest：
