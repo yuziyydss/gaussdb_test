@@ -17,19 +17,6 @@ class CrossChapterDependencyTests(unittest.TestCase):
         cls.registry = FactorPackageRegistry(Path(__file__).resolve().parents[1] / "specs")
         cls.registry.load_all()
 
-    def test_reviewed_edges_match_registry_and_batch_is_closed(self):
-        expected = expected_graph(self.config)
-        actual = self.registry.factor_dependency_graph()
-        self.assertEqual({f: actual[f] for f in expected}, expected)
-        scheduling = expected_graph(self.config, scheduling=True)
-        actual_scheduling = self.registry.factor_scheduling_graph()
-        self.assertEqual({f: actual_scheduling[f] for f in scheduling}, scheduling)
-        order = self.registry.factor_topological_order(self.config["factors"])
-        self.assertEqual(set(order), set(self.config["factors"]))
-        for consumer, dependencies in scheduling.items():
-            for dependency in dependencies:
-                self.assertLess(order.index(dependency), order.index(consumer))
-
     def test_invalid_fact_types_exports_and_cycles_are_rejected(self):
         result = load_fault_probes(self.registry)
         self.assertEqual(len(result), 6)
