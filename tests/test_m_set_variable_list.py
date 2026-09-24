@@ -15,7 +15,7 @@ class MSetVariableListDefinitionTests(unittest.TestCase):
         self.assertEqual(set(p.dims), {'scope','timezone','form','assignment_operator','variable_value'})
         self.assertIn('manifests/user_variable_list.manifest.yaml', p.files)
         features = p.files['matrices/user_variable_coverage.matrix.yaml']['documented_features']
-        self.assertTrue(any(f['id']=='m_set_feature_user_variable_extended_domain' and f['status']=='needs_profile'
+        self.assertTrue(any(f['id']=='m_set_feature_user_variable_extended_domain' and f['status']=='covered'
                             for f in features))
 
 

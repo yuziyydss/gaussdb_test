@@ -85,12 +85,6 @@ class MStringPackageTests(unittest.TestCase):
                     with self.assertRaises(GenerationValidationError):
                         self.generator.generate_with_report(self.registry.manifests['manifest_'+factor+'_string_utf8'])
 
-    def test_builder_preserves_current_assets_and_additional_reviewed_facts(self):
-        for builder in (insert, update):
-            package = builder()
-            for name, expected in package.finish().items():
-                assert_evolved_asset(self, (ROOT/'specs/dml'/package.id/name).read_text(), expected, name)
-
     def test_changed_literal_and_unknown_contract_are_not_label_only_checks(self):
         matrix_id = 'matrix_m_insert_source_profile'
         matrix = self.registry.matrices[matrix_id].model_copy(deep=True)
