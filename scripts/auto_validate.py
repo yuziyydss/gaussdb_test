@@ -189,7 +189,57 @@ def build_phase1_dry_run():
     }
 
 
-def phase1(host, port, db, user, password, client):
+def load_phase1_plan(path):
+    """Load and validate a Phase 1 dry-run plan for execution."""
+    try:
+        plan = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"cannot load Phase 1 plan {path}: {exc}") from exc
+
+    required = {
+        "kind": "phase1_runtime_dry_run",
+        "profile": "phase1_core_validation_v1",
+        "status": "ready_for_authorized_execution",
+    }
+    for key, expected in required.items():
+        if plan.get(key) != expected:
+            raise ValueError(f"invalid Phase 1 plan {key}: {plan.get(key)!r}")
+    if plan.get("schema_version") != 1:
+        raise ValueError("invalid Phase 1 plan schema_version")
+    if plan.get("database_executed") or plan.get("execution_authorized"):
+        raise ValueError("Phase 1 plan must remain a non-executed dry run")
+    if plan.get("runtime_verified") != 0:
+        raise ValueError("Phase 1 plan must not contain runtime verification claims")
+
+    units = plan.get("units")
+    if not isinstance(units, list) or len(units) != 10:
+        raise ValueError("Phase 1 plan must contain exactly 10 units")
+    expected_ids = [f"P1-{index:03d}" for index in range(1, 11)]
+    if [unit.get("id") for unit in units] != expected_ids:
+        raise ValueError("Phase 1 plan unit IDs do not match P1-001..P1-010")
+    if not isinstance(plan.get("setup"), dict) or not isinstance(plan.get("cleanup"), dict):
+        raise ValueError("Phase 1 plan must contain setup and cleanup")
+
+    tests = []
+    for unit in units:
+        if unit.get("status") != "ready_for_authorized_execution":
+            raise ValueError(f"Phase 1 unit is not ready: {unit.get('id')}")
+        if unit.get("database_executed") or unit.get("runtime_verified"):
+            raise ValueError(f"Phase 1 unit contains runtime claims: {unit.get('id')}")
+        description = unit.get("description")
+        sql = unit.get("sql")
+        oracle = unit.get("oracle")
+        if not isinstance(description, str) or not description.strip():
+            raise ValueError(f"Phase 1 unit has invalid description: {unit.get('id')}")
+        if not isinstance(sql, str) or not sql.strip():
+            raise ValueError(f"Phase 1 unit has invalid SQL: {unit.get('id')}")
+        if not isinstance(oracle, dict) or not oracle:
+            raise ValueError(f"Phase 1 unit has invalid Oracle: {unit.get('id')}")
+        tests.append((description, sql, oracle))
+    return tests
+
+
+def phase1(host, port, db, user, password, client, tests=None):
     print("\n" + "="*60)
     print("Phase 1: Core Validation (10 tests)")
     print("="*60)
@@ -287,8 +337,11 @@ def main():
     p.add_argument("--phase", type=int, choices=[1], default=1)
     p.add_argument("--dry-run", action="store_true", help="write a Phase 1 plan without connecting")
     p.add_argument("--output", type=Path, default=None, help="dry-run output path")
+    p.add_argument("--plan", type=Path, default=None, help="execute a generated Phase 1 dry-run plan")
     a = p.parse_args()
 
+    if a.dry_run and a.plan:
+        p.error("--dry-run and --plan cannot be used together")
     if a.dry_run:
         if not a.output:
             p.error("--output is required with --dry-run")
@@ -299,6 +352,13 @@ def main():
         a.output.write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         print(f"Phase 1 dry-run plan written: {a.output}")
         return
+
+    plan_tests = None
+    if a.plan:
+        try:
+            plan_tests = load_phase1_plan(a.plan)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
 
     missing = [name for name, value in (
         ("--host", a.host), ("--port", a.port), ("--db", a.db), ("--user", a.user)
@@ -326,7 +386,7 @@ def main():
         print(f"  {k}: {v}")
 
     if a.phase == 1:
-        phase1(a.host, a.port, a.db, a.user, a.password, a.client)
+        phase1(a.host, a.port, a.db, a.user, a.password, a.client, tests=plan_tests)
 
     failed = generate_report(a.host, a.port, a.db, a.user)
     sys.exit(1 if failed else 0)

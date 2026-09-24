@@ -1,7 +1,11 @@
 """Offline runner regressions: a successful client is not a successful Oracle."""
 import contextlib
 import io
+import json
+import sys
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from scripts import auto_validate as runner
@@ -77,10 +81,6 @@ class AutoValidateTests(unittest.TestCase):
         for flag in ('-X', '-A', '-t', 'ON_ERROR_STOP=1', 'VERBOSITY=verbose'):
             self.assertIn(flag, args)
 
-
-if __name__ == '__main__':
-    unittest.main()
-
     def test_phase1_dry_run_plan_is_complete_and_honest(self):
         plan = runner.build_phase1_dry_run()
         self.assertEqual(plan['kind'], 'phase1_runtime_dry_run')
@@ -99,8 +99,6 @@ if __name__ == '__main__':
         self.assertIn('DROP SCHEMA', plan['cleanup']['sql'])
 
     def test_phase1_dry_run_cli_does_not_connect(self):
-        import tempfile
-        from pathlib import Path
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / 'phase1.json'
             with patch.object(sys, 'argv', ['auto_validate.py', '--dry-run', '--output', str(output)]), \
@@ -112,11 +110,47 @@ if __name__ == '__main__':
             run.assert_not_called()
 
     def test_phase1_dry_run_cli_rejects_overwrite(self):
-        import tempfile
-        from pathlib import Path
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / 'phase1.json'
             output.write_text('{}\n')
             with patch.object(sys, 'argv', ['auto_validate.py', '--dry-run', '--output', str(output)]), \
                     self.assertRaisesRegex(SystemExit, 'already exists'):
                 runner.main()
+
+    def test_phase1_plan_loader_accepts_generated_plan(self):
+        plan_path = Path(__file__).resolve().parents[1] / 'generated/runtime_validation_pilot/phase1_dry_run.json'
+        tests = runner.load_phase1_plan(plan_path)
+        self.assertEqual(len(tests), 10)
+        self.assertEqual(tests[0][0], 'CREATE TABLE')
+        self.assertEqual(tests[-1][0], 'GUC:end_month')
+        self.assertTrue(all(isinstance(sql, str) and sql for _, sql, _ in tests))
+        self.assertTrue(all(isinstance(oracle, dict) and oracle for _, _, oracle in tests))
+
+    def test_phase1_plan_loader_rejects_runtime_claims_and_bad_identity(self):
+        plan = runner.build_phase1_dry_run()
+        plan['runtime_verified'] = 1
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'plan.json'
+            path.write_text(json.dumps(plan))
+            with self.assertRaisesRegex(ValueError, 'runtime verification'):
+                runner.load_phase1_plan(path)
+
+        plan = runner.build_phase1_dry_run()
+        plan['units'][0]['id'] = 'P1-999'
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'plan.json'
+            path.write_text(json.dumps(plan))
+            with self.assertRaisesRegex(ValueError, 'unit IDs'):
+                runner.load_phase1_plan(path)
+
+        plan = runner.build_phase1_dry_run()
+        plan['units'][0]['database_executed'] = True
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'plan.json'
+            path.write_text(json.dumps(plan))
+            with self.assertRaisesRegex(ValueError, 'runtime claims'):
+                runner.load_phase1_plan(path)
+
+
+if __name__ == '__main__':
+    unittest.main()
