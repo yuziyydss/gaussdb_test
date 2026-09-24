@@ -63,7 +63,7 @@ class CreateOperatorClassFreshFunctionTests(unittest.TestCase):
                       gates['create_function_authority']['fact_refs'])
         features={f.id:f for f in self.r.matrices['matrix_create_operator_class_coverage'].documented_features}
         feature=features['create_operator_class_feature_function_items']
-        self.assertEqual((feature.status,feature.coverage_mode),('covered','representative'))
+        self.assertEqual((feature.status,feature.coverage_mode),('covered','any'))
         self.assertEqual(feature.value_refs,[
             'create_operator_class_class_name_fresh',
             'create_operator_class_default_modifier_nondefault',
@@ -74,7 +74,7 @@ class CreateOperatorClassFreshFunctionTests(unittest.TestCase):
         ])
         audit=FactorCoverageAuditor(self.r).audit('create_operator_class')
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
-        self.assertFalse(audit['conclusions']['static_coverage_complete'])
+        self.assertTrue(audit['conclusions']['static_coverage_complete'])
 
 
 if __name__=='__main__':unittest.main()
