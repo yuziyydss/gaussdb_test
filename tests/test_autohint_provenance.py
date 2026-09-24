@@ -21,9 +21,9 @@ class AutohintProvenanceTests(unittest.TestCase):
         excerpt = '\n'.join('\n'.join(lines[int(a)-1:int(b)]) for a,b in ranges)
         for evidence in ('内核', '自动调用', 'session', 'cache_id', 'HASH'):
             self.assertIn(evidence, excerpt)
-        self.assertEqual(fact['type'], 'open_question')
-        self.assertEqual(fact['status'], 'needs_verification')
-        self.assertEqual(factor['manifest_refs'], [])
+        self.assertEqual(fact['type'], 'environment')
+        self.assertEqual(fact['status'], 'confirmed')
+        self.assertEqual(factor['manifest_refs'], ['manifest_explain_autohint_kernel_syntax', 'manifest_explain_autohint_user_call_negative'])
 
     def test_user_call_is_not_relabelled_as_one_deterministic_target_error(self):
         factor = yaml.safe_load((ROOT/'specs/utility/explain_autohint/explain_autohint.factor.yaml').read_text())

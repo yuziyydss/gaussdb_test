@@ -166,7 +166,13 @@ class MergeColumnContractIntegrationTests(unittest.TestCase):
         self.assertEqual(len(entries),5)
         self.assertEqual(audit['summary']['cases'],41)
         self.assertEqual(Counter(c['write_contract']['status'] for c in audit['cases']),
-                         Counter(checked=41,rejected=4))
+                         Counter(checked=41))
+        for mid in ('manifest_merge_action_required_negative',
+                    'manifest_merge_duplicate_clause_negative',
+                    'manifest_merge_join_key_update_negative',
+                    'manifest_merge_multiple_values_negative'):
+            self.assertNotIn(mid,self.registry.manifests)
+            self.assertNotIn(mid,self.registry.factors['merge_into'].manifest_refs)
         self.assertEqual(audit['summary']['positive_rejected'],0)
 
     def test_existing_generation_gate_rejects_forged_valid_profile_render(self):

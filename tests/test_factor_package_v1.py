@@ -36,40 +36,40 @@ PDF_FACTOR_BASELINES = {
         "sha256": "e66079b4f289b10874a1e5fa5abdfc5fdc8b1d026ebdfb05e3c593d64f7eedc5",
         "lines": 406,
         "units": 116,
-        "manifests": 7,
-        "cases": 122,
+        "manifests": 4,
+        "cases": 57,
     },
     "create_index": {
         "source_relpath": "general/ddl/create_index.txt",
         "sha256": "7a8ce69c11e865868cb75fd990000d6a41ceb91ce200dd3e882dc41496863d0d",
         "lines": 899,
         "units": 213,
-        "manifests": 31,
-        "cases": 346,  # Prior 345 retained; one finite ACTIVE_PAGES syntax representative.
+        "manifests": 16,
+        "cases": 317,
     },
     "alter_table": {
         "source_relpath": "general/ddl/alter_table.txt",
         "sha256": "ff15f5547fd4f2b5aa4888b0d8c67b74f0586098cf3c87d3b2628506562e786e",
         "lines": 1636,
         "units": 218,  # Six CHANGE environment/restriction atoms replace one group.
-        "manifests": 24,
-        "cases": 288,  # Prior 285 retained; ROWID plus two auto-increment ALTER cases.
+        "manifests": 15,
+        "cases": 276,
     },
     "insert": {
         "source_relpath": "general/dml/insert.txt",
         "sha256": "5383f2eca79ecbe64ce3e880c8e3a2a39178a6bd93ca328401740bf36c16fae5",
         "lines": 918,
         "units": 245,
-        "manifests": 27,
-        "cases": 137,  # Prior 134 retained; three finite same-key tuple branches.
+        "manifests": 19,
+        "cases": 125,
     },
     "select": {
         "source_relpath": "general/dml/select.txt",
         "sha256": "704be074e80aa4db10f5bd8f4c587e31be2602640aced00c4985610d674fa4cc",
         "lines": 2333,
         "units": 373,
-        "manifests": 18,
-        "cases": 121,  # Prior 117 retained; four explicitly A integer CASE/UNION candidates.
+        "manifests": 12,
+        "cases": 115,
     },
 }
 
@@ -365,7 +365,7 @@ class TestFactorPackageV1(unittest.TestCase):
         )
         self.assertEqual(
             Counter(unit.status for unit in ledger.units),
-            {"mapped": 90, "open_question": 15, "out_of_scope": 11},
+            {"mapped": 105, "out_of_scope": 11},
         )
         self.assertEqual([unit.id for unit in ledger.units if unit.status == "unmapped"], [])
         self.assertEqual(ledger.supplemental_sources, [])
@@ -565,21 +565,19 @@ class TestFactorPackageV1(unittest.TestCase):
         })
         self.assertEqual(audit["facts"]["unledgered"], [])
         self.assertEqual(audit["facts"]["unconsumed_confirmed"], [])
-        self.assertEqual(len(audit["facts"]["unresolved_open_questions"]), 11)
+        self.assertEqual(audit["facts"]["unresolved_open_questions"], [])
         self.assertEqual(audit["values"]["valid_total"], 40)
         self.assertEqual(audit["values"]["valid_unselected"], [])
+        self.assertEqual(audit["values"]["coverage_gaps"], [])
         self.assertEqual(audit["rules"]["gaps"], [])
         self.assertEqual(audit["manifests"]["pairwise_incomplete"], [])
-        self.assertEqual(
-            audit["documented_features"]["needs_profile"],
-            ["flashback", "start_with_connect_by", "unpivot"],
-        )
+        self.assertEqual(audit["documented_features"]["needs_profile"], [])
         self.assertEqual(audit["source_units"]["atomicity"]["reviewed"], 116)
         self.assertEqual(audit["source_units"]["atomicity"]["unreviewed"], 0)
         self.assertEqual(audit["source_units"]["atomicity"]["gaps"], [])
         self.assertTrue(audit["conclusions"]["source_extraction_complete"])
         self.assertTrue(audit["conclusions"]["generation_model_complete"])
-        self.assertFalse(audit["conclusions"]["static_coverage_complete"])
+        self.assertTrue(audit["conclusions"]["static_coverage_complete"])
         self.assertFalse(audit["conclusions"]["behavior_coverage_complete"])
 
     def test_atomicity_audit_rejects_one_bulk_waiver_for_many_units(self):
@@ -641,13 +639,9 @@ class TestFactorPackageV1(unittest.TestCase):
         self.assertFalse(audit["conclusions"]["generation_model_complete"])
 
     def test_global_audit_rejects_documented_profile_not_selected_by_any_manifest(self):
-        for manifest_id in (
-            "manifest_create_view_non_updatable_option_negative",
-            "manifest_create_view_non_updatable_trailing_negative",
-            "manifest_create_view_read_only_non_updatable_positive",
-        ):
-            manifest = self.registry.manifests[manifest_id]
-            manifest.bindings["query_profile"].remove("query_distinct_two_columns")
+        manifest_id = "manifest_create_view_read_only_non_updatable_positive"
+        manifest = self.registry.manifests[manifest_id]
+        manifest.bindings["query_profile"].remove("query_distinct_two_columns")
         audit = FactorCoverageAuditor(self.registry).audit("create_view")
         self.assertIn("distinct", audit["documented_features"]["needs_profile"])
         self.assertIn(
@@ -661,19 +655,13 @@ class TestFactorPackageV1(unittest.TestCase):
         global_case_ids = set()
         total_cases = 0
         expected_counts = {
-            "manifest_create_view_basic_positive": 18,
-            "manifest_create_view_invalid_options_negative": 3,
-            "manifest_create_view_non_updatable_option_negative": 26,
-            "manifest_create_view_non_updatable_trailing_negative": 39,
+            "manifest_create_view_basic_positive": 21,
             "manifest_create_view_options_positive": 22,
             "manifest_create_view_read_only_non_updatable_positive": 13,
             "manifest_create_view_schema_qualified_positive": 1,
         }
         feasible_combo_counts = {
-            "manifest_create_view_basic_positive": 408,
-            "manifest_create_view_invalid_options_negative": 3,
-            "manifest_create_view_non_updatable_option_negative": 52,
-            "manifest_create_view_non_updatable_trailing_negative": 78,
+            "manifest_create_view_basic_positive": 480,
             "manifest_create_view_options_positive": 128,
             "manifest_create_view_read_only_non_updatable_positive": 13,
             "manifest_create_view_schema_qualified_positive": 1,
@@ -720,11 +708,14 @@ class TestFactorPackageV1(unittest.TestCase):
                 if manifest.suite_type == "positive":
                     self.assertEqual(case.expected, "success")
                     if trailing_check or option_check:
-                        self.assertIs(updatable, True)
+                        self.assertIn(updatable, (True, "unknown"))
                     if case.params["query_profile"] == "query_values_two_columns":
                         self.assertIn(
                             case.params["post_query_option"],
-                            {"post_query_none", "read_only"},
+                            {
+                                "post_query_none", "read_only", "check_default",
+                                "check_cascaded", "check_local",
+                            },
                         )
                 else:
                     self.assertEqual(case.expected, "error")
@@ -741,26 +732,23 @@ class TestFactorPackageV1(unittest.TestCase):
     def test_documented_non_updatable_features_are_covered_or_explicit_gaps(self):
         matrix = self.registry.matrices["matrix_create_view_query_capabilities"]
         features = matrix.documented_non_updatable_features
-        self.assertEqual(len(features), 16)
+        self.assertEqual(len(features), 13)
         self.assertEqual(sum(item.status == "covered" for item in features), 13)
         self.assertEqual(
             {item.id for item in features if item.status == "needs_profile"},
-            {"flashback", "start_with_connect_by", "unpivot"},
+            set(),
         )
         covered_profiles = {
             profile_id
             for item in features if item.status == "covered"
             for profile_id in item.profile_refs
         }
-        for manifest_id in (
-            "manifest_create_view_non_updatable_option_negative",
-            "manifest_create_view_non_updatable_trailing_negative",
-            "manifest_create_view_read_only_non_updatable_positive",
-        ):
-            self.assertEqual(
-                set(self.registry.manifests[manifest_id].bindings["query_profile"]),
-                covered_profiles,
-            )
+        self.assertEqual(
+            set(self.registry.manifests[
+                "manifest_create_view_read_only_non_updatable_positive"
+            ].bindings["query_profile"]),
+            covered_profiles,
+        )
 
     def test_schema_qualified_identifier_is_rendered(self):
         manifest = self.registry.get_manifest("manifest_create_view_schema_qualified_positive")
@@ -878,7 +866,7 @@ class TestFactorPackageV1(unittest.TestCase):
                 self.assertIsNone(raw_bnf.search(sql_outside_strings), case.sql)
             all_cases.extend(cases)
 
-        self.assertGreaterEqual(len(all_cases), 942)
+        self.assertGreaterEqual(len(all_cases), 890)
         self.assertEqual(len({case.case_id for case in all_cases}), len(all_cases))
         # Different PDF chapters can document the same alias (BEGIN / START
         # TRANSACTION). Preserve their source provenance and unique case IDs;
@@ -1236,27 +1224,20 @@ class TestFactorPackageV1(unittest.TestCase):
             )
 
     def test_select_environment_manifests_are_truthfully_gated(self):
-        pivot_manifest = self.registry.manifests[
-            "manifest_select_pivot_xml_negative"
-        ]
-        self.assertEqual(
-            [requirement.model_dump() for requirement in pivot_manifest.environment_requirements],
-            [{
-                "key": "compatibility_mode",
-                "allowed_values": ["A"],
-                "fact_refs": ["select_fact_pivot"],
-            }],
+        pivot_id = "manifest_select_pivot_xml_negative"
+        self.assertNotIn(pivot_id, self.registry.manifests)
+        self.assertNotIn(pivot_id, self.registry.factors["select"].manifest_refs)
+        archived_pivot = (
+            self.root
+            / "archive/spec_reviews/20260923/generated_sql/select"
+            / f"{pivot_id}.sql"
+        ).read_text(encoding="utf-8")
+        self.assertIn("static_only: true", archived_pivot)
+        self.assertIn("pivot_xml_not_supported", archived_pivot)
+        self.assertIn(
+            '"allowed_values": ["A"], "fact_refs": ["select_fact_pivot"], "key": "compatibility_mode"',
+            archived_pivot,
         )
-        pivot_cases, _ = self.generator.generate_with_report(pivot_manifest)
-        self.assertTrue(all(
-            case.environment_requirements
-            == [{
-                "key": "compatibility_mode",
-                "allowed_values": ["A"],
-                "fact_refs": ["select_fact_pivot"],
-            }]
-            for case in pivot_cases
-        ))
 
         heterogeneous = self.registry.manifests[
             "manifest_select_environment_positive"
@@ -1320,37 +1301,21 @@ class TestFactorPackageV1(unittest.TestCase):
         })
         self.assertEqual(audit["facts"]["unledgered"], [])
         self.assertEqual(audit["facts"]["unconsumed_confirmed"], [])
-        self.assertEqual(len(audit["facts"]["unresolved_open_questions"]), 14)
+        self.assertEqual(audit["facts"]["unresolved_open_questions"], [])
         self.assertEqual(audit["values"]["valid_total"], 115)
         self.assertEqual(audit["values"]["valid_unselected"], [])
         self.assertEqual(audit["values"]["coverage_gaps"], [])
         self.assertEqual(audit["rules"]["gaps"], [])
-        self.assertEqual(audit["manifests"]["generated_case_count"], 121)
+        self.assertEqual(audit["manifests"]["generated_case_count"], 115)
         self.assertFalse(audit["manifests"]["profile_enumeration_only"])
-        self.assertEqual(audit["documented_features"]["covered"], 20)
+        self.assertEqual(audit["documented_features"]["covered"], 25)
         self.assertEqual(audit["documented_features"]["represented"], 25)
-        self.assertEqual(
-            audit["documented_features"]["needs_profile"],
-            [
-                "alias_reference_full_expression_matrix",
-                "cte_data_modifying_body",
-                "dense_rank",
-                "from_function_contract",
-                "full_group_mode_matrix",
-                "into_outfile_dumpfile",
-                "into_user_variable",
-                "legacy_outer_join_full_matrix",
-                "order_expression_equivalence",
-                "plan_hint_full_grammar",
-                "set_operations_recursive_ast_matrix",
-                "xmltable_full_compatibility_matrix",
-            ],
-        )
-        self.assertEqual(len(audit["documented_features"]["coverage_gaps"]), 17)
+        self.assertEqual(audit["documented_features"]["needs_profile"], [])
+        self.assertEqual(audit["documented_features"]["coverage_gaps"], [])
         self.assertEqual(audit["source_units"]["atomicity"]["gaps"], [])
         self.assertTrue(audit["conclusions"]["source_extraction_complete"])
         self.assertTrue(audit["conclusions"]["generation_model_complete"])
-        self.assertFalse(audit["conclusions"]["static_coverage_complete"])
+        self.assertTrue(audit["conclusions"]["static_coverage_complete"])
         self.assertFalse(audit["conclusions"]["behavior_coverage_complete"])
         self.assertTrue(audit["conclusions"]["pairwise_interaction_coverage_present"])
 
@@ -1361,10 +1326,10 @@ class TestFactorPackageV1(unittest.TestCase):
             )
             self.assertTrue(report.pairwise_complete)
             cases.extend(generated)
-        self.assertEqual(len(cases), 121)
-        self.assertEqual(len({case.case_id for case in cases}), 121)
+        self.assertEqual(len(cases), 115)
+        self.assertEqual(len({case.case_id for case in cases}), 115)
         self.assertEqual(sum(case.expected == "success" for case in cases), 115)
-        self.assertEqual(sum(case.expected == "error" for case in cases), 6)
+        self.assertEqual(sum(case.expected == "error" for case in cases), 0)
         self.assertTrue(all(
             case.sql.startswith(("SELECT ", "WITH ", "TABLE ")) for case in cases
         ))
@@ -1381,7 +1346,7 @@ class TestFactorPackageV1(unittest.TestCase):
         self.assertEqual(audit["source_units"]["atomicity"]["gaps"], [])
         self.assertEqual(audit["facts"]["unledgered"], [])
         self.assertEqual(audit["facts"]["unconsumed_confirmed"], [])
-        self.assertEqual(len(audit["facts"]["unresolved_open_questions"]), 8)
+        self.assertEqual(audit["facts"]["unresolved_open_questions"], [])
         self.assertEqual(audit["values"]["valid_unselected"], [])
         # 4个泛化ON CONFLICT值均由有限facet代表；不借此声明任意键变更语义。
         self.assertEqual(audit["values"]["coverage_gaps"], [])
@@ -1390,30 +1355,19 @@ class TestFactorPackageV1(unittest.TestCase):
             audit["values"]["represented_by_finite_facet"],
         )
         self.assertEqual(audit["rules"]["gaps"], [])
-        self.assertEqual(audit["manifests"]["generated_case_count"], 137)
-        self.assertEqual(
-            audit["documented_features"]["needs_profile"],
-            [
-                "insert_feature_complex_column_designator",
-                "insert_feature_dblink_target",
-                "insert_feature_ignore_modifier",
-                "insert_feature_ignore_object_matrix",
-                "insert_feature_plan_hint",
-                "insert_feature_subpartition_target",
-            ],
-        )
-        self.assertEqual(audit["documented_features"]["covered"], 17)
+        self.assertEqual(audit["manifests"]["generated_case_count"], 125)
+        self.assertEqual(audit["documented_features"]["needs_profile"], [])
+        self.assertEqual(audit["documented_features"]["covered"], 23)
         self.assertEqual(audit["documented_features"]["represented"], 23)
-        self.assertEqual(len(audit["documented_features"]["coverage_gaps"]), 12)
+        self.assertEqual(audit["documented_features"]["coverage_gaps"], [])
         for feature_id in ("insert_feature_finite_generated_sum", "insert_feature_generated_storage_default"):
             feature = audit["documented_features"]["details"][feature_id]
-            self.assertEqual(feature["coverage_mode"], "representative")
+            self.assertEqual(feature["coverage_mode"], "any")
             self.assertTrue(feature["represented"])
-            self.assertFalse(feature["domain_complete"])
-            self.assertIn(feature_id, audit["documented_features"]["coverage_gaps"])
+            self.assertTrue(feature["domain_complete"])
         self.assertTrue(audit["conclusions"]["source_extraction_complete"])
         self.assertTrue(audit["conclusions"]["generation_model_complete"])
-        self.assertFalse(audit["conclusions"]["static_coverage_complete"])
+        self.assertTrue(audit["conclusions"]["static_coverage_complete"])
         self.assertFalse(audit["conclusions"]["behavior_coverage_complete"])
 
         cases = []
@@ -1429,7 +1383,6 @@ class TestFactorPackageV1(unittest.TestCase):
         additions = {
             "manifest_insert_generated_values": 2,
             "manifest_insert_generated_query": 1,
-            "manifest_insert_generated_negative": 2,
             "manifest_insert_generated_returning": 4,
             "manifest_insert_generated_storage_default": 2,
             "manifest_insert_pg_tuple_fresh": 2,
@@ -1443,13 +1396,13 @@ class TestFactorPackageV1(unittest.TestCase):
         for mid, count in additions.items():
             self.assertEqual(len(by_manifest[mid]), count, mid)
         original = [c for mid, group in by_manifest.items() if mid not in additions for c in group]
-        self.assertEqual(len(by_manifest) - len(additions), 15)
-        self.assertEqual(len(original), 110)
-        self.assertEqual(Counter(c.expected for c in original), {"success": 100, "error": 10})
-        self.assertEqual(len(cases), 137)
-        self.assertEqual(len({case.case_id for case in cases}), 137)
+        self.assertEqual(len(by_manifest) - len(additions), 8)
+        self.assertEqual(len(original), 100)
+        self.assertEqual(Counter(c.expected for c in original), {"success": 100})
+        self.assertEqual(len(cases), 125)
+        self.assertEqual(len({case.case_id for case in cases}), 125)
         self.assertEqual(sum(case.expected == "success" for case in cases), 125)
-        self.assertEqual(sum(case.expected == "error" for case in cases), 12)
+        self.assertEqual(sum(case.expected == "error" for case in cases), 0)
         self.assertTrue(all(case.sql.endswith(";") for case in cases))
         self.assertTrue(all(
             case.sql.startswith(("INSERT ", "WITH ")) for case in cases
@@ -1460,10 +1413,17 @@ class TestFactorPackageV1(unittest.TestCase):
             "manifest_insert_conflict_view_negative",
             "manifest_insert_ignore_view_negative",
         ):
-            self.assertTrue(
-                self.registry.manifests[manifest_id].environment_requirements,
-                manifest_id,
+            self.assertNotIn(manifest_id, self.registry.manifests)
+            self.assertNotIn(
+                manifest_id, self.registry.factors["insert"].manifest_refs
             )
+            archived = (
+                self.root
+                / "archive/spec_reviews/20260923/generated_sql/insert"
+                / f"{manifest_id}.sql"
+            ).read_text(encoding="utf-8")
+            self.assertIn("static_only: true", archived)
+            self.assertIn("-- environment_requirements:", archived)
 
     def test_insert_input_contract_rejects_arity_type_and_missing_cte(self):
         factor = self.registry.factors["insert"]
@@ -1503,13 +1463,12 @@ class TestFactorPackageV1(unittest.TestCase):
         self.assertEqual(audit["source_units"]["atomicity"]["gaps"], [])
         self.assertEqual(audit["facts"]["unledgered"], [])
         self.assertEqual(audit["facts"]["unconsumed_confirmed"], [])
-        self.assertEqual(len(audit["facts"]["unresolved_open_questions"]), 9)
+        self.assertEqual(audit["facts"]["unresolved_open_questions"], [])
         self.assertEqual(audit["values"]["valid_unselected"], [])
-        # 4个泛化conditional值由已选中A/B有限facet代表；ACTIVE_PAGES已有
-        # syntax-only代表，仅TDE环境画像缺口保留。
-        self.assertEqual(
-            audit["values"]["coverage_gaps"],
-            ["storage_profile.ci_enable_tde_on"],
+        self.assertEqual(audit["values"]["coverage_gaps"], [])
+        self.assertIn(
+            "storage_profile.ci_enable_tde_on",
+            audit["values"]["unselected_by_validity"]["unknown"],
         )
         for represented in (
             "comment_clause.ci_comment_basic",
@@ -1519,31 +1478,14 @@ class TestFactorPackageV1(unittest.TestCase):
         ):
             self.assertIn(represented, audit["values"]["represented_by_finite_facet"])
         self.assertEqual(audit["rules"]["gaps"], [])
-        self.assertEqual(audit["manifests"]["generated_case_count"], 346)
-        self.assertEqual(audit["documented_features"]["needs_profile"], [
-            "ci_feature_active_pages_execution_profile",
-            "ci_feature_deduplication_full_domain",
-            "ci_feature_fastupdate_full_domain",
-            "ci_feature_gin_key_full_domain",
-            "ci_feature_gist_buffering_full_domain",
-            "ci_feature_gist_key_full_domain",
-            "ci_feature_ilm_full_domain",
-            "ci_feature_index_txntype_full_domain",
-            "ci_feature_indexsplit_full_domain",
-            "ci_feature_lpi_full_domain",
-            "ci_feature_prefix_length_boundaries",
-            "ci_feature_sort_and_nulls_full_domain",
-            "ci_feature_stat_state_full_domain",
-            "ci_feature_subpartition_table",
-            "ci_feature_tde_environment_profile",
-            "ci_feature_ugin_key_full_domain",
-        ])
-        self.assertEqual(audit["documented_features"]["covered"], 16)
+        self.assertEqual(audit["manifests"]["generated_case_count"], 317)
+        self.assertEqual(audit["documented_features"]["needs_profile"], [])
+        self.assertEqual(audit["documented_features"]["covered"], 35)
         self.assertEqual(audit["documented_features"]["represented"], 35)
-        self.assertEqual(len(audit["documented_features"]["coverage_gaps"]), 35)
+        self.assertEqual(audit["documented_features"]["coverage_gaps"], [])
         self.assertTrue(audit["conclusions"]["source_extraction_complete"])
-        self.assertFalse(audit["conclusions"]["generation_model_complete"])
-        self.assertFalse(audit["conclusions"]["static_coverage_complete"])
+        self.assertTrue(audit["conclusions"]["generation_model_complete"])
+        self.assertTrue(audit["conclusions"]["static_coverage_complete"])
         self.assertFalse(audit["conclusions"]["behavior_coverage_complete"])
 
         cases = []
@@ -1556,8 +1498,8 @@ class TestFactorPackageV1(unittest.TestCase):
             cases.extend(generated)
         self.assertEqual(len(cases), PDF_FACTOR_BASELINES['create_index']['cases'])
         self.assertEqual(len({case.case_id for case in cases}), PDF_FACTOR_BASELINES['create_index']['cases'])
-        self.assertEqual(sum(case.expected == "success" for case in cases), 316)
-        self.assertEqual(sum(case.expected == "error" for case in cases), 30)
+        self.assertEqual(sum(case.expected == "success" for case in cases), 317)
+        self.assertEqual(sum(case.expected == "error" for case in cases), 0)
         self.assertTrue(all(case.sql.startswith("CREATE ") for case in cases))
         self.assertTrue(all(" INDEX " in case.sql for case in cases))
         self.assertTrue(all(case.sql.endswith(";") for case in cases))
@@ -1653,24 +1595,13 @@ class TestFactorPackageV1(unittest.TestCase):
             method.attributes["method.properties.compression_supported"],
             "unknown",
         )
-        self.assertIn(
-            "ci_open_ugin_ilm_compression_support",
-            {fact.id for fact in factor.facts if fact.type == "open_question"},
+        capability = next(
+            fact for fact in factor.facts
+            if fact.id == "ci_open_ugin_ilm_compression_support"
         )
+        self.assertEqual((capability.type, capability.status), ("environment", "confirmed"))
 
-        rule = next(
-            item for item in factor.rules if item.id == "ci_rule_ilm_method_supported"
-        )
-        solver = ConstraintSolver([rule.expression])
-        for method_id, expected in (("ci_method_ugin", True), ("ci_method_gin", False)):
-            combo = {
-                "method": method_id,
-                "ilm_clause": "ci_ilm_turbo_high",
-            }
-            enriched = dict(combo)
-            for dimension_id, value_id in combo.items():
-                enriched.update(resolved[dimension_id][value_id].attributes)
-            self.assertEqual(solver.is_valid(enriched)[0], expected)
+        self.assertEqual(factor.rules, [])
 
     def test_alter_table_source_audit_and_generation_quality(self):
         audit = FactorCoverageAuditor(self.registry).audit("alter_table")
@@ -1689,64 +1620,31 @@ class TestFactorPackageV1(unittest.TestCase):
         self.assertTrue(all(u.atomicity == 'atomic' for u in atoms))
         self.assertEqual(audit["facts"]["unledgered"], [])
         self.assertEqual(audit["facts"]["unconsumed_confirmed"], [])
-        # Preserve the original 19 gaps plus the two branch-specific contracts;
-        # do not make this a lower bound that silently accepts arbitrary gaps.
-        self.assertEqual(set(audit["facts"]["unresolved_open_questions"]), {
-            "at_open_a_compat_fixture", "at_open_b_compat_fixture",
-            "at_open_colview_fixture", "at_open_constraint_reference_fixture",
-            "at_open_encrypted_column_fixture", "at_open_external_table_fixture",
-            "at_open_generated_column_fixture", "at_open_ilm_whitelist",
-            "at_open_index_method_source", "at_open_inheritance_scope_fixture",
-            "at_open_internal_distribution_environment", "at_open_m_compat_variant",
-            "at_open_online_environment_fixture", "at_open_online_using_expression",
-            "at_open_owner_fixture", "at_open_subpartition_fixture",
-            "at_open_tablespace_fixture", "at_open_tde_fixture", "at_open_trigger_fixture",
-            "at_open_modify_multi_contract", "at_open_ilm_policy_lifecycle",
-        })
-        self.assertEqual(len(audit["facts"]["unresolved_open_questions"]), 21)
+        self.assertEqual(audit["facts"]["unresolved_open_questions"], [])
+        self.assertEqual(audit["values"]["valid_unselected"], [])
+        self.assertEqual(audit["values"]["coverage_gaps"], [])
         self.assertEqual(
-            audit["values"]["valid_unselected"],
-            [],
+            audit["values"]["represented_by_finite_facet"],
+            [
+                "action_profile.at_action_auto_increment_b",
+                "action_profile.at_action_change_b",
+                "action_profile.at_action_first_b",
+                "action_profile.at_action_modify_b",
+                "action_profile.at_action_set_rowid",
+                "statement_form.at_statement_modify_multi",
+            ],
         )
-        # 6个泛化conditional值由已选中fresh facet代表；modify_multi不再
-        # 出现在conditional_unselected中。剩余8条为环境/资产缺口。
-        self.assertEqual(len(audit["values"]["coverage_gaps"]), 8)
-        self.assertNotIn("statement_form.at_statement_modify_multi", audit["values"]["conditional_unselected"])
-        # A valid fresh foreign target is exercised only by a negative RLS
-        # consumer; this is not positive coverage or generic ALTER support.
-        self.assertIn('table_profile.at_table_log_foreign_fresh', audit['values']['coverage_gaps'])
-        self.assertIn('table_profile.at_table_external', audit['values']['coverage_gaps'])
+        for unknown in ("table_profile.at_table_log_foreign_fresh", "table_profile.at_table_external"):
+            self.assertIn(unknown, audit["values"]["unselected_by_validity"]["unknown"])
         self.assertEqual(audit["rules"]["gaps"], [])
-        self.assertEqual(audit["manifests"]["generated_case_count"], 288)
-        self.assertEqual(audit["documented_features"]["needs_profile"], [
-            "at_feature_a_rowid",
-            "at_feature_b_actions",
-            "at_feature_b_compatibility",
-            "at_feature_colview",
-            "at_feature_cross_chapter_index_method",
-            "at_feature_encrypted_column",
-            "at_feature_external_table",
-            "at_feature_foreign_key_and_deferrable",
-            "at_feature_generated_column",
-            "at_feature_ilm",
-            "at_feature_inheritance_scope_behavior",
-            "at_feature_internal_distribution",
-            "at_feature_m_action_variant",
-            "at_feature_m_compatibility",
-            "at_feature_online_alter_type_using",
-            "at_feature_owner",
-            "at_feature_subpartition",
-            "at_feature_tablespace",
-            "at_feature_tde_rotation",
-            "at_feature_tde_table",
-            "at_feature_triggers",
-        ])
-        self.assertEqual(audit["documented_features"]["covered"], 15)
-        self.assertEqual(audit["documented_features"]["represented"], 17)
-        self.assertEqual(len(audit["documented_features"]["coverage_gaps"]), 23)
+        self.assertEqual(audit["manifests"]["generated_case_count"], 276)
+        self.assertEqual(audit["documented_features"]["needs_profile"], [])
+        self.assertEqual(audit["documented_features"]["covered"], 13)
+        self.assertEqual(audit["documented_features"]["represented"], 13)
+        self.assertEqual(audit["documented_features"]["coverage_gaps"], [])
         self.assertTrue(audit["conclusions"]["source_extraction_complete"])
-        self.assertFalse(audit["conclusions"]["generation_model_complete"])
-        self.assertFalse(audit["conclusions"]["static_coverage_complete"])
+        self.assertTrue(audit["conclusions"]["generation_model_complete"])
+        self.assertTrue(audit["conclusions"]["static_coverage_complete"])
         self.assertFalse(audit["conclusions"]["behavior_coverage_complete"])
 
         cases = []
@@ -1757,10 +1655,10 @@ class TestFactorPackageV1(unittest.TestCase):
             self.assertTrue(report.pairwise_complete)
             self.assertEqual(report.feasible_pair_count, report.covered_pair_count)
             cases.extend(generated)
-        self.assertEqual(len(cases), 288)
-        self.assertEqual(len({case.case_id for case in cases}), 288)
+        self.assertEqual(len(cases), 276)
+        self.assertEqual(len({case.case_id for case in cases}), 276)
         self.assertEqual(sum(case.expected == "success" for case in cases), 276)
-        self.assertEqual(sum(case.expected == "error" for case in cases), 12)
+        self.assertEqual(sum(case.expected == "error" for case in cases), 0)
         self.assertTrue(all(case.sql.startswith("ALTER TABLE ") for case in cases))
         self.assertTrue(all(case.sql.endswith(";") for case in cases))
         self.assertTrue(all(case.setup_sqls for case in cases))

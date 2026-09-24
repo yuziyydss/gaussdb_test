@@ -1,5 +1,6 @@
 """General INSERT L294 forbids incoming VALUES as an IN/NOT IN operand."""
 from pathlib import Path
+import re
 import unittest
 
 from core.finite_sql_contract import inspect_write
@@ -51,28 +52,24 @@ class IncomingValuesPredicateIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         from core.factor_package_model import FactorPackageRegistry
-        from core.factor_package_generator import FactorPackageSQLGenerator
         cls.r=FactorPackageRegistry(Path(__file__).resolve().parents[1]/'specs');cls.r.load_all()
-        cls.g=FactorPackageSQLGenerator(cls.r)
+        cls.root=Path(__file__).resolve().parents[1]
 
-    def test_actual_negative_keeps_uncalibrated_target_oracle_and_unchanged_sql(self):
-        m=self.r.manifests['manifest_insert_duplicate_values_predicate_negative']
-        cases,report=self.g.generate_with_report(m)
-        self.assertEqual(len(cases),1);self.assertTrue(report.pairwise_complete)
-        c=cases[0]
-        self.assertEqual(c.case_id,'manifest_insert_duplicate_values_predicate_negative_dfe140e4bb0d')
-        self.assertEqual((c.expected,c.expected_oracle_status),('error','needs_verification'))
-        self.assertEqual(c.expected_sqlstates,[])
-        self.assertEqual(c.expected_error_category,'duplicate_values_predicate_not_supported')
-        result=inspect_write(c.sql,c.setup_sqls,conflict_source_scope='general')
+    def test_actual_negative_is_archived_with_uncalibrated_target_oracle(self):
+        mid='manifest_insert_duplicate_values_predicate_negative'
+        self.assertNotIn(mid,self.r.manifests)
+        self.assertNotIn(mid,self.r.factors['insert'].manifest_refs)
+        snapshot=(self.root/'archive/spec_reviews/20260923/generated_sql/insert'/f'{mid}.sql').read_text()
+        self.assertIn('case_id: manifest_insert_duplicate_values_predicate_negative_dfe140e4bb0d',snapshot)
+        self.assertIn('expected_error_category: duplicate_values_predicate_not_supported',snapshot)
+        self.assertIn('expected_oracle_status: needs_verification',snapshot)
+        sql=re.search(r'^-- test_sql:\n(.*?)^-- fixture_teardown:',snapshot,
+                      re.MULTILINE|re.DOTALL).group(1).rstrip('\n')
+        setup=re.search(r'^-- fixture_setup:\n(.*?)^-- test_sql:',snapshot,
+                        re.MULTILINE|re.DOTALL).group(1).splitlines()
+        result=inspect_write(sql,setup,conflict_source_scope='general')
         self.assertEqual(result['status'],'rejected',result)
-        self.assertEqual(result['issues'][0]['code'],c.expected_error_category)
-        from scripts.audit_rendered_sql_contracts import audit_report
-        audit=audit_report({'manifests': {m.id: {'cases': [dict(case_id=c.case_id,
-            factor_id=c.factor_id,expected=c.expected,sql=c.sql,
-            setup_sqls=c.setup_sqls,teardown_sqls=c.teardown_sqls)]}}})
-        self.assertFalse(audit['database_executed'])
-        self.assertEqual(audit['cases'][0]['write_contract'],result)
+        self.assertEqual(result['issues'][0]['code'],'duplicate_values_predicate_not_supported')
         factor=self.r.factors['insert']
         fact=next(f for f in factor.facts if f.id=='insert_fact_duplicate_values_restrictions')
         self.assertEqual((fact.type,fact.status),('constraint','confirmed'))

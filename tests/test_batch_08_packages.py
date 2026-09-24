@@ -92,9 +92,9 @@ class Batch08Tests(unittest.TestCase):
         self.assertEqual(len(contextual), 37)
         self.assertEqual({v.properties['original_value_ref'] for v in contextual},
                          {v.id for v in values if v.validity == 'conditional'})
-        invalid = {v.id.removeprefix("create_database_encoding_")
-                   for v in values if v.validity == "invalid"}
-        self.assertEqual(invalid, {"big5", "johab", "sjis", "shift_jis_2004", "uhc"})
+        unknown = {v.id.removeprefix("create_database_encoding_")
+                   for v in values if v.validity == "unknown"}
+        self.assertEqual(unknown, {"big5", "johab", "sjis", "shift_jis_2004", "uhc"})
         selected = self.registry.manifests["manifest_create_database_encoding_limit"].bindings["encoding"]
         self.assertEqual(set(selected), {"create_database_encoding_utf8",
                                          "create_database_encoding_latin1"})

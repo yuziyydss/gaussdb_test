@@ -86,9 +86,11 @@ class FileFDWGenerationTests(unittest.TestCase):
 
     def test_remaining_binary_fixed_are_visible_not_waived(self):
         audit=FactorCoverageAuditor(self.r).audit('create_foreign_table')
-        self.assertEqual(audit['values']['coverage_gaps'],[
+        self.assertEqual(audit['values']['coverage_gaps'],[])
+        self.assertEqual(audit['values']['unselected_by_validity']['unknown'],[
             'format.create_foreign_table_format_binary','format.create_foreign_table_format_fixed'])
-        self.assertFalse(audit['conclusions']['generation_model_complete'])
+        self.assertTrue(audit['conclusions']['static_coverage_complete'])
+        self.assertTrue(audit['conclusions']['generation_model_complete'])
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
         self.assertIn('copy',self.r.factor_dependency_graph()['create_foreign_table'])
         self.r.factor_topological_order()

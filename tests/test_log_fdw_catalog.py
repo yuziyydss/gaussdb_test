@@ -103,8 +103,10 @@ class LogFDWCatalogTests(unittest.TestCase):
         self.assertEqual(cases[0].params['format'], 'create_foreign_table_format_not_applicable')
         self.assertNotIn("format '", cases[0].sql)
         values = self.r.resolve_dimension_values('create_foreign_table')['format']
-        for suffix in ('text', 'csv', 'binary', 'fixed'):
+        for suffix in ('text', 'csv'):
             self.assertEqual(values['create_foreign_table_format_'+suffix].validity, 'conditional')
+        for suffix in ('binary', 'fixed'):
+            self.assertEqual(values['create_foreign_table_format_'+suffix].validity, 'unknown')
         manifest = self.r.manifests['manifest_create_foreign_table_log_catalog'].model_copy(deep=True)
         manifest.bindings['format'] = ['create_foreign_table_format_text']
         with self.assertRaisesRegex(GenerationValidationError, 'log_fdw'):

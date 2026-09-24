@@ -122,13 +122,11 @@ class TestApiRoutes(unittest.TestCase):
 
         exported = self.client.get("/api/coverage/export-md").text
         self.assertIn("## 生成模型剩余缺口", exported)
-        self.assertIn("| alter_package | 文档支持矛盾 |", exported)
+        self.assertNotIn("| alter_package | 文档支持矛盾 |", exported)
 
         detail = self.client.get("/specs/factor/alter_package")
         self.assertEqual(detail.status_code, 200)
-        self.assertIn("生成模型剩余缺口", detail.text)
-        self.assertIn("文档支持矛盾", detail.text)
-        self.assertIn("取得权威支持结论", detail.text)
+        self.assertNotIn("文档支持矛盾", detail.text)
 
     def test_factor_detail_and_generate(self):
         # 因子详情
@@ -174,13 +172,13 @@ class TestApiRoutes(unittest.TestCase):
         )
         self.assertEqual(generated_html.status_code, 200)
         self.assertIn("可行 Pair", generated_html.text)
-        self.assertIn("146", generated_html.text)
+        self.assertIn("149", generated_html.text)
         self.assertNotIn("执行并生成报告", generated_html.text)
 
         generated_api = self.client.get(f"/api/specs/v1/generate/{manifest_id}")
         self.assertEqual(generated_api.status_code, 200)
         payload = generated_api.json()
-        self.assertEqual(payload["count"], 18)
+        self.assertEqual(payload["count"], 21)
         self.assertTrue(payload["report"]["pairwise_complete"])
         self.assertEqual(payload["report"]["missing_pairs"], [])
         self.assertTrue(all(case["sql"].endswith(";") for case in payload["cases"]))
@@ -248,14 +246,14 @@ class TestApiRoutes(unittest.TestCase):
         self.assertEqual(generated_html.status_code, 200)
         self.assertIn("CREATE", generated_html.text)
         self.assertIn("INDEX", generated_html.text)
-        self.assertIn("708", generated_html.text)
+        self.assertIn("709", generated_html.text)
 
         generated_api = self.client.get(f"/api/specs/v1/generate/{manifest_id}")
         self.assertEqual(generated_api.status_code, 200)
         payload = generated_api.json()
-        self.assertEqual(payload["count"], 229)
-        self.assertEqual(payload["report"]["covered_pair_count"], 708)
-        self.assertEqual(payload["report"]["feasible_pair_count"], 708)
+        self.assertEqual(payload["count"], 230)
+        self.assertEqual(payload["report"]["covered_pair_count"], 709)
+        self.assertEqual(payload["report"]["feasible_pair_count"], 709)
         self.assertTrue(payload["report"]["pairwise_complete"])
         self.assertTrue(all(case["setup_sqls"] for case in payload["cases"]))
 
