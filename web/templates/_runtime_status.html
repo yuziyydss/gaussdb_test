@@ -1,0 +1,137 @@
+<section class="page-shell" aria-labelledby="runtime-status-title">
+  <header class="page-header">
+    <div class="page-header__copy">
+      <div class="page-header__meta">
+        <span class="overline">Runtime Readiness</span>
+        <span class="mono-id">phase1 + runtime pilot</span>
+      </div>
+      <h1 id="runtime-status-title" class="page-title">Runtime 执行准备状态</h1>
+      <p class="page-description">汇总离线计划、只读预检、执行回执和独立审计。文件存在或计划齐备都不等于数据库行为验证通过。</p>
+    </div>
+    <a href="/api/runtime/status" target="_blank" rel="noopener" class="primary-button">
+      <i data-lucide="braces" aria-hidden="true"></i>查看 JSON
+    </a>
+  </header>
+
+  <div class="page-stack">
+    <section class="metric-grid metric-grid--six" aria-label="Runtime readiness">
+      <article class="metric-card {% if status.readiness.offline_ready %}metric-card--dark{% endif %}">
+        <span class="metric-card__label">离线计划</span>
+        <strong class="metric-card__value">{{ 'Ready' if status.readiness.offline_ready else 'Missing' }}</strong>
+        <span class="metric-card__hint">runtime pilot 与 Phase 1 dry-run</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-card__label">只读预检</span>
+        <strong class="metric-card__value">{{ 'Ready' if status.readiness.preflight_ready else 'Not run' }}</strong>
+        <span class="metric-card__hint">连接与 GUC 读取，不执行目标 SQL</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-card__label">Runtime pilot</span>
+        <strong class="metric-card__value">{{ 'Executed' if status.readiness.runtime_executed else 'Not executed' }}</strong>
+        <span class="metric-card__hint">GUC overlay 与高级包候选</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-card__label">回执审计</span>
+        <strong class="metric-card__value">{{ 'Valid' if status.readiness.runtime_audit_valid else 'Pending' }}</strong>
+        <span class="metric-card__hint">计划哈希、计数与清理边界</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-card__label">Phase 1</span>
+        <strong class="metric-card__value">{{ 'Executed' if status.readiness.phase1_executed else 'Not executed' }}</strong>
+        <span class="metric-card__hint">10 条 SQL 与 owned cleanup</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-card__label">Phase 1 审计</span>
+        <strong class="metric-card__value">{{ 'Valid' if status.readiness.phase1_audit_valid else 'Pending' }}</strong>
+        <span class="metric-card__hint">阶段、计数与 Oracle 一致性</span>
+      </article>
+    </section>
+
+    <aside class="callout callout--warning" aria-label="Runtime boundary">
+      <i data-lucide="shield-alert" aria-hidden="true"></i>
+      <div>
+        <strong>当前页面只读取本地产物，不连接数据库</strong>
+        <div style="margin-top:3px;">Preflight、执行和审计必须显式授权并分层执行；任何计划、回执或报告都不能外推为全域行为覆盖。</div>
+      </div>
+    </aside>
+
+    <section class="panel" aria-labelledby="runtime-next-title">
+      <div class="panel__header">
+        <div>
+          <h2 id="runtime-next-title" class="panel__heading">下一步动作</h2>
+          <p class="panel__description">按当前缺失产物生成，不自动执行任何数据库操作。</p>
+        </div>
+        <span class="chip chip--warning">{{ status.next_actions | length }}</span>
+      </div>
+      <div class="panel__body">
+        <ol class="fine-print" style="margin:0;padding-left:20px;display:grid;gap:8px;">
+          {% for action in status.next_actions %}
+          <li>{{ action }}</li>
+          {% endfor %}
+        </ol>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="runtime-artifacts-title">
+      <div class="panel__header">
+        <div>
+          <h2 id="runtime-artifacts-title" class="panel__heading">Runtime 产物</h2>
+          <p class="panel__description">每个产物单独显示存在性、结构有效性和关键摘要。</p>
+        </div>
+        <span class="chip">{{ status.artifacts.values() | selectattr('exists') | list | length }} / 7</span>
+      </div>
+      <div class="panel__body">
+        <div class="data-table-wrap" tabindex="0" aria-label="Runtime 产物状态，可横向滚动">
+          <table class="data-table" style="min-width:1080px;">
+            <caption class="sr-only">Runtime 产物状态</caption>
+            <thead>
+              <tr>
+                <th scope="col">Artifact</th>
+                <th scope="col">Path</th>
+                <th scope="col">存在</th>
+                <th scope="col">结构</th>
+                <th scope="col">摘要</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for name, artifact in status.artifacts.items() %}
+              <tr>
+                <td><strong>{{ name }}</strong></td>
+                <td><code class="mono-id">{{ artifact.path }}</code></td>
+                <td>
+                  {% if artifact.exists %}<span class="chip chip--success">存在</span>
+                  {% else %}<span class="chip">缺失</span>{% endif %}
+                </td>
+                <td>
+                  {% if artifact.valid %}<span class="chip chip--success">有效</span>
+                  {% else %}<span class="chip chip--warning">待处理</span>{% endif %}
+                </td>
+                <td>
+                  {% if artifact.error %}<span class="fine-print">{{ artifact.error }}</span>
+                  {% else %}<code class="fine-print">{{ artifact.summary | tojson }}</code>{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="runtime-limits-title">
+      <div class="panel__header">
+        <div>
+          <h2 id="runtime-limits-title" class="panel__heading">边界</h2>
+          <p class="panel__description">这些限制必须与执行结果一起保留。</p>
+        </div>
+      </div>
+      <div class="panel__body">
+        <ul class="fine-print" style="margin:0;padding-left:20px;display:grid;gap:8px;">
+          {% for limit in status.limits %}
+          <li>{{ limit }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </section>
+  </div>
+</section>
