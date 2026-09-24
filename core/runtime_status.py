@@ -1,6 +1,7 @@
 """Aggregate runtime validation artifacts into one honest readiness report."""
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -24,6 +25,8 @@ class RuntimeArtifactStatus(StrictRuntimeStatusModel):
     kind: Optional[str] = None
     error: str = ""
     summary: Dict[str, Any] = Field(default_factory=dict)
+    sha256: Optional[str] = None
+    size_bytes: Optional[int] = None
 
 
 class RuntimeStatusResult(StrictRuntimeStatusModel):
@@ -47,6 +50,14 @@ def _load(path: Path):
         return None, "file not found"
     except (OSError, json.JSONDecodeError) as exc:
         return None, str(exc)
+
+
+def _artifact_identity(path: Path):
+    try:
+        content = path.read_bytes()
+    except OSError:
+        return None, None
+    return hashlib.sha256(content).hexdigest(), len(content)
 
 
 def _preflight_summary(value: RuntimePreflightResult):
@@ -139,9 +150,11 @@ def build_runtime_status(root: Path) -> RuntimeStatusResult:
     for name, path in paths.items():
         raw, error = _load(path)
         exists = path.is_file()
+        sha256, size_bytes = _artifact_identity(path) if exists else (None, None)
         if raw is None:
             artifacts[name] = RuntimeArtifactStatus(
-                path=str(path.relative_to(root)), exists=exists, valid=False, error=error
+                path=str(path.relative_to(root)), exists=exists, valid=False, error=error,
+                sha256=sha256, size_bytes=size_bytes,
             )
             continue
 
@@ -175,7 +188,8 @@ def build_runtime_status(root: Path) -> RuntimeStatusResult:
                 raise ValueError(f"unknown artifact: {name}")
         except Exception as exc:
             artifacts[name] = RuntimeArtifactStatus(
-                path=str(path.relative_to(root)), exists=True, valid=False, error=str(exc)
+                path=str(path.relative_to(root)), exists=True, valid=False, error=str(exc),
+                sha256=sha256, size_bytes=size_bytes,
             )
             continue
 
@@ -186,6 +200,8 @@ def build_runtime_status(root: Path) -> RuntimeStatusResult:
             valid=True,
             kind=raw.get("kind"),
             summary=summary,
+            sha256=sha256,
+            size_bytes=size_bytes,
         )
 
     offline_ready = artifacts["runtime_plan"].valid and artifacts["phase1_plan"].valid
