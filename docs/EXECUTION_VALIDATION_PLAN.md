@@ -57,6 +57,27 @@ CREATE SCHEMA IF NOT EXISTS test_validation_phase1;
 - 预期准确性: success/error判断与实际一致
 - GUC差异: behavior_compat_options设置前后输出确实不同
 
+## Phase 1 dry-run
+
+当前可以先生成不连接数据库的 Phase 1 计划：
+
+```bash
+python scripts/auto_validate.py \
+  --dry-run \
+  --output generated/runtime_validation_pilot/phase1_dry_run.json
+```
+
+当前计划包含：
+
+- 1 个 setup schema
+- 10 个 target unit
+- 1 个 owned cleanup schema
+- `database_executed=false`
+- `execution_authorized=false`
+- `runtime_verified=0`
+
+该文件只是执行计划，不是执行回执。
+
 ## Phase 2: 100条（1个完整manifest）
 
 如果Phase 1通过，扩展到完整manifest：

@@ -80,3 +80,43 @@ class AutoValidateTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+    def test_phase1_dry_run_plan_is_complete_and_honest(self):
+        plan = runner.build_phase1_dry_run()
+        self.assertEqual(plan['kind'], 'phase1_runtime_dry_run')
+        self.assertEqual(plan['profile'], 'phase1_core_validation_v1')
+        self.assertEqual(len(plan['units']), 10)
+        self.assertFalse(plan['database_executed'])
+        self.assertFalse(plan['execution_authorized'])
+        self.assertEqual(plan['runtime_verified'], 0)
+        self.assertEqual([unit['description'] for unit in plan['units']], [
+            'CREATE TABLE', 'INSERT', 'SELECT', 'UPDATE', 'DELETE',
+            'CREATE INDEX', 'GRANT', 'BEGIN/COMMIT',
+            'GUC:leading_zero', 'GUC:end_month',
+        ])
+        self.assertTrue(all(unit['status'] == 'ready_for_authorized_execution' for unit in plan['units']))
+        self.assertIn('CREATE SCHEMA', plan['setup']['sql'])
+        self.assertIn('DROP SCHEMA', plan['cleanup']['sql'])
+
+    def test_phase1_dry_run_cli_does_not_connect(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'phase1.json'
+            with patch.object(sys, 'argv', ['auto_validate.py', '--dry-run', '--output', str(output)]), \
+                    patch.object(runner, 'run_sql', side_effect=AssertionError('must not connect')) as run, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                runner.main()
+            payload = json.loads(output.read_text())
+            self.assertEqual(len(payload['units']), 10)
+            run.assert_not_called()
+
+    def test_phase1_dry_run_cli_rejects_overwrite(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'phase1.json'
+            output.write_text('{}\n')
+            with patch.object(sys, 'argv', ['auto_validate.py', '--dry-run', '--output', str(output)]), \
+                    self.assertRaisesRegex(SystemExit, 'already exists'):
+                runner.main()
