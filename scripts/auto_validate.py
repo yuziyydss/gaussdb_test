@@ -107,12 +107,9 @@ def get_env_info(host, port, db, user, password, client):
         info[name] = out if rc == 0 else f"ERROR"
     return info
 
-def phase1(host, port, db, user, password, client):
-    print("\n" + "="*60)
-    print("Phase 1: Core Validation (10 tests)")
-    print("="*60)
-    schema = "v_test_" + uuid.uuid4().hex
-    tests = [
+def build_phase1_tests():
+    """Return the ten Phase 1 target definitions without executing them."""
+    return [
         ("CREATE TABLE",
          "CREATE TABLE v_test.t1(id INT PRIMARY KEY, name VARCHAR(100))",
          {"kind": "command", "tags": ["CREATE TABLE"]}),
@@ -144,6 +141,60 @@ def phase1(host, port, db, user, password, client):
          "SET behavior_compat_options='end_month_calculate'; SELECT ADD_MONTHS('2018-02-28',3)::date",
          {"kind": "result_set", "prefix_tags": ["SET"], "rows": [["2018-05-31"]]}),
     ]
+
+
+def build_phase1_dry_run():
+    """Build a non-executing Phase 1 plan for review and later execution."""
+    tests = build_phase1_tests()
+    units = []
+    for index, (description, sql, oracle) in enumerate(tests, 1):
+        units.append({
+            "id": f"P1-{index:03d}",
+            "description": description,
+            "sql": sql,
+            "oracle": oracle,
+            "status": "ready_for_authorized_execution",
+            "database_executed": False,
+            "runtime_verified": False,
+        })
+    return {
+        "kind": "phase1_runtime_dry_run",
+        "schema_version": 1,
+        "profile": "phase1_core_validation_v1",
+        "status": "ready_for_authorized_execution",
+        "database_executed": False,
+        "execution_authorized": False,
+        "runtime_verified": 0,
+        "schema_placeholder": "v_test",
+        "setup": {
+            "sql": "CREATE SCHEMA v_test",
+            "oracle": {"kind": "command", "tags": ["CREATE SCHEMA"]},
+            "status": "ready_for_authorized_execution",
+            "database_executed": False,
+        },
+        "units": units,
+        "cleanup": {
+            "sql": "DROP SCHEMA v_test CASCADE",
+            "oracle": {"kind": "command", "tags": ["DROP SCHEMA"]},
+            "status": "ready_for_authorized_execution",
+            "database_executed": False,
+            "requires_owned_schema": True,
+        },
+        "limits": [
+            "This dry run does not open a database connection or execute SQL.",
+            "A planned target is not runtime evidence.",
+            "Cleanup may run only for a schema proven created by the same run.",
+            "GUC overlays are session-local and must be restored after execution.",
+        ],
+    }
+
+
+def phase1(host, port, db, user, password, client):
+    print("\n" + "="*60)
+    print("Phase 1: Core Validation (10 tests)")
+    print("="*60)
+    schema = "v_test_" + uuid.uuid4().hex
+    tests = build_phase1_tests()
     setup_sql = f"CREATE SCHEMA {schema}"
     setup_oracle = {"kind": "command", "tags": ["CREATE SCHEMA"]}
     rc, out, err = run_sql(host, port, db, user, password, setup_sql, client)
@@ -227,14 +278,33 @@ def generate_report(host, port, db, user):
 def main():
     global START_TIME, ENVIRONMENT
     p = argparse.ArgumentParser()
-    p.add_argument("--host", required=True)
-    p.add_argument("--port", type=int, required=True)
-    p.add_argument("--db", required=True)
-    p.add_argument("--user", required=True)
+    p.add_argument("--host")
+    p.add_argument("--port", type=int)
+    p.add_argument("--db")
+    p.add_argument("--user")
     p.add_argument("--password", default="")
     p.add_argument("--client", default="gsql")
     p.add_argument("--phase", type=int, choices=[1], default=1)
+    p.add_argument("--dry-run", action="store_true", help="write a Phase 1 plan without connecting")
+    p.add_argument("--output", type=Path, default=None, help="dry-run output path")
     a = p.parse_args()
+
+    if a.dry_run:
+        if not a.output:
+            p.error("--output is required with --dry-run")
+        if a.output.exists():
+            raise SystemExit(f"output already exists: {a.output}")
+        plan = build_phase1_dry_run()
+        a.output.parent.mkdir(parents=True, exist_ok=True)
+        a.output.write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"Phase 1 dry-run plan written: {a.output}")
+        return
+
+    missing = [name for name, value in (
+        ("--host", a.host), ("--port", a.port), ("--db", a.db), ("--user", a.user)
+    ) if value in (None, "")]
+    if missing:
+        p.error("the following arguments are required unless --dry-run is used: " + ", ".join(missing))
 
     START_TIME = datetime.now()
     RESULTS.clear()
