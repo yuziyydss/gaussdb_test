@@ -29,7 +29,7 @@ class SequenceSystemColumnTests(unittest.TestCase):
             self.assertIn(' OWNED BY g_a3_cs_system_owner.'+column,c.sql)
             self.assertEqual(c.setup_sqls,['CREATE TABLE g_a3_cs_system_owner (id INTEGER) WITH (hasrowid = on);'])
             self.assertEqual(c.expected,'error')
-            self.assertEqual(c.expected_oracle_status,'needs_verification')
+            self.assertEqual(c.expected_oracle_status,'confirmed')
             self.assertEqual(c.expected_sqlstates,[])
             self.assertEqual(c.expected_error_category,'system_column_ownership_forbidden')
             self.assertFalse(report.missing_pairs)

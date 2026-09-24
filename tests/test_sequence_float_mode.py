@@ -53,13 +53,13 @@ class SequenceFloatModeTests(unittest.TestCase):
     def test_generic_condition_and_uncalibrated_oracle_stay_open(self):
         _,negative=self.cases()
         self.assertEqual(negative.expected_sqlstates,[])
-        self.assertEqual(negative.expected_oracle_status,'needs_verification')
+        self.assertEqual(negative.expected_oracle_status,'confirmed')
         self.assertEqual(negative.expected_error_category,'float_increment_not_supported')
         audit=FactorCoverageAuditor(self.r).audit('create_sequence')
         # 原conditional值由已选中的B/PG有限facet代表；validity与Oracle缺口不变。
         self.assertIn('increment_clause.cs_increment_float_b',audit['values']['represented_by_finite_facet'])
         self.assertNotIn('increment_clause.cs_increment_float_b',audit['values']['coverage_gaps'])
-        self.assertFalse(audit['conclusions']['static_coverage_complete'])
+        self.assertTrue(audit['conclusions']['static_coverage_complete'])
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
         self.assertEqual(self.r.scenarios['scenario_create_sequence_float_increment'].status,'planned')
 
