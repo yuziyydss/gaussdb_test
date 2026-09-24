@@ -151,6 +151,33 @@ class AutoValidateTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'runtime claims'):
                 runner.load_phase1_plan(path)
 
+    def test_phase1_can_execute_from_generated_plan(self):
+        plan_path = Path(__file__).resolve().parents[1] / 'generated/runtime_validation_pilot/phase1_dry_run.json'
+        tests = runner.load_phase1_plan(plan_path)
+        responses = [
+            (0, 'CREATE SCHEMA', ''),
+            (0, 'CREATE TABLE', ''),
+            (0, 'INSERT 0 3', ''),
+            (0, '1\ta\n2\tb\n3\tc', ''),
+            (0, 'UPDATE 1', ''),
+            (0, 'DELETE 1', ''),
+            (0, 'CREATE INDEX', ''),
+            (0, 'GRANT', ''),
+            (0, 'BEGIN\nINSERT 0 1\nCOMMIT', ''),
+            (0, 'SET\n5', ''),
+            (0, 'SET\n2018-05-31', ''),
+            (0, 'DROP SCHEMA', ''),
+        ]
+        with patch.object(runner, 'run_sql', side_effect=responses) as run, \
+                contextlib.redirect_stdout(io.StringIO()):
+            runner.phase1('unused', 0, 'unused', 'unused', '', 'unused', tests=tests)
+        self.assertEqual(run.call_count, 12)
+        self.assertEqual(len(runner.RESULTS), 12)
+        self.assertEqual([result['stage'] for result in runner.RESULTS],
+                         ['setup'] + ['target'] * 10 + ['teardown'])
+        self.assertTrue(all(result['status'] == 'PASS' for result in runner.RESULTS))
+        schema = run.call_args_list[0].args[5].split()[-1]
+        self.assertEqual(run.call_args_list[1].args[5], tests[0][1].replace('v_test.', schema + '.'))
 
 if __name__ == '__main__':
     unittest.main()
