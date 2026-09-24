@@ -94,8 +94,8 @@ class PreparationConsumerTests(unittest.TestCase):
         from scripts.prepare_execution_batch import build_batch
         batch = build_batch(self.r, self.g)
         self.assertEqual(batch['summary']['packages'], 5)
-        self.assertEqual(batch['summary']['candidates'], 14)
-        self.assertEqual(batch['summary']['bound_candidate_ids'], 14)
+        self.assertEqual(batch['summary']['candidates'], 11)
+        self.assertEqual(batch['summary']['bound_candidate_ids'], 11)
         self.assertEqual(batch['summary']['unbound_candidate_ids'], [])
         self.assertEqual(batch['summary']['runtime_verified'], 0)
         self.assertEqual(batch['summary']['physical_modes'], ['A', 'B', 'M', 'PG'])

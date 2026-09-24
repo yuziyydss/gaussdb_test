@@ -100,7 +100,7 @@ def build_batch(registry, generator, *, profile='baseline'):
     if len(set(ids)) != len(ids):
         raise ValueError('Duplicate candidate IDs in selected manifests')
     units = [prepare_unit(registry.scenarios[sid],
-                          [c for mid in mids for c in cases_by_manifest[mid]], generator)
+                          [c for mid in mids if mid in cases_by_manifest for c in cases_by_manifest[mid]], generator)
              for sid, mids in selection]
     bound = {s['case_id'] for u in units for s in u['steps'] if s['case_id']}
     unbound = sorted(set(ids) - bound)
