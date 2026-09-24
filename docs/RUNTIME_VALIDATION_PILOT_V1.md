@@ -39,6 +39,17 @@ python scripts/run_runtime_validation_pilot.py \
 - `execution_authorized=false`
 - `runtime_verified=0`
 
+## 预检
+
+在授权执行前，建议先运行只读预检：
+
+```bash
+python scripts/run_runtime_preflight.py \
+  --output generated/runtime_validation_pilot/preflight.json
+```
+
+预检只读取数据库版本和关键 GUC，不执行 runtime pilot SQL，也不修改任何配置。
+
 ## 授权执行
 
 真实执行必须同时满足：
