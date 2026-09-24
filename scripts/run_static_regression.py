@@ -18,7 +18,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 INPUT_DIRS = ('core', 'api', 'scripts', 'tests', 'web', 'specs', 'factors',
-              'grammars', 'manifests', 'matrices', 'fixtures',
+              'grammars', 'manifests', 'matrices', 'environments', 'fixtures',
               'work/doc2spec', 'intranet_corpus', 'generated/factor_packages', 'archive/spec_reviews',
               'docs/compat_facts', 'work/pdf_foundations_2026_09_07/corpus',
               'work/m_compat_batch_01/corpus', 'work/m_compat_batch_02/corpus',
