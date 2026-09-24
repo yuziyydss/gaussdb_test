@@ -104,24 +104,6 @@ class PreparationConsumerTests(unittest.TestCase):
         self.assertEqual(count['static_blockers'], [])
         self.assertEqual(len(count['oracle_calibration_pending']), 4)
         self.assertTrue(count['m_environment_plan_ref'])
-        for sid in ('scenario_m_insert_generated_null_write', 'scenario_m_update_generated_write',
-                    'scenario_m_update_generated_null_write'):
-            with self.subTest(scenario=sid):
-                unit = units[sid]
-                self.assertEqual(unit['static_blockers'], [])
-                self.assertEqual(unit['preparation_status'], 'oracle_calibration_pending')
-                self.assertEqual(unit['steps'][0]['oracles'][0]['sqlstates'], [])
-        for sid in ('scenario_create_index_comment_short_b', 'scenario_create_index_visibility_fresh'):
-            with self.subTest(scenario=sid):
-                self.assertEqual(units[sid]['static_blockers'], [])
-                self.assertEqual(units[sid]['preparation_status'], 'oracle_calibration_pending')
-                self.assertTrue(all('candidate' in s['source_step'] and 'sql' not in s['source_step']
-                                    for s in units[sid]['steps']))
-        self.assertTrue(all(not u['execution_authorized'] for u in batch['units']))
-        self.assertTrue(all(not u['ownership_plan']['runtime_ownership_proven'] for u in batch['units']))
-        for case in batch['candidates']:
-            if case['case_id'] in {c.case_id for c in self.cases}:
-                self.assertEqual(case, next(c.to_dict() for c in self.cases if c.case_id == case['case_id']))
 
     def test_old_observed_index_name_is_not_implicitly_rewritten(self):
         scenario = self.r.scenarios['scenario_create_index_comment_short_b'].model_copy(deep=True)

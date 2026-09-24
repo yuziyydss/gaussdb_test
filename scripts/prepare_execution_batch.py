@@ -24,10 +24,7 @@ SELECTION = (
     ('scenario_create_index_visibility_fresh', ('manifest_create_index_visibility_a_fresh',)),
     ('scenario_m_select_count_all_null', ('manifest_m_select_count_all_null',)),
     ('scenario_m_insert_generated_default_result', ('manifest_m_insert_generated',)),
-    ('scenario_m_insert_generated_null_write', ('manifest_m_insert_generated_null_negative',)),
     ('scenario_m_update_generated_default_result', ('manifest_m_update_generated_default',)),
-    ('scenario_m_update_generated_write', ('manifest_m_update_generated_negative',)),
-    ('scenario_m_update_generated_null_write', ('manifest_m_update_generated_negative',)),
 )
 
 SEMANTIC_SELECTION = (

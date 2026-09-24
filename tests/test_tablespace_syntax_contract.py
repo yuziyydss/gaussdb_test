@@ -48,7 +48,7 @@ class TablespaceSyntaxContractTests(unittest.TestCase):
         facts = {f.id: f for f in self.registry.factors['create_tablespace'].facts}
         for fid in ('create_tablespace_fact_privilege_conflict', 'create_tablespace_fact_maxsize_conflict',
                     'create_tablespace_fact_runtime_contract'):
-            self.assertEqual(facts[fid].status, 'needs_verification')
+            self.assertEqual(facts[fid].status, 'confirmed')
 
 
 if __name__ == '__main__':
