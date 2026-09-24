@@ -93,6 +93,27 @@ python scripts/auto_validate.py \
 
 `--plan` 会拒绝包含执行声明、runtime claim 或单元 ID 不匹配的文件。
 
+## Phase 1 报告审计
+
+Phase 1 执行后，使用独立审计器检查报告：
+
+```bash
+python scripts/audit_phase1_report.py \
+  --report validation_report_TIMESTAMP.json \
+  --output generated/runtime_validation_pilot/phase1_report_audit.json
+```
+
+审计器会检查：
+
+- setup / 10 target / teardown 阶段顺序
+- P1-001 至 P1-010 目标 ID
+- setup 与 cleanup 是否通过
+- BLOCKED 是否只出现在前置失败之后
+- summary 中 passed / failed / blocked / executed 计数
+- 12 条结果是否与报告一致
+
+只有 setup、10 个 target 和 cleanup 全部通过时，才标记 `runtime_verified=true`。
+
 ## Phase 2: 100条（1个完整manifest）
 
 如果Phase 1通过，扩展到完整manifest：
