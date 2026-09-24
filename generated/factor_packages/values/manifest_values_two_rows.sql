@@ -1,6 +1,6 @@
 -- generated_from: manifest_values_two_rows
 -- static_only: true
--- case_count: 23
+-- case_count: 20
 
 -- case_id: manifest_values_two_rows_d58507b23bdb
 -- expected: success
@@ -13,148 +13,137 @@
 -- test_sql:
 VALUES (1), (2);
 
--- case_id: manifest_values_two_rows_2e04d0f67537
+-- case_id: manifest_values_two_rows_a3917cebe5eb
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_expression", "limit": "values_limit_one", "more_rows": "values_more_rows_present", "offset": "values_offset_zero", "order_by": "values_order_by_implicit", "second_row": "values_second_row_two_columns"}
+-- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_two_columns", "limit": "values_limit_one", "more_rows": "values_more_rows_present", "offset": "values_offset_zero", "order_by": "values_order_by_implicit", "second_row": "values_second_row_two_columns"}
 -- test_sql:
-VALUES (1 + 1), (2, CAST('b' AS TEXT)) ORDER BY 1 LIMIT 1 OFFSET 0;
+VALUES (1, CAST('a' AS TEXT)), (2, CAST('b' AS TEXT)) ORDER BY 1 LIMIT 1 OFFSET 0;
 
--- case_id: manifest_values_two_rows_2b28d55d211c
+-- case_id: manifest_values_two_rows_62f779e0a6a2
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_null", "limit": "values_limit_all", "more_rows": "values_more_rows_present", "offset": "values_offset_row", "order_by": "values_order_by_asc", "second_row": "values_second_row_integer"}
+-- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_integer", "limit": "values_limit_all", "more_rows": "values_more_rows_present", "offset": "values_offset_row", "order_by": "values_order_by_asc", "second_row": "values_second_row_integer"}
 -- test_sql:
-VALUES (CAST(NULL AS INTEGER)), (2) ORDER BY 1 ASC LIMIT ALL OFFSET 1 ROW;
+VALUES (1), (2) ORDER BY 1 ASC LIMIT ALL OFFSET 1 ROW;
 
--- case_id: manifest_values_two_rows_2cf609b6dc13
+-- case_id: manifest_values_two_rows_2900db7b8df5
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_two_columns", "limit": "values_limit_one", "more_rows": "values_more_rows_present", "offset": "values_offset_rows", "order_by": "values_order_by_desc", "second_row": "values_second_row_integer"}
+-- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_integer", "limit": "values_limit_one", "more_rows": "values_more_rows_present", "offset": "values_offset_rows", "order_by": "values_order_by_desc", "second_row": "values_second_row_integer"}
 -- test_sql:
-VALUES (1, CAST('a' AS TEXT)), (2) ORDER BY 1 DESC LIMIT 1 OFFSET 1 ROWS;
+VALUES (1), (2) ORDER BY 1 DESC LIMIT 1 OFFSET 1 ROWS;
 
--- case_id: manifest_values_two_rows_f92ae191d0c7
+-- case_id: manifest_values_two_rows_1e31e3abfa1d
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_integer", "limit": "values_limit_all", "more_rows": "values_more_rows_present", "offset": "values_offset_rows", "order_by": "values_order_by_using", "second_row": "values_second_row_two_columns"}
+-- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_two_columns", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_row", "order_by": "values_order_by_using", "second_row": "values_second_row_two_columns"}
 -- test_sql:
-VALUES (1), (2, CAST('b' AS TEXT)) ORDER BY 1 USING < LIMIT ALL OFFSET 1 ROWS;
+VALUES (1, CAST('a' AS TEXT)), (2, CAST('b' AS TEXT)) ORDER BY 1 USING < OFFSET 1 ROW;
 
--- case_id: manifest_values_two_rows_1e56a906bb3a
+-- case_id: manifest_values_two_rows_1d46a2769e92
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_expression", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_row", "order_by": "values_order_by_desc", "second_row": "values_second_row_two_columns"}
+-- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_two_columns", "limit": "values_limit_all", "more_rows": "values_more_rows_present", "offset": "values_offset_rows", "order_by": "values_order_by_absent", "second_row": "values_second_row_two_columns"}
 -- test_sql:
-VALUES (1 + 1), (2, CAST('b' AS TEXT)) ORDER BY 1 DESC OFFSET 1 ROW;
+VALUES (1, CAST('a' AS TEXT)), (2, CAST('b' AS TEXT)) LIMIT ALL OFFSET 1 ROWS;
 
--- case_id: manifest_values_two_rows_cf4e0ed11751
+-- case_id: manifest_values_two_rows_dc542ef9ecda
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_null", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_zero", "order_by": "values_order_by_using", "second_row": "values_second_row_integer"}
+-- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_integer", "limit": "values_limit_all", "more_rows": "values_more_rows_present", "offset": "values_offset_zero", "order_by": "values_order_by_using", "second_row": "values_second_row_integer"}
 -- test_sql:
-VALUES (CAST(NULL AS INTEGER)), (2) ORDER BY 1 USING < OFFSET 0;
+VALUES (1), (2) ORDER BY 1 USING < LIMIT ALL OFFSET 0;
 
--- case_id: manifest_values_two_rows_3d5b8782b639
+-- case_id: manifest_values_two_rows_41d7e5d0c5f6
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_null", "limit": "values_limit_one", "more_rows": "values_more_rows_present", "offset": "values_offset_absent", "order_by": "values_order_by_absent", "second_row": "values_second_row_two_columns"}
+-- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_two_columns", "limit": "values_limit_one", "more_rows": "values_more_rows_present", "offset": "values_offset_absent", "order_by": "values_order_by_asc", "second_row": "values_second_row_two_columns"}
 -- test_sql:
-VALUES (CAST(NULL AS INTEGER)), (2, CAST('b' AS TEXT)) LIMIT 1;
+VALUES (1, CAST('a' AS TEXT)), (2, CAST('b' AS TEXT)) ORDER BY 1 ASC LIMIT 1;
 
--- case_id: manifest_values_two_rows_2094c7ce889b
+-- case_id: manifest_values_two_rows_a344d828340e
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_expression", "limit": "values_limit_all", "more_rows": "values_more_rows_present", "offset": "values_offset_absent", "order_by": "values_order_by_implicit", "second_row": "values_second_row_integer"}
+-- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_integer", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_rows", "order_by": "values_order_by_implicit", "second_row": "values_second_row_integer"}
 -- test_sql:
-VALUES (1 + 1), (2) ORDER BY 1 LIMIT ALL;
+VALUES (1), (2) ORDER BY 1 OFFSET 1 ROWS;
 
--- case_id: manifest_values_two_rows_fe83ce365ca4
+-- case_id: manifest_values_two_rows_1f2e4dca3a51
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_two_columns", "limit": "values_limit_all", "more_rows": "values_more_rows_present", "offset": "values_offset_zero", "order_by": "values_order_by_absent", "second_row": "values_second_row_two_columns"}
+-- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_two_columns", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_zero", "order_by": "values_order_by_desc", "second_row": "values_second_row_two_columns"}
 -- test_sql:
-VALUES (1, CAST('a' AS TEXT)), (2, CAST('b' AS TEXT)) LIMIT ALL OFFSET 0;
+VALUES (1, CAST('a' AS TEXT)), (2, CAST('b' AS TEXT)) ORDER BY 1 DESC OFFSET 0;
 
--- case_id: manifest_values_two_rows_5b0edfae049d
+-- case_id: manifest_values_two_rows_c701e74a892e
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_integer", "limit": "values_limit_one", "more_rows": "values_more_rows_present", "offset": "values_offset_zero", "order_by": "values_order_by_asc", "second_row": "values_second_row_two_columns"}
+-- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_integer", "limit": "values_limit_one", "more_rows": "values_more_rows_present", "offset": "values_offset_row", "order_by": "values_order_by_absent", "second_row": "values_second_row_integer"}
 -- test_sql:
-VALUES (1), (2, CAST('b' AS TEXT)) ORDER BY 1 ASC LIMIT 1 OFFSET 0;
+VALUES (1), (2) LIMIT 1 OFFSET 1 ROW;
 
--- case_id: manifest_values_two_rows_fa9d1e993e56
+-- case_id: manifest_values_two_rows_e5fd0597e62c
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_expression", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_rows", "order_by": "values_order_by_asc", "second_row": "values_second_row_integer"}
+-- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_integer", "limit": "values_limit_all", "more_rows": "values_more_rows_present", "offset": "values_offset_absent", "order_by": "values_order_by_implicit", "second_row": "values_second_row_integer"}
 -- test_sql:
-VALUES (1 + 1), (2) ORDER BY 1 ASC OFFSET 1 ROWS;
+VALUES (1), (2) ORDER BY 1 LIMIT ALL;
 
--- case_id: manifest_values_two_rows_94c5502e4fb0
+-- case_id: manifest_values_two_rows_7634b345b3cd
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_two_columns", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_row", "order_by": "values_order_by_implicit", "second_row": "values_second_row_integer"}
+-- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_integer", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_zero", "order_by": "values_order_by_asc", "second_row": "values_second_row_integer"}
 -- test_sql:
-VALUES (1, CAST('a' AS TEXT)), (2) ORDER BY 1 OFFSET 1 ROW;
-
--- case_id: manifest_values_two_rows_235e43c1efdf
--- expected: success
--- expected_error_category: -
--- expected_sqlstates: -
--- expected_error_regex: -
--- expected_oracle_status: confirmed
--- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_integer", "limit": "values_limit_one", "more_rows": "values_more_rows_present", "offset": "values_offset_row", "order_by": "values_order_by_using", "second_row": "values_second_row_integer"}
--- test_sql:
-VALUES (1), (2) ORDER BY 1 USING < LIMIT 1 OFFSET 1 ROW;
+VALUES (1), (2) ORDER BY 1 ASC OFFSET 0;
 
 -- case_id: manifest_values_two_rows_2b304aece619
 -- expected: success
@@ -167,90 +156,68 @@ VALUES (1), (2) ORDER BY 1 USING < LIMIT 1 OFFSET 1 ROW;
 -- test_sql:
 VALUES (1), (2) ORDER BY 1 DESC LIMIT ALL;
 
--- case_id: manifest_values_two_rows_3d81a89cd700
+-- case_id: manifest_values_two_rows_8f1fa9ac8dd8
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_null", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_rows", "order_by": "values_order_by_implicit", "second_row": "values_second_row_integer"}
+-- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_integer", "limit": "values_limit_one", "more_rows": "values_more_rows_present", "offset": "values_offset_absent", "order_by": "values_order_by_using", "second_row": "values_second_row_integer"}
 -- test_sql:
-VALUES (CAST(NULL AS INTEGER)), (2) ORDER BY 1 OFFSET 1 ROWS;
+VALUES (1), (2) ORDER BY 1 USING < LIMIT 1;
 
--- case_id: manifest_values_two_rows_836b199f170f
+-- case_id: manifest_values_two_rows_c9bd8e94884b
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_two_columns", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_absent", "order_by": "values_order_by_asc", "second_row": "values_second_row_integer"}
+-- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_integer", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_zero", "order_by": "values_order_by_absent", "second_row": "values_second_row_integer"}
 -- test_sql:
-VALUES (1, CAST('a' AS TEXT)), (2) ORDER BY 1 ASC;
+VALUES (1), (2) OFFSET 0;
 
--- case_id: manifest_values_two_rows_64d07fcfc01f
+-- case_id: manifest_values_two_rows_6483a9f58ce3
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_expression", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_row", "order_by": "values_order_by_absent", "second_row": "values_second_row_integer"}
+-- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_integer", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_row", "order_by": "values_order_by_implicit", "second_row": "values_second_row_integer"}
 -- test_sql:
-VALUES (1 + 1), (2) OFFSET 1 ROW;
+VALUES (1), (2) ORDER BY 1 OFFSET 1 ROW;
 
--- case_id: manifest_values_two_rows_1b2d31b75aaa
+-- case_id: manifest_values_two_rows_afbd7fe8f529
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_expression", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_absent", "order_by": "values_order_by_using", "second_row": "values_second_row_integer"}
+-- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_integer", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_rows", "order_by": "values_order_by_asc", "second_row": "values_second_row_integer"}
 -- test_sql:
-VALUES (1 + 1), (2) ORDER BY 1 USING <;
+VALUES (1), (2) ORDER BY 1 ASC OFFSET 1 ROWS;
 
--- case_id: manifest_values_two_rows_3d34daa888f1
+-- case_id: manifest_values_two_rows_fae91d69fb11
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_null", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_zero", "order_by": "values_order_by_desc", "second_row": "values_second_row_integer"}
+-- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_integer", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_row", "order_by": "values_order_by_desc", "second_row": "values_second_row_integer"}
 -- test_sql:
-VALUES (CAST(NULL AS INTEGER)), (2) ORDER BY 1 DESC OFFSET 0;
+VALUES (1), (2) ORDER BY 1 DESC OFFSET 1 ROW;
 
--- case_id: manifest_values_two_rows_9030835585e4
+-- case_id: manifest_values_two_rows_5f0df00d9712
 -- expected: success
 -- expected_error_category: -
 -- expected_sqlstates: -
 -- expected_error_regex: -
 -- expected_oracle_status: confirmed
 -- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_integer", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_rows", "order_by": "values_order_by_absent", "second_row": "values_second_row_integer"}
+-- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_integer", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_rows", "order_by": "values_order_by_using", "second_row": "values_second_row_integer"}
 -- test_sql:
-VALUES (1), (2) OFFSET 1 ROWS;
-
--- case_id: manifest_values_two_rows_638f9011dabf
--- expected: success
--- expected_error_category: -
--- expected_sqlstates: -
--- expected_error_regex: -
--- expected_oracle_status: confirmed
--- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_integer", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_absent", "order_by": "values_order_by_implicit", "second_row": "values_second_row_integer"}
--- test_sql:
-VALUES (1), (2) ORDER BY 1;
-
--- case_id: manifest_values_two_rows_e6551054a15e
--- expected: success
--- expected_error_category: -
--- expected_sqlstates: -
--- expected_error_regex: -
--- expected_oracle_status: confirmed
--- expected_scope: syntax_only
--- params: {"context": "values_context_standalone", "fetch": "values_fetch_absent", "first_row": "values_first_row_two_columns", "limit": "values_limit_absent", "more_rows": "values_more_rows_present", "offset": "values_offset_absent", "order_by": "values_order_by_using", "second_row": "values_second_row_integer"}
--- test_sql:
-VALUES (1, CAST('a' AS TEXT)), (2) ORDER BY 1 USING <;
+VALUES (1), (2) ORDER BY 1 USING < OFFSET 1 ROWS;
