@@ -24,6 +24,8 @@ class RuntimeStatusTests(unittest.TestCase):
         runtime_plan = status.artifacts["runtime_plan"]
         self.assertTrue(runtime_plan.exists)
         self.assertTrue(runtime_plan.valid)
+        self.assertRegex(runtime_plan.sha256, r"[0-9a-f]{64}")
+        self.assertGreater(runtime_plan.size_bytes, 0)
         self.assertEqual(runtime_plan.summary["unit_count"], 7)
         self.assertEqual(runtime_plan.summary["step_count"], 15)
         self.assertFalse(runtime_plan.summary["database_executed"])
@@ -33,6 +35,8 @@ class RuntimeStatusTests(unittest.TestCase):
         phase1_plan = status.artifacts["phase1_plan"]
         self.assertTrue(phase1_plan.exists)
         self.assertTrue(phase1_plan.valid)
+        self.assertRegex(phase1_plan.sha256, r"[0-9a-f]{64}")
+        self.assertGreater(phase1_plan.size_bytes, 0)
         self.assertEqual(phase1_plan.summary["unit_count"], 10)
         self.assertTrue(phase1_plan.summary["has_setup"])
         self.assertTrue(phase1_plan.summary["has_cleanup"])
