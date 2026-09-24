@@ -23,6 +23,18 @@ class TestApiRoutes(unittest.TestCase):
         self.assertIn("本地 PDF 是唯一产品事实源", response.text)
         self.assertNotIn("Legacy V0", response.text)
 
+    def test_runtime_status_api_reports_offline_plans_without_runtime_evidence(self):
+        response = self.client.get("/api/runtime/status")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["kind"], "runtime_status")
+        self.assertTrue(payload["readiness"]["offline_ready"])
+        self.assertFalse(payload["readiness"]["runtime_executed"])
+        self.assertFalse(payload["readiness"]["phase1_executed"])
+        self.assertTrue(payload["artifacts"]["runtime_plan"]["valid"])
+        self.assertTrue(payload["artifacts"]["phase1_plan"]["valid"])
+        self.assertTrue(payload["next_actions"])
+
     def test_default_coverage_uses_pdf_factor_packages_not_legacy_meter(self):
         response = self.client.get("/coverage")
         self.assertEqual(response.status_code, 200)

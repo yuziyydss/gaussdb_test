@@ -26,6 +26,7 @@ from core.generation_gap_dispositions import load_generation_gap_dispositions
 from core.no_manifest_dispositions import category_label, load_no_manifest_dispositions
 from core.package_inventory import package_inventory
 from core.progress_reporting import factor_progress, summarize_progress
+from core.runtime_status import build_runtime_status
 
 BASE_DIR = Path(__file__).resolve().parent
 FACTORS_DIR = BASE_DIR / "factors"
@@ -426,6 +427,12 @@ async def coverage_export_md():
 async def coverage_api_summary():
     """JSON API：PDF-first V1 的分层覆盖事实。"""
     return JSONResponse(_factor_package_coverage_report())
+
+
+@app.get("/api/runtime/status")
+async def runtime_status_api():
+    """JSON API：聚合当前 runtime 计划、回执、审计与预检状态。"""
+    return JSONResponse(build_runtime_status(BASE_DIR).model_dump())
 
 
 @app.get("/factor/{factor_id}", response_class=HTMLResponse)
