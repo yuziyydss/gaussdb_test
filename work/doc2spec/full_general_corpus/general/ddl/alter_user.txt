@@ -1,0 +1,139 @@
+[[PDF_PAGE physical=1343 printed=1294]]
+1.13.7.44 ALTER USER
+
+功能描述
+            修改数据库用户的属性。包括数据库用户名称以及权限等。
+
+注意事项
+            ●   ALTER USER中修改的会话参数只针对指定的用户，且在下一次会话中有效。
+            ●   不支持在PDB内执行ALTER USER IN DATABASE语句。
+            ●   不支持在PDB内修改初始用户密码。
+
+语法格式
+            ●   修改用户的权限等信息。
+                ALTER USER user_name [ [ WITH ] option [ ... ] ];
+
+
+
+
+                其中option子句为：
+                { CREATEDB | NOCREATEDB }
+                   | { CREATEROLE | NOCREATEROLE }
+                   | { INHERIT | NOINHERIT }
+                   | { AUDITADMIN | NOAUDITADMIN }
+                   | { SYSADMIN | NOSYSADMIN }
+                   | { MONADMIN | NOMONADMIN }
+                   | { OPRADMIN | NOOPRADMIN }
+                   | { POLADMIN | NOPOLADMIN }
+                   | { USEFT | NOUSEFT }
+                   | { LOGIN | NOLOGIN }
+                   | { REPLICATION | NOREPLICATION }
+                   | { PERSISTENCE | NOPERSISTENCE }
+                   | CONNECTION LIMIT connlimit
+                   | [ ENCRYPTED | UNENCRYPTED ] PASSWORD { 'password' [EXPIRED] | DISABLE | EXPIRED }
+                   | [ ENCRYPTED | UNENCRYPTED ] IDENTIFIED BY { 'password' [ REPLACE 'old_password' |
+                EXPIRED ] | DISABLE }
+                   | VALID BEGIN 'timestamp'
+                   | VALID UNTIL 'timestamp'
+                   | RESOURCE POOL 'respool'
+                   | USER GROUP 'groupuser'
+                   | PERM SPACE 'spacelimit'
+                   | TEMP SPACE 'tmpspacelimit'
+                   | SPILL SPACE 'spillspacelimit'
+                   | NODE GROUP logic_cluster_name
+                   | ACCOUNT { LOCK | UNLOCK }
+                   | PGUSER
+                   | PASSWORD EXPIRE INTERVAL 'time' DAY
+[[PDF_PAGE physical=1344 printed=1295]]
+●   修改用户名。
+    ALTER USER user_name
+      RENAME TO new_name;
+
+
+
+
+●   修改与用户关联的指定会话参数值。
+    ALTER USER user_name [ IN DATABASE database_name ]
+      SET configuration_parameter {{ TO | = } { value | DEFAULT }|FROM CURRENT};
+
+
+
+
+●   重置与用户关联的指定会话参数值。
+    ALTER USER user_name
+      [ IN DATABASE database_name ] RESET {configuration_parameter|ALL};
+[[PDF_PAGE physical=1345 printed=1296]]
+参数说明
+       ●    user_name
+            现有用户名。
+            取值范围：已存在的用户名，如果用户名中包含大写字母则需要使用双引号进行
+            声明。
+
+
+                须知
+
+            当前不支持对内部保留对象redisuser进行RENAME TO操作，也不支持将其他用户
+            名进行RENAME TO redisuser操作。
+
+       ●    new_password
+            新密码。
+            取值范围：字符串。
+            密码规则如下：
+            –    不能与当前密码相同。
+            –    密码默认不少于8个字符。
+            –    不能与用户名及用户名倒序相同。
+            –    至少包含大写字母（A~Z）、小写字母（a~z）、数字（0~9）以及非字母数
+                 字字符（限定为~!@#$%^&*()-_=+\|[{}];:,<.>/?）四类字符中的三类字符。当
+                 密码中包含其他字符（不属于上述四种字符范围内）时语句执行会报错。
+            –    用户密码需要使用单引号或双引号进行声明。
+       ●    old_password
+            旧密码。
+       ●    ACCOUNT { LOCK | UNLOCK }
+            –    ACCOUNT LOCK：锁定账户，禁止通过密码认证登录数据库。
+            –    ACCOUNT UNLOCK：解锁账户，允许登录数据库。
+       ●    PGUSER
+            当前版本不允许修改用户的PGUSER属性。
+       ●    其他参数请参见ALTER ROLE章节的参数说明以及CREATE ROLE章节的参数说
+            明。
+
+示例
+       --创建用户jim，登录密码为********。
+       gaussdb=# CREATE USER jim PASSWORD '********';
+
+       --创建数据库。
+       gaussdb=# CREATE DATABASE testdb1;
+
+       --设置角色配置参数configuration_parameter为DEFAULT。
+       gaussdb=# ALTER USER jim IN DATABASE testdb1 SET configuration_parameter = DEFAULT;
+[[PDF_PAGE physical=1346 printed=1297]]
+       --重置角色配置参数。
+       gaussdb=# ALTER USER jim IN DATABASE testdb1 RESET configuration_parameter;
+
+       --修改用户jim的登录密码。
+       gaussdb=# ALTER USER jim IDENTIFIED BY '**********' REPLACE '********';
+
+       --将enable_seqscan的值设置为on， 设置成功后，在下一会话中生效。
+       gaussdb=# ALTER USER jim SET enable_seqscan TO on;
+
+       --重置jim的enable_seqscan参数。
+       gaussdb=# ALTER USER jim RESET enable_seqscan;
+
+       --锁定jim账户。
+       gaussdb=# ALTER USER jim ACCOUNT LOCK;
+
+       --解锁jim账户。
+       gaussdb=# ALTER USER jim ACCOUNT UNLOCK;
+
+       --修改用户名。
+       gaussdb=# ALTER USER jim RENAME TO lisa;
+
+       --删除用户。
+       gaussdb=# DROP USER lisa CASCADE;
+
+       --删除数据库
+       gaussdb=# DROP DATABASE testdb1;
+
+
+
+相关链接
+       CREATE ROLE，CREATE USER，DROP USER

@@ -1,0 +1,189 @@
+[[PDF_PAGE physical=1259 printed=1210]]
+1.13.7.29 ALTER SCHEMA
+
+功能描述
+            修改模式属性。包括：修改模式的名称、所有者以及模式的防篡改属性等。
+
+注意事项
+            ●   只有模式的所有者和被授予了模式ALTER权限的用户，在拥有当前数据库CREATE
+                权限的情况下，才可以执行ALTER SCHEMA命令。三权分立开关关闭时，系统管
+                理员默认拥有此权限。
+            ●   修改模式的所有者，当前用户必须是该模式的所有者或者系统管理员，且该用户
+                是新所有者角色的成员。
+            ●   仅初始用户可以修改除PUBLIC以外的系统模式（如：pg_catalog、sys等）的所有
+                者。修改系统自带模式的名称可能会导致部分功能不可用，甚至影响数据库正常
+                运行，默认情况下不允许修改系统自带模式的名称，出于前向兼容性问题考虑，
+                仅允许当系统在启动或升级过程中或参数allow_system_table_mods为on时可修
+                改系统自带模式的名称。
+            ●   除初始用户外，其他用户无法将模式的所有者修改为运维管理员。
+
+语法格式
+            ●   修改模式的防篡改属性
+                ALTER SCHEMA schema_name { WITH | WITHOUT } BLOCKCHAIN;
+
+
+
+
+            ●   修改模式的名称
+                ALTER SCHEMA schema_name
+                  RENAME TO new_name;
+
+
+
+
+            ●   修改模式的所有者
+                ALTER SCHEMA schema_name
+                  OWNER TO new_owner;
+
+
+
+
+            ●   修改模式的默认字符集和字符序
+                ALTER SCHEMA schema_name
+                  [ [DEFAULT] CHARACTER SET | CHARSET [ = ] default_charset ] [ [DEFAULT] COLLATE [ = ]
+                default_collation ];
+
+
+
+
+参数说明
+            ●   schema_name
+                现有模式的名称。
+                取值范围：已存在的模式名。
+[[PDF_PAGE physical=1260 printed=1211]]
+●   RENAME TO new_name
+    修改模式的名称。new_name表示模式的新名称。
+    取值范围：字符串，要符合标识符命名规范。
+    模式新名称规则如下：
+    –   新名称不能和当前数据库里其他的模式重名。
+    –   新名称不能和当前数据库的初始用户重名。
+    –   请勿使用“pg_”或“gs_role_”开头或“data_redis”命名新名称。
+
+        说明
+
+        如果非系统管理员用户需要修改模式的名称，则该用户必须在此数据库上有CREATE权限。
+●   OWNER TO new_owner
+    修改模式的所有者。new_owner表示模式的新所有者。
+    取值范围：已存在的用户名或角色名。
+
+        说明
+
+        如果非系统管理员用户需要修改模式的所有者，则该用户还必须是新的所有角色的直接或
+        间接成员，并且该成员必须在此数据库上有CREATE权限。
+●   { WITH | WITHOUT } BLOCKCHAIN
+    修改模式的防篡改属性。WITH BLOCKCHAIN表示防篡改模式。
+
+        说明
+
+        ● 修改普通模式为防篡改模式，需设置GUC参数enable_ledger为on，该参数默认值为
+          off，级别为SIGHUP。
+        ● 具有防篡改属性模式下的普通行存表均为防篡改历史表，不包括外表、临时表以及系统
+          表。
+        ● 不支持临时表模式、toast表模式、dbe_perf模式、blockchain模式修改防篡改属性。
+        ● 只有模式中不包含任何表的情况下，才可以修改防篡改属性，或使用该语法在普通模式
+          和防篡改模式中进行中转。
+
+●   default_charset
+    修改模式的默认字符集。
+    取值范围：支持设置的字符集请参见表1-379。
+
+
+
+        须知
+
+    ● 仅在B模式数据库或M-Compatibility模式数据库下（即sql_compatibility = 'B'
+      或sql_compatibility = 'M'）支持该语法。以上行为是在sql_compatibility = 'B'
+      时的表现，sql_compatibility = 'M'的行为请参见ALTER SCHEMA的内容。
+    ● 未指定默认字符序时，模式的默认字符序为指定的字符集的默认字符序。
+
+●   default_collate
+    修改模式的默认字符序。
+    取值范围：支持设置的字符序请参见表1-379。
+[[PDF_PAGE physical=1261 printed=1212]]
+             须知
+
+         ● 仅在B模式数据库或M-Compatibility模式数据库下（即sql_compatibility = 'B'
+           或sql_compatibility = 'M'）支持该语法。以上行为是在sql_compatibility = 'B'
+           时的表现，sql_compatibility = 'M'的行为请参见ALTER SCHEMA章节的内
+           容。
+         ● 未指定默认字符集时，模式的默认字符集为指定的字符序对应的字符集。
+
+
+示例
+     ●   修改模式的防篡改属性
+         修改普通模式为防篡改模式，需设置GUC参数enable_ledger，用于控制是否启用
+         账本数据库功能。参数使用请联系管理员处理。
+         --创建模式test_schema1。
+         gaussdb=# CREATE SCHEMA test_schema1;
+
+         --修改模式test_schema1为防篡改模式。
+         gaussdb=# ALTER SCHEMA test_schema1 WITH BLOCKCHAIN;
+
+         --查询模式信息，防篡改属性为true。
+         gaussdb=# \dn+ test_schema1
+                               List of schemas
+             Name       | Owner | Access privileges | Description | WithBlockChain
+         --------------+-------+-------------------+-------------+----------------
+          test_schema1 | omm |                     |         |t
+         (1 row)
+
+     ●   修改模式名称
+         --将模式test_schema1重命名为test_sch1。
+         gaussdb=# ALTER SCHEMA test_schema1 RENAME TO test_sch1;
+
+         --查询模式信息。
+         gaussdb=# \dn+ test*
+                              List of schemas
+           Name | Owner | Access privileges | Description | WithBlockChain
+         -----------+-------+-------------------+-------------+----------------
+          test_sch1 | omm |                   |         |t
+         (1 row)
+
+     ●   修改模式所有者
+         --创建用户test_user。
+         gaussdb=# CREATE ROLE test_user PASSWORD '********';
+
+         --将模式test_sch1的所有者修改为test_user。
+         gaussdb=# ALTER SCHEMA test_sch1 OWNER TO test_user;
+
+         --查询模式信息。
+         gaussdb=# \dn+ test_sch1;
+                                List of schemas
+           Name | Owner | Access privileges | Description | WithBlockChain
+         -----------+-----------+-------------------+-------------+----------------
+          test_sch1 | test_user |               |          |t
+         (1 row)
+
+         --删除新建的模式。
+         gaussdb=# DROP SCHEMA test_sch1;
+         gaussdb=# DROP ROLE test_user;
+
+     ●   修改默认字符集和字符序
+[[PDF_PAGE physical=1262 printed=1213]]
+             须知
+
+          除binary字符集和字符序外，当前仅支持指定与数据库编码相同的字符集。
+
+          --创建并切换至测试数据库。
+          gaussdb=# CREATE DATABASE test1 WITH DBCOMPATIBILITY = 'B' ENCODING = 'UTF8' LC_COLLATE
+          = 'zh_CN.utf8' LC_CTYPE = 'zh_CN.utf8';
+
+          gaussdb=# \c test1
+
+          --创建模式test_sch2。
+          test1=# CREATE SCHEMA test_sch2;
+
+          --修改其默认字符集为utf8mb4，默认字符序修改为utf8mb4_bin。
+          test1=# ALTER SCHEMA test_sch2 CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
+
+          --删除新建的模式。
+          test1=# DROP SCHEMA test_sch2;
+
+          --切换至默认数据库（根据实际情况修改数据库名），并删除新建的数据库。
+          test1=# \c postgres
+          gaussdb=# DROP DATABASE test1;
+
+
+
+相关链接
+       CREATE SCHEMA，DROP SCHEMA

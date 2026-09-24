@@ -1,0 +1,227 @@
+[[PDF_PAGE physical=1629 printed=1580]]
+1.13.9.58 CREATE USER
+
+功能描述
+            创建一个带有指定密码的新用户。
+[[PDF_PAGE physical=1630 printed=1581]]
+       用户是GaussDB数据库认证的基本元素，可以通过正确的用户名和密码登录GaussDB
+       数据库，并对不同的用户授予不同的权限，以便不同的用户进行不同的操作。
+
+
+注意事项
+       ●    通过CREATE USER创建的用户，默认具有LOGIN权限。
+       ●    通过CREATE USER创建用户的同时，系统会在执行该命令的数据库中，为该用户
+            创建一个同名的SCHEMA。
+       ●    系统管理员在普通用户同名SCHEMA下创建的对象，所有者为SCHEMA的同名用
+            户（非系统管理员）。
+
+
+语法格式
+       CREATE USER user_name [ [ WITH ] option [ ... ] ] [ ENCRYPTED | UNENCRYPTED ] { PASSWORD |
+       IDENTIFIED BY } { 'password' [EXPIRED] | DISABLE }[ PASSWORD EXPIRE INTERVAL 'time' DAY ];
+
+
+
+
+       其中option子句用于设置权限及属性等信息。
+       {SYSADMIN | NOSYSADMIN}
+          | {MONADMIN | NOMONADMIN}
+          | {OPRADMIN | NOOPRADMIN}
+          | {POLADMIN | NOPOLADMIN}
+          | {AUDITADMIN | NOAUDITADMIN}
+          | {CREATEDB | NOCREATEDB}
+          | {USEFT | NOUSEFT}
+          | {CREATEROLE | NOCREATEROLE}
+          | {INHERIT | NOINHERIT}
+          | {LOGIN | NOLOGIN}
+          | {REPLICATION | NOREPLICATION}
+          | {PERSISTENCE | NOPERSISTENCE}
+          | CONNECTION LIMIT connlimit
+          | VALID BEGIN 'timestamp'
+          | VALID UNTIL 'timestamp'
+          | RESOURCE POOL 'respool'
+          | USER GROUP 'groupuser'
+          | PERM SPACE 'spacelimit'
+          | TEMP SPACE 'tmpspacelimit'
+          | SPILL SPACE 'spillspacelimit'
+          | NODE GROUP logic_cluster_name
+          | IN ROLE role_name [, ...]
+          | IN GROUP role_name [, ...]
+          | ROLE role_name [, ...]
+          | ADMIN role_name [, ...]
+          | USER role_name [, ...]
+          | SYSID uid
+          | DEFAULT TABLESPACE tablespace_name
+          | PROFILE DEFAULT
+          | PROFILE profile_name
+          | PGUSER
+[[PDF_PAGE physical=1632 printed=1583]]
+参数说明
+       ●    user_name
+            user_name为要创建的用户名称。
+            取值范围：字符串，要符合标识符命名规范，且最大长度不超过63个字符。若超
+            过63个字符，数据库会截断并保留前63个字符当作用户名称。当用户名称中包含
+            大写字母时数据库会自动转换为小写字母，如果需要创建包含大写字母的用户名
+            称则需要使用双引号括起来。
+                   说明
+
+                  ● 标识符需要为小写字母（a~z）、大写字母（A~Z）、下划线（_）、数字（0~9）或美
+                    元符号（$），且必须以字母或下划线开头。
+                  ● redisuser为内部保留对象，当前不支持创建user_name为redisuser用户。
+       ●    password
+            登录密码。
+            密码规则如下：
+            –     密码默认不少于8个字符。
+            –     不能与用户名及用户名倒序相同。
+            –     至少包含大写字母（A~Z）、小写字母（a~z）、数字（0~9）和非字母数字
+                  字符（限定为~!@#$%^&*()-_=+\|[{}];:,<.>/?）四类字符中的三类字符。
+            –     密码也可以是符合格式要求的密文字符串，这种情况主要用于用户数据导入
+                  场景，不推荐用户直接使用。如果直接使用密文密码，用户需要知道密文密
+                  码对应的明文，并且保证明文密码复杂度，数据库不会校验密文密码复杂
+                  度，直接使用密文密码的安全性由用户保证。
+            –     创建用户时，应当使用单引号或双引号将用户密码进行包裹。
+            取值范围：字符串。
+       ●    其他参数值请参见CREATE ROLE。
+
+示例
+       --创建用户jim，登录密码为********。
+       gaussdb=# CREATE USER jim PASSWORD '********';
+
+       --创建用户kim，登录密码为********。
+       gaussdb=# CREATE USER kim IDENTIFIED BY '********';
+
+       --创建用户tom,登录密码为********。
+       gaussdb=# CREATE USER TOM PASSWORD '**********';
+
+       --创建用户TOM，登录密码为********。
+       gaussdb=# CREATE USER "TOM" PASSWORD '**********';
+
+       --如果需要创建具有“创建数据库”权限的用户，则需要加CREATEDB关键字。
+       gaussdb=# CREATE USER dim CREATEDB PASSWORD '********';
+
+       --查看用户dim的权限。
+       gaussdb=# \du dim
+                List of roles
+        Role name | Attributes | Member of
+       -----------+------------+-----------
+        dim       | Create DB | {}
+       （可以看到用户dim具有CREATEDB的权限）
+
+       --修改用户jim的登录密码。
+       gaussdb=# ALTER USER jim IDENTIFIED BY '**********' REPLACE '********';
+[[PDF_PAGE physical=1633 printed=1584]]
+--为用户jim追加CREATEROLE权限。
+gaussdb=# ALTER USER jim CREATEROLE;
+
+--查看用户jim追加的CREATEROLE权限。
+gaussdb=# \du jim
+          List of roles
+ Role name | Attributes | Member of
+-----------+-------------+-----------
+ jim      | Create role | {}
+
+--将enable_seqscan的值设置为on， 设置成功后，在下一会话中生效。
+gaussdb=# ALTER USER jim SET enable_seqscan TO on;
+
+--重置jim的enable_seqscan参数。
+gaussdb=# ALTER USER jim RESET enable_seqscan;
+
+--锁定jim账户。
+gaussdb=# ALTER USER jim ACCOUNT LOCK;
+
+--解锁jim账户。
+gaussdb=# ALTER USER jim ACCOUNT UNLOCK;
+
+--修改用户密码。
+gaussdb=# ALTER USER dim WITH PASSWORD '********';
+
+--修改用户名。
+gaussdb=# ALTER USER dim RENAME TO lisa;
+
+--创建具有OPRADMIN权限的用户user1和具有SYSADMIN权限的用户user2。
+gaussdb=# CREATE USER user1 WITH OPRADMIN PASSWORD '********';
+gaussdb=# CREATE USER user2 WITH SYSADMIN PASSWORD '********';
+
+--查看权限。
+gaussdb=# \du user1
+               List of roles
+ Role name |         Attributes          | Member of
+-----------+-----------------------------+-----------
+ user1     |      Operatoradmin           | {}
+
+gaussdb=# \du user2
+             List of roles
+ Role name |        Attributes       | Member of
+-----------+------------------------+-----------
+ user2     |     Sysadmin          | {}
+
+--创建具有CREATEDB权限的角色user3。
+gaussdb=# CREATE USER user3 CREATEDB PASSWORD '********';
+CREATE ROLE
+
+--查看权限。
+gaussdb=# \du user3
+              List of roles
+ Role name |        Attributes        | Member of
+-----------+-------------------------+-----------
+ user3     |     Create DB          | {}
+
+--使用ADMIN子句创建新角色user4。
+gaussdb=# CREATE USER user4 WITH CREATEDB ADMIN user3 PASSWORD '********';
+CREATE ROLE
+--查看权限。
+gaussdb=# \du user3
+              List of roles
+ Role name |        Attributes        | Member of
+-----------+-------------------------+-----------
+ user3     |     Create DB          | {user4}
+
+gaussdb=# \du user4
+            List of roles
+ Role name |      Attributes        | Member of
+[[PDF_PAGE physical=1634 printed=1585]]
+       -----------+-------------------------+-----------
+        user4     |     Create DB          | {}
+
+       --删除角色。
+       gaussdb=# DROP USER user1;
+       gaussdb=# DROP USER user2;
+       gaussdb=# DROP USER user3;
+       gaussdb=# DROP USER user4;
+
+       --三权分立配置：设置参数enableSeparationOfDuty为on，则会开启三权分立配置，限制系统管理员的权限。不
+       允许系统管理员创建或更改用户配置，这样可以有效控制系统管理员访问用户私有数据。
+
+       --查看三权分立是否打开。
+       gaussdb=# SHOW enableSeparationOfDuty;
+        enableSeparationOfDuty
+       ------------------------
+        off
+       (1 row)
+       --执行以下语句修改参数。
+       gs_guc set -Z coordinator -Z datanode -N all -I all -c "enableSeparationOfDuty = on"
+
+       --设置成功后，重启数据库生效。
+       gs_om -t stop
+       gs_om -t start
+
+       --再次查看三权分立。
+       gaussdb=# SHOW enableSeparationOfDuty;
+        enableSeparationOfDuty
+       ------------------------
+        on
+       (1 row)
+
+       --删除用户。
+       gaussdb=# DROP USER kim CASCADE;
+       gaussdb=# DROP USER jim CASCADE;
+       gaussdb=# DROP USER lisa CASCADE;
+       gaussdb=# DROP USER TOM CASCADE;
+       gaussdb=# DROP USER "TOM" CASCADE;
+
+       --设置用户密码有效期。
+       gaussdb=# CREATE USER user1 PASSWORD '********' PASSWORD EXPIRE INTERVAL 10 DAY;
+
+
+相关链接
+       ALTER USER，CREATE ROLE，DROP USER

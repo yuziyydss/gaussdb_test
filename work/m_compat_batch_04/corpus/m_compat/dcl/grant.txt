@@ -1,0 +1,363 @@
+[[PDF_PAGE physical=2211 printed=2162]]
+2.4.2.11.2 GRANT
+
+功能描述
+             对角色和用户进行授权操作。
+             使用GRANT命令进行用户授权包括以下场景：
+[[PDF_PAGE physical=2212 printed=2163]]
+●   将系统权限授权给角色或用户
+    系统权限又称为用户属性，包括SYSADMIN、CREATEDB、CREATEROLE、
+    AUDITADMIN、MONADMIN、OPRADMIN、POLADMIN、INHERIT、
+    REPLICATION和LOGIN等。
+    系统权限一般通过CREATE/ALTER ROLE语法来指定。其中，SYSADMIN权限可以
+    通过GRANT/REVOKE ALL PRIVILEGES授予或撤销。但系统权限无法通过ROLE和
+    USER的权限被继承，也无法授予PUBLIC。
+●   将数据库对象授权给角色或用户
+    将数据库对象（表、视图、指定字段、数据库、模式、表空间等）的相关权限授
+    予特定角色或用户。
+    GRANT命令将数据库对象的特定权限授予一个或多个角色，这些权限会追加到已
+    有的权限上。
+    关键字PUBLIC表示该权限要赋予所有角色，包括以后创建的用户。PUBLIC可以看
+    做是一个隐含定义好的组，它总是包括所有角色。任何角色或用户都将拥有通过
+    GRANT直接赋予的权限和所属的权限，再加上PUBLIC的权限。
+    如果声明了WITH GRANT OPTION，则被授权的用户也可以将此权限赋予他人，
+    否则就不能授权给他人。这个选项不能赋予PUBLIC，这是M-Compatibility特有的
+    属性。
+    M-Compatibility会将某些类型的对象上的权限授予PUBLIC。默认情况下，对表、
+    表字段、序列、外部服务器、模式或表空间对象的权限不会授予PUBLIC，而以下
+    这些对象的权限会授予PUBLIC：数据库的CONNECT权限和CREATE TEMP TABLE
+    权限、语言和数据类型（包括域）的USAGE特权。对象拥有者可以撤销默认授予
+    PUBLIC的权限并专门授予权限给其他用户。为了更安全，建议在同一个事务中创
+    建对象并设置权限，这样其他用户就没有时间窗口使用该对象。另外可参考《安
+    全加固指南》的权限控制章节，对PUBLIC用户组的权限进行限制。
+    对象的所有者缺省具有该对象上的所有权限，出于安全考虑所有者可以舍弃部分
+    权限，但ALTER、DROP、COMMENT、INDEX、VACUUM以及对象的可再授予权
+    限属于所有者固有的权限，隐式拥有。
+●   将角色或用户的权限授权给其他角色或用户
+    将一个角色或用户的权限授予一个或多个其他角色或用户。在这种情况下，每个
+    角色或用户都可视为拥有一个或多个数据库权限的集合。
+    当声明了WITH ADMIN OPTION，被授权的用户可以将该权限再次授予其他角色
+    或用户，以及撤销所有由该角色或用户继承到的权限。当授权的角色或用户发生
+    变更或被撤销时，所有继承该角色或用户权限的用户拥有的权限都会随之发生变
+    更。
+    三权分立关闭时，系统管理员可以赋予或者撤销任何非永久用户和运维管理员角
+    色的权限，安全管理员可以赋予或者撤销任何非系统管理员、内置角色、永久用
+    户和运维管理员角色的权限。
+●   将ANY权限授予给角色或用户
+    将ANY权限授予特定的角色和用户，ANY权限的取值范围参见语法格式。当声明
+    了WITH ADMIN OPTION，被授权的用户可以将该ANY权限再次授予其他角色/用
+    户，或从其他角色/用户处回收该ANY权限。ANY权限可以通过角色被继承，但不
+    能赋予PUBLIC。初始用户和三权分立关闭时的系统管理员用户可以给任何角色/用
+    户授予或撤销ANY权限。
+    目前支持以下ANY权限：CREATE ANY TABLE、ALTER ANY TABLE、DROP ANY
+    TABLE、SELECT ANY TABLE、INSERT ANY TABLE、UPDATE ANY TABLE、
+    DELETE ANY TABLE、TRUNCATE ANY TABLE、CREATE ANY SEQUENCE、
+    ALTER ANY SEQUENCE、DROP ANY SEQUENCE、SELECT ANY SEQUENCE、
+[[PDF_PAGE physical=2213 printed=2164]]
+           ALTER ANY INDEX、DROP ANY INDEX。详细的ANY权限范围描述如表2-26所
+           示。
+
+
+注意事项
+       ●   不允许将ANY权限授予PUBLIC，也不允许从PUBLIC回收ANY权限。
+       ●   ANY权限属于数据库内的权限，只对授予该权限的数据库内的对象有效，例如
+           SELECT ANY TABLE只允许用户查看当前数据库内的所有用户表数据，对其他数据
+           库内的用户表无查看权限。
+       ●   ANY权限与原有的权限相互无影响。
+       ●   如果用户被授予了CREATE ANY TABLE权限，在同名模式下创建表的属主是该模
+           式的所有者，用户对表进行其他操作时，需要授予相应的操作权限。与此类似的
+           还有CREATE ANY SEQUENCE和CREATE ANY INDEX，在同名模式下创建的对象
+           的所有者是同名模式的所有者。
+       ●   通过GRANT授予用户使用表的权限时，如果用户使用不当，可能会通过ALTER语
+           法在表的默认值、约束增加表达式、通过创建索引在索引上增加表达式等操作导
+           致权限被利用的风险。
+
+
+语法格式
+       ●   将表或视图的访问权限赋予指定的用户或角色。
+           GRANT { { SELECT | INSERT | UPDATE | DELETE | TRUNCATE | REFERENCES | ALTER | DROP |
+           COMMENT | INDEX | VACUUM } [, ...]
+               | ALL [ PRIVILEGES ] }
+             ON { [ TABLE ] table_name [, ...]
+                | ALL TABLES IN SCHEMA schema_name [, ...] }
+             TO { [ GROUP ] role_name | PUBLIC } [, ...]
+             [ WITH GRANT OPTION ];
+
+                 说明
+
+               用户如果想要对某张表进行某种操作，除了拥有对该表的操作权限外，还需要拥有表所在
+               模式的USAGE权限。除此之外，如果想要在表上创建索引，则必须拥有模式的CREATE权
+               限和表上的INDEX权限。
+       ●   将表中字段的访问权限赋予指定的用户或角色。
+           GRANT { {{ SELECT | INSERT | UPDATE | REFERENCES | COMMENT } ( column_name [, ...] )} [, ...]
+               | ALL [ PRIVILEGES ] ( column_name [, ...] ) }
+             ON [ TABLE ] table_name [, ...]
+             TO { [ GROUP ] role_name | PUBLIC } [, ...]
+             [ WITH GRANT OPTION ];
+
+                 说明
+
+               如果拥有表的访问权限，则默认拥有表中所有字段的访问权限。如果要仅赋予表中某个字
+               段的访问权限，需要先撤销所属表的访问权限。
+       ●   将序列的访问权限赋予指定的用户或角色。
+           GRANT { { SELECT | UPDATE | USAGE | ALTER | DROP | COMMENT } [, ...]
+               | ALL [ PRIVILEGES ] }
+             ON { [ SEQUENCE ] sequence_name [, ...] }
+             TO { [ GROUP ] role_name | PUBLIC } [, ...]
+             [ WITH GRANT OPTION ];
+
+       ●   将数据库的访问权限赋予指定的用户或角色。
+           GRANT { { CREATE | CONNECT | TEMPORARY | TEMP | ALTER | DROP | COMMENT } [, ...]
+               | ALL [ PRIVILEGES ] }
+             ON DATABASE database_name [, ...]
+             TO { [ GROUP ] role_name | PUBLIC } [, ...]
+             [ WITH GRANT OPTION ];
+[[PDF_PAGE physical=2214 printed=2165]]
+                 说明
+
+               GUC参数m_format_behavior_compat_options开启grant_database_nomapping选项时该
+               语法生效，将数据库的访问权限赋予指定的用户或角色；未开启
+               grant_database_nomapping选项时，GRANT ON DATABASE映射为GRANT ON
+               SCHEMA，将模式的访问权限赋予指定的用户或角色，GRANT ON DATABASE也仅支持
+               GRANT ON SCHEMA支持的语法选项。
+       ●   将模式的访问权限赋予指定的用户或角色。
+           GRANT { { CREATE | USAGE | ALTER | DROP | COMMENT } [, ...] | ALL [ PRIVILEGES ] }
+             ON SCHEMA schema_name [, ...]
+             TO { [ GROUP ] role_name | PUBLIC } [, ...]
+             [ WITH GRANT OPTION ];
+
+                 说明
+
+               将模式中的表或者视图对象授权给其他用户时，需要将表或视图所属的模式的USAGE权限
+               同时授予该用户，若没有该权限，则只能看到这些对象的名称，并不能实际进行对象访
+               问。 同名模式下创建表的权限无法通过此语法赋予，可以通过将角色的权限赋予其他用户
+               或角色的语法，赋予同名模式下创建表的权限。
+       ●   将角色的权限赋予其他用户或角色的语法。
+           GRANT role_name [, ...]
+            TO role_name [, ...]
+            [ WITH ADMIN OPTION ];
+
+                 说明
+
+               通过GRANT role1 to role2的方式将角色role1授权给role2时，role2不会继承role1的系统
+               权限，但由于role2拥有了role1的所有对象权限，role1的系统权限存在被利用的风险。谨
+               慎将拥有系统权限的角色授权其他用户或角色。
+       ●   将SYSADMIN权限赋予指定的角色。
+           GRANT ALL PRIVILEGES
+            TO role_name;
+
+       ●   将ANY权限赋予其他用户或角色的语法。
+           GRANT { CREATE ANY TABLE | ALTER ANY TABLE | DROP ANY TABLE | SELECT ANY TABLE | INSERT
+           ANY TABLE | UPDATE ANY TABLE |
+            DELETE ANY TABLE | TRUNCATE ANY TABLE | CREATE ANY SEQUENCE | CREATE ANY INDEX |
+           ALTER ANY SEQUENCE | DROP ANY SEQUENCE |
+            SELECT ANY SEQUENCE | ALTER ANY INDEX | DROP ANY INDEX | } [, ...]
+            TO [ GROUP ] role_name [, ...]
+            [ WITH ADMIN OPTION ];
+
+
+参数说明
+       GRANT的权限分类如下所示。
+
+       ●   SELECT
+           允许对指定的表、视图、序列执行SELECT命令，update或delete时也需要对应字
+           段上的select权限。
+       ●   INSERT
+           允许对指定的表执行INSERT命令。
+       ●   UPDATE
+           允许对声明的表中任意字段执行UPDATE命令。通常，update命令也需要select权
+           限来查询出哪些行需要更新。SELECT… FOR UPDATE和SELECT… FOR SHARE除
+           了需要SELECT权限外，还需要UPDATE权限。
+       ●   DELETE
+[[PDF_PAGE physical=2215 printed=2166]]
+    允许执行DELETE命令删除指定表中的数据。通常，delete命令也需要select权限
+    来查询出哪些行需要删除。
+●   TRUNCATE
+    允许执行TRUNCATE语句删除指定表中的所有记录。
+●   REFERENCES
+    创建一个外键约束，必须拥有参考表和被参考表的REFERENCES权限。
+●   CREATE
+    –   对于模式，允许在模式中创建新的对象。如果要重命名一个对象，用户除了
+        必须是该对象的所有者外，还必须拥有该对象所在模式的CREATE权限。
+    –   对于表空间，允许在表空间中创建表，允许在创建数据库和模式的时候把该
+        表空间指定为缺省表空间。
+●   USAGE
+    –   对于模式，USAGE允许访问包含在指定模式中的对象，若没有该权限，则只
+        能看到这些对象的名称。
+    –   对于序列，USAGE允许使用nextval函数。
+●   ALTER
+    允许用户修改指定对象的属性，但不包括修改对象的所有者和修改对象所在的模
+    式。
+●   DROP
+    允许用户删除指定的对象。
+●   COMMENT
+    允许用户定义或修改指定对象的注释。
+●   INDEX
+    允许用户在指定表上创建索引，并管理指定表上的索引，还允许用户对指定表执
+    行REINDEX操作。
+●   VACUUM
+    允许用户对指定的表执行ANALYZE和VACUUM操作。
+●   ALL PRIVILEGES
+    一次性给指定用户/角色赋予所有可赋予的权限。只有系统管理员有权执行GRANT
+    ALL PRIVILEGES。
+GRANT的参数说明如下所示：
+
+●   role_name
+    已存在用户名称。
+●   table_name
+    已存在表名称。
+●   column_name
+    已存在字段名称。
+●   schema_name
+    已存在模式名称。
+●   sequence_name
+    已存在序列名称。
+[[PDF_PAGE physical=2216 printed=2167]]
+●   type_name
+    已存在类型名称。
+●   WITH GRANT OPTION
+    如果声明了WITH GRANT OPTION，则被授权的用户也可以将此权限赋予他人，
+    否则就不能授权给他人。这个选项不能赋予PUBLIC。
+
+非对象所有者给其他用户授予对象权限时，命令按照以下规则执行：
+
+●   如果用户没有该对象上指定的权限，命令立即失败。
+●   如果用户有该对象上的部分权限，则GRANT命令只授予他有授权选项的权限。
+●   如果用户没有可用的授权选项，GRANT ALL PRIVILEGES形式将发出一个警告信
+    息，其他命令形式将发出在命令中提到的且没有授权选项的相关警告信息。
+
+    说明
+
+    三权分立关闭时的数据库系统管理员可以访问所有对象，而不会受对象的权限设置影响。这个特
+    点类似Unix系统的root的权限。和root一样，除了必要的情况外，建议不要总是以系统管理员身
+    份进行操作。
+
+●   WITH ADMIN OPTION
+    对于角色，当声明了WITH ADMIN OPTION，被授权的用户可以将该角色再授予
+    其他角色/用户，或从其他角色/用户回收该角色。
+    对于ANY权限，当声明了WITH ADMIN OPTION，被授权的用户可以将该ANY权
+    限再授予其他角色/用户，或从其他角色/用户回收该ANY权限。
+
+
+表 2-26 ANY 权限列表
+
+系统权限名称          描述
+
+CREATE ANY      用户能够在public模式和用户模式下创建表或视图。
+TABLE
+
+ALTER ANY       用户拥有对public模式和用户模式下表或视图的ALTER权限。如
+TABLE           果想要修改表的唯一索引为表增加主键约束或唯一约束，还需要
+                授予该表的索引权限。
+
+DROP ANY        用户拥有对public模式和用户模式下表或视图的DROP权限。
+TABLE
+
+SELECT ANY      用户拥有对public模式和用户模式下表或视图的SELECT权限。
+TABLE
+
+TRUNCATE ANY    用户拥有对public模式和用户模式下表或视图的TRUNCATE权
+TABLE           限。
+
+UPDATE ANY      用户拥有对public模式和用户模式下表或视图的UPDATE权限。
+TABLE
+
+INSERT ANY      用户拥有对public模式和用户模式下表或视图的INSERT权限。
+TABLE
+
+DELETE ANY      用户拥有对public模式和用户模式下表或视图的DELETE权限。
+TABLE
+[[PDF_PAGE physical=2217 printed=2168]]
+      系统权限名称                描述
+
+      CREATE ANY            用户能够在public模式和用户模式下创建序列。
+      SEQUENCE
+
+      CREATE ANY            用户能够在public模式和用户模式下创建索引。如果在某表空间
+      INDEX                 创建分区表索引，需要授予用户该表空间的创建权限。
+
+      ALTER ANY             用户拥有对public模式和用户模式下序列的ALTER权限，但不包
+      SEQUENCE              括修改序列的所有者。
+
+      DROP ANY              用户拥有对public模式和用户模式下序列的DROP权限。
+      SEQUENCE
+
+      SELECT ANY            用户拥有对public模式和用户模式下序列的SELECT、USAGE和
+      SEQUENCE              UPDATE权限。
+
+      ALTER ANY             用户拥有对public模式和用户模式下索引的ALTER权限。如果要
+      INDEX                 重命名索引，还需要索引所在模式下创建对象的权限。如果涉及
+                            表空间的操作，还需要对应表空间的相应操作权限。如果设置索
+                            引不可用（UNUSABLE），还需要DROP ANY INDEX权限。
+
+      DROP ANY              用户拥有对public模式和用户模式下索引的DROP权限。
+      INDEX
+
+
+
+
+           说明
+
+          用户被授予任何一种ANY权限后，用户对public模式和用户模式具有USAGE权限，对GaussDB支
+          持的Schema中除public之外的系统模式没有USAGE权限，GaussDB支持的Schema具体请参见
+          Schema章节。
+
+
+示例
+     示例1：将系统权限授权给用户或者角色。
+
+     创建名为joe的用户，并将sysadmin权限授权给他。
+     m_db=# CREATE USER joe PASSWORD '********';
+     m_db=# GRANT ALL PRIVILEGES TO joe;
+
+     授权成功后，用户joe会拥有sysadmin的所有权限。
+
+     示例2：将对象权限授权给用户或者角色。
+
+     1.   撤销joe用户的sysadmin权限，然后将模式tpcds的使用权限和表tpcds.reason的所
+          有权限授权给用户joe。
+          m_db=# CREATE SCHEMA tpcds;
+          CREATE SCHEMA
+          m_db=# CREATE TABLE tpcds.reason
+          (
+          r_reason_sk   INTEGER      NOT NULL,
+          r_reason_id   CHAR(16)     NOT NULL,
+          r_reason_desc  VARCHAR(20)
+          );
+          CREATE TABLE
+          m_db=# REVOKE ALL PRIVILEGES FROM joe;
+          m_db=# GRANT USAGE ON SCHEMA tpcds TO joe;
+          m_db=# GRANT ALL PRIVILEGES ON tpcds.reason TO joe;
+[[PDF_PAGE physical=2218 printed=2169]]
+            授权成功后，joe用户就拥有了tpcds.reason表的所有权限，包括增删改查等权
+            限。
+       2.   将tpcds.reason表中r_reason_sk、r_reason_id、r_reason_desc列的查询权限，
+            r_reason_desc的更新权限授权给joe。
+            m_db=# GRANT SELECT (r_reason_sk,r_reason_id,r_reason_desc),UPDATE (r_reason_desc) ON
+            tpcds.reason TO joe;
+            授权成功后，用户joe对tpcds.reason表中r_reason_sk，r_reason_id,
+            r_reason_desc的查询权限会立即生效。如果joe用户需要拥有将这些权限授权给其
+            他用户的权限，可以通过以下语法对joe用户进行授权。
+            m_db=# GRANT SELECT (r_reason_sk, r_reason_id) ON tpcds.reason TO joe WITH GRANT OPTION;
+            创建角色tpcds_manager，将模式tpcds的访问权限授权给角色tpcds_manager，
+            并授予该角色在tpcds下创建对象的权限，不允许该角色中的用户将权限授权给其
+            他人。
+            m_db=# CREATE ROLE tpcds_manager PASSWORD '********';
+            m_db=# GRANT USAGE,CREATE ON SCHEMA tpcds TO tpcds_manager;
+
+       示例3：将用户或者角色的权限授权给其他用户或角色。
+       1.   创建角色manager，将joe的权限授权给manager，并允许该角色将权限授权给其
+            他人。
+            m_db=# CREATE ROLE manager PASSWORD '********';
+            m_db=# GRANT joe TO manager WITH ADMIN OPTION;
+       2.   创建用户senior_manager，将用户manager的权限授权给该用户。
+            m_db=# CREATE ROLE senior_manager PASSWORD '********';
+            m_db=# GRANT manager TO senior_manager;
+       3.   撤销权限，并清理用户。
+            m_db=# REVOKE joe FROM manager;
+            m_db=# REVOKE manager FROM senior_manager;
+            m_db=# DROP USER manager;
+
+
+相关链接
+       REVOKE

@@ -1,0 +1,84 @@
+[[PDF_PAGE physical=1240 printed=1191]]
+1.13.7.22 ALTER PACKAGE
+
+功能描述
+            修改包（PACKAGE）的属性或重编译包（PACKAGE）。
+
+注意事项
+            ●   目前仅支持ALTER PACKAGE OWNER功能，系统管理员默认拥有该权限，存在以
+                下权限约束：当前用户必须是该PACKAGE的所有者或者系统管理员，且该用户是
+                新所有者角色的成员。
+[[PDF_PAGE physical=1241 printed=1192]]
+       ●   当打开三权分立时，即使是系统管理员，也必须拥有用户组权限才能修改
+           PACKAGE的所有者，DEFINER类型PACKAGE不允许修改所有者。
+       ●   只有初始化用户才能修改PACKAGE的所有者为初始化用户。
+       ●   当关闭三权分立时，仅系统管理员以上权限可以修改PACKAGE所有者。
+       ●   不允许系统管理员将DEFINER类型的PACKAGE的所有者改为初始用户或运维管理
+           员。
+
+语法格式
+       ●   修改PACKAGE的所有者。
+           ALTER PACKAGE package_name OWNER TO new_owner;
+
+
+
+
+       ●   重编译PACKAGE
+           ALTER PACKAGE package_name COMPILE [PACKAGE | BODY | SPECIFICATION];
+
+
+
+
+参数说明
+       ●   package_name
+           要修改的PACKAGE名称。
+           取值范围：已存在的PACKAGE名，仅支持修改单个PACKAGE名称。
+       ●   new_owner
+           PACKAGE的新所有者。要修改PACKAGE的所有者，新所有者必须拥有该
+           PACKAGE所属模式的CREATE权限。
+           取值范围：已存在的用户角色。
+
+示例
+       ●   修改PACKAGE的所有者。
+           --创建PACKAGE。
+           gaussdb=# CREATE OR REPLACE PACKAGE test_pkg AS
+             pkg_var int := 1;
+             PROCEDURE test_pkg_proc(var int);
+           END test_pkg;
+           /
+           gaussdb=# CREATE OR REPLACE PACKAGE BODY test_pkg AS
+             PROCEDURE test_pkg_proc(var int) AS
+             BEGIN
+                pkg_var := 1;
+             END;
+           END test_pkg;
+           /
+
+           --创建用户。
+           gaussdb=# CREATE ROLE test PASSWORD '********';
+
+           --修改包的所有者。
+           gaussdb=# ALTER PACKAGE test_pkg OWNER TO test;
+
+           --查询test_pkg的所有者。
+           gaussdb=# SELECT t1.pkgname,t2.rolname FROM gs_package t1, gs_roles t2 WHERE t1.pkgname =
+[[PDF_PAGE physical=1242 printed=1193]]
+           'test_pkg' AND t1.pkgowner = t2.oid;
+            pkgname | rolname
+           ----------+---------
+            test_pkg | test
+           (1 row)
+
+       ●   重编译包。
+           --重编译包。
+           gaussdb=# ALTER PACKAGE test_pkg COMPILE;
+
+           --删除。
+           gaussdb=# DROP PACKAGE test_pkg;
+           gaussdb=# DROP ROLE test;
+           --关闭依赖功能。
+           gaussdb=# RESET behavior_compat_options;
+
+
+相关链接
+       CREATE PACKAGE，DROP PACKAGE

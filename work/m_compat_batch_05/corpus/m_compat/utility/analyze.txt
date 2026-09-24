@@ -1,0 +1,231 @@
+[[PDF_PAGE physical=2065 printed=2016]]
+2.4.2.6.17 ANALYZE
+
+功能描述
+             用于收集与数据库中普通表内容相关的统计信息，统计结果存储在系统表
+             pg_statistic、pg_statistic_ext下，执行ANALYZE命令后，可在上述系统表中查询收集
+             到的统计信息，也可以通过系统视图pg_stats、pg_ext_stats查询信息。执行计划生成
+             器会使用这些统计数据，以确定最有效的执行计划。
+
+             如果没有指定参数，ANALYZE会分析当前数据库中的每个表和分区表。同时也可以通
+             过指定table_name、column_name和partition_name参数把分析限定在特定的表、列
+             或分区表中。
+
+             ANALYZE VERIFY用于校验数据库目标表相关文件，具体支持校验类型见下表。
+[[PDF_PAGE physical=2066 printed=2017]]
+       页面类型\校验类型         页面物理损坏            页面逻辑校验           元组校验
+
+       UHEAP             支持                支持               COMPLETE模式支
+                                                            持
+
+       HEAP              支持                -                COMPLETE模式支
+                                                            持
+
+       FSM               支持                -                -
+
+       VM                -                 -                -
+
+       UBTREE            支持                支持               -
+
+       UBTREE.FSM(URQ    支持                支持               -
+       )
+
+       BTREE             支持                -                -
+
+       BTREE.FSM         支持                -                -
+
+
+
+
+       ANALYZE VERIFY执行完成所需时间与当前操作对象（数据库目标表或数据库）的大小
+       以及当前机器的性能有关。
+
+       每次收集的统计信息，都会存入统计信息历史表（gs_statistic_history、
+       gs_statistic_ext_history、gs_statistic_history）中，历史表存放的数量和统计信息的保
+       留时间由GUC参数stats_history_record_limit和stats_history_retention_time控制。
+
+
+注意事项
+       ●   ANALYZE操作（不包含ANALYZE VERIFY）支持在事务块、PREPARE语句中执
+           行。
+       ●   统计信息的回滚操作存在以下限制：
+           –   不支持对PG_CLASS和PG_PARTITION中统计信息相关字段的回滚操作
+           –   基于PG_CLASS和PG_PARTITION中统计信息相关字段的视图同样也不支持回
+               滚操作。
+           –   统计信息中与ANALYZE操作相关的函数（如：
+               pg_stat_get_last_analyze_time、pg_stat_get_analyze_count）以及依赖这
+               些函数的视图均不支持回滚。
+       ●   ANALYZE VERIFY操作处理的大多为异常场景检测需要使用RELEASE版本。
+           ANALYZE VERIFY 场景不触发远程读，因此远程读参数不生效。对于关键系统表
+           出现错误被系统检测出页面损坏时，将直接报错不再继续检测。
+       ●   如果没有指定参数，ANALYZE处理当前数据库里用户拥有相应权限的每个表。如
+           果参数中指定了表，ANALYZE只处理指定的表。
+       ●   要对一个表进行ANALYZE操作，通常用户必须是表的所有者或者被授予了指定表
+           ANALYZE权限的用户，三权分立开关关闭时，默认系统管理员有该权限。数据库
+           的所有者允许对数据库中除了共享目录以外的所有表进行ANALYZE操作（该限制
+           意味着只有系统管理员才能真正对一个数据库进行ANALYZE操作）。ANALYZE命
+           令会跳过那些用户没有权限的表。
+       ●   ANALYZE不收集无法做比较或等值运算的列，例如cursor类型。
+[[PDF_PAGE physical=2067 printed=2018]]
+语法格式
+       ●   收集表的统计信息。
+           ANALYZE [ VERBOSE ]
+             [ table_name [ ( column_name [, ...] ) ] ] ;
+
+       ●   收集分区表的分区统计信息。
+           ANALYZE [ VERBOSE ]
+             table_name [ ( column_name [, ...] ) ] PARTITION ( partition_name ) ;
+
+                 说明
+
+                使用关键字PARTITION，partition_name必须为一级分区名字。
+
+       ●   手动收集多列统计信息。
+           ANALYZE [ VERBOSE ]
+             table_name (( column_1_name, column_2_name [, ...] ));
+
+                 说明
+
+                ● 如果关闭GUC参数enable_functional_dependency，每组多列统计信息最多支持32
+                  列；如果开启GUC参数enable_functional_dependency，每组多列统计信息最多支持4
+                  列。
+                ● 不支持收集多列统计信息的表：系统表，全局临时表。
+       ●   自动收集多列统计信息。
+           打开auto_statistic_ext_columns参数后执行ANALYZE，自动根据该表的索引前缀
+           创建多列统计信息，多列统计信息的列数不超过设置的
+           auto_statistic_ext_columns值。
+           例：表t存在索引(a,b,c,d)，设置auto_statistic_ext_columns参数为4，则analyze
+           t将创建关于(a,b)、(a,b,c)、(a,b,c,d)的多列统计信息。
+           ANALYZE [ VERBOSE ] table_name;
+
+       ●   检测当前库的数据文件。
+           ANALYZE VERIFY { FAST | COMPLETE };
+
+                 说明
+
+                ● 由于该操作会直接从磁盘上读取数据，如果此时对正在校验的表有并发的DML操作，
+                  即并发修改磁盘文件，会导致获取的数据不准确，进而导致校验过程中出现误报的情
+                  况，因此建议在没有数据库业务时或者业务低峰期使用。
+                ● 为保障执行效率，建议执行此操作前，先执行checkpoint。
+                ● 支持对全库进行操作，由于涉及的表较多，建议以重定向保存结果。
+                    gsql -d database -p port -f sqlfile> sqllog.txt 2>&1
+                ● 仅对用户可见的外部表生成NOTICE提示，内部表的检测结果将通过其关联的外部表统
+                  一反馈，不单独显示。
+                ● 对于全库操作，当关键系统表出现损坏则直接报错，不再继续执行。
+                ● 只支持对当前库中的普通表、普通索引进行校验，不支持对本地临时表、UNLOGGED
+                  表进行校验，在实际过程中会自动跳过对不支持的表类型的校验。
+                ● 支持在备机执行。当库中表或数据较多时，执行时间较长，由于备机上有recovery业
+                  务，analyze verify业务可能被自动取消，并屏显相关报错信息。
+       ●   检测表和索引的数据文件。
+           ANALYZE VERIFY { FAST | COMPLETE } { table_name [CASCADE] | index_name };
+[[PDF_PAGE physical=2068 printed=2019]]
+                 说明
+
+               ● 支持对普通表的操作和索引表的操作，但不支持对索引表index使用CASCADE操作。原
+                 因是由于CASCADE模式用于处理主表的所有索引表，当单独对索引表进行检测时，无
+                 需使用CASCADE模式。
+               ● 对于主表的检测会同步检测主表的内部表，例如toast表等。
+               ● 当提示索引表损坏时，建议使用reindex命令进行重建索引操作。
+               ● 不支持对本地临时表、UNLOGGED表进行校验。
+               ● 支持在备机执行。
+       ●   检测表分区的数据文件。
+           ANALYZE VERIFY { FAST | COMPLETE } table_name PARTITION (partition_name) [CASCADE];
+
+                 说明
+
+               ● 支持对表的单独分区进行检测操作，但不支持对索引表index使用CASCADE操作。
+               ● 不支持指定二级分区。
+               ● 支持在备机执行。
+
+
+参数说明
+       ●   VERBOSE
+           启用显示进度信息。
+                 说明
+
+               如果指定了VERBOSE，ANALYZE发出进度信息，表明目前正在处理的表。各种有关表的统
+               计信息也会打印出来。
+       ●   table_name
+           需要分析的特定表的表名（可能会带模式名），如果省略，将对数据库中的所有
+           表（非外部表）进行分析。
+           对于ANALYZE收集统计信息，目前仅支持行存表。
+           取值范围：已有的表名。
+       ●   column_name，column_1_name，column_2_name
+           需要分析特定列的列名，默认为所有列。
+           取值范围：已有的列名。
+       ●   partition_name
+           如果table为分区表，在关键字PARTITION后面指定分区名partition_name表示分
+           析该分区表的统计信息。
+           取值范围：表的某一个分区名。
+       ●   index_name
+           需要分析的特定索引表的表名（可能会带模式名）。
+           取值范围：已有的表名。
+       ●   FAST|COMPLETE
+           对于行存表，FAST模式下主要对于行存表的CRC和page header进行校验，如果校
+           验失败则会告警，而COMPLETE模式下，则主要对行存表的指针、tuple进行解析
+           校验。
+       ●   CASCADE
+           CASCADE模式下会对当前表的所有索引进行检测处理。
+[[PDF_PAGE physical=2069 printed=2020]]
+示例
+     --- 创建表。
+     m_db=# CREATE TABLE customer_info
+     (
+     WR_RETURNED_DATE_SK           INTEGER               ,
+     WR_RETURNED_TIME_SK          INTEGER               ,
+     WR_ITEM_SK            INTEGER            NOT NULL,
+     WR_REFUNDED_CUSTOMER_SK INTEGER
+     );
+     m_db=# CREATE INDEX customer_index ON customer_info
+     (wr_returned_date_sk,wr_returned_time_sk,wr_item_sk,wr_refunded_customer_sk);
+
+     --- 创建分区表。
+     m_db=# CREATE TABLE customer_par
+     (
+     WR_RETURNED_DATE_SK        INTEGER             ,
+     WR_RETURNED_TIME_SK       INTEGER             ,
+     WR_ITEM_SK           INTEGER        NOT NULL,
+     WR_REFUNDED_CUSTOMER_SK INTEGER
+     )
+     PARTITION BY RANGE(WR_RETURNED_DATE_SK)
+     (
+     PARTITION P1 VALUES LESS THAN(2452275),
+     PARTITION P2 VALUES LESS THAN(2452640),
+     PARTITION P3 VALUES LESS THAN(2453000),
+     PARTITION P4 VALUES LESS THAN(MAXVALUE)
+     );
+
+     --- 使用ANALYZE语句更新统计信息。
+     m_db=# ANALYZE customer_info;
+     m_db=# ANALYZE customer_par;
+
+     --- 使用ANALYZE VERBOSE语句更新统计信息，并输出表的相关信息。
+     m_db=# ANALYZE VERBOSE customer_info;
+     INFO: analyzing "public.customer_info"(dn_6001 pid=53078)
+     INFO: ANALYZE INFO : estimate total rows of "customer_info": scanned 0 pages of total 0 pages with 0
+     retry times, containing 0 live rows and 0 dead rows, estimated 0 total rows(dn_6001 pid=53078)
+     INFO: ANALYZE INFO : "customer_info": scanned 0 of 0 pages, containing 0 live rows and 0 dead rows; 0
+     rows in sample, 0 estimated total rows(dn_6001 pid=53078)
+     ANALYZE
+
+           说明
+
+         环境若有故障，需查看数据库主节点的log。
+     ●    检测当前库的数据文件。
+          m_db=# ANALYZE VERIFY FAST;
+
+     ●    检测表和索引的数据文件。
+          --检查customer_info表。
+          m_db=# ANALYZE VERIFY FAST customer_info;
+
+          --检查customer_index索引。
+          m_db=# ANALYZE VERIFY FAST customer_index;
+
+     ●    检测表分区的数据文件。
+          --检查customer_par分区表中的P1分区。
+          m_db=# ANALYZE VERIFY FAST customer_par PARTITION (P1);
+
+     --- 删除数据。
+     m_db=# DROP INDEX customer_index;
+     m_db=# DROP TABLE customer_info;
+     m_db=# DROP TABLE customer_par;

@@ -1,0 +1,86 @@
+[[PDF_PAGE physical=1337 printed=1288]]
+1.13.7.42 ALTER TRIGGER
+
+功能描述
+            ALTER TRIGGER语句用于修改触发器名称及所有者。
+
+                说明
+
+                目前只支持修改触发器的名称及所有者。
+
+
+注意事项
+            ●   触发器所在表的所有者或者被授予了ALTER ANY TRIGGER权限的用户可以执行
+                ALTER TRIGGER操作，系统管理员默认拥有此权限。
+            ●   若要修改触发器owner，当前用户必须是该触发器的所有者或者系统管理员，且
+                当前用户必须是新owner所属角色的直接或者间接成员。新owner必须有触发器所
+                在模式上的CREATE权限。三权分立开关关闭时，系统管理员默认拥有该权限。当
+                三权分立开关打开时，系统管理员默认没有该权限。
+            ●   只有初始化用户才能修改触发器的owner为初始化用户。
+
+语法格式
+            ●   修改触发器名称。
+                ALTER TRIGGER trigger_name ON table_name RENAME TO new_name;
+
+
+
+
+            ●   修改触发器owner。
+                ALTER TRIGGER trigger_name ON table_name OWNER TO new_owner;
+
+
+
+
+参数说明
+            ●   trigger_name
+                要修改的触发器名称。
+                取值范围：已存在的触发器。
+            ●   table_name
+                要修改的触发器所在的表名称。
+                取值范围：已存在的含触发器的表。
+[[PDF_PAGE physical=1338 printed=1289]]
+       ●    new_name
+            修改后的新名称，不能与所在表上其他触发器同名。
+            取值范围：字符串，要符合标识符命名规范且最大长度不超过63个字符。
+       ●    new_owner
+            修改后的触发器新owner名称。
+            取值范围：数据库中存在的用户。
+
+示例
+       --创建源表及触发表。
+       gaussdb=# CREATE TABLE test_trigger_src_tbl(id1 INT, id2 INT, id3 INT);
+       gaussdb=# CREATE TABLE test_trigger_des_tbl(id1 INT, id2 INT, id3 INT);
+
+       --创建DELETE触发器函数。
+       gaussdb=# CREATE OR REPLACE FUNCTION TRI_DELETE_FUNC() RETURNS TRIGGER AS
+              $$
+              DECLARE
+              BEGIN
+                   DELETE FROM test_trigger_des_tbl WHERE id1=OLD.id1;
+                   RETURN OLD;
+              END
+              $$ LANGUAGE plpgsql;
+
+       --创建DELETE触发器。
+       gaussdb=# CREATE TRIGGER delete_trigger BEFORE DELETE ON test_trigger_src_tbl FOR EACH ROW
+       EXECUTE PROCEDURE tri_delete_func();
+
+       --修改触发器的名称。
+       gaussdb=# ALTER TRIGGER delete_trigger ON test_trigger_src_tbl RENAME TO delete_trigger_renamed;
+
+       --修改触发器owner为jack（需保证jack为数据库中已创建的用户）。
+       gaussdb=# ALTER TRIGGER delete_trigger ON test_trigger_src_tbl OWNER TO jack;
+
+       --删除触发器。
+       gaussdb=# DROP TRIGGER delete_trigger_renamed ON test_trigger_src_tbl;
+
+       --删除函数。
+       gaussdb=# DROP FUNCTION tri_delete_func;
+
+       --删除源表及触发表。
+       gaussdb=# DROP TABLE test_trigger_src_tbl;
+       gaussdb=# DROP TABLE test_trigger_des_tbl;
+
+
+相关链接
+       CREATE TRIGGER，DROP TRIGGER，ALTER TABLE

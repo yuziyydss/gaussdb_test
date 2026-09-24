@@ -1,0 +1,171 @@
+[[PDF_PAGE physical=1328 printed=1279]]
+1.13.7.39 ALTER TABLESPACE
+
+功能描述
+            修改表空间的属性。
+
+注意事项
+            ●   只有表空间的所有者或者被赋予了表空间ALTER权限的用户有权限执行ALTER
+                TABLESPACE命令，系统管理员默认拥有此权限。但要修改表空间的所有者，当前
+[[PDF_PAGE physical=1329 printed=1280]]
+           用户必须是该表空间的所有者或系统管理员，且该用户是new_owner角色的成
+           员。
+       ●   对行存表的ALTER TABLESPACE操作不支持在事务块中执行。
+       ●   修改系统表空间的所有者时，仅允许初始用户将所有者修改为自己，其他情况均
+           不允许修改。
+       ●   要修改表空间的所有者A为B，则A必须是B的直接或者间接成员。
+                  说明
+
+                如果new_owner与old_owner一致，此处不再校验当前执行操作的用户是否具有修改权
+                限，而直接显示ALTER成功。
+
+
+语法格式
+       ●   重命名表空间的语法。
+           ALTER TABLESPACE tablespace_name
+             RENAME TO new_tablespace_name;
+
+
+
+
+       ●   设置表空间所有者的语法。
+           ALTER TABLESPACE tablespace_name
+             OWNER TO new_owner;
+
+
+
+
+       ●   设置表空间属性的语法。
+           ALTER TABLESPACE tablespace_name
+             SET ( { tablespace_option = value } [, ... ] );
+
+
+
+
+       ●   重置表空间属性的语法。
+           ALTER TABLESPACE tablespace_name
+             RESET ( { tablespace_option } [, ... ] );
+
+
+
+
+       ●   设置表空间限额的语法。
+           ALTER TABLESPACE tablespace_name
+             RESIZE MAXSIZE { UNLIMITED | 'space_size'};
+
+
+
+
+参数说明
+       ●   tablespace_name
+           要修改的表空间。
+           取值范围：已存在的表空间名。
+       ●   new_tablespace_name
+           表空间的新名称，新名称不能以"PG_"开头。
+           取值范围：字符串，要符合标识符命名规范。
+       ●   new_owner
+           表空间的新所有者。
+[[PDF_PAGE physical=1330 printed=1281]]
+         取值范围：已存在的用户名。
+     ●   tablespace_option
+         设置或者重置表空间的参数。
+         取值范围：
+         –    seq_page_cost：设置优化器计算一次顺序获取磁盘页面的开销。缺省为
+              1.0。
+         –    random_page_cost：设置优化器计算一次非顺序获取磁盘页面的开销。缺省
+              为4.0。
+                     说明
+
+                   ● random_page_cost是相对于seq_page_cost的取值，等于或者小于seq_page_cost
+                     时毫无意义。
+                   ● 默认值为4.0的前提条件是，优化器采用索引来扫描表数据，并且表数据在cache
+                     中命中率可以90%左右。
+                   ● 如果表数据空间要比物理内存小，那么减小该值到一个适当水平；相反地，如果
+                     表数据在cache中命中率要低于90%，那么适当增大该值。
+                   ● 如果采用了类似于SSD的随机访问代价较小的存储器，可以适当减小该值，以反
+                     映真正的随机扫描代价。
+         value的取值范围：浮点类型的正数。
+     ●   RESIZE MAXSIZE
+         重新设置表空间限额的数值。
+         取值范围：
+         –    UNLIMITED，该表空间不设置限额。
+         –    由space_size进行确定，其格式请参见CREATE TABLESPACE。
+                     说明
+
+                   若调整后的限额值比当前表空间实际使用的值要小，调整操作可以执行成功，后续用
+                   户需要将该表空间的使用值降低到新限额值之下，才能继续往该表空间中写入数据。
+
+
+示例
+     ●   重命名表空间。
+         --创建表空间。
+         gaussdb=# CREATE TABLESPACE tbs_data1 RELATIVE LOCATION 'tablespace1/tbs_data1';
+
+         --重命名表空间。
+         gaussdb=# ALTER TABLESPACE tbs_data1 RENAME TO tbs_data2;
+
+         --查询。
+         gaussdb=# \db tbs_data2
+                   List of tablespaces
+           Name | Owner |            Location
+         -----------+-------+-----------------------
+          tbs_data2 | omm | tablespace1/tbs_data1
+
+     ●   设置表空间所有者。
+         --创建用户。
+         gaussdb=# CREATE USER test PASSWORD '********';
+
+         --修改表空间所有者。
+         gaussdb=# ALTER TABLESPACE tbs_data2 OWNER TO test;
+
+         --查看。
+         gaussdb=# \db tbs_data2
+                List of tablespaces
+[[PDF_PAGE physical=1331 printed=1282]]
+             Name | Owner |            Location
+           -----------+-------+-----------------------
+            tbs_data2 | test | tablespace1/tbs_data1
+           (1 row)
+
+       ●   设置表空间属性。
+           --修改seq_page_cost的值。
+           gaussdb=# ALTER TABLESPACE tbs_data2 SET (seq_page_cost = 10);
+
+           --查看。
+           gaussdb=# SELECT * FROM pg_tablespace WHERE spcname = 'tbs_data2';
+             spcname | spcowner | spcacl |        spcoptions      | spcmaxsize | relative
+           -----------+----------+--------+--------------------+------------+----------
+            tbs_data2 | 16778 |           | {seq_page_cost=10} |            |t
+           (1 row)
+
+       ●   重置表空间属性。
+           --将seq_page_cost参数的值重置为缺省值。
+           gaussdb=# ALTER TABLESPACE tbs_data2 RESET (seq_page_cost);
+
+           --查看。
+           gaussdb=# SELECT * FROM pg_tablespace WHERE spcname = 'tbs_data2';
+             spcname | spcowner | spcacl | spcoptions | spcmaxsize | relative
+           -----------+----------+--------+------------+------------+----------
+            tbs_data2 | 16778 |           |        |         |t
+           (1 row)
+
+       ●   设置表空间限额。
+           --设置表空间最大使用的空间。
+           gaussdb=# ALTER TABLESPACE tbs_data2 RESIZE MAXSIZE '10G';
+
+           --查看。
+           gaussdb=# SELECT * FROM pg_tablespace WHERE spcname = 'tbs_data2';
+             spcname | spcowner | spcacl | spcoptions | spcmaxsize | relative
+           -----------+----------+--------+------------+------------+----------
+            tbs_data2 | 16778 |           |        | 10485760 K | t
+           (1 row)
+
+           --删除表空间。
+           gaussdb=# DROP TABLESPACE tbs_data2;
+
+           --删除用户。
+           gaussdb=# DROP USER test;
+
+
+相关链接
+       CREATE TABLESPACE，DROP TABLESPACE

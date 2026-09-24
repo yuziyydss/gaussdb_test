@@ -1,0 +1,285 @@
+[[PDF_PAGE physical=1495 printed=1446]]
+1.13.9.37 CREATE PROCEDURE
+
+功能描述
+           创建一个新的存储过程。
+
+注意事项
+           ●   创建存储过程时，如果参数或返回值带有精度，创建操作中不进行精度检测。
+           ●   创建存储过程时，存储过程定义中对表对象的操作建议明确指定模式，否则可能
+               会导致存储过程执行异常。
+           ●   创建存储过程时，仅对CREATE的存储过程或PACKAGE本身加写锁，对于执行过
+               程中的编译以及执行会对函数和函数依赖的PACKAGE加读锁。
+           ●   创建存储过程时，存储过程内部通过SET语句设置的current_schema和
+               search_path无效。执行函数后的search_path和current_schema与执行函数前的
+               search_path和current_schema保持一致。
+           ●   通过SELECT以及CALL调用函数时，必须在出参位置提供实参进行调用，实参不会
+               发生作用。
+           ●   存储过程指定PACKAGE属性时支持重载。
+           ●   不能创建仅形参名字不同（存储过程名和参数列表类型都一样）的重载存储过
+               程。
+           ●   重载的存储过程在调用时，变量需要明确具体的类型。
+           ●   不能创建与函数拥有相同名称和参数列表的存储过程。
+           ●   不支持仅默认值不同的存储过程重载。
+[[PDF_PAGE physical=1496 printed=1447]]
+●   存储过程仅IN、OUT、INOUT这三种类型不同的参数，当打开GUC参数
+    behavior_compat_options（即SET
+    behavior_compat_options='proc_outparam_override';）后，不允许重载。关闭
+    参数后，支持重载。
+●   A兼容模式的数据库，创建兼容Oracle数据库风格的函数；PG兼容模式的数据
+    库，创建兼容PostgreSQL数据库风格的函数。不建议混合创建。
+●   函数如果支持重载，需要指定PACKAGE关键字。
+●   在存储过程内部使用未声明的变量，存储过程被调用时会报错。
+●   在创建存储过程时，不能在avg函数外嵌套其他agg函数，或者嵌套其他系统函
+    数。
+●   存储过程中不支持需要进行RETURN集合的操作。
+●   在存储过程内部调用其他无参数的存储过程时，可以省略括号，直接使用存储过
+    程名进行调用。
+●   在存储过程内部调用其他有出参的函数，如果在赋值表达式中调用时，需要设置
+    GUC参数behavior_compat_options（即SET behavior_compat_options =
+    'proc_outparam_override';），并定义与出参类型相同的变量，并将变量作为出参
+    调用带有出参的其他函数，出参才能生效。否则，被调函数的出参会被忽略。
+●   在表达式中使用OUT参数作为出参时，如下情况OUT出参不会生效，例如：使用
+    EXECUTE IMMEDIATE sqlv USING func语法执行函数、使用SELECT func INTO
+    语法执行函数、使用INSERT以及UPDATE等DML语句执行函数、使用SELECT
+    WHERE a=func()的方式执行、以及带OUT出参的函数作为入参时（如：
+    fun(func(OUT b), a)）且OUT出参b未生效、使用带OUT出参的函数为变量默认
+    值赋值等。
+●   存储过程支持参数注释的查看与导出/导入。
+●   存储过程支持介于IS/AS与plsql_body之间的注释的查看与导出/导入。
+●   被授予CREATE ANY FUNCTION权限的用户，可以在用户模式下创建/替换存储过
+    程。
+●   OUT/INOUT参数必须传入变量，不能传入常量。
+●   存储过程默认为SECURITY INVOKER权限，如果想将默认行为改为SECURITY
+    DEFINER权限，需要设置GUC参数
+    behavior_compat_options='plsql_security_definer'。
+●   当前形态下，想要调用IN参数相同但OUT参数不同的存储过程，需要设置GUC参
+    数behavior_compat_options='proc_outparam_override'，并且打开参数后，无论
+    使用SELECT方式还是CALL的方式调用存储过程，都必须加上OUT参数。打开参数
+    后，不支持使用PERFORM调用存储过程或函数。
+●   当前形态下，设置GUC参数behavior_compat_options='proc_outparam_override'
+    后，高级包DBE_SQL.SQL_BIND_ARRAY不支持绑定参数。
+●   存储过程创建时依赖未定义对象，如参数enable_force_create_obj打开，创建可
+    执行，通过WARNING提示；如参数未打开，存储过程创建不可执行。
+●   当打开三权分立时，对于定义者权限的存储过程，只能由本用户自己重建。
+●   如果将定义者权限的存储过程创建到其他用户Schema下，则会以其他用户的权限
+    执行该存储过程，存在越权风险，请谨慎使用。
+●   在存储过程内部函数复杂调用（如：func(x).a），函数调用返回复合类型，支持
+    跨Schema调用，不支持通过database.schema.package.func(x).b的方式调用。
+●   调用带OUT出参的存储过程，设置GUC参数behavior_compat_options =
+    'proc_outparam_transfer_length'后可以传递参数长度。规格限制如下：
+[[PDF_PAGE physical=1497 printed=1448]]
+            –    支持的基本类型包括：CHAR(n)、CHARACTER(n)、NCHAR(n)、
+                 VARCHAR(n)、VARYING(n)、VARCHAR2(n)以及NVARCHAR2(n)。
+            –    OUT出参不生效的情况下（比如PERFORM）不需要传递参数长度。
+            –    不支持精度传递的基本类型包括：NUMERIC、DECIMAL、NUMBER、
+                 FLOAT、DEC、INTEGER、TIME、TIMESTAMP、INTERVAL、TIME WITH
+                 TIME ZONE、TIMESTAMP WITH TIME ZONE、TIME WITHOUT TIME
+                 ZONE以及TIMESTAMP WITHOUT TIME ZONE。
+            –    无论GUC参数behavior_compat_options是否设置为proc_outparam_override
+                 都支持传递参数长度。
+            –    要传递集合类型的元素长度和被集合类型嵌套的数组类型的元素长度，需要
+                 在GUC参数behavior_compat_options里同时开启tableof_elem_constraints
+                 选项。
+       ●    函数中存在通过GUC参数控制特性的语法以及函数等，如果在会话内更改相关
+            GUC参数，修改参数后，调用函数可能会维持修改前的行为，请谨慎进行变更
+            GUC参数配置的操作。
+       ●    非初始用户无权对初始用户的存储过程进行REPLACE操作。
+       ●    当在存储过程体中进行创建用户、修改密码或加解密等涉及密码或密钥相关操作
+            时，系统表及日志中会记录密码或密钥的明文信息。为防止敏感信息泄露，不建
+            议用户在存储过程体中进行涉及密码或密钥等敏感信息的相关操作。
+
+语法格式
+       CREATE [ OR REPLACE ] PROCEDURE procedure_name
+           [ ( {[ argname ] [ argmode ] argtype [ { DEFAULT | := | = } expression ]}[,...]) ]
+           [
+              { IMMUTABLE | STABLE | VOLATILE }
+              | { SHIPPABLE | NOT SHIPPABLE }
+              | {PACKAGE}
+              | [ NOT ] LEAKPROOF
+              | { CALLED ON NULL INPUT | RETURNS NULL ON NULL INPUT | STRICT }
+              | {[ EXTERNAL ] SECURITY INVOKER | [ EXTERNAL ] SECURITY DEFINER | AUTHID DEFINER | AUTHID
+       CURRENT_USER}
+              | COST execution_cost
+              | SET configuration_parameter { [ TO | = ] value | FROM CURRENT }
+           ][ ... ]
+        { IS | AS }
+       plsql_body
+       /
+[[PDF_PAGE physical=1498 printed=1449]]
+参数说明
+       ●   OR REPLACE
+           当存在同名的存储过程时，替换原来的定义。
+       ●   procedure_name
+           创建的存储过程名称，可以使用模式进行具体指定。
+           取值范围：字符串，要符合标识符命名规范。
+               说明
+
+              建议不要创建和系统函数重名的函数，否则调用时需要指定函数的Schema。
+       ●   argname
+           参数的名称。
+           取值范围：字符串，要符合标识符命名规范。
+       ●   argmode
+           参数的模式。
+           取值范围：IN、OUT、INOUT或VARIADIC。默认值是IN。只有OUT模式的参数
+           能跟在VARIADIC参数之后。
+               说明
+
+              VARIADIC用于声明数组类型的参数。
+[[PDF_PAGE physical=1499 printed=1450]]
+●   argtype
+    参数的数据类型。可以使用%Type间接引用变量，或者使用%RowType间接引用
+    表的类型，具体请参见定义变量。
+    取值范围：可用的数据类型。
+         说明
+
+        ● PACKAGE外存储过程的argtype中使用%TYPE间接引用操作，不支持引用PACKAGE变
+          量的类型。
+        ● argname和argmode的顺序没有严格要求，推荐按照argname、argmode、argtype的
+          顺序使用。
+●   expression
+    参数的默认表达式。
+         说明
+
+        ● 在参数a_format_version值为10c和a_format_dev_version值为s2的情况下，参数为
+          INOUT模式时不支持默认表达式。
+        ● 推荐使用方式：将所有默认值参数定义在所有非默认值参数后。
+        ● 调用带有默认参数的函数时，入参从左向右排入函数，如果存在非默认参数的入参缺失
+          则会报错。
+        ● 打开proc_uncheck_default_param参数，调用带有默认参数的函数时，入参从左向右
+          排入函数，允许缺省默认参数个入参，如果存在非默认参数的入参缺失，则会用错位的
+          默认值填充该参数。
+        ● 在参数a_format_version值为10c、a_format_dev_version值为s1和关闭
+          proc_outparam_override，函数参数同时包括OUT出参和DEFAULT时，默认值不可省
+          略。
+●   configuration_parameter
+    配置参数选项。
+    –   value
+        将指定的配置参数设置为给定的值。
+        取值范围：字符串
+
+        ▪     DEFAULT：新的会话中使用系统的默认设置。
+
+        ▪     OFF：关闭设置。
+
+        ▪     用户自定义的指定默认值。
+    –   from current
+        将当前会话中的值设置为configuration_parameter的值。
+●   IMMUTABLE | STABLE
+    行为约束选项。
+    各参数的功能与CREATE FUNCTION类似，具体说明请参见CREATE
+    FUNCTION。
+●   plsql_body
+    PL/SQL存储过程体。
+    创建一个存储过程时，plsql_body支持以“END;”或“END procedure_name;”
+    两种形式结尾。
+[[PDF_PAGE physical=1500 printed=1451]]
+                 说明
+
+             以END procedure_name;结尾时遵循以下约束：
+             ●    仅A兼容模式（数据库级别）下支持使用。
+             ●    仅支持创建兼容Oracle风格数据库的语法。
+             ●    仅支持END后设置存储过程名称的场景。
+             ●    存储过程END后名称与实际名称不匹配时将报错；PACKAGE内存储过程，END后名
+                  称与实际名称不匹配时也将报错。即使参数enable_force_create_obj=on打开，仍会
+                  创建失败并提示报错信息。
+             ●    嵌套子程序END后名称与实际名称不匹配报错场景，如参数
+                  enable_force_create_obj=on打开，创建成功，通过WARNING提示报错信息；如参
+                  数未打开，存储过程或PACKAGE创建失败并提示报错信息。
+             ●    创建的存储过程在DBE_PLDEVELOPER.gs_source、my_source、db_source、
+                  adm_source视图中显示与存储过程创建时定义相同（创建时“END+名称”则显示
+                  “END+名称”）；在pg_proc视图以及\sf查看时，最外层END后在任何情况下都不
+                  跟名称，内部则按照创建时定义（创建时“END+名称”则显示“END+名称”）显
+                  示。
+             ●    gs_dump生成的SQL文件，存储过程无法保留最外层END后名称。
+             ●    以IF/LOOP命名存储过程或嵌套子程序时，不支持以END IF/LOOP结束存储过程。
+
+
+示例
+     ●   创建一个存储过程
+         --创建存储过程，打印传入参数的和。
+         gaussdb=# CREATE OR REPLACE PROCEDURE proc_add(i int, j int)
+         AS
+         BEGIN
+            dbe_output.print_line('result is：'|| i+j);
+         END;
+         /
+
+         --使用CALL命令调用存储过程。
+         gaussdb=# CALL proc_add(16,17);
+
+         --使用程序块调用存储过程。
+         gaussdb=# BEGIN
+           proc_add(16,17);
+         END;
+         /
+
+         --删除。
+         gaussdb=# DROP PROCEDURE proc_add;
+
+     ●   A兼容模式数据库下以END结尾创建一个存储过程
+         --创建存储过程，打印传入参数的和。
+         gaussdb=# CREATE OR REPLACE PROCEDURE proc_add(i int, j int)
+         AS
+         BEGIN
+            dbe_output.print_line('result is：'|| i+j);
+         END proc_add;
+         /
+
+         --使用CALL命令调用存储过程。
+         gaussdb=# CALL proc_add(16,17);
+
+         --使用程序块调用存储过程。
+         gaussdb=# BEGIN
+           proc_add(16,17);
+         END;
+         /
+
+         --删除。
+         gaussdb=# DROP PROCEDURE proc_add;
+[[PDF_PAGE physical=1501 printed=1452]]
+       ●   创建一个参数模型为VARIADIC的存储过程
+           --创建存储过程pro_variadic。
+           gaussdb=# CREATE OR REPLACE PROCEDURE pro_variadic (var1 VARCHAR2(10) DEFAULT 'hello!',var4
+           VARIADIC int4[])
+           AS
+           BEGIN
+              dbe_output.print_line(var1);
+           END;
+           /
+
+           --执行此存储过程。
+           gaussdb=# SELECT pro_variadic(var1=>'hello', VARIADIC var4=> array[1,2,3,4]);
+
+           --删除。
+           gaussdb=# DROP PROCEDURE pro_variadic;
+
+       ●   参数模型IN与OUT
+           –    IN表示该参数是传入的参数（缺省项）。
+           –    OUT表示该参数是传出的参数。
+           –    IN OUT表示该参数既要传入也要传出。
+           --创建存储过程proc_add1，num1和num2为传入的参数，num3为传出的参数。
+           gaussdb=# CREATE PROCEDURE proc_add1 (num1 in int, num2 in int, num3 out int)
+           AS
+           BEGIN
+              num3 := num1 + num2;
+           END;
+           /
+
+           --使用程序块调用该存储过程，使用变量c来接收该存储过程传出的参数。
+           gaussdb=# DECLARE
+             a int := 20;
+             b int := 32;
+             c int := 0;
+           BEGIN
+             proc_add1(a,b,c);
+             dbe_output.put_line(c);
+           END;
+           /
+
+           --删除。
+           gaussdb=# DROP PROCEDURE proc_add1;
+
+
+相关链接
+       ALTER PROCEDURE，DROP PROCEDURE

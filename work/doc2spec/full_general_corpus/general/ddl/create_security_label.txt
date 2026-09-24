@@ -1,0 +1,81 @@
+[[PDF_PAGE physical=1523 printed=1474]]
+1.13.9.44 CREATE SECURITY LABEL
+
+功能描述
+            在当前数据库中为指定的安全策略创建新的安全标签。
+
+注意事项
+            初始用户、具有SYSADMIN权限的用户或者继承了内置角色gs_role_seclabel权限的用
+            户可以进行创建安全标签操作。
+
+语法格式
+            CREATE SECURITY LABEL label_name 'label_content';
+
+
+
+
+参数说明
+            ●    label_name
+                 安全标签名称，需在数据库内符合唯一约束。
+                 取值范围：字符串，要符合标识符命名规范且最大长度不超过63个字符。
+                       说明
+
+                      ● 安全标签名称若超过63个字符，数据库会截断并保留前63个字符当作安全标签名称。
+                      ● 当安全标签名称中包含大写字母时数据库会自动转换为小写字母，如果需要创建包含大
+                        写字母的安全标签名称则需要使用双引号进行包裹。
+                      ● 安全标签名称需要为小写字母（a~z）、大写字母（A~Z）、下划线（_）、数字
+                        （0~9）或美元符号（$），且必须以字母或下划线开头。
+            ●    label_content
+                 安全标签内容，要求如下：
+                 安全标签由等级和范围两部分组成，两者中间用冒号分隔。形如“等级类别:范围
+                 类别”，其中等级类别有且仅由一个等级组成，范围类别可由多个范围组成，但
+                 至少需要有一个范围，例如“L1:G2,G41,G6-G27”。
+                 –    等级分类中有1024个等级，命名为Li，其中1≤i≤1024，等级满足偏序关系
+                      （若i ≤ j，则Li ≤ Lj）。例如：等级L1小于等级L3。
+                 –    范围分类中有1024个范围，命名为Gi，其中1≤i≤1024，范围之间无法比较大
+                      小，但可以进行集合运算，多个范围之间用逗号分隔，连字符表示区间。例
+                      如：{G2-G5}表示{G2,G3,G4,G5}，集合{G1}是集合{G1,G6}的子集。
+                 –    等级和范围的首字母L和G均为大写；L和G之后至少要有一个数字字符，且第
+                      一位非零，不允许出现其他非数字字符；{Gxxx-Gyyy}形式中数字yyy必须大
+                      于等于xxx。
+                 –    不符合要求的等级和范围均为非法输入，系统会报错。
+                 例子：
+                 gaussdb=# CREATE SECURITY LABEL sec_label3 'L3:'; //标签内容范围类别至少要有一个才行。
+                 ERROR: in label text "L3:", there at least have one level and one group
+[[PDF_PAGE physical=1524 printed=1475]]
+示例
+       --创建安全标签sec_label。
+       gaussdb=# CREATE SECURITY LABEL sec_label 'L1:G4';
+
+       --创建安全标签sec_label，安全标签内容为'L1:G2,G4'。
+       gaussdb=# CREATE SECURITY LABEL sec_label 'L1:G2,G4';
+       ERROR: security label "sec_label" already exists
+       --创建安全标签sec_label1，安全标签内容为'L1:G2,G4'。
+       gaussdb=# CREATE SECURITY LABEL sec_label1 'L1:G2,G4';
+
+       --创建安全标签sec_label2，安全标签内容为'L3:G1-G5'。
+       gaussdb=# CREATE SECURITY LABEL sec_label2 'L3:G1-G5';
+
+       --查看系统中已创建好的安全标签。
+       gaussdb=# SELECT * FROM gs_security_label;
+        label_name | label_content
+       ------------+---------------
+        sec_label | L1:G4
+        sec_label1 | L1:G2,G4
+        sec_label2 | L3:G1-G5
+       (3 rows)
+
+       --删除已存在的安全标签sec_label、sec_label1、sec_label2。
+       gaussdb=# DROP SECURITY LABEL sec_label;
+       gaussdb=# DROP SECURITY LABEL sec_label1;
+       gaussdb=# DROP SECURITY LABEL sec_label2;
+
+       --再次查看系统中已创建好的安全标签。
+       gaussdb=# SELECT * FROM gs_security_label;
+        label_name | label_content
+       ------------+---------------
+       (0 rows)
+
+
+相关链接
+       DROP SECURITY LABEL，SECURITY LABEL ON

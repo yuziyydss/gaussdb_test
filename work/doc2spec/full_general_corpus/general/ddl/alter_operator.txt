@@ -1,0 +1,81 @@
+[[PDF_PAGE physical=1239 printed=1190]]
+1.13.7.21 ALTER OPERATOR
+
+功能描述
+           修改一个操作符的属性。
+
+注意事项
+           ●   执行ALTER OPERATOR命令需满足以下权限要求：
+               a.   基本权限要求：执行者必须是目标操作符的当前所有者。
+               b.   修改操作符所有者（OWNER）的额外要求：
+                    i.    执行者必须是新所有者角色的成员（直接或间接成员关系）。
+                    ii.   新所有者角色必须拥有目标操作符所在模式的CREATE权限。
+           ●   权限限制说明：上述限制（特别是修改所有权的额外要求）旨在确保所有权变更
+               操作本身不会授予超出通过DROP OPERATOR和CREATE OPERATOR命令重建该
+               操作符所需的权限。这防止了通过简单的所有权变更绕过更严格的重建权限检
+               查。但拥有SYSADMIN权限的用户可修改任何操作符的所有权，不受上述限制约
+               束。
+
+语法格式
+           ●   更改操作符的所有者
+               ALTER OPERATOR name ( { left_type | NONE } , { right_type | NONE } ) OWNER TO new_owner;
+
+
+
+
+           ●   更改操作符的模式
+               ALTER OPERATOR name ( { left_type | NONE } , { right_type | NONE } ) SET SCHEMA new_schema;
+
+
+
+
+参数说明
+           ●   name
+               需要修改的、已存在的操作符的名称。
+           ●   left_type
+               该操作符左操作数的数据类型。若指定的操作符不存在左操作数，则此参数应设
+               置为NONE。
+[[PDF_PAGE physical=1240 printed=1191]]
+       ●    right_type
+            该操作符右操作数的数据类型。若指定的操作符不存在右操作数，则此参数应设
+            置为NONE。
+       ●    new_owner
+            操作符的新所有者。
+       ●    new_schema
+            操作符的新模式名。
+
+示例
+       --创建函数。
+       gaussdb=# CREATE FUNCTION func_add(num1 integer, num2 integer) RETURN INTEGER AS
+       BEGIN
+         RETURN num1+num2;
+       END;
+       /
+
+       --创建操作符。
+       gaussdb=# CREATE OPERATOR @@@ (PROCEDURE = func_add,LEFTARG = int,RIGHTARG = int);
+
+       --创建用户。
+       gaussdb=# CREATE USER user1 PASSWORD '********';
+
+       --修改操作符。
+       gaussdb=# ALTER OPERATOR @@@ (int,int) OWNER to user1;
+
+       --创建SCHEMA。
+       gaussdb=# CREATE SCHEMA oper_sch;
+
+       --修改操作符。
+       gaussdb=# ALTER OPERATOR @@@ (int,int) SET SCHEMA oper_sch;
+
+       --删除。
+       gaussdb=# DROP OPERATOR oper_sch.@@@(int,int);
+       gaussdb=# DROP SCHEMA oper_sch;
+       gaussdb=# DROP USER user1;
+       gaussdb=# DROP FUNCTION func_add;
+
+
+相关链接
+       CREATE OPERATOR，CREATE OPERATOR CLASS，DROP OPERATOR
+
+兼容性
+       SQL标准里没有ALTER OPERATOR语句。

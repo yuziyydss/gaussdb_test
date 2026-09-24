@@ -1,0 +1,200 @@
+[[PDF_PAGE physical=1696 printed=1647]]
+1.13.10.45 DROP TRIGGER
+
+功能描述
+            删除一个触发器。
+
+注意事项
+            触发器的所有者或者被授予了DROP ANY TRIGGER权限的用户可以执行该操作，系统
+            管理员默认拥有此权限。
+
+语法格式
+            DROP TRIGGER [ IF EXISTS ] name ON table_name [ CASCADE | RESTRICT ];
+[[PDF_PAGE physical=1697 printed=1648]]
+参数说明
+       ●    IF EXISTS
+            判断指定的触发器是否存在。
+            –     如果指定的触发器存在，则删除成功。
+            –     如果指定的触发器不存在，不会进行删除操作，仅产生一个NOTICE提示，用
+                  于告知指定的触发器不存在。
+       ●    trigger_name
+            要删除的触发器名称。
+            取值范围：已存在的触发器。
+       ●    table_name
+            要删除的触发器所在的表名称。
+            取值范围：已存在的含触发器的表。
+       ●    CASCADE | RESTRICT
+            可选，是否级联删除依赖于该触发器的对象。未指定时，默认为RESTRICT。
+            –     CASCADE：级联删除依赖此触发器的对象。
+            –     RESTRICT：如果有依赖对象存在，则拒绝删除此触发器。
+
+示例
+       --创建源表及触发表。
+       gaussdb=# CREATE TABLE test_trigger_src_tbl(id1 INT, id2 INT, id3 INT);
+       gaussdb=# CREATE TABLE test_trigger_des_tbl(id1 INT, id2 INT, id3 INT);
+
+       INSERT触发器的使用。
+       --创建insert触发器函数。
+       gaussdb=# CREATE OR REPLACE FUNCTION tri_insert_func() RETURNS TRIGGER AS
+              $$
+              DECLARE
+              BEGIN
+                   INSERT INTO test_trigger_des_tbl VALUES(NEW.id1, NEW.id2, NEW.id3);
+                   RETURN NEW;
+              END
+              $$ LANGUAGE plpgsql;
+
+       --创建INSERT触发器。
+       gaussdb=# CREATE TRIGGER insert_trigger
+              BEFORE INSERT ON test_trigger_src_tbl
+              FOR EACH ROW
+              EXECUTE PROCEDURE tri_insert_func();
+
+       --执行INSERT触发事件并检查触发结果。
+       gaussdb=# INSERT INTO test_trigger_src_tbl VALUES(100,200,300);
+
+       gaussdb=# SELECT * FROM test_trigger_src_tbl;
+        id1 | id2 | id3
+[[PDF_PAGE physical=1698 printed=1649]]
+-----+-----+-----
+ 100 | 200 | 300
+(1 row)
+
+gaussdb=# SELECT * FROM test_trigger_des_tbl; //查看触发操作是否生效。
+ id1 | id2 | id3
+-----+-----+-----
+ 100 | 200 | 300
+(1 row)
+
+匿名块和OR REPLACE语法创建触发器。
+--使用匿名块语法创建INSERT触发器。
+gaussdb=# CREATE TRIGGER insert_trigger_with_anonyblock
+       BEFORE INSERT ON test_trigger_src_tbl
+       FOR EACH ROW
+       DECLARE
+       BEGIN
+            INSERT INTO test_trigger_des_tbl VALUES(NEW.id1, NEW.id2, NEW.id3);
+            RETURN NEW;
+       END;
+       /
+
+--使用OR REPLACE语法创建INSERT触发器。
+gaussdb=# CREATE OR REPLACE TRIGGER insert_trigger_with_anonyblock
+       BEFORE INSERT ON test_trigger_src_tbl
+       FOR EACH ROW
+       DECLARE
+       BEGIN
+            INSERT INTO test_trigger_des_tbl VALUES(NEW.id1, NEW.id2, NEW.id3);
+            RETURN NEW;
+       END;
+       /
+
+--删除触发器。
+gaussdb=# DROP TRIGGER insert_trigger_with_anonyblock ON test_trigger_src_tbl; -- 会将隐式创建的函数
+insert_trigger_with_anonyblock一起删除
+
+UPDATE触发器的使用。
+--创建UPDATE触发器函数。
+gaussdb=# CREATE OR REPLACE FUNCTION tri_update_func() RETURNS TRIGGER AS
+$$
+DECLARE
+BEGIN
+UPDATE test_trigger_des_tbl SET id3 = NEW.id3 WHERE id1=OLD.id1;
+RETURN OLD;
+END
+$$ LANGUAGE plpgsql;
+
+--创建UPDATE触发器。
+gaussdb=# CREATE TRIGGER update_trigger
+       AFTER UPDATE ON test_trigger_src_tbl
+       FOR EACH ROW
+       EXECUTE PROCEDURE tri_update_func();
+
+--执行UPDATE触发事件并检查触发结果。
+gaussdb=# UPDATE test_trigger_src_tbl SET id3=400 WHERE id1=100;
+
+gaussdb=# SELECT * FROM test_trigger_src_tbl;
+ id1 | id2 | id3
+-----+-----+-----
+ 100 | 200 | 400
+(1 row)
+
+gaussdb=# SELECT * FROM test_trigger_des_tbl; //查看触发操作是否生效。
+ id1 | id2 | id3
+-----+-----+-----
+ 100 | 200 | 400
+(1 row)
+[[PDF_PAGE physical=1699 printed=1650]]
+DELETE触发器的使用。
+--创建DELETE触发器函数。
+gaussdb=# CREATE OR REPLACE FUNCTION TRI_DELETE_FUNC() RETURNS TRIGGER AS
+       $$
+       DECLARE
+       BEGIN
+            DELETE FROM test_trigger_des_tbl WHERE id1=OLD.id1;
+            RETURN OLD;
+       END
+       $$ LANGUAGE plpgsql;
+
+--创建DELETE触发器。
+gaussdb=# CREATE TRIGGER delete_trigger BEFORE DELETE ON test_trigger_src_tbl FOR EACH ROW
+EXECUTE PROCEDURE tri_delete_func();
+
+--执行DELETE触发事件并检查触发结果。
+gaussdb=# DELETE FROM test_trigger_src_tbl WHERE id1=100;
+
+gaussdb=# SELECT * FROM test_trigger_src_tbl;
+ id1 | id2 | id3
+-----+-----+-----
+(0 rows)
+
+gaussdb=# SELECT * FROM test_trigger_des_tbl; //查看触发操作是否生效。
+ id1 | id2 | id3
+-----+-----+-----
+(0 rows)
+
+修改触发器名称。
+--修改触发器的名称。
+gaussdb=# ALTER TRIGGER delete_trigger ON test_trigger_src_tbl RENAME TO delete_trigger_renamed;
+
+禁用触发器。
+--禁用insert_trigger触发器。
+gaussdb=# ALTER TABLE test_trigger_src_tbl DISABLE TRIGGER insert_trigger;
+
+gaussdb=# INSERT INTO test_trigger_src_tbl VALUES(100,200,300);
+
+gaussdb=# SELECT * FROM test_trigger_src_tbl;
+ id1 | id2 | id3
+-----+-----+-----
+ 100 | 200 | 300
+(1 row)
+
+gaussdb=# SELECT * FROM test_trigger_des_tbl; //可以看到触发器没有生效。
+ id1 | id2 | id3
+-----+-----+-----
+(0 rows)
+
+--禁用当前表上所有触发器。
+gaussdb=# ALTER TABLE test_trigger_src_tbl DISABLE TRIGGER ALL;
+
+删除触发器。
+gaussdb=# DROP TRIGGER insert_trigger ON test_trigger_src_tbl;
+
+gaussdb=# DROP TRIGGER update_trigger ON test_trigger_src_tbl;
+
+gaussdb=# DROP TRIGGER delete_trigger_renamed ON test_trigger_src_tbl;
+
+删除函数。
+gaussdb=# DROP FUNCTION tri_insert_func;
+
+gaussdb=# DROP FUNCTION tri_update_func;
+
+gaussdb=# DROP FUNCTION tri_delete_func;
+[[PDF_PAGE physical=1700 printed=1651]]
+       --删除源表及触发表。
+       gaussdb=# DROP TABLE test_trigger_src_tbl;
+       gaussdb=# DROP TABLE test_trigger_des_tbl;
+
+
+相关链接
+       ALTER TRIGGER，CREATE TRIGGER，ALTER TABLE

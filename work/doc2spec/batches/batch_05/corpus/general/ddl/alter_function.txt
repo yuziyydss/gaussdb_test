@@ -1,0 +1,193 @@
+[[PDF_PAGE physical=1220 printed=1171]]
+1.13.7.14 ALTER FUNCTION
+
+功能描述
+            修改自定义函数的属性或重编译函数。
+
+注意事项
+            ●   只有函数的所有者或者被授予了函数ALTER权限的用户才能执行ALTER
+                FUNCTION命令，系统管理员默认拥有该权限。针对所要修改属性的不同，还存
+                在以下权限约束：
+                –    如果函数中涉及对临时表相关的操作，则无法使用ALTER FUNCTION。
+                –    修改函数的所有者或修改函数的模式，当前用户必须是该函数的所有者或者
+                     系统管理员，且该用户是新所有者角色的成员。
+                –    只有系统管理员和初始化用户可以将函数的Schema修改成PUBLIC。
+                –    修改函数的属性受GUC参数using_danger_feature的影响。
+            ●   仅有初始化用户或者创建该存储过程的用户可以修改存储过程为定义者权限的存
+                储过程。
+            ●   当打开三权分立时，对于定义者权限的函数，不允许任何角色修改函数的所有
+                者。
+            ●   当关闭三权分立时，对于定义者权限的函数，仅初始用户和系统管理员可以修改
+                函数的所有者。
+            ●   只有初始化用户才能修改函数的所有者为初始化用户。
+
+语法格式
+            ●   修改自定义函数的附加参数
+                ALTER FUNCTION function_name ( [ { [ argname ] [ argmode ] argtype} [, ...] ] )
+                  action [ ... ] [ RESTRICT ];
+[[PDF_PAGE physical=1221 printed=1172]]
+    其中附加参数action子句语法为：
+    {CALLED ON NULL INPUT | RETURNS NULL ON NULL INPUT | STRICT}
+     | {IMMUTABLE | STABLE | VOLATILE}
+     | {SHIPPABLE | NOT SHIPPABLE}
+     | {NOT FENCED | FENCED}
+     | [ NOT ] LEAKPROOF
+     | { [ EXTERNAL ] SECURITY INVOKER | [ EXTERNAL ] SECURITY DEFINER }
+     | AUTHID { DEFINER | CURRENT_USER }
+     | COST execution_cost
+     | ROWS result_rows
+     | SET configuration_parameter { { TO | = } { value | DEFAULT }| FROM CURRENT}
+     | RESET {configuration_parameter | ALL}
+
+
+
+
+●   修改自定义函数的名称
+    ALTER FUNCTION function_name ( [ { [ argname ] [ argmode ] argtype} [, ...] ] )
+      RENAME TO new_name;
+
+
+
+
+●   修改自定义函数的所有者
+    ALTER FUNCTION function_name ( [ { [ argname ] [ argmode ] argtype} [, ...] ] )
+      OWNER TO new_owner;
+[[PDF_PAGE physical=1222 printed=1173]]
+       ●   修改自定义函数的模式
+           ALTER FUNCTION function_name ( [ { [ argname ] [ argmode ] argtype} [, ...] ] )
+             SET SCHEMA new_schema;
+
+
+
+
+       ●   重编译函数
+           ALTER FUNCTION function_name COMPILE;
+
+
+
+
+参数说明
+       ●   function_name
+           要修改的函数名称。
+           取值范围：已存在的函数名。
+       ●   argmode
+           标识该参数是输入或输出参数。
+           取值范围：
+           –    IN：声明入参。
+           –    OUT：声明出参。
+           –    INOUT：声明出入参。
+           –    VARIADIC：声明数组类型的参数。
+       ●   argname
+           参数名称。
+           取值范围：字符串，要符合标识符命名规范。
+       ●   argtype
+           函数参数的类型。
+           取值范围：有效的类型，请参见数据类型。
+       ●   CALLED ON NULL INPUT
+           表明该函数的某些参数为NULL时，可以按照正常的方式调用。缺省时与指定此参
+           数的作用相同。
+       ●   RETURNS NULL ON NULL INPUT | STRICT
+           STRICT：用于指定当一个函数的某个参数为NULL时，则该函数返回NULL。如果
+           声明了该参数，则如果存在NULL参数时不会执行该函数，而直接自动返回一个
+           NULL结果。
+           RETURNS NULL ON NULL INPUT和STRICT的功能相同。
+       ●   IMMUTABLE
+           表示该函数在指定同样的参数值时总是返回同样的结果。
+       ●   STABLE
+           表示该函数不能修改数据库，对相同参数值，在同一次表扫描里，该函数的返回
+           值不变，但是返回值可能在不同SQL语句之间变化。
+       ●   VOLATILE
+[[PDF_PAGE physical=1223 printed=1174]]
+    表示该函数值可以在一次表扫描内改变，不会做任何优化。
+●   LEAKPROOF
+    表示该函数没有副作用，指出参数只包括返回值。LEAKPROOF只能由系统管理员
+    设置。
+●   EXTERNAL
+    （可选）目的是与SQL兼容，该关键字适合于所有函数，而不仅是外部函数。
+●   SECURITY INVOKER | AUTHID CURRENT_USER
+    表明该函数将以调用函数的用户的权限执行。缺省时与指定此参数的作用相同。
+    SECURITY INVOKER和AUTHID CURRENT_USER的功能相同。
+●   SECURITY DEFINER | AUTHID DEFINER
+    声明该函数将以创建函数的用户的权限执行。
+    AUTHID DEFINER和SECURITY DEFINER的功能相同。
+●   COST execution_cost
+    用于估计函数的执行成本。
+    execution_cost以cpu_operator_cost为单位。
+    取值范围：正数。
+●   ROWS result_rows
+    估计函数返回的行数。用于函数返回的是一个集合。
+    取值范围：正数，默认值为1000。
+●   configuration_parameter
+    –   value
+        将指定的数据库会话参数值设置为具体的值。
+        取值范围：字符串。
+
+        ▪   DEFAULT：在新的会话中使用系统的缺省设置。
+
+        ▪   OFF：关闭设置。
+
+        ▪   RESET：在新的会话中使用系统的缺省设置。
+
+        ▪   用户指定的值：需要满足修改参数的取值限制。
+    –   FROM CURRENT
+        取当前会话中的值设置为configuration_parameter的值。
+●   new_name
+    函数的新名称。要修改函数的所属模式，必须拥有新模式的CREATE权限。
+    取值范围：字符串，要符合标识符命名规范。
+●   new_owner
+    函数的新所有者。要修改函数的所有者，新所有者必须拥有该函数所属模式的
+    CREATE权限。需要注意注意的是：仅初始化用户可以将函数的所有者设置为初始
+    化用户。
+    取值范围：已存在的用户角色。
+●   new_schema
+    函数的新模式。
+[[PDF_PAGE physical=1224 printed=1175]]
+           取值范围：已存在的模式。
+
+
+示例
+       ●   修改函数示例
+           --创建函数。
+           gaussdb=# CREATE OR REPLACE FUNCTION test_func(a int) RETURN int
+           IS
+              proc_var int;
+           BEGIN
+              proc_var := a;
+              return 1;
+           END;
+           /
+
+           --将函数test_func(a int)的名称修改为test_func_tk(a int)。
+           gaussdb=# ALTER FUNCTION test_func(a int) RENAME TO test_func_tk;
+
+           --创建jim用户。
+           gaussdb=# CREATE USER jim PASSWORD '********';
+
+           --将函数的所有者改为jim。
+           gaussdb=# ALTER FUNCTION test_func_tk(a int) OWNER TO jim;
+
+           --新建模式test。
+           gaussdb=# CREATE SCHEMA test;
+
+           --将函数模式改为test。
+           gaussdb=# ALTER FUNCTION test_func_tk(a int) SET SCHEMA test;
+
+       ●   重编译函数译示例
+           --用函数名重编译函数。
+           gaussdb=# ALTER FUNCTION test.test_func_tk COMPILE;
+
+           --用函数带类型签名重编译存储过程。
+           gaussdb=# ALTER FUNCTION test.test_func_tk(a int) COMPILE;
+
+           --删除函数。
+           gaussdb=# DROP FUNCTION test.test_func_tk(a int);
+
+           --删除jim用户。
+           gaussdb=# DROP USER jim;
+
+           --删除SCHEMA。
+           gaussdb=# DROP SCHEMA test;
+
+
+相关链接
+       CREATE FUNCTION，DROP FUNCTION

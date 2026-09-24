@@ -1,0 +1,123 @@
+[[PDF_PAGE physical=2021 printed=1972]]
+2.4.2.6.6 ALTER INDEX
+
+功能描述
+              用于修改已有索引的定义。
+
+
+注意事项
+              ●   索引的所有者、拥有索引所在表的INDEX权限的用户或者被授予了ALTER ANY
+                  INDEX权限的用户可以执行此命令，当三权分立开关关闭时，系统管理员默认拥
+                  有此权限。
+              ●   请勿在同一基表上保持大量的不可见索引，否则可能会对INSERT、UPDATE、
+                  DELETE等DML操作的性能产生影响。
+
+
+语法格式
+              ●   重命名表索引的名称。
+                  ALTER INDEX [ IF EXISTS ] index_name
+                    RENAME TO new_name;
+
+
+
+
+              ●   设置表索引不可用。
+                  ALTER INDEX [ IF EXISTS ] index_name UNUSABLE;
+
+              ●   重命名索引分区。
+                  ALTER INDEX [ IF EXISTS ] index_name
+                    RENAME PARTITION index_partition_name TO new_index_partition_name;
+
+
+
+
+              ●   修改表索引的存储参数。
+                  ALTER INDEX [ IF EXISTS ] index_name
+                    SET ( {storage_parameter = value} [, ... ] );
+[[PDF_PAGE physical=2022 printed=1973]]
+       ●   重置表索引的存储参数。
+           ALTER INDEX [ IF EXISTS ] index_name
+             RESET ( storage_parameter [, ... ] ) ;
+
+
+
+
+参数说明
+       ●   index_name
+           要修改的索引名称。
+       ●   IF EXISTS
+           如果指定的索引不存在，则发出一个notice而不是error。
+       ●   RENAME TO new_name
+           只改变索引的名称。对存储的数据没有影响。
+           new_name
+           新的索引名。
+           取值范围：字符串，要符合标识符说明。
+       ●   RENAME PARTITION index_partition_name TO new_index_partition_name
+           用于重命名索引分区。
+       ●   new_index_partition_name
+           新索引分区名。
+       ●   index_partition_name
+           索引分区名。
+       ●   SET ( {storage_parameter = value} [, ... ] )
+           修改索引的存储参数。当前支持修改的参数如下：
+           FILLFACTOR：定义索引页面的填充率（填充因子）。在高并发插入且键值分布密
+           集的情况下，建议设置较低的填充因子以减少索引页竞争。
+           取值范围：10~100（百分比）。
+
+                 说明
+
+                使用该命令进行修改索引的存储参数时，不会对索引的内容进行立即更新。根据参数类
+                型，可能需要通过REINDEX命令重建索引以实现预期效果。
+       ●   RESET ( { storage_parameter } [, ...] )
+           重置索引的存储参数为默认值。
+[[PDF_PAGE physical=2023 printed=1974]]
+                 说明
+
+               与SET ( {storage_parameter = value} [, ... ] )操作相同，执行该命令进行重置索引的存储
+               参数操作时，可能需要通过REINDEX命令重建索引以实现预期效果。
+
+
+示例
+       ●   重命名索引。
+           --创建test1表并为其创建索引。
+           m_db=# CREATE TABLE test1(col1 INT, col2 INT);
+           m_db=# CREATE INDEX aa ON test1(col1);
+
+           --将索引aa重命名为idx_test1_col1。
+           m_db=# ALTER INDEX aa RENAME TO idx_test1_col1;
+
+           --查询test1表上的索引信息。
+           m_db=# SELECT tablename,indexname,tablespace FROM pg_indexes WHERE tablename = 'test1';
+            tablename | indexname | tablespace
+           -----------+----------------+------------
+            test1    | idx_test1_col1 |
+           (1 row)
+
+       ●   重命名索引分区。
+           --创建分区表test2。
+           m_db=# CREATE TABLE test2(col1 int, col2 int) PARTITION BY RANGE (col1)(
+              PARTITION p1 VALUES LESS THAN (100),
+              PARTITION p2 VALUES LESS THAN (200)
+           );
+
+           --创建分区索引。
+           m_db=# CREATE INDEX idx_test2_col1 ON test2(col1) LOCAL(
+              PARTITION p1,
+              PARTITION p2
+           );
+           --重命名索引分区。
+           m_db=# ALTER INDEX idx_test2_col1 RENAME PARTITION p1 TO p1_test2_idx;
+           m_db=# ALTER INDEX idx_test2_col1 RENAME PARTITION p2 TO p2_test2_idx;
+
+           --查询索引idx_test2_col1分区的名称。
+           m_db=# SELECT relname FROM pg_partition WHERE parentid = 'idx_test2_col1'::regclass;
+             relname
+           --------------
+            p1_test2_idx
+            p2_test2_idx
+           (2 rows)
+
+
+
+相关链接
+       CREATE INDEX，DROP INDEX，REINDEX

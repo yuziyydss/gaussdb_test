@@ -1,0 +1,406 @@
+[[PDF_PAGE physical=1636 printed=1587]]
+1.13.9.60 CREATE VIEW
+
+功能描述
+            创建一个视图。视图与表不同，是一个虚拟的表。数据库中仅存放视图的定义，而不
+            存放视图对应的数据，这些数据仍存放在原来的基本表中。若基本表中的数据发生变
+            化，从视图中查询出的数据也随之改变。从这个意义上讲，视图就像一个窗口，透过
+            它可以看到数据库中用户感兴趣的数据及变化。
+
+            ●    将经常使用的数据定义为视图，可以将复杂的查询SQL语句进行封装。简化操
+                 作。
+            ●    安全性，用户只能查询视图定义的数据。隐藏基表字段，保护数据库的数据结
+                 构。
+            ●    简化用户权限的管理，只授予用户使用视图的权限。
+
+注意事项
+            被授予CREATE ANY TABLE权限的用户，可以在public模式和用户模式下创建视图。
+            非初始用户不允许对SYS、DBE_PERF以及INFORMATION_SCHEMA模式下的系统视图
+            执行CREATE OR REPLACE操作。
+
+语法格式
+            CREATE [ OR REPLACE ] [ TEMP | TEMPORARY ] [ FORCE ] VIEW view_name [ ( column_name [, ...] ) ]
+              [ WITH ( {view_option_name [= view_option_value]} [, ... ] ) ]
+              AS query
+              [ WITH [ CASCADED | LOCAL ] CHECK OPTION | WITH READ ONLY ];
+
+
+
+
+                  说明
+
+                ● 创建视图时使用WITH(security_barrier)可以创建一个相对安全的视图，避免攻击者利用低成
+                  本函数的RAISE语句打印出隐藏的基表数据。
+                ● 对嵌套视图中被依赖视图做修改列名、列类型以及删除列操作，不论是否开启失效参数
+                  enable_view_invalidation，均会导致依赖视图失效。
+
+
+参数说明
+            ●    OR REPLACE
+[[PDF_PAGE physical=1637 printed=1588]]
+    可选。如果视图已存在，则重新定义。
+●   TEMP | TEMPORARY
+    可选。创建一个临时视图。在当前会话结束时会自动删除掉视图。如果视图引用
+    的任何表是临时表，视图将被创建为临时视图（不管SQL中有没有指定TEMP|
+    TEMPORARY）。
+        说明
+
+       ● 临时视图不支持自动重编译。
+       ● 视图失效重编译请参见《开发指南》中“特性使用指导 > 失效重编译”章节。
+●   FORCE
+    可选。指定FORCE后，创建视图时如果视图依赖的对象不存在或缺少查询权限，
+    该视图仍能够创建成功。
+●   view_name
+    要创建的视图名称。可以用模式修饰。
+    取值范围：字符串，要符合标识符命名规范。
+●   column_name
+    可选的名称列表，用作视图的字段名。如果没有给出，字段名取自查询中的字段
+    名。
+    取值范围：字符串，要符合标识符命名规范。
+●   view_option_name [= view_option_value]
+    该子句为视图指定一个可选的参数。
+    目前view_option_name支持的参数仅有security_barrier和check_option。
+    security_barrier：当VIEW视图提供行级安全时，应使用该参数。取值范围：
+    Boolean类型（true、false）。
+    check_option：控制更新视图的行为。取值范围：CASCADED、LOCAL。
+●   query
+    为视图提供行和列的SELECT或VALUES语句。
+
+
+      须知
+
+    若query包含指定分区表分区的子句，创建视图会将所指定分区的OID直接写入到
+    系统表中。如果使用导致指定分区的OID发生变更的分区DDL语法，如DROP/
+    SPLIT/MERGE该分区，则会导致视图失效（参见《开发指南》中“特性使用指导
+    > 失效重编译”章节）。
+
+●   WITH [ CASCADED | LOCAL ] CHECK OPTION
+    控制更新视图的行为，对视图的INSERT和UPDATE，要检查确保新行满足视图定
+    义的条件，即新行可以通过视图看到。如果没有通过检查，则拒绝修改。如果没
+    有添加该选项，则允许通过对视图的INSERT和UPDATE来创建该视图不可见的
+    行。WITH CHECK OPTION选项可以指定为CASCADED或LOCAL，语义分别如
+    下：
+    CASCADED: 检查该视图和所有底层视图定义的条件。如果仅声明了CHECK
+    OPTION，没有声明LOCAL和CASCADED，默认是CASCADED。
+    LOCAL: 只检查视图本身直接定义的条件，除非底层视图也定义了CHECK
+    OPTION，否则底层视图定义的条件都不检查。
+[[PDF_PAGE physical=1638 printed=1589]]
+     ●   WITH READ ONLY
+         定义只读视图，无法对该视图进行插入、更新和删除操作。
+               说明
+
+             ● 对视图的更新、插入和删除的约束涉及到的一些概念，解释如下：
+                 ●     连接视图：多张表JOIN创建的视图。
+                 ●     保留键表：对多表连接视图进行插入、更新、删除受到键保留表的限制。在多表
+                       视图中，若源表的每一行与视图中的每一行一一对应， 而不存在源表中一行数据
+                       在JOIN连接后在视图中对应多行数据的情况，则源表为保留键表。
+                 ●     当前仅支持通过JOIN条件来判断目标表是否为保留键表，不支持等价类的方式
+                       （即通过JOIN条件和WHERE条件联合）判断目标表是否为保留键表。
+                 ●     顶层与底层关系：视图可能有多层嵌套，如一个视图由一个或多个视图或子查询
+                       构成。将当前DML直接操作的视图称为顶层，将构成视图的表、视图、及WITH
+                       子句中的表、视图等称为对应的底层关系。
+                 ●     可更新列：不是系统列或whole-row reference，直接引用基表中的用户列的列可
+                       更新。对于视图或表中的列是否为可更新列，可以通过查询
+                       information_schema.columns的is_updatable字段辅助确认。
+                 ●     可更新视图：可以对视图做插入、更新、删除操作的，称为可更新视图。可更新
+                       视图不包含DISTINCT、GROUP BY、HAVING、LIMIT、OFFSET、UNPIVOT、
+                       FOR UPDATE、FETCH、START WITH CONNECT BY子句 ，不包含集合运算
+                       （UNION、INTERSECT、EXCEPT），并且不包含聚集函数、窗口函数、返回集
+                       合函数（array_agg、json_agg、generate_series等）、闪回。WITH CHECK
+                       OPTION选项只能定义在可更新的视图上。对于视图是否为可更新视图，可以通
+                       过查询information_schema.views中的is_updatable和is_insertable_into字段，或
+                       查询information_schema.tables.is_insertable_into字段辅助确认。其中，
+                       information_schema.views中的is_updatable返回是否可对视图做更新和删除操
+                       作，is_insertable_into返回是否可对视图插入数据，
+                       information_schema.tables.is_insertable_into返回是否可对关系插入数据。
+             ● 如果一个可更新的视图拥有INSTEAD OF触发器或INSTEAD规则，则使用CHECK
+               OPTION不会检查该视图上的条件。
+             ● 如果一个可更新视图的某一底层视图拥有INSTEAD OF触发器，且该可更新视图定义了
+               CASCADED类型的CHECK OPTION选项，那么非A兼容模式下会递归检查到带有
+               INSTEAD OF触发器的这一底层视图的条件为止，并且不会检查带有触发器的底层视图
+               上的条件。A兼容模式下则所有视图的CHECK OPTION选项都失效不进行检查。
+             ● 如果上层视图定义了CASCADED的CHECK OPTION，底层视图定义了LOCAL CHECK
+               OPTION，底层视图的LOCAL CHECK OPTION会被上层视图的CASCADED CHECK
+               OPTION覆盖。
+             ● 如果一个可更新的视图或者任何它的底层关系有一个INSTEAD规则，导致INSERT或
+               UPDATE重写，那么使用CHECK OPTION将不会检查所有视图上的条件。
+             ● 如果指定了CHECK OPTION，无法对多表连接视图或多表连接子查询中的连接列进行
+               插入、更新操作。
+             ● 如果指定了CHECK OPTION，若多表连接视图或多表连接子查询中出现重复基表，且
+               重复的基表不都是保留键表，则无法对该视图或子查询进行删除操作。
+
+
+示例
+     ●   普通视图
+         --创建test_tb1表，并向表中插入100条数据。
+         gaussdb=# CREATE TABLE test_tb1(col1 int, col2 int);
+         gaussdb=# INSERT INTO test_tb1 VALUES (generate_series(1,100),generate_series(1,100));
+         --创建一个col1小于3的视图。
+         gaussdb=# CREATE VIEW test_v1 AS SELECT * FROM test_tb1 WHERE col1 < 3;
+         --查看视图。
+         gaussdb=# SELECT * FROM test_v1;
+          col1 | col2
+         ------+------
+[[PDF_PAGE physical=1639 printed=1590]]
+       1| 1
+       2| 2
+    (2 rows)
+
+    --删除表和视图。
+    gaussdb=# DROP VIEW test_v1;
+    gaussdb=# DROP TABLE test_tb1;
+
+●   只读视图
+    --创建test_tb表。
+    gaussdb=# CREATE TABLE test_tb(c1 int, c2 int);
+
+    --创建只读视图test_v。
+    gaussdb=# CREATE VIEW test_v AS SELECT * FROM test_tb WITH READ ONLY;
+
+    --向视图中写入数据来判断视图是否是只读视图。
+    gaussdb=# INSERT INTO test_v VALUES (1, 1);
+    ERROR: DML operation cannot be performed on a read-only view.
+
+    --删除表和视图。
+    gaussdb=# DROP VIEW test_v;
+    gaussdb=# DROP TABLE test_tb;
+
+●   REPLACE的应用
+    --创建a，b表。
+    gaussdb=# CREATE TABLE a(c1 int, c2 int);
+    gaussdb=# CREATE TABLE b(c1 int, c2 int, c3 int);
+
+    --向a、b分别插入数据。
+    gaussdb=# INSERT INTO a VALUES (1, 1);
+    gaussdb=# INSERT INTO b VALUES (1, 1, 1);
+
+    --查看。
+    gaussdb=# SELECT * FROM a;
+     c1 | c2
+    ----+----
+      1| 1
+    (1 row)
+
+    gaussdb=# SELECT * FROM b;
+     c1 | c2 | c3
+    ----+----+----
+      1| 1| 1
+    (1 row)
+
+    --创建视图a_view，这里视图不存在，相当于新建视图。
+    gaussdb=# CREATE OR REPLACE VIEW a_view AS SELECT * FROM a;
+
+    --查看视图a_view。
+    gaussdb=# SELECT * FROM a_view;
+     c1 | c2
+    ----+----
+      1| 1
+    (1 row)
+
+    --创建视图a_view，这里视图已存在，相当于重新定义视图
+    gaussdb=# CREATE OR REPLACE VIEW a_view AS SELECT * FROM b;
+
+    --再次查看视图a_view。
+    gaussdb=# SELECT * FROM a_view;
+     c1 | c2 | c3
+    ----+----+----
+      1| 1| 1
+    (1 row)
+
+    --重建视图a_view，并删除c1列。
+    gaussdb=# CREATE OR REPLACE VIEW a_view AS SELECT c2, c3 FROM b;
+
+    --再次查看视图a_view。
+    gaussdb=# SELECT * FROM a_view;
+[[PDF_PAGE physical=1640 printed=1591]]
+     c2 | c3
+    ----+----
+      1| 1
+    (1 row)
+
+    --重建视图a_view，并修改列c2类型。
+    gaussdb=# CREATE OR REPLACE VIEW a_view AS SELECT c2::TEXT, c3 FROM b;
+
+    --再次查看视图a_view。
+    gaussdb=# SELECT * FROM a_view;
+     c2 | c3
+    ----+----
+     1 | 1
+    (1 row)
+
+    --重建视图a_view，并重命名c2列。
+    gaussdb=# CREATE OR REPLACE VIEW a_view AS SELECT c2 AS c2_new, c3 FROM b;
+
+    --再次查看视图a_view。
+    gaussdb=# SELECT * FROM a_view;
+     c2_new | c3
+    --------+----
+         1| 1
+    (1 row)
+
+    --删除视图和表。
+    gaussdb=# DROP VIEW a_view;
+    gaussdb=# DROP TABLE a;
+    gaussdb=# DROP TABLE b;
+
+●   视图一次性入库
+    -- 创建视图，依赖的基表test_tb1当前不存在。
+    gaussdb=# CREATE FORCE VIEW test_v1 AS SELECT * FROM test_tb1 WHERE col1 < 3;
+    WARNING: View "test_v1" created with compilation errors.
+    DETAIL: Relation "test_tb1" does not exist on datanode.
+    CREATE VIEW
+    -- 视图可以入库，状态为无效。
+    gaussdb=# SELECT c.relname, o.valid FROM pg_object o JOIN pg_class c ON c.oid = o.object_oid
+    WHERE c.relname = 'test_v1';
+     relname | valid
+    ---------+-------
+     test_v1 | f
+    (1 row)
+
+    -- 创建test_tb1表，并重编译视图test_v1成功。
+    gaussdb=# CREATE TABLE test_tb1(col1 int, col2 int);
+    CREATE TABLE
+    gaussdb=# ALTER VIEW test_v1 COMPILE;
+    ALTER VIEW
+    gaussdb=# SELECT c.relname, o.valid FROM pg_object o JOIN pg_class c ON c.oid = o.object_oid
+    WHERE c.relname = 'test_v1';
+     relname | valid
+    ---------+-------
+     test_v1 | t
+    (1 row)
+
+    -- 查询视图。
+    gaussdb=# SELECT * FROM test_v1;
+     col1 | col2
+    ------+------
+    (0 rows)
+
+    -- 删除表和视图。
+    gaussdb=# DROP VIEW test_v1;
+    DROP VIEW
+    gaussdb=# DROP TABLE test_tb1;
+    DROP TABLE
+
+●   临时视图
+[[PDF_PAGE physical=1641 printed=1592]]
+    --创建表和临时视图。
+    gaussdb=# CREATE TABLE test_tb2(c1 int, c2 int);
+    gaussdb=# CREATE TEMP VIEW test_v2 AS SELECT * FROM test_tb2;
+    --查看表和视图信息（临时表所属模式不是public，而是以pg_temp开头的模式）。
+    gaussdb=# \dv
+                      List of relations
+             Schema            | Name | Type | Owner | Storage
+    ----------------------------+---------+------+-------+---------
+     pg_temp_dn_6001_4_2_160471 | test_v2 | view | omm |
+    (1 row)
+
+    --结束会话后重新登录后再次查看该临时视图已经被删除。
+    gaussdb=# \dv
+    No relations found.
+
+    --删除表。
+    gaussdb=# DROP TABLE test_tb2;
+
+●   对视图进行插入、更新、删除
+    --创建单表视图
+    gaussdb=# CREATE TABLE t_view_iud1 (x int, y int);
+    CREATE TABLE
+    gaussdb=# INSERT INTO t_view_iud1 VALUES (11, 11);
+    INSERT 0 1
+    gaussdb=# CREATE VIEW vt AS SELECT * FROM t_view_iud1;
+    CREATE VIEW
+    gaussdb=# CREATE VIEW vt_wco AS SELECT * FROM t_view_iud1 WHERE x > 5 WITH CHECK OPTION;
+    CREATE VIEW
+
+    --通过information_schema.columns查询视图中的列是否可更新
+    gaussdb=# SELECT table_schema, table_name, column_name, is_updatable FROM
+    information_schema.columns WHERE table_schema = current_schema AND table_name = 'vt';
+     table_schema | table_name | column_name | is_updatable
+    --------------+------------+-------------+--------------
+     public      | vt       |y        | YES
+     public      | vt       |x        | YES
+    (2 rows)
+
+    --通过对视图插入、更新数据，如果视图创建时指定了WITH CHECK OPTION， 更新视图前会对数据做相
+    应检查
+    gaussdb=# INSERT INTO vt VALUES (1, 1);
+    INSERT 0 1
+    gaussdb=# INSERT INTO vt_wco VALUES (1, 1);
+    ERROR: New row violates WITH CHECK OPTION for view "vt_wco".
+    DETAIL: Failing row contains (1, 1).
+    gaussdb=# UPDATE vt SET y = 121 WHERE y = 1;
+    UPDATE 1
+    gaussdb=# UPDATE vt_wco SET y = 6 WHERE y = 11;
+    UPDATE 1
+    gaussdb=# DELETE FROM vt WHERE y =11;
+    DELETE 0
+
+    --创建多层嵌套视图，底层关系中指定了WITH CHECK OPTION，对顶层视图做DML操作时也会检查相应
+    条件
+    gaussdb=# CREATE VIEW vvtt AS SELECT * FROM vt_wco;
+    CREATE VIEW
+    gaussdb=# INSERT INTO vvtt VALUES (1, 1), (2, 2);
+    ERROR: New row violates WITH CHECK OPTION for view "vt_wco".
+    DETAIL: Failing row contains (1, 1).
+
+    --通过information_schema.tables和information_schema.views查询视图是否可插入、更新
+    gaussdb=# SELECT table_schema, table_name, is_insertable_into
+            FROM information_schema.tables
+            WHERE table_schema = current_schema AND table_name = 'vvtt';
+     table_schema | table_name | is_insertable_into
+    --------------+------------+--------------------
+     public      | vvtt     | YES
+    (1 row)
+
+    gaussdb=# SELECT table_name, is_updatable, check_option
+[[PDF_PAGE physical=1642 printed=1593]]
+                   FROM information_schema.views
+                   WHERE table_schema = current_schema AND table_name = 'vvtt';
+            table_name | is_updatable | check_option
+           ------------+--------------+--------------
+            vvtt      | YES        | NONE
+           (1 row)
+
+           gaussdb=# SELECT table_name, is_updatable, check_option FROM information_schema.views WHERE
+           table_schema = current_schema AND table_name = 'vt_wco';
+            table_name | is_updatable | check_option
+           ------------+--------------+--------------
+            vt_wco      | YES        | CASCADED
+           (1 row)
+
+           --删除视图和表
+           gaussdb=# DROP VIEW vvtt, vt, vt_wco CASCADE;
+           DROP VIEW
+           gaussdb=# DROP TABLE t_view_iud1;
+           DROP TABLE
+
+       ●   不支持等价类的方式（即通过JOIN条件和WHERE条件联合）判断目标表是否为保
+           留键表。
+           -- 创建测试表。
+           gaussdb=# CREATE TABLE A(col1 int, col2 int, col3 int);
+           CREATE TABLE
+           gaussdb=# CREATE TABLE B(col1 int, col2 int, col3 int);
+           CREATE TABLE
+           gaussdb=# CREATE UNIQUE INDEX index_1 ON A(col1, col2);
+           CREATE INDEX
+           gaussdb=# CREATE UNIQUE INDEX index_2 ON B(col3);
+           CREATE INDEX
+
+           -- 执行更新语句，因为通过A.col1 = B.col1无法判断出表A为保留建表，更新失败。
+           gaussdb=# UPDATE (
+           gaussdb(#   SELECT A.col1, A.col2, A.col3
+           gaussdb(#   FROM A INNER JOIN B ON A.col1 = B.col1
+           gaussdb(#   WHERE B.col3 = 3
+           gaussdb(# )
+           gaussdb-# SET col1 = 1, col2 = 2, col3 = 3;
+           ERROR: Failed to modify a column which maps to a non key-preserved table.
+
+           -- 删除测试表
+           gaussdb=# DROP TABLE A;
+           DROP TABLE
+           gaussdb=# DROP TABLE B;
+           DROP TABLE
+
+
+相关链接
+       ALTER VIEW，DROP VIEW

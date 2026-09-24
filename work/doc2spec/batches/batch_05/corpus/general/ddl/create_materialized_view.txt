@@ -1,0 +1,99 @@
+[[PDF_PAGE physical=1478 printed=1429]]
+1.13.9.31 CREATE MATERIALIZED VIEW
+           创建一个全量物化视图，可以使用REFRESH MATERIALIZED VIEW（全量刷新）进行
+           物化视图的数据刷新。
+
+           CREATE MATERIALIZED VIEW语句与CREATE TABLE AS语句功能相似，但其会持久化
+           存储初始化查询语句，从而支持后续的数据刷新操作。物化视图具有与普通表相同的
+           持久化属性，但不同于临时表，系统不支持创建临时类型的物化视图。
+
+                 说明
+
+                具体的适用场景请参见请参见《开发指南》中“基础概念 > 物化视图”章节的物化视图简介部
+                分。
+
+
+注意事项
+           ●    不支持在临时表或全局临时表上创建全量物化视图。
+           ●    创建全量物化视图后，基表中的部分DDL操作不再支持。
+           ●    不支持对全量物化视图进行IUD操作。
+           ●    全量物化视图创建后，当基表数据发生变化时，需要使用刷新（REFRESH）命令
+                保持物化视图与基表同步。
+           ●    USTORE存储引擎不支持物化视图的创建和使用。
+           ●    段页式不支持物化视图的创建和使用。
+
+语法格式
+           CREATE MATERIALIZED VIEW mv_name
+             [ (column_name [, ...] ) ]
+             [ WITH ( {storage_parameter = value} [, ... ] ) ]
+             [ TABLESPACE tablespace_name ]
+[[PDF_PAGE physical=1479 printed=1430]]
+           AS query
+           [ WITH DATA ];
+
+
+
+
+参数说明
+       ●     mv_name
+             创建的物化视图的名称，可以使用模式进行具体指定。
+             取值范围：字符串，要符合标识符命名规范。
+       ●     column_name
+             新物化视图中的一个列名（字段）。物化视图支持指定列，指定列需要和后面的
+             查询语句结果的列数量保持一致；如果没有提供列名，将从查询的输出列名中获
+             取列名。
+             取值范围：字符串，要符合标识符命名规范。
+       ●     WITH ( storage_parameter [= value] [, ... ] )
+             为表或索引指定一个可选的存储参数，具体请参见CREATE TABLE。
+       ●     TABLESPACE tablespace_name
+             可选，指定新建物化视图所属表空间。如果未指定，将使用默认表空间进行创
+             建。
+       ●     AS query
+             一个SELECT、TABLE或者VALUES命令。这个查询将在一个安全受限的操作中运
+             行。
+
+示例
+       --创建表空间。
+       gaussdb=# CREATE TABLESPACE tbs_data1 RELATIVE LOCATION 'tablespace1/tbs_data1';
+
+       --创建一个普通表。
+       gaussdb=# CREATE TABLE my_table (c1 int, c2 int)
+       WITH(STORAGE_TYPE=ASTORE);
+
+       --创建全量物化视图。
+       gaussdb=# CREATE MATERIALIZED VIEW my_mv AS SELECT * FROM my_table;
+
+       --向基表中写入数据。
+       gaussdb=# INSERT INTO my_table VALUES(1,1),(2,2);
+
+       --查询全量物化视图。
+       gaussdb=# SELECT * FROM my_mv;
+        c1 | c2
+       ----+----
+       (0 rows)
+[[PDF_PAGE physical=1480 printed=1431]]
+       --对全量物化视图my_mv进行全量刷新。
+       gaussdb=# REFRESH MATERIALIZED VIEW my_mv;
+
+       --查询全量物化视图。
+       gaussdb=# SELECT * FROM my_mv;
+        c1 | c2
+       ----+----
+         1| 1
+         2| 2
+       (2 rows)
+
+       --删除全量物化视图。
+       gaussdb=# DROP MATERIALIZED VIEW my_mv;
+
+       --删除普通表my_table。
+       gaussdb=# DROP TABLE my_table;
+
+       --删除表空间。
+       gaussdb=# DROP TABLESPACE tbs_data1;
+
+
+相关链接
+       ALTER MATERIALIZED VIEW，CREATE INCREMENTAL MATERIALIZED VIEW，
+       CREATE TABLE，DROP MATERIALIZED VIEW，REFRESH INCREMENTAL
+       MATERIALIZED VIEW，REFRESH MATERIALIZED VIEW

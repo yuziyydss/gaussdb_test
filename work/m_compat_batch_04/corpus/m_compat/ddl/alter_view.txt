@@ -1,0 +1,177 @@
+[[PDF_PAGE physical=2062 printed=2013]]
+2.4.2.6.16 ALTER VIEW
+
+功能描述
+             ALTER VIEW更改视图的各种辅助属性或重编译视图。
+
+注意事项
+             只有视图的所有者或者被授予了视图ALTER权限的用户才可以执行ALTER VIEW命令，
+             三权分立开关关闭时，系统管理员默认拥有该权限。针对所要修改属性的不同，对其
+             还有以下权限约束：
+             ●   修改视图的模式，当前用户必须是视图的所有者或者系统管理员，且要有新模式
+                 的CREATE权限。三权分立开关打开时，系统管理员不能修改视图模式。0
+[[PDF_PAGE physical=2063 printed=2014]]
+       ●   修改视图的所有者，当前用户必须是视图的所有者或者系统管理员，且该用户必
+           须是新所有者角色的成员，并且此角色必须有视图所在模式的CREATE权限。三权
+           分立开关打开时，系统管理员不能修改视图的所有者。
+
+语法格式
+       ●   设置视图列的默认值。
+           ALTER VIEW [ IF EXISTS ] view_name
+             ALTER [ COLUMN ] column_name SET DEFAULT expression;
+
+       ●   取消列视图列的默认值。
+           ALTER VIEW [ IF EXISTS ] view_name
+             ALTER [ COLUMN ] column_name DROP DEFAULT;
+
+       ●   修改视图的所有者。
+           ALTER VIEW [ IF EXISTS ] view_name
+             OWNER TO new_owner;
+
+       ●   重命名视图。
+           ALTER VIEW [ IF EXISTS ] view_name
+             RENAME TO new_name;
+
+       ●   设置视图的所属模式。
+           ALTER VIEW [ IF EXISTS ] view_name
+             SET SCHEMA new_schema;
+
+       ●   设置视图的定义。
+           ALTER VIEW view_name [ ( column_name [, ...] ) ]
+             AS query [WITH [CASCADED | LOCAL] CHECK OPTION];
+
+                 说明
+
+               更改视图的查询定义实际使用的是CREATE OR REPLACE VIEW，两者功能相同。
+       ●   重编译视图。
+           ALTER VIEW view_name COMPILE;
+
+
+
+
+参数说明
+       ●   IF EXISTS
+           使用这个选项，如果视图不存在时不会产生错误，仅有会有一个提示信息。
+       ●   view_name
+           视图名称，可以用模式修饰。
+           取值范围：字符串，已经存在的视图名。
+       ●   column_name
+           字段名称。
+           取值范围：字符串，已经存在的视图字段名。
+       ●   SET/DROP DEFAULT
+           设置或删除一个列的缺省值，该参数暂无实际意义。
+       ●   new_owner
+           视图新所有者的用户名称，用户名要求具体请参见CREATE USER章节中的
+           user_name。
+       ●   new_name
+           视图的新名称。
+[[PDF_PAGE physical=2064 printed=2015]]
+     ●   new_schema
+         视图的新模式。
+     ●   expression
+         常量、函数或SQL表达式。
+     ●   WITH [ CASCADED | LOCAL ] CHECK OPTION
+         设置控制更新视图的行为，取值如下：
+         CASCADED: 检查该视图和所有底层视图定义的条件。如果仅声明了CHECK
+         OPTION，没有声明LOCAL和CASCADED，默认是CASCADED。
+         LOCAL: 只检查视图本身直接定义的条件，除非底层视图也定义了CHECK
+         OPTION，否则底层视图定义的条件都不检查。
+     ●   COMPILE
+         使用这个选项，对视图进行手动重编译。
+               说明
+
+             视图失效重编译请参见《开发指南》中“特性使用指导 > 失效重编译”章节。
+
+
+示例
+     ●   重命名视图。
+         --创建test_tbl表。
+         m_db=# CREATE TABLE test_tb1(col1 INT,col2 INT);
+         --创建视图。
+         m_db=# CREATE VIEW abc AS SELECT * FROM test_tb1;
+         --重命名视图。
+         m_db=# ALTER VIEW IF EXISTS abc RENAME TO test_v1;
+         --查看视图。
+         m_db=# \dv
+                   List of relations
+          Schema | Name | Type | Owner | Storage
+         --------+---------+------+-------+---------
+          public | test_v1 | view | omm |
+         (1 row)
+
+     ●   修改视图所有者。
+         --创建用户。
+         m_db=# CREATE ROLE role_test PASSWORD '********';
+         --修改视图所有者。
+         m_db=# ALTER VIEW IF EXISTS test_v1 OWNER TO role_test;
+         --查看视图信息。
+         m_db=# \dv
+                     List of relations
+          Schema | Name | Type | Owner | Storage
+         --------+---------+------+-----------+---------
+          public | test_v1 | view | role_test |
+         (1 row)
+
+     ●   设置视图所属模式。
+         --创建模式。
+         m_db=# CREATE SCHEMA tcpds;
+         --修改视图所属模式。
+         m_db=# ALTER VIEW test_v1 SET SCHEMA tcpds;
+         --查看视图信息。
+         m_db=# \dv tcpds.test_v1;
+                    List of relations
+          Schema | Name | Type | Owner | Storage
+         --------+---------+------+-----------+---------
+          tcpds | test_v1 | view | role_test |
+         (1 row)
+
+     ●   重编译视图。
+[[PDF_PAGE physical=2065 printed=2016]]
+          --开启视图失效重编译参数。
+          gaussdb=# SET enable_view_invalidation=on;
+
+          --创建表。
+          gaussdb=# CREATE TABLE test_tb1(col1 INT, col2 INT);
+
+          --创建视图。
+          gaussdb=# CREATE VIEW test_v1 AS SELECT col1, col2 FROM test_tb1;
+
+          --删除表test_tb1。
+          gaussdb=# DROP TABLE test_tb1;
+          DROP TABLE
+
+          --查询视图有效性。
+          gaussdb=# SELECT c.relname, o.valid FROM pg_catalog.pg_object o JOIN pg_catalog.pg_class c ON
+          c.oid = o.object_oid WHERE c.relname = 'test_v1';
+           relname | valid
+          ---------+-------
+           test_v1 | f
+          (1 row)
+
+          --重建删除的表test_tb1。
+          gaussdb=# CREATE TABLE test_tb1(col1 INT, col2 INT);
+
+          --重编译视图。
+          gaussdb=# ALTER VIEW test_v1 COMPILE;
+          ALTER VIEW
+
+          --再次查询视图有效性。
+          gaussdb=# SELECT c.relname, o.valid FROM pg_catalog.pg_object o JOIN pg_catalog.pg_class c ON
+          c.oid = o.object_oid WHERE c.relname = 'test_v1';
+           relname | valid
+          ---------+-------
+           test_v1 | t
+          (1 row)
+
+          --删除视图test_v1。
+          gaussdb=# DROP VIEW test_v1;
+          DROP VIEW
+
+          --删除表test_tb1。
+          gaussdb=# DROP TABLE test_tb1;
+          DROP TABLE
+
+
+
+相关链接
+       CREATE VIEW，DROP VIEW

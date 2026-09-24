@@ -1,0 +1,134 @@
+[[PDF_PAGE physical=1529 printed=1480]]
+1.13.9.47 CREATE SYNONYM
+
+功能描述
+           创建一个同义词对象。同义词是数据库对象的别名，用于记录与其他数据库对象名间
+           的映射关系，用户可以使用同义词访问关联的数据库对象。
+
+注意事项
+           ●   创建同义词的用户将成为其所有者。
+           ●   若指定模式名称，则同义词在指定模式中创建。否则，在当前模式下创建。
+[[PDF_PAGE physical=1530 printed=1481]]
+●   支持通过同义词访问的数据库对象包括：表、视图、类型、PACKAGE、函数和存
+    储过程、序列和其他同义词对象。
+●   使用同义词时，用户需要具有对关联对象的相应权限。
+●   支持使用同义词的DML语句包括：SELECT、INSERT、UPDATE、DELETE、
+    EXPLAIN以及CALL。
+●   不支持关联函数或存储过程的CREATE SYNONYM语句出现在存储过程中，建议存
+    储过程中使用系统表pg_synonym中已存在的同义词对象。
+●   不建议对临时表创建同义词。如果需要创建，需要指定同义词的目标临时表的模
+    式名，否则无法正常使用该同义词，并且在当前会话结束前执行DROP
+    SYNONYM命令。
+●   删除原对象后，与之关联同义词不会被级联删除，继续访问该同义词将会报错，
+    对于访问表提示已失效，对于访问函数、存储过程、包等会提示对象不存在。
+●   被授予了CREATE ANY SYNONYM权限的用户能够在用户模式下创建同义词。
+●   不支持针对包含加密列的密态表及基于密态表的视图、函数或存储过程创建同义
+    词。
+●   同义词关联的对象可以是PACKAGE，不支持同义词关联PACKAGE下的函数。可以
+    通过PACKAGE关联的同义词，进行访问PACKAGE下的函数和变量。
+●   同义词的Schema是用户所在Schema时，该同义词OWNER为Schema的
+    OWNER，其他场景同义词OWNER默认为同义词的创建者。
+●   设置search_path，未指定同义词schema情况下，存储过程和函数会优先按照名
+    称检索pg_proc表，在没有同名函数时，检索同义词，最后按照search_path检
+    索；其他对象优先检索search_path，同Schema下，本名的对象优先于同义词被
+    访问。
+●   不支持通过DDL语句CREATE、DROP、ALTER操作同义词的方式访问同义词所关
+    联的对象。
+●   支持嵌套同义词。搜索同义词时，如果同义词关联的是另一个同义词，则会继续
+    搜索关联的同义词，直到搜索到最后关联的对象。
+●   不支持使用\d、\df、\sf等方式通过同义词访问关联对象的信息。
+●   同义词的搜索过程：
+    –   SQL语句给定Schema搜索对象schema1.object1：
+        搜索schema1.object1对象是否存在；该对象不存在时，搜索同义词
+        schema1.object1是否存在；schema1.object1同义词存在，搜索同义词关联
+        的对象schema2.object2，只有对象schema2.object2和同义词
+        schema2.object2都不存在，且schema2是用户名时，会额外搜索PUBLIC同
+        义词object2。
+    –   SQL语句不给定Schema搜索对象object1：
+        遍历search_path，查找指定Schema下的对象schema.object1，对象
+        schema.object1不存在则搜索同义词schema.object1，同义词
+        schema.object1不存在且搜索的Schema是用户名时，会额外搜索PUBLIC同
+        义词object1。
+●   避免对包含密码等敏感信息的函数（如：加解密类函数gs_encrypt、gs_decrypt、
+    gs_encrypt_bytera、gs_decrypt_bytea等）创建别名，以及使用别名调用，防止
+    敏感信息泄露。
+[[PDF_PAGE physical=1531 printed=1482]]
+语法格式
+       CREATE [ OR REPLACE ] [PUBLIC] SYNONYM synonym_name
+         FOR object_name;
+
+
+
+
+参数说明
+       ●    OR REPLACE
+            可选。如果同义词已存在，则重新定义。
+       ●    PUBLIC
+            可选参数。创建PUBLIC同义词。
+                   说明
+
+                 ● 同一数据库下，PUBLIC同义词不能重名。
+                 ● 当数据库从不支持PUBLIC同义词的版本升级到支持PUBLIC同义词的版本时，升级提交
+                   前不支持创建、删除PUBLIC同义词。
+                 ● 所有用户都可以访问PUBLIC同义词。除初始用户、系统管理员的用户外，创建和删除
+                   PUBLIC同义词需要具有对应CREATE PUBLIC SYNONYM和DROP PUBLIC SYNONYM
+                   的权限。
+                 ● PUBLIC同义词在系统表pg_synonym中的synnamespace和synowner对应为0，在系统
+                   视图ADM_SYNONYMS和DB_SYNONYMS中的owner为PUBLIC，schema_name为
+                   NULL。
+                 ● 未指定同义词Schema情况下，首先检索同名对象，判断同名对象是否存在；然后检索
+                   同义词，按照search_path检索；最后检索PUBLIC同义词。指定同义词Schema情况
+                   下，不检索PUBLIC同义词。
+       ●    synonym_name
+            创建的同义词名称，可以使用模式进行具体指定。
+            取值范围：字符串，要符合标识符命名规范。
+       ●    object_name
+            关联的对象名称，可以使用模式进行具体指定。
+            取值范围：字符串，要符合标识符命名规范。
+                   说明
+
+                 ● object_name可以是不存在的对象名称。
+                 ● object_name可以是使用DATABASE LINK方式访问远程对象。DATABASE LINK的具体
+                   的使用方式请参见《开发指南》中“特性使用指导 > DATABASE LINK”章节。
+
+
+示例
+       --创建模式ot。
+       gaussdb=# CREATE SCHEMA ot;
+
+       --创建表ot.test_tbl1。
+       gaussdb=# CREATE TABLE ot.test_tbl1(c1 INT, c2 INT);
+       gaussdb=# INSERT INTO ot.test_tbl1 values(1,1);
+
+       --查看当前search_path。
+       gaussdb=# SHOW search_path;
+         search_path
+       ----------------
+[[PDF_PAGE physical=1532 printed=1483]]
+        "$user",public
+       (1 row)
+
+       --因为当前search_path中不包含ot，并且当前用户不是ot，所以直接查看表名会报错。
+       gaussdb=# SELECT * FROM test_tbl1;
+       ERROR: relation "test_tbl1" does not exist
+       LINE 1: SELECT * FROM test_tbl1;
+
+       --创建同义词。
+       gaussdb=# CREATE OR REPLACE SYNONYM test_tbl1 FOR ot.test_tbl1;
+       --使用同义词。
+       gaussdb=# SELECT * FROM test_tbl1;
+        c1 | c2
+       ----+----
+         1| 1
+       (1 row)
+       gaussdb=# INSERT INTO test_tbl1 VALUES (2,2);
+
+       --删除。
+       gaussdb=# DROP SYNONYM test_tbl1;
+       gaussdb=# DROP TABLE ot.test_tbl1;
+       gaussdb=# DROP SCHEMA ot CASCADE;
+
+
+
+相关链接
+       ALTER SYNONYM，DROP SYNONYM

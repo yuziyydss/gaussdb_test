@@ -1,0 +1,95 @@
+[[PDF_PAGE physical=1518 printed=1469]]
+1.13.9.42 CREATE RULE
+
+功能描述
+            定义一个重写规则。
+
+
+注意事项
+            ●   仅表的拥有者可以在表上创建及修改规则。
+            ●   如果在同一个表创建了多个相同类型的规则，则按规则的名称字母顺序排序进行
+                规则触发。
+            ●   在视图上用于INSERT、UPDATE、DELETE的规则中可以添加RETURNING子句基
+                于视图的字段返回。如果规则被INSERT RETURNING、UPDATE RETURNING、
+                DELETE RETURNING命令触发，这些子句将用来计算输出结果。如果规则被不带
+                RETURNING的命令触发，那么规则的RETURNING子句将被忽略。目前仅允许无
+                条件的INSTEAD规则包含RETURNING子句，而且在同一个事件内的所有规则中最
+                多只能有一个RETURNING子句。这样就确保只有一个RETURNING子句可以用于
+                计算结果。如果在任何有效规则中都不存在RETURNING子句，该视图上的
+                RETURNING查询将被拒绝。
+            ●   ON SELECT规则必须是无条件的INSTEAD规则并且必须有一个由单独一条SELECT
+                查询组成的动作。因此，一条ON SELECT规则实际上把表变成了一个视图，其可
+                见内容是由该规则的SELECT命令返回，而不是直接存在该表中的内容（如果存
+                在）。
+[[PDF_PAGE physical=1519 printed=1470]]
+       ●    ON SELECT后指定的规则名必须为"_RETURN"。
+       ●    ON SELECT规则必须是INSTEAD SELECT，而且TO所指定的表会被转为视图，前
+            提是该表为空且不带有触发器、索引、子表等限制，即必须为一张初始的空表。
+            因此，一般不建议采用这种写法，而是直接创建视图。
+
+语法格式
+       CREATE [ OR REPLACE ] RULE name AS ON event
+         TO table_name [ WHERE condition ]
+         DO [ ALSO | INSTEAD ] { NOTHING | command | ( command ; command ... ) };
+
+       其中event包含以下几种：
+       SELECT
+       INSERT
+       DELETE
+       UPDATE
+
+
+参数说明
+       ●    name
+            创建的规则名，同一个表上的所有规则名字需满足唯一约束。
+            取值范围：字符串，要符合标识符命名规范且最大长度不超过63个字符。
+       ●    event
+            SELECT、INSERT、UPDATE、DELETE事件之一。
+       ●    table_name
+            规则作用的表或者视图，可以使用模式进行具体指定。
+       ●    condition
+            返回布尔值的SQL条件表达式，决定是否实际执行规则。
+            表达式除了引用NEW和OLD之外不能引用任何表，并且不能含有聚集函数。不建
+            议使用INT等数值类型作为condition，因为INT等数值类型可以隐式转换为布尔值
+            （非0值隐式转换为true，0转换为false），可能导致非预期的结果。
+       ●    INSTEAD
+            使用该命令替换初始事件。
+       ●    ALSO
+            该命令应该在初始事件执行之后执行。如果既没有声明ALSO，也没有声明
+            INSTEAD，默认为ALSO。
+       ●    command
+            组成规则动作的命令。有效的命令包括：SELECT、INSERT、UPDATE以及
+            DELETE语句。
+
+示例
+       --创建表tbl_rule1和tbl_rule2用于创建RULE。
+       gaussdb=# CREATE TABLE tbl_rule1(c1 int,c2 int,c3 int, c4 int);
+       gaussdb=# CREATE TABLE tbl_rule2(c1 int,c2 int);
+
+       --创建规则rule_test，ALSO指定命令在初始事件执行之后在执行。
+       gaussdb=# CREATE RULE rule_test AS
+         ON INSERT TO tbl_rule1
+         DO ALSO INSERT INTO tbl_rule2 VALUES (new.c1, new.c2);
+
+       --向tbl_rule1插入数据，并查看两张表的数据。
+[[PDF_PAGE physical=1520 printed=1471]]
+gaussdb=# INSERT INTO tbl_rule1 VALUES(1,11,111,1111), (2,22,222,2222);
+gaussdb=# SELECT * FROM tbl_rule1;
+ c1 | c2 | c3 | c4
+----+----+-----+------
+  1 | 11 | 111 | 1111
+  2 | 22 | 222 | 2222
+(2 rows)
+gaussdb=# SELECT * FROM tbl_rule2;
+ c1 | c2
+----+----
+  1 | 11
+  2 | 22
+(2 rows)
+
+--删除规则。
+gaussdb=# DROP RULE rule_test ON tbl_rule1;
+
+--删除表。
+gaussdb=# DROP TABLE tbl_rule1;
+gaussdb=# DROP TABLE tbl_rule2;

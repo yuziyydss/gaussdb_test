@@ -1,0 +1,109 @@
+[[PDF_PAGE physical=2173 printed=2124]]
+2.4.2.8.20 CREATE USER
+
+功能描述
+             创建一个用户。
+
+注意事项
+             ●   通过CREATE USER创建的用户，默认具有LOGIN权限。
+             ●   通过CREATE USER创建用户的同时，系统会在执行该命令的数据库中，为该用户
+                 创建一个同名的SCHEMA。
+             ●   系统管理员在普通用户同名schema下创建的对象，所有者为schema的同名用户
+                 （非系统管理员）。
+[[PDF_PAGE physical=2174 printed=2125]]
+语法格式
+       CREATE USER user_name [ [ WITH ] option [ ... ] ]{ PASSWORD | IDENTIFIED BY } { 'password' [EXPIRED] |
+       DISABLE };
+
+       其中option子句用于设置权限及属性等信息。
+       {SYSADMIN | NOSYSADMIN}
+          | {MONADMIN | NOMONADMIN}
+          | {OPRADMIN | NOOPRADMIN}
+          | {POLADMIN | NOPOLADMIN}
+          | {AUDITADMIN | NOAUDITADMIN}
+          | {CREATEDB | NOCREATEDB}
+          | {USEFT | NOUSEFT}
+          | {CREATEROLE | NOCREATEROLE}
+          | {INHERIT | NOINHERIT}
+          | {LOGIN | NOLOGIN}
+          | {REPLICATION | NOREPLICATION}
+          | {PERSISTENCE | NOPERSISTENCE}
+          | CONNECTION LIMIT connlimit
+          | VALID BEGIN 'timestamp'
+          | VALID UNTIL 'timestamp'
+          | USER GROUP 'groupuser'
+          | NODE GROUP logic_cluster_name
+          | IN ROLE role_name [, ...]
+          | IN GROUP role_name [, ...]
+          | ROLE role_name [, ...]
+          | ADMIN role_name [, ...]
+          | USER role_name [, ...]
+          | DEFAULT TABLESPACE tablespace_name
+          | PROFILE DEFAULT
+          | PROFILE profile_name
+          | PGUSER
+
+
+参数说明
+       ●    user_name
+            用户名称。
+            取值范围：字符串，要符合标识符说明且最多为63个字符。
+                   说明
+
+                 ● 用户名称需要为字母、下划线、数字（0~9）或美元符号（$），且必须以字母（a~z）
+                   或下划线（_）开头。
+                 ● 通过CREATE USER创建用户时会自动创建一个同名的SCHEMA，在GUC参数
+                   lower_case_table_names为1大小写不敏感时，Schema名会自动转为小写，所以不建
+                   议用户创建含有大写字母的用户名。
+                 ● 若用户名称超过63个字符，数据库会截断并保留前63个字符当作用户名称。
+                 ● 用户名支持使用反引号括起来，当sql_mode设置为ANSI_QUOTES，也可以用双引号括
+                   起来。不用反引号、双引号括起来的用户名会被转换为小写。
+       ●    password
+            登录密码。
+            密码规则如下：
+            –     密码默认不少于8个字符。
+            –     不能与用户名及用户名倒序相同。
+            –     至少包含大写字母（A-Z），小写字母（a-z），数字（0-9），非字母数字字
+                  符（限定为~!@#$%^&*()-_=+\|[{}];:,<.>/?）四类字符中的三类字符。
+            –     密码也可以是符合格式要求的密文字符串，这种情况主要用于用户数据导入
+                  场景，不推荐用户直接使用。如果直接使用密文密码，用户需要知道密文密
+[[PDF_PAGE physical=2175 printed=2126]]
+                  码对应的明文，并且保证密码复杂度，数据库不会校验密文密码复杂度，直
+                  接使用密文密码的安全性由用户保证。
+            –     创建用户时，应当使用单引号或双引号将用户密码进行包裹。
+            取值范围：字符串。
+       其他参数值介绍请参见CREATE ROLE。
+
+示例
+       --创建用户jim，登录密码为********。
+       m_db=# CREATE USER jim PASSWORD '********';
+
+       --下面语句与上面的等价。
+       m_db=# CREATE USER kim IDENTIFIED BY '********';
+
+       --如果创建有“创建数据库”权限的用户，则需要加CREATEDB关键字。
+       m_db=# CREATE USER dim CREATEDB PASSWORD '********';
+
+       --将用户jim的登录密码由********修改为**********。
+       m_db=# ALTER USER jim IDENTIFIED BY '**********' REPLACE '********';
+
+       --为用户jim追加CREATEROLE权限。
+       m_db=# ALTER USER jim CREATEROLE;
+
+       --将enable_seqscan的值设置为on， 设置成功后，在下一会话中生效。
+       m_db=# ALTER USER jim SET enable_seqscan TO on;
+
+       --重置jim的enable_seqscan参数。
+       m_db=# ALTER USER jim SET enable_seqscan TO DEFAULT;
+
+       --锁定jim账户。
+       m_db=# ALTER USER jim ACCOUNT LOCK;
+
+       --删除用户。
+       m_db=# DROP USER kim CASCADE;
+       m_db=# DROP USER jim CASCADE;
+       m_db=# DROP USER dim CASCADE;
+
+
+相关链接
+       ALTER USER，CREATE ROLE，DROP USER

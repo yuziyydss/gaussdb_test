@@ -1,0 +1,392 @@
+[[PDF_PAGE physical=1621 printed=1572]]
+1.13.9.57 CREATE TYPE
+
+功能描述
+            在当前数据库中定义一种新的数据类型。
+
+            当前仅支持创建复合类型、基本类型、shell类型、枚举类型和集合类型。具体介绍如
+            下：
+
+            ●   复合类型
+                复合类型由一个属性名和数据类型的列表指定。如果属性的数据类型是可排序
+                的，也可以指定该属性的排序规则。复合类型本质上和表的行类型相同，但是如
+                果只想定义一种类型，使用CREATE TYPE避免了创建一个实际的表。单独的复合
+                类型也是很有用的，例如可以作为函数的参数或者返回类型。
+                为了能够创建复合类型，必须拥有在其所有属性类型上的USAGE特权。
+            ●   基本类型
+                用户可以自定义一种新的基本类型（标量类型）。
+            ●   shell类型
+                shell类型是一种用于后面要定义的类型的占位符，通过发出一个不带除类型名之
+                外其他参数的CREATE TYPE命令可以创建这种类型。在创建基本类型时，需要
+                shell类型作为一种向前引用。
+            ●   枚举类型
+                由若干个标签构成的列表，每一个标签值都是一个非空字符串，且字符串长度必
+                须不超过63个字节。
+            ●   集合类型
+                类似数组，但是没有长度限制，主要在存储过程中使用。
+
+
+注意事项
+            ●   如果指定了具体模式名，那么新创建的数据类型将被创建在指定的模式中，否则
+                将被创建在当前模式中。
+            ●   新创建的类型名称不能与同一个模式中已有的类型或者表重名（由于表具有相关
+                的数据类型属性，新创建的类型名称不能与同一个模式中已有表的名称相同）。
+            ●   创建数据类型的用户将成为该数据类型的所有者。
+            ●   被授予CREATE ANY TYPE权限的用户，可以在PUBLIC模式和用户模式下创建类
+                型。
+            ●   类型只适用于行存表。
+[[PDF_PAGE physical=1622 printed=1573]]
+       ●     当用户使用关联函数进行创建非系统自带类型时，须了解新创建类型的定义及其
+             所关联的函数。如果操作不当，可能会因所关联的函数而导致权限被滥用的风
+             险。
+
+语法格式
+       CREATE TYPE name AS
+         ( [ attribute_name data_type [ COLLATE collation ] [, ... ] ] );
+
+
+
+
+       CREATE TYPE name (
+          INPUT = input_function,
+          OUTPUT = output_function
+          [ , RECEIVE = receive_function ]
+          [ , SEND = send_function ]
+          [ , TYPMOD_IN = type_modifier_input_function ]
+          [ , TYPMOD_OUT = type_modifier_output_function ]
+          [ , ANALYZE = analyze_function ]
+          [ , INTERNALLENGTH = { internallength | VARIABLE } ]
+          [ , PASSEDBYVALUE ]
+          [ , ALIGNMENT = alignment ]
+          [ , STORAGE = storage ]
+          [ , LIKE = like_type ]
+          [ , CATEGORY = category ]
+          [ , PREFERRED = preferred ]
+          [ , DEFAULT = default ]
+          [ , ELEMENT = element ]
+          [ , DELIMITER = delimiter ]
+          [ , COLLATABLE = collatable ]
+       );
+[[PDF_PAGE physical=1623 printed=1574]]
+CREATE TYPE name;
+
+
+
+
+CREATE TYPE name AS ENUM
+  ( [ 'label' [, ... ] ] );
+[[PDF_PAGE physical=1624 printed=1575]]
+       CREATE TYPE name AS TABLE OF data_type;
+
+
+
+
+参数说明
+       ●    复合类型
+            –    name
+                 要创建的类型的名称，可以使用模式进行具体指定。
+            –    attribute_name
+                 复合类型的一个属性（列）的名称。
+            –    data_type
+                 要成为复合类型的一个列的现有数据类型的名称。可以使用%RowType间接
+                 引用表的类型，或者使用%Type间接引用表或复合类型中某一列的类型。
+            –    collation
+                 要关联到复合类型的一列的现有排序规则的名称。排序规则可以使用
+                 “SELECT * FROM pg_collation;”命令从pg_collation系统表中查询，默认的
+                 排序规则为查询结果中以default开始的行。
+                       说明
+
+                     复合类型构造器赋值时支持使用=>，约束如下：
+                     ● 复合类型构造器赋值时使用=>功能，仅在兼容A模式数据库下（即
+                       sql_compatibility='A'）支持。
+                     ● 复合类型构造器赋值时使用=>功能，仅在入参赋值连续使用=>到结尾时支持，如
+                       composite_name(elename1 => val1, elename2 => val2, elename3 => val3)或
+                       composite_name(val1, elename2 => val2, elename3 => val3)；不支持非连续使
+                       用=>赋值或者使用=>赋值时未到最后一个入参，如composite_name(elename1
+                       => val1, elename2 => val2, val3)或composite_name(val1, elename2 => val2,
+                       val3)。
+       ●    基本类型：自定义基本类型时，参数可以以任意顺序出现，input_function和
+            output_function为必选参数，其他为可选参数。
+            –    input_function
+                 将数据从类型的外部文本形式转换为内部形式的函数名。
+                 输入函数可以被声明为有一个CSTRING类型的参数，或者有三个类型分别为
+                 CSTRING类型、OID类型、INTEGER类型的参数。
+
+                 ▪    CSTRING类型参数是以C字符串存在的输入文本。
+
+                 ▪    OID类型参数是该类型自身的OID（对于数组类型则是其元素类型的
+                      OID）。
+
+                 ▪    INTEGER类型参数是目标列的typmod（未知情况下传递-1）。
+                 输入函数必须返回一个该数据类型本身的值。通常，一个输入函数应该被声
+                 明为STRICT。否则，在读到一个NULL输入值时，调用输入函数时，第一个参
+                 数会是NULL，导致该函数必须仍然返回NULL，除非调用函数发生了错误。
+[[PDF_PAGE physical=1625 printed=1576]]
+        说明
+
+        ● 输入和输出函数能被声明为具有新类型的结果或参数是因为：必须在创建新类型
+          之前创建这两个函数。而新类型应该首先被定义为一种shell type，它是一种占位
+          符类型，除了名称和拥有者之外它没有其他属性。这可以通过不带额外参数的命
+          令CREATE TYPE name做到。然后用C写的I/O函数可以被定义为引用这种shell
+          type。最后，用带有完整定义的CREATE TYPE把该shell type替换为一个完全的、
+          合法的类型定义，之后新类型就可以正常使用了。
+        ● 输入和输出函数若为INTERNAL类型且指定为内部系统函数，则其输入函数和输出
+          函数的参数类型需保持一致，且新类型的INTERNALLENGTH和PASSEDBYVALUE
+          需要与输入函数和输出函数的参数类型保持一致。
+–   output_function
+    将数据从类型的内部形式转换为外部文本形式的函数名。
+    输出函数必须被声明为有一个新数据类型的参数。输出函数必须返回类型
+    CSTRING。对于NULL值不会调用输出函数。
+–   receive_function
+    可选。将数据从类型的外部二进制形式转换成内部形式的函数名。
+    如果没有该函数，该类型不能参与到二进制输入中。二进制表达转换成内部
+    形式代价更低，然而却更容易移植（例如，标准的整数数据类型使用网络字
+    节序作为外部二进制表达，而内部表达是机器本地的字节序）。
+    receive_function应该执行足够的检查以确保该值是有效的。
+    接收函数可以被声明为有一个INTERNAL类型的参数，或者有三个类型分别为
+    INTERNAL类型、OID类型、INTEGER类型的参数。
+
+    ▪   INTERNAL类型参数是一个指向StringInfo缓冲区的指针，其中保存着接
+        收到的字节串。
+
+    ▪   OID类型和INTEGER类型参数和文本输入函数的相同。
+    接收函数必须返回一个该数据类型本身的值。通常，一个接收函数应该被声
+    明为STRICT。否则，在读到一个NULL输入值时调用接收函数时，第一个参数
+    会是NULL，导致该函数必须仍然返回NULL，除非接收函数发生了错误。
+–   send_function
+    可选。将数据从类型的内部形式转换为外部二进制形式的函数名。
+    如果没有该函数，该类型将不能参与到二进制输出中。发送函数必须被声明
+    为有一个新数据类型的参数。发送函数必须返回类型BYTEA。对于NULL值不
+    会调用发送函数。
+–   type_modifier_input_function
+    可选。将类型的修饰符数组转换为内部形式的函数名。
+–   type_modifier_output_function
+    可选。将类型的修饰符的内部形式转换为外部文本形式的函数名。
+[[PDF_PAGE physical=1626 printed=1577]]
+         说明
+
+        如果该类型支持修饰符（附加在类型声明上的可选约束，例如，char(5)或
+        numeric(30,2)），则需要可选的type_modifier_input_function以及
+        type_modifier_output_function。GaussDB允许用户定义的类型有一个或者多个简单
+        常量或者标识符作为修饰符。不过，为了存储在系统目录中，该信息必须能被打包到
+        一个非负整数值中。所声明的修饰符会被以cstring数组的形式传递给
+        type_modifier_input_function。type_modifier_input_function必须检查该值的合法
+        性（如果值错误就抛出一个错误），如果值正确，要返回一个非负integer值，该值将
+        被存储在“typmod”列中。如果类型没有type_modifier_input_function则类型修饰
+        符将被拒绝。type_modifier_output_function把内部的整数typmod值转换回正确的
+        形式用于用户显示。type_modifier_output_function必须返回一个CSTRING值，该值
+        就是追加到类型名称后的字符串。例如，numeric的函数可能会返回(30,2)。如果默
+        认的显示格式就是只把存储的typmod整数值放在圆括号内，则允许省略
+        type_modifier_output_function。
+–   analyze_function
+    可选。为该数据类型执行统计分析的函数名的可选参数。
+    默认情况下，如果该类型有一个默认的B-Tree操作符类，ANALYZE将尝试用
+    类型的“equals”和“less-than”操作符来收集统计信息。这种行为对于非
+    标量类型并不合适，因此可以通过指定一个自定义分析函数来覆盖这种行
+    为。分析函数必须被声明为有一个类型为INTERNAL的参数，并且返回一个布
+    尔值结果。
+–   internallength
+    可选。一个数字常量，用于指定新类型的内部表达的字节长度。默认为变
+    长。
+    虽然只有I/O函数和其他为该类型创建的函数才知道新类型的内部表达的细
+    节，但是内部表达的一些属性必须被向GaussDB声明。其中最重要的是
+    INTERNALLENGTH。基本数据类型可以是定长的（这种情况下
+    internallength是一个正整数）或者是变长的（把INTERNALLENGTH设置为
+    VARIABLE，在内部通过把typlen设置为-1表示）。所有变长类型的内部表达
+    都必须以一个4字节整数开始，internallength定义了总长度。
+–   PASSEDBYVALUE
+    可选。表示这种数据类型的值需要被传值而不是传引用。传值的类型必须是
+    定长的，并且其内部表达不能超过Datum类型（某些机器上是4字节，其他机
+    器上是8字节）的尺寸。
+–   alignment
+    可选。该参数指定数据类型的存储对齐需求。如果被指定，必须是CHAR、
+    INT2、INT4或者DOUBLE。默认是INT4。
+    允许的值等同于以1、2、4或8字节边界对齐。要注意变长类型的alignment
+    参数必须至少为4，因为需要包含一个INT4作为其第一个组成部分。
+–   storage
+    可选。该数据类型的存储策略。
+    如果被指定，必须是plain、external、extended或者main。默认是plain。
+
+    ▪   plain指定该类型的数据将总是被存储在线内并且不会被压缩。（对定长
+        类型只允许plain）
+
+    ▪   extended指定系统将首先尝试压缩一个长的数据值，并且将在数据仍然
+        太长的情况下把值移出主表行。
+
+    ▪   external允许值被移出主表，但是系统将不会尝试对其进行压缩。
+[[PDF_PAGE physical=1627 printed=1578]]
+    ▪   main允许压缩，但是不鼓励把值移出主表（如果没有其他办法让行的大
+        小变得合适，具有这种存储策略的数据项仍将被移出主表，但比起
+        extended以及external项，这种存储策略的数据项会被优先考虑保留在
+        主表中）。
+    除plain之外所有的storage值都暗示该数据类型的函数能处理被TOAST过的
+    值。指定的值仅仅是决定一种可TOAST数据类型的列的默认TOAST存储策
+    略，用户可以使用ALTER TABLE SET STORAGE为列选取其他策略。
+–   like_type
+    可选。与新类型具有相同表达的现有数据类型的名称。会从这个类型中复制
+    internallength、passedbyvalue、alignment以及storage的值（除非在这个
+    CREATE TYPE命令的其他地方用显式说明覆盖）。
+    当新类型的低层实现是以一种现有的类型为参考时，用这种方式指定表达特
+    别有用。
+–   category
+    可选。这种类型的分类码（一个ASCII 字符）。默认是“用户定义类型”的
+    'U'。为了创建自定义分类，也可以选择其他ASCII字符。
+–   preferred
+    可选。如果这种类型是其类型分类中的优先类型则为true，否则为false。默
+    认为false。在一个现有类型分类中创建一种新的优先类型要非常谨慎，因为
+    这可能会导致很大的改变。
+
+        说明
+
+        category和preferred参数可以被用来帮助控制在混淆的情况下应用哪一种隐式造型。
+        每一种数据类型都属于一个用单个ASCII字符命名的分类，并且每一种类型可以是其
+        所属分类中的“首选”。当有助于解决重载函数或操作符时，解析器将优先造型到首
+        选类型（但是只能从同类的其他类型造型）。对于没有隐式转换到或来自任意其他类
+        型的类型，让这些设置保持默认即可。不过，对于有隐式转换的相关类型的组，把它
+        们都标记为属于同一个类别并且选择一种或两种“最常用”的类型作为该类别的首选
+        通常是很有用的。在把一种用户定义的类型增加到一个现有的内建类别（例如，数字
+        或者字符串类型）中时，category参数特别有用。不过，也可以创建新的全部是用户
+        定义类型的类别。对这样的类别，可选择除大写字母之外的任何ASCII字符。
+–   default
+    可选。数据类型的默认值。如果被省略，默认值是空。
+    如果用户希望该数据类型的列被默认为某种非空值，可以指定一个默认值。
+    默认值可以用DEFAULT关键词指定（这样一个默认值可以被附加到一个特定
+    列的显式DEFAULT子句覆盖）。
+–   element
+    可选。被创建的类型是一个数组，element指定了数组元素的类型。例如，要
+    定义一个4字节整数的数组（INT4），应指定ELEMENT = INT4。
+–   delimiter
+    可选。指定这种类型组成的数组中分隔值的定界符。
+    可以把delimiter设置为一个特定字符，默认的定界符是逗号（,）。注意定界
+    符是与数组元素类型相关的，而不是数组类型本身相关。
+–   collatable
+    可选。如果这个类型的操作可以使用排序规则信息，则为true。默认为
+    false。
+[[PDF_PAGE physical=1628 printed=1579]]
+                如果collatable为true，这种类型的列定义和表达式可能通过使用COLLATE子
+                句携带有排序规则信息。在该类型上操作的函数的实现负责真正利用这些信
+                息，仅把类型标记为可排序的并不会让它们自动地去使用这类信息。
+          –     label
+                可选。与枚举类型的一个值相关的文本标签，其值为长度不超过63个字符的
+                非空字符串。
+                 说明
+
+               在创建用户定义类型的时候，GaussDB会自动创建一个与之关联的数组类型，其名称由该
+               元素类型的名称前缀一个下划线组成。
+
+
+示例
+     --创建一种复合类型，建表并插入数据以及查询。
+     gaussdb=# CREATE TYPE compfoo AS (f1 int, f2 text);
+     gaussdb=# CREATE TABLE t1_compfoo(a int, b compfoo);
+     gaussdb=# CREATE TABLE t2_compfoo(a int, b compfoo);
+     gaussdb=# INSERT INTO t1_compfoo values(1,(1,'demo'));
+     gaussdb=# INSERT INTO t2_compfoo SELECT * FROM t1_compfoo;
+     gaussdb=# SELECT (b).f1 FROM t1_compfoo;
+     gaussdb=# SELECT * FROM t1_compfoo t1 JOIN t2_compfoo t2 ON (t1.b).f1=(t1.b).f1;
+
+     --重命名数据类型。
+     gaussdb=# ALTER TYPE compfoo RENAME TO compfoo1;
+
+     --要改变一个用户定义类型compfoo1的所有者为usr1。
+     gaussdb=# CREATE USER usr1 PASSWORD '********';
+     gaussdb=# ALTER TYPE compfoo1 OWNER TO usr1;
+
+     --把用户定义类型compfoo1的模式改变为usr1。
+     gaussdb=# ALTER TYPE compfoo1 SET SCHEMA usr1;
+
+     --给一个数据类型增加一个新的属性。
+     gaussdb=# ALTER TYPE usr1.compfoo1 ADD ATTRIBUTE f3 int;
+
+     --删除compfoo1类型。
+     gaussdb=# DROP TYPE usr1.compfoo1 CASCADE;
+
+     --删除相关表和用户。
+     gaussdb=# DROP TABLE t1_compfoo;
+     gaussdb=# DROP TABLE t2_compfoo;
+     gaussdb=# DROP SCHEMA usr1;
+     gaussdb=# DROP USER usr1;
+
+     --创建一个枚举类型。
+     gaussdb=# CREATE TYPE bugstatus AS ENUM ('create', 'modify', 'closed');
+
+     --添加一个标签值。
+     gaussdb=# ALTER TYPE bugstatus ADD VALUE IF NOT EXISTS 'regress' BEFORE 'closed';
+
+     --重命名一个标签值。
+     gaussdb=# ALTER TYPE bugstatus RENAME VALUE 'create' TO 'new';
+
+     --创建一个集合类型。
+     gaussdb=# CREATE TYPE bugstatus_table AS TABLE OF bugstatus;
+
+     --删除集合类型及枚举类型。
+     gaussdb=# DROP TYPE bugstatus_table;
+     gaussdb=# DROP TYPE bugstatus CASCADE;
+
+     --创建A兼容模式数据库，并切换到此数据库。
+     gaussdb=# CREATE DATABASE ora_compatible_db DBCOMPATIBILITY 'A';
+     CREATE DATABASE
+     gaussdb=# \c ora_compatible_db;
+     Non-SSL connection (SSL connection is recommended when requiring high-security)
+[[PDF_PAGE physical=1629 printed=1580]]
+       You are now connected to database "ora_compatible_db" as user "omm".
+       --创建复合类型。
+       ora_compatible_db=# CREATE TYPE person_type AS (name VARCHAR2(50), age NUMBER, gender
+       VARCHAR2(10));
+       CREATE TYPE
+       ora_compatible_db=# CREATE TYPE address_type AS (street VARCHAR2(50), city VARCHAR2(50), zip_code
+       VARCHAR2(10));
+       CREATE TYPE
+       ora_compatible_db=# CREATE TYPE customer_type AS (id NUMBER, person_info person_type, address_info
+       address_type);
+       CREATE TYPE
+       --复合类型构造器赋值时全部入参使用=>，执行成功。
+       ora_compatible_db=# DECLARE
+          v_customer customer_type;
+        BEGIN
+          v_customer := customer_type(
+            id => 123,
+            person_info => person_type(name => 'John', age => 30, gender => 'Male'),
+            address_info => address_type(street => '123 Main St', city => 'Anytown', zip_code => '12345')
+          );
+        END;
+        /
+       ANONYMOUS BLOCK EXECUTE
+       --复合类型构造器赋值时，入参赋值连续使用=>到最后一个入参，执行成功。
+       ora_compatible_db=# DECLARE
+          v_person person_type;
+        BEGIN
+          v_person := person_type('John', age => 30, gender => 'Male');
+        END;
+        /
+       ANONYMOUS BLOCK EXECUTE
+       --复合类型构造器赋值时未连续使用=>到最后一个入参，提示错误。
+       ora_compatible_db=# DECLARE
+          v_person person_type;
+        BEGIN
+          v_person := person_type(name => 'John', age => 30, 'Male');
+        END;
+        /
+       ERROR: Positional parameters cannot follow named parameters.
+       LINE 1: SELECT person_type(name => 'John', age => 30, 'Male')
+                                             ^
+       QUERY: SELECT person_type(name => 'John', age => 30, 'Male')
+       CONTEXT: referenced column: person_type
+       PL/pgSQL function inline_code_block line 3 at assignment
+       --删除复合类型。
+       ora_compatible_db=# DROP TYPE customer_type;
+       DROP TYPE
+       ora_compatible_db=# DROP TYPE address_type;
+       DROP TYPE
+       ora_compatible_db=# DROP TYPE person_type;
+       DROP TYPE
+       --删掉创建的数据库，并切换回原数据库。
+       ora_compatible_db=# \c postgres;
+       Non-SSL connection (SSL connection is recommended when requiring high-security)
+       You are now connected to database "postgres" as user "omm".
+       gaussdb=# DROP DATABASE ora_compatible_db;
+       DROP DATABASE
+
+
+相关链接
+       ALTER TYPE，DROP TYPE

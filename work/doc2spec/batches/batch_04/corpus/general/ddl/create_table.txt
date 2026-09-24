@@ -1,0 +1,1351 @@
+[[PDF_PAGE physical=1532 printed=1483]]
+1.13.9.48 CREATE TABLE
+
+功能描述
+            在当前数据库中创建一个新的空白表，该表由命令执行者所有。当前默认创建行存
+            表。
+
+
+注意事项
+            ●   如果在建表过程中数据库系统发生故障，系统恢复后可能无法自动清除之前已创
+                建的、大小为0的磁盘文件。此种情况出现概率小，不影响数据库系统的正常运
+                行。
+            ●   使用JDBC时，支持通过PreparedStatement对DEFAULT值进行参数化设置。
+            ●   被授予CREATE ANY TABLE权限的用户，可以在public模式和用户模式下创建表。
+                如果想要创建包含serial类型列的表，还需要授予CREATE ANY SEQUENCE创建序
+                列的权限。
+            ●   XML类型不能作为主键、外键。
+            ●   不支持在rowid/rowno系统列上创建外键约束。
+            ●   在为数据对象增加或者变更ILM策略的时候，如果追加了行级表达式，需要注意行
+                表达式目前只支持白名单中列出的函数。具体白名单函数列表参考行表达式函数
+                白名单。
+
+                   说明
+
+                  在ILM策略的ON ( EXPR )行级表达式支持的函数中，有部分函数的输出可能会受兼容性参
+                  数影响。例如，upper函数在B兼容模式下设置b_format_version='5.7'和
+                  b_format_dev_version='s2'后，将无法转大写。
+            ●   表约束个数不能超过32767个。
+[[PDF_PAGE physical=1533 printed=1484]]
+语法格式
+       创建表。
+       CREATE [ [ GLOBAL | LOCAL ] { TEMPORARY | TEMP } | UNLOGGED ] TABLE [ IF NOT EXISTS ] table_name
+           { ( { column_name data_type [ CHARACTER SET | CHARSET charset ] [ COLLATE collation ]
+       [ column_constraint [ ... ] ]
+               | table_constraint
+               | LIKE source_table [ like_option [...] ] }
+               [, ... ] )
+           | LIKE source_table }
+           [ table_option [ [ , ] ... ] ]
+           [ htap_option ]
+           [ WITH ( {storage_parameter = value} [, ... ] ) ]
+           [ WITHOUT OIDS ]
+           [ ON COMMIT { PRESERVE ROWS | DELETE ROWS | DROP } ]
+           [ ILM ADD POLICY ROW STORE COMPRESS
+        { ADVANCED [ MEDIUM | HIGH ] ROW AFTER n { day | days | month | months | year | years } OF NO
+       MODIFICATION [ ON ( EXPR )]
+        | TURBO [ LOW | MEDIUM | HIGH ] UNIT AFTER n { hour | hours | day | days | month | months | year |
+       years } OF NO MODIFICATION
+        | NONE}]
+           [ TABLESPACE tablespace_name ];
+
+       ●    其中table_option为：
+            { COMMENT [ = ] 'string' |
+              AUTO_INCREMENT [ = ] value |
+              [ DEFAULT ] CHARACTER SET | CHARSET [ = ] default_charset |
+              [ DEFAULT ] COLLATE [ = ] default_collation |
+              ENGINE [ = ] { InnoDB | 'InnoDB' | "InnoDB" }}
+
+       ●    其中htap_option为：
+            { COLVIEW [ PRIORITY { HIGH | LOW | NONE } ] |
+              NOCOLVIEW}
+
+       ●    其中列约束column_constraint为：
+            [ CONSTRAINT constraint_name ]
+            { NOT NULL |
+              NULL |
+              CHECK ( expression ) |
+              DEFAULT default_expr |
+              ON UPDATE update_expr |
+              GENERATED ALWAYS AS ( generation_expr ) [STORED] |
+              GENERATED [ ALWAYS | BY DEFAULT [ ON NULL ] ] AS IDENTITY [ ( identity_options ) ] |
+              AUTO_INCREMENT |
+              COMMENT 'string' |
+              COLVIEW |
+              NOCOLVIEW |
+              UNIQUE [KEY] index_parameters |
+              PRIMARY KEY index_parameters |
+              ENCRYPTED WITH ( [DATATYPE_CL = client_logic_type,] COLUMN_ENCRYPTION_KEY =
+            column_encryption_key, ENCRYPTION_TYPE = encryption_type_value ) |
+              REFERENCES reftable [ ( refcolumn ) ] [ MATCH FULL | MATCH PARTIAL | MATCH SIMPLE ]
+                [ ON DELETE action ] [ ON UPDATE action ] }
+            [ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ]
+
+       ●    其中表约束table_constraint为：
+            [ CONSTRAINT [ constraint_name ] ]
+            { CHECK ( expression ) |
+              UNIQUE [ index_name ] [ USING method ] ( { { column_name [ ( length ) ] | ( expression ) } [ ASC |
+            DESC ] } [, ... ] ) index_parameters |
+              PRIMARY KEY [ USING method ] ( { column_name [ ASC | DESC ] } [, ... ] ) index_parameters
+              |
+              FOREIGN KEY [ index_name ] ( column_name [, ... ] ) REFERENCES reftable [ ( refcolumn [, ... ] ) ]
+                 [ MATCH FULL | MATCH PARTIAL | MATCH SIMPLE ] [ ON DELETE action ] [ ON UPDATE
+            action ] }
+            [ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ]
+            { [ COMMENT 'string' ] [ ... ] }
+
+       ●    其中like选项like_option为：
+[[PDF_PAGE physical=1534 printed=1485]]
+           { INCLUDING | EXCLUDING } { DEFAULTS | GENERATED | CONSTRAINTS | INDEXES | STORAGE |
+           COMMENTS | PARTITION | RELOPTIONS | UPDATE | IDENTITY | ILM | ALL }
+
+       ●   其中索引参数index_parameters为：
+           [ WITH ( {storage_parameter = value} [, ... ] ) ]
+           [ USING INDEX TABLESPACE tablespace_name ]
+
+       ●   其中update_expr为：
+           { CURRENT_TIMESTAMP | LOCALTIMESTAMP | NOW() }
+
+       ●   其中identity_options为：
+           [ INCREMENT [ BY ] increment ] [ MINVALUE minvalue | NO MINVALUE | NOMINVALUE]
+           [ MAXVALUE maxvalue | NO MAXVALUE | NOMAXVALUE] [ START [ WITH ] start ] [ CACHE cache |
+           NOCACHE ] [ [ NO ] CYCLE | NOCYCLE] [ SCALE [ EXTEND | NOEXTEND] | NOSCALE ]
+
+
+参数说明
+       ●   UNLOGGED
+           如果指定此关键字，则创建的表为非日志表。在非日志表中写入的数据不会被写
+           入到预写日志中，这样就会比普通表快很多。但是非日志表在冲突、执行操作系
+           统重启、数据库重启、主备切换、切断电源操作或异常关机后会被全部清空，会
+           造成数据丢失的风险。非日志表中的内容也不会被复制到备服务器中。在非日志
+           表中创建的索引也不会被自动记录。
+           使用场景：非日志表不能保证数据的安全性，用户应该在确保数据已经做好备份
+           的前提下使用，例如系统升级时进行数据的备份。
+           故障处理：当异常关机等操作导致非日志表上的索引发生数据丢失时，用户应该
+           对发生错误的索引进行重建。
+       ●   GLOBAL | LOCAL
+           创建临时表时可以在TEMP或TEMPORARY前指定GLOBAL或LOCAL关键字。如果
+           指定GLOBAL关键字，GaussDB会创建全局临时表，否则GaussDB会创建本地临
+           时表。
+       ●   TEMPORARY | TEMP
+           如果指定TEMP或TEMPORARY关键字，则创建的表为临时表。临时表分为全局临
+           时表和本地临时表两种类型。创建临时表时如果指定GLOBAL关键字则为全局临时
+           表，否则为本地临时表。
+           全局临时表的元数据对所有会话可见，会话结束后元数据继续存在。会话与会话
+           之间的用户数据、索引和统计信息相互隔离，每个会话只能看到和更改自己提交
+           的数据。全局临时表有两种模式：一种是基于会话级别的(ON COMMIT
+           PRESERVE ROWS), 当会话结束时自动清空用户数据；一种是基于事务级别的(ON
+           COMMIT DELETE ROWS), 当执行commit或rollback时自动清空用户数据。建表
+           时如果没有指定ON COMMIT选项，则缺省为会话级别。与本地临时表不同，全
+           局临时表建表时可以指定非pg_temp_开头的schema。
+           本地临时表只在当前会话可见，本会话结束后会自动删除。由于临时表只在当前
+           会话创建，对于涉及对临时表操作的DDL语句，会产生DDL失败的报错。因此，
+           建议DDL语句中不要对临时表进行操作。TEMP和TEMPORARY等价。
+[[PDF_PAGE physical=1535 printed=1486]]
+      须知
+
+    ● 本地临时表通过每个会话独立的以pg_temp开头的schema来保证只对当前会
+      话可见，因此，不建议用户在日常操作中手动删除以pg_temp、
+      pg_toast_temp开头的SCHEMA。
+    ● 如果建表时不指定TEMPORARY/TEMP关键字，而指定表的schema为当前会话
+      的pg_temp_开头的SCHEMA，则此表会被创建为临时表。
+    ● ALTER/DROP全局临时表和索引，如果其它会话正在使用它，禁止操作
+      （ALTER INDEX index_name REBUILD除外）。
+    ● 全局临时表的DDL只会影响当前会话的用户数据和索引。例如TRUNCATE、
+      REINDEX、ANALYZE只对当前会话有效。
+    ● 全局临时表功能可以通过设置GUC参数max_active_global_temporary_table控
+      制是否启用。如果max_active_global_temporary_table=0，关闭全局临时表功
+      能。
+    ● 临时表只对当前会话可见，因此不支持与\parallel on并行执行一起使用。
+    ● 临时表不支持主备切换。
+    ● 全局临时表不响应自动清理，在长连接场景使用时尽量使用on commit delete
+      rows的全局临时表，或定期手动执行VACUUM，否则可能导致clog日志不回
+      收。
+    ● 全局临时表不支持以下场景：
+      ●    不支持创建全局临时SEQUENCE，各个会话的全局临时表使用共享的
+           SEQUENCE，只能保证唯一性，不保证连续性。
+      ●    不支持创建全局临时视图。
+      ●    不支持创建分区表。
+      ●    不支持创建Hash bucket表。
+      ●    不支持扩展统计信息。
+      ●    不支持ON COMMIT DROP属性。
+      ●    不支持INSERT/UPDATE/DELETE的SMP。
+
+●   IF NOT EXISTS
+    如果已经存在相同名称的表，不会报出错误，而会发出通知，告知通知此表已存
+    在。
+●   table_name
+    要创建的表名。
+
+
+      须知
+
+    物化视图的一些处理逻辑会通过表名的前缀来识别是不是物化视图日志表和物化
+    视图关联表，因此，用户不要创建表名以mlog_或matviewmap_为前缀的表，否
+    则会影响此表的一些功能。
+
+●   column_name
+    新表中要创建的字段名。
+●   constraint_name
+[[PDF_PAGE physical=1536 printed=1487]]
+    建表时指定的约束名称。
+
+
+
+      须知
+
+    在B模式数据库下（即sql_compatibility = 'B'）constraint_name为可选项，在其
+    他模式数据库下，必须加上constraint_name。
+
+●   index_name
+    索引名。
+
+
+
+      须知
+
+    ● index_name仅在B模式数据库下（即sql_compatibility = 'B'）支持，其他模式
+      数据库下不支持。
+    ● 对于外键约束，constraint_name和index_name同时指定时，索引名为
+      constraint_name。
+    ● 对于唯一键约束，constraint_name和index_name同时指定时，索引名为
+      index_name。
+
+●   USING method
+    指定创建索引的方法。
+    取值范围请参见CREATE INDEX章节中的USING method。
+
+
+
+      须知
+
+    ● USING method仅在B模式数据库下（即sql_compatibility = 'B'）支持，其他模
+      式数据库下不支持。
+    ● 在B模式下，未指定USING method时，对于ASTORE的存储方式，默认索引方
+      法为btree；对于USTORE的存储方式，默认索引方法为ubtree。
+    ● 当表的存储方式为USTORE时，SQL语句中约束指定为using btree，底层会自
+      动将约束建立为using ubtree。
+
+●   ASC | DESC
+    ASC表示指定按升序排序（默认）。DESC指定按降序排序。
+
+
+
+      须知
+
+    ASC | DESC只在B模式数据库（即sql_compatibility = 'B'）和M模式数据库（即
+    sql_compatibility = 'M'）下支持，其他模式数据库不支持。M模式数据库的具体
+    行为请参见CREATE TABLE章节。
+
+●   expression
+    创建一个基于该表的一个或多个字段的表达式索引约束，必须写在圆括弧中。
+[[PDF_PAGE physical=1537 printed=1488]]
+      须知
+
+    UNIQUE约束中的表达式索引只在B模式数据库下支持（即sql_compatibility =
+    'B'），其他模式数据库不支持。
+
+●   data_type
+    字段的数据类型。
+●   CHARACTER SET | CHARSET charset
+    指定表字段的字符集。单独指定时会将字段的字符序设置为指定的字符集的默认
+    字符序。
+●   COLLATE collation
+    COLLATE子句指定列的排序规则（字符序）（该列必须是可排列的数据类型）。
+    如果没有指定，则使用默认的排序规则。排序规则可以使用“SELECT * FROM
+    pg_collation;”命令从pg_collation系统表中查询，默认的排序规则为查询结果中
+    以default开始的行。对于B模式数据库下（即sql_compatibility = 'B'）还支持
+    utf8mb4_bin、utf8mb4_general_ci、utf8mb4_unicode_ci、binary、
+    gbk_chinese_ci、gbk_bin、gb18030_chinese_ci、gb18030_bin字符序。
+        说明
+
+       ● 仅字符类型支持指定字符集。指定为binary字符集或字符序实际是将字符类型转化为对
+         应的二进制类型，若类型映射不存在则报错。当前仅有TEXT类型转化为BLOB的映射。
+       ● 除binary字符集和字符序外，当前仅支持指定与数据库编码相同的字符集。
+       ● 字段字符集或字符序未显式指定时，若指定了表的默认字符集或字符序，字段字符集和
+         字符序将从表上继承。若表的默认字符集或字符序不存在，当
+         b_format_behavior_compat_options包含'default_collation'时，字段的字符集和字符
+         序将继承当前数据库的字符集及其对应的默认字符序。
+
+
+    表 1-379 B 模式（即 sql_compatibility = 'B'）下支持的字符集和字符序介绍
+
+    字符序名称        对应的字符集        描述
+
+    utf8mb4_g    utf8mb4（即     使用通用排序规则，不区分大小写。
+    eneral_ci    utf8）
+
+    utf8mb4_u    utf8mb4（即     使用通用排序规则，不区分大小写。
+    nicode_ci    utf8）
+
+    utf8mb4_bi   utf8mb4（即     使用二进制排序规则，区分大小写。
+    n            utf8）
+
+    binary       binary        使用二进制排序规则。
+
+    gbk_chines   gbk           使用中文语言排序规则。
+    e_ci
+
+    gbk_bin      gbk           使用二进制排序规则，区分大小写。
+
+    gb18030_c    gb18030       使用中文语言排序规则。
+    hinese_ci
+
+    gb18030_bi   gb18030       使用二进制排序规则，区分大小写。
+    n
+[[PDF_PAGE physical=1538 printed=1489]]
+     字符序名称         对应的字符集          描述
+
+     utf8mb4_0     utf8mb4         使用UCA (Unicode collation algorithm) 算法
+     900_ai_ci                     规则，不区分大小写。
+
+     utf8_gener    utf8            使用通用排序规则，不区分大小写。
+     al_ci
+
+     utf8_bin      utf8            使用二进制排序规则，区分大小写。
+
+
+●   LIKE source_table [ like_option ... ]
+    LIKE子句声明一个表，新表自动从这个表中继承所有字段名及其数据类型和非空
+    约束。
+    新表与源表之间在创建动作完毕之后是完全无关的。在源表做的任何修改都不会
+    传播到新表中，并且也不可能在扫描源表的时候包含新表的数据。
+    被复制的列和约束并不使用相同的名称进行融合。如果明确的指定了相同的名称
+    或者在另外一个LIKE子句中，将会报错。
+    –   源表上的字段缺省表达式只有在指定INCLUDING DEFAULTS时，才会复制到
+        新表中。缺省是不包含缺省表达式的，即新表中的所有字段的缺省值都是
+        NULL。
+    –   如果指定了INCLUDING UPDATE，则源表列的ON UPDATE
+        CURRENT_TIMESTAMP属性会复制到新表列中。默认不复制该属性。
+    –   如果指定了INCLUDING GENERATED，则源表列的生成表达式会复制到新表
+        中。默认不复制生成表达式。
+    –   源表上的CHECK约束仅在指定INCLUDING CONSTRAINTS时，会复制到新表
+        中，而其他类型的约束永远不会复制到新表中。非空约束总是复制到新表
+        中。此规则同时适用于表约束和列约束。
+    –   如果指定了INCLUDING INDEXES，则源表上的索引也将在新表上创建，默认
+        不建立索引。新表上的索引所在表空间和源表上的索引所在表空间保持一
+        致。
+    –   如果指定了INCLUDING STORAGE，则源表列的STORAGE设置会复制到新表
+        中，默认情况下不包含STORAGE设置。
+    –   如果指定了INCLUDING COMMENTS，则源表列、约束和索引的注释会复制
+        到新表中。默认情况下，不复制源表的注释。
+    –   如果指定了INCLUDING PARTITION，则源表的分区定义会复制到新表中，同
+        时新表将不能再使用PARTITION BY子句。默认情况下，不复制源表的分区定
+        义。如果源表上带有索引，可以使用INCLUDING PARTITION INCLUDING
+        INDEXES语法实现。如果对分区表只使用INCLUDING INDEXES，目标表定义
+        将是普通表，但是索引是分区索引，最后结果会报错，因为普通表不支持分
+        区索引。
+    –   如果指定了INCLUDING RELOPTIONS，则源表的存储参数（即源表的WITH
+        子句）会复制到新表中。默认情况下，不复制源表的存储参数。
+    –   如果指定了INCLUDING IDENTITY，则源表的IDENTITY会复制到新表中，并
+        创建一个与源表SEQUENCE参数相同的SEQUENCE。默认情况下，不复制源
+        表的IDENTITY。
+    –   如果指定了INCLUDING ILM，则源表的ILM策略信息会被复制到新表中，如
+        果需要同时复制源表上的分区对象的ILM策略信息，需要同时指定
+        INCLUDING PARTITION。
+[[PDF_PAGE physical=1539 printed=1490]]
+    –   INCLUDING ALL包含了INCLUDING DEFAULTS、INCLUDING UPDATE、
+        INCLUDING GENERATED、INCLUDING CONSTRAINTS、INCLUDING
+        INDEXES、INCLUDING STORAGE、INCLUDING COMMENTS、INCLUDING
+        PARTITION、INCLUDING RELOPTIONS、INCLUDING IDENTITY和
+        INCLUDING ILM的内容。
+
+
+        须知
+
+    ● 如果指定了INCLUDING RELOPTIONS，且源表的存储参数（即源表的WITH子
+      句）中不包含storage_type，则新表的存储引擎类型将由GUC参数
+      enable_default_ustore_table的取值决定。
+    ● 如果源表包含serial、bigserial、smallserial、largeserial类型，或者源表字段
+      的默认值是Sequence，且SEQUENCE属于源表（通过CREATE SEQUENCE ...
+      OWNED BY创建），这些SEQUENCE不会关联到新表中，新表中会重新创建属
+      于自己的SEQUENCE。这和之前版本的处理逻辑不同。如果用户希望源表和新
+      表共享SEQUENCE，需要首先创建一个共享的SEQUENCE（避免使用OWNED
+      BY），并配置为源表字段默认值，这样创建的新表会和源表共享该
+      SEQUENCE。
+    ● 不建议将其他表私有的SEQUENCE配置为源表字段的默认值，这可能导致
+      CREATE TABLE ... LIKE执行失败。另外，如果源表配置其他表私有的
+      SEQUENCE，当该表删除时SEQUENCE也会连带删除，这样源表的SEQUENCE
+      将不可用。如果用户希望多个表共享SEQUENCE，建议创建共享的
+      SEQUENCE。
+    ● 对于分区表EXCLUDING，需要配合INCLUDING ALL使用，如INCLUDING ALL
+      EXCLUDING DEFAULTS，除源分区表的DEFAULTS，其它全包含。
+    ● 如果源表为ROWID表，指定了INCLUDING ALL或INCLUDING RELOPTIONS
+      后，新表也为ROWID表；仅指定INCLUDING INDEXES时，新表为非ROWID
+      表，且不会复制源表的ROWNO索引。
+    ● “CREATE TABLE table_name LIKE source_table;”语法仅在B模式数据库（即
+      sql_compatibility = 'B'）下，且参数b_format_version值为5.7、
+      b_format_dev_version值为s2时支持。
+    ● 在B模式数据库下，且参数b_format_version值为5.7、b_format_dev_version
+      值为s2时，不支持指定INCLUDING和EXCLUDING选项，缺省等同于指定
+      INCLUDING ALL。
+
+●   AUTO_INCREMENT [ = ] value
+    这个子句为自动增长列指定一个初始值，value必须为正数，不得超过2127-1。
+
+
+        须知
+
+    该子句仅在参数sql_compatibility='B'时有效。
+
+●   COMMENT [ = ] 'string'
+    –   COMMENT [ = ] 'string'子句表示给表添加注释。
+    –   在column_constraint中的COMMENT 'string'表示给列添加注释。
+    –   在table_constraint中的COMMENT 'string'表示给主键和唯一键对应的索引添
+        加注释。
+[[PDF_PAGE physical=1540 printed=1491]]
+        须知
+
+    ● 该子句仅在B模式数据库下（即sql_compatibility = 'B'）有效。
+    ● 表级注释支持的最大字符串长度为2048字符，列级和索引级注释支持的最大长
+      度为1024字符。
+    ● table_constraint中的COMMENT仅支持主键和唯一键，其他约束不支持。
+
+●   ENGINE
+    B模式下支持，仅语法适配，且只支持设置InnoDB，无实际效果。
+
+
+        须知
+
+    不支持“CREATE TABLE table_name LIKE source_table”语法中使用ENGINE语
+    法。
+
+●   COLVIEW | NOCOLVIEW
+    指定表、列、分区是否创建IMCV表元信息。其中创建IMCV表需要依赖于
+    enable_htap参数打开。
+
+
+        须知
+
+    不支持与LIKE source_table语法同时使用。
+
+●   PRIORITY
+    指定数据加载至IMCV表的优先级。分为默认优先级、低优先级以及高优先级。
+●   WITH ( { storage_parameter = value } [, ... ] )
+    这个子句为表或索引指定一个可选的存储参数。用于表的WITH子句还可以包含
+    OIDS=FALSE表示不分配OID。
+
+
+        须知
+
+    ● WITH子句不支持OIDS=TRUE语法。
+    ● 使用任意精度类型Numeric定义列时，建议指定精度p以及刻度s。在不指定精
+      度和刻度时，会按输入的显示出来。
+
+    参数的详细描述如下所示：
+    –   FILLFACTOR
+        一个表的填充因子（fillfactor）是一个介于10和100之间的百分数。在Ustore
+        存储引擎下，该值的默认值为92，在Astore存储引擎下默认值为100（完全填
+        充）。如果指定了较小的填充因子，INSERT操作仅按照填充因子指定的百分
+        率填充表页。每个页上的剩余空间将用于在该页上更新行，这就使得
+        UPDATE有机会在同一页上放置同一条记录的新版本，这比把新版本放置在
+        其他页上更有效。对于一个从不更新的表将填充因子设为100是最佳选择，但
+        是对于频繁更新的表，选择较小的填充因子则更加合适。
+        取值范围：10~100
+[[PDF_PAGE physical=1541 printed=1492]]
+–   ORIENTATION
+    指定表数据的存储方式，该参数设置成功后就不再支持修改。
+    取值范围：
+
+    ▪   ROW，表示表的数据将以行式存储。
+        行存储适合于OLTP业务，适用于点查询或者增删操作较多的场景。
+    默认值：
+    若指定表空间为普通表空间，默认值为ROW。
+–   STORAGE_TYPE
+    指定存储引擎类型，该参数设置成功后就不再支持修改。
+    取值范围：
+
+    ▪   USTORE，表示表支持Inplace-Update存储引擎。特别需要注意，使用
+        UStore表，必须要开启track_counts和track_activities参数，否则会引起
+        空间膨胀。
+
+    ▪   ASTORE，表示表支持Append-Only存储引擎。
+    默认值：
+    不指定ORIENTATION和STORAGE_TYPE时创建表，默认是USTORE存储引擎
+    （表示表支持Inplace-Update存储引擎）。
+–   TOAST.TOAST_STORAGE_TYPE
+    指定Toast表的存储类型。当GUC参数“enable_enhance_toast_table=on”
+    时，Toast表的存储类型支持通过Vacuum Full操作将Toast升级为Enhanced
+    Toast结构。
+    取值范围：
+
+    ▪   ENHANCED_TOAST，指定Toast表的存储类型为Enhanced Toast。
+
+    ▪   TOAST，指定Toast表的存储类型为Toast。
+    默认值：
+    建表时不指定TOAST.TOAST_STORAGE_TYPE，则Toast表的存储类型依赖于
+    GUC参数enable_enhance_toast_table。若该参数值为on，则Toast表的存储
+    类型为ENHANCED_TOAST；若该参数值为off，则Toast表的存储类型为
+    TOAST。
+–   INIT_TD
+    创建UStore表时，指定初始化的TD个数，该参数可以通过ALTER TABLE进行
+    修改。特别需要注意，该参数会影响数据页面存放的单个元组的最大大小，
+    具体换算方法为MAX_TUPLE_SIZE = BLCKSZ - INIT_TD * TD_SIZE，例如用
+    户将INIT_TD数量从4修改为8，单个元组最大大小会减小4 * INIT_TD大小。
+    取值范围：2~128
+    默认值：4
+–   COMPRESSLEVEL
+    指定表数据同一压缩级别下的不同压缩水平，它决定了同一压缩级别下表数
+    据的压缩比以及压缩时间。对同一压缩级别进行了更加详细的划分，为用户
+    选择压缩比和压缩时间提供了更多的空间。总体来讲，此值越大，表示同一
+    压缩级别下压缩比越大，压缩时间越长；反之亦然。
+    取值范围：0~3
+[[PDF_PAGE physical=1542 printed=1493]]
+    默认值：0
+–   segment
+    使用段页式的方式存储。本参数仅支持行存表。不支持1~5号物理文件非法删
+    除破坏场景的防护，不支持在升级观察期创建。
+    取值范围：on/off
+    默认值：off
+–   enable_tde
+    指定该表为加密表。数据库会自动将加密表中的数据先加密再存储。使用该
+    参数前，请确保已通过GUC参数enable_tde开启透明加密功能，并通过GUC
+    参数tde_key_info设置访问密钥服务的信息，在《开发指南》中“特性使用指
+    导 > 透明数据加密”章节可获取该参数的详细使用方法。本参数仅支持行存
+    表、段页式表、临时表和unlogged表。
+    取值范围：on/off。设置enable_tde=on时，key_type、cmk_id、dek_cipher
+    参数由数据库自动生成，用户无法手动指定或更改
+    默认值：off
+–   encrypt_algo
+    指定加密表的加密算法，需与enable_tde结合使用。
+    取值范围：字符串，有效值为AES_128_CTR，SM4_CTR、
+    AES_128_CTR_SHA256_HMAC、SM4_CTR_SM3_HMAC或AES_128_GCM。
+    默认值：如果enable_tde=on，GUC参数tde_encrypt_config中子参数
+    table_algorithm不为空，默认值与table_algorithm相同；如果
+    table_algorithm为空，默认值为AES_128_CTR。如果enable_tde=off，默认
+    值为空。
+–   dek_cipher
+    数据密钥的密文。该参数不支持手动设置或更改。用户为表设置enable_tde
+    参数后，数据库自动生成数据密钥。
+    取值范围：字符串
+    默认值：空
+–   key_type
+    主密钥的类型。该参数不支持手动设置或更改。用户为表设置enable_tde参
+    数后，数据库自动从GUC参数tde_key_info中获取主密钥的类型。
+    取值范围：字符串
+    默认值：空
+–   cmk_id
+    主密钥的ID。该参数不支持手动设置或更改。用户为表设置enable_tde参数
+    后，数据库自动从GUC参数tde_key_info中获取主密钥的ID。
+    取值范围：字符串
+    默认值：空
+–   parallel_workers
+    表示创建索引时起的bgworker线程数量，例如2就表示将会起2个bgworker线
+    程并发创建索引。
+    取值范围：[0,32]，int类型，0表示关闭并行建索引。
+    默认值：不设置该参数，表示未开启并行建索引功能。
+–   hasuids
+[[PDF_PAGE physical=1543 printed=1494]]
+    参数开启：更新表元组时，为元组分配表级唯一标识id。
+    取值范围：on/off
+    默认值：off
+–   collate
+    在B模式数据库下（即sql_compatibility = 'B'）用于记录表的默认字符序，一
+    般只用于内部存储和导入导出，不推荐用户指定或修改。
+    取值范围：B模式数据库中独立支持的字符序的oid。
+    默认值：0
+–   stat_state
+    标识该表的统计信息是否被锁定，如果被锁定了，该表的统计信息无法更
+    新。
+    取值范围：locked/unlock
+    默认值：unlock
+–   statistic_granularity
+    记录该表在分析统计信息时的默认partition_mode。partition_mode说明请
+    参见ANALYZE | ANALYSE章节中的PARTITION_MODE，此参数对非分区表
+    设置无效。
+    取值范围：请参见partition_mode取值范围。
+    默认值：AUTO
+–   immediate_delete
+    该值仅限向量数据库表设置，设置之后Astore情况下删除堆表数据会进行索
+    引数据搜索和立即删除；如果普通表设置该值会造成Astore删除和更新性能
+    下降。
+    取值范围：false/true
+    默认值：false
+–   autovacuum_enabled
+    自动清理功能是否对该表启用。
+    取值范围：on/off
+    默认值：on
+–   autovacuum_vacuum_threshold
+    自动清理功能中，指定在该表中触发VACUUM所需的更新或删除的最小元组
+    数（仅对ASTORE表生效）。
+    取值范围：0~2147483647
+    默认值：缺省时与GUC参数autovacuum_vacuum_threshold一致。
+–   autovacuum_analyze_threshold
+    自动清理功能中，指定在该表中触发ANALYZE所需的插入、更新或删除的最
+    小元组数。
+    取值范围：0~2147483647
+    默认值：缺省时与GUC参数autovacuum_analyze_threshold一致。
+–   autovacuum_vacuum_scale_factor
+    自动清理功能中，指定在该表中触发VACUUM所需的插入、更新或删除元组
+    的比例（仅对ASTORE表生效）。
+    取值范围：0.0~100.0
+[[PDF_PAGE physical=1544 printed=1495]]
+    默认值：缺省时与GUC参数autovacuum_vacuum_scale_factor一致。
+–   autovacuum_analyze_scale_factor
+    自动清理功能中，指定在该表中触发ANALYZE所需的插入、更新或删除元组
+    的比例。
+    取值范围：0.0~100.0
+    默认值：缺省时与GUC参数autovacuum_analyze_scale_factor一致。
+–   autovacuum_freeze_min_age
+    自动清理功能中，指定在该表参数指定了一个行版本的最小年龄，超过这个
+    年龄的行才会被冻结。
+    取值范围：0~576460752303423487
+    默认值：缺省时与GUC参数vacuum_freeze_min_age一致。
+–   autovacuum_freeze_max_age
+    自动清理功能中，该表pg_class.relfrozenxid字段在超过多少个事务后，就会
+    强制执行VACUUM操作。即使自动清理被禁用，系统也会启动
+    AUTOVACUUM进程。清理操作还允许从pg_clog/子目录中删除旧文件（仅
+    对ASTORE表生效）。
+    取值范围：100000~576460752303423487
+    默认值：缺省时与GUC参数autovacuum_freeze_max_age一致。
+–   autovacuum_freeze_table_age
+    自动清理功能中，该表被标记为不需要自动清理时，它将保持不变的时间。
+    （仅对ASTORE表生效）。
+    取值范围：0~576460752303423487
+    默认值：缺省时与GUC参数vacuum_freeze_table_age一致。
+–   vacuum_truncate
+    表示是否开启表的VACUUM TRUNCATE功能，在VACUUM时截断末尾空
+    页。
+    取值范围：on/off
+    默认值：on
+        说明
+
+       ● 该参数仅对Astore生效，对hashbucket表和segment表不生效。
+       ● 从不支持该参数版本升级至支持该参数版本时，不支持在升级观察期创建、修改
+         该参数。
+       ● 支持通过toast.vacuum_truncate参数单独控制TOAST表是否截断末尾空页。
+–   hasrowid
+    指定该表是否为rowid表。设置hasrowid = on时，该表会增加rowid系统列和
+    rowno系统列，且会在rowno系统列上关联创建序列和索引。
+    取值范围：on、off
+    默认值：off
+[[PDF_PAGE physical=1545 printed=1496]]
+            说明
+
+            ● 此参数只支持A兼容模式数据库（即sql_compatibility = 'A'）。
+            ● 此参数不支持本地临时表、Unlogged表、全局临时表、物化视图。
+            ● 此参数不支持和hasuids、oids参数同时指定。
+            ● 开启此参数时，不支持定义普通列名为rowno、rowid。
+            ● rowid表数据量不能超过9223372036854775807。
+            ● rowid表在GUC参数opt_behavior_knob开启ROWID_OPT选项时，支持ROWID系
+              统列谓词条件改写、order by语句改写、max/min优化、分区剪枝。详情请参见
+              opt_behavior_knob内容。
+●   WITHOUT OIDS
+    等价于WITH（OIDS=FALSE）的语法。
+●   ON COMMIT { PRESERVE ROWS | DELETE ROWS | DROP }
+    ON COMMIT选项决定在事务中执行创建临时表操作，当事务提交时，此临时表
+    的后续操作。当前支持PRESERVE ROWS和DELETE ROWS选项。
+    –   PRESERVE ROWS（缺省值）：提交时不对临时表做任何操作，临时表及其
+        表数据保持不变。
+    –   DELETE ROWS：提交时删除临时表中数据。
+    –   DROP：提交时删除此临时表。只支持本地临时表，不支持全局临时表。
+●   [ ILM ADD POLICY ROW STORE COMPRESS { ADVANCED [ MEDIUM |
+    HIGH ] ROW AFTER n { day | days | month | months | year | years } OF NO
+    MODIFICATION [ ON ( EXPR )] | TURBO [ LOW | MEDIUM | HIGH ] UNIT
+    AFTER n { hour | hours | day | days | month | months | year | years } OF
+    NO MODIFICATION | NONE}]
+    –   创建新表时，可以调用ILM ADD POLICY ROW STORE COMPRESS
+        ADVANCED [ MEDIUM | HIGH ] ROW给行存添加高级压缩策略。比如：
+        CREATE TABLE t1 (a int) ILM ADD POLICY ROW STORE COMPRESS
+        ADVANCED ROW AFTER 3 DAY OF NO MODIFICATION ON (a != 0) 表示
+        创建t1表并添加高级压缩策略：三天未修改并且a != 0的行。
+
+        ▪   AFTER n { day | month | year } OF NO MODIFICATION ：表示n天/月/
+            年没有修改的行，高级压缩不支持hour。
+
+        ▪   ON ( EXPR )：行级表达式，用于判断行的冷热。
+
+        ▪   EXPR仅支持白名单函数，具体白名单函数列表请参见行表达式函数白名
+            单。
+            说明
+
+            ● 在ILM策略的ON ( EXPR )行级表达式支持的函数中，有部分函数的输出可能会受
+              兼容性参数影响。例如，upper函数在B兼容模式下设置b_format_version='5.7'和
+              b_format_dev_version='s2'后，将无法转换为大写。
+            ● 压缩级别是可选项，不指定时默认使用MEDIUM级别。
+    –   创建新表时，可以调用ILM ADD POLICY ROW STORE COMPRESS TURBO
+        [ LOW | MEDIUM | HIGH ] UNIT给行存添加跨页透明压缩策略。比如：
+        CREATE TABLE t1 (a int) ILM ADD POLICY ROW STORE COMPRESS
+        TURBO HIGH UNIT AFTER 3 HOUR OF NO MODIFICATION表示创建t1表
+        并添加跨页透明压缩策略：策略级别为high，冷热管理时间间隔为3小时。
+        其中，AFTER n { hour | day | month | year } OF NO MODIFICATION表示n
+        小时/天/月/年没有修改的压缩组。
+[[PDF_PAGE physical=1546 printed=1497]]
+        压缩级别不指定时默认为MEDIUM。
+    –   创建新表时，可以调用ILM ADD POLICY ROW STORE COMPRESS NONE显
+        式指定行存表不添加跨页透明压缩策略。比如：CREATE TABLE t1 (a int)
+        ILM ADD POLICY ROW STORE COMPRESS NONE表示创建t1表并且不添加
+        跨页透明压缩策略。
+●   TABLESPACE tablespace_name
+    创建新表时指定此关键字，表示新表将要在指定表空间内创建。如果没有声明，
+    将使用默认表空间。
+●   CONSTRAINT constraint_name
+    列约束或表约束的名称。可选的约束子句用于声明约束，新行或者更新的行必须
+    满足这些约束才能成功插入或更新。
+    定义约束有两种方法：
+    –   列约束：作为一个列定义的一部分，仅影响该列。不支持为
+        AUTO_INCREMENT | COMMENT 'string' | ENCRYPTED WITH
+        ( COLUMN_ENCRYPTION_KEY = column_encryption_key,
+        ENCRYPTION_TYPE = encryption_type_value )子句添加约束名。
+    –   表约束：不和某个列绑在一起，可以作用于多个列。
+●   NOT NULL
+    字段值不允许为NULL。
+●   NULL
+    字段值允许为NULL ，这是缺省值。
+    这个子句只是为和非标准SQL数据库兼容。不建议使用。
+●   CHECK ( expression )
+    CHECK约束声明一个布尔表达式，每次插入或者更新的行必须使表达式结果为真
+    或未知才能成功，否则会抛出一个异常并且不会修改数据库。
+    声明为字段约束的检查约束应该只引用该字段的数值，而在表约束里出现的表达
+    式可以引用多个字段。
+        说明
+
+        ● expression表达式中，如果存在“<>NULL”或“！=NULL”，这种写法是无效的，需
+          要修改为“IS NOT NULL”。
+        ● 不支持在系统列上添加CHECK约束。系统列请参见《开发指南》中“基础概念 > 系统
+          列”章节。
+●   DEFAULT default_expr
+    DEFAULT子句给字段指定缺省值。该数值可以是任何不含变量的表达式（不允许
+    使用子查询和对本表中的其他字段的交叉引用）。缺省表达式的数据类型必须和
+    字段类型匹配。
+    缺省表达式将被用于任何未声明该字段数值的插入操作。如果没有指定缺省值则
+    缺省值为NULL 。
+●   ON UPDATE update_expr
+    ON UPDATE子句为字段的一种属性约束。
+    当对表中某元组执行UPDATE操作时，若更新字段的新值和表中旧值不相同，则
+    表中该元组上具有该属性且不在更新字段内的字段值自动更新为当前时间戳；若
+    更新字段的新值和表中旧值相同，则表中该元组上具有该属性且不在更新字段内
+    的字段值不变，保持原有值；若具有该属性的字段在更新字段内，则对应这些字
+    段值直接按指定更新的值更新。
+[[PDF_PAGE physical=1547 printed=1498]]
+         说明
+
+        ● 该属性支持在B模式库中的5.7版本下指定（即sql_compatibility = 'B'、
+          b_format_version='5.7'、b_format_dev_version='s1'）和PG模式库中指定（升级观察
+          期间不支持该语法）。
+        ● 语法上update_expr支持CURRENT_TIMESTAMP 、LOCALTIMESTAMP 、NOW()三种
+          关键字，也支持关键字带括号指定或不指定精度。三种关键字互为同义词，属性效果相
+          同。例如：ON UPDATE CURRENT_TIMESTAMP()、ON UPDATE
+          CURRENT_TIMESTAMP(5)、ON UPDATE LOCALTIMESTAMP()、ON UPDATE
+          LOCALTIMESTAMP(6)等。不带括号或空括号时精度为0，其中NOW关键字不支持不带
+          括号。PG模式库中不支持ON UPDATE CURRENT_TIMESTAMP()、ON UPDATE
+          LOCALTIMESTAMP()和ON UPDATE NOW(5)。
+        ● 该属性仅支持在如下类型的列上指定：timestamp、datetime、date、time without
+          time zone、smalldatetime、abstime，其中PG模式库中不支持datetime类型。
+        ● CREATE TABLE AS语法不会继承该列属性。
+        ● CREATE TABLE LIKE语法可通过INCLUDING UPDATE或EXCLUDING UPDATE来选择继
+          承或排除该约束，PG模式库中只支持EXCLUDING UPDATE选项排除该约束。新增
+          INCLUDING ILM选项复制旧表的ilm策略信息，结合INCLUDING PARTITION选项使用
+          可以复制旧表上分区对象的策略信息。
+        ● 该属性指定的精度和对应列上类型指定的精度可以不一致，通过该属性更新字段值后显
+          示结果按最小精度显示。例如：CREATE TABLE t1 (col1 timestamp(6) ON UPDATE
+          CURRENT_TIMESTAMP(3)); 若UPDATE语法触发该属性生效，则本次更新后col1字段
+          值小数位显示3位。
+        ● 该属性和生成列约束不能同时指定同一列。
+        ● 分区表中的分区键不支持指定该属性。
+●   GENERATED ALWAYS AS ( generation_expr ) [STORED]
+    该子句将字段创建为生成列，生成列的值在写入（插入或更新）数据时由
+    generation_expr计算得到，STORED表示像普通列一样存储生成列的值。
+         说明
+
+        ● STORED关键字可省略，与不省略STORED语义相同。
+        ● 生成表达式不能以任何方式引用当前行以外的其他数据。生成表达式不能引用其他生成
+          列，不能引用系统列。生成表达式不能返回结果集，不能使用子查询，不能使用聚集函
+          数，不能使用窗口函数。生成表达式调用的函数只能是不可变（IMMUTABLE）函数。
+        ● 不能为生成列指定默认值。
+        ● 生成列不能作为分区键的一部分。
+        ● 生成列不能和ON UPDATE约束子句的CASCADE、SET NULL、SET DEFAULT动作同时
+          指定。生成列不能和ON DELETE约束子句的SET NULL、SET DEFAULT动作同时指定。
+        ● 修改和删除生成列的方法和普通列相同。删除生成列依赖的普通列，生成列被自动删
+          除。不能改变生成列所依赖的列的类型。
+        ● 生成列不能被直接写入。在INSERT或UPDATE命令中, 不能为生成列指定值, 但是可以
+          指定关键字DEFAULT。
+        ● 生成列的权限控制和普通列一样。
+●   GENERATED [ ALWAYS | BY DEFAULT [ ON NULL ] ] AS IDENTITY
+    [ ( identity_options ) ]
+    该子句将列创建为IDENTITY列。会根据identity_options自动创建一个隐式序列附
+    加到指定列，在插入数据时将序列中获取的值自动分配给该列。
+    –   GENERATED [ ALWAYS ] AS IDENTITY：该列仅接受插入由序列生成器提供
+        的IDENTITY值，不能接受用户指定值。
+    –   GENERATED BY DEFAULT AS IDENTITY：该列优先插入用户提供值，若用户
+        不指定值，将插入由序列生成器提供的IDENTITY值。
+[[PDF_PAGE physical=1548 printed=1499]]
+    –   GENERATED BY DEFAULT ON NULL AS IDENTITY：该列优先插入用户提供
+        值，若用户指定NULL值或用户不指定值，将插入由序列生成器提供的
+        IDENTITY值。
+    可选的identity_options子句可用于覆盖序列选项。
+    –   increment：指定隐式序列步长。为正数时将生成一个递增的序列，为负数时
+        将生成一个递减的序列，缺省值为1。
+    –   MINVALUE minvalue | NO MINVALUE | NOMINVALUE：执行序列的最小
+        值，如果没有声明minvalue或者声明了NO MINVALUE，则递增序序列缺省
+        值为1，递减序列的缺省值为-10^27+1。NOMINVALUE等价于NO
+        MINVALUE。
+    –   MAXVALUE maxvalue | NO MAXVALUE | NOMAXVALUE：执行序列的最大
+        值，如果没有声明maxvalue或者声明了NO MAXVALUE，则递增序序列缺省
+        值为10^28-1，递减序列的缺省值为-1。NOMAXVALUE等价于NO
+        MAXVALUE。
+    –   start：指定隐式序列的起始值。缺省值：对于递增序列为minvalue，递减序
+        列为maxvalue。
+    –   cache：为了快速访问，而在内存中预先存储序列号的个数。缺省值为1，表
+        示一次只能生成一个值，即没有缓存。
+    –   NOCACHE：未预先存储序列的值。
+    –   CYCLE：用于使序列达到maxvalue或者minvalue后可循环并继续下去。如果
+        声明了NO CYCLE，则在序列达到其最大或最小值之后任何对nextval的调用
+        都会返回一个错误。NOCYCLE等价于NO CYCLE，缺省值为NO CYCLE。
+    –   SCALE：用于启用序列的可伸缩性。如果指定，则会在序列的开头附加一个
+        数字偏移量，防止生成值中有重复项。如果声明了NOSCALE，则禁止序列的
+        可伸缩性。缺省值为NOSCALE。
+    –   EXTEND：扩展数字偏移量长度（默认值为6），将序列生成值对齐到x（默
+        认为6）+y（最大位数）位，指定EXTEND时必须指定SCALE。如果声明了
+        NOEXTEND，则不扩展数字偏移量长度。缺省值为NOEXTEND。
+         说明
+
+        ● IDENTITY列只能为smallint、integer、bigint、decimal、numeric、float、double
+          precision或real数字类型。
+        ● 在A兼容模式下，当创建IDENTITY列为整数数字类型时，将默认创建为numeric数字类
+          型。
+        ● 修改IDENTITY列的字段类型和普通列相同，但仅限于修改为smallint、integer、
+          bigint、decimal、numeric、float、double precision和real数字类型。
+        ● IDENTITY列默认有NOT NULL约束。
+        ● 一张表里只允许有一个IDENTITY列。
+        ● 删除IDENTITY列的方法和删除普通列相同，删除列时，IDENTITY的隐式序列将会被自
+          动删除。
+        ● IDENTITY列不能和SET DEFAULT动作同时指定。
+        ● 自动创建的隐式序列的类型为LARGE SEQUENCE。
+        ● 用户不能执行DROP LARGE SEQUENCE或ALTER LARGE SEQUENCE对IDENTITY的隐
+          式序列进行修改。
+        ● [ SCALE [ EXTEND | NOEXTEND ] | NOSCALE ]子句仅用于A兼容模式的集中式下创建
+          IDENTITY列时可用。
+        ● 在全密态数据库下，不支持创建表时指定加密IDENTITY列。
+●   AUTO_INCREMENT
+[[PDF_PAGE physical=1549 printed=1500]]
+    该关键字将字段指定为自动增长列。
+    若在插入时不指定此列的值（或指定此列的值为0、NULL、DEFAULT），此列的
+    值将由自增计数器自动增长得到。
+    若插入或更新此列为一个大于当前自增计数器的值，执行成功后，自增计数器将
+    刷新为此值。
+    自增初始值由“AUTO_INCREMENT [ = ] value”子句设置，若不设置，默认为
+    1。
+        说明
+
+       ● 仅在参数sql_compatibility='B'时可以指定自动增长列。
+       ● 自动增长列数据类型只能为整数类型、4字节或8字节浮点类型、布尔类型。
+          ●   当自增值已经达到字段数据类型的最大值时，继续自增将产生错误。
+       ● 每个表只能有一个自动增长列。
+       ● 自动增长列建议为索引的第一个字段，否则建表时产生警告，含有自动增长列的表进行
+         某些操作时会产生错误，例如：ALTER TABLE EXCHANGE PARTITION。
+       ● 自动增长列不能指定DEFAULT缺省值。
+       ● CHECK约束的表达式中不能含有自动增长列，生成列的表达式中不能含有自动增长
+         列。
+       ● 可以指定自动增长列允许NULL，若不指定，默认自动增长列含有NOT NULL约束。
+       ● 含有自动增长列的表创建时，会创建一个依赖于此列的序列作为自增计数器，不允许通
+         过序列相关功能修改或删除此序列，可以查看序列的值。请勿使其他序列依赖或关联此
+         自动增长列。
+       ● 本地临时表中的自动增长列不会创建序列。
+       ● 自增计数器自增和刷新操作不会回滚。
+          ●   数据插入到表之前，0/NULL会触发自增。数据插入或更新到表之后，会更新自增
+              计数器。如果在自增之后出现了报错，数据没有插入或更新到表中，此时自增计
+              数器不会回滚。后续插入语句基于自增计数器触发自增，会出现表中自动增长列
+              的值不连续的情况。
+          ●   批量插入或导入预留自增缓存值也有可能产生自动增长列的值不连续的情况，详
+              见auto_increment_cache参数说明。
+●   [DEFAULT] CHARACTER SET | CHARSET [ = ] default_charset
+    指定表的默认字符集。单独指定时会将表的默认字符序设置为指定的字符集的默
+    认字符序。
+●   [DEFAULT] COLLATE [ = ] default_collation
+    指定表的默认字符序。单独指定时会将表的默认字符集设置为指定的字符序对应
+    的字符集。
+    仅在B模式下（即sql_compatibility='B'）支持该语法。字符序请参见表1-379。
+        说明
+
+       表的字符集或字符序未显式指定时，若指定了模式的默认字符集或字符序，表字符集和字
+       符序将从模式上继承。若模式的默认字符集或字符序不存在，当
+       b_format_behavior_compat_options包含'default_collation'时，表的字符集和字符序将继
+       承当前数据库的字符集及其对应的默认字符序。
+●   UNIQUE [KEY] index_parameters
+    UNIQUE约束表示表里的一个或多个字段的组合必须在全表范围内唯一。
+    UNIQUE KEY只能在B模式数据库下（即sql_compatibility = 'B'）支持使用，与
+    UNIQUE语义相同。
+[[PDF_PAGE physical=1550 printed=1501]]
+●   UNIQUE [ index_name ][ USING method ]( {{ column_name [ ( length ) ]
+    | ( expression ) } [ ASC | DESC ] }[, ... ] ) index_parameters
+    UNIQUE约束表示表里的一个字段或多个字段的组合必须在全表范围内唯一。
+    对于唯一约束，NULL被认为是互不相等的。
+    column_name(length)是前缀键，具体请参见CREATE INDEX章节中的
+    column_name ( length )。
+    index_name为索引名。
+
+
+        须知
+
+    ● index_name仅在B模式数据库下（即sql_compatibility = 'B'）支持，其他模式
+      数据库下不支持。
+    ● 对于唯一键约束，constraint_name和index_name同时指定时，索引名为
+      index_name。
+
+●   PRIMARY KEY index_parameters
+    PRIMARY KEY [ USING method ] ( { column_name [ ASC | DESC ] }
+    [, ... ] ） index_parameters
+    主键约束声明表中的一个或者多个字段只能包含唯一的非NULL值。
+    一个表只能声明一个主键。
+●   REFERENCES reftable [ ( refcolumn ) ] [ MATCH matchtype ] [ ON
+    DELETE action ] [ ON UPDATE action ] (column constraint)
+    FOREIGN KEY ( column_name [, ... ] ) REFERENCES reftable [ ( refcolumn
+    [, ... ] ) ] [ MATCH matchtype ] [ ON DELETE action ] [ ON UPDATE
+    action ] (table constraint)
+    外键约束要求新表中一列或多列构成的组应该只包含、匹配被参考表中被参考字
+    段值。若省略refcolumn，则将使用reftable的主键。被参考列应该是被参考表中
+    的唯一字段或主键。外键约束不能被定义在临时表和永久表之间。
+    参考字段与被参考字段之间存在三种类型匹配，分别是：
+    –   MATCH FULL：不允许一个多字段外键的字段为NULL，除非全部外键字段都
+        是NULL。
+    –   MATCH SIMPLE（缺省）：允许任意外键字段为NULL。
+    –   MATCH PARTIAL：目前暂不支持。
+    另外，当被参考表中的数据发生改变时，某些操作也会在新表对应字段的数据上
+    执行。ON DELETE子句声明当被参考表中的被参考行被删除时要执行的操作。
+    ON UPDATE子句声明当被参考表中的被参考字段数据更新时要执行的操作。对于
+    ON DELETE子句、ON UPDATE子句的可能动作：
+    –   NO ACTION（缺省）：删除或更新时，创建一个表明违反外键约束的错误。
+        若约束可推迟，且若仍存在任何引用行，那这个错误将会在检查约束的时候
+        产生。
+    –   RESTRICT：删除或更新时，创建一个表明违反外键约束的错误。与NO
+        ACTION相同，只是动作不可推迟。
+    –   CASCADE：删除新表中任何引用了被删除行的行，或更新新表中引用行的字
+        段值为被参考字段的新值。
+    –   SET NULL：设置引用字段为NULL。
+[[PDF_PAGE physical=1551 printed=1502]]
+           –    SET DEFAULT：设置引用字段为它们的缺省值。
+       ●   DEFERRABLE | NOT DEFERRABLE
+           这两个关键字用于设置约束是否可推迟。不可推迟的约束将在每条命令执行后立
+           即检查。可推迟约束可以延迟到事务结尾通过SET CONSTRAINTS命令检查，缺省
+           值为NOT DEFERRABLE。目前UNIQUE约束、主键约束、外键约束可以接受该子
+           句，其他约束类型均不可推迟。
+       ●   INITIALLY IMMEDIATE | INITIALLY DEFERRED
+           若约束可推迟，该子句声明检查约束的缺省时间。不可推迟的约束始终为
+           INITIALLY IMMEDIATE且不可声明为INITIALLY DEFERRED。
+           –    如果约束是INITIALLY IMMEDIATE（缺省），则在每条语句执行后立即检
+                查。
+           –    如果约束是INITIALLY DEFERRED ，则仅在事务结束时进行检查。
+           约束检查的时间可以用SET CONSTRAINTS命令修改。
+       ●   USING INDEX TABLESPACE tablespace_name
+           为UNIQUE或PRIMARY KEY约束相关的索引声明一个表空间。如果没有提供这个
+           子句，这个索引将在default_tablespace中创建，如果default_tablespace为空，
+           将使用数据库的缺省表空间。
+       ●   DATATYPE_CL = client_logic_type
+           为可选参数，用于指定加密列的类型。
+           取值范围：BYTEAWITHOUTORDER或者BYTEAWITHOUTORDERWITHEQUAL。
+       ●   COLUMN_ENCRYPTION_KEY = column_encryption_key
+           为ENCRYPTED WITH约束中列加密密钥的名称。
+           取值范围：字符串，要符合标识符命名规范。
+       ●   ENCRYPTION_TYPE = encryption_type_value
+           为ENCRYPTED WITH约束中的加密类型，encryption_type_value的值为
+           [ DETERMINISTIC | RANDOMIZED ]
+
+       ●   COLVIEW | NOCOLVIEW
+           声明表为IMCV表非IMCV表，详情请参见《开发指南》中“特性使用指导 > HTAP
+           混合负载”章节。
+
+建表示例
+       ●   创建普通表
+           gaussdb=# CREATE TABLE tbl_test1(
+              id    int,
+              name     varchar(50),
+              province varchar (60), --省
+              country varchar (60) DEFAULT 'China' --国籍
+           );
+
+           gaussdb=# DROP TABLE tbl_test1;
+
+       ●   WITH子句为表或者索引设置存储参数
+           --建表指定填充因子。
+           gaussdb=# CREATE TABLE tbl_test2(
+              id    int,
+              name     varchar(50),
+              province varchar (60), --省
+              country varchar (60) DEFAULT 'China' --国籍
+           ) WITH (FILLFACTOR = 70);
+[[PDF_PAGE physical=1552 printed=1503]]
+    --建表指定存储引擎。
+    gaussdb=# CREATE TABLE tbl_test3(
+       id    int,
+       name     varchar(50),
+       province varchar (60), --省
+       country varchar (60) DEFAULT 'China' --国籍
+    ) WITH (STORAGE_TYPE = ASTORE);
+
+    --删除。
+    gaussdb=# DROP TABLE tbl_test2;
+    gaussdb=# DROP TABLE tbl_test3;
+
+●   加密表
+    使用该参数前，请确保已通过GUC参数enable_tde开启透明加密功能，并通过
+    GUC参数tde_key_info设置访问密钥服务的信息，在《开发指南》中“特性使用指
+    导 > 透明数据加密”章节可获取该参数的详细使用方法。
+    gaussdb=# CREATE TABLE t1 (c1 TEXT) WITH (enable_tde=on);
+
+    --删除表。
+    gaussdb=# DROP TABLE t1;
+
+●   临时表
+    --创建临时表。
+    gaussdb=# CREATE GLOBAL TEMP TABLE test_t1(
+       id    CHAR(7),
+       name     VARCHAR(20),
+       province VARCHAR(60),
+       country VARCHAR(30) DEFAULT 'China'
+    );
+
+    --在当前会话中插入数据。
+    gaussdb=# INSERT INTO test_t1 VALUES ('0000009','Jack','Guangzhou','China');
+
+    --临时表里面的数据只在当前会话中可见，所以在另一个会话中查看该表中没有数据。
+    gaussdb=# SELECT * FROM test_t1;
+     id | name | province | country
+    ----+------+----------+---------
+    (0 rows)
+    --创建临时表，并指定提交事务时删除该临时表数据。
+    gaussdb=# CREATE TEMPORARY TABLE test_t2(
+       id     CHAR(7),
+       name      VARCHAR(20),
+       province VARCHAR(60),            --省
+       country VARCHAR(30) DEFAULT 'China'    --国籍
+    ) ON COMMIT DELETE ROWS;
+    --删除表。
+    gaussdb=# DROP TABLE test_t1;
+    gaussdb=# DROP TABLE test_t2;
+
+●   建表时指定字符集字符序
+    --创建前置数据库。
+    gaussdb=# CREATE DATABASE testdb1 DBCOMPATIBILITY = 'B' ENCODING = 'UTF8';
+    gaussdb=# \c testdb1
+
+
+    --创建t1表，设置t1的默认字符集为utf8mb4，默认字符序为utf8mb4_bin，设置c1字段为表的默认字符集
+    字符序，设置c2字段的字符集为utf8mb4，字符序为utf8mb4_unicode_ci。
+    testdb1=# CREATE TABLE t1(c1 text, c2 text charset utf8mb4 collate utf8mb4_unicode_ci) charset
+    utf8mb4 collate utf8mb4_bin;
+
+    --删除。
+    testdb1=# DROP TABLE t1;
+    testdb1=# \c postgres
+    gaussdb=# DROP DATABASE testdb1;
+
+●   IF NOT EXISTS关键字
+    使用该关键字，表不存在时报NOTICE；如不用该关键字，则报ERROR。两种情况
+    下表都不会创建成功。
+[[PDF_PAGE physical=1553 printed=1504]]
+    gaussdb=# CREATE TABLE test_t3(id INT);
+
+    --创建一个已经存在同名的表test_t3。
+    gaussdb=# CREATE TABLE test_t3(id INT);
+    ERROR: Relation "test_t3" already exists in schema "public".
+    DETAIL: Creating new table with existing name in the same schema.
+
+    --使用IF NOT EXISTS关键字。
+    gaussdb=# CREATE TABLE IF NOT EXISTS test_t3(id INT);
+    NOTICE: Relation test_t3 already exists, skipping.
+    CREATE TABLE
+
+    --删除表。
+    gaussdb=# DROP TABLE test_t3;
+
+●   建表时指定表空间
+    --创建表空间。
+    gaussdb=# CREATE TABLESPACE ds_tbs1 RELATIVE LOCATION 'tablespace/tablespace_1';
+
+    --创建表时，指定表空间。
+    gaussdb=# CREATE TABLE test(id CHAR(7), name VARCHAR(20)) TABLESPACE ds_tbs1;
+
+    --删除表和表空间。
+    gaussdb=# DROP TABLE test;
+    gaussdb=# DROP TABLESPACE ds_tbs1;
+
+●   建表时指定AUTO_INCREMENT自增列
+    --创建表指定自增列，从10开始自增。
+    gaussdb=# CREATE DATABASE test DBCOMPATIBILITY = 'B';
+    gaussdb=# \c test
+    test=# CREATE TABLE test_autoinc(col int primary key AUTO_INCREMENT, col1 int)
+    AUTO_INCREMENT = 10;
+
+    --建议自增列作为索引首列，创建一个索引。
+    test=# CREATE INDEX test_autoinc_ai ON test_autoinc(col);
+
+    --NULL触发自增，自增值为10。
+    test=# INSERT INTO test_autoinc(col, col1) VALUES(NULL,1);
+
+    --100不触发自增，插入成功后，自增计数更新为100。
+    test=# INSERT INTO test_autoinc(col, col1) VALUES(100,2);
+
+    --0触发自增，自增值为101。
+    test=# INSERT INTO test_autoinc(col, col1) VALUES(0,3);
+
+    test=# SELECT col,col1 FROM test_autoinc ORDER BY 2,1;
+     col | col1
+    -----+------
+      10 | 1
+     100 | 2
+     101 | 3
+    (3 rows)
+
+    --删除。
+    test=# DROP TABLE test_autoinc;
+    --切换至默认数据库（请根据实际情况修改数据库名）。
+    test=# \c postgres
+    gaussdb=# DROP DATABASE test;
+
+●   CREATE TABLE ... LIKE建表
+    --创建源表t1。
+    gaussdb=# CREATE TABLE t1(col INT);
+    CREATE TABLE
+
+    gaussdb=# \d t1
+         Table "public.t1"
+     Column | Type | Modifiers
+    --------+---------+-----------
+     col | integer |
+[[PDF_PAGE physical=1554 printed=1505]]
+           --创建目标表t2。
+           gaussdb=# CREATE TABLE t2(LIKE t1);
+           CREATE TABLE
+
+           gaussdb=# \d t2
+                Table "public.t2"
+            Column | Type | Modifiers
+           --------+---------+-----------
+            col | integer |
+
+           --删除。
+           gaussdb=# DROP TABLE t1,t2;
+
+
+建表添加约束示例
+      ●    非空约束
+           非空约束的字段，如果在添加数据时没有指定值，就会报错。可以为表中多个字
+           段添加非空约束。
+           --建表并给id字段添加非空约束。
+           gaussdb=# CREATE TABLE test_t4(
+              id    CHAR(7) NOT NULL,
+              name     VARCHAR(20),
+              province VARCHAR(60),            --省
+              country VARCHAR(30) DEFAULT 'China'          --国籍
+           );
+
+           --插入数据时,如果不指定id的值或者id为NULL，会触发非空约束,导致插入失败。
+           gaussdb=# INSERT INTO test_t4 (name,province) VALUES ('scott','Shanghai');
+           ERROR: The null value in column "id" violates the not-null constraint.
+           DETAIL: Failing row contains (null, scott, Shanghai, China).
+
+           --删除表。
+           gaussdb=# DROP TABLE test_t4;
+
+      ●    唯一约束
+           关键字UNIQUE给字段添加一个唯一约束，插入数据时该字段如有重复则触发约
+           束，多个NULL不算重复，添加唯一约束时，会自动增加一个唯一索引。可以为表
+           中多个字段添加唯一约束。
+           --建表添加唯一约束。
+           gaussdb=# CREATE TABLE test_t5(
+              id    CHAR(7) UNIQUE USING INDEX TABLESPACE pg_default,
+              name     VARCHAR(20),
+              province VARCHAR(60),            --省
+              country VARCHAR(30) DEFAULT 'China'   --国籍
+           );
+
+           --也可以用如下写法，人工为唯一约束命名，以及为多个字段添加约束。
+           gaussdb=# CREATE TABLE test_t6(
+              id    CHAR(7),
+              name     VARCHAR(20),
+              province VARCHAR(60),                 --省
+              country VARCHAR(30) DEFAULT 'China',        --国籍
+              CONSTRAINT unq_test_id UNIQUE (id,name)
+           );
+           --插入id重复的数据，触发约束，导致插入失败。
+           gaussdb=# INSERT INTO test_t5(id) VALUES('0000010');
+           INSERT 0 1
+           gaussdb=# INSERT INTO test_t5(id) VALUES('0000010');
+           ERROR: Duplicate key value violates unique constraint "test_t5_id_key".
+           DETAIL: Key (id)=(0000010) already exists.
+           --多次插入id是NULL的数据不会触发约束。
+           gaussdb=# INSERT INTO test_t5(id) VALUES (NULL);
+           INSERT 0 1
+           gaussdb=# INSERT INTO test_t5(id) VALUES (NULL);
+           INSERT 0 1
+
+           --删除表。
+[[PDF_PAGE physical=1555 printed=1506]]
+    gaussdb=# DROP TABLE test_t5;
+    gaussdb=# DROP TABLE test_t6;
+
+●   主键约束
+    关键字PRIMARY KEY给字段添加唯一约束，要求字段唯一且不为空。添加主键约
+    束时自动为该表创建唯一索引，也会为该字段自动增加一个非空约束。
+    每个表里面只能定义一个主键约束，不能定义多个。
+    --建表添加主键约束。
+    gaussdb=# CREATE TABLE test_t6(
+       id    CHAR(7) PRIMARY KEY,
+       name     VARCHAR(20),
+       province VARCHAR(60),               --省
+       country VARCHAR(30) DEFAULT 'China'       --国籍
+    );
+    gaussdb=# INSERT INTO test_t6 (id,name,province) VALUES ('0000001','july','Beijing');
+
+    --也可以用如下写法，人工为唯一约束命名，以及为多个字段添加约束。
+    gaussdb=# CREATE TABLE test_t7(
+       id    CHAR(7),
+       name     VARCHAR(20),
+       province VARCHAR(60),                    --省
+       country VARCHAR(30) DEFAULT 'China',             --国籍
+       CONSTRAINT pk_test_t6_id PRIMARY KEY (id,name)
+    );
+    --插入id为NULL的数据，触发约束。
+    gaussdb=# INSERT INTO test_t6 (id,name,province) VALUES (NULL,'july','Beijing');
+    ERROR: The null value in column "id" violates the not-null constraint.
+    DETAIL: Failing row contains (null, july, Beijing, China).
+
+    --插入id重复的数据，触发约束。
+    gaussdb=# INSERT INTO test_t6 (id,name,province) VALUES ('0000001','ben','Shanghai');
+    ERROR: Duplicate key value violates unique constraint "test_t6_pkey".
+    DETAIL: Key (id)=(0000001) already exists.
+    --删除表。
+    gaussdb=# DROP TABLE test_t6;
+    gaussdb=# DROP TABLE test_t7;
+
+●   检查约束
+    关键字CHECK给字段添加检查约束，在检查约束中必须引用表中的一个或多个字
+    段，并且表达式返回结果必须是一个布尔值。在表达式中不能包含子查询。对同
+    一个字段可以同时定义检查约束和非空约束。
+    --建表，添加检查约束。
+    gaussdb=# CREATE TABLE test_t8 (
+       id   CHAR(7),
+       name   VARCHAR(20),
+       age   INT CHECK(age > 0 AND age < 150)
+    );
+
+    --也可以使用如下SQL，人工为检查约束命名以及为一个或者多个字段添加检查约束。
+    gaussdb=# CREATE TABLE test_t9 (
+       id   CHAR(7),
+       name   VARCHAR(20),
+       age   INT,
+       CONSTRAINT chek_test_t8_age CHECK(age > 0 AND age < 150)
+    );
+    --插入不符合表达式的值，会触发检查约束导致插入失败。
+    gaussdb=# INSERT INTO test_t8 (id,name,age) VALUES ('0000007','scott',200);
+    ERROR: New row for relation test_t8 violates check constraint test_t8_age_check.
+    DETAIL: N/A
+    --删除表。
+    gaussdb=# DROP TABLE test_t8;
+    gaussdb=# DROP TABLE test_t9;
+
+●   外键约束
+    当两个表包含一个或多个公共列示，可以通过外键约束来强制两个表之间的关
+    系。
+[[PDF_PAGE physical=1556 printed=1507]]
+           –    FOREIGN KEY：用来指定该表中和被引用的表有关系的字段。
+           –    REFERENCES：用来指定被引用的表和原表有关系的字段。
+           外键约束的特点:
+           –    定义为外键约束的字段中只能包含相应的其他表中引用字段的值或NULL。
+           –    可以为一个字段或者多个字段定义外键约束。
+           –    定义了外键约束的字段和相应的引用字段可以存在同一个表中，称为自引
+                用。
+           –    对同一个字段可以同时定义外键和非空约束。
+           –    主表中被应用的列，必须有主键约束或唯一约束。
+           --创建部门表。
+           gaussdb=# CREATE TABLE dept(
+              deptno INT PRIMARY KEY,
+              loc VARCHAR(200)
+           );
+
+           --创建员工表，添加外键约束，依赖部门表的deptno字段。
+           gaussdb=# CREATE TABLE emp(
+              empno INT,
+              name VARCHAR(50),
+              deptno INT,
+              CONSTRAINT fk_emp FOREIGN KEY (deptno) REFERENCES dept(deptno)
+           );
+           --dept表中插入数据。
+           gaussdb=# INSERT INTO dept VALUES (10,'Beijing');
+           gaussdb=# INSERT INTO dept VALUES (20,'Beijing');
+           gaussdb=# INSERT INTO dept VALUES (30,'Shanghai');
+
+           --emp表中插入符合约束的数据。
+           gaussdb=# INSERT INTO emp VALUES (1,'Bob',10);
+
+           --emp表中插入deptno字段为NULL的数据。
+           gaussdb=# INSERT INTO emp VALUES (2,'Scott',NULL);
+
+           --emp表中插入不符合约束的数据（dept表中找不到deptno字段为999）。
+           gaussdb=# INSERT INTO emp VALUES (1,'Jack',999);
+           ERROR: insert or update on table "emp" violates foreign key constraint "fk_emp"
+           DETAIL: Key (deptno)=(999) is not present in table "dept".
+           --查看数据。
+           gaussdb=# SELECT * FROM emp;
+            empno | name | deptno
+           -------+-------+--------
+               1 | Bob |     10
+               2 | Scott |
+           (2 rows)
+           --删除表。
+           gaussdb=# DROP TABLE emp;
+           gaussdb=# DROP TABLE dept;
+
+
+相关链接
+       ALTER TABLE，DROP TABLE，CREATE TABLESPACE
+
+优化建议
+       ●   UNLOGGED
+           –    UNLOGGED表和表上的索引因为数据写入时不通过WAL日志机制，写入速度
+                远高于普通表。因此，可以用于缓冲存储复杂查询的中间结果集，增强复杂
+                查询的性能。
+           –    UNLOGGED表无主备机制，在系统故障或异常断点等情况下，会有数据丢失
+                风险，因此，不可用来存储基础数据。
+[[PDF_PAGE physical=1557 printed=1508]]
+●   TEMPORARY | TEMP
+    –      临时表只在当前会话可见，会话结束后会自动删除。
+●   LIKE
+    –      新表自动从这个表中继承所有字段名及其数据类型和非空约束，新表与源表
+           之间在创建动作完毕之后是完全无关的。
+●   LIKE INCLUDING DEFAULTS
+    –      源表上的字段缺省表达式只有在指定INCLUDING DEFAULTS时，才会复制到
+           新表中。缺省是不包含缺省表达式的，即新表中的所有字段的缺省值都是
+           NULL。
+●   LIKE INCLUDING CONSTRAINTS
+    –      源表上的CHECK约束仅在指定INCLUDING CONSTRAINTS时，会复制到新表
+           中，而其他类型的约束永远不会复制到新表中。非空约束总是复制到新表
+           中。此规则同时适用于表约束和列约束。
+●   LIKE INCLUDING INDEXES
+    –      如果指定了INCLUDING INDEXES，则源表上的索引也将在新表上创建，默认
+           不建立索引。新表上的索引所在表空间和源表上的索引所在表空间保持一
+           致。
+●   LIKE INCLUDING STORAGE
+    –      如果指定了INCLUDING STORAGE，则复制列的STORAGE设置会复制到新表
+           中，默认情况下不包含STORAGE设置。
+●   LIKE INCLUDING COMMENTS
+    –      如果指定了INCLUDING COMMENTS，则源表列、约束和索引的注释会复制
+           到新表中。默认情况下，不复制源表的注释。
+●   LIKE INCLUDING PARTITION
+    –      如果指定了INCLUDING PARTITION，则源表的分区定义会复制到新表中，同
+           时新表将不能再使用PARTITION BY子句。默认情况下，不复制源表的分区定
+           义。
+
+
+
+        须知
+
+    列表/哈希分区表暂不支持LIKE INCLUDING PARTITION。
+
+●   LIKE INCLUDING RELOPTIONS
+    –      如果指定了INCLUDING RELOPTIONS，则源表的存储参数（即源表的WITH
+           子句）会复制到新表中。默认情况下，不复制源表的存储参数。
+●   LIKE INCLUDING IDENTITY
+    –      如果指定了INCLUDING IDENTITY，则创建一个和源表SEQUENCE参数相同
+           的SEQUENCE来实现IDENTITY，并且IDENTITY类型与源表相同。默认情况
+           下，不复制源表的IDENTITY。
+●   LIKE INCLUDING ALL
+    –      INCLUDING ALL包含了INCLUDING DEFAULTS、INCLUDING
+           CONSTRAINTS、INCLUDING INDEXES、INCLUDING STORAGE、
+           INCLUDING COMMENTS、INCLUDING PARTITION、INCLUDING
+           RELOPTIONS、INCLUDING IDENTITY和INCLUDING ILM的内容。
+[[PDF_PAGE physical=1558 printed=1509]]
+●   ORIENTATION ROW
+    –   创建行存表，行存储适合于OLTP业务，此类型的表上交互事务比较多，一次
+        交互会涉及表中的多个列，用行存查询效率较高。

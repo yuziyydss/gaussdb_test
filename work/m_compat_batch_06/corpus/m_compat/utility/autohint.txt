@@ -1,0 +1,92 @@
+[[PDF_PAGE physical=2070 printed=2021]]
+2.4.2.6.18 AUTOHINT
+
+功能描述
+             启用AUTOHINT，为指定的SQL进行智能Hint推荐，并输出能提升当前SQL执行速度的
+             推荐Hint组合。
+
+注意事项
+             ●    仅支持SELECT语句，并且需要使用者拥有管理员权限。
+             ●    支持的多种选项中，除ANALYZE选项外，使用其他选项时需将其置于括号内，例
+                  如：AUTOHINT (VERBOSE) statement。
+
+语法格式
+             使用AUTOHINT为指定SQL进行智能Hint推荐。
+             AUTOHINT [ ( option [, ...] ) ] statement;
+
+             其中选项option子句的语法为：
+             ANALYZE [ boolean ] |
+               VERBOSE [ boolean ] |
+               SQLPATCH [ boolean ] |
+               TEST [ boolean ] |
+               DEBUG [ boolean ]
+
+
+参数说明
+             ●    statement
+                  指定进行HINT推荐的SQL语句（仅支持SELECT语句）。
+                         说明
+
+                        若SQL语句中已含有Hint，使用AUTOHINT进行Hint推荐时，将无视已有的Hint并进行重
+                        新推荐。例如：对于语句“SELECT /*+IndexScan(t1)*/* FROM t1, t2 WHERE t1.id = t2.id
+                        AND t1.a > 20;”，使用AUTOHINT进行推荐后，得到的推荐结果是基于语句“SELECT *
+                        FROM t1, t2 WHERE t1.id = t2.id AND t1.a > 20;”的推荐结果，而非在已有的Hint
+                        （IndexScan(t1)）的基础上的进一步推荐。
+             ●    ANALYZE boolean
+                  在进行智能Hint推荐前，首先进行Hint探索，若关闭（即不进行Hint探索），则
+                  根据历史Hint探索记录直接对当前SQL进行Hint推荐。
+                  取值范围：
+                  –     TRUE（默认值）：在推荐前进行Hint探索。
+                  –     FALSE：不进行Hint探索。
+             ●    VERBOSE boolean
+                  显示Hint探索与智能Hint推荐过程的额外信息。
+                  取值范围：
+                  –     TRUE（默认值）：显示额外信息。
+                  –     FALSE：不显示额外信息。
+             ●    SQLPATCH boolean
+                  推荐Hint后输出相应的SQL PATCH指令。
+                  取值范围：
+[[PDF_PAGE physical=2071 printed=2022]]
+          –    TRUE（默认值）：输出SQL PATCH指令。
+          –    FALSE：不输出SQL PATCH指令。
+     ●    TEST boolean
+          推荐Hint后，分别执行初始查询以及应用智能Hint后的查询来验证推荐结果，并
+          输出实际计划执行时间。
+          取值范围：
+          –    TRUE（默认值）：进行推荐结果验证并输出验证结果。
+          –    FALSE：不进行验证。
+     ●    DEBUG boolean
+          输出相对于VERBOSE选项更多的细节信息，包括每次Hint探索时的初始计划树及
+          执行时间，并打印每次Hint探索结束后得到的探索子图，以及最终合并后总的探
+          索图。
+          取值范围：
+          –    TRUE（默认值）：输出细节信息。
+          –    FALSE：不输出细节信息。
+
+示例
+     使用AUTOHINT为慢SQL语句推荐Hint，以JOB数据集中的语句为例。
+     --导入JOB数据集，使用ANALYZE选项为02a查询进行Hint探索推荐。
+     m_db=# AUTOHINT ANALYZE SELECT MIN(t.title) AS movie_title
+     FROM company_name AS cn,
+         keyword AS k,
+         movie_companies AS mc,
+         movie_keyword AS mk,
+         title AS t
+     WHERE cn.country_code ='[de]'
+       AND k.keyword ='character-name-in-title'
+       AND cn.id = mc.company_id
+       AND mc.movie_id = t.id
+       AND t.id = mk.movie_id
+       AND mk.keyword_id = k.id
+       AND mc.movie_id = mk.movie_id;
+     --得到HINT推荐结果与预期提升。
+                        AUTOHINT
+     --------------------------------------------------------
+      Recommended hintset:
+       MergeJoin(@sel$1 k@sel$1 mk@sel$1 mc@sel$1 cn@sel$1)
+
+      Expected boost:
+       planning:   0%
+       execution: 50%
+       overall:  50%
+     (7 rows)

@@ -1,0 +1,115 @@
+[[PDF_PAGE physical=1647 printed=1598]]
+1.13.10.2 DECLARE
+
+功能描述
+            DECLARE既可以定义一个游标，用于在一个大的查询里面检索少数几行数据，也可以
+            用于声明匿名块（但在声明匿名块时，需放置在匿名块的语句之前）。
+
+            本节主要描述定义为游标的用法，开启匿名块的用法请参见BEGIN章节。
+
+            为了处理SQL语句，存储过程线程分配一段内存区域来保存上下文联系，游标是指向
+            上下文区域的句柄或指针。借助游标，存储过程可以控制上下文区域的变化。
+[[PDF_PAGE physical=1648 printed=1599]]
+       通常游标和SELECT一样返回文本格式。因为数据在系统内部是用二进制格式存储的，
+       系统必须对数据做一定转换以生成文本格式。一旦数据是以文本形式返回，客户端应
+       用需要把文本格式转换成二进制进行操作。使用FETCH语句，游标可以返回文本格式
+       或二进制格式。
+
+注意事项
+       ●   游标命令只能在事务块里使用。
+       ●   谨慎使用二进制游标。文本格式一般比对应的二进制格式占用的存储空间大。二
+           进制游标返回内部二进制形态的数据，可能更易于操作。如果想以文本方式显示
+           数据，则以文本方式检索会为用户节约很多客户端的工作。比如，如果查询从某
+           个整数列返回1，在缺省的游标里将获得一个字符串1，但在二进制游标里将得到
+           一个4字节的包含该数值内部形式的数值（大端顺序）。
+
+语法格式
+       ●   定义游标
+           DECLARE cursor_name [ BINARY ] [ NO SCROLL ]
+             CURSOR [ { WITH | WITHOUT } HOLD ] FOR query;
+
+
+
+
+       ●   开启匿名块
+           [DECLARE [declare_statements]]
+           BEGIN
+           execution_statements
+           END;
+           /
+
+
+
+
+参数说明
+       ●   cursor_name
+           将要创建的游标名。
+           取值范围：字符串，要符合标识符命名规范。
+       ●   BINARY
+           指定游标以二进制格式返回，而不是文本格式返回数据。
+       ●   NO SCROLL
+           声明游标检索数据行的方式。
+           –    NO SCROLL：声明该游标不能用于以倒序的方式检索数据行。
+           –    未指定：根据执行计划的不同，自动判断该游标是否可以用于以倒序的方式
+                检索数据行。
+[[PDF_PAGE physical=1649 printed=1600]]
+     ●   WITH HOLD | WITHOUT HOLD
+         当创建游标的事务结束后，游标是否能继续使用。未指定WITH HOLD或
+         WITHOUT HOLD，默认行为是WITHOUT HOLD。
+         –    WITH HOLD：在创建游标的事务结束后，该游标仍可继续使用。
+         –    WITHOUT HOLD：在创建游标的事务之外不能再继续使用该游标，游标将在
+              事务结束时被自动关闭。
+
+
+
+                  须知
+
+              声明为WITH HOLD的游标，在事务结束时，会缓存游标所有数据，若游标数
+              据量较大，此过程耗时可能较长。
+
+     ●   query
+         使用SELECT或VALUES子句指定游标返回的行。
+         取值范围：SELECT或VALUES子句。
+     ●   declare_statements
+         声明变量，包括变量名和变量类型，如“sales_cnt int”。
+     ●   execution_statements
+         匿名块中要执行的语句。
+         取值范围：已存在的函数名称。
+
+
+示例
+     ●   定义游标
+         --创建表test，并向表中插入10条数据。
+         gaussdb=# CREATE TABLE test(c1 int, c2 int);
+         gaussdb=# INSERT INTO test VALUES (generate_series(1,10),generate_series(1,10));
+
+         --开始一个事务，建立一个名为cursor1的游标。
+         gaussdb=# START TRANSACTION;
+         gaussdb=# DECLARE cursor1 CURSOR FOR SELECT * FROM test ORDER BY 1;
+
+         --指定游标从关联位置开始检索3行数据。
+         gaussdb=# FETCH FORWARD 3 FROM cursor1;
+          c1 | c2
+         ----+----
+           1| 1
+           2| 2
+           3| 3
+         (3 rows)
+
+         --关闭游标并提交事务。
+         gaussdb=# CLOSE cursor1;
+         gaussdb=# END;
+
+         --删除表。
+         gaussdb=# DROP TABLE test;
+
+     ●   开启匿名块
+         --声明变量并输出。
+         gaussdb=# DECLARE num INTEGER := 10;
+         BEGIN
+           dbe_output.print_line(num);
+         END;
+         /
+[[PDF_PAGE physical=1650 printed=1601]]
+相关链接
+       BEGIN，FETCH

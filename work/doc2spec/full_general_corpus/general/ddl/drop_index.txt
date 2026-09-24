@@ -1,0 +1,83 @@
+[[PDF_PAGE physical=1673 printed=1624]]
+1.13.10.20 DROP INDEX
+
+功能描述
+            删除一个索引。
+
+注意事项
+            ●    索引的所有者、索引所在模式的所有者、拥有索引所在表的INDEX权限的用户或
+                 者被授予了DROP ANY INDEX权限的用户可以执行该操作，三权分立关闭时，系
+                 统管理员默认拥有此权限。
+            ●    对于全局临时表，当会话已经对全局临时表对象（包括创建全局临时表和第一次
+                 向全局临时表内插入数据）进行初始化后，其他的会话无法执行该全局临时表上
+                 索引的删除操作。
+
+语法格式
+            DROP INDEX [ CONCURRENTLY ] [ IF EXISTS ]
+              index_name [, ...] [ CASCADE | RESTRICT ];
+
+
+
+
+参数说明
+            ●    CONCURRENTLY
+                 以不阻塞DML的方式在线删除索引（加四级锁）。删除索引时，一般会阻塞其他
+                 语句对该索引所依赖表的访问。加此关键字，可在删除过程中避免阻塞。
+                       说明
+
+                      ● 删除索引指定CONCURRENTLY选项时，只能指定一个索引的名称，并且不支持
+                        CASCADE选项。
+                      ● 普通DROP INDEX命令可以在事务内执行，但是DROP INDEX CONCURRENTLY不可以
+                        在事务内执行。
+                      ● 对于临时表，支持使用CONCURRENTLY关键字删除索引，但是实际删除过程中，采用
+                        的是阻塞式的删除方式，因为没有其他会话会并发访问临时表，并且阻塞式删除成本更
+                        低。
+                      ● 与在线创建索引类似，在线删除索引也存在阶段需要等待索引对应表上相关的其他事务
+                        结束，因此可能出现锁超时问题，导致在线删除索引失败。
+                      ● 与在线创建索引类似，由于需要等待表上相关的其他事务结束，在线删除索引可能会和
+                        其他DDL出现死锁问题，导致在线删除索引失败。具体原因是：在线删除索引持有四级
+                        锁，等待并发DDL事务结束；并发DDL持有事务锁，等待在线删除索引释放四级锁。
+                      ● 当发生锁超时、死锁、数据库异常等故障或者用户取消操作时，可能造成在线删除索引
+                        失败，残留非法状态的索引。为避免占用系统资源，需尽快将其清理，可以继续使用
+                        DROP INDEX CONCURRENTLY或者DROP INDEX将非法索引删除，如果使用DROP
+                        INDEX CONCURRENTLY删除索引持续失败，可以使用DROP INDEX删除索引。
+                      ● 在线删除索引时间与并发业务量、并发业务运行时间有关。无并发业务时，在线删除索
+                        引为秒级别；有并发业务时，需要额外等待某时刻正在运行的所有并发业务结束，因此
+                        在线删除索引时间要额外加上这些并发业务运行时间。
+            ●    IF EXISTS
+[[PDF_PAGE physical=1674 printed=1625]]
+            判断指定的索引是否存在。
+            –    如果指定的索引存在，则删除成功。
+            –    如果指定的索引不存在，不会进行删除操作，仅产生一个NOTICE提示，用于
+                 告知指定索引不存在。
+       ●    index_name
+            要删除的索引名。
+            取值范围：已存在的索引。
+       ●    CASCADE | RESTRICT
+            可选，是否级联删除依赖于该索引的对象。未指定时，默认为RESTRICT。
+            –    CASCADE：允许级联删除依赖于该索引的对象。
+            –    RESTRICT：存在依赖于此索引的对象时，该索引无法被删除。
+
+
+示例
+       --创建表。
+       gaussdb=# CREATE TABLE test1_index (id INT, name VARCHAR(20));
+
+       --创建索引。
+       gaussdb=# CREATE INDEX idx_test1 ON test1_index(id);
+
+       --删除索引。
+       gaussdb=# DROP INDEX IF EXISTS idx_test1 CASCADE;
+
+       --在线创建索引。
+       gaussdb=# CREATE INDEX CONCURRENTLY idx_test2 ON test1_index(name);
+
+       --在线删除索引。
+       gaussdb=# DROP INDEX CONCURRENTLY idx_test2;
+
+       --删除表。
+       gaussdb=# DROP TABLE test1_index;
+
+
+相关链接
+       ALTER INDEX，CREATE INDEX

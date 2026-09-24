@@ -1,0 +1,421 @@
+[[PDF_PAGE physical=1650 printed=1601]]
+1.13.10.3 DELETE
+
+功能描述
+            从指定的表里删除满足WHERE子句的行。如果WHERE子句不存在，将删除表中所有
+            行，结果只保留表结构。
+
+注意事项
+            ●      表的所有者、被授予表DELETE权限的用户或被授予DELETE ANY TABLE权限的用
+                   户有权删除表中数据，当三权分立开关关闭时，系统管理员默认拥有此权限。同
+                   时也必须有USING子句引用的表以及condition上读取表的SELECT权限。
+            ●      对于多表删除语法，暂时不支持对视图和含有RULE的表进行多表删除。
+            ●      对于子查询是Stream计划的DELETE语句，不支持删除的行数据同时进行UPDATE
+                   操作。
+
+语法格式
+            ●      单表删除语法
+                   [ WITH [ RECURSIVE ] with_query [, ...] ]
+                   DELETE [/*+ plan_hint */] [FROM] [ ONLY ] {table_name [ * ] [ [ [partition_clause] [ [ AS ] alias ] ] |
+                   [ [ [ AS ] alias ] [partitions_clause] ] ] | subquery [ [ AS ] alias ] | view_name [ [ AS ] alias ]}
+                      [ USING using_list ]
+                      [ WHERE condition | WHERE CURRENT OF cursor_name ]
+                      [ ORDER BY { expression [ ASC | DESC | USING operator ] } ]
+                      [ LIMIT { count } ]
+                      [ RETURNING { * | { output_expr [ [ AS ] output_name ] } [, ...] } ];
+
+            ●      多表删除语法
+                   [ WITH [ RECURSIVE ] with_query [, ...] ]
+                   DELETE [/*+ plan_hint */] [FROM]
+                      {[ ONLY ] table_name [ * ] [ [ [partition_clause] [ [ AS ] alias ] ] | [ [ [ AS ] alias ]
+                   [partitions_clause] ] ]} [, ...]
+                      [ USING using_list ]
+                      [ WHERE condition ];
+                   或：
+                   [ WITH [ RECURSIVE ] with_query [, ...] ]
+                   DELETE [/*+ plan_hint */]
+                      {[ ONLY ] table_name [ * ] [ [ [partition_clause] [ [ AS ] alias ] ] | [ [ [ AS ] alias ]
+                   [partitions_clause] ] ]} [, ...]
+                      [ FROM using_list ]
+                      [ WHERE condition ];
+
+            其中，with_query的详细格式为：
+            with_query_name [ ( column_name [, ...] ) ] AS [ [ NOT ] MATERIALIZED ]
+            ( {select | values | insert | update | delete} )
+
+            subquery的详细格式为：
+            [ WITH [ RECURSIVE ] with_query [, ...] ]
+            SELECT [/*+ plan_hint */] [ ALL ]
+            { * | {expression [ [ AS ] output_name ]} [, ...] }
+            [ into_option ]
+            [ FROM from_item [, ...] ]
+            [ WHERE condition ]
+            [ [ START WITH condition ] CONNECT BY [NOCYCLE] condition [ ORDER SIBLINGS BY expression ] ]
+            [ ORDER BY {expression [ [ ASC | DESC | USING operator ] | nlssort_expression_clause ] [ NULLS { FIRST |
+[[PDF_PAGE physical=1651 printed=1602]]
+       LAST } ]} [, ...] ]
+       [ OFFSET start [ ROW | ROWS ] ]
+       [ FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } ONLY ]
+       [ into_option ];
+
+       指定子查询源from_item为：
+       {[ ONLY ] {table_name | view_name} [ * ] [ partition_clause ] [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+       |( select ) [ AS ] alias [ ( column_alias [, ...] ) ]
+       |with_query_name [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+       |from_item [ NATURAL ] join_type from_item [ ON join_condition | USING ( join_column [, ...] ) ]}
+
+       partition_clause的详细格式为：
+       PARTITION { ( partition_name ) | FOR ( partition_value [, ...] ) } |
+       SUBPARTITION { ( subpartition_name ) | FOR ( subpartition_value [, ...] ) }
+
+
+参数说明
+       ●     WITH [ RECURSIVE ] with_query [, ...]
+             声明一个或多个可以在主查询中通过名称引用的子查询，相当于临时表。如果指
+             定了RECURSIVE，那么允许SELECT子查询通过名称引用其本身。
+             –     with_query_name：指定子查询生成的结果集名称，在查询中可使用该名称
+                   访问子查询的结果集。
+             –     column_name：指定子查询结果集中显示的列名。
+             –     每个子查询可以是SELECT、VALUES、INSERT、UPDATE或DELETE语句。
+             –     用户可以使用MATERIALIZED或NOT MATERIALIZED对CTE进行修饰。
+
+                   ▪     如果声明为MATERIALIZED，WITH查询将被物化，生成一个子查询结果
+                         集的复制，在引用处直接查询该复制，因此WITH子查询无法和主干
+                         SELECT语句进行联合优化（如：谓词下推、等价类传递等），对于此类
+                         场景可以使用NOT MATERIALIZED进行修饰，如果WITH查询语义上可
+                         以作为子查询内联执行，则可以进行上述优化。
+
+                   ▪     如果用户没有显式指定物化属性则遵守此规则：如果CTE只在所属主干
+                         语句中被引用一次，且语义上支持内联执行，则会被改写为子查询内联
+                         执行，否则以CTE Scan的方式物化执行。
+       ●     plan_hint
+             以/*+ plan_hint */的形式在DELETE关键字后，用于对DELETE对应的语句块生成
+             的计划进行Hint调优，具体用法请参见《SQL调优指南》中“使用Plan Hint进行
+             调优”章节。每条语句中只有第一个/*+ plan_hint */注释块会作为Hint生效，里
+             面可以写多条Hint。
+       ●     ONLY
+             如果指定ONLY则只有该表被删除；如果没有声明，则该表和对应的所有子表将都
+             被删除。
+       ●     table_name
+             目标表的名称，可以使用模式进行具体指定。
+             取值范围：已存在的表名。
+                    说明
+
+                  支持使用DATABASE LINK方式对远端表进行操作，具体的使用方式请参见《开发指南》中
+                  “特性使用指导 > DATABASE LINK”章节。
+       ●     subquery
+             删除目标对象可以是子查询，在对子查询中的数据进行删除时，会将子查询当成
+             一个临时视图，支持在子查询后面加CHECK OPTION选项。
+[[PDF_PAGE physical=1652 printed=1603]]
+    如果子查询中只有一张表，则对该表做删除；如果子查询中有多张表或有嵌套关
+    系，则通过判断是否有保留键表确定是否可以进行删除。关于保留键表和WITH
+    CHECK OPTION请参见CREATE VIEW。
+●   view_name
+    目标视图的名称。
+            说明
+
+         对视图和子查询的删除，存在如下约束：
+         ● 只有直接引用基表用户列的列可进行DELETE操作。
+         ● 子查询或视图必须至少包含一个可更新列，关于可更新列请参见CREATE VIEW。
+         ● 不支持在顶层包含DISTINCT、GROUP BY、HAVING、LIMIT、OFFSET子句的视图和子
+           查询。
+         ● 不支持在顶层包含集合运算（UNION、INTERSECT、EXCEPT、MINUS）的视图和子查
+           询。
+         ● 不支持目标列表中包含聚集函数、窗口函数、返回集合函数（array_agg、json_agg、
+           generate_series等）的视图和子查询。
+         ● 不支持仅带有BEFORE/AFTER触发器，没有INSTEAD OF触发器或INSTEAD规则的视
+           图。
+         ● 视图和子查询中支持的表类型包括普通表、临时表、全局临时表、分区表、二级分区
+           表、Ustore表、Astore表。
+         ● 连接视图或子查询只能对视图或子查询中的保留键表做删除操作，如果只存在一张保留
+           键表，则删除该表数据，如果存在多张保留键表，仅删除FROM后的第一张保留键表的
+           数据。
+         ● 如果连接视图或子查询中指定了CHECK OPTION选项，且基表重复，重复的基表在视
+           图或子查询中保留键表属性不一致，则无法从连接视图或子查询中删除行。关于保留键
+           表请参见CREATE VIEW。
+         ● 不支持对系统视图进行DELETE操作。
+         ● 不支持多表删除功能。
+●   partition_clause
+    指定分区删除操作。
+    PARTITION { ( partition_name ) | FOR ( partition_value [, ...] ) } | SUBPARTITION
+    { ( subpartition_name ) | FOR ( subpartition_value [, ...] ) }
+    具体信息请参见SELECT。
+●   partitions_clause
+    指定多个分区删除操作。
+    PARTITION { ( { partition_name | subpartition_name } [, ...] ) }
+    具体信息请参见SELECT。
+
+
+        须知
+
+    该语法仅在B兼容模式（即sql_compatibility='B'）下生效。
+
+●   alias
+    目标表的别名。
+    取值范围：字符串，要符合标识符命名规范。
+●   using_list
+    using子句。
+[[PDF_PAGE physical=1653 printed=1604]]
+             须知
+
+         当参数sql_compatibility='B'或删除多张目标表时，using_list指定关联表的集合时
+         可以同时出现目标表，并且可以定义表的别名并在目标表中使用。其他情况下则
+         目标表不可重复出现在using_list中。
+
+     ●   condition
+         一个返回布尔值的表达式，用于判断需要被删除的行。不建议使用INT等数值类型
+         作为condition，因为INT等数值类型可以隐式转换为布尔值（非0值隐式转换为
+         true，0转换为false），可能导致非预期的结果。
+     ●   WHERE CURRENT OF cursor_name
+         当游标指向表的某一行时，可以使用此语法删除游标当前指向的行。使用限制及
+         约束请参见UPDATE。
+     ●   ORDER BY
+         具体信息请参见SELECT。
+     ●   LIMIT
+         具体信息请参见SELECT。
+     ●   output_expr
+         DELETE命令删除行之后计算输出结果的表达式，该表达式可以使用表的任意字
+         段，可以使用*返回被删除行的所有字段。
+     ●   output_name
+         一个字段的输出名称。
+         取值范围：字符串，要符合标识符命名规范。
+
+示例
+     ●   删除部分数据
+         --建表。
+         gaussdb=# CREATE TABLE test_t1(col1 INT,col2 INT);
+         gaussdb=# INSERT INTO test_t1 VALUES (1, 1), (2, 2), (3, 3), (4, 4), (4, 6);
+
+         --删除表中部分记录。
+         gaussdb=# DELETE FROM test_t1 WHERE col1 = 4;
+
+         --查询。
+         gaussdb=# SELECT * FROM test_t1;
+          col1 | col2
+         ------+------
+            1| 1
+            2| 2
+            3| 3
+         (3 rows)
+
+     ●   删除所有数据
+         --删除所有的数据。
+         gaussdb=# DELETE FROM test_t1;
+
+         --查询。
+         gaussdb=# SELECT * FROM test_t1;
+          col1 | col2
+         ------+------
+         (0 rows)
+
+         --删除表。
+         gaussdb=# DROP TABLE test_t1;
+[[PDF_PAGE physical=1654 printed=1605]]
+●   WITH [ RECURSIVE ] with_query [, ...]
+    --学生表。
+    gaussdb=# CREATE TABLE student(id INT,name varchar(50));
+
+    --成绩表。
+    gaussdb=# CREATE TABLE grade(id INT,score CHAR);
+
+    gaussdb=# INSERT INTO student VALUES (1, 'tom'), (2, 'jerry'), (3, 'david');
+    gaussdb=# INSERT INTO grade VALUES (1, 'A'), (2, 'B'), (3, 'b');
+
+    --在学生表中删除id=2的数据同时删除该学生在成绩表中的数据。
+    gaussdb=# WITH del_stu AS(DELETE FROM student WHERE id = 2 RETURNING id)
+      DELETE FROM grade WHERE id = (SELECT id FROM del_stu);
+
+    --查询数据。
+    gaussdb=# SELECT * FROM student;
+     id | name
+    ----+-------
+      1 | tom
+      3 | david
+    (2 rows)
+
+    gaussdb=# SELECT * FROM grade;
+     id | score
+    ----+-------
+      1|A
+      3|b
+    (2 rows)
+
+    --删除表。
+    gaussdb=# DROP TABLE grade;
+    gaussdb=# DROP TABLE student;
+
+●   删除子查询
+    --创建Schema。
+    gaussdb=# CREATE SCHEMA del_subqry;
+    CREATE SCHEMA。
+    gaussdb=# SET CURRENT_SCHEMA = 'del_subqry';
+    SET
+
+    --创建表并插入数据。
+    gaussdb=# CREATE TABLE t1 (x1 int, y1 int);
+    CREATE TABLE
+    gaussdb=# CREATE TABLE t2 (x2 int PRIMARY KEY, y2 int);
+    NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "t2_pkey" for table "t2"
+    CREATE TABLE
+    gaussdb=# CREATE TABLE tdata (x INT PRIMARY KEY, y INT);
+    NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "tdata_pkey" for table "tdata"
+    CREATE TABLE
+    gaussdb=# CREATE TABLE tinfo (z INT PRIMARY KEY, comm VARCHAR2(20));
+    NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "tinfo_pkey" for table "tinfo"
+    CREATE TABLE
+    gaussdb=# INSERT INTO t1 VALUES (1, 1), (2, 2), (3, 3), (5, 5);
+    INSERT 0 4
+    gaussdb=# INSERT INTO t2 VALUES (1, 1), (2, 2), (3, 3), (5, 5);
+    INSERT 0 4
+    gaussdb=# INSERT INTO tdata VALUES (1, 1), (2, 2), (3, 3);
+    INSERT 0 3
+    gaussdb=# INSERT INTO tinfo VALUES (1,'one'), (2, 'two'), (3, 'three'), (5, 'wrong three');
+    INSERT 0 4
+
+    --通过子查询删除t1中的数据。
+    gaussdb=# DELETE FROM (SELECT * FROM t1) where y1 = 3;
+    DELETE 1
+
+    --子查询带READ ONLY，无法删除数据。
+    gaussdb=# DELETE FROM (SELECT * FROM t1 WITH READ ONLY) WHERE y1 = 1;
+    ERROR: DML operation cannot be performed on a read-only view.
+[[PDF_PAGE physical=1655 printed=1606]]
+    --对多表连接的子查询删除。
+    gaussdb=# SELECT * FROM t1, t2 WHERE x1 = x2;
+     x1 | y1 | x2 | y2
+    ----+----+----+----
+      1| 1| 1| 1
+      2| 2| 2| 2
+      5| 5| 5| 5
+    (3 rows)
+    gaussdb=# DELETE FROM (SELECT * FROM t1, t2 WHERE x1 = x2) WHERE y2 = 5;
+    DELETE 1
+
+    gaussdb=# SELECT * FROM t1, t2 WHERE x1 = x2;
+     x1 | y1 | x2 | y2
+    ----+----+----+----
+      1| 1| 1| 1
+      2| 2| 2| 2
+    (2 rows)
+
+    --子查询带CHECK OPTION，tdata表重复，其中td1不是保留键表，td2是保留键表。
+    gaussdb=# DELETE FROM (SELECT td1.x x1, td1.y y1, td2.x x2, td2.y y2 FROM tdata td1, tdata td2,
+    tinfo WHERE td2.y=tinfo.z AND td1.x=td2.y WITH CHECK OPTION) WHERE y1 = 2;
+    ERROR: Failed to delete from view with no key-preserved table.
+    --不带CHECK OPTION，创建同样结构的子查询，删除成功。
+    gaussdb=# DELETE FROM (SELECT td1.x x1, td1.y y1, td2.x x2, td2.y y2 FROM tdata td1, tdata td2,
+    tinfo WHERE td2.y=tinfo.z AND td1.x=td2.y) WHERE y1 = 2;
+    DELETE 1
+
+    --删除Schema。
+    gaussdb=# RESET CURRENT_SCHEMA;
+    RESET
+    gaussdb=# DROP SCHEMA del_subqry CASCADE;
+    NOTICE: drop cascades to 4 other objects
+    DETAIL: drop cascades to table del_subqry.t1
+    drop cascades to table del_subqry.t2
+    drop cascades to table del_subqry.tdata
+    drop cascades to table del_subqry.tinfo
+    DROP SCHEMA
+
+●   删除视图
+    --创建schema。
+    gaussdb=# CREATE SCHEMA del_view;
+    CREATE SCHEMA
+    gaussdb=# SET CURRENT_SCHEMA = 'del_view';
+    SET
+
+    --创建表并插入数据。
+    gaussdb=# CREATE TABLE t1 (x1 int, y1 int);
+    CREATE TABLE
+    gaussdb=# CREATE TABLE t2 (x2 int PRIMARY KEY, y2 int);
+    NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "t2_pkey" for table "t2"
+    CREATE TABLE
+    gaussdb=# CREATE TABLE tdata (x INT PRIMARY KEY, y INT);
+    NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "tdata_pkey" for table "tdata"
+    CREATE TABLE
+    gaussdb=# CREATE TABLE tinfo (z INT PRIMARY KEY, comm VARCHAR2(20));
+    NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "tinfo_pkey" for table "tinfo"
+    CREATE TABLE
+    gaussdb=# INSERT INTO t1 VALUES (1, 1), (2, 2), (3, 3), (5, 5);
+    INSERT 0 4
+    gaussdb=# INSERT INTO t2 VALUES (1, 1), (2, 2), (3, 3), (5, 5);
+    INSERT 0 4
+    gaussdb=# INSERT INTO tdata VALUES (1, 1), (2, 2), (3, 3);
+    INSERT 0 3
+    gaussdb=# INSERT INTO tinfo VALUES (1,'one'), (2, 'two'), (3, 'three'), (5, 'wrong three');
+    INSERT 0 4
+
+    --创建单表视图。
+    gaussdb=# CREATE VIEW v_del1 AS SELECT * FROM t1;
+    CREATE VIEW
+    gaussdb=# CREATE VIEW v_del_read AS SELECT * FROM t1 WITH READ ONLY;
+[[PDF_PAGE physical=1656 printed=1607]]
+          CREATE VIEW
+
+          --通过视图删除t1中的数据。
+          gaussdb=# DELETE FROM v_del1 where y1 = 3;
+          DELETE 1
+
+          --视图带READ ONLY，无法删除数据。
+          gaussdb=# DELETE FROM v_del_read WHERE y1 = 1;
+          ERROR: DML operation cannot be performed on a read-only view.
+
+          --创建多表连接视图。
+          gaussdb=# CREATE VIEW vvt1t2 AS SELECT * FROM t1, t2 WHERE x1 = x2;
+          CREATE VIEW
+          gaussdb=# CREATE VIEW vv_dup AS SELECT td1.x x1, td1.y y1, td2.x x2, td2.y y2 FROM tdata td1,
+          tdata td2, tinfo WHERE td2.y=tinfo.z AND td1.x=td2.y;
+          CREATE VIEW
+          gaussdb=# CREATE VIEW vv_dup_wco AS SELECT td1.x x1, td1.y y1, td2.x x2, td2.y y2 FROM tdata td1,
+          tdata td2, tinfo WHERE td2.y=tinfo.z AND td1.x=td2.y WITH CHECK OPTION;
+          CREATE VIEW
+
+          --对多表连接的视图做删除操作。
+          gaussdb=# SELECT * FROM vvt1t2;
+           x1 | y1 | x2 | y2
+          ----+----+----+----
+            1| 1| 1| 1
+            2| 2| 2| 2
+            5| 5| 5| 5
+          (3 rows)
+
+          gaussdb=# DELETE FROM vvt1t2 WHERE y2 = 5;
+          DELETE 1
+
+          gaussdb=# SELECT * FROM vvt1t2;
+           x1 | y1 | x2 | y2
+          ----+----+----+----
+            1| 1| 1| 1
+            2| 2| 2| 2
+           (2 rows)
+
+          --视图带CHECK OPTION，tdata表重复，其中td1不是保留键表，td2是保留键表。
+          gaussdb=# DELETE FROM vv_dup_wco WHERE y1 = 2;
+          ERROR: Failed to delete from view with no key-preserved table.
+          --不带CHECK OPTION，创建同样结构的视图，删除成功。
+          gaussdb=# DELETE FROM vv_dup WHERE y1 = 2;
+          DELETE 1
+
+          --删除Schema。
+          gaussdb=# RESET CURRENT_SCHEMA;
+          RESET
+          gaussdb=# DROP SCHEMA del_view CASCADE;
+          NOTICE: drop cascades to 9 other objects
+          DETAIL: drop cascades to table del_view.t1
+          drop cascades to table del_view.t2
+          drop cascades to table del_view.tdata
+          drop cascades to table del_view.tinfo
+          drop cascades to view del_view.v_del1
+          drop cascades to view del_view.v_del_read
+          drop cascades to view del_view.vvt1t2
+          drop cascades to view del_view.vv_dup
+          drop cascades to view del_view.vv_dup_wco
+          DROP SCHEMA
+
+
+相关链接
+       CREATE TABLE SUBPARTITION
+[[PDF_PAGE physical=1657 printed=1608]]
+优化建议
+       如果要删除表中的所有记录，建议使用TRUNCATE。

@@ -1,0 +1,106 @@
+[[PDF_PAGE physical=1407 printed=1358]]
+1.13.9.13 CREATE CLIENT MASTER KEY
+
+功能描述
+            创建主密钥对象。
+            密态等值查询特性使用多级加密模型，主密钥加密列密钥，列密钥加密数据。
+[[PDF_PAGE physical=1408 printed=1359]]
+注意事项
+       ●    CREATE CLIENT MASTER KEY属于全密态数据库特有语法。
+       ●    连接数据库时，在数据库驱动侧，需开启密态等值查询特性连接参数，才可执行
+            CREATE CLIENT MASTER KEY。
+       ●    主密钥由外部密钥管理者提供，本语法仅处理密钥来源、密钥ID等信息，已支持
+            的外部密钥管理者包括：
+            a.   华为云密钥管理服务hcs_kms。
+            b.   用户密码派生密钥或直接提供密钥user_token。
+            c.   基于鲲鹏TEE的内生密钥管理和三未信安SJJ1994加密机sdf_kms。
+       ●    在使用本语法前，请参见《开发指南》中“特性使用指导 > 设置密态等值查询”
+            章节，在数据库驱动侧，为外部密钥管理者设置环境变量。
+
+语法格式
+       CREATE CLIENT MASTER KEY client_master_key_name WITH (KEY_STORE = key_store_name, KEY_PATH =
+       key_path_value, ALGORITHM = algorithm_type);
+
+
+
+
+参数说明
+       ●    client_master_key_name
+            密钥对象名。在同一命名空间下，需满足命名唯一性约束。
+            取值范围：字符串，需符合标识符命名规范。
+       ●    KEY_STORE
+            外部密钥管理者。
+            取值范围：如表1-374所示。
+            –    当KEY_STORE为user_token时，无需用户提供KEY_PATH参数。
+            –    当KEY_STORE为sdf_kms时，无需用户提供ALGORITHM参数，默认支持
+                 SGD_SM4_ECB。
+       ●    KEY_PATH
+            由外部密钥管理者管理的密钥，不同密钥管理者格式不同。
+            取值范围：字符串，如表1-374所示。字符串由单引号或双引号进行包裹，如果字
+            符串长度超过64，则只能使用单引号包裹。
+       ●    ALGORITHM
+            密钥采用的加密算法。
+            取值范围：如表1-374所示。
+[[PDF_PAGE physical=1409 printed=1360]]
+         表 1-374 针对不同密钥管理者的参数值
+
+          KEY_STOR         KEY_PATH                           ALGORITHM
+          E
+
+          hcs_kms          格式：‘{KmsApiUrl}/{密钥                AES_256
+                           ID}'                               SM4
+                           请自行查询密钥服务器的地址
+                           KmsApiUrl
+
+          user_token       不需用户提供KEY_PATH                     当前支持的ALGORITHM：
+                                                              ● AES_256_CBC
+                                                              ● AES_256_GCM
+                                                              ● SM4
+                                                              ● SM4_HMAC_SM3
+                                                              ● SM4_CTR_HMAC_SM3
+
+          sdf_kms          格式：'{密钥加密密钥                        不需用户提供ALGORITHM
+                           （KEK）的ID}'
+                           注意：该参数可调用iTrustee
+                           提供的密钥管理工具生成，或
+                           者由三未信安SJJ1994加密机
+                           中密钥管理工具生成。
+
+
+
+
+示例
+     ●   user_token场景
+         --解压GaussDB-Kernel_数据库版本号_操作系统版本号_64bit_Gsql.tar.gz安装包，找到脚本gsql_env.sh。
+
+         --通过脚本，自动配置环境变量。
+         source gsql_env.sh
+
+         --连接数据库，使用特权账号，创建新用户例如alice。
+         gsql -p 端口号 -d postgres -r
+         gaussdb=# CREATE USER alice PASSWORD '*******';
+         gaussdb=# \q
+
+         --连接数据库，务必使用"-C"参数。
+         gsql -p 端口号 -d postgres -U alice -r -C
+
+         --设置用户密码或派生密钥，gsql可以通过password=stdin或key_token=stdin进行交互式输入。
+         --设置用户密码，密码长度不小于8，包含大、小写字母、数字、符号的其中3种。
+         gaussdb=> \key_info keyType=user_token,password=*********
+         --或者直接通过对接满足安全强度的密钥，此处密钥为16进制编码。
+         gaussdb=> \key_info keyType=user_token,key_token=********************************
+
+         --创建主密钥。
+         gaussdb=> CREATE CLIENT MASTER KEY alice_cmk WITH ( KEY_STORE = user_token , ALGORITHM =
+         AES_256_GCM );
+
+         --删除主密钥。
+         gaussdb=> DROP CLIENT MASTER KEY alice_cmk;
+         gaussdb=> \q
+
+         --连接数据库，使用特权账号，删除用户alice。
+         gsql -p 端口号 -d postgres -r
+         gaussdb=# DROP USER alice;
+[[PDF_PAGE physical=1410 printed=1361]]
+相关链接
+       DROP CLIENT MASTER KEY

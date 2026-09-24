@@ -1,0 +1,471 @@
+[[PDF_PAGE physical=2079 printed=2030]]
+2.4.2.8.5 COPY
+
+功能描述
+                 通过COPY命令实现在表和文件之间复制数据。
+
+                 COPY FROM从一个文件复制数据到一个表，COPY TO把一个表的数据复制到一个文
+                 件。
+
+注意事项
+                 ●   当参数enable_copy_server_files关闭时，只允许初始用户执行COPY FROM
+                     FILENAME或COPY TO FILENAME命令，当参数enable_copy_server_files打开
+                     时，允许具有SYSADMIN权限的用户或继承了内置角色gs_role_copy_files权限的
+                     用户执行，但默认禁止对数据库配置文件、密钥文件、证书文件和审计日志执行
+                     COPY FROM FILENAME或COPY TO FILENAME，以防止用户越权查看或修改敏
+                     感文件。
+                 ●   数据库管理员可以通过GUC参数safe_data_path设置所有用户可以导入导出路径
+                     的白名单，白名单默认生效。COPY使用的文件路径必须为设置路径的子路径。将
+                     此GUC参数为空时，不对用户使用的路径进行拦截，即白名单不生效，请谨慎进
+                     行设置。该参数会对COPY使用路径中的相对路径进行报错处理。
+                 ●   COPY只能用于表，不能用于视图。
+                 ●   COPY TO需要读取的表的SELECT权限，COPY FROM需要插入的表的INSERT权
+                     限。
+                 ●   如果声明了一个字段列表，COPY将只在文件和表之间复制已声明字段的数据。如
+                     果表中有任何不在字段列表里的字段，COPY FROM将为那些字段插入缺省值。
+                 ●   如果声明了数据源文件，服务器必须可以访问该文件；如果指定了STDIN，数据
+                     将在客户前端和服务器之间流动，输入时，表的列与列之间使用TAB键分隔，在新
+                     的一行中以反斜杠和句点（\.）表示输入结束。
+                 ●   如果数据文件的任意行包含比预期多或者少的字段，COPY FROM将抛出一个错
+                     误。
+                 ●   数据的结束可以用一个只包含反斜杠和句点（\.）的行表示。如果从文件中读取数
+                     据，数据结束的标记是不必要的；如果在客户端应用之间复制数据，必须要有结
+                     束标记。
+                 ●   COPY FROM中\N为空字符串，如果要输入实际数据值\N ，使用\\N。
+
+                 ●   COPY FROM不支持在导入过程中对数据做预处理（比如说表达式运算，填充指定
+                     默认值等）。如果需要在导入过程中对数据做预处理，用户需先把数据导入到临
+                     时表中，然后执行SQL语句通过运算插入到表中，但此方法会导致I/O膨胀，降低
+                     导入性能。
+                 ●   COPY FROM在遇到数据格式错误时会回滚事务，但没有足够的错误信息，不方便
+                     用户从大量的原始数据中定位错误数据。
+                 ●   COPY FROM/TO适合低并发，本地小数据量导入导出。
+                 ●   COPY命令中，生成列不能出现在指定列的列表中。使用COPY… TO导出数据时，
+                     如果没有指定列的列表，则该表的所有列除了生成列都会被导出。COPY… FROM
+                     导入数据时，生成列会自动更新，并像普通列一样保存。
+                 ●   COPY是服务端命令，执行环境和数据库服务端进程保持一致；\COPY是客户端元
+                     命令，执行环境和客户端gsql保持一致。需要注意的是，当在云上环境中使用数
+                     据库和gsql时，COPY命令和\COPY命令都使用云上环境的路径；当在云上环境中
+[[PDF_PAGE physical=2080 printed=2031]]
+           使用数据库，在非云上环境使用gsql时，COPY命令使用云上环境内的路径，
+           \COPY命令则使用其他环境的路径。
+       ●   在导出float类型的数据时，推荐将extra_float_digits设为3，避免有效位数丢失
+           造成导出导入前后数据不一致。
+       ●   不建议在GUC参数lower_case_table_names不同的数据库之间进行COPY FROM
+           或COPY TO操作。
+       ●   含零字符（'\0' ASCII码为0）数据进行COPY FROM或COPY TO操作时存在数据截
+           断。
+       ●   使用\copy命令时，通过detail_info信息作为查询条件查询审计信息时要忽略大小
+           写，SQL语句会被转换，审计中展示的是COPY关键字。
+
+语法格式
+       ●   从一个文件复制数据到一个表。
+           COPY table_name [ ( column_name [, ...] ) ] [WITH OIDS]
+             FROM { 'filename' | STDIN } [LOAD] [ LOAD_DISCARD 'discard_path'] [LOAD_BAD 'bad_path']
+             [ LOG ERRORS | LOG ERRORS DATA ]
+             [ REJECT LIMIT 'limit' ]
+             [ [ WITH ] ( option [, ...] ) | copy_option ];
+
+                  说明
+
+                上述语法中copy_option与option语法不兼容。
+       ●   把一个表的数据复制到一个文件。
+           COPY table_name [ ( column_name [, ...] ) ] [WITH OIDS]
+              TO { 'filename' | STDOUT } [LOAD]
+            [ [ WITH ] ( option [, ...] ) | copy_option ];
+
+           COPY query
+              TO { 'filename' | STDOUT }
+            [ [ WITH ] ( option [, ...] ) | copy_option ];
+
+                  说明
+
+                copy_option是指COPY原生的参数形式，而option是兼容外表导入的参数形式。
+           其中可选参数option子句语法为：
+           FORMAT 'format_name'
+           | FORMAT binary
+           | DELIMITER 'delimiter_character'
+           | NULL 'null_string'
+           | QUOTE 'quote_character'
+           | HEADER [ boolean ]
+           | USEEOF [ boolean ]
+           | ESCAPE 'escape_character'
+           | FORCE_NOT_NULL ( column_name [, ...] )
+           | FORCE_QUOTE { column_name [, ...] | * }
+           | DATE_FORMAT 'date_format_string'
+           | SMALLDATETIME_FORMAT 'smalldatetime_format_string'
+           | SKIP int_number
+           | LIMIT limit_line_number
+           | SKIP_CONSTRAINT_ERRORS
+           其中可选参数copy_option子句语法为：
+           NULL [ AS ] 'null_string'
+           | FORCE_NOT_NULL column_name [, ...]
+           | BINARY
+           | CSV
+           | QUOTE 'quote_character'
+           | ESCAPE [ AS ] 'escape_character'
+           | ENCODING 'encoding_name'
+           | DELIMITER [ AS ] 'delimiter_character'
+           | ROWS 'string'
+[[PDF_PAGE physical=2081 printed=2032]]
+           | DATE_FORMAT 'date_format_string'
+           | SMALLDATETIME_FORMAT 'smalldatetime_format_string'
+           | SKIP int_number
+           | STARTS begin_line_number
+           | LIMIT limit_line_number
+           | SKIP_CONSTRAINT_ERRORS
+           | WHEN { ( start - end ) | column_name } { = | != } 'string'
+           | SEQUENCE ( { column_name ( integer [, incr] ) [, ...] } )
+
+
+参数说明
+       ●   query
+           其结果将被复制。
+           取值范围：一个必须用圆括弧包围的SELECT或VALUES命令。
+       ●   table_name
+           表的名称（可以有模式修饰）。
+           取值范围：已存在的表名。
+       ●   column_name
+           可选的待复制字段列表。
+           取值范围：如果没有声明字段列表，将使用所有字段。
+       ●   STDIN
+           声明输入是来自标准输入。输入时，表的列与列之间使用TAB键分隔，在新的一行
+           中以反斜杠和句点（\.）表示输入结束。
+                 说明
+
+                在并行导入模式下，若同时通过标准输入（STDIN）导入数据，客户端会以多线程竞争锁
+                的方式进行数据发送。这可能导致部分线程事务数据提交失败，造成数据仅部分导入，且
+                后续无法对失败数据进行重试导入。因此，不建议在并行导入的场景中使用标准输入方式
+                进行导入操作。
+       ●   STDOUT
+           声明输出打印到标准输出。
+       ●   LOAD
+           区分COPY语法为gs_loader调用还是用户直接调用，非主动调用接口，不推荐使
+           用。
+       ●   LOAD_DISCARD 'discard_path'
+           指定gs_loader客户端discard文件生成路径，非主动调用接口，不推荐使用。
+       ●   LOAD_BAD 'bad_path'
+           指定gs_loader客户端bad文件生成路径，非主动调用接口，不推荐使用。
+       ●   LOG ERRORS
+           若指定，则开启对于COPY FROM语句中数据类型错误的容错机制。
+[[PDF_PAGE physical=2082 printed=2033]]
+             说明
+
+         此容错选项的使用限制如下：
+         ●    此容错机制仅捕捉COPY FROM过程中数据库主节点上数据解析过程中相关的数据类
+              型错误（DATA_EXCEPTION）。
+         ●    COPY已有的容错选项（如IGNORE_EXTRA_DATA）开启时，对应类型的错误会按照
+              已有的方式处理而不会报出异常，因此错误表也不会有相应数据。
+         ●    此容错选项默认不支持对约束冲突进行容错。如需要对约束冲突进行容错，可额外使
+              用语法SKIP_CONSTRAINT_ERRORS进行导入即可。
+              ●    支持的约束冲突类型包括：非空约束、条件约束、主键约束、唯一性约束以及
+                   唯一性索引。
+              ●    该功能仅在集中式的M兼容模式下有效。
+              ●    导入数据的表存在语句级触发器时，该触发器遇到上述约束冲突的情况时，暂
+                   无法处理，表现为直接报错，导入数据失败。
+              ●    该功能下数据导入过程会从批量插入变为单行插入，对应的导入性能会有所劣
+                   化。
+              ●    该功能下UB-Tree的索引构建过程会从批量构建变为单行构建，对应的索引构建
+                   性能会有所劣化。
+              ●    在行级触发器中，即使操作表触发了约束冲突，该功能依然有效。行级触发器
+                   的约束冲突通过子事务来实现，子事务会占用更多的内存资源并延长执行时
+                   间。因此，建议在明确存在约束冲突的可能性时使用该特性。此外，在这种场
+                   景下，单次COPY导入的数据量不要过大，建议不超过1GB。
+         ●    从低版本滚动升级到此版本时，所有节点升级完成之前禁止使用COPY容错导入能
+              力。
+●   LOG ERRORS DATA
+    LOG ERRORS DATA和LOG ERRORS的区别：
+    a.   LOG ERRORS DATA会填充容错表的rawrecord字段。
+    b.   只有super权限的用户才能使用LOG ERRORS DATA参数选项。
+                  说明
+
+              ● 使用LOG ERRORS DATA时，若错误内容过于复杂，则可能存在写入容错表失败
+                的风险，导致任务失败。
+              ● 对于某种编码无法识别的错误，对应
+                ERRCODE_CHARACTER_NOT_IN_REPERTOIRE和
+                ERRCODE_UNTRANSLATABLE_CHARACTER两种错误码，不记录rawrecord字
+                段。
+              ● 不支持BINARY格式的文件。
+              ● 从低版本滚动升级到此版本时，所有节点升级完成之前禁止使用COPY容错导入能
+                力。
+●   REJECT LIMIT 'limit'
+    对COPY FROM的容错机制设置数值上限，当COPY FROM语句中的数据错误数量
+    超过选项指定条数，则会按照原有机制报错。REJECT LIMIT选项需要与LOG
+    ERRORS选项或者LOG ERRORS DATA选项共同使用，才能开启COPY FROM的容
+    错机制。
+    取值范围：[1, 2147483647]的正整数或'unlimited'（无最大值限制）。
+[[PDF_PAGE physical=2083 printed=2034]]
+        须知
+
+    ● 若未指定LOG ERRORS选项和LOG ERRORS DATA选项，但使用了REJECT
+      LIMIT选项，则会报错。
+    ● 若指定LOG ERRORS选项或者LOG ERRORS DATA选项，不显示指定REJECT
+      LIMIT选项，则默认不进行容错。
+    ● REJECT LIMIT按照执行COPY FROM的数据库主节点上遇到的解析错误进行计
+      数，而不是数据库节点的错误数量。
+
+●   OPTION { option_name ' value ' }
+    用于指定兼容外表的各类参数。
+    –   FORMAT
+        数据源文件的格式。
+        取值范围：CSV、TEXT、BINARY。
+
+        ▪    CSV格式的文件，可以有效处理数据列中的换行符，但对一些特殊字符
+             处理有欠缺。
+
+        ▪    TEXT格式的文件，可以有效处理一些特殊字符，但无法正确处理数据列
+             中的换行符。
+
+        ▪    BINARY形式的选项会使得所有的数据被存储/读作二进制格式而不是文
+             本。 这比TEXT和CSV格式的要快一些，但是一个BINARY格式文件可移
+             植性比较差。
+        缺省值：TEXT
+    –   DELIMITER
+        指定数据文件行数据的字段分隔符。
+             说明
+
+             ● 分隔符不能是\r和\n。
+             ● 分隔符不能和null参数相同，CSV格式数据的分隔符不能和quote参数相同。
+             ● TEXT格式数据的分隔符不能包含： 小写字母、数字和特殊字符.\。
+             ● 数据文件中单行数据长度需<1GB，如果分隔符较长且数据列较多的情况下，会影
+               响导出有效数据的长度。
+             ● 分隔符推荐使用多字符和不可见字符。多字符例如'$^&'；不可见字符例如0x07，
+               0x08，0x1b等。
+        取值范围：支持多字符分隔符，但分隔符不能超过10个字节。
+        缺省值：
+
+        ▪    TEXT格式的默认分隔符是水平制表符（tab）。
+
+        ▪    CSV格式的默认分隔符为“,”。
+    –   NULL
+        用来指定数据文件中空值的表示。
+        取值范围：
+
+        ▪    null值不能是\r和\n，最大为100个字符。
+[[PDF_PAGE physical=2084 printed=2035]]
+    ▪   null值不能和分隔符、quote参数相同。
+    缺省值：
+
+    ▪   CSV格式下默认值是一个没有引号的空字符串。
+
+    ▪   在TEXT格式下默认值是\n。
+–   HEADER
+    指定导出数据文件是否包含标题行，标题行一般用来描述表中每个字段的信
+    息。header只能用于CSV格式的文件中。
+    在导入数据时，如果header选项为on，则数据文本第一行会被识别为标题
+    行，会忽略此行。如果header为off，而数据文件中第一行会被识别为数据。
+    在导出数据时，如果header选项为on，则需要指定fileheader。如果header
+    为off，则导出数据文件不包含标题行。
+    取值范围：true/on，false/off。
+    缺省值：false
+–   QUOTE [AS] 'quote_character'
+    CSV格式下，用来指定封闭符，封闭符只能指定为单字节字符。
+    缺省值：''。
+–   ESCAPE
+    CSV格式下，用来指定逃逸字符，逃逸字符只能指定为单字节字符。
+    缺省值：''。当与quote值相同时，会被替换为'\0'。
+–   FORCE_NOT_NULL ( column_name [, ...] )
+    在CSV COPY FROM模式下，指定的字段输入不能为空。
+    取值范围：已存在的字段。
+–   DATE_FORMAT
+    导入对于DATE类型指定格式。此参数不支持BINARY格式，会报“cannot
+    specify bulkload compatibility options in BINARY mode”错误信息。此参
+    数仅对COPY FROM导入有效。
+    取值范围：合法DATE格式。具体请参见日期时间函数。
+        说明
+
+        对于DATE类型内建为TIMESTAMP类型的数据库，在导入的时候，若需指定格式，可
+        以参考下面的timestamp_format参数。
+–   SKIP int_number
+    指定数据导入时，跳过数据文件的前int_number行。等价于copy_option中的
+    SKIP int_number参数。
+    取值范围：整数[0, 2147483647]。
+–   LIMIT limit_line_number
+    指定从输入数据源中最多处理的行数。等价于copy_option中的LIMIT
+    limit_line_number参数。
+    取值范围：整数[1, 2147483647]。
+–   SKIP_CONSTRAINT_ERRORS
+    指定导入数据过程中发生约束冲突时，跳过该错误继续导入剩余的数据，跳
+    过的错误信息可通过bad文件或者gs_copy_error_log系统表查看。等价于
+    copy_option中的SKIP_CONSTRAINT_ERRORS参数。
+[[PDF_PAGE physical=2085 printed=2036]]
+●   COPY_OPTION { option_name ' value ' }
+    用于指定COPY原生的各类参数。
+    –   NULL null_string
+        用来指定数据文件中空值的表示。
+
+
+            须知
+
+        在使用COPY FROM的时候，任何匹配这个字符串的字符串将被存储为NULL
+        值，所以应该确保指定的字符串和COPY TO相同。
+
+        取值范围：
+
+        ▪     null值不能是\r和\n，最大为100个字符。
+
+        ▪     null值不能和分隔符、quote参数相同。
+        缺省值：
+
+        ▪     在TEXT格式下默认值是\N。
+
+        ▪     CSV格式下默认值是一个没有引号的空字符串。
+    –   FORCE NOT NULL column_name [, ...]
+        在CSV COPY FROM模式下，指定的字段不为空。若输入为空，则将视为长
+        度为0的字符串。
+        取值范围：已存在的字段。
+    –   BINARY
+        使用二进制格式存储和读取，而不是以文本的方式。
+               说明
+
+              ● 在二进制模式下，不能声明DELIMITER、NULL、CSV选项。
+              ● 指定BINARY类型后，不能再通过option或copy_option指定CSV、TEXT等类型。
+              ● 如果设置了GUC参数support_binary_copy_version='header_encoding'，则通过
+                COPY TO导出的二进制文件头中包含数据库的服务端编码信息，COPY FROM导
+                入二进制文件时对编码信息的一致性进行校验，文件中编码信息须与服务端编码
+                保持一致。
+              ● 如果设置了GUC参数copy_special_character_version='no_error'，则会在导入的
+                过程中屏蔽非法字符编码的校验，将非法编码字符按原样导入，查询时以乱码显
+                示。在了解后果的情况下，请谨慎选择开启此参数。可以在COPY语句中使用LOG
+                ERRORS或LOG ERRORS DATA参数，将错误编码数据记录到错误表中，便于记录
+                与查看。
+              ● 二进制模式下copy_special_character_version='no_error'，仅对TEXT、CHAR、
+                VARCHAR、NVARCHAR2类型的字段生效。
+    –   CSV
+        打开逗号分隔变量（CSV）模式。指定CSV类型后，不能再通过option或
+        copy_option指定BINARY、TEXT等类型。
+    –   QUOTE [AS] 'quote_character'
+        CSV格式下，用来指定封闭符，封闭符只能指定为单字节字符。
+        缺省值：''。
+[[PDF_PAGE physical=2086 printed=2037]]
+–   ESCAPE [AS] 'escape_character'
+    CSV格式下，用来指定逃逸字符，逃逸字符只能指定为单字节字符。
+    缺省值：''。当与quote值相同时，会被替换为'\0'。
+–   ENCODING 'encoding_name'
+    指定文件编码格式名称。
+    取值范围：有效的编码格式。
+    缺省值：当前编码格式。
+–   DATE_FORMAT 'date_format_string'
+    导入对于DATE类型指定格式。此参数不支持BINARY格式，会报“cannot
+    specify bulkload compatibility options in BINARY mode”错误信息。此参
+    数仅对COPY FROM导入有效。
+    取值范围：合法DATE格式。具体请参见日期时间函数。
+         说明
+
+        对于DATE类型内建为TIMESTAMP类型的数据库，在导入的时候，若需指定格式，可
+        以参考下面的timestamp_format参数。
+–   SKIP int_number
+    指定数据导入时，跳过数据文件的前int_number行。
+    取值范围：整数[0, 2147483647]。
+–   STARTS begin_line_number
+    指定输入数据对应在错误表中的起始行号。当输入数据中第n行为错误数据
+    时，记录到错误表中lineno为n+begin_line_number。如：当错误数据为1、
+    2、5时，如果配置了STARTS 3，记录到错误表中对应lineno分别为4、5、
+    8。
+    取值范围：整数[0, 2147483647]。
+–   LIMIT limit_line_number
+    指定从输入数据源中最多处理的行数。
+    取值范围：整数[1, 2147483647]。
+–   SKIP_CONSTRAINT_ERRORS
+    指定导入数据过程中发生约束冲突时，跳过该错误继续导入剩余的数据，跳
+    过的错误信息可通过bad文件或者gs_copy_error_log系统表查看。默认不配
+    置。
+    如果配置，表示copy、\copy均支持跳过约束冲突的错误。其中约束冲突包括
+    非空约束、条件约束、主键约束、唯一性约束以及唯一索引约束。其功能与A
+    兼容下GUC参数a_format_load_with_constraints_violation设置为"s2"时一
+    致。
+–   WHEN { ( start - end ) | column_name } { = | != } 'string'
+    数据导入时，检查导入的每一行数据，只有符合WHEN条件的数据行才导入
+    表中。
+–   SEQUENCE ( { column_name ( integer [, incr] ) [, ...] } )
+    数据导入时，SEQUENCE修饰的列，不从数据文件读取数据，通过指定的
+    integer，按照incr递增数值；不指定incr则默认从1开始递增。
+         说明
+
+        不支持在指定SEQUENCE的场景下进行并行导入操作。
+[[PDF_PAGE physical=2087 printed=2038]]
+                  说明
+
+              COPY FROM能够识别的特殊反斜杠序列如下所示：
+              ●     \b：反斜杠 （ASCII 8）
+              ●     \f：换页（ASCII 12）
+              ●     \n：换行符 （ASCII 10）
+              ●     \r：回车符 （ASCII 13）
+              ●     \t：水平制表符 （ASCII 9）
+              ●     \v：垂直制表符 （ASCII 11）
+              ●     \digits：反斜杠后面跟着一到三个八进制数，表示ASCII值为该数的字符。
+              ●     \xdigits：反斜杠x后面跟着一个或两个十六进制位声明指定数值编码的字符。
+
+
+权限控制示例
+         m_db=# copy t1 from '/home/xy/t1.csv';
+         ERROR: COPY to or from a file is prohibited for security concerns
+         HINT: Anyone can COPY to stdout or from stdin. gsql's \copy command also works for anyone.
+         m_db=# grant gs_role_copy_files to xxx;
+
+         此错误为非初始用户没有使用copy的权限示例，解决方式为打开
+         enable_copy_server_files参数，则管理员可以使用copy功能，普通用户需要在此基础
+         上加入gs_role_copy_files群组。
+
+示例
+         --创建SCHEMA。
+         m_db=# CREATE SCHEMA tpcds;
+
+         --创建tpcds.ship_mode表。
+         m_db=# CREATE TABLE tpcds.ship_mode
+         (
+           SM_SHIP_MODE_SK         INTEGER                NOT NULL,
+           SM_SHIP_MODE_ID         CHAR(16)               NOT NULL,
+           SM_TYPE            CHAR(30)                    ,
+           SM_CODE             CHAR(10)                     ,
+           SM_CARRIER           CHAR(20)                      ,
+           SM_CONTRACT           CHAR(20)
+         )
+         ;
+
+         --向tpcds.ship_mode表插入一条数据。
+         m_db=# INSERT INTO tpcds.ship_mode VALUES (1,'a','b','c','d','e');
+
+         --将tpcds.ship_mode中的数据复制到/home/omm/ds_ship_mode.dat文件中。
+         m_db=# COPY tpcds.ship_mode TO '/home/omm/ds_ship_mode.dat';
+
+         --将tpcds.ship_mode 输出到STDOUT。
+         m_db=# COPY tpcds.ship_mode TO STDOUT;
+
+         --将tpcds.ship_mode 的数据输出到STDOUT，使用参数如下：分隔符为','(delimiter ',')，编码格式为
+         UTF8(encoding 'utf8')。
+         m_db=# COPY tpcds.ship_mode TO STDOUT WITH (delimiter ',', encoding 'utf8');
+
+         --将tpcds.ship_mode 的数据输出到STDOUT，使用参数如下：导入格式为CSV（format 'CSV'），引号包围
+         SM_SHIP_MODE_SK字段的导出内容(force_quote(SM_SHIP_MODE_SK))。
+         m_db=# COPY tpcds.ship_mode TO STDOUT WITH (format 'CSV', force_quote(SM_SHIP_MODE_SK));
+
+         --创建tpcds.ship_mode_t1表。
+         m_db=# CREATE TABLE tpcds.ship_mode_t1
+         (
+           SM_SHIP_MODE_SK         INTEGER                NOT NULL,
+           SM_SHIP_MODE_ID         CHAR(16)               NOT NULL,
+[[PDF_PAGE physical=2088 printed=2039]]
+    SM_TYPE           CHAR(30)               ,
+    SM_CODE            CHAR(10)                  ,
+    SM_CARRIER          CHAR(20)                     ,
+    SM_CONTRACT          CHAR(20)
+)
+;
+
+--从STDIN复制数据到表tpcds.ship_mode_t1。
+m_db=# COPY tpcds.ship_mode_t1 FROM STDIN;
+
+--从/home/omm/ds_ship_mode.dat文件复制数据到表tpcds.ship_mode_t1。
+m_db=# COPY tpcds.ship_mode_t1 FROM '/home/omm/ds_ship_mode.dat';
+
+--从/home/omm/ds_ship_mode.dat文件复制数据到表tpcds.ship_mode_t1，使用参数如下：导入格式为TEXT
+（format 'text'），分隔符为'\t'（delimiter E'\t'），忽略多余列（ignore_extra_data 'true'），不指定转义
+（noescaping 'true'）。
+m_db=# COPY tpcds.ship_mode_t1 FROM '/home/omm/ds_ship_mode.dat' WITH(format 'text', delimiter
+E'\t', ignore_extra_data 'true', noescaping 'true');
+
+--删除表和SCHEMA。
+m_db=# DROP TABLE tpcds.ship_mode;
+m_db=# DROP TABLE tpcds.ship_mode_t1;
+m_db=# DROP SCHEMA tpcds;

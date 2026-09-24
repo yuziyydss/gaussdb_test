@@ -1,0 +1,72 @@
+[[PDF_PAGE physical=1242 printed=1193]]
+1.13.7.23 ALTER PLUGGABLE DATABASE
+
+功能描述
+           修改Pluggable Database（PDB）的状态，对其进行打开、关闭、强制关闭的操作。
+
+注意事项
+           ●   只能在GUC参数enable_mtd为on的状态下使用。
+           ●   只能在非PDB中进行该操作。不可在M兼容模式数据库中执行该命令。
+           ●   操作用户需要为PDB属主（见系统表pg_database.datdba）或拥有sysadmin权
+               限。
+           ●   仅数据库初始用户可以使用该语句变更模板PDB（template_pdb）。
+                说明
+
+               ● 模板PDB只允许数据库初始用户连接，其他用户无法连接。
+               ● 禁止用户在模板PDB下执行任何数据操作，若执行相关操作，可能产生预期外行为。例如，
+                 若在模板PDB内创建表空间，后续基于该模板创建的PDB不会同步模板内的表空间软链接，
+                 表空间软链接会发生丢失。
+
+
+语法格式
+           ALTER PLUGGABLE DATABASE pdb_name { OPEN | CLOSE | CLOSE IMMEDIATE };
+
+
+
+
+参数说明
+           ●   pdb_name
+               PDB名称。
+               取值范围：字符串，要符合标识符命名规范。
+           ●   OPEN
+[[PDF_PAGE physical=1243 printed=1194]]
+           打开指定的PDB。PDB的OPEN操作对其数据库实例的启动，即仅当PDB开启时才
+           提供服务。管理员可按需启用或停用一部分PDB。只有PDB处于开启状态时，才
+           允许被连接。
+                说明
+
+               只有在当前的资源计划中存在与PDB关联的资源计划指令时，才可以成功打开PDB。
+       ●   CLOSE
+           关闭指定的PDB。当用户暂不需要使用PDB或者需要将其删除时，可以通过CLOSE
+           操作停止PDB的服务。关闭后，无法连接到该PDB。数据库会对关闭的PDB进行最
+           基本的常规维护，以保证系统整体的一致性。这些停用的PDB对系统开销可以忽
+           略。如果执行该语句时，该PDB还存在业务连接，则将最多等待5秒，后续还存在
+           则会导致关闭失败。
+       ●   CLOSE IMMEDIATE
+           强制关闭指定的PDB。如果管理员无法主动断连PDB的业务连接，可以使用该选
+           项主动清退PDB现有的业务连接，并关闭PDB。
+
+示例
+       ●   前置条件。
+           请参见示例完成PDB的创建。
+       ●   打开与关闭PDB。
+           -- 使用系统管理员连接postgres数据库，开启创建出的PDB。
+           gaussdb=# ALTER PLUGGABLE DATABASE my_pdb OPEN;
+           ALTER PLUGGABLE DATABASE
+
+           -- 使用系统管理员连接postgres数据库，尝试关闭已经开启的PDB。
+           gaussdb=# ALTER PLUGGABLE DATABASE my_pdb CLOSE;
+           ALTER PLUGGABLE DATABASE
+
+           -- 使用系统管理员连接postgres数据库，开启创建出的PDB。
+           gaussdb=# ALTER PLUGGABLE DATABASE my_pdb OPEN;
+           ALTER PLUGGABLE DATABASE
+
+           -- 使用系统管理员连接postgres数据库，立即关闭已经开启的PDB。
+           gaussdb=# ALTER PLUGGABLE DATABASE my_pdb CLOSE IMMEDIATE;
+           ALTER PLUGGABLE DATABASE
+
+
+相关链接
+       CREATE PLUGGABLE DATABASE，DROP PLUGGABLE DATABASE INCLUDING
+       DATAFILES，GS_PDB

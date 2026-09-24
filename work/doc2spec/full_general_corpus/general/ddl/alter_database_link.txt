@@ -1,0 +1,92 @@
+[[PDF_PAGE physical=1205 printed=1156]]
+1.13.7.7 ALTER DATABASE LINK
+
+功能描述
+            修改DATABASE LINK对象。
+
+注意事项
+            ●    DATABASE LINK详细说明，请参见《开发指南》中“特性使用指导 > DATABASE
+                 LINK”章节。
+            ●    当DATABASE LINK连接的数据库为GaussDB数据库时，目前仅支持修改
+                 DATABASE LINK对象的用户名称和密码。
+
+语法格式
+            ALTER [PUBLIC] DATABASE LINK dblink_name
+              [CONNECT TO 'user_name' IDENTIFIED BY 'password'] [ USING ( { option 'value' } [, ...]) ];
+[[PDF_PAGE physical=1206 printed=1157]]
+参数说明
+       ●    dblink_name
+            连接名称。
+       ●    user_name
+            远程被连接数据库用户名。
+       ●    password
+            远程被连接数据库用户密码。
+       ●    PUBLIC
+            连接类型，未指定PUBLIC时，默认为PRIVATE。
+       ●    USING ( { option 'value' } [, ... ] )
+            当DATABASE LINK连接的数据库为Oracle数据库时，通过USING子句可以修改以
+            下option：
+            –    isolation_level：指定通过DBLink开启Oracle数据库事务的隔离级别，默认为
+                 serializable，可选项有serializable、read_committed、read_only。
+            –    max_long：指定远程数据库表中long、long raw类型的列最大长度，取值范
+                 围为[1, 1073741823]。当前该参数为预置参数，暂不生效。
+            –    strip_zeros：对于ASCII编码字符串中的0字符的处理行为，如果设置为
+                 yes/on/true，0字符则会删除。
+            –    prefetch：连接的远程数据库Scan时每次fetch的数据行数，取值范围为[1,
+                 1000]，默认值为50。
+            –    lob_prefetch：连接的远程数据库Scan时lob类型每次fetch的字节大小，取值
+                 范围为[0, 536870912]，默认值为1048576。当前该参数为预置参数，暂不
+                 生效。
+            –    time_out：指定连接执行超时时间，取值范围为[0, 2147483647]。默认值为
+                 0，表示不指定连接执行超时时间，即不会超时。
+
+示例
+       -- 前置条件。
+       gaussdb=# CREATE USER local_user WITH SYSADMIN PASSWORD '********';
+       CREATE ROLE
+       gaussdb=# SET ROLE local_user PASSWORD '********';
+       SET
+
+       -- 创建公共DBLink。
+       gaussdb=# CREATE PUBLIC DATABASE LINK public_dblink CONNECT TO 'local_user' IDENTIFIED BY '********'
+       USING (host '***.***.***.***',port '*****',dbname 'remote_db');
+       CREATE DATABASE LINK
+
+       -- 创建普通用户。
+       gaussdb=# CREATE USER remote_user PASSWORD '********';
+       CREATE ROLE
+
+       -- 修改DBLink对象信息。
+       gaussdb=# ALTER PUBLIC DATABASE LINK public_dblink CONNECT TO 'remote_user' IDENTIFIED BY '********';
+       ALTER DATABASE LINK
+
+       -- 删除公共DBLink。
+       gaussdb=# DROP PUBLIC DATABASE LINK public_dblink;
+       DROP DATABASE LINK
+
+       -- 创建连接到Oracle数据库的公共DBLink。
+       gaussdb=# CREATE PUBLIC DATABASE LINK dblink CONNECT TO 'oracle_user' IDENTIFIED BY '********' OCI
+       USING (dbserver '***.***.***.***:****/orcl', case_insensitive 'on');
+[[PDF_PAGE physical=1207 printed=1158]]
+       CREATE DATABASE LINK
+
+       -- 修改DBLink参数选项。
+       gaussdb=# ALTER PUBLIC DATABASE LINK dblink CONNECT TO 'oracle_user' IDENTIFIED BY '********'USING
+       (time_out '0');
+       ALTER DATABASE LINK
+
+       -- 删除连接到Oracle数据库的公共DBLink。
+       gaussdb=# DROP PUBLIC DATABASE LINK dblink;
+       DROP DATABASE LINK
+
+       -- 清理环境。
+       gaussdb=# RESET ROLE;
+       RESET
+       gaussdb=# DROP USER local_user;
+       DROP ROLE
+       gaussdb=# DROP USER remote_user;
+       DROP ROLE
+
+
+相关链接
+       CREATE DATABASE LINK，DROP DATABASE LINK

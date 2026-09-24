@@ -32,6 +32,7 @@ class MNamespaceViewSessionTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256(sources[ref.chapter_sha256].read_bytes()).hexdigest(),ref.chapter_sha256)
             self.assertTrue(any(s.id in u.supplemental_source_refs for u in ledger.units))
 
+    @unittest.skipUnless((ROOT/'gaussdb-rf-cent.pdf').is_file(), 'source PDF is not tracked in CI')
     def test_cumulative_audit_rejects_changed_supplemental_body(self):
         from scripts import verify_m_compat_remaining as audit
         actual_sha=audit.sha

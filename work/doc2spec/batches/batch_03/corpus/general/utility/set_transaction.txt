@@ -1,0 +1,81 @@
+[[PDF_PAGE physical=1860 printed=1811]]
+1.13.19.9 SET TRANSACTION
+
+功能描述
+           事务设置特性。事务特性包括事务隔离级别、事务访问模式(读/写或者只读)。可以设
+           置当前事务的特性（LOCAL)，也可以设置会话的默认事务特性（SESSION），也可以
+           设置当前数据库的全局会话的事务特性（GLOBAL）。
+
+
+注意事项
+           设置当前事务特性需要在事务中执行（即执行SET TRANSACTION之前需要执行START
+           TRANSACTION或者BEGIN），否则设置不生效。设置当前数据库全局会话
+           （GLOBAL）的事务特性在重新连接后生效。
+[[PDF_PAGE physical=1861 printed=1812]]
+语法格式
+       设置事务的隔离级别、读写模式。
+       { SET [ LOCAL | SESSION | GLOBAL ] TRANSACTION|SET SESSION CHARACTERISTICS AS TRANSACTION }
+         { ISOLATION LEVEL { READ COMMITTED | READ UNCOMMITTED | SERIALIZABLE | REPEATABLE READ }
+         | { READ WRITE | READ ONLY } };
+
+
+
+
+参数说明
+       ●    LOCAL
+            声明该命令只在当前事务中有效。
+       ●    SESSION
+            声明这个命令只对当前会话起作用。
+            SET SESSION TRANSACTION语句需要在sql_compatibility = 'B'场景下，设置
+            GUC参数b_format_behavior_compat_options为set_session_transaction后生
+            效，作用等同于SET SESSION CHARACTERISTICS AS TRANSACTION语句。
+       ●    GLOBAL
+            声明这个命令对当前数据库的全局会话生效。
+            作用范围：在sql_compatibility = 'B'场景下生效。对后续连接的会话生效。
+       ●    SESSION CHARACTERISTICS
+            声明这个命令只对当前会话起作用。
+       ●    ISOLATION LEVEL
+            指定事务隔离级别，该参数决定当一个事务中存在其他并发运行事务时能够看到
+            什么数据。
+                 说明
+
+                ● 在事务中第一个数据修改语句（SELECT、INSERT、DELETE、UPDATE、FETCH、
+                  COPY）执行之后，当前事务的隔离级别就不能再次设置。
+                ● 事务块内SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL对当
+                  前事务不生效，需要COMMIT之后才生效。
+            取值范围：
+            –    READ COMMITTED：读已提交隔离级别，只能读到已经提交的数据，而不
+                 会读到未提交的数据。这是缺省值。
+[[PDF_PAGE physical=1862 printed=1813]]
+          –    READ UNCOMMITTED：读未提交隔离级别，指定后的行为和READ
+               COMMITTED行为一致。
+          –    REPEATABLE READ：可重复读隔离级别，仅仅能看到事务开始之前提交的数
+               据，不能看到未提交的数据，以及在事务执行期间由其它并发事务提交的修
+               改。
+          –    SERIALIZABLE：GaussDB目前功能上不支持此隔离级别，等价于
+               REPEATABLE READ。
+     ●    READ WRITE | READ ONLY
+          指定事务访问模式（读/写或者只读）。
+
+示例
+     --创建并切换至测试数据库。
+     gaussdb=# CREATE DATABASE my_compatible_db DBCOMPATIBILITY 'B';
+     gaussdb=# \c my_compatible_db
+
+     --开启一个事务，设置事务的隔离级别为READ COMMITTED，访问模式为READ ONLY。
+     my_compatible_db=# START TRANSACTION;
+     my_compatible_db=# SET LOCAL TRANSACTION ISOLATION LEVEL READ COMMITTED READ ONLY;
+     my_compatible_db=# COMMIT;
+
+     --设置当前会话的事务隔离级别、读写模式。
+     --在sql_compatibility = 'B'场景下,b_format_behavior_compat_options设置为set_session_transaction。
+     my_compatible_db=# SET b_format_behavior_compat_options TO set_session_transaction;
+     my_compatible_db=# SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED READ ONLY;
+
+     --给sql_compatibility = 'B'的数据库设置全局会话的事务隔离级别、读写模式(当前只能在sql_compatibility = 'B'
+     场景下)。
+     gaussdb=# SET GLOBAL TRANSACTION ISOLATION LEVEL READ COMMITTED READ ONLY;
+
+     --切换回初始数据库，并删除测试数据库。请用真实的数据库名替换postgres。
+     my_compatible_db=# \c postgres
+     gaussdb=# DROP DATABASE my_compatible_db;

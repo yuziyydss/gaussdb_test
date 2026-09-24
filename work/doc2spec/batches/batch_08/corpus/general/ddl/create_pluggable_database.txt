@@ -1,0 +1,124 @@
+[[PDF_PAGE physical=1493 printed=1444]]
+1.13.9.36 CREATE PLUGGABLE DATABASE
+
+功能描述
+           创建一个新的Pluggable Database（PDB），即多租特性中租户的概念，表示一种特
+           殊的数据库，也可以作为一个数据库实例中被划分出来的逻辑实例。
+
+注意事项
+           ●    不能在事务块中执行创建PDB的DDL语句，包括CREATE、ALTER以及DROP。
+           ●    只能在GUC参数enable_mtd为on的状态下使用。
+           ●    只能在非PDB中进行该操作。
+           ●    不支持在M-Compatibility模式数据库中执行该命令。
+           ●    执行该操作的用户需要为gs_role_create_pdb的角色或拥有SYSADMIN权限。
+           ●    最多可以创建128个用户PDB。
+           ●    当未指定兼容性选项时，默认创建A兼容模式PDB。
+           ●    若安装数据库实例时未指定初始化账户密码，且初始化账户名字区分大小写，且
+                新创建的PDB为M-Compatibility模式数据库的情况下，需要在开启并使用该PDB
+                前，先在命令行执行以下语句，使数据库将双引号中的内容作为对象引用进行处
+                理。语句执行后再开启并使用该PDB，按照提示重置始账户密码。（该操作主要
+                为保证能正常为新PDB设置账户密码，后续操作可以按照实际业务需求重置
+                sql_mode参数）
+                gs_guc set --pdbname my_pdb -Z datanode -N all -I all -c "sql_mode = 'ansi_quotes'" # my_pdb为新建
+                的PDB名
+
+
+语法格式
+           CREATE PLUGGABLE DATABASE pdb_name
+             [ [ WITH ] { [ ENCODING [=] 'encoding' ] |
+                    [ LC_COLLATE [=] 'lc_collate' ] |
+                    [ LC_CTYPE [=] 'lc_ctype' ] |
+                    [ DBCOMPATIBILITY [=] 'compatibility_type' ] |
+                    [ DBTIMEZONE [=] 'time_zone' ] }];
+
+
+
+
+参数说明
+           ●    pdb_name
+                PDB名称。
+                取值范围：字符串，要符合标识符命名规范。
+                       说明
+
+                     PDB名称中不能含有美元（$）符号。
+[[PDF_PAGE physical=1494 printed=1445]]
+     ●   ENCODING [ = ] 'encoding'
+         可选。指定数据库使用的字符编码，可以是字符串（如'SQL_ASCII'）以及整数编
+         号。
+         常用取值：GBK、UTF8、Latin1以及GB18030等。
+              说明
+
+             ● 不指定时，对于M-Compatibility模式数据库，默认使用UTF8编码；其他默认使用模板
+               数据库的编码。
+             ● 模板数据库template0、template1和templatea的编码默认与操作系统环境相关。
+               template1不允许修改字符编码，因此若要变更编码，A兼容模式数据库请使用
+               templatea创建数据库，非A兼容模式数据库请使用template0或templatem创建数据
+               库。
+     ●   LC_COLLATE [ = ] 'lc_collate'
+         可选。指定新数据库使用的字符集。该参数的使用会影响到对字符串的排序顺
+         序，默认使用模板数据库的字符集。该参数对M-Compatibility模式数据库不生
+         效。
+         取值范围：操作系统支持的字符集。
+     ●   LC_CTYPE [ = ] 'lc_ctype'
+         可选。指定新数据库使用的字符分类。该参数的使用会影响到字符的分类（如大
+         写、小写和数字），默认使用模板数据库的字符分类。该参数对M-Compatibility
+         模式数据库不生效。
+         取值范围：操作系统支持的字符分类。
+     ●   DBCOMPATIBILITY [ = ] compatibility_type
+         可选。指定兼容的数据库的类型，默认兼容Oracle。
+         取值范围：A、C、PG、M。分别表示兼容Oracle、Teradata、PostgreSQL和M-
+         Compatibility。
+     ●   DBTIMEZONE [ = ] time_zone
+         指定新数据库的时区。该参数会影响新数据库的时区，默认设置为PRC时区。
+         取值范围：
+         –   操作系统支持的时区名称和缩写。
+         –   -15:59 ~ +15:00时间戳范围。
+              说明
+
+             该参数仅在A兼容模式数据库下，且设置参数设置为a_format_version='10c'和
+             a_format_dev_version='s2'时生效。
+
+
+示例
+     ●   前置条件。
+         请参见《开发指南》中“特性使用指导 > 多租数据库 > 安装多租数据库实例”章
+         节完成多租数据库实例的安装。
+     ●   创建PDB。
+         --使用系统管理员连接postgres数据库，开启待决区（pending area），进入资源计划编辑状态。
+         gaussdb=# CALL resource_manager.create_pending_area();
+          create_pending_area
+         ---------------------
+
+         (1 row)
+         --由于该接口是创建资源，是否成功与当前实例资源规格有关。如遇到接口报错，请根据错误描述进行参数
+[[PDF_PAGE physical=1495 printed=1446]]
+           调整后重新尝试。
+           gaussdb=# CALL resource_manager.create_resource_plan_directive(pdb_name =>'my_pdb', min_cpu =>
+           4, max_dynamic_memory => '18022MB', max_shared_memory => '14745MB', io_limits=> 300,
+           io_priority => 'High', max_connections => 880);
+            create_resource_plan_directive
+           --------------------------------
+
+           (1 row)
+           gaussdb=# CALL resource_manager.submit_pending_area();
+            submit_pending_area
+           ---------------------
+
+           (1 row)
+
+           --使用系统管理员连接postgres数据库，创建PDB。
+           gaussdb=# CREATE PLUGGABLE DATABASE my_pdb;
+           CREATE PLUGGABLE DATABASE
+
+       ●   删除PDB。
+           --如果PDB状态是open时，无法进行删除，需要先关闭该PDB。
+           gaussdb=# ALTER PLUGGABLE DATABASE my_pdb CLOSE IMMEDIATE;
+           ALTER PLUGGABLE DATABASE
+
+           --使用系统管理员连接postgres数据库，删除已经关闭的PDB。
+           gaussdb=# DROP PLUGGABLE DATABASE my_pdb INCLUDING DATAFILES;
+           DROP PLUGGABLE DATABASE
+
+
+相关链接
+       CREATE DATABASE

@@ -1,0 +1,136 @@
+[[PDF_PAGE physical=1588 printed=1539]]
+1.13.9.52 CREATE TABLESPACE
+
+功能描述
+            在数据库中创建一个新的表空间。
+
+注意事项
+            ●   系统管理员或者继承了内置角色gs_role_tablespace权限的用户可以创建表空间。
+            ●   不允许在一个事务块内部执行CREATE TABLESPACE操作。
+            ●   当表空间创建过程中内部目录/文件操作成功但后续步骤失败时，系统会产生残留
+                的目录/文件，重新创建表空间时，需要用户手动清理表空间指定的目录下残留的
+                内容。如果在创建过程中涉及到数据目录下的表空间软连接残留，需要先将软连
+                接的残留文件删除，再重新执行OM相关操作。
+            ●   CREATE TABLESPACE不支持两阶段事务，如果部分节点执行失败，不支持回滚。
+[[PDF_PAGE physical=1589 printed=1540]]
+       ●     在HCS等场景下一般不建议用户使用自定义的表空间。
+             原因：用户自定义表空间通常配合主存（即默认表空间所在的存储设备，如磁
+             盘）以外的其它存储介质使用，以隔离不同业务可以使用的I/O资源，而在HCS等
+             场景下，存储设备都是采用标准化的配置，无其它可用的存储介质，自定义表空
+             间使用不当不利于系统长稳运行以及影响整体性能，因此建议使用默认表空间即
+             可。
+       ●     每个PDB拥有自己的表空间对象，在PDB中创建表空间时，仅支持使用相对路
+             径。
+
+
+语法格式
+       CREATE TABLESPACE tablespace_name
+         [ OWNER user_name ] [ RELATIVE ] LOCATION 'directory' [ MAXSIZE 'space_size' ]
+         [with_option_clause];
+
+
+
+
+       其中普通表空间的with_option_clause为：
+       WITH ({filesystem= { ' general ' | " general " | general } | address = { ' ip:port [, ... ] ' | " ip:port [, ... ] " } |
+       cfgpath = { ' path ' | " path " } | storepath = { ' rootpath ' | " rootpath " } | random_page_cost = { ' value ' | "
+       value " | value } | seq_page_cost = { ' value ' | " value " | value }}[, ... ])
+
+
+
+
+参数说明
+       ●     tablespace_name
+             要创建的表空间名称。
+             取值范围：字符串，要符合标识符命名规范。
+[[PDF_PAGE physical=1590 printed=1541]]
+        说明
+
+        表空间名称不能和数据库中的其他表空间重名，且名称不能以"pg"作为表空间名称的前
+        缀。
+●   OWNER user_name
+    表空间的所有者。默认情况下，新表空间的所有者为当前用户。
+    取值范围：字符串，已存在的用户。
+        说明
+
+        只有系统管理员可以创建表空间，但是可以通过OWNER子句把表空间的所有权赋给其他
+        非系统管理员。
+●   RELATIVE
+    –   若指定该参数，表示使用相对路径，表空间的目录LOCATION是相对于各个
+        数据库节点数据目录下的。
+        目录层次：数据目录/pg_location/相对路径。相对路径最多指定两层。
+    –   若没有指定该参数，表示使用绝对表空间路径，表空间的目录LOCATION需
+        要使用绝对路径。
+●   LOCATION directory
+    用于表空间的目录。当创建绝对表空间路径时（即没有指定RELATIVE参数），对
+    于目录存在如下要求：
+    –   系统用户必须对该目录拥有读写权限，并且目录为空。如果该目录不存在，
+        将由系统自动创建。
+    –   目录必须是绝对路径，目录中不得含有特殊字符（如$、>等）。
+    –   目录不允许指定在数据库数据目录下。
+    –   目录需为本地路径。
+    –   建议首选使用Ext4格式文件的目录。
+    取值范围：字符串，有效的目录。
+●   MAXSIZE 'space_size'
+    指定表空间在单个数据库节点上的最大值。
+    取值范围：当前支持的单位包括KB、MB、GB、TB以及PB，解析后的数值以KB为
+    单位且范围不能够超过64比特表示的有符号整数，即
+    1KB~9007199254740991KB。
+●   address
+    IP地址以及端口号。
+●   cfgpath
+    配置文件地址。
+●   storepath
+    根路径地址。
+●   filesystem
+    表空间使用的文件系统。
+    取值范围：
+    –   general：普通文件系统。
+    –   hdfs：当前版本不支持。
+    默认值：general。
+[[PDF_PAGE physical=1591 printed=1542]]
+       ●    random_page_cost
+            随机读取page所需要的时间和资源。
+            取值范围：0~1.79769e+308。
+            默认值：使用GUC参数random_page_cost的值。
+       ●    seq_page_cost
+            指定顺序读取page所需要的时间和资源。
+            取值范围：0~1.79769e+308。
+            默认值：使用GUC参数seq_page_cost的值。
+
+示例
+       --创建表空间。
+       gaussdb=# CREATE TABLESPACE tbs_location1 RELATIVE LOCATION 'test_tablespace/test_tablespace_1';
+
+       --创建表空间指定最大值。
+       gaussdb=# CREATE TABLESPACE tbs_location2 RELATIVE LOCATION 'test_tablespace/test_tablespace_2'
+       MAXSIZE '10G';
+
+       --查询表空间信息。
+       gaussdb=# SELECT * FROM pg_tablespace WHERE spcname = 'tbs_location2';
+          spcname | spcowner | spcacl | spcoptions | spcmaxsize | relative
+       ---------------+----------+--------+------------+------------+----------
+        tbs_location2 |       10 |      |        | 10485760 K | t
+       (1 row)
+
+       --创建用户joe。
+       gaussdb=# CREATE ROLE joe IDENTIFIED BY '********';
+
+       --创建表空间，且所有者指定为用户joe。
+       gaussdb=# CREATE TABLESPACE tbs_location3 OWNER joe RELATIVE LOCATION 'test_tablespace/
+       test_tablespace_3';
+
+       --创建表空间指定绝对路径（请根据实际情况修改路径）。
+       gaussdb=# CREATE TABLESPACE tbs_location4 LOCATION '/tmp/tbs_location4';
+
+       --删除表空间及用户。
+       gaussdb=# DROP TABLESPACE tbs_location1;
+       gaussdb=# DROP TABLESPACE tbs_location2;
+       gaussdb=# DROP TABLESPACE tbs_location3;
+       gaussdb=# DROP TABLESPACE tbs_location4;
+       gaussdb=# DROP ROLE joe;
+
+
+相关链接
+       CREATE DATABASE，CREATE TABLE，CREATE INDEX，DROP TABLESPACE，
+       ALTER TABLESPACE

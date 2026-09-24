@@ -1,0 +1,115 @@
+[[PDF_PAGE physical=1434 printed=1385]]
+1.13.9.22 CREATE FOREIGN TABLE
+
+功能描述
+            创建外表。
+
+
+注意事项
+            ●    外表中暂不支持使用系统列（如：tableoid、ctid等），其中Private和Shared模式
+                 的外表，需要初始用户或者运维模式下（operation_mode）的运维管理员权限。
+            ●    OPTIONS中的敏感字段（如：password、secret_access_key等）在使用多层引号
+                 时，语义和不带引号的场景是不同的，因此不会被识别为敏感字段进行脱敏。
+            ●    多租场景下，只有初始用户可在PDB内部执行CREATE FOREIGN TABLE命令。
+
+
+语法格式
+            CREATE FOREIGN TABLE [ IF NOT EXISTS ] table_name ( [
+               column_name type_name [ OPTIONS ( { option 'value' } [, ... ] ) ] [ COLLATE collation ]
+            [ column_constraint [ ... ] ]
+               [, ... ]
+            ])
+              SERVER server_name
+            [ OPTIONS ( { option 'value' } [, ... ] ) ];
+[[PDF_PAGE physical=1435 printed=1386]]
+       其中列约束column_constraint为：
+       [ CONSTRAINT constraint_name ]
+       { NOT NULL |
+         NULL |
+         DEFAULT default_expr }
+
+
+
+
+参数说明
+       ●    IF NOT EXISTS
+            用于判断是否存在同名的表。如果数据库中已经存在一个同名的表，不会直接报
+            错，而是会产生一条提示，用于告知表关系已存在。
+       ●    table_name
+            外表的表名。
+            取值范围：字符串，要符合标识符命名规范。
+       ●    column_name
+            外表中的字段名。
+            取值范围：字符串，要符合标识符命名规范。
+       ●    type_name
+            字段的数据类型。
+       ●    COLLATE collation
+            指定列的排序规则（该列的数据类型必须为可排列的数据类型）。如果没有指
+            定，则使用默认的排序规则。
+            排序规则可以使用“SELECT * FROM pg_collation;”命令从系统表中查询。
+       ●    SERVER server_name
+            外表的server名称。
+       ●    OPTIONS ( option 'value' [, ... ] )
+            用于指定外表数据的各类参数。外部数据封装器file_fdw支持的options包括：
+                  说明
+
+                ● 指定OPTIONS时，允许指定的选项名和值是由每一个外部数据封装器file_fdw进行指
+                  定，并且通过外部数据封装器file_fdw的验证函数进行验证。file_fdw更多使用内容请
+                  参见《开发指南》中“特性使用指导 > Foreign Data Wrapper > file_fdw”章节。
+                ● 不允许重复指定相同的选项名（尽管表选项和表字段选项可以存在相同的名字）。
+            –    filename
+[[PDF_PAGE physical=1436 printed=1387]]
+               必选，指定需要读取的数据文件，必须为一个绝对路径名。
+          –    format
+               远端server的数据文件格式，支持TEXT、CSV、BINARY以及FIXED格式，与
+               COPY章节中的FORMAT 'format_name'选项相同。
+          –    header
+               指定的数据文件是否包含标题行，与COPY章节中的HEADER [ boolean ]选
+               项相同。
+          –    delimiter
+               指定数据文件的分隔符，与COPY章节中的DELIMITER
+               'delimiter_character'选项相同。
+          –    quote
+               指定数据文件的引用字符，与COPY章节中的QUOTE 'quote_character'选项
+               相同。
+          –    escape
+               指定数据文件的转义字符，与COPY章节中的ESCAPE 'escape_character'选
+               项相同。
+          –    null
+               指定数据文件的null字符串，与COPY章节中的NULL 'null_string'选项相
+               同。
+          –    encoding
+               指定数据文件的编码，与COPY章节中的ENCODING 'encoding_name'选项
+               相同。
+          –    force_not_null
+               一个布尔选项，如果为真，则声明字段的值不应该匹配空字符串（文件级别
+               null选项），与COPY章节中的FORCE_NOT_NULL ( column_name [, ...] )
+               选项中的字段相同。
+
+     ●    NOT NULL
+          字段值不允许为NULL。
+     ●    NULL
+          字段值允许为NULL。
+     ●    DEFAULT default_expr
+          默认表达式，为字段指定默认值。default_expr可以是任何不含变量的表达式（不
+          允许使用子查询和对本表中的其他字段的交叉引用），默认表达式的数据类型必
+          须和字段类型匹配。
+          默认表达式可用于未声明字段数值的插入操作，如果没有指定默认值，则默认为
+          NULL。
+
+示例
+     --创建server。
+     gaussdb=# CREATE SERVER my_server FOREIGN DATA WRAPPER log_fdw;
+
+     --创建外表。
+     gaussdb=# CREATE FOREIGN TABLE foreign_tbl (col1 text) SERVER my_server OPTIONS (logtype 'gs_log');
+
+     --删除外表。
+     gaussdb=# DROP FOREIGN TABLE foreign_tbl;
+[[PDF_PAGE physical=1437 printed=1388]]
+       --删除server。
+       gaussdb=# DROP SERVER my_server;
+
+
+相关链接
+       ALTER FOREIGN TABLE，DROP FOREIGN TABLE

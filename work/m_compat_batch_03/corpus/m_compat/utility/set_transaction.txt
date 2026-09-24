@@ -1,0 +1,72 @@
+[[PDF_PAGE physical=2277 printed=2228]]
+2.4.2.16.7 SET TRANSACTION
+
+功能描述
+             为事务设置特性。事务特性包括事务隔离级别、事务访问模式(读/写或者只读)。可以
+             设置会话的默认事务特性（SESSION），也可以设置当前数据库的全局会话的事务特
+             性（GLOBAL）。
+
+注意事项
+             设置当前数据库全局会话（GLOBAL）的事务特性在重新连接后生效。开启
+             m_format_dev_version='s2'参数时，SET TRANSACTION默认是设置下一个事务特
+             性，不允许在事务内使用下一个事务特性；如果隐式事务报错，即单个SQL语句报
+             错，继续保持下一个事务特性。
+
+语法格式
+             设置事务的隔离级别、读写模式。
+             { SET [ LOCAL | SESSION | GLOBAL ] TRANSACTION }
+               { ISOLATION LEVEL { READ COMMITTED | READ UNCOMMITTED | SERIALIZABLE | REPEATABLE READ }
+               | { READ WRITE | READ ONLY } };
+
+
+参数说明
+             ●   LOCAL
+                 声明这个命令只对当前会话起作用。效果等价于SESSION。
+             ●   SESSION
+                 声明这个命令只对当前会话起作用。
+             ●   GLOBAL
+                 声明这个命令对当前数据库的全局会话生效。
+             ●   ISOLATION LEVEL
+                 指定事务隔离级别，该参数决定当一个事务中存在其他并发运行事务时能够看到
+                 什么数据。
+                       说明
+
+                      在事务中第一个数据修改语句（SELECT、INSERT、DELETE、UPDATE、COPY）执行之
+                      后，当前事务的隔离级别就不能再次设置。
+                 取值范围：
+                 –    READ COMMITTED：读已提交隔离级别，只能读到已经提交的数据，而不
+                      会读到未提交的数据。这是缺省值。
+                 –    READ UNCOMMITTED：读未提交隔离级别，指定后的行为和READ
+                      COMMITTED行为一致。
+                 –    REPEATABLE READ：可重复读隔离级别，仅仅能看到事务开始之前提交的数
+                      据，不能看到未提交的数据，以及在事务执行期间由其它并发事务提交的修
+                      改。
+                 –    SERIALIZABLE：M-Compatibility目前功能上不支持此隔离级别，等价于
+                      REPEATABLE READ。
+             ●   READ WRITE | READ ONLY
+                 指定事务访问模式（读/写或者只读）。
+[[PDF_PAGE physical=2278 printed=2229]]
+示例
+     --开启一个事务，设置事务的隔离级别为READ COMMITTED，访问模式为READ ONLY。
+     m_db=# START TRANSACTION;
+     m_db=# SET LOCAL TRANSACTION ISOLATION LEVEL READ COMMITTED READ ONLY;
+     m_db=# COMMIT;
+
+     --设置当前会话的事务隔离级别、读写模式。
+     m_db=# SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+     m_db=# SET SESSION TRANSACTION READ ONLY;
+
+     --给数据库设置全局会话的事务隔离级别、读写模式。
+     m_db=# SET GLOBAL TRANSACTION ISOLATION LEVEL READ COMMITTED;
+     m_db=# SET GLOBAL TRANSACTION READ ONLY;
+
+     --开启m_format_dev_version='s2'参数，设置下一个事务隔离级别、读写模式。
+     m_db=# SET m_format_dev_version='s2';
+     m_db=# SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+
+     --开启m_format_dev_version='s2'参数,不允许在事务内设置下一个事务特性。
+     m_db=# SET m_format_dev_version='s2';
+     m_db=# START TRANSACTION;
+     m_db=# SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+     ERROR: Transaction characteristics can't be changed while a transaction is in progress.
+     m_db=# COMMIT;

@@ -1,0 +1,473 @@
+[[PDF_PAGE physical=1753 printed=1704]]
+1.13.14.8 INSERT ALL
+
+功能描述
+            向多个表添加一条或多条数据。
+
+注意事项
+            ●     只有拥有表INSERT权限的用户，才可以向表中插入数据。用户被授予INSERT
+                  ANY TABLE权限，即用户对除系统模式之外的任何模式具有USAGE权限，并且拥
+                  有这些模式下表的INSERT权限。
+            ●     如果使用QUERY子句插入来自查询里的数据行，用户还需要拥有在查询里使用的
+                  表的SELECT权限。
+            ●     生成列不能被直接写入。在INSERT命令中不能为生成列指定值，但可以指定关键
+                  字DEFAULT。
+            ●     仅支持在A兼容模式下执行该语法。
+
+语法格式
+            INSERT [/*+ plan_hint */] [ ALL | FIRST ]
+              { [ WHEN condition THEN ]
+              { INTO table_name
+              [ { [alias_name] [ ( column_name [, ...] ) ] } | { [partition_clause] [ AS alias ]
+              [ ( column_name [, ...] ) ] } ]
+              [ VALUES {( { expression | DEFAULT } [, ...] ) } ] }[, ...] }[, ...]
+              { subquery };
+
+            subquery的具体信息为：
+            [ WITH [ RECURSIVE ] with_query [, ...] ]
+            SELECT [/*+ plan_hint */] [ ALL ]
+            { * | {expression [ [ AS ] output_name ]} [, ...] }
+            [ into_option ]
+            [ FROM from_item [, ...] ]
+            [ WHERE condition ]
+            [ [ START WITH condition ] CONNECT BY [NOCYCLE] condition [ ORDER SIBLINGS BY expression ] ]
+            [ ORDER BY {expression [ [ ASC | DESC | USING operator ] | nlssort_expression_clause ] [ NULLS { FIRST |
+            LAST } ]} [, ...] ]
+            [ FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } ONLY ]
+            [ into_option ];
+
+            ●     其中with_query的具体信息为：
+                  with_query_name [ ( column_name [, ...] ) ] AS [ [ NOT ] MATERIALIZED ]
+                  ( {select | values | insert | update | delete} )
+
+            ●     其中指定子查询源from_item为：
+                  {[ ONLY ] {table_name | view_name} [ * ] [ partition_clause ] [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+                  |( select ) [ AS ] alias [ ( column_alias [, ...] ) ]
+                  |with_query_name [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+                  |from_item [ NATURAL ] join_type from_item [ ON join_condition | USING ( join_column [, ...] ) ]}
+
+                  其中partition_clause的具体信息为：
+                  PARTITION { ( partition_name ) | FOR ( partition_value [, ...] ) } |
+                  SUBPARTITION { ( subpartition_name ) | FOR ( subpartition_value [, ...] ) }
+
+
+参数说明
+            ●     plan_hint子句
+                  以/*+ */的形式在INSERT关键字后，目前仅适配了语法格式，并未实现具体功能。
+            ●     ALL | FIRST
+[[PDF_PAGE physical=1754 printed=1705]]
+    如果不带条件子句（WHEN condition THEN），此关键字不可省略，且只能为
+    ALL。如果含有条件子句，此关键字可以省略，默认为ALL，此时ALL和FIRST的含
+    义分别为：
+    –    ALL：遍历所有匹配条件的分支，只要满足条件就会将数据插入对应的表。
+    –    FIRST：找到第一个满足条件的分支后，将数据插入该分支对应的表，不会再
+         继续检查剩余分支的。
+●   WHEN condition THEN
+    插入表时的条件判断，只有满足条件才会进行插入操作，condition中可以引用子
+    查询（SUBQUERY）中的列。
+●   table_name
+    要插入数据的目标表名。
+    取值范围：已存在的表名。
+●   alias_name
+    INSERT语句不包含AS alias语法时的表别名。
+          说明
+
+         1. INTO子句不包含AS alias语法时的表别名不能为关键字（如SELECT、VALUE）或者表
+            达式，表别名要求符合标识符命名规范。
+         2. INTO子句不包含AS alias语法时的表别名不支持INTO table_name
+            alias_name(alias_name.col1,...,alias_name.coln) VALUES(xxx);的语法格式。
+         3. INTO子句的分区表不包含AS alias语法时的表别名不支持指定分区插入操作。
+●   partition_clause
+    指定分区插入操作。
+    PARTITION { ( partition_name ) | FOR ( partition_value [, ...] ) } |
+    SUBPARTITION { ( subpartition_name ) | FOR ( subpartition_value [, ...] ) }
+    关键字具体信息请参见SELECT。
+    如果VALUE子句的值和指定分区不一致，结果会提示异常。
+    示例请参见CREATE TABLE SUBPARTITION。
+●   column_name
+    目标表中的字段名称。
+    –    字段名可以有子字段名或者数组下标修饰。
+    –    没有在字段列表中出现的每个字段，将由系统默认值或者声明时的默认值填
+         充，若无默认值或未声明时则使用NULL填充。例如，向一个复合类型中的某
+         些字段插入数据的话，其他字段使用NULL填充。
+    –    目标字段（column_name）按顺序排列。如果没有列出任何字段，则默认全
+         部字段，且顺序为表声明时的顺序。
+    –    如果VALUE子句和QUERY中只提供了N个字段，则目标字段为前N个字段。
+    –    VALUE子句和QUERY提供的值在表中从左到右关联到对应列。
+    取值范围：已存在的字段名。
+●   VALUES
+    不可跟多行。
+●   expression
+    赋予对应column的一个有效表达式或值。
+    –    向表中字段插入单引号（'）时需要使用单引号对自身进行转义。
+[[PDF_PAGE physical=1755 printed=1706]]
+         –     如果插入行的表达式不是正确的数据类型，系统将自动进行类型转换，若转
+               换失败，则插入数据失败，系统返回错误信息。
+         –     不支持聚集函数。
+         –     不支持子查询。
+     ●   DEFAULT
+         对应字段名的缺省值。如果没有缺省值，则为NULL。
+     ●   subquery
+         一个查询语句（SELECT语句），将查询结果作为插入的数据，不可省略，如果没
+         有子查询可以使用SELECT * FROM DUAL。
+         如果子查询带表别名，不可在CONDITION子句和INTO子句中引用该别名。
+         具体示例请参见SELECT。
+
+示例
+     ●   不带条件的多表插入
+         示例：
+         --建表。
+         gaussdb=# CREATE TABLE insert_all_test0(c1 INT, c2 VARCHAR2(20));
+         gaussdb=# CREATE TABLE insert_all_test1(c1 INT, c2 VARCHAR2(20));
+         gaussdb=# CREATE TABLE insert_all_test2(c1 INT, c2 VARCHAR2(20));
+         gaussdb=# CREATE TABLE insert_all_test3(c1 INT, c2 VARCHAR2(20));
+
+         --构造数据。
+         gaussdb=# INSERT INTO insert_all_test0 VALUES(1,'a'),(2,'b'),(3,'c'),(4,'d'),(5,'e');
+
+         --向表中插入数据。
+         gaussdb=# INSERT ALL
+         INTO insert_all_test1
+         INTO insert_all_test1 VALUES(1,'a')
+         INTO insert_all_test1(c1,c2)
+         INTO insert_all_test1(c1) VALUES(1)
+         INTO insert_all_test1(c2) VALUES('aaa')
+         INTO insert_all_test2(c2) VALUES(c2)
+         INTO insert_all_test2(c2) VALUES(c2||'*')
+         INTO insert_all_test3(c1,c2) VALUES(1,'a')
+         INTO insert_all_test3(c1,c2) VALUES(1,c2)
+         INTO insert_all_test3(c1,c2) VALUES(c1,c2)
+         INTO insert_all_test3(c2,c1) VALUES('***',666)
+         SELECT * FROM insert_all_test0;
+
+         --查询数据。
+         gaussdb=# SELECT * FROM insert_all_test1 ORDER BY c1,c2;
+          c1 | c2
+         ----+-----
+           1|a
+           1|a
+           1|a
+           1|a
+           1|a
+           1|a
+           1|a
+           1|
+           1|
+           1|
+           1|
+           1|
+           2|b
+           2|b
+           3|c
+           3|c
+           4|d
+[[PDF_PAGE physical=1756 printed=1707]]
+     4|d
+     5|e
+     5|e
+      | aaa
+      | aaa
+      | aaa
+      | aaa
+      | aaa
+    (25 rows)
+
+    gaussdb=# SELECT * FROM insert_all_test2 ORDER BY c1,c2;
+     c1 | c2
+    ----+----
+       |a
+       | a*
+       |b
+       | b*
+       |c
+       | c*
+       |d
+       | d*
+       |e
+       | e*
+    (10 rows)
+
+    gaussdb=# SELECT * FROM insert_all_test3 ORDER BY c1,c2;
+     c1 | c2
+    -----+-----
+      1|a
+      1|a
+      1|a
+      1|a
+      1|a
+      1|a
+      1|a
+      1|b
+      1|c
+      1|d
+      1|e
+      2|b
+      3|c
+      4|d
+      5|e
+     666 | ***
+     666 | ***
+     666 | ***
+     666 | ***
+     666 | ***
+    (20 rows)
+
+    --删除表。
+    gaussdb=# DROP TABLE insert_all_test0;
+    gaussdb=# DROP TABLE insert_all_test1;
+    gaussdb=# DROP TABLE insert_all_test2;
+    gaussdb=# DROP TABLE insert_all_test3;
+
+●   带条件的多表插入
+    示例1：INSERT FIRST
+    --建表。
+    gaussdb=# CREATE TABLE insert_all_test0(c1 int, c2 VARCHAR2(20));
+    gaussdb=# CREATE TABLE insert_all_test1(c1 int, c2 VARCHAR2(20));
+    gaussdb=# CREATE TABLE insert_all_test2(c1 int, c2 VARCHAR2(20));
+    gaussdb=# CREATE TABLE insert_all_test3(c1 int, c2 VARCHAR2(20));
+
+    --构造数据。
+    gaussdb=# INSERT INTO insert_all_test0 VALUES(1,'a'),(2,'b'),(3,'c'),(4,'d'),(5,'e');
+    --向表中插入数据。
+    gaussdb=# INSERT FIRST
+    WHEN c1 < 4 THEN
+[[PDF_PAGE physical=1757 printed=1708]]
+INTO insert_all_test1
+WHEN c1 < 3 THEN
+INTO insert_all_test2
+ELSE
+INTO insert_all_test3
+SELECT * FROM insert_all_test0;
+
+--查询数据。
+gaussdb=# SELECT * FROM insert_all_test1 ORDER BY c1,c2;
+ c1 | c2
+----+----
+  1|a
+  2|b
+  3|c
+(3 rows)
+
+gaussdb=# SELECT * FROM insert_all_test2 ORDER BY c1,c2;
+ c1 | c2
+----+----
+(0 rows)
+
+gaussdb=# SELECT * FROM insert_all_test3 ORDER BY c1,c2;
+ c1 | c2
+----+----
+  4|d
+  5|e
+(2 rows)
+
+--删除表。
+gaussdb=# DROP TABLE insert_all_test0;
+gaussdb=# DROP TABLE insert_all_test1;
+gaussdb=# DROP TABLE insert_all_test2;
+gaussdb=# DROP TABLE insert_all_test3;
+示例2：INSERT ALL
+--建表。
+gaussdb=# CREATE TABLE insert_all_test0(c1 int, c2 VARCHAR2(20));
+gaussdb=# CREATE TABLE insert_all_test1(c1 int, c2 VARCHAR2(20));
+gaussdb=# CREATE TABLE insert_all_test2(c1 int, c2 VARCHAR2(20));
+gaussdb=# CREATE TABLE insert_all_test3(c1 int, c2 VARCHAR2(20));
+
+--构造数据。
+gaussdb=# INSERT INTO insert_all_test0 VALUES(1,'a'),(2,'b'),(3,'c'),(4,'d'),(5,'e');
+
+--向表中插入数据，带ALL。
+gaussdb=# INSERT ALL
+WHEN c1 < 4 THEN
+INTO insert_all_test1
+WHEN c1 < 3 THEN
+INTO insert_all_test2
+ELSE
+INTO insert_all_test3
+SELECT * FROM insert_all_test0;
+
+--查询数据。
+gaussdb=# SELECT * FROM insert_all_test1 ORDER BY c1,c2;
+ c1 | c2
+----+----
+  1|a
+  2|b
+  3|c
+(3 rows)
+
+gaussdb=# SELECT * FROM insert_all_test2 ORDER BY c1,c2;
+ c1 | c2
+----+----
+  1|a
+  2|b
+(2 rows)
+[[PDF_PAGE physical=1758 printed=1709]]
+    gaussdb=# SELECT * FROM insert_all_test3 ORDER BY c1,c2;
+     c1 | c2
+    ----+----
+      4|d
+      5|e
+    (2 rows)
+
+    --删除数据。
+    TRUNCATE TABLE insert_all_test1;
+    TRUNCATE TABLE insert_all_test2;
+    TRUNCATE TABLE insert_all_test3;
+
+    --向表中插入数据，省略ALL。
+    gaussdb=# insert
+    WHEN c1 < 4 THEN
+    INTO insert_all_test1
+    WHEN c1 < 3 THEN
+    INTO insert_all_test2
+    ELSE
+    INTO insert_all_test3
+    SELECT * FROM insert_all_test0;
+
+    --查询数据。
+    SELECT * FROM insert_all_test1 ORDER BY c1,c2;
+     c1 | c2
+    ----+----
+      1|a
+      2|b
+      3|c
+    (3 rows)
+
+    SELECT * FROM insert_all_test2 ORDER BY c1,c2;
+     c1 | c2
+    ----+----
+      1|a
+      2|b
+    (2 rows)
+
+    SELECT * FROM insert_all_test3 ORDER BY c1,c2;
+     c1 | c2
+    ----+----
+      4|d
+      5|e
+    (2 rows)
+
+    --删除表。
+    gaussdb=# DROP TABLE insert_all_test0;
+    gaussdb=# DROP TABLE insert_all_test1;
+    gaussdb=# DROP TABLE insert_all_test2;
+    gaussdb=# DROP TABLE insert_all_test3;
+
+●   支持PLSQL中使用INSERT ALL
+    示例：
+    --建表。
+    gaussdb=# CREATE TABLE insert_all_test0(c1 int, c2 VARCHAR2(20));
+    gaussdb=# CREATE TABLE insert_all_test1(c1 int, c2 VARCHAR2(20));
+    gaussdb=# CREATE TABLE insert_all_test2(c1 int, c2 VARCHAR2(20));
+    gaussdb=# CREATE TABLE insert_all_test3(c1 int, c2 VARCHAR2(20));
+
+    --构造数据。
+    gaussdb=# INSERT INTO insert_all_test0 VALUES(1,'a'),(2,'b'),(3,'c'),(4,'d'),(5,'e');
+
+    --PLSQL，向表中插入数据。
+    gaussdb=# DECLARE
+    var1 INT := 666;
+    var2 VARCHAR2(20) := '***';
+    BEGIN
+    INSERT ALL
+    INTO insert_all_test1 VALUES(var1,var2)
+[[PDF_PAGE physical=1759 printed=1710]]
+    INTO insert_all_test1(c1) VALUES(var1)
+    INTO insert_all_test2(c2) VALUES(var2||'???')
+    INTO insert_all_test3(c1,c2) VALUES(c1,c2)
+    SELECT * FROM insert_all_test0;
+    END;
+    /
+
+    --查询数据。
+    gaussdb=# SELECT * FROM insert_all_test1 ORDER BY c1,c2;
+     c1 | c2
+    -----+-----
+     666 | ***
+     666 | ***
+     666 | ***
+     666 | ***
+     666 | ***
+     666 |
+     666 |
+     666 |
+     666 |
+     666 |
+    (10 rows)
+
+    gaussdb=# SELECT * FROM insert_all_test2 ORDER BY c1,c2;
+     c1 | c2
+    ----+--------
+       | ***???
+       | ***???
+       | ***???
+       | ***???
+       | ***???
+    (5 rows)
+
+    gaussdb=# SELECT * FROM insert_all_test3 order by c1,c2;
+     c1 | c2
+    ----+----
+      1|a
+      2|b
+      3|c
+      4|d
+      5|e
+    (5 rows)
+
+    --删除表。
+    gaussdb=# DROP TABLE insert_all_test0;
+    gaussdb=# DROP TABLE insert_all_test1;
+    gaussdb=# DROP TABLE insert_all_test2;
+    gaussdb=# DROP TABLE insert_all_test3;
+
+●   异常情况
+    示例：
+    --建表。
+    gaussdb=# CREATE TABLE insert_all_test0(c1 int, c2 VARCHAR2(20));
+    gaussdb=# CREATE TABLE insert_all_test1(c1 int, c2 VARCHAR2(20));
+    gaussdb=# CREATE TABLE insert_all_test2(c1 int, c2 VARCHAR2(20));
+    gaussdb=# CREATE TABLE insert_all_test3(c1 int, c2 VARCHAR2(20));
+
+    --构造数据。
+    gaussdb=# INSERT INTO insert_all_test0 VALUES(1,'a'),(2,'b'),(3,'c'),(4,'d'),(5,'e');
+
+    --VALUES内不支持聚集函数。
+    gaussdb=# INSERT ALL INTO insert_all_test1 VALUES(max(c1), 'a') SELECT * FROM insert_all_test0;
+    ERROR: An aggregate function cannot be used in VALUES.
+    LINE 1: INSERT ALL INTO insert_all_test1 VALUES(max(c1), 'a') SELECT
+
+    --VALUES后不能添加多行。
+    gaussdb=# INSERT ALL INTO insert_all_test1 VALUES(1,'a'),(2,'b') SELECT * FROM insert_all_test0;
+    ERROR: syntax error at or near ","
+    LINE 1: INSERT ALL INTO insert_all_test1 VALUES(1,'a'),(2,'b') SELEC...
+[[PDF_PAGE physical=1760 printed=1711]]
+--WHEN条件中的列在子查询中不存在。
+gaussdb=# INSERT ALL WHEN c1>1 THEN INTO insert_all_test1 VALUES(1,'a') SELECT c2 FROM
+insert_all_test0;
+ERROR: Column "c1" does not exist.
+LINE 1: INSERT ALL WHEN c1>1 THEN INTO insert_all_test1 VALUES(1,'a'...
+                  ^
+HINT: There is a column named "c1" in table "insert_all_test1", but it cannot be referenced from this
+part of the query.
+
+--不支持为子查询表设置别名。
+gaussdb=# INSERT ALL INTO insert_all_test1 VALUES(t1.c1, 'a') SELECT * FROM insert_all_test0 t1;
+ERROR: Missing FROM-clause entry for table "t1"
+LINE 2: INSERT ALL INTO insert_all_test1 VALUES(t1.c1, 'a')
+
+--不支持插入数据到视图。
+gaussdb=# CREATE VIEW v1 as SELECT * FROM insert_all_test1;
+gaussdb=# INSERT ALL INTO v1 SELECT * FROM insert_all_test0;
+ERROR: Not allowed to insert into view.
+
+--子查询不存在。
+gaussdb=# INSERT ALL INTO insert_all_test1 VALUES(1, 'a');
+ERROR: syntax error at or near ";"
+LINE 2: INSERT ALL INTO insert_all_test1 VALUES(1, 'a');
+
+--删除表。
+gaussdb=# DROP VIEW v1;
+gaussdb=# DROP TABLE insert_all_test0;
+gaussdb=# DROP TABLE insert_all_test1 CASCADE;
+gaussdb=# DROP TABLE insert_all_test2;
+gaussdb=# DROP TABLE insert_all_test3;

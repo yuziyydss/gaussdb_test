@@ -1,0 +1,801 @@
+[[PDF_PAGE physical=1591 printed=1542]]
+1.13.9.53 CREATE TABLE SUBPARTITION
+
+功能描述
+            创建二级分区表。分区表是把逻辑上的一张表根据某种方案分成几张物理块进行存
+            储，这张逻辑上的表称之为分区表，物理块称之为分区。分区表是一张逻辑表，不存
+            储数据，数据实际是存储在分区上的。对于二级分区表，顶层节点表和一级分区都是
+            逻辑表，不存储数据，只有二级分区（叶子节点）存储数据。
+            二级分区表的分区方案是由两个一级分区的分区方案组合而来的，一级分区的分区方
+            案请参见CREATE TABLE PARTITION章节。
+[[PDF_PAGE physical=1592 printed=1543]]
+       常见的二级分区表组合方案有Range-Range分区、Range-List分区、Range-Hash分
+       区、List-Range分区、List-List分区、List-Hash分区、Hash-Range分区、Hash-List分
+       区、Hash-Hash分区等。目前二级分区仅支持行存表。
+
+注意事项
+       ●    二级分区表有两个分区键，对于Range/List分区键只能支持16列，对于Hash分区
+            键只能支持1列。
+       ●    唯一约束和主键约束的约束键包含所有分区键将为约束创建LOCAL索引，否则创
+            建GLOBAL索引。如果指定创建LOCAL唯一索引，必须包含所有分区键。
+       ●    创建二级分区表时，如果在其一级分区下不显示指定二级分区，会自动创建一个
+            同范围的二级分区。
+       ●    单个表的最大分区数为1048575（包括一级分区和二级分区）。在默认配置下，
+            建议单个表的分区数不超过400个。具体可参考《开发指南》中“特性使用指导 >
+            分区表 > 分区表介绍 > 分区基本使用 > 创建分区表”章节。
+       ●    二级分区表只支持行存，不支持hashbucket。
+       ●    不支持在rowid/rowno系统列上创建外键约束。
+       ●    不支持cluster。
+       ●    在进行指定分区的查询时，如SELECT * FROM tablename PARTITION/
+            SUBPARTITION (partitionname)。请注意，关键字PARTITION和SUBPARTITION
+            必须准确无误，如果拼写错误，查询不会报错，但这时查询会变为使用别名进行
+            查询，而非指定分区的查询。
+       ●    不支持密态数据库、账本数据库和行级访问控制。
+       ●    对于二级分区表PARTITION/SUBPARTITION FOR (VALUES)语法，VALUES只能是
+            常量。
+       ●    对于二级分区表PARTITION/SUBPARTITION FOR (VALUES)语法，VALUES在需要
+            数据类型转换时，建议使用强制类型转换，以防隐式类型转换结果与预期不符。
+       ●    创建二级分区表时，RANGE策略的分区定义是VALUES LESS THAN (val1_1)，
+            LIST策略的分区定义是VALUES (val1[, …])，HASH策略的分区无VALUES定义。
+       ●    在为数据对象增加或者变更ILM策略的时候，如果追加了行级表达式，需要注意行
+            表达式目前只支持白名单中列出的函数。具体白名单函数列表请参见行表达式函
+            数白名单。
+                  说明
+
+                 在ILM策略的ON(EXPR)行级表达式支持的函数中，有部分函数的输出可能会受兼容性参数
+                 影响。例如，upper函数在B兼容模式下设置b_format_version='5.7'和
+                 b_format_dev_version='s2'后，将无法转大写。
+
+
+语法格式
+       CREATE TABLE [ IF NOT EXISTS ] subpartition_table_name
+       {(
+       { column_name data_type [ CHARACTER SET | CHARSET charset ][ COLLATE collation ] [ column_constraint
+       [ ... ] ]
+       | table_constraint
+       | LIKE source_table [ like_option [...] ] }[, ... ]
+       )
+       | LIKE source_table }
+       [ table_option [ [ , ] ... ] ]
+       [ htap_option ]
+       [ WITH ( {storage_parameter = value} [, ... ] ) ]
+       [ ILM ADD POLICY ROW STORE COMPRESS
+[[PDF_PAGE physical=1593 printed=1544]]
+ { ADVANCED [ MEDIUM | HIGH ] ROW AFTER n { day | month | year } OF NO MODIFICATION [ ON
+( EXPR )]
+ | TURBO [ LOW | MEDIUM | HIGH ] UNIT AFTER n { hour | day | month | year } OF NO MODIFICATION
+ | NONE}]
+[ TABLESPACE tablespace_name ]
+PARTITION BY {RANGE [ COLUMNS ] | LIST [ COLUMNS ] | HASH | KEY} (partition_keys) [ INTERVAL
+(interval_expr) [ STORE IN ( tablespace_name [, ...] ) ] ] [ AUTOMATIC ] [ PARTITIONS integer ]
+SUBPARTITION BY {RANGE | LIST | HASH | KEY} (subpartition_keys) [ INTERVAL (interval_expr) [ STORE IN
+( tablespace_name [, ...] )]] [ AUTOMATIC ] [ SUBPARTITIONS integer ]
+[ SUBPARTITION TEMPLATE ({ SUBPARTITION subpartition_template_name [ VALUES LESS THAN (val1_1) |
+VALUES (val1_1[, ...])] [ TABLESPACE [=] tablespace ]} [, ...])]
+(
+  PARTITION partition_name1 [ VALUES LESS THAN {(val1 | MAXVALUE) | MAXVALUE} | VALUES [IN]
+(val1[, ...]) ]
+[ ILM ADD POLICY ROW STORE COMPRESS
+ { ADVANCED [ MEDIUM | HIGH ] ROW AFTER n { day | month | year } OF NO MODIFICATION [ ON
+( EXPR )]
+ | TURBO [ LOW | MEDIUM | HIGH ] UNIT AFTER n { hour | day | month | year } OF NO MODIFICATION
+ | NONE}][ htap_option ]
+ [ TABLESPACE [=] tablespace ]
+  [(
+      { SUBPARTITION subpartition_name1 [ VALUES LESS THAN (val1_1) | VALUES (val1_1[, ...])]
+[ ILM ADD POLICY ROW STORE COMPRESS
+ { ADVANCED [ MEDIUM | HIGH ] ROW AFTER n { day | month | year } OF NO MODIFICATION [ ON
+( EXPR )]
+ | TURBO [ LOW | MEDIUM | HIGH ] UNIT AFTER n { hour | day | month | year } OF NO MODIFICATION
+ | NONE}][ htap_option ]
+ [ TABLESPACE [=] tablespace ] } [, ...]
+  )][, ...]
+)[ { ENABLE | DISABLE } ROW MOVEMENT ];
+
+●    其中table_option为：
+     { COMMENT [ = ] 'string' |
+       AUTO_INCREMENT [ = ] value |
+       [ DEFAULT ] CHARACTER SET | CHARSET [ = ] default_charset |
+       [ DEFAULT ] COLLATE [ = ] default_collation |
+       ENGINE [ = ] { InnoDB | 'InnoDB' | "InnoDB" }
+     }
+
+●    其中htap_option为：
+     { COLVIEW [ PRIORITY { HIGH | LOW | NONE } ] | NOCOLVIEW }
+
+●    列约束column_constraint：
+     [ CONSTRAINT constraint_name ]
+     { NOT NULL |
+       NULL |
+       CHECK ( expression ) |
+       DEFAULT default_expr |
+       ON UPDATE update_expr |
+       GENERATED ALWAYS AS ( generation_expr ) [STORED] |
+       GENERATED [ ALWAYS | BY DEFAULT [ ON NULL ] ] AS IDENTITY [ ( identity_options ) ] |
+       AUTO_INCREMENT |
+       COMMENT 'string' |
+       COLVIEW |
+       NOCOLVIEW |
+       UNIQUE [KEY] index_parameters |
+       PRIMARY KEY index_parameters |
+       REFERENCES reftable [ ( refcolumn ) ] [ MATCH FULL | MATCH PARTIAL | MATCH SIMPLE ]
+          [ ON DELETE action ] [ ON UPDATE action ] }
+     [ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ]
+
+●    表约束table_constraint：
+     [ CONSTRAINT [ constraint_name ] ]
+     { CHECK ( expression ) |
+       UNIQUE [ index_name ][ USING method ] ( { column_name [ ASC | DESC ] } [, ... ] )
+     index_parameters |
+       PRIMARY KEY [ USING method ] ( { column_name [ ASC | DESC ] } [, ... ] ) index_parameters |
+       FOREIGN KEY [ index_name ] ( column_name [, ... ] ) REFERENCES reftable [ ( refcolumn [, ... ] ) ]
+         [ MATCH FULL | MATCH PARTIAL | MATCH SIMPLE ] [ ON DELETE action ] [ ON UPDATE
+     action ] }
+[[PDF_PAGE physical=1594 printed=1545]]
+           [ DEFERRABLE | NOT DEFERRABLE ] [ INITIALLY DEFERRED | INITIALLY IMMEDIATE ]
+           { [ COMMENT 'string' ] [ ... ] }
+
+       ●   like选项like_option：
+           { INCLUDING | EXCLUDING } { DEFAULTS | GENERATED | CONSTRAINTS | INDEXES | STORAGE |
+           COMMENTS | RELOPTIONS| UPDATE | IDENTITY | ILM | ALL }
+
+       ●   索引存储参数index_parameters：
+           [ WITH ( {storage_parameter = value} [, ... ] ) ]
+           [ USING INDEX TABLESPACE tablespace_name ]
+
+       ●   其中update_expr为：
+           { CURRENT_TIMESTAMP | LOCALTIMESTAMP | NOW() }
+
+       ●   identity_options:
+           [ INCREMENT [ BY ] increment ] [ MINVALUE minvalue | NO MINVALUE | NOMINVALUE ]
+           [ MAXVALUE maxvalue | NO MAXVALUE | NOMAXVALUE ]
+           [ START [ WITH ] start ] [ CACHE cache | NOCACHE ] [ [ NO ] CYCLE | NOCYCLE ] [ SCALE [ EXTEND
+           | NOEXTEND ] | NOSCALE ]
+
+
+参数说明
+       ●   IF NOT EXISTS
+           如果已经存在相同名称的表，不会抛出一个错误，而会发出一个通知，告知表关
+           系已存在。
+       ●   subpartition_table_name
+           二级分区表的名称。
+           取值范围：字符串，要符合标识符命名规范。
+       ●   column_name
+           新表中要创建的字段名。
+           取值范围：字符串，要符合标识符命名规范。
+       ●   data_type
+           字段的数据类型。
+       ●   COLLATE collation
+           COLLATE子句指定列的排序规则（该列必须是可排列的数据类型）。如果没有指
+           定，则使用默认的排序规则。排序规则可以使用“SELECT * FROM
+           pg_collation;”语句从pg_collation系统表中查询，默认的排序规则为查询结果中
+           以default开始的行。
+       ●   CONSTRAINT constraint_name
+           列约束或表约束的名称。可选的约束子句用于声明约束，新行或者更新的行必须
+           满足这些约束才能成功插入或更新。
+           定义约束有两种方法：
+           –    列约束：作为列定义的一部分，仅影响该列。
+           –    表约束：作用于多个列。
+
+
+                     须知
+
+                在B模式数据库下（即sql_compatibility = 'B'）constraint_name为可选项，
+                在其他模式数据库下，必须加上constraint_name。
+
+       ●   index_name
+           索引名。
+[[PDF_PAGE physical=1595 printed=1546]]
+        须知
+
+    ● index_name仅在B模式数据库下（即sql_compatibility = 'B'）支持，其他模式
+      数据库下不支持。
+    ● 对于外键约束，constraint_name和index_name同时指定时，索引名为
+      constraint_name。
+    ● 对于唯一键约束，constraint_name和index_name同时指定时，索引名以
+      index_name。
+
+●   USING method
+    指定创建索引的方法。
+    取值范围请参见CREATE INDEX章节中的USING method。
+
+
+
+        须知
+
+    ● USING method仅在B模式数据库下（即sql_compatibility = 'B'）支持，其他模
+      式数据库下不支持。
+    ● 在B模式下，未指定USING method时，对于ASTORE的存储方式，默认索引方
+      法为btree；对于USTORE的存储方式，默认索引方法为ubtree。
+
+●   ASC | DESC
+    ASC表示指定按升序排序（默认）。DESC指定按降序排序。
+
+
+
+        须知
+
+    ASC|DESC只在B模式数据库下（即sql_compatibility = 'B'）支持，其他模式数据
+    库不支持。
+
+●   LIKE source_table [ like_option ... ]
+    LIKE子句用于声明一个表，新表将自动从这个表里面继承所有字段名及其数据类
+    型、以及非空约束。
+    新表与源表之间在创建动作完毕之后是完全独立的。在源表做的任何修改都不会
+    传播到新表中，同时，在扫描源表的时候也不会包含新表的数据。
+    –   字段缺省表达式只有在声明了INCLUDING DEFAULTS之后才会包含进来。缺
+        省是不包含缺省表达式的，即新表中所有字段的缺省值都是NULL。
+    –   如果指定了INCLUDING UPDATE，则源表列的ON UPDATE
+        CURRENT_TIMESTAMP属性会复制到新表列中。默认不复制该属性。
+    –   如果指定了INCLUDING GENERATED，则源表列的生成表达式会复制到新表
+        中。默认不复制生成表达式。
+    –   非空约束将总是复制到新表中，CHECK约束则仅在指定了INCLUDING
+        CONSTRAINTS的时候才复制，而其他类型的约束则永远也不会被复制。此规
+        则同时适用于表约束和列约束。
+    被复制的列和约束并不会使用相同的名称进行融合。如果明确的指定了相同的名
+    称或者在另外一个LIKE子句中，将会报错。
+[[PDF_PAGE physical=1596 printed=1547]]
+    –   如果指定了INCLUDING INDEXES，则源表上的索引也将在新表上创建，默认
+        不建立索引。新表上的索引所在的表空间和源表上的索引所在的表空间保持
+        一致。
+    –   如果指定了INCLUDING STORAGE，则源表列的STORAGE设置也将被复制，
+        默认情况下不包含STORAGE设置。
+    –   如果指定了INCLUDING COMMENTS，则源表列、约束和索引的注释也会被
+        复制过来。默认情况下，不复制源表的注释。
+    –   如果指定了INCLUDING RELOPTIONS，则源表的存储参数（即源表的WITH
+        子句）也将复制至新表。默认情况下，不复制源表的存储参数。
+    –   如果指定了INCLUDING IDENTITY，则源表的identity功能会复制到新表中，
+        并创建一个与源表SEQUENCE参数相同的SEQUENCE。默认情况下，不复制
+        源表的identity功能。
+    –   如果指定了INCLUDING ILM，则源表的ILM策略信息会被复制到新表中，如
+        果需要同时复制源表上的分区对象的ILM策略信息，需要同时指定
+        INCLUDING PARTITION。
+    –   INCLUDING ALL包含了INCLUDING DEFAULTS、INCLUDING UPDATE、
+        INCLUDING CONSTRAINTS、INCLUDING INDEXES、INCLUDING
+        STORAGE、INCLUDING COMMENTS、INCLUDING PARTITION、
+        INCLUDING RELOPTIONS、INCLUDING IDENTITY和INCLUDING ILM的内
+        容。
+●   AUTO_INCREMENT [ = ] value
+    这个子句为自动增长列指定一个初始值，value必须为正整数，不得超过2127-1。
+
+
+        须知
+
+    该子句仅在参数sql_compatibility='B'时有效。
+
+●   COMMENT [ = ] 'string'
+    –   COMMENT [ = ] 'string'子句表示给表添加注释。
+    –   在column_constraint中的COMMENT 'string'表示给列添加注释。
+    –   在table_constraint中的COMMENT 'string'表示给主键和唯一键对应的索引添
+        加注释。
+    具体请参见CREATE TABLE章节中的COMMENT [ = ] 'string'。
+●   WITH ( storage_parameter [= value] [, ... ] )
+    这个子句为表或索引指定一个可选的存储参数。参数的详细描述如下所示：
+         说明
+
+        支持透明加密相关存储参数：enable_tde、encrypt_algo、dek_cipher、key_type、
+        cmk_id。
+        详细参数说明请参见CREATE TABLE章节。
+    –   FILLFACTOR
+        一个表的填充因子（fillfactor）是一个介于10和100之间的百分数。在Ustore
+        存储引擎下，该值的默认值为92，在Astore存储引擎下默认值为100（完全填
+        充）。如果指定了较小的填充因子，INSERT操作仅按照填充因子指定的百分
+        率填充表页。每个页上的剩余空间将用于在该页上更新行，这就使得
+        UPDATE有机会在同一页上放置同一条记录的新版本，这比把新版本放置在
+[[PDF_PAGE physical=1597 printed=1548]]
+    其他页上更有效。对于一个从不更新的表将填充因子设为100是最佳选择，但
+    是对于频繁更新的表，选择较小的填充因子则更加合适。
+    取值范围：10~100
+–   ORIENTATION
+    决定了表的数据的存储方式。
+    取值范围：
+
+    ▪   ROW（缺省值）：表的数据将以行式存储。
+
+
+
+            须知
+
+        orientation不支持修改。
+
+–   STORAGE_TYPE
+    指定存储引擎类型，该参数设置成功后就不再支持修改。
+    取值范围：
+
+    ▪   USTORE，表示表支持Inplace-Update存储引擎。
+
+
+
+            须知
+
+        使用USTORE表，需开启track_counts和track_activities参数，否则会引
+        起空间膨胀。
+
+
+    ▪   ASTORE，表示表支持Append-Only存储引擎。
+    默认值：
+    不指定表时，默认是Inplace-Update存储。
+–   segment
+    使用段页式的方式存储。本参数仅支持行存表。不支持临时表、unlog表。
+    取值范围：on/off
+    默认值：off
+–   statistic_granularity
+    记录该表在分析统计信息时的默认partition_mode，partition_mode说明请
+    参见ANALYZE | ANALYSE章节中的PARTITION_MODE，此参数对非分区表
+    设置无效。
+    取值范围：请参见ANALYZE | ANALYSE章节中的PARTITION_MODE取值范
+    围。
+    默认值：AUTO。
+–   hasrowid
+    指定该表是否为rowid表。设置hasrowid = on时，该表会增加rowid系统列和
+    rowno系统列，且会在rowno系统列上关联创建序列和索引。
+    取值范围：on/off
+    默认值：off
+[[PDF_PAGE physical=1598 printed=1549]]
+            说明
+
+            ● 此参数只支持A兼容模式数据库（即sql_compatibility = 'A'）。
+            ● 此参数不支持本地临时表、Unlogged表、全局临时表、物化视图、hashbucket
+              表、复制表。
+            ● 此参数不支持和hasuids参数、oids参数同时指定。
+            ● 开启此参数时，不支持定义普通列名为rowno、rowid。
+            ● rowid表数据量不能超过9223372036854775807。
+    –   vacuum_truncate
+        表示是否开启表的VACUUM TRUNCATE功能，在VACUUM时截断末尾空
+        页。
+        取值范围：on/off
+        默认值：on
+            说明
+
+            ● 该参数仅对Astore生效，对hashbucket表和segment表不生效。
+            ● 从不支持该参数版本升级至支持该参数版本时，不支持在升级观察期创建、修改
+              该参数。
+            ● 支持通过toast.vacuum_truncate参数单独控制TOAST表是否截断末尾空页。
+●   [ ILM ADD POLICY ROW STORE COMPRESS { ADVANCED [ MEDIUM |
+    HIGH ] ROW AFTER n { day | month | year } OF NO MODIFICATION [ ON
+    ( EXPR )] | TURBO [ LOW | MEDIUM | HIGH ] UNIT AFTER n { hour | day |
+    month | year } OF NO MODIFICATION | NONE}]
+    –   创建新表时，可以调用ILM ADD POLICY ROW STORE COMPRESS
+        ADVANCED [ MEDIUM | HIGH ] ROW给行存添加高级压缩中/高级别策略，
+        子分区可以单独指定策略，子分区未指定策略时，如果分区已指定策略，子
+        分区继承分区的策略，如果分区未指定策略，子分区策略将继承表的策略。
+
+        ▪   AFTER n { day | month | year } OF NO MODIFICATION ：表示n天/月/
+            年没有修改的行，高级压缩不支持hour。
+
+        ▪   ON ( EXPR )：行级表达式，用于判断行的冷热。
+            说明
+
+            ● 在ILM策略的ON ( EXPR )行级表达式支持的函数中，有部分函数的输出可能会受
+              兼容性参数影响。例如，upper函数在B兼容模式下设置b_format_version='5.7'和
+              b_format_dev_version='s2'后，将无法转换为大写。
+            ● 压缩级别是可选项，不指定时默认使用MEDIUM级别。
+    –   创建新表时，可以调用ILM ADD POLICY ROW STORE COMPRESS TURBO
+        HIGH UNIT给行存添加跨页透明压缩策略，子分区继承分区的策略。
+        其中，AFTER n { hour | day | month | year } OF NO MODIFICATION表示n
+        小时/天/月/年没有修改的行。
+        压缩级别不指定时默认为MEDIUM。
+    –   创建新表时，可以调用ILM ADD POLICY ROW STORE COMPRESS NONE显
+        式指定行存表不添加跨页透明压缩策略。
+●   TABLESPACE tablespace_name
+    指定新表将要在tablespace_name表空间内创建。如果没有声明，将使用默认表
+    空间。
+[[PDF_PAGE physical=1599 printed=1550]]
+●   PARTITION BY {RANGE [COLUMNS] | LIST [COLUMNS] | HASH | KEY}
+    (partition_keys)
+    –   对于partition_keys，对于Range/List分区键只能支持16列，对于Hash分区键
+        只能支持1列。
+    –   分区键支持的数据类型和一级分区表约束保持一致。
+    –   COLUMNS关键字只能在sql_compatibility='B'时使用，只能加在RANGE或
+        LIST之后，“RANGE COLUMNS” 语义同 “RANGE”，“LIST
+        COLUMNS” 语义同 “LIST”。
+    –   KEY关键字只能在sql_compatibility='B'时使用，KEY与HASH同义。
+●   SUBPARTITION BY {RANGE | LIST | HASH | KEY} (subpartition_keys)
+    –   对于subpartition_keys，对于Range/List分区键只能支持16列，对于Hash分
+        区键只能支持1列。
+    –   分区键支持的数据类型和一级分区表约束保持一致。
+    –   KEY关键字只能在sql_compatibility='B'时使用，KEY与HASH同义。
+●   INTERVAL (interval_expr) [ STORE IN (tablespace_name [, ... ] ) ]
+    间隔分区定义信息。
+    –   interval_expr：自动创建分区的间隔，需要符合partition_key的字段类型，
+        目前只支持数值类型和日期/时间类型。
+    –   STORE IN (tablespace_name [, ... ] )：指定存放自动创建分区的表空间列
+        表，如果指定表空间列表，则自动创建的分区从表空间列表中循环选择使
+        用，否则使用分区表默认的表空间。
+●   AUTOMATIC
+    创建新表时，若指定关键字AUTOMATIC，则开启列表分区的自动扩展功能，缺省
+    时表示不开启自动扩展功能。只有列表分区可以使用自动扩展功能。
+    开启自动扩展功能后，当插入数据无法匹配到已有分区时，会自动创建一个单独
+    的分区。
+        说明
+
+        根据一级分区和二级分区是否开启自动扩展功能，插入数据时会有以下几种情况。
+        ● 一级分区开启了自动扩展功能，二级分区为任意分区策略：若插入数据没有匹配到一级
+          分区，会自动创建相应的一级分区，对应的二级分区为全集。
+        ● 二级分区开启了自动扩展功能，一级分区为任意分区策略：若插入数据没有匹配到一级
+          分区，则插入失败；若插入数据匹配到了一级分区，没有匹配到二级分区，会自动创建
+          相应的二级分区。
+        ● 一级分区跟二级分区都开启了自动扩展功能：若插入数据没有匹配到一级分区或二级分
+          区，会自动创建对应层级的分区。
+●   PARTITIONS integer
+    指定分区个数。
+    integer为分区数，必须为大于0的整数，且不得大于1048575。
+    –   当在RANGE和LIST分区后指定此子句时，必须显式定义每个分区，且定义分
+        区的数量必须与integer值相等。只能在sql_compatibility='B'时在RANGE和
+        LIST分区后指定此子句。
+    –   当在HASH和KEY分区后指定此子句时，若不列出各个分区定义，将自动生成
+        integer个分区，自动生成的分区名为“p+数字”，数字依次为0到
+        integer-1，分区的表空间默认为此表的表空间；也可以显式列出每个分区定
+        义，此时定义分区的数量必须与integer值相等。若既不列出分区定义，也不
+        指定分区数量，将创建唯一一个分区。
+[[PDF_PAGE physical=1600 printed=1551]]
+●   SUBPARTITIONS integer
+    指定二级分区数量。
+    integer为二级分区个数，必须为大于0的整数，且不得大于1048575。
+    –    只能在HASH和KEY二级分区后指定此子句。
+
+         ▪   若不列出各个二级分区定义，将在每个一级分区内自动生成integer个二
+             级分区，自动生成的二级分区名为“一级分区名+sp+数字”，数字依次
+             为0到integer-1，分区的表空间默认为此表的表空间。
+
+         ▪   也可以列出每个二级分区定义，此时二级分区的数量必须与integer值相
+             等。
+
+         ▪   若既不列出每个二级分区定义，也不指定二级分区数量，将创建唯一一
+             个二级分区。
+●   [ SUBPARTITION TEMPLATE ({ SUBPARTITION
+    subpartition_template_name [ VALUES LESS THAN (val1_1) | VALUES
+    (val1_1[, ...])] [ TABLESPACE [=] tablespace ]} [, ...])]
+    指定二级分区模板定义。
+    subpartition_template_name：二级分区模板内二级分区定义的名字，其后的内
+    容通常为二级分区定义。
+    tablespace：二级分区存放的表空间，如果指定tablespace，则通过模板创建的二
+    级分区使用指定表空间，否则使用分区表默认的表空间。
+●   { ENABLE | DISABLE } ROW MOVEMENT
+    行迁移开关。
+    如果进行UPDATE操作时，更新了元组在分区键上的值，造成了该元组所在分区
+    发生变化，就会根据该开关给出报错信息，或者进行元组在分区间的转移。
+    取值范围：
+    –    ENABLE（缺省值）：行迁移开关打开。
+    –    DISABLE：行迁移开关关闭。
+    在打开行迁移开关情况下，并发UPDATE、DELETE操作可能会报错，原因如下：
+    UPDATE和DELETE操作对于旧数据都是标记为已删除。在打开行迁移开关情况
+    下，如果更新分区键时，导致了跨分区更新，内核会把旧分区中旧数据标记为已
+    删除，在新分区中新增加一条数据，无法通过旧数据找到新数据。
+    在以下三个并发场景下，UPDATE和UPDATE并发、DELETE和DELETE并发和
+    UPDATE和DELETE并发，如果并发操作同一行数据时，数据跨分区和非跨分区结
+    果有不同的行为。
+    a.   对于数据非跨分区结果，第一个操作执行完后，第二个操作不会报错。
+
+         ▪   如果第一个操作是UPDATE，第二个操作能成功找到最新的数据，之后
+             对新数据操作。
+
+         ▪   如果第一个操作是DELETE，第二个操作看到当前数据已经被删除而且找
+             不到最新数据，就终止操作。
+    b.   对于数据跨分区结果，第一个操作执行完后，第二个操作会报错。
+
+         ▪   如果第一个操作是UPDATE，由于新数据在新分区中，第二个操作不能
+             成功找到最新的数据，就无法操作，之后会报错。
+[[PDF_PAGE physical=1601 printed=1552]]
+       ▪   如果第一个操作是DELETE，第二个操作当前数据已经被删除而且找不到
+           最新数据，但无法判断删除旧数据的操作是UPDATE还是DELETE。如果
+           是UPDATE，报错处理。如果是DELETE，终止操作。为了保持数据的正
+           确性，只能报错处理。
+    如果是UPDATE和UPDATE并发，UPDATE和DELETE并发场景，需要串行执行才
+    能解决问题，如果是DELETE和DELETE并发，关闭行迁移开关可以解决问题。
+●   NOT NULL
+    字段值不允许为NULL。ENABLE用于语法兼容，可省略。
+●   NULL
+    字段值允许NULL ，缺省值。
+    该子句只是为和非标准SQL数据库兼容。不建议使用。
+●   CHECK (condition) [ NO INHERIT ]
+    CHECK约束声明一个布尔表达式，每次要插入的新行或者要更新的行的新值必须
+    使表达式结果为真或未知才能成功，否则会抛出一个异常并且不会修改数据库。
+    声明为字段约束的检查约束应该只引用该字段的数值，而在表约束里出现的表达
+    式可以引用多个字段。
+    用NO INHERIT标记的约束将不会传递到子表中去。
+    ENABLE用于语法兼容，可省略。
+●   DEFAULT default_expr
+    DEFAULT子句给字段指定缺省值。该数值可以是任何不含变量的表达式(不允许使
+    用子查询和对本表中的其他字段的交叉引用)。缺省表达式的数据类型必须和字段
+    类型匹配。
+    缺省表达式将被用于任何未声明该字段数值的插入操作。如果没有指定缺省值则
+    缺省值为NULL 。
+●   ON UPDATE update_expr
+    ON UPDATE子句为字段的一种属性约束。
+    当对表中某元组执行UPDATE操作时，若更新字段的新值和表中旧值不相同，则
+    表中该元组上具有该属性且不在更新字段内的字段值自动更新为当前时间戳；若
+    更新字段的新值和表中旧值相同，则表中该元组上具有该属性且不在更新字段内
+    的字段值不变，保持原有值；若具有该属性的字段在更新字段内，则对应这些字
+    段值直接按指定更新的值更新。
+[[PDF_PAGE physical=1602 printed=1553]]
+         说明
+
+        ● 该属性仅支持在B模式库中的5.7版本下指定（即sql_compatibility = 'B'、
+          b_format_version='5.7'、b_format_dev_version='s1'）。
+        ● 语法上update_expr支持CURRENT_TIMESTAMP 、LOCALTIMESTAMP 、NOW()三种
+          关键字，也支持关键字带括号指定或不指定精度。例如：ON UPDATE
+          CURRENT_TIMESTAMP()、ON UPDATE CURRENT_TIMESTAMP(5)、ON UPDATE
+          LOCALTIMESTAMP()、ON UPDATE LOCALTIMESTAMP(6)等。不带括号或空括号时精
+          度为0，其中NOW关键字不支持不带括号。三种关键字互为同义词，属性效果相同。
+        ● 该属性仅支持在如下类型的列上指定: timestamp、datetime、date、time without
+          time zone、smalldatetime、abstime。
+        ● CREATE TABLE AS语法不会继承该列属性。
+        ● CREATE TABLE LIKE语法可通过INCLUDING UPDATE或EXCLUDING UPDATE来选择继
+          承或排除该约束。新增INCLUDING ILM选项复制旧表的ilm策略信息，结合
+          INCLUDING PARTITION选项使用可以复制旧表上分区对象的策略信息。
+        ● 该属性指定的精度和对应列上类型指定的精度可以不一致，通过该属性更新字段值后显
+          示结果按最小精度显示。例如：CREATE TABLE t1 (col1 timestamp(6) ON UPDATE
+          CURRENT_TIMESTAMP(3)); 若UPDATE语法触发该属性生效，则本次更新后col1字段
+          值小数位显示3位。
+        ● 该属性和生成列约束不能同时指定同一列。
+        ● 分区表中的分区键不支持指定该属性。
+●   GENERATED ALWAYS AS ( generation_expr ) [STORED]
+    该子句将字段创建为生成列，生成列的值在写入（插入或更新）数据时由
+    generation_expr计算得到，STORED表示像普通列一样存储生成列的值。
+         说明
+
+        ● STORED关键字可省略，与不省略STORED语义相同。
+        ● 生成表达式不能以任何方式引用当前行以外的其他数据。生成表达式不能引用其他生成
+          列，不能引用系统列。生成表达式不能返回结果集，不能使用子查询，不能使用聚集函
+          数，不能使用窗口函数。生成表达式调用的函数只能是不可变（IMMUTABLE）函数。
+        ● 不能为生成列指定默认值。
+        ● 生成列不能作为分区键的一部分。
+        ● 生成列不能和ON UPDATE约束子句的CASCADE、SET NULL、SET DEFAULT动作同时
+          指定。生成列不能和ON DELETE约束子句的SET NULL、SET DEFAULT动作同时指定。
+        ● 修改和删除生成列的方法和普通列相同。删除生成列依赖的普通列，生成列被自动删
+          除。不能改变生成列所依赖的列的类型。
+        ● 生成列不能被直接写入。在INSERT或UPDATE命令中，不能为生成列指定值，但是可以
+          指定关键字DEFAULT。
+        ● 生成列的权限控制和普通列一样。
+●   GENERATED [ ALWAYS | BY DEFAULT [ ON NULL ] ] AS IDENTITY
+    [ ( identity_options ) ]
+    该子句将列创建为IDENTITY列。会根据identity_options自动创建一个隐式序列附
+    加到指定列，在插入数据时将序列中获取的值自动分配给该列。
+    –   GENERATED ALWAYS AS IDENTITY：该列仅接受插入由序列生成器提供的
+        IDENTITY值，不能接受用户指定值。
+    –   GENERATED BY DEFAULT AS IDENTITY：该列优先插入用户提供值，若用户
+        不指定值，将插入由序列生成器提供的IDENTITY值。
+    –   GENERATED BY DEFAULT ON NULL AS IDENTITY：该列优先插入用户提供
+        值，若用户指定NULL值或用户不指定值，将插入由序列生成器提供的
+        IDENTITY值。
+[[PDF_PAGE physical=1603 printed=1554]]
+    可选的identity_options子句可用于覆盖序列选项。
+    –   increment：指定隐式序列步长。为正数时将生成一个递增的序列，为负数时
+        将生成一个递减的序列，缺省值为1。
+    –   MINVALUE minvalue | NO MINVALUE | NOMINVALUE：执行序列的最小
+        值，如果没有声明minvalue或者声明了NO MINVALUE，则递增序序列缺省
+        值为1，递减序列的缺省值为-10^27+1。NOMINVALUE等价于NO
+        MINVALUE。
+    –   MAXVALUE maxvalue | NO MAXVALUE | NOMAXVALUE：执行序列的最大
+        值，如果没有声明maxvalue或者声明了NO MAXVALUE，则递增序序列缺省
+        值为10^28-1，递减序列的缺省值为-1。NOMAXVALUE等价于NO
+        MAXVALUE。
+    –   start：指定隐式序列的起始值。缺省值：对于递增序列为minvalue，递减序
+        列为maxvalue。
+    –   cache：为了快速访问，而在内存中预先存储序列号的个数。缺省值为1，表
+        示一次只能生成一个值，即没有缓存。
+    –   NOCACHE：未预先存储序列的值。
+    –   CYCLE：用于使序列达到maxvalue或者minvalue后可循环并继续下去。如果
+        声明了NO CYCLE，则在序列达到其最大或最小值之后任何对nextval的调用
+        都会返回一个错误。NOCYCLE等价于NO CYCLE，缺省值为NO CYCLE。
+    –   SCALE：用于启用序列的可伸缩性。如果指定，则会在序列的开头附加一个
+        数字偏移量，防止生成值中有重复项。如果声明了NOSCALE，则禁止序列的
+        可伸缩性。缺省值为NOSCALE。
+    –   EXTEND：扩展数字偏移量长度（默认值为6），将序列生成值对齐到x（默
+        认为6）+y（最大位数）位，指定EXTEND时必须指定SCALE。如果声明了
+        NOEXTEND，则不扩展数字偏移量长度。缺省值为NOEXTEND。
+         说明
+
+        ● IDENTITY列只能为smallint、integer、bigint、decimal、numeric、float、double
+          precision或real数字类型。
+        ● 在A兼容模式下，当创建IDENTITY列为整数数字类型时，将默认创建为numeric数字类
+          型。
+        ● 修改IDENTITY列的字段类型和普通列相同，但仅限于修改为smallint、integer、
+          bigint、decimal、numeric、float、double precision和real数字类型。
+        ● IDENTITY列默认有NOT NULL约束。
+        ● 一张表里只允许有一个IDENTITY列。
+        ● 删除IDENTITY列的方法和删除普通列相同，删除列时，IDENTITY的隐式序列将会被自
+          动删除。
+        ● IDENTITY列不能和SET DEFAULT动作同时指定。
+        ● 自动创建的隐式序列的类型为LARGE SEQUENCE。
+        ● 用户不能执行DROP LARGE SEQUENCE或ALTER LARGE SEQUENCE对IDENTITY的隐
+          式序列进行修改。
+        ● [ SCALE [ EXTEND | NOEXTEND ] | NOSCALE ]子句仅用于A兼容模式的集中式下创建
+          IDENTITY列时可用。
+        ● 在全密态数据库下，不支持创建表时指定加密IDENTITY列。
+●   AUTO_INCREMENT
+    指定列为自动增长列。
+    具体请参见CREATE TABLE章节中的AUTO_INCREMENT。
+[[PDF_PAGE physical=1604 printed=1555]]
+     ●   UNIQUE [KEY] index_parameters
+         UNIQUE ( column_name [, ... ] ) index_parameters
+         UNIQUE约束表示表里的一个字段或多个字段的组合必须在全表范围内唯一。
+         对于唯一约束，NULL被认为是互不相等的。
+         UNIQUE KEY只能在sql_compatibility='B'时使用，与UNIQUE语义相同。
+     ●   PRIMARY KEY index_parameters
+         PRIMARY KEY ( column_name [, ... ] ) index_parameters
+         主键约束声明表中的一个或者多个字段只能包含唯一的非NULL值。
+         一个表只能声明一个主键。
+     ●   DEFERRABLE | NOT DEFERRABLE
+         这两个关键字用于设置约束是否可推迟。不可推迟的约束将在每条命令执行后立
+         即检查。可推迟约束可以延迟到事务结尾通过SET CONSTRAINTS命令检查，缺省
+         值为NOT DEFERRABLE。目前UNIQUE约束、主键约束、外键约束可以接受该子
+         句，其他约束类型均不可推迟。
+     ●   INITIALLY IMMEDIATE | INITIALLY DEFERRED
+         若约束可推迟，该子句声明检查约束的缺省时间。不可推迟的约束始终为
+         INITIALLY IMMEDIATE且不可声明为INITIALLY DEFERRED。
+         –    如果约束是INITIALLY IMMEDIATE（缺省），则在每条语句执行后立即检
+              查。
+         –    如果约束是INITIALLY DEFERRED ，则仅在事务结束时进行检查。
+         约束检查的时间可以用SET CONSTRAINTS命令修改。
+     ●   USING INDEX TABLESPACE tablespace_name
+         为UNIQUE或PRIMARY KEY约束相关的索引声明一个表空间。如果没有提供这个
+         子句，这个索引将在default_tablespace中创建，如果default_tablespace为空，
+         将使用数据库的缺省表空间。
+     ●   COLVIEW | NOCOLVIEW
+         声明表或分区加载IMCV或不加载IMCV，详情请参见《开发指南》中“特性使用
+         指导 > HTAP混合负载”章节。
+
+示例
+     ●   创建二级分区表示例
+         --创建二级分区表tbl_list_list，一级分区和二级分区类型都是LIST。
+         gaussdb=# CREATE TABLE tbl_list_list(
+            sal_year varchar(4) NOT NULL,
+            area_id  char(5)    NOT NULL,
+            emp_id    char(5)    NOT NULL,
+            sales_amt int
+         ) PARTITION BY LIST (sal_year) SUBPARTITION BY LIST(area_id)(
+            PARTITION P_2019 VALUES ('2019')(
+               SUBPARTITION p_2019_01001 VALUES ('01001'),
+               SUBPARTITION p_2019_01002 VALUES ('01002'),
+               SUBPARTITION p_2019_01003 VALUES ('01003')
+            ),
+            PARTITION p_2020 VALUES ('2020')(
+               SUBPARTITION p_2020_01001 VALUES ('01001'),
+               SUBPARTITION p_2020_01002 VALUES ('01002'),
+               SUBPARTITION p_2020_01003 VALUES ('01003')
+            )
+         );
+
+         --创建二级分区表tbl_range_list,其一级分区为RANGE类型，二级分区为list类型。
+[[PDF_PAGE physical=1605 printed=1556]]
+    gaussdb=# CREATE TABLE tbl_range_list(
+       sal_date varchar(6) NOT NULL,
+       area_id  char(5)   NOT NULL,
+       emp_id    char(5)   NOT NULL,
+       sales_amt int
+    ) PARTITION BY RANGE (sal_date) SUBPARTITION BY LIST(area_id)(
+       PARTITION p_201901 VALUES LESS THAN (201902)(
+          SUBPARTITION p_201901_01001 VALUES ('01001'),
+          SUBPARTITION p_201901_01002 VALUES ('01002'),
+          SUBPARTITION p_201901_01003 VALUES ('01003')
+       ),
+       PARTITION p_201902 VALUES LESS THAN (201903)(
+          SUBPARTITION p_201902_01001 VALUES ('01001'),
+          SUBPARTITION p_201902_01002 VALUES ('01002'),
+          SUBPARTITION p_201902_01003 VALUES ('01003')
+       )
+    );
+
+    --创建多列分区键的二级分区表multi_range_list,其一级分区为RANGE类型，二级分区为list类型。
+    gaussdb=# CREATE TABLE multi_range_list(c1 int, c2 int, c3 int)
+    PARTITION BY RANGE (c1,c2) SUBPARTITION BY LIST (c2, c3)
+    (
+       PARTITION P_RANGE1 VALUES LESS THAN (10,10)
+       (
+          SUBPARTITION P_RANGE1_LIST1 VALUES ((1,1),(2,2)),
+          SUBPARTITION P_RANGE1_LIST2 VALUES ((5,5),(6,6)),
+          SUBPARTITION P_RANGE1_LIST3 VALUES ((8,8),(9,9))
+       ),
+       PARTITION P_RANGE2 VALUES LESS THAN (20,20)
+       (
+          SUBPARTITION P_RANGE2_LIST1 VALUES ((11,11),(12,12)),
+          SUBPARTITION P_RANGE2_LIST2 VALUES ((15,15),(16,16)),
+          SUBPARTITION P_RANGE2_LIST3 VALUES ((18,18),(19,19))
+       ),
+       PARTITION P_RANGE3 VALUES LESS THAN (30,30)
+       (
+          SUBPARTITION P_RANGE3_LIST1 VALUES ((21,21),(22,22)),
+          SUBPARTITION P_RANGE3_LIST2 VALUES ((25,25),(26,26)),
+          SUBPARTITION P_RANGE3_LIST3 VALUES ((28,28),(29,29))
+       )
+    );
+
+●   对二级分区表进行DML指定分区操作
+    –    INSERT
+         --指定一级分区插入数据。
+         gaussdb=# INSERT INTO tbl_range_list PARTITION(p_201901) VALUES('201901', '01001', '0001',
+         75000 );
+
+         --实际分区和指定分区不一致，报错。
+         gaussdb=# INSERT INTO tbl_range_list PARTITION(p_201902) VALUES('201901', '01001', '0002',
+         6000);
+         ERROR: inserted partition key does not map to the table partition
+         DETAIL: N/A.
+
+         --指定二级分区插入数据。
+         gaussdb=# INSERT INTO tbl_range_list SUBPARTITION(p_201902_01001) VALUES('201902',
+         '01001', '0002', 8000);
+    –    SELECT
+         --指定分区查询数据。
+         gaussdb=# SELECT * FROM tbl_range_list PARTITION(p_201902);
+          sal_date | area_id | emp_id | sales_amt
+         ----------+---------+--------+-----------
+          201902 | 01001 | 0002 |            8000
+         (1 row)
+
+         gaussdb=# SELECT * FROM tbl_range_list SUBPARTITION(p_201901_01001);
+          sal_date | area_id | emp_id | sales_amt
+         ----------+---------+--------+-----------
+[[PDF_PAGE physical=1606 printed=1557]]
+     201901 | 01001 | 0001 |       75000
+    (1 row)
+–   UPDATE
+    --指定分区更新数据。
+    gaussdb=# UPDATE tbl_range_list PARTITION(p_201901) SET sales_amt = 7000;
+
+    gaussdb=# SELECT * FROM tbl_range_list;
+     sal_date | area_id | emp_id | sales_amt
+    ----------+---------+--------+-----------
+     201901 | 01001 | 0001 |            7000
+     201902 | 01001 | 0002 |            8000
+    (2 rows)
+
+    gaussdb=# UPDATE tbl_range_list SUBPARTITION FOR('201902','01001') SET sales_amt = 6000;
+
+    gaussdb=# SELECT * FROM tbl_range_list;
+     sal_date | area_id | emp_id | sales_amt
+    ----------+---------+--------+-----------
+     201901 | 01001 | 0001 |            7000
+     201902 | 01001 | 0002 |            6000
+    (2 rows)
+–   DELETE
+    --指定分区删除数据。
+    gaussdb=# DELETE FROM tbl_range_list PARTITION (p_201901);
+    DELETE 1
+
+    gaussdb=# DELETE FROM tbl_range_list SUBPARTITION (p_201902_01001);
+    DELETE 1
+
+    gaussdb=# DELETE FROM tbl_range_list SUBPARTITION FOR ('201901','01002');
+    DELETE 0
+
+    --参数sql_compatibility='B'时，可指定多分区删除数据。
+    gaussdb=# CREATE DATABASE db DBCOMPATIBILITY 'B';
+    gaussdb=# \c db
+    db=# CREATE TABLE range_list
+    (
+        month_code VARCHAR2 ( 30 ) NOT NULL ,
+        dept_code VARCHAR2 ( 30 ) NOT NULL ,
+        user_no VARCHAR2 ( 30 ) NOT NULL ,
+        sales_amt int
+    )
+    PARTITION BY RANGE (month_code) SUBPARTITION BY LIST (dept_code)
+    (
+      PARTITION p_201901 VALUES LESS THAN( '201903' )
+      (
+        SUBPARTITION p_201901_a VALUES ('1'),
+        SUBPARTITION p_201901_b VALUES ('2')
+      ),
+      PARTITION p_201902 VALUES LESS THAN( '201910' )
+      (
+        SUBPARTITION p_201902_a VALUES ('1'),
+        SUBPARTITION p_201902_b VALUES ('2')
+      )
+    );
+
+    db=# DELETE FROM range_list AS t PARTITION (p_201901_a, p_201901);
+    DELETE 0
+
+    --删除数据库(根据实际情况替换数据库名)。
+    db=# \c postgres
+    gaussdb=# DROP DATABASE db;
+
+    --删除表。
+    gaussdb=# DROP TABLE tbl_list_list;
+    gaussdb=# DROP TABLE tbl_range_list;
+    gaussdb=# DROP TABLE multi_range_list;
+[[PDF_PAGE physical=1607 printed=1558]]
+相关链接
+       ALTER TABLE SUBPARTITION

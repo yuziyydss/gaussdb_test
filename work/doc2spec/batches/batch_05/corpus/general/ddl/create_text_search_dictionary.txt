@@ -1,0 +1,276 @@
+[[PDF_PAGE physical=1608 printed=1559]]
+1.13.9.55 CREATE TEXT SEARCH DICTIONARY
+
+功能描述
+           创建一个新的全文检索词典。词典是一种指定在全文检索时识别特定词并处理的方
+           法。
+[[PDF_PAGE physical=1609 printed=1560]]
+           须知
+
+       该功能为内部使用功能，不建议用户使用。
+
+
+注意事项
+       ●   具有SYSADMIN权限的用户可以执行创建词典操作，创建该词典的用户自动成为
+           其所有者。
+       ●   词典的创建依赖于预定义模板（在系统表pg_ts_template中定义），当前支持创
+           建Simple、Ispell、Synonym、Thesaurus、Snowball和Tokenweight词典，不同
+           类型的词典可以完成不同的任务。
+       ●   临时模式（pg_temp）下不允许创建词典。
+       ●   创建或修改词典操作之后，当再次对用户新创建的词典的FILEPATH文件进行修改
+           时，需使用ALTER语句更新对应词典的FILEPATH文件。
+
+语法格式
+       CREATE TEXT SEARCH DICTIONARY name (
+          TEMPLATE = template
+          [, { option = value } [, ... ]]
+       );
+
+
+
+
+参数说明
+       ●   name
+           要创建的词典的名称，可以使用模式进行具体指定，未指定模式时，将在当前模
+           式中创建。
+           取值范围：字符串，要符合标识符命名规范且最大长度不超过63个字符。
+       ●   template
+           创建词典使用的模名。
+           取值范围：系统表pg_ts_template中预定义的模板：包括：
+           –    Simple：简单词典/停用词词典，该词典模板将token转换为小写形式，并且
+                根据停用词文件对其进行检查。如果该token在停用词文件中可以匹配，则返
+                回一个空数组，并对该token进行忽略；否则，将该token按照小写形式进行
+                标准化处理。Simple词典中也可以将非停用词设置为未识别，即允许非停用
+                词传递给词典列表中的下一个词典。
+           –    Synonym：同义词词典，该词典模板用于将单词替换为同义词。
+           –    Thesaurus：分类词典（可简写为TZ），分类词典是一个词的集合，包括词
+                与短语之间的联系，即广义词、狭义词、首选词、非首选词以及相关词等。
+                分类词典可以使用一个首选词替换所有非首选词并且可选择性地保留原始术
+                语用于索引。
+           –    Ispell：Ispell词典模板为支持多语言词法的词典，可以将一个词的不同语言学
+                的形式标准化成相同的词位。例如，一个英语Ispell词典可以匹配搜索词bank
+[[PDF_PAGE physical=1610 printed=1561]]
+        的词尾变化和词形变化，例如：banking、banked、banks、banks'和
+        bank's。
+    –   Snowball：Snowball词典对许多语言提供词干分析算法，每一个词干分析算
+        法可以识别不同语言中的拼写规则，可根据指定的LANGUAGE参数选择具体
+        语言的词干解析器。Snowball词典中，可以选择指定一个停用词文件
+        STOPWORDS，对需要被消除的词进行过滤输出。
+    –   Tokenweight：词权重干预词典，用于调整自然语言处理或信息检索中特定
+        词汇权重的机制，通过人工干预优化算法对关键词的重要性进行判断。
+●   option
+    参数名。与template对应，不同的词典模板具有不同的参数列表：
+    –   Simple词典对应的option：
+
+        ▪    STOPWORDS
+             停用词词典定义文件名，默认后缀名为stop。
+             文件格式为一组word列表，每行定义一个停用词。Simple词典处理时，
+             停用词词典定义文件中的空行和空格会被忽略，并将停用词词组转换为
+             小写形式。
+
+        ▪    ACCEPT
+             是否将非停用词设置为已识别。默认值为true。
+             当Simple词典设置参数ACCEPT=true时，将不会传递任何token给后继词
+             典，此时建议将Simple词典放置在词典列表的最后。反之，当Simple词
+             典设置参数ACCEPT=false时，会将token传递给后继词典，如果Simple
+             词典放置在词典列表的最后，ACCEPT不生效，此时不建议将该Simple词
+             典放置在词典列表的最后。
+
+        ▪    FILEPATH
+             Simple词典定义文件所在目录。目录可以指定为本地目录，格式为
+             “file://absolute_path”。默认值为预定义词典文件所在目录。
+             FILEPATH参数必须和STOPWORDS参数同时指定，不允许单独指定。
+    –   Synonym词典对应的option：
+
+        ▪    SYNONYM
+             同义词词典定义文件名，默认后缀名为syn。
+             文件格式为一组同义词列表，每行格式为“token synonym”，token和
+             其对应的synonym以空格相连。
+
+        ▪    CASESENSITIVE
+             设置是否大小写敏感，默认值为false，此时同义词词典文件中的token和
+             synonym均会转为小写形式。如果设置为true，则不会进行小写转换。
+
+        ▪    FILEPATH
+             Synonym词典定义文件所在目录。目录可以指定为本地目录，格式为
+             “file://absolute_path”。默认值为预定义词典文件所在目录。
+    –   Thesaurus词典对应的option：
+
+        ▪    DICTFILE
+             分类词典定义文件名，默认后缀名为ths。
+             文件格式为一组同义词列表，每行格式为“sample words : indexed
+             words”，格式中间的冒号（:）作为短语和其替换词间的分隔符。
+[[PDF_PAGE physical=1611 printed=1562]]
+        Thesaurus词典处理时，如果有多个匹配的sample words，将选择最长
+        匹配输出。
+
+    ▪   DICTIONARY
+        用于词规范化的子词典名，必须指定且仅能定义一个。该词典必须是已
+        经存在的，在检查短语匹配之前使用，用于识别和规范输入文本。
+        如果子词典无法识别输入词，将会报错，需移除该词或者更新子词典使
+        其可以识别。对于替换词（indexed words），可在indexed words的开
+        头添加一个星号（*）用于跳过子词典对该indexed words的识别，但对
+        于所有的词（sample words），必须可以被子词典识别。
+        如果Thesaurus词典文件DICTFILE的sample words中含有子词典中定义
+        的停用词，需要用问号（?）替代停用词。假设a和the是子词典中所定义
+        的停用词，如下：
+        ? one ? two : swsw
+
+        上述同义词组定义会匹配"a one the two"以及"the one a two"，这两个
+        短语均会被swsw替代输出。
+
+    ▪   FILEPATH
+        Thesaurus词典定义文件所在目录。目录可以指定为本地目录，格式为
+        “file://absolute_path”。默认值为预定义词典文件所在目录。
+–   Ispell词典对应的option：
+
+    ▪   DICTFILE
+        词典定义文件名，默认后缀名为dict。
+
+    ▪   AFFFILE
+        词缀文件名，默认后缀名为affix。
+
+    ▪   STOPWORDS
+        停用词文件名，默认后缀名为stop，文件格式要求与Simple词典的停用
+        词文件相同。
+
+    ▪   FILEPATH
+        Ispell词典定义文件所在目录。可以指定为本地目录，格式为“file://
+        absolute_path”。默认值为预定义词典文件所在目录。
+–   Snowball词典对应的option：
+
+    ▪   LANGUAGE
+        语言名，标识使用哪种语言的词干分析算法。算法按照对应语言中的拼
+        写规则，缩减输入词的常见变体形式为一个基础词或词干。
+
+    ▪   STOPWORDS
+        停用词表文件名，默认后缀名为stop，文件格式要求与Simple词典的停
+        用词文件相同。
+
+    ▪   FILEPATH
+        Snowball词典定义文件所在目录。可以指定为本地目录，格式为“file://
+        absolute_path”。默认值为预定义词典文件所在目录。FILEPATH参数
+        必须和STOPWORDS参数同时指定，不允许单独指定。
+–   Tokenweight词典对应的option：
+[[PDF_PAGE physical=1612 printed=1563]]
+                   ▪    TOKENFILE
+                        词权重定义文件名，默认后缀名为tokw。
+                        文件格式为一组词权重与同义词相似度的列表，每行可以表示词权重或
+                        者同义词相似度，词典处理时，文件中空行或者开头为“#”的注释以及
+                        每行开头和结尾的空格会被忽略。
+                        ○    词权重格式：<token words> [ : <token weight> ]，token weight
+                             可以为小数或者整数，默认值为3，中间的冒号（:）作为分隔符，
+                             词权重越高，分词时越容易将该字符串分成一个词。
+                        ○    同义词相似度格式为：<token words 1> :: <token words 2> [ :
+                             <similarity> ]，表示token words 2是token words 1的同义词，其
+                             中，similarity可以为0~1之间的数值表示其相似度，默认值为0.8。
+                             注意同义词相似度只表示单向同义，双向同义需用词位置相反的两
+                             行定义表示。
+
+                   ▪    STOPFILE
+                        停用词表文件名，默认后缀名为stop，文件格式要求与Simple词典的停
+                        用词文件相同。
+
+                   ▪    FILEPATH
+                        Tokenweight词典定义文件所在目录。可以指定为本地目录，格式为
+                        “file://absolute_path”。默认值为预定义词典文件所在目录。
+                        FILEPATH参数必须和STOPFILE或者TOKENFILE参数同时指定，不允许
+                        单独指定。
+                    说明
+
+                  词典定义文件的文件名仅支持小写字母、数字以及下划线混合。
+         ●    value
+              参数值。当参数值为字符串类型时，必须使用单引号进行包裹（标示符和数字同
+              样可以使用单引号进行包裹）。
+
+示例
+         文本搜索配置（Text Search Configuration），指定了将文档转换成tsvector过程中所
+         必需的组件：
+
+         ●    解析器，用于把文本分解成标记token。
+         ●    词典列表，用于将每个token转换成词位lexeme。
+
+         每次to_tsvector或to_tsquery函数调用时，都需要指定一个文本搜索配置来指定具体的
+         处理过程。GUC参数default_text_search_config指定了默认的文本搜索配置，当文本
+         搜索函数中没有显式指定文本搜索配置参数时，将会使用该默认值进行处理。
+
+         GaussDB中预定义有一些可用的文本搜索配置，用户也可创建自定义的文本搜索配
+         置。此外，为了便于管理文本搜索对象，还提供有多个gsql元命令，可以显示有关文
+         本搜索对象的信息（详细请参见元命令参考）。
+
+         操作步骤：
+
+     步骤1 创建一个文本搜索配置ts_conf，复制预定义的文本搜索配置english。
+         gaussdb=# CREATE TEXT SEARCH CONFIGURATION ts_conf ( COPY = pg_catalog.english );
+         CREATE TEXT SEARCH CONFIGURATION
+[[PDF_PAGE physical=1613 printed=1564]]
+步骤2 创建Synonym词典。
+    假设同义词词典定义文件gs_dict.syn内容如下：
+    gaussdb gs
+    gauss   gs
+
+    执行如下语句创建Synonym词典：
+    gaussdb=# CREATE TEXT SEARCH DICTIONARY gs_dict (
+        TEMPLATE = synonym,
+        SYNONYMS = gs_dict,
+        FILEPATH = 'file:///home/dicts'
+     );
+
+步骤3 创建一个Ispell词典english_ispell（词典定义文件来自开源词典）。
+    gaussdb=# CREATE TEXT SEARCH DICTIONARY english_ispell (
+       TEMPLATE = ispell,
+       DictFile = english,
+       AffFile = english,
+       StopWords = english,
+       FILEPATH = 'file:///home/dicts'
+    );
+
+步骤4 设置文本搜索配置ts_conf，修改某些类型的token对应的词典列表。
+    gaussdb=# ALTER TEXT SEARCH CONFIGURATION ts_conf
+      ALTER MAPPING FOR asciiword, asciihword, hword_asciipart,
+                 word, hword, hword_part
+      WITH gs_dict, english_ispell, english_stem;
+
+步骤5 在文本搜索配置中，选择设置不索引或搜索某些token类型。
+    gaussdb=# ALTER TEXT SEARCH CONFIGURATION ts_conf
+      DROP MAPPING FOR email, url, url_path, sfloat, float;
+
+步骤6 使用文本检索调测函数ts_debug()对所创建的词典配置ts_conf进行测试。
+    gaussdb=# SELECT * FROM ts_debug('ts_conf', '
+    GaussDB, the highly scalable, SQL compliant, open source object-relational
+    database management system, is now undergoing beta testing of the next
+    version of our software.
+    ');
+
+步骤7 可以设置当前session使用ts_conf作为默认的文本搜索配置。此设置仅在当前session有
+    效。
+    gaussdb=# \dF+ ts_conf
+          Text search configuration "public.ts_conf"
+    Parser: "pg_catalog.default"
+          Token       |           Dictionaries
+    -----------------+-------------------------------------
+     asciihword          | gs_dict,english_ispell,english_stem
+     asciiword          | gs_dict,english_ispell,english_stem
+     file         | simple
+     host           | simple
+     hword             | gs_dict,english_ispell,english_stem
+     hword_asciipart | gs_dict,english_ispell,english_stem
+     hword_numpart | simple
+     hword_part           | gs_dict,english_ispell,english_stem
+     int          | simple
+     numhword               | simple
+     numword               | simple
+     uint          | simple
+     version         | simple
+     word            | gs_dict,english_ispell,english_stem
+
+    gaussdb=# SET default_text_search_config = 'public.ts_conf';
+    SET
+    gaussdb=# SHOW default_text_search_config;
+     default_text_search_config
+    ----------------------------
+[[PDF_PAGE physical=1614 printed=1565]]
+ public.ts_conf
+(1 row)
+
+----结束

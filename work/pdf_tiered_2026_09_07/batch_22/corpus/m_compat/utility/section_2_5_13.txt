@@ -1,0 +1,577 @@
+[[PDF_PAGE physical=2433 printed=2384]]
+2.5.13 窗口函数
+        窗口函数必须通过over_clause指定OVER子句，以确定如何将查询行划分为多个组。
+
+
+
+            须知
+
+        窗口函数在未开启精度传递参数时，其结果的精度可能会存在问题，请在开启精度
+        GUC参数（即m_format_behavior_compat_options值包含
+        'enable_precision_decimal'）后使用。
+
+
+        over_clause语法形式：
+        { OVER (window_spec) | OVER existing_window_name }
+
+        其中window_spec的具体语法形式：
+        [ existing_window_name ] [ partition_clause ] [ order_clause ] [ frame_clause ]
+
+        ●    existing_window_name：引用的已存在的窗口名称。
+        ●    partition_clause：指定如何将查询行进行分组。具体语法形式：
+             PARTITION BY expr [, ...]
+
+        ●    order_clause：指定如何对每个分组中的行进行排序。具体语法形式：
+             ORDER BY expr [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...]
+
+             –     NULLS FIRST：指定空值在排序中位于非空值之前，指定DESC排序时的默认
+                   行为。
+             –     NULLS LAST：指定空值在排序中位于非空值之后，未指定DESC排序时的默
+                   认行为。
+[[PDF_PAGE physical=2434 printed=2385]]
+        ●    frame_clause：为窗口函数定义一个窗口框架window frame，window frame为
+             当前查询行的一组相关行。frame_clause可以是以下的形式：
+             [ RANGE | ROWS ] frame_start
+             [ RANGE | ROWS ] BETWEEN frame_start AND frame_end
+             其中frame_start和frame_end形式为：
+             { UNBOUNDED PRECEDING | expr PRECEDING | CURRENT ROW | expr FOLLOWING | UNBOUNDED
+             FOLLOWING }
+
+
+DELTA
+        DELTA(numeric) over_clause
+        描述：返回当前行和前一行的差值。
+        参数：numeric，如表2-54所示。
+        返回值类型：numeric
+
+        表 2-54 delta 函数参数说明
+         参数名                              类型                        描述
+
+         field                            numeric                   需要计算的列。
+
+
+
+
+              说明
+
+            ● delta是一个窗口函数，需要与over窗口函数共同使用。并且，over中rows语句不会改变
+              delta函数结果，比如delta(value) over(order by time rows 1 preceding) 和 delta(value)
+              over(order by time rows 3 preceding) 返回的结果是一致的。
+            ● delta()内只支持可以进行计算的数值类型，不支持字符串类型。
+            ● delta窗口函数over()中应该固定为 rows 1 preceding指定是与前一行的差值，如果是其他写
+              法如下:
+                 1. 如果over()中用户使用order by子句，计算的为排序后每行与第一行的数据。
+                 2. 如果over()中用户使用partition by子句，计算的为每个分组最后行与第一行的数据。
+
+        示例：
+        m_db=# DROP TABLE if exists test;
+        NOTICE: table "test" does not exist, skipping
+        DROP TABLE
+        m_db=# CREATE TABLE test(a int, b int);
+        CREATE TABLE
+        m_db=# INSERT INTO test VALUES(1, 2);
+        INSERT 0 1
+        m_db=# INSERT INTO test VALUES(1, 3);
+        INSERT 0 1
+        m_db=# INSERT INTO test VALUES(1, NULL);
+        INSERT 0 1
+        m_db=# INSERT INTO test VALUES(1,1);
+        INSERT 0 1
+        m_db=# INSERT INTO test VALUES(1, NULL);
+        INSERT 0 1
+        m_db=# INSERT INTO test VALUES(2, 4);
+        INSERT 0 1
+        m_db=# INSERT INTO test VALUES(3, NULL);
+        INSERT 0 1
+        m_db=# SELECT delta(a) over (rows 1 preceding) FROM test;
+         delta
+        -------
+[[PDF_PAGE physical=2435 printed=2386]]
+                 0
+                 0
+                 0
+                 0
+                 0
+                 1
+                 1
+             (7 rows)
+
+
+DENSE_RANK
+             DENSE_RANK() over_clause
+             描述：在一次查询中，按照over_clause指定的行顺序，为不同分组的每一行分配一个
+             编号。编号从1开始自增，当排序列的数值相同时，保留重复的排序编号；当遇到下一
+             个不同的值时，排序编号依然按照连续数字自增排序。
+             返回值类型：BIGINT UNSIGNED
+
+                   说明
+
+                 在M-Compatibility模式数据库中，当GUC参数m_format_dev_version取值为's2'或以上且GUC
+                 参数m_format_behavior_compat_options取值包含'enable_conflict_funcs'时，DENSE_RANK函
+                 数的实现行为与DENSE_RANK保持一致；其他场景下，DENSE_RANK函数的行为请参见
+                 DENSE_RANK()函数。
+
+             示例：
+             m_db=# CREATE TABLE employee(dname VARCHAR(20),eid VARCHAR(20),ename VARCHAR(20),hiredate
+             DATE,salary INT);
+             CREATE TABLE
+             m_db=# INSERT INTO employee VALUES('研发部','1001','研发1','2021-11-01',NULL);
+             INSERT 0 1
+             m_db=# INSERT INTO employee VALUES('研发部','1002','研发2','2021-11-02',5000);
+             INSERT 0 1
+             m_db=# INSERT INTO employee VALUES('研发部','1003','研发3','2021-11-03',7000);
+             INSERT 0 1
+             m_db=# INSERT INTO employee VALUES('研发部','1004','研发4','2021-11-04',7000);
+             INSERT 0 1
+             m_db=# INSERT INTO employee VALUES('研发部','1005','研发5','2021-11-05',4000);
+             INSERT 0 1
+             m_db=# INSERT INTO employee VALUES('研发部','1006','研发6','2021-11-06',4000);
+             INSERT 0 1
+             m_db=# INSERT INTO employee VALUES('销售部','1007','销售1','2021-11-01',2000);
+             INSERT 0 1
+             m_db=# INSERT INTO employee VALUES('销售部','1008','销售2','2021-11-02',NULL);
+             INSERT 0 1
+             m_db=# INSERT INTO employee VALUES('销售部','1009','销售3','2021-11-03',5000);
+             INSERT 0 1
+             m_db=# INSERT INTO employee VALUES('销售部','1010','销售4','2021-11-04',6000);
+             INSERT 0 1
+             m_db=# INSERT INTO employee VALUES('销售部','1011','销售5','2021-11-05',9000);
+             INSERT 0 1
+             m_db=# INSERT INTO employee VALUES('销售部','1012','销售6','2021-11-06',6000);
+             INSERT 0 1
+             m_db=# SELECT dname,ename,salary,DENSE_RANK() OVER(PARTITION BY dname ORDER BY salary DESC)
+             as rk FROM employee;
+              dname | ename | salary | rk
+             --------+-------+--------+----
+              研发部 | 研发1 |            |1
+              研发部 | 研发3 | 7000 | 2
+              研发部 | 研发4 | 7000 | 2
+              研发部 | 研发2 | 5000 | 3
+              研发部 | 研发5 | 4000 | 4
+              研发部 | 研发6 | 4000 | 4
+              销售部 | 销售2 |            |1
+              销售部 | 销售5 | 9000 | 2
+[[PDF_PAGE physical=2436 printed=2387]]
+               销售部 | 销售6 |         6000 | 3
+               销售部 | 销售4 |         6000 | 3
+               销售部 | 销售3 |         5000 | 4
+               销售部 | 销售1 |         2000 | 5
+              (12 rows)
+
+              m_db=# DROP TABLE employee;
+              DROP TABLE
+
+
+
+FIRST_VALUE
+              FIRST_VALUE(expr) [null_treatment] over_clause
+
+              描述：在一次查询中，按照over_clause指定的行顺序，返回当前分组内第一行数据中
+              的expr的值。
+
+              参数：expr为任意类型，null_treatment取值范围为RESPECT NULLS。
+
+              返回值类型：任意类型（与expr的类型有关）。
+
+              示例：
+              m_db=# CREATE TABLE t_stu(id INT, name VARCHAR(30), gender VARCHAR(5), class INT, math INT, eng
+              INT, his INT);
+              CREATE TABLE
+              m_db=# INSERT INTO t_stu VALUES (1, 'Mike', 'm', 1, 99, 86, 67), (2, 'Judy', 'f', 1, 85, 86, 85), (3, 'John', 'm',
+              2, 79, 59, 95), (4, 'Lily', 'f', 2, 88, 81, 80), (5, 'Ethan', 'm', 2, 77, 70, 69), (6, 'Chris', 'f', 3, 65, 96, 94), (7, 'Vio',
+              'f', 3, 66, 69, 93);
+              INSERT 0 7
+              m_db=# SELECT id, name, math, class, FIRST_VALUE(name) OVER (PARTITION BY class ORDER BY math
+              DESC) FROM t_stu;
+               id | name | math | class | first_value
+              ----+-------+------+-------+-------------
+                1 | Mike | 99 |       1 | Mike
+                2 | Judy | 85 |      1 | Mike
+                4 | Lily | 88 |     2 | Lily
+                3 | John | 79 |      2 | Lily
+                5 | Ethan | 77 |      2 | Lily
+                7 | Vio | 66 |      3 | Vio
+                6 | Chris | 65 |     3 | Vio
+              (7 rows)
+
+              m_db=# DROP TABLE t_stu;
+              DROP TABLE
+
+
+
+LAG
+              LAG(expr[, N[, default]]) [null_treatment] over_clause
+
+              描述：在一次查询中取出当前行的前N行中expr对应的值。如果没有这样的行，则返回
+              值为default。
+
+              参数：如表2-55所示。
+
+
+              表 2-55 LAG 函数参数说明
+
+               名称           类型          描述                                          取值范围
+
+               expr         任意          表示要进行对比的字段。                                 任意类型值。
+                            类型
+[[PDF_PAGE physical=2437 printed=2388]]
+ 名称        类型        描述                                   取值范围
+
+ N         BIGI      表示expr的偏移量，缺省                        只允许是在范围[0, 231-1]的整数值。
+           NT        值为1。可以是以下取值形
+                     式：
+                     ● 常量字面量的无符号整
+                       数。
+                     ● 用户自定义的变量。
+
+ defau     任意        表示默认值，缺省值为                           任意类型值。
+ lt        类型        NULL。
+
+ [null_    -         是否忽略NULL值。                           RESPECT NULLS。
+ treat
+ ment
+ ]
+
+
+
+返回值类型：任意类型（与default和expr有关）。
+示例：
+m_db=# CREATE TABLE employee (id INT PRIMARY KEY, name VARCHAR(20) NOT NULL, age INT);
+NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "employee_pkey" for table "employee"
+CREATE TABLE
+m_db=# INSERT INTO employee VALUES(2, 'Bob', 36),(3, 'John', 25),(5, 'Mary', 25),(4, 'Michael', 36),(1,
+'Tom', 25);
+INSERT 0 5
+m_db=# SELECT id, name, LAG(name) OVER() FROM employee;
+ id | name | lag
+----+---------+---------
+  2 | Bob    |
+  3 | John | Bob
+  5 | Mary | John
+  4 | Michael | Mary
+  1 | Tom     | Michael
+(5 rows)
+
+m_db=# SELECT id, name, LAG(name, 2) OVER() FROM employee;
+ id | name | lag
+----+---------+------
+  2 | Bob    |
+  3 | John |
+  5 | Mary | Bob
+  4 | Michael | John
+  1 | Tom     | Mary
+(5 rows)
+
+m_db=# SELECT id, name, LAG(name, 2, 'N/A') OVER() FROM employee;
+ id | name | lag
+----+---------+------
+  2 | Bob    | N/A
+  3 | John | N/A
+  5 | Mary | Bob
+  4 | Michael | John
+  1 | Tom     | Mary
+(5 rows)
+
+m_db=# SELECT id, name, LAG(name, 2, 'N/A') OVER(ORDER BY id) FROM employee;
+ id | name | lag
+----+---------+------
+  1 | Tom     | N/A
+  2 | Bob    | N/A
+[[PDF_PAGE physical=2438 printed=2389]]
+              3 | John | Tom
+              4 | Michael | Bob
+              5 | Mary | John
+             (5 rows)
+
+             m_db=# SELECT id, age,name, LAG(name, 1, 'NA') OVER(PARTITION BY age) FROM employee;
+              id | age | name | lag
+             ----+-----+---------+------
+               3 | 25 | John | NA
+               5 | 25 | Mary | John
+               1 | 25 | Tom      | Mary
+               2 | 36 | Bob     | NA
+               4 | 36 | Michael | Bob
+             (5 rows)
+
+             m_db=# DROP TABLE employee;
+             DROP TABLE
+
+
+LAST_VALUE
+             LAST_VALUE(expr) [null_treatment] over_clause
+             描述：在一次查询中，按照over_clause指定的行顺序，返回当前分组内最后一行数据
+             中的expr的值。
+             参数：expr为任意类型，null_treatment取值范围为RESPECT NULLS。
+             返回值类型：任意类型（与expr的类型有关）。
+             示例：
+             m_db=# CREATE TABLE t_stu(id INT, name VARCHAR(30), gender VARCHAR(5), class INT, math INT, eng
+             INT, his INT);
+             CREATE TABLE
+             m_db=# INSERT INTO t_stu VALUES (1, 'Mike', 'm', 1, 99, 86, 67), (2, 'Judy', 'f', 1, 85, 86, 85), (3, 'John', 'm',
+             2, 79, 59, 95), (4, 'Lily', 'f', 2, 88, 81, 80), (5, 'Ethan', 'm', 2, 77, 70, 69), (6, 'Chris', 'f', 3, 65, 96, 94), (7, 'Vio',
+             'f', 3, 66, 69, 93);
+             INSERT 0 7
+             m_db=# SELECT id, name, math, class, LAST_VALUE(name) OVER (PARTITION BY class ORDER BY math
+             DESC RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM t_stu;
+              id | name | math | class | last_value
+             ----+-------+------+-------+------------
+               1 | Mike | 99 |       1 | Judy
+               2 | Judy | 85 |      1 | Judy
+               4 | Lily | 88 |     2 | Ethan
+               3 | John | 79 |      2 | Ethan
+               5 | Ethan | 77 |      2 | Ethan
+               7 | Vio | 66 |      3 | Chris
+               6 | Chris | 65 |     3 | Chris
+             (7 rows)
+
+             m_db=# DROP TABLE t_stu;
+             DROP TABLE
+
+
+LEAD
+             LEAD(expr[, N[, default]]) [null_treatment] over_clause
+             描述：在一次查询中获取当前行之后N行数据中expr对应的值。如果不存在相应的行，
+             则返回值为default。
+             参数：如表2-55所示。
+             返回值类型：任意类型（与default和expr有关）。
+             示例：
+[[PDF_PAGE physical=2439 printed=2390]]
+        m_db=# CREATE TABLE employee (id INT PRIMARY KEY, name VARCHAR(20) NOT NULL, age INT);
+        NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "employee_pkey" for table "employee"
+        CREATE TABLE
+        m_db=# INSERT INTO employee VALUES(2, 'Bob', 36),(3, 'John', 25),(5, 'Mary', 25),(4, 'Michael', 36),(1,
+        'Tom', 25);
+        INSERT 0 5
+        m_db=# SELECT id, name, LEAD(name) OVER() FROM employee;
+         id | name | lead
+        ----+---------+---------
+          2 | Bob    | John
+          3 | John | Mary
+          5 | Mary | Michael
+          4 | Michael | Tom
+          1 | Tom     |
+        (5 rows)
+
+        m_db=# SELECT id, name, LEAD(name, 2) OVER() FROM employee;
+         id | name | lead
+        ----+---------+---------
+          2 | Bob    | Mary
+          3 | John | Michael
+          5 | Mary | Tom
+          4 | Michael |
+          1 | Tom     |
+        (5 rows)
+
+        m_db=# SELECT id, name, LEAD(name, 2, 'N/A') OVER() FROM employee;
+         id | name | lead
+        ----+---------+---------
+          2 | Bob    | Mary
+          3 | John | Michael
+          5 | Mary | Tom
+          4 | Michael | N/A
+          1 | Tom     | N/A
+        (5 rows)
+
+        m_db=# SELECT id, name, LEAD(name, 2, 'N/A') OVER(ORDER BY id) FROM employee;
+         id | name | lead
+        ----+---------+---------
+          1 | Tom     | John
+          2 | Bob    | Michael
+          3 | John | Mary
+          4 | Michael | N/A
+          5 | Mary | N/A
+        (5 rows)
+
+        m_db=# SELECT id, age,name, LEAD(name, 1, 'NA') OVER(PARTITION BY age) FROM employee;
+         id | age | name | lead
+        ----+-----+---------+---------
+          3 | 25 | John | Mary
+          5 | 25 | Mary | Tom
+          1 | 25 | Tom      | NA
+          2 | 36 | Bob     | Michael
+          4 | 36 | Michael | NA
+        (5 rows)
+
+        m_db=# DROP TABLE employee;
+        DROP TABLE
+
+
+NTILE
+        NTILE(n) over_clause
+        描述：将排序分区中的行尽可能平均分配为n组，并为每组的行分配一个[1, n]的正整
+        数编号，同一组内行的编号相同。
+        返回值类型：BIGINT UNSIGNED
+        示例：
+[[PDF_PAGE physical=2440 printed=2391]]
+          m_db=# CREATE TABLE ntile_t1(val INT);
+          CREATE TABLE
+          m_db=# INSERT INTO ntile_t1 VALUES(1),(2),(3),(4),(5),(6),(7),(8),(9),(10);
+          INSERT 0 10
+          m_db=# SELECT val, NTILE(4) OVER() as groupid FROM ntile_t1;
+           val | groupid
+          -----+---------
+             1|1
+             2|1
+             3|1
+             4|2
+             5|2
+             6|2
+             7|3
+             8|3
+             9|4
+            10 | 4
+          (10 rows)
+
+          m_db=# DROP TABLE ntile_t1;
+          DROP TABLE
+
+
+PERCENT_RANK
+          PERCENT_RANK() over_clause
+
+          描述：在一次查询中，按照over_clause指定的行顺序，为不同分组的每一行分配一个
+          相对序号。相对序号按照(rank - 1) / (totalrows - 1)计算而得，其中rank为RANK函
+          数所分配的编号，totalrows为该分组内的总数据行。
+
+          返回值类型：DOUBLE PRECISION
+
+          示例：
+          m_db=# CREATE TABLE percent_rank_t1(group_id INT, data INT);
+          CREATE TABLE
+          m_db=# INSERT INTO percent_rank_t1 VALUES(1,1),(1,2),(1, 4),(1, 5),(2, 6),(2, 7),(2,8),(2,9),(2,10);
+          INSERT 0 9
+          m_db=# SELECT group_id,data,PERCENT_RANK() OVER(PARTITION BY group_id ORDER BY data) FROM
+          percent_rank_t1;
+           group_id | data | percent_rank
+          ----------+------+--------------------
+                1| 1|                  0
+                1 | 2 | 0.3333333333333333
+                1 | 4 | 0.6666666666666666
+                1| 5|                  1
+                2| 6|                  0
+                2| 7|               0.25
+                2| 8|                0.5
+                2| 9|               0.75
+                2 | 10 |               1
+          (9 rows)
+
+          m_db=# DROP TABLE percent_rank_t1;
+          DROP TABLE
+
+
+RANK
+          RANK() over_clause
+
+          描述：在一次查询中，按照over_clause指定的行顺序，为不同分组的每一行分配一个
+          编号。编号从1开始自增，当排序列的数值相同时，保留重复的排序编号；当遇到下一
+          个不同的值时，排序编号应按照该行数据在当前分组数据行中的排名进行排序。
+
+          返回值类型：BIGINT UNSIGNED
+[[PDF_PAGE physical=2441 printed=2392]]
+              说明
+
+             在M-Compatibility模式数据库中，当GUC参数m_format_dev_version取值为's2'或以上且GUC
+             参数m_format_behavior_compat_options取值包含'enable_conflict_funcs'时，RANK函数的实
+             现行为与RANK保持一致；其他场景下，RANK函数的行为请参见RANK()函数。
+
+         示例：
+         m_db=# CREATE TABLE employee(dname VARCHAR(20),eid VARCHAR(20),ename VARCHAR(20),hiredate
+         DATE,salary INT);
+         CREATE TABLE
+         m_db=# INSERT INTO employee VALUES('研发部','1001','研发1','2021-11-01',NULL);
+         INSERT 0 1
+         m_db=# INSERT INTO employee VALUES('研发部','1002','研发2','2021-11-02',5000);
+         INSERT 0 1
+         m_db=# INSERT INTO employee VALUES('研发部','1003','研发3','2021-11-03',7000);
+         INSERT 0 1
+         m_db=# INSERT INTO employee VALUES('研发部','1004','研发4','2021-11-04',7000);
+         INSERT 0 1
+         m_db=# INSERT INTO employee VALUES('研发部','1005','研发5','2021-11-05',4000);
+         INSERT 0 1
+         m_db=# INSERT INTO employee VALUES('研发部','1006','研发6','2021-11-06',4000);
+         INSERT 0 1
+         m_db=# INSERT INTO employee VALUES('销售部','1007','销售1','2021-11-01',2000);
+         INSERT 0 1
+         m_db=# INSERT INTO employee VALUES('销售部','1008','销售2','2021-11-02',NULL);
+         INSERT 0 1
+         m_db=# INSERT INTO employee VALUES('销售部','1009','销售3','2021-11-03',5000);
+         INSERT 0 1
+         m_db=# INSERT INTO employee VALUES('销售部','1010','销售4','2021-11-04',6000);
+         INSERT 0 1
+         m_db=# INSERT INTO employee VALUES('销售部','1011','销售5','2021-11-05',9000);
+         INSERT 0 1
+         m_db=# INSERT INTO employee VALUES('销售部','1012','销售6','2021-11-06',6000);
+         INSERT 0 1
+         m_db=# SELECT dname,ename,salary,RANK() over (PARTITION BY dname ORDER BY salary DESC) AS rk
+         FROM employee;
+          dname | ename | salary | rk
+         --------+-------+--------+----
+          研发部 | 研发1 |            |1
+          研发部 | 研发3 | 7000 | 2
+          研发部 | 研发4 | 7000 | 2
+          研发部 | 研发2 | 5000 | 4
+          研发部 | 研发5 | 4000 | 5
+          研发部 | 研发6 | 4000 | 5
+          销售部 | 销售2 |            |1
+          销售部 | 销售5 | 9000 | 2
+          销售部 | 销售6 | 6000 | 3
+          销售部 | 销售4 | 6000 | 3
+          销售部 | 销售3 | 5000 | 5
+          销售部 | 销售1 | 2000 | 6
+         (12 rows)
+
+         m_db=# DROP TABLE employee;
+         DROP TABLE
+
+
+ROW_NUMBER
+         ROW_NUMBER() over_clause
+         描述：按照over_clause指定的行顺序，为每一行分配一个编号。
+         返回值类型：BIGINT UNSIGNED
+[[PDF_PAGE physical=2442 printed=2393]]
+      说明
+
+     此函数在参数m_format_dev_version值为's2'或以上版本且参数
+     m_format_behavior_compat_options值包含'enable_conflict_funcs'的情况下为M-
+     Compatibility模式数据库实现行为，即本章节描述的行为；其他行为和ROW_NUMBER()函数
+     保持一致。
+
+示例：
+m_db=# CREATE TABLE employee (id INT PRIMARY KEY, name VARCHAR(20) NOT NULL, age INT);
+NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "employee_pkey" for table "employee"
+CREATE TABLE
+m_db=# INSERT INTO employee VALUES(2, 'Bob', 36),(3, 'John', 25),(5, 'Mary', 25),(4, 'Michael', 36),(1,
+'Tom', 25);
+INSERT 0 5
+m_db=# SELECT id, name, ROW_NUMBER() OVER() FROM employee;
+ id | name | row_number
+----+---------+------------
+  2 | Bob    |       1
+  3 | John |         2
+  5 | Mary |          3
+  4 | Michael |        4
+  1 | Tom     |       5
+(5 rows)
+
+m_db=# SELECT id, name, ROW_NUMBER() OVER(ORDER BY id) FROM employee;
+ id | name | row_number
+----+---------+------------
+  1 | Tom     |       1
+  2 | Bob    |       2
+  3 | John |         3
+  4 | Michael |        4
+  5 | Mary |          5
+(5 rows)
+
+m_db=# SELECT id, age,name, ROW_NUMBER() OVER(PARTITION BY age) FROM employee;
+ id | age | name | row_number
+----+-----+---------+------------
+  3 | 25 | John |          1
+  5 | 25 | Mary |           2
+  1 | 25 | Tom      |      3
+  2 | 36 | Bob     |       1
+  4 | 36 | Michael |         2
+(5 rows)
+
+m_db=# DROP TABLE employee;
+DROP TABLE

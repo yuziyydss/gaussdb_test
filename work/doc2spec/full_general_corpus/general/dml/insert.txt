@@ -1,0 +1,918 @@
+[[PDF_PAGE physical=1737 printed=1688]]
+1.13.14.7 INSERT
+
+功能描述
+             向表中插入一行或多行数据。
+
+注意事项
+             ●     只有拥有表INSERT权限的用户，才可以向表中插入数据。用户被授予INSERT
+                   ANY TABLE权限，相当于用户对除系统模式之外的任何模式具有USAGE权限，并
+                   且拥有这些模式下表的INSERT权限。
+             ●     如果使用RETURNING子句，用户必须要有该表的SELECT权限。
+             ●     如果使用ON DUPLICATE KEY UPDATE，用户必须要有该表的INSERT、UPDATE
+                   权限，UPDATE子句中列的SELECT权限。
+             ●     如果使用query子句插入来自查询里的数据行，用户还需要拥有在查询里使用的表
+                   的SELECT权限。
+             ●     生成列不能被直接写入。在INSERT命令中不能为生成列指定值，但是可以指定关
+                   键字DEFAULT。
+             ●     当连接到C兼容的数据库时，td_compatible_truncation参数设置为on时，将启用
+                   超长字符串自动截断功能，在后续的INSERT语句中（不包含外表的场景下），对
+                   目标表中CHAR和VARCHAR类型的列上插入超长字符串时，系统会自动按照目标
+                   表中相应列定义的最大长度对超长字符串进行截断。
+                         说明
+
+                       如果向字符集为字节类型编码（SQL_ASCII，LATIN1等）的数据库中插入多字节字符数据
+                       （如汉字等），且字符数据跨越截断位置，这种情况下，按照字节长度自动截断，自动截
+                       断后会在尾部产生非预期结果。如果用户有对于截断结果正确性的要求，建议用户采用
+                       UTF8等能够按照字符截断的输入字符集作为数据库的编码集。
+
+
+语法格式
+             [ WITH [ RECURSIVE ] with_query [, ...] ]
+             INSERT [/*+ plan_hint */] [ IGNORE ] INTO table_name [ { [alias_name] [ ( column_name [, ...] ) ] } |
+             { [partition_clause] [ AS alias ] [ ( column_name [, ...] ) ] } ] { DEFAULT VALUES
+[[PDF_PAGE physical=1738 printed=1689]]
+           | { VALUES | VALUE } {( { expression | DEFAULT } [, ...] ) }[, ...]
+           | query }
+           [ { ON DUPLICATE KEY UPDATE { NOTHING | { column_name = { expression | DEFAULT } } [, ...]
+       [ WHERE condition ] } }
+       | { [ ON CONFLICT [ conflict_target ] conflict_action ] } ]
+           [ RETURNING {* | {output_expression [ [ AS ] output_name ] }[, ...]} ];
+
+       对子查询和视图插入：
+       [ WITH [ RECURSIVE ] with_query [, ...] ]
+       INSERT [/*+ plan_hint */] INTO {subquery | view_name} [ AS alias ] [ ( column_name [, ...] ) ]
+       { DEFAULT VALUES
+          | { VALUES | VALUE } {( { expression | DEFAULT } [, ...] ) }[, ...]
+          | query }
+          [ RETURNING {* | {output_expression [ [ AS ] output_name ] }[, ...]} ];
+
+       ●    subquery的具体信息为：
+            [ WITH [ RECURSIVE ] with_query [, ...] ]
+            SELECT [/*+ plan_hint */] [ ALL ]
+            { * | {expression [ [ AS ] output_name ]} [, ...] }
+            [ into_option ]
+            [ FROM from_item [, ...] ]
+            [ WHERE condition ]
+            [ [ START WITH condition ] CONNECT BY [NOCYCLE] condition [ ORDER SIBLINGS BY expression ] ]
+            [ ORDER BY {expression [ [ ASC | DESC | USING operator ] | nlssort_expression_clause ] [ NULLS
+            { FIRST | LAST } ]} [, ...] ]
+            [ FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } ONLY ]
+            [ into_option ];
+
+       ●    其中指定子查询源from_item为：
+            {[ ONLY ] {table_name | view_name} [ * ] [ partition_clause ] [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+            |( select ) [ AS ] alias [ ( column_alias [, ...] ) ]
+            |with_query_name [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+            |from_item [ NATURAL ] join_type from_item [ ON join_condition | USING ( join_column [, ...] ) ]}
+
+       ●    with_query的具体信息为：
+            with_query_name [ ( column_name [, ...] ) ] AS [ [ NOT ] MATERIALIZED ]
+            ( {SELECT | VALUES | INSERT | UPDATE | DELETE} )
+
+       ●    partition_clause的具体信息为：
+            PARTITION { ( partition_name ) | FOR ( partition_value [, ...] ) } |
+            SUBPARTITION { ( subpartition_name ) | FOR ( subpartition_value [, ...] ) }
+
+       ●    conflict_target的具体信息为：
+            ( { index_column_name | ( index_expression ) } [, ...] ) [ WHERE index_predicate ]
+
+       ●    conflict_action的具体信息为：
+            DO NOTHING |
+            DO UPDATE SET { column_name = { expression | DEFAULT } | ( column_name [, ...] ) = ( { expression |
+            DEFAULT } [, ...] ) } [, ...] [ WHERE condition ]
+
+
+参数说明
+       ●    WITH [ RECURSIVE ] with_query [, ...]
+            用于声明一个或多个可以在主查询中通过名称引用的子查询，相当于临时表。
+            如果声明了RECURSIVE，那么允许SELECT子查询通过名称引用。
+            其中with_query中：
+            – with_query_name指定子查询生成的结果集名称，在查询中可使用该名称访问
+            子查询的结果集。
+            – column_name指定子查询结果集中显示的列名。
+            – 每个子查询可以是SELECT，VALUES，INSERT，UPDATE或DELETE语句。
+[[PDF_PAGE physical=1739 printed=1690]]
+        须知
+
+    当子查询为附带RETURNING语句的DML时，INSERT语句的回显记录数由子查询
+    决定。假设存在表T1，执行以下语句：
+    WITH CTE AS (INSERT INTO T1 VALUES(1,2) RETURNING *) INSERT INTO T1 SELECT * FROM CTE;
+    上述语句的回显记录数由以下部分决定，而不是由整条语句决定，即回显为
+    “INSERT 0 1”，而不是“INSERT 0 2”。
+    INSERT INTO T1 VALUES(1,2) RETURNING *
+
+
+    – 用户可以使用MATERIALIZED / NOT MATERIALIZED对CTE进行修饰。
+    –    如果声明为MATERIALIZED，WITH查询将被物化，生成一个子查询结果集的
+         复制，在引用处直接查询该复制，因此WITH子查询无法和主干SELECT语句
+         进行联合优化（如谓词下推、等价类传递等），对于此类场景可以使用NOT
+         MATERIALIZED进行修饰，如果WITH查询语义上可以作为子查询内联执行，
+         则可以进行上述优化。
+    –    如果用户没有显示声明物化属性则遵守以下规则：如果CTE只在所属主干语句
+         中被引用一次，且语义上支持内联执行，则会被改写为子查询内联执行，否
+         则以CTE Scan的方式物化执行。
+         说明
+
+        INSERT ON DUPLICATE KEY UPDATE不支持WITH及WITH RECURSIVE子句。
+●   plan_hint子句
+    以/*+ */的形式在INSERT关键字后，用于对INSERT对应的语句块生成的计划进行
+    hint调优。
+●   IGNORE
+    INSERT语句使用IGNORE关键字时，可将某些ERROR级别的错误降级为
+    WARNING级抛出，并根据不同的错误场景将无效值调整为最接近的值插入。
+    GaussDB支持错误降级的错误码如下：
+    –    控制破坏NOT NULL约束
+    –    唯一键冲突
+    –    插入的值没有找到对应的分区
+    –    指定分区插入时，插入的数据与指定分区不匹配
+    –    子查询返回多行
+    –    数据过长
+    –    时间函数溢出
+    –    被0除
+    –    值不正确
+[[PDF_PAGE physical=1740 printed=1691]]
+   说明
+
+  1. INSERT IGNORE只在B模式（即sql_compatibility = 'B'），b_format_version = '5.7'和
+     b_format_dev_version = 's1'场景下支持。
+  2. INSERT IGNORE不支持密态表、外表、MOT表。
+  3. INSERT IGNORE不支持延迟生效的主键约束或唯一键约束。
+  4. INSERT IGNORE支持NULL值破坏NOT NULL约束的数据类型对应的oid为：
+     TIMESTAMPOID、TIMESTAMPTZOID、TIMEOID、TIMETZOID、RELTIMEOID、
+     INTERVALOID、TINTERVALOOID、SMALLDATETIMEOID、DATEOID、NAMEOID、
+     POINTOID、PATHOID、POLYGONOID、CIRCLEOID、LSEGOID、BOXOID、
+     JSONOID、JSONBOID、XMLOID、XMLTYPEOID、VARBITOID、NUMERICOID、
+     CIDROID、INETOID、MACADDROID、NUMRANGEOID、INT8RANGEOID、
+     INT4RANGEOID、TSRANGEOID、TSTZRANGEOID、DATERANGEOID、
+     ABSTIMEOID、BOOLOID、INT8OID、INT4OID、INT2OID、INT1OID、
+     FLOAT4OID、FLOAT8OID、CASHOID、UINT1OID、UINT2OID、UINT4OID、
+     UINT8OID、BPCHAROID、VARCHAROID、NVARCHAR2OID、CHAROID、
+     BYTEAOID、RAWOID、BLOBOID、CLOBOID、TEXTOID、YEAROID、SET，各数据
+     类型对应的零值参见下表。
+  5. 默认零值参与计算时，需要谨慎使用IGNORE忽略NOT NULL约束。
+
+数据类型的OID                              默认零值
+
+INT8OID、INT4OID、INT2OID、              0或0.00（小数点后0的个数由参数指
+INT1OID、UINT1OID、UINT2OID、            定）
+UINT4OID、UINT8OID、
+FLOAT4OID、FLOAT8OID、
+NUMERICOID
+
+BPCHAROID、VARCHAROID、                 空字符串
+CHAROID、BYTEAOID、RAWOID、
+BLOBOID、NVARCHAR2OID、
+CLOBOID、TEXTOID、VARBITOID、
+NAMEOID、SET
+
+NUMRANGEOID、INT8RANGEOID、             empty
+INT4RANGEOID、TSRANGEOID、
+TSTZRANGEOID、DATERANGEOID
+
+TIMEOID                               time '00:00:00'
+
+TIMETZOID                             timetz '00:00:00'
+
+INTERVALOID                           interval '00:00:00'
+
+TINTERVALOOID                         tinterval(abstime '1970-01-01
+                                      00:00:00', abstime '1970-01-01
+                                      00:00:00')
+
+SMALLDATETIMEOID                      smalldatetime '1970-01-01 00:00:00'
+
+ABSTIMEOID                            abstime '1970-01-01 00:00:00'
+
+RELTIMEOID                            reltime '00:00:00'
+
+TIMESTAMPOID、TIMESTAMPTZOID           1970-01-01 00:00:00
+
+DATEOID                               1970-01-01
+[[PDF_PAGE physical=1741 printed=1692]]
+    数据类型的OID                  默认零值
+
+    YEAROID                   0000
+
+    POINTOID                  (0,0)
+
+    PATHOID、POLYGONOID        ((0,0))
+
+    CIRCLEOID                 <(0,0),0>
+
+    LSEGOID                   [(0,0),(0,0)]
+
+    BOXOID                    (0,0),(0,0)
+
+    JSONOID、JSONBOID、XMLOID   'null'
+
+    XMLTYPEOID                '<null/>'
+
+    CIDROID                   0.0.0.0/32
+
+    INETOID                   0.0.0.0
+
+    MACADDROID                00:00:00:00:00:00
+
+    BOOLOID                   f
+
+    CASHOID                   $0.00
+
+
+●   table_name
+    要插入数据的目标表名。
+    取值范围：已存在的表名。
+        说明
+
+       支持使用DATABASE LINK方式对远端表进行操作，具体的使用方式请参见《开发指南》中
+       “特性使用指导 > DATABASE LINK”章节。
+●   subquery
+    插入对象可以是子查询，在对子查询进行插入时，会将子查询当成一个临时视
+    图，支持在子查询后面加CHECK OPTION选项。
+    如果子查询中只有一张表，则对该表插入数据；如果子查询中有多张表或有嵌套
+    关系，则通过判断是否有保留键表确定是否可插入。关于保留键表和WITH
+    CHECK OPTION请参见CREATE VIEW。
+●   view_name
+    要插入的目标视图。
+[[PDF_PAGE physical=1742 printed=1693]]
+        说明
+
+        对视图和子查询的插入，有如下约束：
+        1. 只有直接引用基表用户列的列可插入。
+        2. 子查询或视图必须至少包含一个可更新列，关于可更新列请参见CREATE VIEW。
+        3. 不支持在顶层包含DISTINCT、GROUP BY、HAVING、LIMIT、OFFSET子句的视图和子
+           查询。
+        4. 不支持在顶层包含集合运算（UNION、INTERSECT、EXCEPT、MINUS）的视图和子查
+           询。
+        5. 不支持目标列表中包含聚集函数、窗口函数、返回集合函数（array_agg、json_agg、
+           generate_series等）的视图和子查询。
+        6. 不支持视图仅带有BEFORE/AFTER触发器，没有INSTEAD OF触发器或INSTEAD规则。
+        7. 不支持ON DUPLICATE KEY UPDATE功能。
+        8. 视图和子查询中支持的表类型包括普通表、临时表、全局临时表、分区表、二级分区
+           表、ustore表、astore表。
+        9. 对多表连接视图或子查询，一次只能对一张基表做插入。
+        10. INSERT连接视图或子查询时显式指定的插入列或隐式指定（即创建视图或子查询中指
+            定的列）不能引用非保留键表的列，如果使用了WITH CHECK OPTION子句则连接视图
+            中或子查询中的连接列无法进行插入操作。关于保留键表请参见CREATE VIEW。
+        11. 不支持对系统视图插入。
+●   alias_name
+    INSERT语句不包含AS alias语法时的表别名。
+        说明
+
+        1. INSERT不包含AS alias语法时的表别名不能为关键字（如SELECT、VALUE）或者表达
+           式，别名要求符合标识符命名规则。
+        2. INSERT的分区表不包含AS alias语法时的表别名不支持指定分区插入操作。
+●   partition_clause
+    指定分区插入操作。
+    关键字请参见SELECT。
+    如果VALUE子句的值和指定分区不一致，结果会提示异常。
+    示例请参见CREATE TABLE SUBPARTITION。
+●   column_name
+    目标表中的字段名称：
+    –   字段名可以有子字段名或者数组下标修饰。
+    –   没有在字段列表中出现的每个字段，将由系统默认值，或者声明时的默认值
+        填充，若都没有则用NULL填充。例如，向一个复合类型中的某些字段插入数
+        据的话，其他字段将是NULL。
+    –   目标字段（column_name）可以按顺序排列。如果没有列出任何字段，则默
+        认全部字段，且顺序为表声明时的顺序。
+    –   如果VALUE子句和query中只提供了N个字段，则目标字段为前N个字段。
+    –   VALUE子句和query提供的值在表中从左到右关联到对应列。
+    –   支持INSERT表别名.列名的用法。
+    取值范围：已存在的字段名。
+●   expression
+    赋予对应column的一个有效表达式或值：
+[[PDF_PAGE physical=1743 printed=1694]]
+    –   如果是INSERT ON DUPLICATE KEY UPDATE语句下，expression可以为
+        VALUES(column_name)或EXCLUDED.column_name用来表示引用冲突行对
+        应的column_name字段的值。其中VALUES(column_name)支持嵌套在复合
+        表达式中，例如：VALUES(column_name) +1、VALUES(column_name) +
+        VALUES(column_name)、function_name(VALUES(column_name))等。
+              说明
+
+            ● 上述VALUES(column_name)特性仅支持在ON DUPLICATE KEY UPDATE子句中
+              使用。
+            ● 上述VALUES(column_name)特性不支持在IN或NOT IN表达式中使用。
+    –   向表中字段插入单引号 " ' "时需要使用单引号自身进行转义。
+    –   如果插入行的表达式不是正确的数据类型，系统试图进行类型转换，若转换
+        不成功，则插入数据失败，系统返回错误信息。
+●   DEFAULT
+    对应字段名的缺省值。如果没有缺省值，则为NULL。
+●   query
+    一个查询语句（SELECT语句），将查询结果作为插入的数据。
+●   RETURNING
+    返回实际插入的行，RETURNING列表的语法与SELECT的输出列表一致。
+●   output_expression
+    INSERT命令在每一行都被插入之后用于计算输出结果的表达式。
+    取值范围：该表达式可以使用table的任意字段。可以使用*返回被插入行的所有字
+    段。
+●   output_name
+    字段的输出名称。
+    取值范围：字符串，要符合标识符命名规范。
+●   ON DUPLICATE KEY UPDATE
+    对于带有唯一约束（UNIQUE INDEX或PRIMARY KEY）的表，如果插入数据违反
+    唯一约束，则对冲突行执行UPDATE子句完成更新，对于不带唯一约束的表，则
+    仅执行插入。UPDATE时，若指定NOTHING则忽略此条插入，可通过
+    "EXCLUDED." 或者 "VALUES()" 来选择源数据相应的列。
+    –   支持行触发器，触发器执行顺序由实际执行流程决定：
+        执行INSERT： 触发BEFORE INSERT、AFTER INSERT触发器。
+        执行UPDATE：触发BEFORE INSERT、BEFORE UPDATE、AFTER UPDATE触
+        发器。
+        执行UPDATE NOTHING：触发BEFORE INSERT触发器。
+    –   支持语句触发器，触发器由执行的语句决定：
+        执行UPDATE NOTHING：触发BEFORE INSERT、AFTER INSERT触发器。
+        执行UPDATE：触发BEFORE INSERT、AFTER INSERT、BEFORE UPDATE、
+        AFTER UPDATE触发器。
+    –   不支持延迟生效（DEFERRABLE）的唯一约束或主键。
+    –   如果表中存在多个唯一约束，如果所插入数据违反多个唯一约束，对于检测
+        到冲突的第一行进行更新，其他冲突行不更新（检查顺序与索引维护具有强
+        相关性，一般先创建的索引先进行冲突检查）。
+[[PDF_PAGE physical=1744 printed=1695]]
+         –    如果插入多行，这些行均与表中同一行数据存在唯一约束冲突，则按照顺
+              序，第一条执行插入或更新，之后依次执行更新。
+         –    主键、唯一索引列不允许UPDATE。
+         –    不支持外表。
+         –    UPDATE的expression中不支持包含子链接。
+     ●   ON CONFLICT [ conflict_target ] conflict_action
+         当进行插入操作期间存在唯一约束或排他性约束冲突时，指定是否继续进行插入
+         操作的行为。未发生冲突时，执行普通INSERT流程。当发生冲突时，ON
+         CONFLICT后为DO NOTHING时，放弃当前插入操作；ON CONFLICT后为DO
+         UPDATE SET时，执行更新操作。
+         –    conflict_target
+
+              ▪     index_column_name：索引列的列名。
+
+              ▪     index_expression：与index_column_name类似，为基于该表的一个或
+                    多个字段的表达式索引，可用于获取对基本数据的某种变形的快速访
+                    问。
+
+              ▪     index_predicate：索引的一个条件表达式，用于描述部分唯一索引的范
+                    围。
+         –    conflict_action
+
+              ▪     expression：要赋给对应列的表达式或值。
+
+              ▪     DEFAULT：相应列将被填充为默认值。
+               说明
+
+             对INSERT ... ON CONFLICT语法的使用，存在如下约束：
+             ● 仅支持PG兼容性。
+             ● 不支持[ COLLATE collation ] [ opclass ]语法。
+             ● 不支持ON CONSTRAINT constraint_name语法。
+             ● 当执行DO UPDATE SET时，用户需要有UPDATE操作权限。
+             ● 不支持在conflict_target子句和UPDATE SET子句中嵌套子链接，不支持在UPDATE SET
+               子句中嵌套子查询。
+             ● 不支持列格式表、外表、STREAM对象以及CONTVIEW对象。
+             ● 不支持在同一语句中一次插入多条唯一键相同的数据。
+             ● 不支持DBLINK。
+             ● 不支持插入子查询。
+
+
+示例
+     ●   插入一条数据
+         示例：
+         --建表。
+         gaussdb=# CREATE TABLE test_t1(col1 INT,col2 VARCHAR);
+
+         --插入数据。
+         gaussdb=# INSERT INTO test_t1 (col1, col2) VALUES (1,'AB');
+
+         --只给表中部分列插入数据。
+         gaussdb=# INSERT INTO test_t1 (col1) VALUES (2);
+[[PDF_PAGE physical=1745 printed=1696]]
+    --VALUES关键字左边没有括号，右边括号里面必须严格按照表结构的顺序给所有的字段添加值。
+    gaussdb=# INSERT INTO test_t1 VALUES (3,'AC');
+
+    --查询表。
+    gaussdb=# SELECT * FROM test_t1;
+     col1 | col2
+    ------+------
+       1 | AB
+       2|
+       3 | AC
+    (3 rows)
+
+    --删除表。
+    gaussdb=# DROP TABLE test_t1;
+
+●   插入多条数据
+    示例：
+    --建表。
+    gaussdb=# CREATE TABLE test_t2(col1 INT,col2 VARCHAR);
+    gaussdb=# CREATE TABLE test_t3(col1 INT,col2 VARCHAR);
+
+    --插入多条数据。
+    gaussdb=# INSERT INTO test_t2 (col1, col2) VALUES (10,'AA'),(20,'BB'),(30,'CC');
+
+    --查询表。
+    gaussdb=# SELECT * FROM test_t2;
+     col1 | col2
+    ------+------
+      10 | AA
+      20 | BB
+      30 | CC
+    (3 rows)
+
+    --把test_t2中的数据插入到test_t3中。
+    gaussdb=# INSERT INTO test_t3 SELECT * FROM test_t2;
+
+    --查询表。
+    gaussdb=# SELECT * FROM test_t3;
+     col1 | col2
+    ------+------
+      10 | AA
+      20 | BB
+      30 | CC
+    (3 rows)
+
+    --删除表。
+    gaussdb=# DROP TABLE test_t2;
+    gaussdb=# DROP TABLE test_t3;
+
+●   ON DUPLICATE KEY UPDATE
+    示例：
+    --建表。
+    gaussdb=# CREATE TABLE test_t4 (id INT PRIMARY KEY, info VARCHAR(10));
+    gaussdb=# INSERT INTO test_t4 VALUES (1, 'AA'), (2,'BB'), (3, 'CC');
+
+    --使用ON DUPLICATE KEY UPDATE关键字。
+    gaussdb=# INSERT INTO test_t4 VALUES (3, 'DD'), (4, 'EE') ON DUPLICATE KEY UPDATE info =
+    VALUES(info);
+
+    --查询表。
+    gaussdb=# SELECT * FROM test_t4;
+     id | info
+    ----+------
+      1 | AA
+      2 | BB
+      4 | EE
+      3 | DD
+[[PDF_PAGE physical=1746 printed=1697]]
+    --删除表。
+    gaussdb=# DROP TABLE test_t4;
+
+●   ON CONFLICT
+    示例：
+    -- 创建PG兼容模式数据库以及创建数据表。
+    gaussdb=# CREATE DATABASE pg_db dbcompatibility = 'PG';
+    gaussdb=# \c pg_db
+    pg_db=# CREATE TABLE insert_onconflict_tb1(a INT PRIMARY KEY, b INT, c VARCHAR2(20));
+    pg_db=# INSERT INTO insert_onconflict_tb1 VALUES (1, 2, 'aaa'), (2, 0, 'zzz');
+
+    -- 查询表信息。
+    pg_db=# SELECT * FROM insert_onconflict_tb1;
+     a|b| c
+    ---+---+-----
+     1 | 2 | aaa
+     2 | 0 | zzz
+    (2 rows)
+
+    -- 使用ON CONFLICT关键字。
+    pg_db=# INSERT INTO insert_onconflict_tb1 VALUES (1, 5, 'ddd'), (2, 1, 'yyy') ON CONFLICT (a) DO
+    UPDATE SET b=excluded.b, c=excluded.c;
+    pg_db=# INSERT INTO insert_onconflict_tb1 VALUES (1, 4, 'ccc'), (2, 3, 'zzz') ON CONFLICT (a) DO
+    NOTHING;
+
+    -- 查询表信息。
+    pg_db=# SELECT * FROM insert_onconflict_tb1;
+     a|b| c
+    ---+---+-----
+     1 | 5 | ddd
+     2 | 1 | yyy
+    (2 rows)
+
+    -- 删除数据表并删除PG兼容模式数据库。
+    pg_db=# DROP TABLE insert_onconflict_tb1;
+    pg_db=# \c postgres
+    gaussdb=# DROP DATABASE pg_db;
+
+●   INSERT IGNORE
+    示例1：破坏NOT NULL约束
+    --创建B兼容模式数据库。
+    gaussdb=# CREATE DATABASE test DBCOMPATIBILITY ='B';
+    gaussdb=# \c test
+    --设置前置参数。
+    test=# set b_format_version = '5.7';
+    test=# set b_format_dev_version = 's1';
+
+    --建表。
+    test=# CREATE TABLE test_t5(f1 INT NOT NULL);
+    CREATE TABLE
+
+    --使用IGNORE关键字。
+    test=# INSERT IGNORE INTO test_t5 VALUES(NULL);
+    WARNING: The null value in column "f1" violates the not-null constraint
+    DETAIL: Failing row contains (null).
+    INSERT 0 1
+
+    --查询表。
+    test=# SELECT * FROM test_t5;
+     f1
+    ----
+      0
+    (1 row)
+
+    --删除表。
+    test=# DROP TABLE test_t5;
+
+    示例2：唯一键冲突
+[[PDF_PAGE physical=1747 printed=1698]]
+--建表。
+test=# CREATE TABLE test_t6(f1 INT PRIMARY KEY);
+NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "test_t6_pkey" for table "test_t6"
+CREATE TABLE
+
+--插入数据。
+test=# INSERT INTO test_t6 VALUES(1);
+INSERT 0 1
+
+--使用IGNORE关键字。
+test=# INSERT IGNORE INTO test_t6 VALUES(1);
+WARNING: duplicate key value violates unique constraint "test_t6_pkey"
+INSERT 0 0
+
+--查询表。
+test=# SELECT * FROM test_t6;
+ f1
+----
+  1
+(1 row)
+
+--删除表。
+test=# DROP TABLE test_t6;
+DROP TABLE
+
+示例3：插入的值没有找到对应的分区
+--建表。
+test=# CREATE TABLE test_t7(f1 INT, f2 INT) PARTITION BY LIST(f1) (PARTITION p0 VALUES(1, 4, 7),
+PARTITION p1 VALUES (2, 5, 8));
+CREATE TABLE
+
+--使用IGNORE关键字。
+test=# INSERT IGNORE INTO test_t7 VALUES(3, 5);
+WARNING: inserted partition key does not map to any table partition
+INSERT 0 0
+
+--查询表。
+test=# SELECT * FROM test_t7;
+ f1 | f2
+----+----
+(0 rows)
+
+--删除表。
+test=# DROP TABLE test_t7;
+DROP TABLE
+
+示例4：指定分区插入时，插入的数据与指定的分区不匹配
+--建表。
+test=# CREATE TABLE test_t8(f1 INT NOT NULL, f2 TEXT, f3 INT) PARTITION BY RANGE(f1)
+(PARTITION p0 VALUES LESS THAN(5), PARTITION p1 VALUES LESS THAN(10), PARTITION p2
+VALUES LESS THAN(15), PARTITION p3 VALUES LESS THAN(MAXVALUE));
+CREATE TABLE
+
+--使用IGNORE关键字。
+test=# INSERT IGNORE INTO test_t8 PARTITION(p2) VALUES(20, 'Jan', 1);
+WARNING: inserted partition key does not map to the table partition
+DETAIL: N/A.
+INSERT 0 0
+
+--查询表。
+test=# SELECT * FROM test_t8;
+ f1 | f2 | f3
+----+----+----
+(0 rows)
+
+--删除表。
+test=# DROP TABLE test_t8;
+DROP TABLE
+[[PDF_PAGE physical=1748 printed=1699]]
+示例5：子查询返回多行
+--建表。
+test=# CREATE TABLE test_t9(f1 INT, f2 INT);
+CREATE TABLE
+
+--插入数据。
+test=# INSERT INTO test_t9 VALUES(1, 1), (2, 2), (3, 3);
+INSERT 0 3
+
+--使用IGNORE关键字。
+test=# INSERT IGNORE INTO test_t9 VALUES((SELECT f1 FROM test_t9), 0);
+WARNING: more than one row returned by a subquery used as an expression
+CONTEXT: referenced column: f1
+INSERT 0 1
+
+--查询表。
+test=# SELECT * FROM test_t9 WHERE f2 = 0;
+ f1 | f2
+----+----
+   | 0
+(1 row)
+
+--删除表。
+test=# DROP TABLE test_t9;
+DROP TABLE
+
+示例6：数据过长
+--建表。
+test=# CREATE TABLE test_t10(f1 VARCHAR(5));
+CREATE TABLE
+
+--使用IGNORE关键字。
+test=# INSERT IGNORE INTO test_t10 VALUES('aaaaaaaaa');
+WARNING: value too long for type character varying(5)
+CONTEXT: referenced column: f1
+INSERT 0 1
+
+--查询表。
+test=# SELECT * FROM test_t10;
+  f1
+-------
+ aaaaa
+(1 row)
+
+--删除表。
+test=# DROP TABLE test_t10;
+DROP TABLE
+
+示例7：时间函数溢出
+--建表。
+test=# CREATE TABLE test_t11(f1 DATETIME);
+CREATE TABLE
+
+--使用IGNORE关键字。
+test=# INSERT IGNORE INTO test_t11 VALUES(date_sub('2000-01-01', INTERVAL 2001 YEAR));
+WARNING: Datetime function: datetime field overflow
+CONTEXT: referenced column: f1
+INSERT 0 1
+
+--查询表。
+test=# SELECT * FROM test_t11;
+ f1
+----
+
+(1 row)
+
+--删除表。
+[[PDF_PAGE physical=1749 printed=1700]]
+test=# DROP TABLE test_t11;
+DROP TABLE
+
+示例8：被0除
+--建表。
+test=# CREATE TABLE test_t12(f1 INT);
+CREATE TABLE
+
+--使用IGNORE关键字。
+test=# INSERT IGNORE INTO test_t12 VALUES(1/0);
+WARNING: division by zero
+CONTEXT: referenced column: f1
+INSERT 0 1
+
+--查询表。
+test=# SELECT * FROM test_t12;
+ f1
+----
+
+(1 row)
+
+--删除表。
+test=# DROP TABLE test_t12;
+DROP TABLE
+
+示例9：值不正确
+--建表。
+test=# CREATE TABLE test_t13(f1 FLOAT);
+CREATE TABLE
+
+--使用IGNORE关键字。
+test=# INSERT IGNORE INTO test_t13 VALUES('1.11aaa');
+WARNING: invalid input syntax for type real: "1.11aaa"
+LINE 1: INSERT IGNORE INTO test_t13 VALUES('1.11aaa');
+                           ^
+CONTEXT: referenced column: f1
+INSERT 0 1
+
+--查询表。
+test=# SELECT * FROM test_t13;
+  f1
+------
+ 1.11
+(1 row)
+
+
+--删除表。
+test=# DROP TABLE test_t13;
+--删除数据库（请根据实际情况修改数据库名）。
+test=# \c test;
+test=# DROP DATABASE test;
+示例10：使用表别名插入一条数据
+--建表。
+gaussdb=# create table tb1 (va int , vb int);
+NOTICE: The 'DISTRIBUTE BY' clause is not specified. Using 'va' as the distribution column by default.
+HINT: Please use 'DISTRIBUTE BY' clause to specify suitable data distribution column.
+CREATE TABLE
+
+--使用表别名
+gaussdb=# insert into tb1 as tt(tt.va, tt.vb) values (1,2);
+INSERT 0 1
+gaussdb=# insert into tb1 tt(tt.va, tt.vb) values (3,4);
+INSERT 0 1
+
+--查询表。
+gaussdb=# select * from tb1;
+ va | vb
+----+----
+[[PDF_PAGE physical=1750 printed=1701]]
+     1| 2
+     3| 4
+    (2 rows)
+
+    --删除表。
+    gaussdb=# DROP TABLE tb1;
+    DROP TABLE
+
+●   WITH [ RECURSIVE ] with_query [, ...]
+    示例：
+    --成绩表。
+    gaussdb=# CREATE TABLE grade (
+       sid INT,
+       course VARCHAR(20),
+       score FLOAT
+    );
+
+    --学生表。
+    gaussdb=# CREATE TABLE student(
+       sid INT PRIMARY KEY,
+       class INT,
+       name VARCHAR(50),
+       gender INT CHECK (gender = 0 or gender = 1)
+    );
+
+    --插入数据。
+    gaussdb=# WITH student_sid AS ( INSERT INTO student ( sid, CLASS, NAME, gender ) VALUES ( 1, 1,
+    'Scott', 1 ) RETURNING sid )
+       INSERT INTO grade ( sid, course, score )
+       VALUE ( ( SELECT sid FROM student_sid ), '数学', '96' ),
+        ( ( SELECT sid FROM student_sid ), '语文', '82' ),
+        ( ( SELECT sid FROM student_sid ), '英语', '86' );
+
+    --查询表。
+    gaussdb=# SELECT * FROM student;
+     sid | class | name | gender
+    -----+-------+-------+-----
+       1|     1 | scott | 1
+    (1 row)
+
+    gaussdb=# SELECT * FROM grade;
+     sid | course | score
+    -----+---------+-------
+       1 | 数学 | 96
+       1 | 语文 | 82
+       1 | 英语 | 86
+    (3 rows)
+
+    --删除表。
+    gaussdb=# DROP TABLE student;
+    gaussdb=# DROP TABLE grade;
+
+●   向视图或子查询中插入
+    示例1：插入子查询
+    --创建SCHEMA。
+    gaussdb=# CREATE SCHEMA ins_subqry;
+    CREATE SCHEMA
+    gaussdb=# SET CURRENT_SCHEMA = 'ins_subqry';
+    SET
+
+    --创建表。
+    gaussdb=# CREATE TABLE t1 (x1 int, y1 int);
+    CREATE TABLE
+    gaussdb=# CREATE TABLE t2 (x2 int PRIMARY KEY, y2 int);
+    NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "t2_pkey" for table "t2"
+    CREATE TABLE
+
+    --通过子查询向t1插入。
+[[PDF_PAGE physical=1751 printed=1702]]
+gaussdb=# INSERT INTO (SELECT * FROM t1) VALUES (1, 1);
+INSERT 0 1
+gaussdb=# INSERT INTO (SELECT * FROM t1 WHERE y1 < 3) VALUES (5, 5);
+INSERT 0 1
+
+--插入子查询带CHECK OPTION。
+gaussdb=# INSERT INTO (SELECT * FROM t1 WHERE y1 < 3 WITH CHECK OPTION) VALUES (5, 5);
+ERROR: New row violates WITH CHECK OPTION for view "__unnamed_subquery__"
+DETAIL: Failing row contains (5, 5).
+
+--插入子查询带READONLY。
+gaussdb=# INSERT INTO (SELECT * FROM t1 WITH READ ONLY) VALUES (5, 5);
+ERROR: DML operation cannot be performed on a read-only view.
+
+--插入多表连接的子查询。
+gaussdb=# INSERT INTO (SELECT * FROM t1, t2 WHERE x1 = x2) (x1, y1) VALUES (2, 2);
+INSERT 0 1
+
+--删除SCHEMA。
+gaussdb=# RESET CURRENT_SCHEMA;
+RESET
+gaussdb=# DROP SCHEMA ins_subqry CASCADE;
+NOTICE: drop cascades to 2 other objects
+DETAIL: drop cascades to table ins_subqry.t1
+drop cascades to table ins_subqry.t2
+DROP SCHEMA
+
+示例2：插入视图
+--创建SCHEMA。
+gaussdb=# CREATE SCHEMA ins_view;
+CREATE SCHEMA
+gaussdb=# SET CURRENT_SCHEMA = 'ins_view';
+SET
+
+--创建表。
+gaussdb=# CREATE TABLE t1 (x1 int, y1 int);
+CREATE TABLE
+gaussdb=# CREATE TABLE t2 (x2 int PRIMARY KEY, y2 int);
+NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "t2_pkey" for table "t2"
+CREATE TABLE
+
+--创建单表视图。
+gaussdb=# CREATE VIEW v_ins1 AS SELECT * FROM t1;
+CREATE VIEW
+gaussdb=# CREATE VIEW v_ins2 AS SELECT * FROM t1 WHERE y1 < 3;
+CREATE VIEW
+gaussdb=# CREATE VIEW v_ins2_wco AS SELECT * FROM t1 WHERE y1 < 3 WITH CHECK OPTION;
+CREATE VIEW
+gaussdb=# CREATE VIEW v_ins_read AS SELECT * FROM t1 WITH READ ONLY;
+CREATE VIEW
+
+--通过视图对t1插入。
+gaussdb=# INSERT INTO v_ins1 VALUES (1, 1);
+INSERT 0 1
+gaussdb=# INSERT INTO v_ins2 VALUES (5, 5);
+INSERT 0 1
+gaussdb=# INSERT INTO v_ins2_wco VALUES (5, 5);
+ERROR: new row violates WITH CHECK OPTION for view "v_ins2_wco"
+DETAIL: Failing row contains (5, 5).
+
+gaussdb=# INSERT INTO v_ins_read VALUES (5, 5);
+ERROR: DML operation cannot be performed on a read-only view.
+
+--创建多表视图。
+gaussdb=# CREATE VIEW vv_ins AS SELECT * FROM t1, t2 WHERE x1 = x2;
+CREATE VIEW
+
+--通过视图对t1插入。
+gaussdb=# INSERT INTO vv_ins (x1, y1) VALUES (2, 2);
+[[PDF_PAGE physical=1752 printed=1703]]
+           INSERT 0 1
+
+           --删除SCHEMA。
+           gaussdb=# RESET CURRENT_SCHEMA;
+           RESET
+           gaussdb=# DROP SCHEMA ins_view CASCADE;
+           NOTICE: drop cascades to 7 other objects
+           DETAIL: drop cascades to table ins_view.t1
+           drop cascades to table ins_view.t2
+           drop cascades to view ins_view.v_ins1
+           drop cascades to view ins_view.v_ins2
+           drop cascades to view ins_view.v_ins2_wco
+           drop cascades to view ins_view.v_ins_read
+           drop cascades to view ins_view.vv_ins
+           DROP SCHEMA
+
+
+优化建议
+       ●   VALUES
+           通过INSERT语句批量插入数据时，建议将多条记录合并入一条语句中执行插入，
+           以提高数据加载性能。
+           例如：
+           INSERT INTO sections VALUES (30, 'Administration', 31, 1900),(40, 'Development', 35, 2000), (50,
+           'Development' , 60 , 2001);
+
+       ●   批量插入索引性能优化
+           当以下任何一个场景满足所有的约束条件时，建议打开GUC参数
+           batch_insert_index_types并设置为"rcr_ubtree"以提升批量插入索引性能：
+           场景1：使用JDBC连接数据库，通过java的批量插入数据接口executeBatch进行批
+           量插入索引；
+           场景2：执行语句insert into t1 select * from t2，其中t1和t2表schema相同，t1
+           表包含索引，此语句支持在t1表上批量插入索引；必须在批量插入表数据的前提
+           下才会批量插入索引（explain verbose命令可以查看是否对表数据做批量插入，
+           Batch Insert代表是批量插入）。满足这些前提后，打开批量插入索引开关就会执
+           行批量插入索引；
+           场景3：执行语句COPY FROM（示例：COPY t1 FROM 'file.csv' delimiter ',' csv
+           header），其中t1和file.csv文件中的schema相同，t1表包含索引，此语句支持在
+           t1表上批量插入索引。
+           约束1：插入的索引类型为UBTree RCR索引；
+           约束2：插入数据不递增（插入数据递增会利用缓存，即最后一页，这种情况下批
+           量插入索引无性能提升）；
+           约束3：不是SMP的批量索引插入。
+                 说明
+
+                此特性在以下三个场景会影响性能：
+                1. 如果批量插入数据是递增的（违反约束2），关闭批量插入功能后，性能较好。这种场
+                景下开启批量插入功能会导致性能出现轻微劣化。
+                2. 在执行持续的批量插入时，索引会逐渐变大，进而导致批量插入性能有所下降。
+                3. 批量插入数据过于分散导致缓存页面命中率过低，或者运行内存过小的场景下，开启批
+                量插入功能会导致性能出现较大幅度劣化。
+                如果性能劣化幅度较大，建议设置GUC参数batch_insert_index_types为""，关闭该功能，
+                性能劣化问题即可恢复。
+                如果需要技术支持工程师定位原因，可以设置GUC参数logging_module='on(BIINDEX)'，
+                打开批量插入索引的日志打印，执行几分钟批量插入直到日志中出现BIINDEX字符串为
+                止。

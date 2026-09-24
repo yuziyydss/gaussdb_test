@@ -1,0 +1,111 @@
+[[PDF_PAGE physical=1250 printed=1201]]
+1.13.7.26 ALTER RESOURCE POOL
+
+功能描述
+           修改一个资源池，指定其他控制组。
+
+注意事项
+           ●    只有sysadmin或初始用户才能执行ALTER RESOURCE POOL命令。
+           ●    多租场景下不支持本语法，请使用RESOURCE_MANAGER高级包。
+           ●    升级期间不支持本语法。
+
+语法格式
+           ALTER RESOURCE POOL pool_name
+             WITH ({MEM_PERCENT= pct | CONTROL_GROUP="group_name" | ACTIVE_STATEMENTS=stmt |
+           MAX_DOP = dop | MEMORY_LIMIT="memory_size" | io_limits=io_limits | io_priority="io_priority" |
+           max_worker=max_worker | max_connections=max_connections |
+           max_dynamic_memory="max_dynamic_memory"| max_shared_memory="max_shared_memory" |
+           max_concurrency=concurrency}[, ... ]);
+
+
+
+
+参数说明
+           ●    pool_name
+                资源池名称。资源池名称应为已创建的资源池。
+                取值范围：字符串，要符合标识符命名规范。
+           ●    group_name
+                控制组名称。
+                取值范围：已创建的控制组。
+[[PDF_PAGE physical=1251 printed=1202]]
+           说明
+
+        ● 设置控制组名称时，语法可以使用双引号，也可以使用单引号。
+        ● group_name对大小写敏感。
+        ● 若数据库管理员指定自定义Class组下的Workload控制组，如control_group的字符串
+          为："class1:workload1"；代表此资源池指定到class1控制组下的workload1控制组。
+          也可同时指定Workload控制组的层次，如control_group的字符串为：
+          "class1:workload1:1"。
+        ● 若数据库用户指定Timeshare控制组代表的字符串，即"Rush"、"High"、"Medium"或
+          "Low"其中一种，如control_group的字符串为"High"；代表资源池指定到DefaultClass
+          控制组下的"High" Timeshare控制组。
+●   stmt
+    资源池语句执行的最大并发数量。
+    取值范围：数值型，-1~2147483647，其中，-1表示不限制并发数。
+●   dop
+    资源池最大并发度，语句执行时能够创建的最多线程数量。
+    取值范围：数值型，1~2147483647。
+●   memory_size
+    资源池最大使用内存。
+    取值范围：字符串，内容范围1KB~2047GB，单位大小写敏感。
+●   mem_percent
+    资源池可用内存占全部内存或者组用户内存使用的比例。
+    –     在多租户场景下，组用户和业务用户的mem_percent范围为1~100的整数，
+          默认值为20。
+    –     在普通场景下，普通用户的mem_percent范围为0~100的整数，默认值为0。
+           说明
+
+        mem_percent和memory_limit同时指定时，只有mem_percent起作用。
+●   io_limits
+    资源池每秒可触发I/O次数上限，以万次为单位计数。
+    取值范围：数值型，0~2147483647，0表示不限制I/O次数。
+●   io_priority
+    I/O利用率高达90%时，重消耗I/O作业进行I/O资源管控时关联的优先级等级。
+    取值范围：枚举型，可选项为None，Low、Medium和High。不控制时，可设置
+    为None，默认值为None。
+           说明
+
+        io_limits和io_priority的设置都仅对复杂作业有效。包括批量导入（INSERT INTO
+        SELECT、COPY FROM、CREATE TABLE AS等），单DN数据量超过500MB的复杂查询和
+        VACUUM FULL等操作。
+●   max_worker
+    只用于扩容的接口，表示扩容数据重分布时，表内插入并发度。
+●   max_connections
+    最大连接数，用于限制资源池可使用的最大连接数。
+[[PDF_PAGE physical=1252 printed=1203]]
+                 说明
+
+                所有资源池的最大连接数总和不能超过整个gaussdb进程设置的GUC参数max_connections
+                指定的最大连接数。
+
+       ●   max_dynamic_memory
+           最大动态内存值，用于限制资源池允许使用的最大动态内存值。
+       ●   max_shared_memory
+           最大共享内存值，用于限制资源池允许使用的最大共享内存值。
+       ●   max_concurrency
+           最大并发数，用于限制资源池允许使用的最大并发数。
+
+示例
+       本示例假定用户已成功创建自定义的class1控制组及其下属的Low、wg1、wg2 三个
+       Workload控制组。（创建控制组请联系管理员处理）。
+       --创建一个资源池。
+       gaussdb=# CREATE RESOURCE POOL pool1;
+
+       --更新一个资源池，其控制组指定为"DefaultClass"组下属的"High" Timeshare Workload控制组。
+       gaussdb=# ALTER RESOURCE POOL pool1 WITH (CONTROL_GROUP="High");
+
+       --更新一个资源池，其控制组指定为"class1"组下属的"Low" Timeshare Workload控制组。
+       gaussdb=# ALTER RESOURCE POOL pool1 WITH (CONTROL_GROUP="class1:Low");
+
+       --更新一个资源池，其控制组指定为"class1"组下属的"wg1" Workload控制组。
+       gaussdb=# ALTER RESOURCE POOL pool1 WITH (CONTROL_GROUP="class1:wg1");
+
+       --更新一个资源池，其控制组指定为"class1"组下属的"wg2" Workload控制组。
+       gaussdb=# ALTER RESOURCE POOL pool1 WITH (CONTROL_GROUP="class1:wg2:3");
+
+       --删除资源池pool1。
+       gaussdb=# DROP RESOURCE POOL pool1;
+
+
+相关链接
+       CREATE RESOURCE POOL，DROP RESOURCE POOL

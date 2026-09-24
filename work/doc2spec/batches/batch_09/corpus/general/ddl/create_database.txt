@@ -1,0 +1,578 @@
+[[PDF_PAGE physical=1412 printed=1363]]
+1.13.9.16 CREATE DATABASE
+
+功能描述
+           创建一个新的数据库。默认情况下，新数据库将通过复制标准系统数据库templatea模
+           板进行创建。
+
+注意事项
+           ●   仅拥有CREATEDB权限的用户可以创建新数据库，系统管理员默认拥有此权限。
+           ●   不能在事务块中执行创建数据库语句。
+           ●   标准系统数据库模板升级/更新期间，不能通过复制标准系统数据库template0、
+               templatea以及templatem进行创建数据库。
+           ●   在创建数据库时，不允许使用templatem作为新创建的数据库名称。
+           ●   在创建兼容模式的数据库时，当创建的数据库为非A兼容模式以及非M兼容模式
+               时，以下系统对象中的部分信息存在差异，具体如表1-375所示。
+
+               表 1-375 系统对象差异
+               系统对象    系统对象名称             差异
+               类型
+
+               系统视图    pg_catalog.my_t    创建数据库时，视图中timestamp字段为
+                       ab_modifications   timestamp(0) without time zone类型。
+
+                       pg_catalog.db_ta   视图升级后，该字段类型会变成date类型。
+                       b_modifications
+
+                       pg_catalog.v       创建数据库时，视图中last_sql_active_time字
+                       $open_cursor       段为timestamp(0) without time zone类型。
+                                          视图升级后，该字段类型会变成date类型。
+[[PDF_PAGE physical=1413 printed=1364]]
+             系统对象          系统对象名称                 差异
+             类型
+
+                           pg_catalog.my_a        创建数据库时，视图中timestamp、
+                           udit_trail             logoff_time字段为timestamp(0) without time
+                                                  zone类型。
+                                                  视图升级后，该字段类型会变成date类型。
+
+                           sys.v_session          创建数据库时，视图中logon_time、
+                                                  prev_exec_start字段为timestamp(0) without
+                           sys.gv_session         time zone类型。
+                                                  视图升级后，该字段类型会变成date类型。
+
+                           sys.db_indexes         创建数据库时，视图中last_analyzed字段为
+                                                  timestamp(0) without time zone类型。
+                           sys.adm_indexes
+                                                  视图升级后，该字段类型会变成date类型。
+                           sys.adm_tab_cols
+
+                           sys.db_tab_colu
+                           mns
+
+                           sys.adm_tab_col
+                           umns
+
+                           sys.db_tab_col_st
+                           atistics
+
+                           sys.adm_tab_col_
+                           statistics
+
+                           sys.db_part_col_s
+                           tatistics
+
+                           sys.adm_part_col
+                           _statistics
+
+                           sys.db_subpart_c
+                           ol_statistics
+
+                           sys.adm_subpart
+                           _col_statistics
+
+             高级包函          dbe_scheduler.se       创建数据库时，缺少
+             数             t_attribute            dbe_scheduler.set_attribute(name text,
+                                                  attribute text, value date)重载函数。
+                                                  packages插件升级后，存在
+                                                  dbe_scheduler.set_attribute(name text,
+                                                  attribute text, value date)重载函数。
+
+
+
+语法格式
+       CREATE DATABASE database_name
+         [ [ WITH ] { [ OWNER [=] user_name ] |
+                [ TEMPLATE [=] template ] |
+                [ ENCODING [=] 'encoding' ] |
+[[PDF_PAGE physical=1414 printed=1365]]
+             [ LC_COLLATE [=] 'lc_collate' ] |
+             [ LC_CTYPE [=] 'lc_ctype' ] |
+             [ DBCOMPATIBILITY [=] 'compatibility_type' ] |
+             [ TABLESPACE [=] tablespace_name ] |
+             [ CONNECTION LIMIT [=] connlimit ] |
+             [ DBTIMEZONE [=] 'time_zone' ] }[...] ];
+
+
+
+
+参数说明
+       ●   database_name
+           数据库名称。
+           取值范围：字符串，要符合标识符命名规范且最大长度不超过63个字符。
+               说明
+
+              ● 当数据库名称超过63个字符，数据库会截断并保留前63个字符当作数据库名称。
+              ● 当数据库名称中包含大写字母时，数据库会自动转换为小写字母，如果需要创建包含大
+                写字母的数据库名称则需要使用双引号进行包裹。
+       ●   OWNER [ = ] user_name
+           可选，数据库所有者。
+           取值范围：已存在的用户名，未指定时，新数据库的所有者为当前用户。
+       ●   TEMPLATE [ = ] template
+           可选，创建数据库时，根据指定的标准系统数据库模板进行创建。
+           GaussDB采用从模板数据库复制的方式进行创建新的数据库。GaussDB包含模板
+           数据库（template0、template1、templatea和templatem）以及默认的用户数
+           据库postgres。
+           取值范围：template0、templatem或者templatea。
+               说明
+
+              ● 开启templatem特性后，会新增一个模板数据库templatem。
+              ● 开启templatem特性后，具体的数据库行为请参见《开发指南》中“数据库使用入门 >
+                操作数据库”中“创建数据库用户”章节和“管理数据库-非透明多写”章节。
+       ●   ENCODING [ = ] 'encoding'
+           可选，指定数据库使用的字符编码。
+           常用取值：GBK、UTF8、Latin1或者GB18030等，具体支持的字符集如表1-376
+           所示。
+[[PDF_PAGE physical=1415 printed=1366]]
+–   不指定字符编码时，M-Compatibility模式数据库默认使用UTF8编码，其他
+    兼容模式数据库默认使用模板数据库的编码。
+–   模板数据库template0、template1和templatea的默认编码与操作系统环境
+    相关。
+–   模板数据库template1不允许修改字符编码，若要变更编码，请使用模板数据
+    库template0或模板数据库templatea创建数据库。
+
+表 1-376 GaussDB 支持的字符集
+名称         描述         语言     是否服   ICU        字节/字   别名
+                             务器    （Intern    符
+                             端？    ational
+                                   Compon
+                                   ents for
+                                   Unicode
+                                   ）?
+
+BIG5       Big Five   繁体中文   否     否          1-2    WIN950,
+                                                     Window
+                                                     s950
+
+EUC_CN     扩展         简体中文   是     是          1-3    -
+           UNIX编
+           码-中国
+
+EUC_JP     扩展         日文     是     是          1-3    -
+           UNIX编
+           码-日本
+
+EUC_JIS_   扩展         日文     是     否          1-3    -
+2004       UNIX编
+           码-日本,
+           JIS X
+           0213
+
+EUC_KR     扩展         韩文     是     是          1-3    -
+           UNIX编
+           码-韩国
+
+EUC_TW     扩展         繁体中文   是     是          1-3    -
+           UNIX编
+           码-中国
+           台湾
+
+GB1803     国家标准       中文     是     否          1-4    -
+0
+
+GB1803     国家标准       中文     是     否          1-4    -
+0_2022
+
+GBK        扩展国家       简体中文   是     否          1-2    WIN936,
+           标准                                        Window
+                                                     s936
+[[PDF_PAGE physical=1416 printed=1367]]
+名称        描述        语言     是否服   ICU        字节/字   别名
+                           务器    （Intern    符
+                           端？    ational
+                                 Compon
+                                 ents for
+                                 Unicode
+                                 ）?
+
+ISO_885   ISO       拉丁语/   是     是          1      -
+9_5       8859-5,   西里尔语
+          ECMA
+          113
+
+ISO_885   ISO       拉丁语/   是     是          1      -
+9_6       8859-6,   阿拉伯语
+          ECMA
+          114
+
+ISO_885   ISO       拉丁语/   是     是          1      -
+9_7       8859-7,   希腊语
+          ECMA
+          118
+
+ISO_885   ISO       拉丁语/   是     是          1      -
+9_8       8859-8,   希伯来语
+          ECMA
+          121
+
+JOHAB     JOHAB     韩语     否     否          1-3    -
+
+KOI8R     KOI8-R    西里尔语   是     是          1      KOI8
+                    （俄语）
+
+KOI8U     KOI8-U    西里尔语   是     是          1      -
+                    （乌克兰
+                    语）
+
+LATIN1    ISO       西欧     是     是          1      ISO8859
+          8859-1,                                  1
+          ECMA
+          94
+
+LATIN2    ISO       中欧     是     是          1      ISO8859
+          8859-2,                                  2
+          ECMA
+          94
+
+LATIN3    ISO       南欧     是     是          1      ISO8859
+          8859-3,                                  3
+          ECMA
+          94
+[[PDF_PAGE physical=1417 printed=1368]]
+名称         描述           语言       是否服   ICU        字节/字   别名
+                                 务器    （Intern    符
+                                 端？    ational
+                                       Compon
+                                       ents for
+                                       Unicode
+                                       ）?
+
+LATIN4     ISO          北欧       是     是          1      ISO8859
+           8859-4,                                       4
+           ECMA
+           94
+
+LATIN5     ISO          土耳其语     是     是          1      ISO8859
+           8859-9,                                       9
+           ECMA
+           128
+
+LATIN6     ISO          日耳曼语     是     是          1      ISO8859
+           8859-10,                                      10
+           ECMA
+           144
+
+LATIN7     ISO          波罗的海     是     是          1      ISO8859
+           8859-13                                       13
+
+LATIN8     ISO          凯尔特语     是     是          1      ISO8859
+           8859-14                                       14
+
+LATIN9     ISO          带欧罗巴     是     是          1      ISO8859
+           8859-15      和口音的                             15
+                        LATIN1
+
+LATIN10    ISO          罗马尼亚     是     否          1      ISO8859
+           8859-16,     语                                16
+           ASRO SR
+           14111
+
+MULE_I     Mule内        多语种编     是     否          1-4    -
+NTERNA     部编码          辑器
+L
+
+SJIS       Shift JIS    日语       否     否          1-2    Mskanji,
+                                                         ShiftJIS,
+                                                         WIN932,
+                                                         Window
+                                                         s932
+
+SHIFT_JI   Shift JIS,   日语       否     否          1-2    -
+S_2004     JIS X
+           0213
+
+SQL_AS     未指定          任意       是     否          1      -
+CII        （见文
+           本）
+[[PDF_PAGE physical=1418 printed=1369]]
+名称       描述         语言     是否服   ICU        字节/字   别名
+                           务器    （Intern    符
+                           端？    ational
+                                 Compon
+                                 ents for
+                                 Unicode
+                                 ）?
+
+UHC      统一韩语       韩语     否     否          1-2    WIN949,
+         编码                                        Window
+                                                   s949
+
+UTF8     Unicode,   所有     是     是          1-4    Unicode
+         8-bit
+
+WIN866   Window     西里尔语   是     是          1      ALT
+         s CP866
+
+WIN874   Window     泰语     是     否          1      -
+         s CP874
+
+WIN125   Window     中欧     是     是          1      -
+0        s
+         CP1250
+
+WIN125   Window     西里尔语   是     是          1      WIN
+1        s
+         CP1251
+
+WIN125   Window     西欧     是     是          1      -
+2        s
+         CP1252
+
+WIN125   Window     希腊语    是     是          1      -
+3        s
+         CP1253
+
+WIN125   Window     土耳其语   是     是          1      -
+4        s
+         CP1254
+
+WIN125   Window     希伯来语   是     是          1      -
+5        s
+         CP1255
+
+WIN125   Window     阿拉伯语   是     是          1      -
+6        s
+         CP1256
+
+WIN125   Window     波罗的海   是     是          1      -
+7        s
+         CP1257
+[[PDF_PAGE physical=1419 printed=1370]]
+     名称        描述         语言        是否服   ICU        字节/字   别名
+                                    务器    （Intern    符
+                                    端？    ational
+                                          Compon
+                                          ents for
+                                          Unicode
+                                          ）?
+
+     WIN125    Window     越南语       是     是          1      ABC,
+     8         s                                            TCVN,
+               CP1258                                       TCVN57
+                                                            12, VSCII
+
+     ZHS16G    扩展国家       简体中文      是     否          1-2    -
+     BK        标准
+
+
+
+
+       须知
+
+    ● 并非所有的客户端API都支持表1-376中列出的字符集。
+    ● SQL_ASCII设置与其他设置表现存在差异。如果服务器字符集是SQL_ASCII，服
+      务器会将字节值0~127根据ASCII标准解析，而字节值128~255则当作无法解析
+      的字符。通常如果使用了任何非ASCII数据，请勿将字符集设置为SQL_ASCII，
+      如果设置为SQL_ASCII，数据库将无法转换或者校验非ASCII字符。
+    ● 新指定的数据库字符集编码必须与所选择的本地环境中（LC_COLLATE和
+      LC_CTYPE）的设置兼容。
+    ● 当指定的字符编码集为GBK或ZHS16GBK时，部分中文生僻字无法直接作为对
+      象名。主要因为GBK第二个字节的编码范围在0x40~0x7E之间时，字节编码与
+      ASCII字符@、A~Z、[、\、]、^、_、`、a~z、{、|以及}重叠。其中，@、[、
+      \、]、^、_、'、{、|以及}为数据库中的操作符，直接作为对象名时，会产生语
+      法报错。例如“侤”字，GBK16进制编码为0x8240，第二个字节为0x40，与
+      ASCII中@符号编码相同，因此无法直接作为对象名使用。如果需要使用，可以
+      在创建和访问对象时，通过增加双引号进行规避语法报错等问题。
+    ● 若客户端编码和服务器端编码不一致时，数据库需要支持编码格式转换，支持
+      的所有的编码格式转换可通过系统表PG_CONVERSION进行查看。若数据库无
+      法进行编码格式转换，则建议客户端编码与服务器端编码保持一致，客户端编
+      码可通过GUC参数client_encoding修改。
+    ● 当指定数据库字符集编码与客户端编码同时为GB18030_2022时，须确保客户
+      端操作系统支持的GB18030字符集为2022版本，否则由于GB18030字符集各
+      版本间存在不完全兼容可能导致数据的不一致性。同时，当涉及历史数据切换
+      为GB18030_2022数据库时，应当遵循切换数据库流程进行数据迁移操作。
+    ● 当指定的字符编码集为ZHS16GBK时，支持欧元符号（€）的输入，其编码值
+      为0x80。
+
+●   LC_COLLATE [ = ] 'lc_collate'
+    可选，指定新数据库使用的字符集。
+    取值范围：操作系统支持的字符集，默认使用模板数据库的字符集。
+[[PDF_PAGE physical=1420 printed=1371]]
+       须知
+
+    ● 该参数的使用会影响到对字符串的排序顺序，如执行ORDER BY操作的结果排
+      序或在文本列上使用索引的排序。
+    ● 该参数对M-Compatibility模式数据库不生效。
+    ● lc_collate和lc_ctype参数的取值范围，与本地环境支持的字符集相关，如在
+      Linux操作系统上，可通过locale -a命令获取操作系统支持的字符集列表，当使
+      用lc_collate和lc_ctype参数时，从获取的字符集列表中选择用户需要的字符集
+      和字符分类。
+    ● 如果需要设置字符编码集为GB18030_2022时，lc_collate参数和lc_ctype参数
+      的取值范围与GB18030保持一致。
+    ● 如果需要设置字符编码集为ZHS16GBK时，lc_collate参数和lc_ctype参数的取
+      值范围需与GBK字符集保持一致。
+
+●   LC_CTYPE [ = ] 'lc_ctype'
+    可选，指定新数据库使用的字符分类。
+    取值范围：操作系统支持的字符分类，默认使用模板数据库的字符分类。
+
+
+       须知
+
+    ● 该参数的使用会影响到字符的分类，如大写、小写和数字。
+    ● 该参数对M-Compatibility模式数据库不生效。
+    ● lc_collate和lc_ctype参数的取值范围，与本地环境支持的字符集相关，如在
+      Linux操作系统上，可通过locale -a命令获取操作系统支持的字符集列表，当使
+      用lc_collate和lc_ctype参数时，从获取的字符集列表中选择用户需要的字符集
+      和字符分类。
+    ● 如果需要设置字符编码集为GB18030_2022时，lc_collate参数和lc_ctype参数
+      的取值范围与GB18030保持一致。
+    ● 如果需要设置字符编码集为ZHS16GBK时，lc_collate参数和lc_ctype参数的取
+      值范围需与GBK字符集保持一致。
+
+●   DBCOMPATIBILITY [ = ] 'compatibility_type'
+    可选，指定兼容的数据库的类型，默认兼容的数据库的类型：Oracle。
+    取值范围：A、B、C、PG以及M。分别表示：Oracle、MySQL兼容性B模式、TD
+    （Teradata）、PostgreSQL和MySQL兼容性M-Compatibility模式。
+[[PDF_PAGE physical=1421 printed=1372]]
+        须知
+
+    ● A兼容模式数据库下，将空字符串作为NULL处理。当mapping_date_to_datea
+      参数关闭时，数据类型DATE会被替换为TIMESTAMP(0) WITHOUT TIME
+      ZONE，当mapping_date_to_datea参数打开时，数据类型DATE会被替换为
+      DATEA。
+    ● 将字符串转换成整数类型时，如果输入不合法，B兼容模式数据库会将输入转
+      换为0，而其他兼容模式数据库下则会报错。
+    ● PG兼容模式数据库下，CHAR和VARCHAR以字符为计数单位，其他兼容模式数
+      据库下以字节为计数单位。例如，对于UTF-8字符集，CHAR(3)在PG兼容性下
+      能存放3个中文字符，而在其他兼容模式数据库下只能存放1个中文字符。
+    ● 执行语句报错时，部分报错信息中显示“ORA-format”或“MYSQL-
+      format”，表示“A-format”和“B-format”。
+    ● 在需要使用兼容MySQL数据库（MySQL兼容B模式和MySQL兼容M-
+      Compatibility模式）时，推荐使用M-Compatibility模式数据库，其在语法、
+      数据类型、元数据以及协议等功能上与MySQL数据库有更好的兼容度；B模式
+      由于架构限制，无法很好地与MySQL兼容，后续不再演进，不推荐使用。M-
+      Compatibility模式数据库的具体内容介绍请参见SQL参考-M-Compatibility兼
+      容模式、系统表和系统视图-M-Compatibility兼容模式以及Schema-M-
+      Compatibility兼容模式。
+
+●   TABLESPACE [ = ] tablespace_name
+    可选，指定数据库对应的表空间。
+    取值范围：已存在表空间名。
+●   CONNECTION LIMIT [ = ] connlimit
+    可选，数据库可以接受的并发连接数。
+    取值范围：[-1, 231-1]的整数。默认值为-1，表示没有限制。
+
+
+        须知
+
+    ● 系统管理员不受此参数的限制。
+    ● 数据库主节点的connlimit单独统计，数据库整体的连接数 = connlimit * 当前
+      正常数据库主节点个数。
+
+●   DBTIMEZONE [ = ] 'time_zone'
+    指定新数据库的时区。该参数会影响新数据库的时区，默认设置为PRC时区。
+    取值范围：
+    –   操作系统支持的时区名称和缩写。
+    –   -15:59~+15:00。
+[[PDF_PAGE physical=1422 printed=1373]]
+                说明
+
+               ● 该参数仅在A兼容模式数据库下且已设置a_format_version='10c'以及
+                 a_format_dev_version='s2'时支持使用。
+               ● 有关字符编码的一些限制：
+                  ●     若区域设置为C或POSIX，则允许所有的编码类型；对于其他的区域设置，字符编
+                        码必须和区域设置相同。
+                  ●     若字符编码方式是SQL_ASCII，并且修改者为管理员用户时，则字符编码可以和区
+                        域设置不相同。
+                  ●     编码和区域设置必须匹配模板数据库（除将template0或templatea当作模板），
+                        当数据库包含不匹配指定编码的数据或者包含排序顺序受LC_COLLATE和
+                        LC_CTYPE影响的索引。复制数据时，可能会导致在新数据库中的索引失效。
+
+
+示例
+     --创建jim用户。
+     gaussdb=# CREATE USER jim PASSWORD '********';
+
+     --创建一个GBK编码的数据库testdb1。
+     gaussdb=# CREATE DATABASE testdb1 ENCODING 'GBK' template = template0;
+
+     --查看数据库testdb1信息。
+     gaussdb=# SELECT datname,pg_encoding_to_char(encoding) FROM pg_database WHERE datname =
+     'testdb1';
+      datname | pg_encoding_to_char
+     ---------+---------------------
+      testdb1 | GBK
+     (1 row)
+
+     --创建可以接受1000并发连接数的数据库。
+     gaussdb=# CREATE DATABASE testdb4 CONNECTION LIMIT=1000;
+
+     --查看testdb4信息。
+     gaussdb=# SELECT datname,datconnlimit FROM pg_database where datname = 'testdb4';
+      datname | datconnlimit
+     ---------+--------------
+      testdb4 |       1000
+     (1 row)
+
+     --创建表空间。
+     gaussdb=# CREATE TABLESPACE tbs_test RELATIVE LOCATION 'test_tablespace/tbs_test';
+
+     --创建数据库指定默认表空间为tbs_test。
+     gaussdb=# CREATE DATABASE testdb5 TABLESPACE = tbs_test ;
+
+     --查看testdb5信息。
+     gaussdb=# SELECT db.datname,ts.spcname FROM pg_database db JOIN pg_tablespace ts ON
+     db.dattablespace = ts.oid WHERE db.datname = 'testdb5';
+      datname | spcname
+     ---------+----------
+      testdb5 | tbs_test
+     (1 row)
+
+     --创建兼容A模式数据库testdb2，并指定所有者为jim。
+     gaussdb=# CREATE DATABASE testdb2 OWNER jim DBCOMPATIBILITY = 'A';
+
+     --查看testdb2信息。
+     gaussdb=# SELECT t1.datname,t2.usename,t1.datcompatibility
+                    FROM pg_database t1,gs_user t2
+                    WHERE t1.datname = 'testdb2' AND t1.datdba=t2.usesysid;
+      datname | usename | datcompatibility
+     ---------+---------+------------------
+      testdb2 | jim     |A
+     (1 row)
+     gaussdb=# CREATE DATABASE testdb_tmp OWNER jim template=templatea;
+[[PDF_PAGE physical=1423 printed=1374]]
+       --查看testdb2信息。
+       gaussdb=# SELECT t1.datname,t2.usename,t1.datcompatibility
+                      FROM pg_database t1,gs_user t2
+                      WHERE t1.datname = 'testdb_tmp' AND t1.datdba=t2.usesysid;
+         datname | usename | datcompatibility
+       ------------+---------+------------------
+        testdb_tmp | jim      |A
+       (1 row)
+
+       --切换至A兼容性数据库testdb2，并设置会话参数。
+       gaussdb=# \c testdb2
+       testdb2=# SET a_format_version='10c';
+       testdb2=# SET a_format_dev_version='s2';
+
+       --创建兼容A模式的数据库并指定时区。
+       testdb2=# CREATE DATABASE testdb3 DBCOMPATIBILITY 'A' DBTIMEZONE='+08:00';
+
+       --查看testdb3信息。
+       testdb2=# SELECT datname,datcompatibility,dattimezone FROM pg_database WHERE datname = 'testdb3';
+        datname | datcompatibility | dattimezone
+       ---------+------------------+-------------
+        testdb3 | A              | +08:00
+       (1 row)
+
+       --切换至初始数据库，请根据实际情况修改数据库名。
+       testdb2=# \c postgres
+
+       --删除数据库。
+       gaussdb=# DROP DATABASE testdb1;
+       gaussdb=# DROP DATABASE testdb2;
+       gaussdb=# DROP DATABASE testdb3;
+       gaussdb=# DROP DATABASE testdb4;
+       gaussdb=# DROP DATABASE testdb5;
+       gaussdb=# DROP DATABASE testdb_tmp;
+
+       --删除用户。
+       gaussdb=# DROP USER jim;
+
+       --删除表空间。
+       gaussdb=# DROP TABLESPACE tbs_test;
+
+
+相关链接
+       ALTER DATABASE，DROP DATABASE

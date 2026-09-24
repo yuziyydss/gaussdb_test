@@ -1,0 +1,163 @@
+[[PDF_PAGE physical=1777 printed=1728]]
+1.13.17.4 PURGE
+
+功能描述
+            使用PURGE语句可以实现如下功能：
+
+            ●     从回收站中清理表、索引或数据库对象，并释放对象相关的全部空间。
+            ●     清理表回收站或者库回收站。
+
+注意事项
+            ●     清除（PURGE）操作支持：表（PURGE TABLE）、索引（PURGE INDEX）、数
+                  据库（PURGE DATABASE）、表回收站（PURGE RECYCLEBIN）、库回收站
+                  （PURGE DATABASE RECYCLEBIN）。
+
+            ●     执行PURGE操作的权限要求如下：
+                  –   PURGE TABLE：用户必须是表的所有者，且用户必须拥有表所在模式的
+                      USAGE权限，当三权分立开关关闭时，系统管理员默认拥有此权限。
+[[PDF_PAGE physical=1778 printed=1729]]
+            –    PURGE INDEX：用户必须是索引的所有者，用户必须拥有索引所在模式的
+                 USAGE权限，当三权分立开关关闭时，系统管理员默认拥有此权限。
+            –    PURGE RECYCLEBIN：具有superuser或sysdba权限的用户可以执行该操作，
+                 普通用户无此权限。普通用户只能清理回收站中当前用户拥有的对象，且用
+                 户必须拥有对象所在模式的USAGE权限，当三权分立开关关闭时，系统管理
+                 员默认可以清理回收站所有对象。
+            –    PURGE DATABASE：用户必须是数据库的所有者，且用户必须拥有数据库的
+                 DROP权限，当三权分立开关关闭时，系统管理员默认拥有此权限。
+            –    PURGE DATABASE RECYCLEBIN：具有系统管理员权限或sysdba权限的用户
+                 可以执行该操作，普通用户无此权限。普通用户只能清理回收站对象中当前
+                 用户拥有DROP权限的数据库对象，当三权分立开关关闭时，系统管理员默认
+                 可以清理库级回收站所有对象。
+            –    PURGE DATABASE和PURGE DATABASE RECYCLEBIN不支持在事务块内运
+                 行。
+            –    并发删除多个库时，可能提示回收站容量不足导致并发操作失败，实际回收
+                 站能满足部分库的空间要求，可重试规避。
+            –    PURGE DATABASE和PURGE DATABASE RECYCLEBIN继承DROP DATABASE
+                 的文件残留约束。
+
+前提条件
+       ●    开启enable_recyclebin参数，启用表回收站，参数使用请联系管理员。
+       ●    开启enable_db_recyclebin参数，启用库回收站，参数使用请联系管理员。
+       ●    recyclebin_retention_time参数用于设置回收站对象保留时间，超过该时间的回收
+            站对象将被自动清理，参数使用请联系管理员。
+       ●    dbrecyclebin_retention_time参数用于设置库回收站对象保留时间，超过该时间
+            的回收站对象将被自动清理，参数使用请联系管理员。
+       ●    dbrecyclebin_maxsize参数用户设置回收站最大容量，参数使用请联系管理员。
+
+语法格式
+       PURGE { TABLE [schema_name.]table_name
+            | INDEX index_name
+            | RECYCLEBIN
+            | DATABASE database_name
+            | DATABASE RECYCLEBIN
+          };
+
+
+
+
+参数说明
+       ●    schema_name
+            模式名。
+[[PDF_PAGE physical=1779 printed=1730]]
+     ●    TABLE [ schema_name. ] table_name
+          清空表级回收站中指定的表，可用模式名修饰。
+     ●    INDEX index_name
+          清空表级回收站中指定的索引。
+     ●    RECYCLEBIN
+          清空表级回收站中的所有对象。
+     ●    DATABASE database_name
+          清除库级回收站中指定的数据库对象。
+     ●    DATABASE RECYCLEBIN
+          清空库级回收站中归属当前用户的所有数据库对象。
+
+示例
+     示例一：表级回收站清理
+     --创建表reason_t1。
+     gaussdb=# CREATE TABLE reason_t1(
+        r_reason_sk integer,
+        r_reason_id character(16),
+        r_reason_desc character(100)
+     ) WITH(STORAGE_TYPE = ustore);
+
+     --创建表reason_t2。
+     gaussdb=# CREATE TABLE reason_t2(
+        r_reason_sk integer,
+        r_reason_id character(16),
+        r_reason_desc character(100)
+     ) WITH(STORAGE_TYPE = ustore);
+
+     -- 对表reason_t1和reason_t2添加索引。
+     gaussdb=# CREATE INDEX idx_t1 on reason_t1(r_reason_id);
+     gaussdb=# CREATE INDEX idx_t2 on reason_t2(r_reason_id);
+     gaussdb=# DROP TABLE reason_t1;
+     gaussdb=# DROP TABLE reason_t2;
+
+     --查看回收站。
+     gaussdb=# SELECT rcyname,rcyoriginname,rcytablespace FROM GS_RECYCLEBIN;
+             rcyname            | rcyoriginname | rcytablespace
+     ----------------------------+---------------+---------------
+      BIN$31C94EB4207$8001$0==$0 | reason_t1                |       0
+      BIN$31C94EB420D$8001$0==$0 | idx_t1                 |       0
+      BIN$31C94EB420A$8004$0==$0 | reason_t2                |       0
+      BIN$31C94EB420E$8004$0==$0 | idx_t2                |        0
+     (4 rows)
+
+     --PURGE清除表。
+     gaussdb=# PURGE TABLE reason_t1;
+     gaussdb=# SELECT rcyname,rcyoriginname,rcytablespace FROM GS_RECYCLEBIN;
+             rcyname            | rcyoriginname | rcytablespace
+     ----------------------------+---------------+---------------
+      BIN$31C94EB420A$8004$0==$0 | reason_t2               |        0
+      BIN$31C94EB420E$8004$0==$0 | idx_t2                |        0
+     (2 rows)
+
+     --PURG清除索引。
+     gaussdb=# PURGE INDEX idx_t2;
+     gaussdb=# SELECT rcyname,rcyoriginname,rcytablespace FROM GS_RECYCLEBIN;
+             rcyname            | rcyoriginname | rcytablespace
+     ----------------------------+---------------+---------------
+      BIN$31C94EB420A$8004$0==$0 | reason_t2               |      0
+     (1 row)
+[[PDF_PAGE physical=1780 printed=1731]]
+--PURGE清除回收站所有对象。
+gaussdb=# PURGE recyclebin;
+gaussdb=# SELECT rcyname,rcyoriginname,rcytablespace FROM GS_RECYCLEBIN;
+      rcyname          | rcyoriginname | rcytablespace
+-----------------------+---------------+---------------
+(0 rows)
+
+示例二：库级回收站清理
+--创建库。
+gaussdb=# CREATE DATABASE dbflashback;
+CREATE DATABASE
+--删除库。
+gaussdb=# DROP DATABASE dbflashback;
+DROP DATABASE
+--查看库级回收站。
+gaussdb=# select * from gs_db_recyclebin;
+ rcydbid |        rcyname           | rcyoriginname | rcyrecyclecsn |        rcyrecycletime          | rcytablespaces |
+rcydbsize
+---------+---------------------------+---------------+---------------+-------------------------------+----------------
++-----------
+   82510 | BIN$1424E67F$2F48D700==$0 | dbflashback |                    13881 | 2024-10-11 08:52:33.670809-05 |
+1663          |    26312
+(1 row)
+
+--使用系统生成名称清理库对象。
+gaussdb=# purge database "BIN$C1CE67F$26839300==$0";
+PURGE DATABASE
+--或者使用数据库原名清理库对象。
+gaussdb=# purge database dbflashback;
+PURGE DATABASE
+--查看库回收站清理完成。
+gaussdb=# select * from gs_db_recyclebin;
+ rcydbid | rcyname | rcyoriginname | rcyrecyclecsn | rcyrecycletime | rcytablespaces | rcydbsize
+---------+---------+---------------+---------------+----------------+----------------+-----------
+(0 rows)
+--批量清理库级回收站对象。
+gaussdb=# purge database recyclebin;
+PURGE DATABASE RECYCLEBIN
+gaussdb=# select * from gs_db_recyclebin;
+ rcydbid | rcyname | rcyoriginname | rcyrecyclecsn | rcyrecycletime | rcytablespaces | rcydbsize
+---------+---------+---------------+---------------+----------------+----------------+-----------
+(0 rows)

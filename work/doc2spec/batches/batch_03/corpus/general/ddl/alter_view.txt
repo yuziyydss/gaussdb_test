@@ -1,0 +1,260 @@
+[[PDF_PAGE physical=1347 printed=1298]]
+1.13.7.46 ALTER VIEW
+
+功能描述
+            ALTER VIEW更改视图的各种辅助属性（如果用户是更改视图的查询定义，要使用
+            CREATE OR REPLACE VIEW）或重编译视图。
+[[PDF_PAGE physical=1348 printed=1299]]
+注意事项
+       只有视图的所有者或者被授予了视图ALTER权限的用户才可以执行ALTER VIEW命令，
+       三权分立开关关闭时，系统管理员默认拥有该权限。针对所要修改属性的不同，对其
+       还有以下权限约束：
+       ●   修改视图的模式，当前用户必须是视图的所有者或者系统管理员，且要有新模式
+           的CREATE权限。三权分立开关打开时，系统管理员不能修改视图模式。
+       ●   修改视图的所有者，当前用户必须是视图的所有者或者系统管理员，且该用户必
+           须是新所有者角色的成员，并且此角色必须有视图所在模式的CREATE权限。三权
+           分立开关打开时，系统管理员不能修改视图的所有者。
+
+语法格式
+       ●   设置视图列的默认值。
+           ALTER VIEW [ IF EXISTS ] view_name
+             ALTER [ COLUMN ] column_name SET DEFAULT expression;
+
+
+
+
+       ●   取消列视图列的默认值。
+           ALTER VIEW [ IF EXISTS ] view_name
+             ALTER [ COLUMN ] column_name DROP DEFAULT;
+
+
+
+
+       ●   修改视图的所有者。
+           ALTER VIEW [ IF EXISTS ] view_name
+             OWNER TO new_owner;
+
+
+
+
+       ●   重命名视图。
+           ALTER VIEW [ IF EXISTS ] view_name
+             RENAME TO new_name;
+
+
+
+
+       ●   设置视图的所属模式。
+           ALTER VIEW [ IF EXISTS ] view_name
+             SET SCHEMA new_schema;
+
+
+
+
+       ●   设置视图的选项。
+           ALTER VIEW [ IF EXISTS ] view_name
+             SET ( { view_option_name [ = view_option_value ] } [, ... ] );
+
+
+
+
+       ●   重置视图的选项。
+           ALTER VIEW [ IF EXISTS ] view_name
+             RESET ( view_option_name [, ... ] );
+[[PDF_PAGE physical=1349 printed=1300]]
+       ●   重编译视图。
+           ALTER VIEW view_name COMPILE;
+
+
+
+
+参数说明
+       ●   IF EXISTS
+           使用这个选项，如果视图不存在时不会产生错误，仅会有一个提示信息。
+       ●   view_name
+           视图名称，可以用模式修饰。
+           取值范围：字符串，已经存在的视图名。
+       ●   column_name
+           字段名称。
+           取值范围：字符串，已经存在的视图字段名。
+       ●   SET/DROP DEFAULT
+           设置或删除一个列的缺省值，该参数暂无实际意义。
+       ●   new_owner
+           视图新所有者的用户名称。
+       ●   new_name
+           视图的新名称。
+       ●   new_schema
+           视图的新模式。
+       ●   view_option_name [ = view_option_value ]
+           该子句为视图指定一个可选的参数。
+           –    security_barrier：设置视图是否提供行级安全。取值范围为Boolean类型。缺
+                省值为true。
+           –    check_option：控制更新视图的行为。支持参数值为CASCADED或LOCAL。
+                该参数取值不可缺省。
+       ●   expression
+           常量、函数或SQL表达式。
+       ●   COMPILE
+           使用这个选项，对视图进行手动重编译。
+                 说明
+
+               视图失效重编译请参见《开发指南》中“特性使用指导 > 失效重编译”章节。
+
+
+示例
+       ●   重命名视图。
+           --创建test_tbl表。
+           gaussdb=# CREATE TABLE test_tb1(col1 INT,col2 INT);
+
+           --创建视图。
+           gaussdb=# CREATE VIEW abc AS SELECT * FROM test_tb1;
+
+           --设置视图列的默认值为100。
+           gaussdb=# ALTER VIEW IF EXISTS abc ALTER COLUMN col1 SET DEFAULT 100;
+[[PDF_PAGE physical=1350 printed=1301]]
+    --取消视图列的默认值。
+    gaussdb=# ALTER VIEW IF EXISTS abc ALTER COLUMN col1 DROP DEFAULT;
+
+    --重命名视图。
+    gaussdb=# ALTER VIEW IF EXISTS abc RENAME TO test_v1;
+
+    --查看视图。
+    gaussdb=# \dv
+              List of relations
+     Schema | Name | Type | Owner | Storage
+    --------+---------+------+-------+---------
+     public | test_v1 | view | omm |
+    (1 row)
+
+●   修改视图所有者。
+    --创建用户。
+    gaussdb=# CREATE ROLE role_test PASSWORD '********';
+
+    --修改视图所有者。
+    gaussdb=# ALTER VIEW IF EXISTS test_v1 OWNER TO role_test;
+
+    --查看视图信息。
+    gaussdb=# \dv
+                List of relations
+     Schema | Name | Type | Owner | Storage
+    --------+---------+------+-----------+---------
+     public | test_v1 | view | role_test |
+    (1 row)
+
+●   设置视图所属模式。
+    --创建模式。
+    gaussdb=# CREATE SCHEMA tcpds;
+
+    --修改视图所属模式。
+    gaussdb=# ALTER VIEW test_v1 SET SCHEMA tcpds;
+
+    --查看视图信息。
+    gaussdb=# \dv tcpds.test_v1;
+               List of relations
+     Schema | Name | Type | Owner | Storage
+    --------+---------+------+-----------+---------
+     tcpds | test_v1 | view | role_test |
+    (1 row)
+
+●   设置与重置视图选项。
+    --修改视图选项。
+    gaussdb=# ALTER VIEW tcpds.test_v1 SET (security_barrier = TRUE);
+    ALTER VIEW
+
+    --查看。
+    gaussdb=# \dv tcpds.test_v1;
+                    List of relations
+     Schema | Name | Type | Owner |                Storage
+    --------+---------+------+--------+-------------------------
+     tcpds | test_v1 | view | chenxi | {security_barrier=true}
+    (1 row)
+
+    --修改check_option选项。
+    gaussdb=# ALTER VIEW tcpds.test_v1 SET (check_option = 'LOCAL');
+    ALTER VIEW
+
+    --查看。
+    gaussdb=# \dv tcpds.test_v1;
+                            List of relations
+     Schema | Name | Type | Owner |                       Storage
+    --------+---------+------+--------+--------------------------------------------
+     tcpds | test_v1 | view | chenxi | {security_barrier=true,check_option=LOCAL}
+    (1 row)
+[[PDF_PAGE physical=1351 printed=1302]]
+    --重置视图选项。
+    gaussdb=# ALTER VIEW tcpds.test_v1 RESET (security_barrier);
+    ALTER VIEW
+    gaussdb=# ALTER VIEW tcpds.test_v1 RESET (check_option);
+    ALTER VIEW
+
+    --查看。
+    gaussdb=# \dv tcpds.test_v1;
+              List of relations
+     Schema | Name | Type | Owner | Storage
+    --------+---------+------+--------+---------
+     tcpds | test_v1 | view | chenxi |
+    (1 row)
+
+    --删除视图test_v1。
+    gaussdb=# DROP VIEW tcpds.test_v1;
+    DROP VIEW
+
+    --删除表test_tb1。
+    gaussdb=# DROP TABLE test_tb1;
+    DROP TABLE
+
+    --删除用户。
+    gaussdb=# DROP ROLE role_test;
+    DROP ROLE
+
+    --删除schema。
+    gaussdb=# DROP SCHEMA tcpds;
+    DROP SCHEMA
+
+●   重编译视图。
+    --开启视图失效重编译参数。
+    gaussdb=# SET enable_view_invalidation=on;
+
+    --创建表。
+    gaussdb=# CREATE TABLE test_tb1(col1 INT, col2 INT);
+
+    --创建视图。
+    gaussdb=# CREATE VIEW test_v1 AS SELECT col1, col2 FROM test_tb1;
+
+    --删除表test_tb1。
+    gaussdb=# DROP TABLE test_tb1;
+    DROP TABLE
+
+    --查询视图有效性。
+    gaussdb=# SELECT c.relname, o.valid FROM pg_catalog.pg_object o JOIN pg_catalog.pg_class c ON
+    c.oid = o.object_oid WHERE c.relname = 'test_v1';
+     relname | valid
+    ---------+-------
+     test_v1 | f
+    (1 row)
+
+    --重建删除的表test_tb1。
+    gaussdb=# CREATE TABLE test_tb1(col1 INT, col2 INT);
+
+    --重编译视图。
+    gaussdb=# ALTER VIEW test_v1 COMPILE;
+    ALTER VIEW
+
+    --再次查询视图有效性。
+    gaussdb=# SELECT c.relname, o.valid FROM pg_catalog.pg_object o JOIN pg_catalog.pg_class c ON
+    c.oid = o.object_oid WHERE c.relname = 'test_v1';
+     relname | valid
+    ---------+-------
+     test_v1 | t
+    (1 row)
+
+    --删除视图test_v1。
+    gaussdb=# DROP VIEW test_v1;
+    DROP VIEW
+[[PDF_PAGE physical=1352 printed=1303]]
+          --删除表test_tb1。
+          gaussdb=# DROP TABLE test_tb1;
+          DROP TABLE
+
+
+相关链接
+       CREATE VIEW，DROP VIEW

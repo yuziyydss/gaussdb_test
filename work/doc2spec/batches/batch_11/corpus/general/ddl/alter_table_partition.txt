@@ -1,0 +1,952 @@
+[[PDF_PAGE physical=1302 printed=1253]]
+1.13.7.37 ALTER TABLE PARTITION
+
+功能描述
+            修改表分区，包括增加/删除分区、切割/合并分区、清空分区、移动分区表空间、交换
+            分区、重命名分区、开启/关闭分区自动扩展功能，以及修改分区属性等。
+
+注意事项
+            ●   只有分区表的所有者或者被授予了分区表ALTER权限的用户有权限执行ALTER
+                TABLE PARTITION命令，当三权分立开关关闭时，系统管理员默认拥有此权限。
+            ●   添加分区的表空间不能是PG_GLOBAL。
+            ●   添加分区的名称不能与该分区表已有分区的名称相同。
+            ●   添加分区的分区键值要和分区表的分区键类型一致。
+            ●   若添加RANGE分区，添加分区键值要大于分区表中最后一个范围分区的上边界。
+            ●   若添加LIST分区，添加分区键值不能与现有分区键值重复。
+            ●   不支持添加哈希分区。
+            ●   如果目标分区表中已有分区数达到了最大值1048575，则不能继续添加分区。
+            ●   当分区表只有一个分区时，不能删除该分区。
+            ●   选择分区使用PARTITION FOR()，括号里指定值个数应该与定义分区时使用的列
+                个数相同，并且一一对应。ALTER TABLE操作会处理partition_value落入的分区。
+            ●   Value分区表不支持Alter Partition操作。
+            ●   间隔分区表不支持添加分区。
+            ●   哈希分区表不支持切割分区，不支持合并分区，不支持添加/删除分区。
+            ●   删除、切割、合并、清空、交换分区的操作会使Global索引失效，可以申明
+                UPDATE GLOBAL INDEX子句同步更新索引。
+            ●   如果删除、切割、合并、清空、交换分区操作不申明UPDATE GLOBAL INDEX子
+                句，并发的DML业务有可能因为索引不可用而报错。
+            ●   若设置参数enable_gpi_auto_update为on，即使不申明UPDATE GLOBAL INDEX
+                子句，也会自动更新Global索引。
+            ●   在为数据对象增加或者变更ILM策略的时候，如果追加了行级表达式，需要注意行
+                表达式目前只支持白名单中列出的函数。具体白名单函数列表请参见行表达式函
+                数白名单。
+                   说明
+
+                  在ILM策略的ON(EXPR)行级表达式支持的函数中，有部分函数的输出可能会受兼容性参数
+                  影响。例如，upper函数在B兼容模式下设置b_format_version='5.7'和
+                  b_format_dev_version='s2'后，将无法转大写。
+            ●   开启范围分区自动扩展要求分区表中不能存在分区键值为MAXVALUE的分区。
+            ●   开启范围分区自动扩展只支持单分区键。
+            ●   开启列表分区自动扩展要求分区表中不能存在分区键值为DEFAULT的分区。
+            ●   执行在线DDL进行切割/合并分区、交换分区、移动分区表空间操作时，需预留足
+                够的磁盘空间，即剩余空间是所操作的表或分区（及其上索引等附属品）总和。
+            ●   在线DDL不支持在事务内执行（通过JDBC驱动执行多条SQL时会隐式启动事务，
+                禁止多条SQL一起执行），不支持在存储过程中执行。
+[[PDF_PAGE physical=1303 printed=1254]]
+●   如果用户取消在线DDL执行过程，首先进入残留清理流程，如果用户再次取消，
+    则会结束清理流程导致残留。
+●   在线DDL与用户业务之间存在资源争抢，不适合大业务背景下做在线DDL。对于
+    资源有限的场景，建议采用细粒度资源管控进行操作，且不建议使用并行加速功
+    能。
+●   M-Compatibility模式数据库下不支持在线DDL操作。
+●   以下情况中，在线DDL操作将不会生效，DDL操作默认以离线方式执行，如果指
+    定ONLINE关键字，则会产生忽略ONLINE关键字的提示。
+    –   如在线修改表分区语句包含当前在线DDL特性支持操作（在线切割/合并分
+        区、交换分区、移动分区表空间）以外的操作。
+    –   在线修改表分区语句包含多子句操作时（比如语句同时包含在线切割分区和
+        交换分区）。
+●   对数据库级、索引级、二级分区表、段页式表、hash bucket表、临时表、
+    unlogged表、HTAP表进行在线DDL操作时（包含在线切割/合并分区、交换分
+    区、移动分区表空间），在线DDL操作将不会生效，DDL操作默认以离线方式执
+    行，并提示当前DDL语句不支持在线执行。
+●   长事务可能会阻塞在线DDL执行结果（包含在线切割/合并分区、交换分区、移动
+    分区表空间），建议避免在存在长事务时进行在线DDL操作 。
+●   在线DDL修改表分区（包含在线切割/合并分区、交换分区、移动分区表空间）执
+    行后期将阻塞DQL和DML操作。因此，对于存在超时报错机制的业务模型可能出
+    现阻塞导致的请求失败，使用本特性前需要谨慎评估业务模型对等锁的容忍程
+    度，以确认是否能够进行本特性操作。
+●   在线DDL修改表分区执行期间，应尽量避免与其他DDL并发执行，否则可能会出
+    现无响应以及报错等异常，请重新连接客户端进行重试。
+●   从不支持在线DDL修改表分区操作的版本升级至支持在线DDL修改表分区的版
+    本，升级待观察期间不支持使用在线DDL修改表分区操作（包含在线切割/合并分
+    区、交换分区、移动分区表空间），DDL默认以离线方式执行，并提示升级期间
+    不支持在线DDL操作。
+●   在线DDL修改表分区执行（包含在线切割/合并分区、交换分区、移动分区表空
+    间）过程中会生成指定的Schema，Schema命名格式为online$$ddl$$[(表所在的
+    Schema 表名)的hash值]。
+    –   Schema的属主默认为初始用户，在线DDL执行中不建议操作此Schema，可
+        能会导致中止在线DDL并产生未知错误。
+    –   用户不可创建online$$为前缀的Schema，否则会产生报错提示。若已存在同
+        名Schema冲突，在线DDL操作将不会生效，DDL默认以离线方式执行，并提
+        示Schema名冲突导致当前DDL语句不可在线。
+●   若在线DDL（包含在线切割/合并分区、移动分区表空间）操作失败时，表上可能
+    会存在明显存储空间膨胀。在线分区交换操作无论失败与否，表上可能会有明显
+    存储空间膨胀。其膨胀程度与DDL执行时长以及并发写操作数成正比，建议避免
+    在存在长事务时进行在线DDL操作。
+●   在线DDL（包含在线切割/合并分区、交换分区、移动分区表空间）操作继承
+    CREATE TABLE的使用约束。
+●   在线DDL合并分区操作时，若待合并分区的数据在操作前已被压缩，可能存在在
+    线DDL合并操作完成后数据被解压的情况。
+●   在线DDL（包含在线切割/合并分区、交换分区、移动分区表空间）若涉及自动更
+    新Global索引时，在线DDL执行后期可能存在长时间阻塞并发查询、DML业务。
+[[PDF_PAGE physical=1304 printed=1255]]
+语法格式
+       修改分区表分区包括修改表分区主语法、修改表分区名称的语法、重置分区ID和开启/
+       关闭分区自动扩展功能的语法。
+
+       ●   修改表分区主语法。
+           ALTER TABLE [ OFFLINE | [ ONLINE [ WITH ( { online_parameter = value } [, ... ] ) ] ] ] [ IF EXISTS ]
+           { table_name [*] | ONLY table_name | ONLY ( table_name )}
+              action [, ... ];
+           其中action统指如下分区维护子语法。当存在多个分区维护子句时，保证了分区
+           的连续性，无论这些子句的排序如何，GaussDB总会先执行DROP PARTITION再
+           执行ADD PARTITION操作，最后顺序执行其它分区维护操作。
+               move_clause |
+               exchange_clause |
+               row_clause |
+               merge_clause |
+               modify_clause |
+               split_clause |
+               add_clause |
+               drop_clause |
+               truncate_clause |
+               ilm_clause |
+               set_partitioning_clause
+           –      move_clause子语法用于移动分区到新的表空间。
+                  MOVE PARTITION { partition_name | FOR ( partition_value [, ...] ) } TABLESPACE tablespacename
+           –      exchange_clause子语法用于把普通表的数据迁移到指定的分区。
+                  EXCHANGE PARTITION { ( partition_name ) | partition_name | FOR ( partition_value [, ... ] ) }
+                     WITH TABLE {[ ONLY ] ordinary_table_name | ordinary_table_name * | ONLY
+                  ( ordinary_table_name )}
+                     [ { WITH | WITHOUT } VALIDATION ] [ VERBOSE ] [ UPDATE GLOBAL INDEX ]
+                  进行交换的普通表和分区必须满足如下条件：
+
+                  ▪     普通表和分区的列数相同，对应列的信息严格一致，包括：列名、列的
+                        数据类型、列约束、列的Collation信息、列的存储参数、列的压缩信息
+                        等。
+
+                  ▪     普通表和分区的表压缩信息严格一致。
+
+                  ▪     普通表索引和分区Local索引个数相同，且对应索引的信息严格一致。
+
+                  ▪     普通表和分区的表约束个数相同，且对应表约束的信息严格一致。
+
+                  ▪     普通表不可以是临时表，分区表只能是范围分区表，列表分区表，哈希
+                        分区表或间隔分区表。
+
+                  ▪     在内置安全策略开关开启的情况下，普通表和分区表上不可以有动态数
+                        据脱敏，行访问控制约束。
+[[PDF_PAGE physical=1305 printed=1256]]
+       须知
+
+    ● 完成交换后，普通表和分区的数据被置换，同时普通表和分区的表空间信
+      息被置换。此时，普通表和分区的统计信息变得不可靠，需要对普通表和
+      分区重新执行analyze。
+    ● 由于非分区键不能建立本地唯一索引，只能建立全局唯一索引，所以如果
+      普通表含有唯一索引时，可能会导致无法交换数据。
+       如果需要进行数据交换操作，可以通过创建中间表的方式。先将分区数据
+       插入到中间表，truncate分区，普通表数据插入分区表，drop普通表，重
+       命名中间表的方式完成数据交换操作。
+    ● 对于普通表和分区表都是Ustore的场景，如果普通表的Ubtree索引类型
+      （RCR或者PCR，默认为RCR）和分区表本地的Ubtree索引类型（RCR或
+      PCR，默认为RCR）不一致，会导致无法完成数据交换的操作。
+    ● 如果在普通表/分区表上进行了DROP COLUMN操作，被删除的列依然物
+      理存在，则需要保证普通表和分区的被删除列严格对齐才能交换成功。
+    ● EXCHANGE PARTITION { ( partition_name ) | partition_name | FOR
+      ( partition_value [, ... ] ) }操作在B模式数据库（即sql_compatibility =
+      'B'）下可用，其他模式下仅EXCHANGE PARTITION { ( partition_name )
+      | FOR ( partition_value [, ... ] ) }可用。
+       ●    在B模式数据库（即sql_compatibility = 'B'）下，当partition_name
+            为一级分区名时，进行交换的是一级分区和普通表；当
+            partition_name为二级分区时， 进行交换的是二级分区和普通表。
+       ●    不支持在二级分区表中交换一级分区和普通表。
+    ● 当执行交换分区操作的普通表和分区包含rowid列且处于压缩状态时，进
+      行交换分区后，普通表和分区的数据将被自动解压。
+
+–   row_clause子语法用于设置分区表的行迁移开关。
+    { ENABLE | DISABLE } ROW MOVEMENT
+–   merge_clause子语法用于把多个分区合并成一个分区。一个命令中合并的源
+    分区上限为300。
+    MERGE PARTITIONS { partition_name } [, ...] INTO PARTITION partition_name
+       [ ILM ADD POLICY ROW STORE COMPRESS { ADVANCED [ MEDIUM | HIGH ] ROW AFTER n
+    { day | month | year } OF NO MODIFICATION [ ON ( EXPR )] | TURBO [ LOW | MEDIUM |
+    HIGH ] UNIT AFTER n { hour | day | month | year } OF NO MODIFICATION | NONE}]
+    [ TABLESPACE tablespacename ] [ UPDATE GLOBAL INDEX ]
+
+
+
+       须知
+
+    ● 对于范围分区/间隔分区，MERGE分区要求源分区的范围连续递增，且
+      MERGE后的分区名可以与最后一个源分区名相同；对于列表分区，则源分
+      区无顺序要求，且MERGE后的分区名可以与任一源分区名相同。如果
+      MERGE后的分区名与源分区名相同，视为同一个分区。
+    ● 未打开guc参数enable_ilm的情况下，如果使用merge_clause子语法把多
+      个带有ilm policy的分区合并成一个分区，新分区不继承ilm policy。
+    ● USTORE存储引擎表不支持在事务块/存储过程中执行ALTER TABLE
+      MERGE PARTITIONS的操作。
+
+–   modify_clause子语法用于设置分区索引是否可用。
+    MODIFY PARTITION partition_name { UNUSABLE LOCAL INDEXES | REBUILD UNUSABLE LOCAL
+    INDEXES | COLVIEW [ PRIORITY { HIGH | LOW | NONE } ] | NOCOLVIEW }
+[[PDF_PAGE physical=1306 printed=1257]]
+–   split_clause子语法用于把一个分区切割成多个分区。
+    SPLIT PARTITION { partition_name | FOR ( partition_value [, ...] ) } { split_point_clause |
+    no_split_point_clause } [ UPDATE GLOBAL INDEX ]
+
+
+
+        须知
+
+    ● SPLIT后的分区名可以与源分区名相同，将视为不同的分区。
+    ● 未打开guc参数enable_ilm的情况下，如果使用split_clause子语法把一个
+      带有ilm policy的分区分割成多个分区，新分区不继承ilm policy。
+
+
+    ▪     范围分区表和间隔分区表指定切割点split_point_clause的语法为：
+          AT ( partition_value ) INTO ( PARTITION partition_name [ ILM ADD POLICY ROW STORE
+          COMPRESS { ADVANCED [ MEDIUM | HIGH ] ROW AFTER n { day | month | year } OF NO
+          MODIFICATION [ ON ( EXPR )] | TURBO [ LOW | MEDIUM | HIGH ] UNIT AFTER n { hour |
+          day | month | year } OF NO MODIFICATION | NONE}] [ TABLESPACE tablespacename ] ,
+          PARTITION partition_name [ ILM ADD POLICY ROW STORE COMPRESS { ADVANCED
+          [ MEDIUM | HIGH ] ROW AFTER n { day | month | year } OF NO MODIFICATION [ ON
+          ( EXPR )] | TURBO [ LOW | MEDIUM | HIGH ] UNIT AFTER n { hour | day | month | year }
+          OF NO MODIFICATION | NONE}] [ TABLESPACE tablespacename ] )
+
+
+
+              须知
+
+          切割点的大小要位于正在被切割的分区的分区键范围内，指定切割点的
+          方式只能把一个分区切割成两个新分区。
+
+
+    ▪     范围分区表和间隔分区表不指定切割点no_split_point_clause的语法为：
+          INTO { ( partition_less_than_item [, ...] ) | ( partition_start_end_item [, ...] ) }
+
+
+
+              须知
+
+          ● 不指定切割点的方式，partition_less_than_item指定的第一个新分区
+            的分区键要大于正在被切割的分区的前一个分区（如果存在）的分区
+            键，partition_less_than_item指定的最后一个分区的分区键要等于正
+            在被切割的分区的分区键。
+          ● 不指定切割点的方式，partition_start_end_item指定的第一个新分区
+            的起始点（如果存在）必须等于正在被切割的分区的前一个分区（如
+            果存在）的分区键，partition_start_end_item指定的最后一个分区的
+            终止点（如果存在）必须等于正在被切割的分区的分区键。
+          ● partition_less_than_item支持的分区键个数最多为16，而
+            partition_start_end_item仅支持1个分区键，其支持的数据类型请参
+            见CREATE TABLE PARTITION章节的PARTITION BY RANGE
+            [COLUMNS] (partition_key)。
+          ● 在同一语句中partition_less_than_item和partition_start_end_item两
+            者不可同时使用；不同split语句之间没有限制。
+
+
+    ▪     分区项partition_less_than_item的语法如下，其中最后一个分区可以不
+          写分区范围定义，即VALUES LESS THAN (partition_value)部分，默认
+          继承源分区范围定义的上界值。
+          PARTITION partition_name VALUES LESS THAN {( { partition_value | MAXVALUE } [, ...] ) |
+          MAXVALUE }[ ILM ADD POLICY ROW STORE COMPRESS { ADVANCED [ MEDIUM |
+[[PDF_PAGE physical=1307 printed=1258]]
+    HIGH ] ROW AFTER n { day | month | year } OF NO MODIFICATION [ ON ( EXPR )] |
+    TURBO [ LOW | MEDIUM | HIGH ] UNIT AFTER n { hour | day | month | year } OF NO
+    MODIFICATION | NONE}] [ TABLESPACE tablespacename ]
+
+
+
+
+        须知
+
+    RANGE分区时支持MAXVALUE关键字不带括号，只能支持B模式使用，
+    不支持在二级分区的子分区中使用，不支持在分区字段为多列的场景使
+    用。
+
+
+▪   分区项partition_start_end_item的语法如下，其约束请参见CREATE
+    TABLE PARTITION章节的START END语法使用限制。
+    PARTITION partition_name {
+          {START(partition_value) END (partition_value) EVERY (interval_value)} |
+          {START(partition_value) END ({partition_value | MAXVALUE})} |
+          {START(partition_value)} |
+          {END({partition_value | MAXVALUE})}
+    } [ ILM ADD POLICY ROW STORE COMPRESS { ADVANCED [ MEDIUM | HIGH ] ROW
+    AFTER n { day | month | year } OF NO MODIFICATION [ ON ( EXPR )] | TURBO [ LOW |
+    MEDIUM | HIGH ] UNIT AFTER n { hour | day | month | year } OF NO MODIFICATION |
+    NONE}] [TABLESPACE tablespace_name]
+
+▪   列表分区表指定切割点split_point_clause的语法如下。
+    VALUES ( partition_value_list ) INTO ( PARTITION partition_name [ ILM ADD POLICY
+    ROW STORE COMPRESS { ADVANCED [ MEDIUM | HIGH ] ROW AFTER n { day | month |
+    year } OF NO MODIFICATION [ ON ( EXPR )] | TURBO [ LOW | MEDIUM | HIGH ] UNIT
+    AFTER n { hour | day | month | year } OF NO MODIFICATION | NONE}] [ TABLESPACE
+    tablespacename ] , PARTITION partition_name [ ILM ADD POLICY ROW STORE
+    COMPRESS { ADVANCED [ MEDIUM | HIGH ] ROW AFTER n { day | month | year } OF NO
+    MODIFICATION [ ON ( EXPR )] | TURBO [ LOW | MEDIUM | HIGH ] UNIT AFTER n { hour |
+    day | month | year } OF NO MODIFICATION | NONE}] [ TABLESPACE tablespacename ] )
+
+
+
+
+        须知
+
+    切割点必须是源分区的一个非空真子集，指定切割点的方式只能把一个
+    分区切割成两个新分区。
+
+
+▪   列表分区表不指定切割点no_split_point_clause的语法如下，其中最后一
+    个分区不能写分区范围定义，即VALUES (partition_value_list)部分，其
+    范围等于源分区去掉其他子分区后的剩余集合。
+    INTO ( PARTITION partition_name VALUES (partition_value_list) [ ILM ADD POLICY ROW
+    STORE COMPRESS { ADVANCED [ MEDIUM | HIGH ] ROW AFTER n { day | month | year }
+    OF NO MODIFICATION [ ON ( EXPR )] | TURBO [ LOW | MEDIUM | HIGH ] UNIT AFTER n
+    { hour | day | month | year } OF NO MODIFICATION | NONE}] [ TABLESPACE
+    tablespacename ][, ...] )
+
+
+
+
+        须知
+
+    COMPRESS ADVANCED ROW：
+    ●    最后一个新分区不能写分区范围定义，其范围等于源分区去掉其他
+         子分区后的剩余集合。
+    ●    不指定切割点的方式，每一个新分区都必须是源分区的一个非空真
+         子集，且互不交叉。
+[[PDF_PAGE physical=1308 printed=1259]]
+    –    add_clause子语法用于为指定的分区表添加一个或多个分区。
+         ADD {{partition_less_than_item | partition_start_end_item| partition_list_item } |
+           PARTITION({partition_less_than_item | partition_start_end_item | partition_list_item})}
+
+
+
+             须知
+
+         ● PARTITION({partition_less_than_item | partition_start_end_item |
+           partition_list_item})语法只支持B模式下使用。
+         ● 不支持ALTER TABLE table_name ADD PARTITION
+           (partition_definition1, partition_definition2,…);语法添加多分区。仅支持
+           原有添加多分区语法：ALTER TABLE table_name ADD PARTITION
+           (partition_definition1), ADD PARTITION (partition_definition2), …。
+
+    –    分区项partition_list_item的语法为：
+         PARTITION partition_name VALUES [IN] (list_values_clause) [ ILM ADD POLICY ROW STORE
+         COMPRESS { ADVANCED [ MEDIUM | HIGH ] ROW AFTER n { day | month | year } OF NO
+         MODIFICATION [ ON ( EXPR )] | TURBO [ LOW | MEDIUM | HIGH ] UNIT AFTER n { hour | day |
+         month | year } OF NO MODIFICATION | NONE}] [ TABLESPACE tablespacename ]
+
+
+
+             须知
+
+         ● partition_list_item支持最多16个分区键，其支持的数据类型请参见
+           CREATE TABLE PARTITION章节的PARTITION BY LIST [COLUMNS]
+           (partition_key)。
+         ● 间隔/哈希分区表不支持添加分区。
+         ● IN需要在B模式下使用，不支持在二级分区的子分区中使用。
+
+    –    drop_clause子语法用于删除分区表中的指定分区。
+         DROP PARTITION { partition_name | FOR ( partition_value [, ...] ) } [ UPDATE GLOBAL INDEX ]
+
+
+
+             须知
+
+         ● 哈希分区表不支持删除分区。
+         ● 当分区表只有一个分区时，不能删除该分区。
+
+    –    truncate_clause子语法用于清空分区表中的指定分区。
+         TRUNCATE PARTITION { partition_name | FOR ( partition_value [, ...] ) } [ UPDATE GLOBAL
+         INDEX ]
+    –    ilm_clause子语法用于为分区添加ILM策略，为数据生命周期管理-OLTP表压
+         缩特性支持语法。
+         MODIFY PARTITION partition_name ILM ADD POLICY ROW STORE COMPRESS ADVANCED
+         [ MEDIUM | HIGH ] ROW AFTER n { day | month | year } OF NO MODIFICATION [ ON ( EXPR ) ]
+    –    set_partitioning_clause子语法用于开启或关闭列表/范围分区自动扩展功
+         能，或设置分区存储参数。分区设置存储参数仅支持在线DDL内部调用，不
+         建议用户使用。
+         SET PARTITIONING { AUTOMATIC | MANUAL } |
+         SET INTERVAL ( [ interval_expr ] )|
+         SET ({storage_parameter = value} )
+
+●   修改表分区名称的语法。
+    ALTER TABLE [ IF EXISTS ] { table_name [*] | ONLY table_name | ONLY ( table_name )}
+      RENAME PARTITION { partition_name | FOR ( partition_value [, ...] ) } TO partition_new_name;
+[[PDF_PAGE physical=1309 printed=1260]]
+       ●   重置分区ID的语法。
+           ALTER TABLE [ IF EXISTS ] { table_name [*] | ONLY table_name | ONLY ( table_name )} RESET
+           PARTITION;
+
+
+参数说明
+       ●   ONLINE | OFFLINE
+           该关键字用于控制是否开启在线DDL。
+           使用ONLINE | OFFLINE关键字：
+           –    ONLINE：DDL以在线方式执行。此时，若ALTER TABLE语句中包含当前DDL
+                特性不支持的场景时，DDL以离线方式执行，并通过NOTICE提示忽略
+                ONLINE关键字。
+           –    OFFLINE：DDL以离线方式执行。
+                 说明
+
+               ● 在线DDL修改在线交换分区时，会检查数据是否在对应分区的范围内。若检查结果为不
+                 在范围内，DDL操作则会报错。在线DDL可并发DML，可能会出现并发DML将不在对
+                 应分区范围的数据删除，但DDL仍然报错的情况。
+                    例如：在线DDL扫描表检查元组A是否在对应分区的范围内时，若表上元组A并不在对
+                    应分区的范围，在线DDL的事务扫描到元组A时，会立即报错。如果在同一时间使用并
+                    行事务DELETE把元组A删除。但在线DDL扫描检查的事务早于并行事务DELETE，因此
+                    不会认为元组A已被删除。
+               ● 在线DDL错误故障处理：包含在线DDL修改列类型、精度、长度或在线添加非空、检
+                 查、主键、唯一约束时，系统会自动创建临时模式作为DDL实现工具并将表设置为追加
+                 （append_mode）状态。若在线DDL正常执行完成，则临时模式会自动清理和恢复。
+                 自动清理过程可能由于等锁超时等原因而失败，无法进行自动清理，需要手动清理恢
+                 复。若发生严重故障，如FATAL、PANIC、数据库故障和节点断连等故障时，创建的临
+                 时模式和表的追加状态可能残留，需要手动清理和恢复。包含如下情况：
+                    ●     取消执行在线DDL：执行过程中取消在线DDL，系统会自动清理。用户取消执行
+                          后首先进入残留清理流程，此时如果用户再次取消，则会结束清理流程导致残
+                          留。
+                    ●     操作报错：当DDL命令执行过程中出现需要报错场景，如类型转换无法执行或长
+                          度修改损伤数据等，系统会报错并自动清理。
+                    ●     严重故障：用户待集群正常后通过online_ddl_cleanup()进行手动清理。
+               ● 不建议在线DDL执行中online_ddl_cleanup()清理操作，可能会导致中止在线DDL或
+                 产生未知错误。
+       ●   online_parameter
+           当指定ONLINE关键字时，用于指定在线DDL选项。若未指定ONLINE关键字或不
+           满足在线DDL的条件，该参数不生效。
+           取值范围：
+           –    parallel_threads：表示开启并行时的线程数。取值范围：1-32之间的整数
+                值，缺省时默认值为1。
+
+                ▪       当parallel_threads设置为大于1时，开启多线程，采用线程数为指定线
+                        程数。
+
+                ▪       当不设置parallel_threads或设置1，关闭多线程加速。
+                        当用户开启资源负载管理时，比如启用IO资源管理 (如io_limits>0或
+                        io_priority = high/medium/low)，parallel_threads将忽略用户/会话下
+                        的资源负载管理，并给出提示当前资源负载管理无效并开启多线程加
+                        速。在线DDL多线程执行过程实际遵循初始用户的资源负载管理。
+[[PDF_PAGE physical=1310 printed=1261]]
+        ▪   其中关于索引并行parallel_workers参数和parallel_workers参数共同作
+            用加速时，parallel_workers参数控制（最大）索引内并行线程数，
+            parallel_threads参数控制（最大）索引间并行数。
+    –   max_catchup_times：表示在线DDL的最大追增轮次，防止在线DDL执行时
+        间过长。1-50之间的整数值，缺省时默认值为50。
+
+        ▪   在线DDL会记录数据重建过程中的DML增量数据到临时表，并采用多轮
+            次循环追增，将增量数据进行重建。为防止由于DML并发数据量过大，
+            在线DDL无法完成追增的情况，用户可以设置该参数，以限制追增次
+            数。
+●   table_name
+    分区表名。
+    取值范围：已存在的分区表名。
+●   partition_name
+    分区名。
+    取值范围：已存在的分区名。
+●   tablespacename
+    指定分区要移动到哪一个表空间。
+    取值范围：已存在的表空间名。
+●   partition_value
+    分区键值。
+    通过PARTITION FOR ( partition_value [, ...] )子句指定的这一组值，可以唯一确
+    定一个分区。
+    取值范围：需要进行操作的分区的分区键的取值范围。
+●   UNUSABLE LOCAL INDEXES
+    设置该分区上的所有索引不可用。
+●   REBUILD UNUSABLE LOCAL INDEXES
+    重建该分区上的所有索引。
+●   { ENABLE | DISABLE } ROW MOVEMET
+    行迁移开关。
+    如果进行UPDATE操作时，更新了元组在分区键上的值，造成了该元组所在分区
+    发生变化，就会根据该开关给出报错信息，或者进行元组在分区间的转移。
+    取值范围：
+    –   ENABLE：打开行迁移开关。
+    –   DISABLE：关闭行迁移开关。
+    默认是打开状态。
+●   ordinary_table_name
+    进行迁移的普通表的名称。
+    取值范围：已存在的普通表名。
+●   { WITH | WITHOUT } VALIDATION
+    在进行数据迁移时，是否检查普通表中的数据满足指定分区的分区键范围。
+    取值范围：
+[[PDF_PAGE physical=1311 printed=1262]]
+    –   WITH：对于普通表中的数据要检查是否满足分区的分区键范围，如果有数据
+        不满足，则报错。
+    –   WITHOUT：对于普通表中的数据不检查是否满足分区的分区键范围。
+    默认是WITH状态。
+    由于检查比较耗时，特别是当数据量很大的情况下。所以在保证当前普通表中的
+    数据满足分区的分区键范围时，可以加上WITHOUT来指明不进行检查。
+●   VERBOSE
+    在VALIDATION是WITH状态时，如果检查出普通表有不满足要交换分区的分区键
+    范围的数据，那么把这些数据插入到正确的分区，如果路由不到任何分区，再报
+    错。
+
+
+        须知
+
+    只有在VALIDATION是WITH状态时，才可以指定VERBOSE。
+
+●   partition_new_name
+    分区的新名称。
+    取值范围：字符串，要符合标识符命名规范。
+●   UPDATE GLOBAL INDEX
+    如果使用该参数，则会更新分区表上的所有全局索引，以确保使用全局索引可以
+    查询出正确的数据。如果不使用该参数，则分区表上的所有全局索引将会失效。
+●   SET PARTITIONING { AUTOMATIC | MANUAL }
+    开启或关闭列表分区的自动扩展功能。使用AUTOMATIC关键字时为开启自动扩展
+    功能，使用MANUAL关键字时为关闭自动扩展功能。
+●   SET INTERVAL ( [ interval_expr ] )
+    用于实现间隔分区与范围分区之间的互转，间隔分区相当于开启了自动扩展功能
+    后的范围分区。interval_expr缺省时，将间隔分区转为范围分区；否则将范围分
+    区转为间隔分区。其中，interval_expr为自动创建分区的间隔，需要符合
+    partition_key的字段类型，目前只支持数值类型和日期/时间类型，例如：1、'1
+    day'、'1 month'。
+
+●   COLVIEW | NOCOLVIEW
+    声明分区为IMCV分区或为非IMCV分区，详情请参见《开发指南》中“特性使用
+    指导 > HTAP混合负载”章节。
+●   storage_parameter
+    表的存储参数的名称。
+    仅支持在线DDL内部调用，不建议用户使用：
+    –   online_ddl_status（枚举类型）
+        本参数用于更新目标表在线DDL执行状态。
+        仅支持在线DDL内部调用，不建议用户使用。
+
+        ▪    on：开启在线DDL状态。
+
+        ▪    off：关闭在线DDL状态。
+
+        ▪    init：进行在线DDL临时对象初始化。
+[[PDF_PAGE physical=1312 printed=1263]]
+              ▪     catchup：进行在线DDL操作的并发新增数据追增同步。
+
+              ▪     catchup_basedata: 进行在线DDL操作的基础数据同步。
+
+              ▪     scan_catchup：进行在线添加非空/检查约束操作的数据追增。
+
+              ▪     scan_catchup_basedata：进行在线添加非空/检查约束操作的基础数据
+                    检查。
+
+              ▪     vacuum_catchup：进行在线VACUUM FULL操作的数据追增。
+
+              ▪     vacuum_verbose_catchup：进行在线VACUUM FULL VERBOSE操作的
+                    数据追增。
+
+              ▪     last_catchup：进入在线DDL最后一轮追增的写报错模式。
+
+              ▪     switch：进行在线DDL最后一轮追增的临时表交换。
+
+              ▪     copy_switch：进行在线移动表空间操作最后一轮追增的临时表交换。
+
+              ▪     record_toast_oid：记录在线DDL操作目标表附带的TOAST表的OID。
+
+              ▪     abort：在线DDL进入abort状态。
+
+              ▪     flush_buffer：用于在线移动表空间操作中强制buffer落盘。
+
+              ▪     tmp_rel：用于标识该表为在线DDL过程创建的临时表。
+
+              ▪     validate_constr：用于对NOT VALID选项创建的检查类约束进行约束验
+                    证
+
+              ▪     vacuum_switch: 进行在线vacuum full最后一轮追增的临时表交换。
+         –    online_ddl_lock_tag（int类型）
+              用于记录在线DDL目标表的唯一标识（“表所在的Schema+表名”的hash
+              值），用于生成临时对象。
+              仅支持在线DDL内部调用，不建议用户使用。
+
+示例
+     ●   修改表分区名称。
+         --创建前置分区表。
+         gaussdb=# CREATE TABLE test_p1 (col1 INT, col2 INT) PARTITION BY RANGE (col1)
+         (
+            PARTITION p1 VALUES LESS THAN (10),
+            PARTITION p2 VALUES LESS THAN (20),
+            PARTITION p3 VALUES LESS THAN (MAXVALUE)
+         );
+
+         --修改分区名称。
+         gaussdb=# ALTER TABLE test_p1 RENAME PARTITION p3 TO pmax;
+
+         --查询分区信息。
+         gaussdb=# SELECT relname, boundaries, oid FROM pg_partition WHERE parentid='test_p1'::regclass
+         AND parttype <> 'r';
+          relname | boundaries | oid
+         ---------+------------+-------
+          p1     | {10}      | 17066
+          p2     | {20}      | 17067
+[[PDF_PAGE physical=1313 printed=1264]]
+     pmax | {NULL}     | 17068
+    (3 rows)
+
+●   移动分区表空间。
+    --创建分区。
+    gaussdb=# CREATE TABLESPACE tbs_data1 RELATIVE LOCATION 'tablespace1/tbs_data1';
+
+    --移动分区表空间。
+    gaussdb=# ALTER TABLE test_p1 MOVE PARTITION P1 TABLESPACE tbs_data1;
+
+    --查看分区表空间。
+    gaussdb=# SELECT relname, spcname FROM pg_partition t1, pg_tablespace t2 WHERE
+    T1.reltablespace=t2.oid and t1.parentid='test_p1'::regclass;
+     relname | spcname
+    ---------+-----------
+     p1     | tbs_data1
+    (1 row)
+
+    --在线移动分区表空间。
+    gaussdb=# ALTER TABLE test_p1 MOVE PARTITION P1 TABLESPACE pg_default;
+    gaussdb=# ALTER TABLE ONLINE test_p1 MOVE PARTITION P1 TABLESPACE tbs_data1;
+    ALTER TABLE
+    gaussdb=# SELECT relname, spcname FROM pg_partition t1, pg_tablespace t2 WHERE
+    T1.reltablespace=t2.oid and t1.parentid='t1'::regclass;
+     relname | spcname
+    ---------+---------
+     p1     | tbs_data1
+    (1 row)
+
+●   分区交换。
+    --创建普通表，插入数据。
+    gaussdb=# CREATE TABLE test_ep1(col1 INT,col2 INT);
+    gaussdb=# INSERT INTO test_ep1 VALUES (GENERATE_SERIES(1,30), 1000);
+
+    --迁移普通表数据到指定分区。
+    gaussdb=# ALTER TABLE test_p1 EXCHANGE PARTITION (p1) WITH TABLE test_ep1 VERBOSE;
+
+    --查询。
+    gaussdb=# SELECT COUNT(*) FROM test_p1 PARTITION (p1);
+     count
+    -------
+        9
+    (1 row)
+
+    --清除表数据。
+    gaussdb=# TRUNCATE TABLE test_ep1;
+    TRUNCATE TABLE
+    --插入数据。
+    gaussdb=# INSERT INTO test_ep1 VALUES (GENERATE_SERIES(1,30), 1000);
+    INSERT 0 30
+    --在线迁移普通表数据到指定分区。
+    gaussdb=# ALTER TABLE ONLINE test_p1 EXCHANGE PARTITION (p1) WITH TABLE test_ep1 VERBOSE;
+    ALTER TABLE
+    --查询。
+    gaussdb=# SELECT COUNT(*) FROM test_p1 PARTITION (p1);
+     count
+    -------
+        9
+    (1 row)
+
+    --删除表test_ep1
+    gaussdb=# DROP TABLE test_ep1;
+
+●   分区合并。
+    --将test_p1表中p2,pmax分区合并到pmax中。
+    gaussdb=# ALTER TABLE test_p1 MERGE PARTITIONS p2,pmax INTO PARTITION pmax;
+
+    --查看分区。
+    gaussdb=# SELECT relname, boundaries, oid FROM pg_partition WHERE parentid='test_p1'::regclass
+    AND parttype <> 'r' order by 1;
+[[PDF_PAGE physical=1314 printed=1265]]
+     relname | boundaries | oid
+    ---------+------------+-------
+     p1     | {10}      | 17066
+     pmax | {NULL}          | 17070
+    (2 rows)
+
+    --删除表。
+    gaussdb=# DROP TABLE test_p1;
+    DROP TABLE
+    --创建前置分区表。
+    gaussdb=# CREATE TABLE test_p1 (col1 INT, col2 INT) PARTITION BY RANGE (col1)
+    (
+       PARTITION p1 VALUES LESS THAN (10),
+       PARTITION p2 VALUES LESS THAN (20),
+       PARTITION p3 VALUES LESS THAN (MAXVALUE)
+    );
+    --在线将test_p1表中p2,pmax分区合并到pmax中。
+    gaussdb=# ALTER TABLE ONLINE test_p1 MERGE PARTITIONS p2,p3 INTO PARTITION pmax;
+    ALTER TABLE
+    gaussdb=# SELECT relname, boundaries FROM pg_partition WHERE parentid='test_p1'::regclass AND
+    parttype <> 'r' order by 1;
+     relname | boundaries
+    ---------+------------
+     p1     | {10}
+     pmax | {NULL}
+    (2 rows)
+
+    --删除表和表空间。
+    gaussdb=# DROP TABLE test_p1;
+    gaussdb=# DROP TABLESPACE tbs_data1;
+
+●   切割分区。
+    --建表。
+    gaussdb=# CREATE TABLE test_r1 (col1 INT,col2 INT) PARTITION BY RANGE (col1)(
+       PARTITION p1 VALUES LESS THAN (10),
+       PARTITION pmax VALUES LESS THAN (MAXVALUE)
+    );
+
+    --切割分区。
+    gaussdb=# ALTER TABLE test_r1 SPLIT PARTITION pmax AT (20) INTO (PARTITION p2, PARTITION
+    pmax);
+    gaussdb=# ALTER TABLE test_r1 SPLIT PARTITION pmax INTO (
+       PARTITION p3 VALUES LESS THAN (30),
+       PARTITION pmax VALUES LESS THAN (MAXVALUE)
+    );
+
+    --查询。
+    gaussdb=# SELECT relname, boundaries, oid FROM pg_partition WHERE parentid='test_r1'::regclass
+    AND parttype <> 'r' order by 1;
+     relname | boundaries | oid
+    ---------+------------+-------
+     p1     | {10}      | 17088
+     p2     | {20}      | 17090
+     p3     | {30}      | 17092
+     pmax | {NULL}          | 17093
+    (4 rows)
+
+    --删除表。
+    gaussdb=# DROP TABLE test_r1;
+    DROP TABLE
+    --建表。
+    gaussdb=# CREATE TABLE test_r1 (col1 INT,col2 INT) PARTITION BY RANGE (col1)(
+       PARTITION p1 VALUES LESS THAN (10),
+       PARTITION pmax VALUES LESS THAN (MAXVALUE)
+    );
+    --在线切割分区。
+    gaussdb=# ALTER TABLE ONLINE test_r1 SPLIT PARTITION pmax AT (20) INTO (PARTITION p2,
+    PARTITION pmax);
+    ALTER TABLE
+    gaussdb=# ALTER TABLE ONLINE test_r1 SPLIT PARTITION pmax INTO (
+[[PDF_PAGE physical=1315 printed=1266]]
+  PARTITION p3 VALUES LESS THAN (30),
+  PARTITION pmax VALUES LESS THAN (MAXVALUE)
+);
+ALTER TABLE
+gaussdb=# SELECT relname, boundaries FROM pg_partition WHERE parentid='test_r1'::regclass AND
+parttype <> 'r' order by 1;
+ relname | boundaries
+---------+------------
+ p1     | {10}
+ p2     | {20}
+ p3     | {30}
+ pmax | {NULL}
+(4 rows)
+
+--删除表test_r1。
+gaussdb=# DROP TABLE test_r1;
+--建表。
+gaussdb=# CREATE TABLE test_r2(col1 INT, col2 INT) PARTITION BY RANGE (col1)(
+   PARTITION p1 START(1) END(10),
+   PARTITION p2 START(10) END(20),
+   PARTITION pmax START(20) END(MAXVALUE)
+);
+
+--切割分区。
+gaussdb=# ALTER TABLE test_r2 SPLIT PARTITION pmax INTO (
+   PARTITION p3 START(20) END(30),
+   PARTITION pmax START(30) END (MAXVALUE)
+);
+
+--查看。
+gaussdb=# SELECT relname, boundaries, oid FROM pg_partition WHERE parentid='test_r2'::regclass
+AND parttype <> 'r' order by 1;
+ relname | boundaries | oid
+---------+------------+-------
+ p1_0 | {1}          | 17112
+ p1_1 | {10}          | 17113
+ p2     | {20}      | 17114
+ p3     | {30}      | 17116
+ pmax | {NULL}           | 17117
+(5 rows)
+
+gaussdb=# DROP TABLE test_r1;
+DROP TABLE
+--建表。
+gaussdb=# CREATE TABLE test_r2(col1 INT, col2 INT) PARTITION BY RANGE (col1)(
+   PARTITION p1 START(1) END(10),
+   PARTITION p2 START(10) END(20),
+   PARTITION pmax START(20) END(MAXVALUE)
+);
+--在线切割分区。
+gaussdb=# ALTER TABLE ONLINE test_r2 SPLIT PARTITION pmax INTO (
+   PARTITION p3 START(20) END(30),
+   PARTITION pmax START(30) END (MAXVALUE)
+);
+ALTER TABLE
+--查看。
+gaussdb=# SELECT relname, boundaries FROM pg_partition WHERE parentid='test_r2'::regclass AND
+parttype <> 'r' order by 1;
+ relname | boundaries
+---------+------------
+ p1_0 | {1}
+ p1_1 | {10}
+ p2     | {20}
+ p3     | {30}
+ pmax | {NULL}
+(5 rows)
+
+--删除表test_r2。
+gaussdb=# DROP TABLE test_r2;
+[[PDF_PAGE physical=1316 printed=1267]]
+    --建表。
+    gaussdb=# CREATE TABLE test_l1(col1 INT, col2 INT) PARTITION BY LIST(col1)(
+       PARTITION p1 VALUES (10,20),
+       PARTITION p2 VALUES (30,40)
+    );
+
+    --切割分区。
+    gaussdb=# ALTER TABLE test_l1 SPLIT PARTITION p1 VALUES (10) INTO (PARTITION p1_1, PARTITION
+    p1_2);
+    gaussdb=# ALTER TABLE test_l1 SPLIT PARTITION p2 INTO (PARTITION p3_1 VALUES(30), PARTITION
+    p3_2);
+
+    --查看。
+    gaussdb=# SELECT relname, boundaries, oid FROM pg_partition WHERE parentid='test_l1'::regclass
+    AND parttype <> 'r' order by 1;
+     relname | boundaries | oid
+    ---------+------------+-------
+     p1_1 | {10}         | 17132
+     p1_2 | {20}         | 17133
+     p3_1 | {30}         | 17134
+     p3_2 | {40}         | 17135
+    (4 rows)
+
+    --删除表test_l1。
+    gaussdb=# DROP TABLE test_l1;
+
+●   添加分区。
+    --建表。
+    gaussdb=# CREATE TABLE test_p2 (col1 INT, col2 INT) PARTITION BY RANGE (col1)(
+       PARTITION p1 VALUES LESS THAN (10),
+       PARTITION p2 VALUES LESS THAN (20)
+    );
+
+    --添加分区。
+    gaussdb=# ALTER TABLE test_p2 ADD PARTITION p3 VALUES LESS THAN (30);
+
+    --删除表test_p2。
+    gaussdb=# DROP TABLE test_p2;
+    --建表。
+    gaussdb=# CREATE TABLE test_p3 (col1 INT, col2 INT) PARTITION BY LIST(col1)(
+       PARTITION p1 VALUES (1),
+       PARTITION p2 VALUES (2)
+    );
+
+    --添加分区。
+    gaussdb=# ALTER TABLE test_p3 ADD PARTITION p3 VALUES (3);
+
+    --删除表test_p3。
+    gaussdb=# DROP TABLE test_p3;
+
+●   删除分区。
+    --建表。
+    gaussdb=# CREATE TABLE test_p4 (col1 INT, col2 INT) PARTITION BY LIST(col1)(PARTITION p1
+    VALUES (1),PARTITION p2 VALUES (2));
+
+    --删除test_p3表的p2分区。
+    gaussdb=# ALTER TABLE test_p4 DROP PARTITION p2;
+
+    --查看。
+    gaussdb=# SELECT relname, boundaries, oid FROM pg_partition WHERE parentid='test_p4'::regclass;
+     relname | boundaries | oid
+    ---------+------------+-------
+     test_p4 |          | 17187
+     p1     | {1}      | 17188
+    (2 rows)
+
+    --删除表test_p4。
+    gaussdb=# DROP TABLE test_p4;
+
+    --指定partition value删除分区。
+[[PDF_PAGE physical=1317 printed=1268]]
+    --建表。
+    gaussdb=# CREATE TABLE test_p4 (col1 INT, col2 INT) PARTITION BY RANGE(col1)(PARTITION p1
+    VALUES LESS THAN(1),PARTITION p2 VALUES LESS THAN (2));
+
+    --删除test_p3表的分区键为1时所处的分区。
+    gaussdb=# ALTER TABLE test_p4 DROP PARTITION FOR (1);
+
+    --查看。
+    gaussdb=# SELECT relname, boundaries FROM pg_partition WHERE parentid='test_p4'::regclass order
+    by 1 desc;
+     relname | boundaries
+    ---------+------------
+     test_p4 |
+     p1     | {1}
+    (2 rows)
+
+    --删除表test_p4。
+    gaussdb=# DROP TABLE test_p4;
+
+●   清空分区。
+    --建表。
+    gaussdb=# CREATE TABLE test_p5 (col1 INT, col2 INT) PARTITION BY RANGE (col1)(
+       PARTITION p1 VALUES LESS THAN (5),
+       PARTITION p2 VALUES LESS THAN (10)
+    );
+
+    --插入数据。
+    gaussdb=# INSERT INTO test_p5 VALUES (GENERATE_SERIES(1,9), 100);
+
+    --查看p2分区数据。
+    gaussdb=# SELECT * FROM test_p5 PARTITION (p2);
+     col1 | col2
+    ------+------
+       5 | 100
+       6 | 100
+       7 | 100
+       8 | 100
+       9 | 100
+    (5 rows)
+
+    --清空p2分区的数据。
+    gaussdb=# ALTER TABLE test_p5 TRUNCATE PARTITION p2;
+
+    --查看p2分区数据。
+    gaussdb=# SELECT * FROM test_p5 PARTITION (p2);
+     col1 | col2
+    ------+------
+    (0 rows)
+
+    --删除表test_p5。
+    gaussdb=# DROP TABLE test_p5;
+
+●   开启和关闭列表分区的自动扩展功能。
+    --创建一个列表分区。
+    gaussdb=# CREATE TABLE list_int (c1 int, c2 int)
+    PARTITION BY LIST (c1)
+    (
+       PARTITION p1 VALUES (1, 2, 3),
+       PARTITION p2 VALUES (4, 5, 6)
+    );
+
+    --开启列表分区的自动扩展功能。
+    gaussdb=# ALTER TABLE list_int SET PARTITIONING AUTOMATIC;
+
+    --关闭列表分区的自动扩展功能。
+    gaussdb=# ALTER TABLE list_int SET PARTITIONING MANUAL;
+
+    --删除列表分区。
+    gaussdb=# DROP TABLE list_int;
+[[PDF_PAGE physical=1318 printed=1269]]
+       ●   开启和关闭范围分区的自动扩展功能。
+           --创建一个范围分区。
+           gaussdb=# CREATE TABLE range_int (c1 int, c2 int)
+           PARTITION BY RANGE (c1)
+           (
+              PARTITION p1 VALUES LESS THAN (5),
+              PARTITION p2 VALUES LESS THAN (10),
+              PARTITION p3 VALUES LESS THAN (15)
+           );
+
+           --开启范围分区的自动扩展功能。
+           gaussdb=# ALTER TABLE range_int SET INTERVAL (5);
+
+           --关闭范围分区的自动扩展功能。
+           gaussdb=# ALTER TABLE range_int SET INTERVAL ();
+
+           --删除范围分区。
+           gaussdb=# DROP TABLE range_int;
+
+
+相关链接
+       CREATE TABLE PARTITION，DROP TABLE

@@ -1,0 +1,395 @@
+[[PDF_PAGE physical=2101 printed=2052]]
+2.4.2.8.11 CREATE INDEX
+
+功能描述
+             在指定的表上创建索引。索引可以用于提高数据库查询性能，但是不恰当的使用将导
+             致数据库性能下降。建议仅在匹配如下某条原则时创建索引：
+
+             ●   经常执行查询的字段。
+             ●   在连接条件上创建索引，对于存在多字段连接的查询，建议在这些字段上建立组
+                 合索引。例如：SELECT * FROM t1 JOIN t2 ON t1.a=t2.a AND t1.b=t2.b;语句
+                 中，可以在t1表上的a、b字段上建立组合索引。
+             ●   WHERE子句的过滤条件字段上（尤其是范围条件）。
+             ●   在经常出现在ORDER BY、GROUP BY和DISTINCT后的字段。
+
+注意事项
+             ●   索引自身也占用存储空间、消耗计算资源，创建过多的索引将对数据库性能造成
+                 负面影响（尤其影响数据导入的性能，建议在数据导入后再建索引）。因此，仅
+                 在必要时创建索引。
+             ●   索引定义里的所有函数和操作符都必须是immutable类型的，即它们的结果必须
+                 只能依赖于它们的输入参数，而不受任何外部的影响（如另外一个表的内容或者
+                 当前时间）。这个限制可以确保该索引的行为是定义良好的。要在一个索引上或
+                 WHERE中使用用户定义函数，请把它标记为immutable类型函数。
+             ●   分区表索引分为LOCAL索引与GLOBAL索引，LOCAL索引与某个具体分区绑定，
+                 而GLOBAL索引则对应整个分区表。
+             ●   被授予CREATE ANY INDEX权限的用户，可以在public模式和用户模式下创建索
+                 引。
+             ●   禁止其他用户在初始用户的表上创建包含用户自定义函数的表达式索引。
+             ●   如果表达式索引中调用的是用户自定义函数，按照函数创建者权限执行表达式索
+                 引函数。
+             ●   普通表的索引支持最大列数为32列；分区表的GLOBAL索引支持最大列数为31
+                 列。
+             ●   单个索引大小不能超过索引页面大小（8k），其中B-tree、UB-tree不能超过页面
+                 大小的三分之一。
+             ●   在分区表上创建索引与在普通表上创建索引的语法不同，分区表上创建索引会根
+                 据如下规则进行判断：
+[[PDF_PAGE physical=2102 printed=2053]]
+           –    如果创建索引时，明确指定了GLOBAL或LOCAL关键字，则创建对应类型的
+                索引；在未指定的情况下，默认创建GLOBAL索引，但对于如果是创建
+                UNIQUE索引且包含全部分区键时，会创建LOCAL索引。
+           –    分区表创建GLOBAL索引时，存在以下约束条件：
+
+                ▪     不支持表达式索引。
+
+                ▪     仅支持B-tree索引（ASTORE），USTORE下为UB-tree。
+       ●   在顺序不同的索引列上，支持同时创建LOCAL索引与GLOBAL索引。在顺序相同的
+           索引列上，不支持同时创建LOCAL索引与GLOBAL索引。
+       ●   如果ALTER语句中未包含UPDATE GLOBAL INDEX，那么原有的GLOBAL索引将失
+           效，查询时将使用其他索引进行查询；如果ALTER语句中含有UPDATE GLOBAL
+           INDEX，原有的GLOBAL索引仍然有效，并且索引功能正确。
+           说明
+
+           对于在未开启精度传递参数（m_format_behavior_compat_options不开启
+           enable_precision_decimal选项）情况下创建的索引，当开启精度传递参数后会失效，需要重新
+           创建索引。
+
+
+语法格式
+       ●   在表上创建索引。
+           CREATE [ UNIQUE ] INDEX [ [schema_name.] index_name ] [index_type]
+           ON table_name ( key_part,... )
+             [ WITH ( {storage_parameter = value} [, ... ] ) ]
+             [ TABLESPACE tablespace_name ]
+             [index_option]
+             [algorithm_option | lock_option] ...
+
+           key_part:
+              { { column_name [ ( length ) ] | ( expression ) } [ COLLATE collation ] [ opclass ] [ ASC | DESC ]
+           [ NULLS { FIRST | LAST } ] }[, ...]
+
+           index_option: {
+            index_type
+             | COMMENT 'string'
+           }
+
+           index_type:
+              USING {BTREE | UBTREE}
+
+           algorithm_option:
+              ALGORITHM [=] {DEFAULT | INPLACE | COPY}
+
+           lock_option:
+              LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE};
+
+       ●   在分区表上创建索引。
+           CREATE [ UNIQUE ] INDEX [ [schema_name.] index_name ][index_type]
+           ON table_name
+             [ LOCAL
+                [ ( { PARTITION index_partition_name [ TABLESPACE index_partition_tablespace ]
+                       [ ( [SUBPARTITION index_subpartition_name] [ TABLESPACE index_partition_tablespace ]
+                           [, ...] ) ]
+                   [, ...] } ) ]
+                | GLOBAL ]
+             [ WITH ( { storage_parameter = value } [, ...] ) ]
+             [ TABLESPACE tablespace_name ];
+             [index_option]
+             [algorithm_option | lock_option] ...
+
+           index_option: {
+            index_type
+[[PDF_PAGE physical=2103 printed=2054]]
+               | COMMENT 'string'
+           }
+
+           index_type:
+              USING {BTREE | UBTREE}
+
+           algorithm_option:
+              ALGORITHM [=] {DEFAULT | INPLACE | COPY}
+
+           lock_option:
+              LOCK [=] {DEFAULT | NONE | SHARED | EXCLUSIVE};
+
+
+参数说明
+       ●   UNIQUE
+           创建唯一性索引，每次添加数据时检测表中是否有重复值。如果插入或更新的值
+           会引起重复的记录时，将导致一个错误。
+           目前只有B-tree及UBtree索引支持唯一索引。
+       ●   schema_name
+           模式的名称。
+           取值范围：已存在模式名。
+       ●   index_name
+           要创建的索引名，索引的模式与表相同。
+           取值范围：字符串，要符合标识符说明。
+       ●   table_name
+           需要为其创建索引的表的名称，可以用模式修饰。
+           取值范围：已存在的表名。
+       ●   USING method
+           指定创建索引的方法。
+           取值范围：
+           –       BTREE：BTREE索引使用一种类似于B+树的结构来存储数据的键值，通过这
+                   种结构能够快速查找索引。BTREE适合支持比较查询以及查询范围。
+           –       UBTREE：仅供ustore表使用的多版本btree索引，索引页面上包含事务信息，
+                   并能自主回收页面。ubtree索引默认开启insertpt功能。
+           行存表（ASTORE存储引擎）支持的索引类型：BTREE（行存表缺省值）。行存表
+           （USTORE存储引擎）支持的索引类型：BTREE（实际建立为UBTREE）。
+
+
+                 须知
+
+           BTREE与表的存储类型astore/ustore强相关，在创建索引时指定索引类型与主表
+           不对应时会自动进行转换。在指定创建索引时，ASTORE创建的为BTREE，而
+           USTORE创建创建的为UBTREE。
+
+       ●   column_name
+           表中需要创建索引的列的名称（字段名）。
+           如果索引方式支持多字段索引，可以声明多个字段。全局索引最多可以声明31个
+           字段，其他索引最多可以声明32个字段。
+       ●   column_name ( length )
+[[PDF_PAGE physical=2104 printed=2055]]
+    创建一个基于该表一个字段的前缀键索引，column_name为前缀键的字段名，
+    length为前缀长度。
+    前缀键将取指定字段数据的前缀作为索引键值，可以减少索引占用的存储空间。
+    含有前缀键字段的部分过滤条件和连接条件可以使用索引。
+        说明
+
+       ● 前缀键支持的索引方法：BTREE、UBTREE。
+       ● 前缀键的字段的数据类型必须是二进制类型或字符类型（不包括特殊字符类型）。
+       ● 前缀长度必须是不超过2676的正整数，并且不能超过字段的最大长度。对于二进制类
+         型，前缀长度以字节数为单位。对于非二进制字符类型，前缀长度以字符数为单位。键
+         值的实际长度受内部页面限制，若字段中含有多字节字符、或者一个索引上有多个键，
+         索引行长度可能会超限，导致报错，设定较长的前缀长度时请考虑此情况。
+       ● 前缀键属于一种特殊的表达式键，部分未说明的约束和限制，与表达式键一致，请参考
+         表达式索引的说明。
+●   expression
+    创建一个基于该表的一个或多个字段的表达式索引，通常必须写在圆括弧中。
+    表达式索引可用于获取对基本数据的某种变形的快速访问。比如，一个在
+    upper(col)上的函数索引将允许WHERE upper(col) = 'JIM'子句使用索引。
+    在创建表达式索引时，如果表达式中包含IS NULL子句，则这种索引是无效的。
+●   COLLATE collation
+    指定列的排序规则（该列必须是可排列的数据类型）。
+    如果没有指定，则使用默认的排序规则。可以使用“SELECT * FROM
+    pg_collation;”命令从pg_collation系统表中查询排序规则，默认的排序规则为查
+    询结果中以default开始的行。
+●   opclass
+    操作符类的名称。
+    对于索引所在的每一列可以指定一个操作符类，操作符类标识了索引所在列使用
+    的操作符。例如一个btree索引在一个四字节整数列上，可以使用int4_ops操作符
+    类，该操作符类包括四字节整数的比较函数。
+    实际上，对于列上的数据类型默认的操作符类是足够业务场景使用的，操作符类
+    主要用于一些有多种排序的数据场景下使用。例如，用户需要按照绝对值或者实
+    数部分对复数进行排序，可以通过定义两个操作符类，然后在建立索引时选择合
+    适的类对复数进行排序。另外，当包含字符串类型（varchar、varchar2、text
+    等）的索引的排序规则的值不在C或POSIX中，但同时希望索引可以进行前缀匹配
+    时，需要指定varchar_pattern_ops选项。
+●   LOCAL
+    指定创建的分区索引为LOCAL索引。
+●   GLOBAL
+    指定创建的分区索引为GLOBAL索引，当不指定LOCAL、GLOBAL关键字时，默认
+    创建GLOBAL索引。
+●   NULLS FIRST
+    指定空值在排序中位于非空值之前。当指定为DESC排序时，本选项为默认的。
+●   NULLS LAST
+    指定空值在排序中位于非空值之后。未指定DESC排序时，本选项为默认的。
+●   PARTITION子句
+    指定一级分区分区信息语法如下：
+[[PDF_PAGE physical=2105 printed=2056]]
+    PARTITION index_partition_name [ TABLESPACE index_partition_tablespace ]
+    指定二级分区分区信息语法如下：
+    SUBPARTITION index_subpartition_name [ TABLESPACE index_partition_tablespace ]
+    –    PARTITION index_partition_name
+         索引分区的名称。
+         取值范围：字符串，要符合标识符说明。
+    –    SUBPARTITION index_subpartition_name
+         索引二级分区的名称。
+         取值范围：字符串，要符合标识符说明。
+    –    TABLESPACE index_partition_tablespace
+         索引分区的表空间。
+         取值范围：如果没有声明，将使用分区表索引的表空间index_tablespace。
+         注：需要在非M-Compatibility数据库中创建或删除tablespace。
+●   WITH ( {storage_parameter = value} [, ... ] )
+    指定索引方法的存储参数。
+    取值范围：
+    只有UBTREE索引支持INDEXSPLIT参数。只有非分区表的BTREE索引支持
+    DEDUPLICATION参数。只有UBTREE索引支持INDEX_TXNTYPE参数。
+    –    STORAGE_TYPE
+         表示索引所在的表的存储引擎类型，当索引指定的storage_type与索引类型
+         冲突时，会自动修改为正确的存储类型。该参数设置成功后无法再次进行修
+         改。
+         取值范围：
+
+         ▪    USTORE，表示索引所在的表为Inplace-Update存储引擎。
+
+         ▪    ASTORE，表示索引所在的表为Append-Only存储引擎。
+         默认值：
+
+         ▪    UStore表创建的索引默认为USTORE。
+
+         ▪    AStore表创建的索引默认为ASTORE。
+    –    FILLFACTOR
+         索引的填充因子（fillfactor）是一个介于10和100之间的百分数。对于大并发
+         插入且键值范围比较密集的场景，插入时同一个索引页面的竞争比较大，选
+         择较小的填充因子更加合适。
+         取值范围：10~100
+    –    INDEXSPLIT
+         UBTREE索引选择采取哪种分裂策略。其中DEFAULT策略指的是与BTREE相同
+         的分裂策略。INSERTPT策略能在某些场景下显著降低索引空间占用。
+         取值范围：INSERTPT, DEFAULT
+         默认值：INSERTPT
+    –    INDEX_TXNTYPE
+         UBTree索引类型（只有UBTree索引支持INDEX_TXNTYPE），当该值取值为
+         PCR时，可支持通过UBTree进行闪回查询。PCR版本UBTree索引当前不支持
+[[PDF_PAGE physical=2106 printed=2057]]
+    在线创建索引、全局二级索引、极致RTO回放和备机读的功能。当不指定
+    index_txntype时，具体创建哪种类型的索引通过GUC参数index_txntype进行
+    控制。INDEX_TXNTYPE不支持ALTER INDEX INDEX_NAME SET
+    (INDEX_TXNTYPE=PCR或RCR)进行修改。
+    类型：字符串（不区分大小写）
+    取值范围： RCR, PCR
+    默认值：RCR
+    举例：
+    CREATE UNIQUE INDEX t2_b_pkey ON t(b) WITH(index_txntype='pcr');
+–   ACTIVE_PAGES
+    表示索引的页面数量，可能比实际的物理文件页面少，可以用于优化器调
+    优。目前只对ustore的分区表local索引生效，且会被vacuum、analyze更新
+    （包括auto vacuum）。不建议用户手动设置该参数。
+–   DEDUPLICATION
+    索引参数，设置索引是否对键值重复的元组进行去重压缩。在重复键值的索
+    引较多时，开启参数可以有效降低索引占用空间。对主键索引和唯一索引不
+    生效。非唯一索引且索引键值重复度很低或者唯一的场景，开启参数会使索
+    引插入性能小幅度劣化。暂不支持分区表的local/global索引。
+    取值范围：布尔值，默认取GUC参数中enable_default_index_deduplication
+    的值（默认为off）。
+–   stat_state
+    标识该索引的统计信息是否被锁定，如果被锁定了，该索引的统计信息无法
+    更新。
+    取值范围：locked、unlock。
+    默认值：unlock。
+–   LPI_PARALLEL_METHOD
+    索引参数，设置分区表LOCAL索引并行创建的方式。PAGE为页面级并行创建
+    索引，开启多个子线程执行数据的扫描和排序，每个子线程一次处理一个数
+    据页面，扫描排序后，在主线程串行合并排序结果并将元组插入到索引中；
+    PARTITION为分区级并行创建索引，开启多个子线程，每个子线程负责一个
+    分区中数据的扫描、排序、索引插入；AUTO会根据分区表统计信息来预估页
+    面级和分区级两种并行创建索引方式的代价，并选择代价较小的并行创建方
+    式（统计信息可能会和实际数据情况有误差而导致计算结果不准确）。当分
+    区表数据在各分区分布均匀时，建议指定该参数为PARTITION。该参数仅支
+    持Astore分区表的BTREE LOCAL索引，不支持分区表GLOBAL索引、非分区
+    表索引、段页式表索引、在线创建索引。
+    类型：字符串（不区分大小写）。
+    取值范围：PAGE、PARTITION、AUTO。
+    默认值：PAGE。
+    举例：
+    CREATE INDEX idx ON tbl(col) WITH (lpi_parallel_method = 'partition');
+–   enable_tde
+    指定该索引是否为加密索引，若是加密索引，数据库会自动将加密索引中的
+    数据先加密再存储。本参数仅支持btree和ubtree索引，不支持其他索引。
+    取值范围：on或off。
+    默认值：off。
+[[PDF_PAGE physical=2107 printed=2058]]
+         –    encrypt_algo
+              索引的加密算法。用户为索引设置enable_tde参数后，索引会自动复制基表
+              的encrypt_algo参数。该参数不支持手动设置或更改。
+              取值范围：字符串；有效值为：AES_128_CTR、SM4_CTR、
+              AES_128_CTR_SHA256_HMAC、SM4_CTR_SM3_HMAC或AES_128_GCM。
+              默认值：空。
+         –    dek_cipher
+              数据密钥的密文。该参数不支持手动设置或更改。用户为索引设置
+              enable_tde参数后，索引会自动复制基表的dek_cipher参数。
+              取值范围：字符串。
+              默认值：空。
+         –    key_type
+              主密钥的类型。该参数不支持手动设置或更改。用户为索引设置enable_tde
+              参数后，索引会自动复制基表的key_type参数。
+              默认值：空。
+         –    cmk_id
+              主密钥的ID。该参数不支持手动设置或更改。用户为索引设置enable_tde参
+              数后，索引会自动复制基表的cmk_id参数。
+              取值范围：字符串。
+              默认值：空。
+     ●   TABLESPACE tablespace_name
+         指定索引的表空间，如果没有声明则使用默认的表空间。
+         取值范围：已存在的表空间名。
+         注：需要在非M-Compatibility数据库中创建或删除tablespace。
+
+示例
+     ●   普通索引
+         --创建tbl_test1表。
+         m_db=# CREATE TABLE tbl_test1(
+            id int,     --用户id
+            name varchar(50), --用户姓名
+            postcode char(6) --邮编
+         );
+
+         --为表tbl_test1创建索引idx_test1指定表空间。
+         m_db=# CREATE INDEX idx_test1 ON tbl_test1(name) TABLESPACE pg_default;
+
+         --查询索引idx_test1信息。
+         m_db=# SELECT indexname,tablename,tablespace FROM pg_indexes WHERE indexname = 'idx_test1';
+          indexname | tablename | tablespace
+         -----------+-----------+------------
+          idx_test1 | tbl_test1 |
+         (1 row)
+
+         --删除索引。
+         m_db=# DROP INDEX idx_test1;
+
+     ●   唯一索引
+         --为表tbl_test1创建唯一索引idx_test2。
+         m_db=# CREATE UNIQUE INDEX idx_test2 ON tbl_test1(id);
+
+         --查询索引信息。
+         m_db=# \d tbl_test1
+[[PDF_PAGE physical=2108 printed=2059]]
+                    Table "public.tbl_test1"
+             Column |           Type        | Modifiers
+           ----------+-----------------------+-----------
+            id      | integer            |
+            name        | character varying(50) |
+            postcode | character(6)           |
+           Indexes:
+               "idx_test2" UNIQUE, btree (id) TABLESPACE pg_default
+
+           --删除索引。
+           m_db=# DROP INDEX idx_test2;
+
+       ●   分区索引
+           --建表。
+           m_db=# CREATE TABLE student(id int, name varchar(20)) PARTITION BY RANGE (id) (
+              PARTITION p1 VALUES LESS THAN (200),
+              PARTITION pmax VALUES LESS THAN (MAXVALUE)
+           );
+
+           --创建LOCAL分区索引不指定索引分区的名称。
+           m_db=# CREATE INDEX idx_student1 ON student(id) LOCAL;
+
+           --查看索引分区信息，发现LOCAL索引分区数和表的分区数一致。
+           m_db=# SELECT relname FROM pg_partition WHERE parentid = 'idx_student1'::regclass;
+             relname
+           -------------
+            p1_id_idx
+            pmax_id_idx
+           (2 rows)
+
+           --删除LOCAL分区索引。
+           m_db=# DROP INDEX idx_student1;
+
+           --创建GLOBAL索引。
+           m_db=# CREATE INDEX idx_student2 ON student(id) GLOBAL;
+
+           --查看索引分区信息，发现GLOBAL索引分区数和表的分区数不一致。
+           m_db=# SELECT relname FROM pg_partition WHERE parentid = 'idx_student2'::regclass;
+            relname
+           ---------
+           (0 rows)
+
+           --删除GLOBAL分区索引。
+           m_db=# DROP INDEX idx_student2;
+
+           --删除表。
+           m_db=# DROP TABLE student;
+
+
+相关链接
+       ALTER INDEX，DROP INDEX
