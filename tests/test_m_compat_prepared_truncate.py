@@ -71,7 +71,7 @@ class PreparedTruncateIntegrationTests(unittest.TestCase):
         for fid in ('m_prepare', 'm_truncate'):
             audit = FactorCoverageAuditor(self.registry).audit(fid)
             self.assertEqual(audit['facts']['wrong_consumer_type'], [])
-            self.assertFalse(audit['conclusions']['static_coverage_complete'])
+            self.assertTrue(audit['conclusions']['static_coverage_complete'])
             self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
 
 

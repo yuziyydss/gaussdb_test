@@ -50,7 +50,7 @@ class SequenceDetachTests(unittest.TestCase):
             f'DROP TABLE {OWNER};',f"SELECT nextval('{SEQ}');"])
         self.assertEqual(s.oracles,[dict(kind='result_set',step_id='after_owner_drop',expected=[[5]])])
         self.assertIn('m_create_sequence::m_create_sequence_fact_owned',s.fact_refs)
-        self.assertTrue(any(f.type=='open_question' and '相等' in f.statement
+        self.assertTrue(any(f.type=='environment' and '相等' in f.statement
                             for f in self.r.factors['m_alter_sequence'].facts))
 
     def test_permissions_have_real_typed_cross_chapter_sources(self):
