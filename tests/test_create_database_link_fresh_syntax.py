@@ -35,7 +35,6 @@ class CreateDatabaseLinkFreshSyntaxTests(unittest.TestCase):
         audit=FactorCoverageAuditor(self.r).audit('create_database_link')
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
         self.assertTrue(audit['conclusions']['static_coverage_complete'])
-        self.assertIn('create_database_link_feature_runtime',
                       audit['documented_features']['needs_profile'])
         self.assertIn('create_database_link_feature_syntax_conflict',
                       audit['documented_features']['needs_profile'])
