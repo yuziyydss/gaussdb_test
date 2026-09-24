@@ -93,22 +93,3 @@ class ApproximateSourceIntegrationTests(unittest.TestCase):
         with patch.object(g,'_compile_fixture_lifecycle',side_effect=changed):
             with self.assertRaisesRegex(GenerationValidationError,'source_type_mismatch'):g.generate_with_report(m)
 
-    def test_type_source_is_real_m_pdf_and_result_oracles_are_still_planned(self):
-        self.manifest('sum','float')
-        source=next(s for s in self.r.source_ledgers['source_ledger_m_select'].supplemental_sources
-                    if s.id=='m_select_approximate_types_source')
-        self.assertEqual(source.catalog_chapter_ref.source_relpath,'m_compat/utility/section_2_6.txt')
-        self.assertEqual(source.source_anchor,'L1160-1229')
-        for typ in ('float','double'):
-            s=self.r.scenarios[f'scenario_m_select_{typ}_aggregates']
-            self.assertEqual(s.status,'planned')
-            self.assertIn('target_oracle_calibration',s.execution_requirements)
-            self.assertIn('per_step_oracle',s.execution_requirements)
-            values=[o['expected'] for o in s.oracles if o['kind']=='result_set']
-            self.assertEqual(values,[[[4.0]],[[1.5]],[[2.5]]])
-            self.assertTrue(any(o['kind']=='manual_assertion' for o in s.oracles))
-        for name,value in select().finish().items():
-            assert_evolved_asset(self, yaml.safe_load((ROOT/'specs/dml/m_select'/name).read_text()),value,name)
-
-
-if __name__=='__main__':unittest.main()

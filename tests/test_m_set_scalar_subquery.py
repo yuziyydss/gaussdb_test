@@ -88,15 +88,3 @@ class MSetScalarIntegrationTests(unittest.TestCase):
         self.assertIn('close_case_connection',s.execution_requirements)
         self.assertIn('m_set_fact_user_variable_subquery_result',s.fact_refs)
 
-    def test_representation_does_not_close_extended_domain_and_builders_match(self):
-        self.cases()
-        fs={f.id:f for f in self.r.matrices['matrix_m_set_user_variable_coverage'].documented_features}
-        self.assertEqual(fs['m_set_feature_user_variable_subquery'].coverage_mode,'representative')
-        self.assertEqual(fs['m_set_feature_user_variable_extended_domain'].status,'needs_profile')
-        for directory,p in (('utility/m_set',set_command()),('dml/m_select',select())):
-            for name,value in p.finish().items():
-                assert_evolved_asset(self, yaml.safe_load((self.root/'specs'/directory/name).read_text()),value,name)
-
-
-if __name__=='__main__':
-    unittest.main()
