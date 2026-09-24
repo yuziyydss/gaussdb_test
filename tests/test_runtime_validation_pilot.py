@@ -101,6 +101,9 @@ class RuntimeValidationPilotTests(unittest.TestCase):
         self.assertEqual(receipt["runtime_verified"], 7)
         self.assertEqual(receipt["failed_units"], 0)
         self.assertEqual(receipt["executed_steps"], 15)
+        self.assertEqual(receipt["plan_step_count"], 15)
+        self.assertEqual(len(receipt["plan_unit_ids"]), 7)
+        self.assertIn("plan_sha256", receipt)
         self.assertEqual(len(transport.calls), 15)
 
     def test_missing_notice_oracle_fails_unit_without_faking_pass(self):

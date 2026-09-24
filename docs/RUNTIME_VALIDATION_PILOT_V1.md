@@ -87,6 +87,32 @@ python scripts/run_runtime_validation_pilot.py \
 - 输出、返回值或生命周期 Oracle 必须有实际 rows/notices 证据
 - 未捕获证据不得标记 `runtime_verified`
 
+## 回执审计
+
+真实执行生成 receipt 后，必须用原始 dry-run plan 独立审计：
+
+```bash
+python scripts/audit_runtime_receipt.py \
+  --receipt generated/runtime_validation_pilot/receipt.json \
+  --plan generated/runtime_validation_pilot/dry_run.json \
+  --output generated/runtime_validation_pilot/receipt_audit.json
+```
+
+审计器会检查：
+
+- receipt schema
+- plan SHA-256
+- plan unit IDs
+- plan step count
+- runtime_verified / failed_units / executed_steps 计数
+- 每个单元的步骤状态
+- GUC overlay 是否恢复原值
+- DBE_SQL 是否在正常与异常路径关闭上下文
+- SQL 是否包含禁止操作
+- 成功步骤是否误带错误、失败步骤是否缺少错误
+
+没有提供原始 plan 时，审计不会通过。
+
 ## 不是已完成的事
 
 - 当前没有可用 GaussDB 连接

@@ -390,6 +390,7 @@ def execute_plan(
             "cleanup": unit.cleanup.model_dump(),
         })
 
+    fingerprint = plan_sha256(plan)
     return {
         "kind": "runtime_validation_receipt",
         "schema_version": 1,
@@ -400,6 +401,9 @@ def execute_plan(
         "runtime_verified": runtime_verified,
         "failed_units": failed_units,
         "executed_steps": executed_steps,
+        "plan_sha256": fingerprint,
+        "plan_unit_ids": [unit.id for unit in plan.units],
+        "plan_step_count": sum(len(unit.execution_plan) for unit in plan.units),
         "units": units,
         "limits": plan.limits,
     }
