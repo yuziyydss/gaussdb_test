@@ -31,7 +31,7 @@ class CreateDatabaseLinkFreshSyntaxTests(unittest.TestCase):
         self.cases()
         features={f.id:f for f in self.r.matrices['matrix_create_database_link_coverage'].documented_features}
         feature=features['create_database_link_feature_syntax']
-        self.assertEqual((feature.status,feature.coverage_mode),('covered','representative'))
+        self.assertEqual((feature.status,feature.coverage_mode),('covered','any'))
         audit=FactorCoverageAuditor(self.r).audit('create_database_link')
         self.assertFalse(audit['conclusions']['behavior_coverage_complete'])
         self.assertTrue(audit['conclusions']['static_coverage_complete'])
