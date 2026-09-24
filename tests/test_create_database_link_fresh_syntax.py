@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 from core.factor_package_model import FactorPackageRegistry
 from core.factor_package_generator import FactorPackageSQLGenerator
+from core.factor_package_generator import FactorPackageSQLGenerator
 from core.factor_coverage_auditor import FactorCoverageAuditor
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -20,6 +21,11 @@ class CreateDatabaseLinkFreshSyntaxTests(unittest.TestCase):
     def setUpClass(cls):
         cls.r=FactorPackageRegistry(ROOT/'specs');cls.r.load_all()
         cls.g=FactorPackageSQLGenerator(cls.r)
+        cls.g=FactorPackageSQLGenerator(cls.r)
+
+    def cases(self):
+        for mid in self.r.factors['create_database_link'].manifest_refs:
+            yield from self.g.generate_with_report(self.r.manifests[mid])[0]
 
     def test_syntax_feature_is_covered_without_runtime_claim(self):
         self.cases()
