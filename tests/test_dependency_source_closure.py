@@ -2,9 +2,10 @@
 import copy
 import json
 import unittest
-from scripts.verify_cross_chapter_dependencies import DEFAULT_CONFIG, load_inputs, source_input_closure, select_batch_tasks
+from scripts.verify_cross_chapter_dependencies import DEFAULT_CONFIG, ROOT, load_inputs, source_input_closure, select_batch_tasks
 
 
+@unittest.skipUnless((ROOT / 'gaussdb-rf-cent.pdf').is_file(), 'source PDF is not tracked in CI')
 class DependencySourceClosureTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
