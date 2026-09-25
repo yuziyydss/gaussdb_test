@@ -70,6 +70,7 @@ gsql -d <dbname> -p <port> -f docs/extended_validation_script.sql
 | 文档 | 内容 |
 |---|---|
 | [FULL_DOCUMENT_CATALOG.md](docs/FULL_DOCUMENT_CATALOG.md) | 权威全书目录：5,637/5,637正文页覆盖、515个唯一章节、83个来源catalog |
+| [NON_SQL_REFERENCE_SCHEMA_V1.md](docs/NON_SQL_REFERENCE_SCHEMA_V1.md) | 非SQL参考Schema：67个YAML、885条facts、分类与来源哈希 |
 | [EXECUTION_VALIDATION_PLAN.md](docs/EXECUTION_VALIDATION_PLAN.md) | 三阶段实机验证方案 |
 | [PROJECT_DELIVERY_REPORT_20260914.md](docs/PROJECT_DELIVERY_REPORT_20260914.md) | 完整交付报告 |
 | [FACT_INTEGRATION_PLAN.md](docs/FACT_INTEGRATION_PLAN.md) | Facts接入计划 |

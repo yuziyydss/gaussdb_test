@@ -5,6 +5,7 @@
 | 文档 | 用途 |
 |---|---|
 | [Full-Document Catalog V1](FULL_DOCUMENT_CATALOG.md) | 83个本地catalog合并后的权威全书目录：5,686页、49页front matter、5,637/5,637正文页、515个唯一章节与来源哈希审计 |
+| [Non-SQL Reference Schema V1](NON_SQL_REFERENCE_SCHEMA_V1.md) | 67个非SQL参考YAML、885条facts的类型化Schema：分类、来源哈希、状态审计与3条未决项 |
 | [PDF类型规则第二批：显式A整数](COMMON_TYPE_BATCH_02.md) | 9月11日下午：4 SELECT＋2 INSERT候选、九格类型单元检查；1,912项全量静态通过，旧5263候选保全；长度/精度实际消费者缺口独立评审，未执行数据库 |
 | [PDF值存储与UNION/CASE首批](COMMON_TYPE_BATCH_01.md) | 9月11日：新增9条PG有限候选，1,903项全量静态回归通过；10组规则分层处理、实际DDL/输出类型检查、跨包fixture及旧SQL保全，实机仍未验证 |
 | [9月9日至10日夜间演进](NIGHT_EVOLUTION_20260910.md) | 当前窗口：生成列、MERGE默认值、RETURNING输出列合同与M PREPARE/SET代表；数量及逐批真实收据见正文，历史全量单列 |
