@@ -136,6 +136,7 @@ gsql -d <dbname> -p <port> -f docs/extended_validation_script.sql
 | [CORE_PLSQL_WAVE6_2_V1.md](docs/CORE_PLSQL_WAVE6_2_V1.md) | 1.6.45–1.6.48、1.6.59 PL/SQL缓存/字节码/透视/标识符/重编译抽取：15页、25个facts |
 | [CORE_SECURITY_WAVE6_3_V1.md](docs/CORE_SECURITY_WAVE6_3_V1.md) | 1.6.20安全函数：加解密/摘要/密码策略/审计/脱敏抽取：13页、31个facts |
 | [CORE_SECURITY_LEDGER_WAVE6_4_V1.md](docs/CORE_SECURITY_LEDGER_WAVE6_4_V1.md) | 1.6.21–1.6.24账本/密态/集合/重载函数抽取：20页、29个facts |
+| [CORE_AI_SECURITY_WAVE6_5_V1.md](docs/CORE_AI_SECURITY_WAVE6_5_V1.md) | 1.6.35–1.6.38 AI/敏感数据/动态脱敏/层次递归抽取：10页、20个facts |
 | [CORE_EXPRESSION_CANDIDATE_CHAIN_V1.md](docs/CORE_EXPRESSION_CANDIDATE_CHAIN_V1.md) | 核心表达式候选链：246个facts、171个静态SQL候选 |
 | [CORE_EXPRESSION_PROBE_PLAN_V1.md](docs/CORE_EXPRESSION_PROBE_PLAN_V1.md) | 核心表达式SQL probe第一批：150筛94、94个dry-run步骤 |
 | [CORE_EXPRESSION_PROBE_BATCHES_V1.md](docs/CORE_EXPRESSION_PROBE_BATCHES_V1.md) | 核心表达式probe拆成4批：23/20/31/20步骤 |
