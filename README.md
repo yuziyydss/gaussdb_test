@@ -159,10 +159,12 @@ gsql -d <dbname> -p <port> -f docs/extended_validation_script.sql
 | [CORE_VECTOR_WAVE7_2_V1.md](docs/CORE_VECTOR_WAVE7_2_V1.md) | 1.6.51向量数据库函数/操作符/BM25检索抽取：24页、30个facts |
 | [CORE_MULTITENANT_WAVE7_3_V1.md](docs/CORE_MULTITENANT_WAVE7_3_V1.md) | 1.6.52多租数据库配置/资源计划/用户/SQL统计抽取：11页、19个facts |
 | [CORE_OTHER_SYSTEM_PG_COMPAT_WAVE7_9_V1.md](docs/CORE_OTHER_SYSTEM_PG_COMPAT_WAVE7_9_V1.md) | 1.6.60其他系统函数第一阶段：兼容PostgreSQL清单抽取：18页、13个facts |
+| [CORE_OTHER_SYSTEM_WAVE7_SUMMARY_V1.md](docs/CORE_OTHER_SYSTEM_WAVE7_SUMMARY_V1.md) | 1.6.60其他系统函数Wave 7汇总：57页全覆盖、2个批次、51个facts、4个open questions |
 | [CORE_OTHER_SYSTEM_INTERNAL_WAVE7_10_V1.md](docs/CORE_OTHER_SYSTEM_INTERNAL_WAVE7_10_V1.md) | 1.6.60其他系统函数第二阶段：实现内部功能函数抽取：39页、38个facts |
 | [CORE_VECTOR_WAVE7_2_V1.md](docs/CORE_VECTOR_WAVE7_2_V1.md) | 1.6.51向量数据库函数/操作符/BM25检索抽取：24页、30个facts |
 | [CORE_MULTITENANT_WAVE7_3_V1.md](docs/CORE_MULTITENANT_WAVE7_3_V1.md) | 1.6.52多租数据库配置/资源计划/用户/SQL统计抽取：11页、19个facts |
 | [CORE_OTHER_SYSTEM_PG_COMPAT_WAVE7_9_V1.md](docs/CORE_OTHER_SYSTEM_PG_COMPAT_WAVE7_9_V1.md) | 1.6.60其他系统函数第一阶段：兼容PostgreSQL清单抽取：18页、13个facts |
+| [CORE_OTHER_SYSTEM_WAVE7_SUMMARY_V1.md](docs/CORE_OTHER_SYSTEM_WAVE7_SUMMARY_V1.md) | 1.6.60其他系统函数Wave 7汇总：57页全覆盖、2个批次、51个facts、4个open questions |
 | [CORE_OTHER_SYSTEM_INTERNAL_WAVE7_10_V1.md](docs/CORE_OTHER_SYSTEM_INTERNAL_WAVE7_10_V1.md) | 1.6.60其他系统函数第二阶段：实现内部功能函数抽取：39页、38个facts |
 | [CORE_EXPRESSION_CANDIDATE_CHAIN_V1.md](docs/CORE_EXPRESSION_CANDIDATE_CHAIN_V1.md) | 核心表达式候选链：246个facts、171个静态SQL候选 |
 | [CORE_EXPRESSION_PROBE_PLAN_V1.md](docs/CORE_EXPRESSION_PROBE_PLAN_V1.md) | 核心表达式SQL probe第一批：150筛94、94个dry-run步骤 |
