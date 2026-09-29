@@ -1,0 +1,200 @@
+document: 集中式版参考 / 1.6.27 系统管理函数（Wave 2B-5B）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-29'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapter: 1.6.27 系统管理函数
+  subsection: 1.6.27.10 逻辑复制函数（replication origin、分布式解码状态、逻辑字典、SQL apply、回放跳过）
+  physical_page_start: 661
+  physical_page_end: 675
+  physical_page_count: 14
+  excludes:
+  - 1.6.27.11 段页式存储函数
+facts:
+- id: wave2b5b_origin_create_drop_oid
+  type: syntax
+  statement: pg_replication_origin_create/drop/oid(node_name)用于创建、删除或按名称查找复制源；create返回oid，drop会删除相关重放进度，oid未找到时报错；均需SYSADMIN。
+  source_anchor: 1.6.27.10 页661
+  source_refs: &id001
+  - w2b5b_1_6_27
+  status: confirmed
+- id: wave2b5b_origin_session_setup_reset
+  type: syntax
+  statement: pg_replication_origin_session_setup(node_name)将当前会话标记为从指定origin回放，仅当前未选择origin时可用；session_reset撤销设置；均需SYSADMIN。
+  source_anchor: 1.6.27.10 页661-662
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_origin_session_progress
+  type: syntax
+  statement: pg_replication_origin_session_is_setup()判断当前会话是否选择复制源；pg_replication_origin_session_progress(flush)返回当前会话origin重放位置LSN。
+  source_anchor: 1.6.27.10 页662
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_origin_xact_setup_reset
+  type: syntax
+  statement: pg_replication_origin_xact_setup(origin_lsn,origin_timestamp)将当前事务标记为重放指定LSN和提交时间的事务；只能在session_setup后调用；xact_reset取消其效果。
+  source_anchor: 1.6.27.10 页662-663
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_origin_advance_progress
+  type: constraint
+  statement: pg_replication_origin_advance(node_name,lsn)设置复制源进度，常用于初始位置或配置变更后；使用不当可能导致复制数据不一致。pg_replication_origin_progress(node_name,flush)返回指定origin重放位置。
+  source_anchor: 1.6.27.10 页663
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_origin_show_status
+  type: syntax
+  statement: pg_show_replication_origin_status()返回复制源状态，字段包括local_id、external_id、remote_lsn和local_lsn；需SYSADMIN。
+  source_anchor: 1.6.27.10 页663
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_distributed_decode_status_unsupported
+  type: constraint
+  statement: gs_get_distribute_decode_status()和gs_get_distribute_decode_status_detail()分别以复制槽/DN粒度获取分布式解码状态，但当前版本暂不支持，执行返回报错。
+  source_anchor: 1.6.27.10 页663-664
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_logical_dictionary_baseline
+  type: syntax
+  statement: gs_logical_dictionary_baseline()对逻辑解码数据字典执行存量数据基线化；成功返回耗时，失败返回原因；non-PDB作用所有non-PDB，PDB仅当前PDB。
+  source_anchor: 1.6.27.10 页663-664
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_logical_dictionary_disabled
+  type: constraint
+  statement: gs_logical_dictionary_disabled()关闭逻辑解码数据字典并停止增量DDL；关闭后已有数据字典模式复制槽不能继续解码，需重新baseline并重建逻辑复制槽。
+  source_anchor: 1.6.27.10 页664
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_logical_decode_lock_unlock
+  type: syntax
+  statement: gs_logical_decode_lock(wait_time)和gs_logical_decode_unlock()用于逻辑解码组件升级管理的加锁/放锁；内部使用，PDB禁用。
+  source_anchor: 1.6.27.10 页664
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_logical_decode_gaussdb_version
+  type: syntax
+  statement: gs_logical_decode_gaussdb_version()查看逻辑解码组件提交记录；内部使用，PDB禁用。
+  source_anchor: 1.6.27.10 页664
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_inter_cluster_version_info
+  type: syntax
+  statement: gs_get_inter_cluster_version_info()查询主备内核版本、逻辑解码组件版本和复制类型，返回remote_working_version、remote_logical_decoding_version、local_working_version、local_logical_decoding_version、replication_type；内部滚动升级使用。
+  source_anchor: 1.6.27.10 页664-665
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_logical_decoding_version
+  type: syntax
+  statement: gs_get_logical_decoding_version()查看当前和基线逻辑解码组件版本；内部使用，PDB禁用。
+  source_anchor: 1.6.27.10 页665
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_add_position_xlog
+  type: syntax
+  statement: gs_add_logical_decoding_position_xlog()生成XLOG_STANDBY_DECODE_POSITION类型Xlog，用于反馈解码位置；需sysadmin/replication/opradmin；同一节点每个数据库调用最小间隔1秒。
+  source_anchor: 1.6.27.10 页665
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_prepare_logical_standby_on_primary
+  type: constraint
+  statement: gs_prepare_logical_standby_on_primary()在主节点做物理转逻辑准备并写入物理日志，返回uuid；仅管理员；长事务未提交可能导致长时间不返回；PDB禁用。
+  source_anchor: 1.6.27.10 页665
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_logical_standby_meta_switchover
+  type: constraint
+  statement: gs_get_logical_standby_meta_for_switchover()为逻辑容灾switchover降备准备元数据，无返回值；高危操作，非逻辑容灾switchover执行会导致实例状态异常。
+  source_anchor: 1.6.27.10 页665
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_logical_standby_info_dictionary_state
+  type: syntax
+  statement: gs_get_logical_standby_info()查询逻辑备confirmed_csn、restart_lsn、校验和、记录长度和元数据uuid；gs_get_logical_data_dictionary_column_num()返回数据字典系统表名和列数；gs_get_current_lgc_state()返回当前逻辑备状态。
+  source_anchor: 1.6.27.10 页665-666
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_sqlapply_start_stop
+  type: behavior_oracle
+  statement: gs_stop_sqlapply()手动停止逻辑备机，需将sql_apply_autorun设为off防止自动重启；gs_start_sqlapply()手动启动逻辑备机；均返回Boolean，PDB禁用。
+  source_anchor: 1.6.27.10 页666
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_sqlapply_replaying_status
+  type: syntax
+  statement: gs_get_sqlapply_replaying_status()查询逻辑备回放状态，包括已提交事务xid/csn/sequence number、restart_lsn、replay_lsn等信息；PDB禁用。
+  source_anchor: 1.6.27.10 页666-667
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_sqlapply_failover_states
+  type: syntax
+  statement: gs_get_sqlapply_replaying_status还暴露failover阶段：FAILOVER_INIT、FAILOVER_NOTICE_KILL、FAILOVER_CHECK_SQL_APPLY_END、FAILOVER_COPY_XLOG、FAILOVER_SUCCESS。
+  source_anchor: 1.6.27.10 页667-668
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_sqlapply_playback_progress
+  type: syntax
+  statement: gs_get_sqlapply_playback_progress()查询逻辑备回放文件中head/tail数组信息，输出xid、sequence_number、remote_csn、begin_time、end_time和是否回放完成；非逻辑备时结果不准确。
+  source_anchor: 1.6.27.10 页669
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_change_slot_plugin
+  type: syntax
+  statement: gs_change_replication_slot_plugin(slot_name,plugin_name)修改逻辑复制槽插件类型，返回Boolean；PDB禁用。插件支持mppdb_decoding、sql_decoding和parallel_*_decoding。
+  source_anchor: 1.6.27.10 页669-670
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_logicalstandby_skip_object
+  type: constraint
+  statement: gs_logicalstandby_skip(stmt,dbname,schema,object,dump)配置逻辑回放可跳过对象规则；仅管理员在容灾备库主机执行，PDB禁用；stmt一级类型dml，二级类型insert/update/delete；dump支持all/no/skip。
+  source_anchor: 1.6.27.10 页670-671
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_logicalstandby_unskip_object
+  type: constraint
+  statement: gs_logicalstandby_unskip(stmt,dbname,schema,object)取消逻辑回放可跳过对象规则；仅管理员在容灾备库主机执行，PDB禁用。
+  source_anchor: 1.6.27.10 页671
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_logicalstandby_skip_txn
+  type: constraint
+  statement: gs_logicalstandby_skip_txn(csn,xid,dump)配置按CSN/XID跳过事务；CSN范围1~2^63-1，XID范围3~2^63-1；相同CSN/XID规则可更新dump；dump的all与skip配置等价。
+  source_anchor: 1.6.27.10 页671-672
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_logicalstandby_unskip_txn
+  type: constraint
+  statement: gs_logicalstandby_unskip_txn(csn,xid)取消按CSN/XID跳过事务规则；仅管理员在容灾备库主机执行，PDB禁用。
+  source_anchor: 1.6.27.10 页672-673
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_logicalstandby_skip_err
+  type: constraint
+  statement: gs_logicalstandby_skip_err(stmt,dbname,schema,object,dump)配置跳过报错语句所在事务规则；不同规则新增，相同规则更新dump；用于处理逻辑回放阻塞；PDB禁用。
+  source_anchor: 1.6.27.10 页673-674
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_logicalstandby_unskip_err
+  type: constraint
+  statement: gs_logicalstandby_unskip_err(stmt,dbname,schema,object)取消跳过报错语句事务规则；仅管理员在容灾备库主机执行，PDB禁用。
+  source_anchor: 1.6.27.10 页674
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5b_scope_note
+  type: environment
+  statement: Wave 2B-5B覆盖1.6.27.10剩余replication origin、分布式解码状态、逻辑字典、SQL apply和逻辑回放跳过函数，物理页661-674。
+  source_anchor: 1.6.27.10 页661-674
+  source_refs: *id001
+  status: confirmed
+open_questions:
+- id: wave2b5b_oq_replication_origin_matrix
+  statement: replication origin的会话/事务状态组合、advance错误和权限矩阵需实机验证。
+  status: open
+- id: wave2b5b_oq_sqlapply_failover_matrix
+  statement: SQL apply启停、failover状态迁移和回放进度需容灾环境验证。
+  status: open
+- id: wave2b5b_oq_skip_rule_matrix
+  statement: 对象/事务/报错跳过规则的优先级、重复规则更新和PDB边界需专项测试。
+  status: open

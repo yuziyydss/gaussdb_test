@@ -1,0 +1,101 @@
+document: 集中式版参考 / 1.6.27 系统管理函数（Wave 2B-14）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-29'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapter: 1.6.27 系统管理函数
+  subsection: 1.6.27.17 其它函数（第五批：空间/膨胀率估算与备机WAL接收写入统计）
+  physical_page_start: 788
+  physical_page_end: 796
+  physical_page_count: 8
+  excludes:
+  - 1.6.27.17 其它函数起始于页795的gstrace_reg_sql及后续函数
+facts:
+- id: wave2b14_stat_freespace
+  type: syntax
+  statement: "gs_stat_freespace(relation_oid,partition_oid,relation_type,sample_ratio,read_memory)通过统计信息或采样方法估算表、分区表或索引的膨胀率，输出空间使用统计信息和膨胀率信息，返回record。"
+  source_anchor: "1.6.27.17 页788"
+  source_refs: &id001
+  - w2b14_1_6_27
+  status: confirmed
+- id: wave2b14_stat_freespace_relation_oid
+  type: constraint
+  statement: "gs_stat_freespace的relation_oid是要查询的数据表、分区表主表或索引的OID；partition_oid用于分区表、二级分区表或LOCAL分区索引。"
+  source_anchor: "1.6.27.17 页788"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b14_stat_freespace_partition_oid
+  type: behavior_oracle
+  statement: "gs_stat_freespace中，若relation_oid为非分区表、非LOCAL分区索引或GPI，partition_oid无意义；若relation_oid为分区表、二级分区表或LOCAL分区索引，partition_oid为0时输出所有分区信息。"
+  source_anchor: "1.6.27.17 页788"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b14_stat_freespace_relation_type
+  type: constraint
+  statement: "gs_stat_freespace的relation_type为CHAR：'r'表示行存数据表，'i'表示行存索引表。"
+  source_anchor: "1.6.27.17 页788"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b14_stat_freespace_sample_ratio
+  type: constraint
+  statement: "gs_stat_freespace的sample_ratio取值0到100；取0时INFO为通过统计信息估算的膨胀率，取1到100时INFO为通过采样估算的膨胀率。"
+  source_anchor: "1.6.27.17 页788"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b14_stat_freespace_read_memory
+  type: constraint
+  statement: "gs_stat_freespace的read_memory为true时从内存读取页面，false时从磁盘读取页面；当前暂时只支持false。"
+  source_anchor: "1.6.27.17 页788"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b14_stat_freespace_info_stats
+  type: syntax
+  statement: "gs_stat_freespace在sample_ratio=0时返回估算页面膨胀率；sample_ratio大于0时返回页面使用率采样统计，包括页头长度、元组平均长度、normal/dead/unused/redirected元组数量、Ustore数据表平均td数、potential_freespace、实际freespace、relation总页面数、估算占空间大小和膨胀率。"
+  source_anchor: "1.6.27.17 页789"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b14_stat_freespace_support
+  type: constraint
+  statement: "gs_stat_freespace当前仅支持行存表，不支持时序表、段页式表、hashbucket表、本地临时表和全局临时表；不支持表类型上的索引同样不支持空间统计估算。"
+  source_anchor: "1.6.27.17 页789"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b14_stat_freespace_standby_accuracy
+  type: constraint
+  statement: "gs_stat_freespace在备机上使用时，当sample_ratio为0即根据统计信息估算时，无法保证实时准确率。"
+  source_anchor: "1.6.27.17 页789"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b14_stat_freespace_errors
+  type: behavior_oracle
+  statement: "gs_stat_freespace的sample_ratio超出0到100时报错，示例为Wrong sample_ratio input, sample_ratio should be an integer between 0 and 100；目标不是普通relation或toast relation时报错，示例为\"t_a_idx\" is not a ordinary relation or toast relation。"
+  source_anchor: "1.6.27.17 页794"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b14_walrcv_writer_stat
+  type: constraint
+  statement: "gs_walrcv_writer_stat(operation)统计备机接收WAL日志write与sync的次数频率、数据量以及Xlog文件信息。operation为-1关闭统计开关（默认关闭），0打开统计，1查询统计，2重置统计；关闭后重新打开会清理之前统计。"
+  source_anchor: "1.6.27.17 页794-795"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b14_walrcv_writer_stat_outputs
+  type: syntax
+  statement: "gs_walrcv_writer_stat输出统计开关、备机写入WAL文件总量与次数、write/sync总时间和平均/最大用时、平均写入字节数、当前正在写和最新创建的Xlog段文件编号、统计开始和结束时间。"
+  source_anchor: "1.6.27.17 页794-795"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b14_scope_note
+  type: environment
+  statement: "Wave 2B-14覆盖1.6.27.17其它函数第五批：行存表/分区/索引空间膨胀率估算和备机WAL接收写入统计，物理页788-795。"
+  source_anchor: "1.6.27.17 页788-795"
+  source_refs: *id001
+  status: confirmed
+open_questions:
+- id: wave2b14_oq_freespace_matrix
+  statement: "gs_stat_freespace在普通表、分区表、分区索引、不同sample_ratio、备机和各类不支持对象上的输出与错误矩阵需授权环境验证。"
+  status: open
+- id: wave2b14_oq_walrcv_writer_evidence
+  statement: "gs_walrcv_writer_stat在统计开关关闭/打开/查询/重置、真实WAL负载和主备环境下的行为与统计准确性需实机验证。"
+  status: open

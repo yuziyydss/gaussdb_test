@@ -1,0 +1,3228 @@
+{
+  "schema_version": 1,
+  "kind": "core_expression_candidate_chain",
+  "id": "core_expression_candidate_chain_v1",
+  "name": "Core Expression Candidate Chain V1",
+  "description": "Wave 1A/1B facts bound to fixtures and static SQL candidates; review only, no database execution.",
+  "fact_sources": [
+    {
+      "id": "wave_1a",
+      "path": "docs/compat_facts/core_type_expression_domain_v1.yaml",
+      "sha256": "169dc45ecd769decfcabe494d9159b4559d4cb12207ce664a57927056a222aab",
+      "fact_count": 99
+    },
+    {
+      "id": "wave_1b",
+      "path": "docs/compat_facts/core_function_operator_domain_v1.yaml",
+      "sha256": "d33007b64d5a6e60ac430587aba1f2e93c62cac68b9789dec93ff2773adc3ee2",
+      "fact_count": 102
+    },
+    {
+      "id": "wave_2a",
+      "path": "docs/compat_facts/core_function_operator_wave2a_v1.yaml",
+      "sha256": "62140c51899ab34a47e54d99855ac35f03ea12928a0d3d84e8a848caae79b786",
+      "fact_count": 45
+    }
+  ],
+  "fixtures": [
+    {
+      "id": "no_fixture",
+      "description": "无对象fixture；候选SQL只使用字面量或内联VALUES。",
+      "setup_sql": [],
+      "teardown_sql": []
+    },
+    {
+      "id": "core_expr_fixture",
+      "description": "一行多类型临时fixture，用于类型、数组、range、JSON和ROWNUM表达式的静态候选。",
+      "setup_sql": [
+        "CREATE TEMP TABLE core_expr_fixture (id integer, num numeric(10,4), txt varchar(64), ts timestamp, tags text[], rng int4range, payload jsonb);",
+        "INSERT INTO core_expr_fixture VALUES (1, 42.4382, 'GaussDB', TIMESTAMP '2026-09-28 10:00:00', ARRAY['a','b'], int4range(1,10), '{\"k\":\"v\",\"n\":1}');"
+      ],
+      "teardown_sql": [
+        "DROP TABLE core_expr_fixture;",
+        "DROP TABLE core_expr_fixture;"
+      ]
+    },
+    {
+      "id": "rownum_fixture",
+      "description": "10行临时fixture，用于ROWNUM赋值与分页边界候选。",
+      "setup_sql": [
+        "CREATE TEMP TABLE core_expr_rownum_fixture AS SELECT generate_series(1,10) AS id;"
+      ],
+      "teardown_sql": [
+        "DROP TABLE core_expr_rownum_fixture;"
+      ]
+    }
+  ],
+  "candidates": [
+    {
+      "id": "core_expr_candidate_integer_value_domain",
+      "capability": "numeric_type_domain",
+      "fact_refs": [
+        "core_type_integer_family",
+        "core_type_integer_unsigned_mode",
+        "core_type_integer_display_width_zerofill"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT 1::int1, 1::int2, 1::int4, 1::int8, 2147483647::integer, 9223372036854775807::bigint;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Representative integer aliases and boundaries."
+    },
+    {
+      "id": "core_expr_candidate_numeric_precision_rounding",
+      "capability": "numeric_type_domain",
+      "fact_refs": [
+        "core_type_numeric_precision_scale",
+        "core_type_numeric_rounding_to_scale"
+      ],
+      "fixture_ref": "core_expr_fixture",
+      "fixture_setup_sql": [
+        "CREATE TEMP TABLE core_expr_fixture (id integer, num numeric(10,4), txt varchar(64), ts timestamp, tags text[], rng int4range, payload jsonb);",
+        "INSERT INTO core_expr_fixture VALUES (1, 42.4382, 'GaussDB', TIMESTAMP '2026-09-28 10:00:00', ARRAY['a','b'], int4range(1,10), '{\"k\":\"v\",\"n\":1}');"
+      ],
+      "fixture_teardown_sql": [
+        "DROP TABLE core_expr_fixture;",
+        "DROP TABLE core_expr_fixture;"
+      ],
+      "sql": "SELECT num, num::numeric(10,2) AS rounded FROM core_expr_fixture;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_money_roundtrip",
+      "capability": "numeric_type_domain",
+      "fact_refs": [
+        "core_type_money_conversion"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT '12.34'::numeric::money AS money_value, '52093.89'::money::numeric::float8 AS back_to_float8;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_float_precision",
+      "capability": "numeric_type_domain",
+      "fact_refs": [
+        "core_type_float_approximate_risk",
+        "core_type_b_mode_float_input_output"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT 0.1::float4, 0.1::float8, 0.1::float4 + 0.2::float4;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_b_mode_integer_display",
+      "capability": "numeric_type_domain",
+      "fact_refs": [
+        "core_type_integer_unsigned_mode",
+        "core_type_integer_display_width_zerofill"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT 5::tinyint, 5::smallint, 5::integer, 5::bigint;",
+      "expected_kind": "value",
+      "compatibility_mode": "B",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Static probe for MySQL-style integer behavior."
+    },
+    {
+      "id": "core_expr_candidate_boolean_value_domain",
+      "capability": "boolean_and_bit",
+      "fact_refs": [
+        "core_type_boolean_values"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT TRUE, FALSE, NULL::boolean, TRUE::text;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_bit_operators",
+      "capability": "boolean_and_bit",
+      "fact_refs": [
+        "core_type_bit_string",
+        "core_type_bit_cast_truncation",
+        "funcop_bit_operators"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT B'10001' & B'01101', B'10001' | B'01101', B'10001' # B'01101', ~B'10001', B'10001' << 2, B'10001' >> 2;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_bit_integer_cast",
+      "capability": "boolean_and_bit",
+      "fact_refs": [
+        "funcop_bit_integer_cast"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT 44::bit(10), 44::bit(3), (-44)::bit(12), '1110'::bit(4)::integer;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_bit_functions",
+      "capability": "boolean_and_bit",
+      "fact_refs": [
+        "funcop_bit_string_functions",
+        "funcop_binary_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT bit_length(B'10001'), length(B'10001'), octet_length('abc'::bytea), get_bit('abc'::bytea, 0), set_bit('abc'::bytea, 0, 1);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_char_length_family",
+      "capability": "string_domain",
+      "fact_refs": [
+        "core_type_char_basic",
+        "core_type_varchar_max_length",
+        "funcop_string_inventory"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT char_length('GaussDB'), character_length('GaussDB'), bit_length('GaussDB'), octet_length('GaussDB');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_char_a_mode_units",
+      "capability": "string_domain",
+      "fact_refs": [
+        "core_type_char_a_mode_units",
+        "core_type_b_mode_char_semantics"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT 'A你好'::char(4 char) AS char_units, 'A你好'::varchar(4 char) AS varchar_units;",
+      "expected_kind": "value",
+      "compatibility_mode": "A",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Byte vs char units in A mode."
+    },
+    {
+      "id": "core_expr_candidate_trim_functions",
+      "capability": "string_domain",
+      "fact_refs": [
+        "funcop_string_inventory"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT btrim('sring','ing'), ltrim('xxabc','x'), rtrim('abcxx','x'), trim(both 'x' from 'xxabcxx');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_case_transform",
+      "capability": "string_domain",
+      "fact_refs": [
+        "funcop_string_inventory"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT upper('gaussdb'), lower('GAUSSDB'), initcap('gaussdb database');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_padding_functions",
+      "capability": "string_domain",
+      "fact_refs": [
+        "funcop_string_padding_semantics"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT lpad('42',6,'0'), rpad('42',6,'.'), lpad_s('42',6,'0');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_substring_family",
+      "capability": "string_domain",
+      "fact_refs": [
+        "funcop_string_inventory"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT substr('GaussDB',1,5), left('GaussDB',5), right('GaussDB',2), substring('GaussDB' from 2 for 3);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_split_position",
+      "capability": "string_domain",
+      "fact_refs": [
+        "funcop_string_inventory"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT split_part('a,b,c',',',2), strpos('abc','b'), position('b' in 'abc');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_regexp_replace_count",
+      "capability": "string_domain",
+      "fact_refs": [
+        "funcop_regexp_functions_inventory"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT regexp_replace('a1b2','[0-9]','*','g'), regexp_count('a1b2','[0-9]');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_like_patterns",
+      "capability": "string_domain",
+      "fact_refs": [
+        "funcop_pattern_matching_operators",
+        "funcop_like_escape_rules"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT 'GaussDB' LIKE 'Gauss%', 'GaussDB' NOT LIKE 'mysql%', 'abc' ILIKE 'ABC';",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_similar_to_regex",
+      "capability": "string_domain",
+      "fact_refs": [
+        "funcop_similar_to_metacharacters",
+        "funcop_regexp_operators"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT 'abc' SIMILAR TO 'a+', 'abc123' ~ '[0-9]+', 'ABC' ~* 'abc';",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_hash_functions",
+      "capability": "string_domain",
+      "fact_refs": [
+        "funcop_hash_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT md5('GaussDB'), sha2('GaussDB',256);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_encoding_conversion",
+      "capability": "string_domain",
+      "fact_refs": [
+        "funcop_encoding_conversion"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT encode('abc'::bytea,'hex'), decode('616263','hex'), convert_to('abc','UTF8');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_concat_and_quote",
+      "capability": "string_domain",
+      "fact_refs": [
+        "funcop_string_inventory"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT concat_ws(',', 'a', NULL, 'b'), quote_ident('table name'), quote_literal(\"O'Reilly\");",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_bpchar_storage",
+      "capability": "string_domain",
+      "fact_refs": [
+        "core_expr_value_storage_length_conversion",
+        "core_type_char_basic"
+      ],
+      "fixture_ref": "core_expr_fixture",
+      "fixture_setup_sql": [
+        "CREATE TEMP TABLE core_expr_fixture (id integer, num numeric(10,4), txt varchar(64), ts timestamp, tags text[], rng int4range, payload jsonb);",
+        "INSERT INTO core_expr_fixture VALUES (1, 42.4382, 'GaussDB', TIMESTAMP '2026-09-28 10:00:00', ARRAY['a','b'], int4range(1,10), '{\"k\":\"v\",\"n\":1}');"
+      ],
+      "fixture_teardown_sql": [
+        "DROP TABLE core_expr_fixture;",
+        "DROP TABLE core_expr_fixture;"
+      ],
+      "sql": "SELECT txt, txt::char(20), octet_length(txt::char(20)) FROM core_expr_fixture;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_numeric_operators",
+      "capability": "numeric_functions",
+      "fact_refs": [
+        "funcop_numeric_operators",
+        "funcop_numeric_division_no_truncation"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT 2+3, 8-3, 4*5, 4/3, 5%4, @-5, 2.0^3;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_numeric_abs_floor_ceil",
+      "capability": "numeric_functions",
+      "fact_refs": [
+        "funcop_numeric_function_inventory"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT abs(-17.4), ceil(-42.8), floor(42.8);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_numeric_round_trunc",
+      "capability": "numeric_functions",
+      "fact_refs": [
+        "funcop_round_semantics",
+        "funcop_trunc_semantics"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT round(42.4382,2), trunc(42.4382,2);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_numeric_power_log",
+      "capability": "numeric_functions",
+      "fact_refs": [
+        "funcop_numeric_function_inventory"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT exp(1), ln(10), log(100), power(2,10);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_numeric_trig",
+      "capability": "numeric_functions",
+      "fact_refs": [
+        "funcop_numeric_function_inventory"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT cos(0), sin(0), tan(0), atan2(2,1);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_bitwise_integer",
+      "capability": "numeric_functions",
+      "fact_refs": [
+        "funcop_numeric_operators"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT 91&15, 32|3, 17#5, ~1, 1<<4, 8>>2;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_current_date",
+      "capability": "datetime_functions",
+      "fact_refs": [
+        "funcop_datetime_current_functions",
+        "funcop_current_date_a_mode"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT CURRENT_DATE;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_current_timestamp",
+      "capability": "datetime_functions",
+      "fact_refs": [
+        "funcop_datetime_current_functions",
+        "funcop_current_timestamp_a_mode",
+        "funcop_current_timestamp_b_mode"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT CURRENT_TIMESTAMP;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_localtime_timestamp",
+      "capability": "datetime_functions",
+      "fact_refs": [
+        "funcop_datetime_current_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT localtime, localtimestamp;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_age",
+      "capability": "datetime_functions",
+      "fact_refs": [
+        "funcop_datetime_current_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT age(TIMESTAMP '2026-09-28 00:00:00', TIMESTAMP '2020-01-01 00:00:00');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_date_part_trunc",
+      "capability": "datetime_functions",
+      "fact_refs": [
+        "funcop_datetime_extraction_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT date_part('year', TIMESTAMP '2026-09-28'), date_trunc('month', TIMESTAMP '2026-09-28');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_extract_unit",
+      "capability": "datetime_functions",
+      "fact_refs": [
+        "funcop_datetime_extraction_functions",
+        "funcop_extract_datea_guc"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT extract(year from TIMESTAMP '2026-09-28'), extract(month from TIMESTAMP '2026-09-28');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_oracle_date_functions",
+      "capability": "datetime_functions",
+      "fact_refs": [
+        "funcop_oracle_date_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT add_months(DATE '2026-09-28',1), months_between(DATE '2026-09-28', DATE '2026-01-01'), next_day(DATE '2026-09-28','MON');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_b_mode_date_add",
+      "capability": "datetime_functions",
+      "fact_refs": [
+        "funcop_b_mode_datetime_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT date_add(DATE '2026-09-28', INTERVAL 1 DAY), date_sub(DATE '2026-09-28', INTERVAL 1 YEAR);",
+      "expected_kind": "value",
+      "compatibility_mode": "B",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_b_mode_date_format",
+      "capability": "datetime_functions",
+      "fact_refs": [
+        "funcop_b_mode_datetime_functions",
+        "funcop_format_semantics"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT date_format(DATE '2026-09-28', '%Y-%m-%d');",
+      "expected_kind": "value",
+      "compatibility_mode": "B",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_timestampadd",
+      "capability": "datetime_functions",
+      "fact_refs": [
+        "funcop_b_mode_datetime_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT timestampadd(DAY,1,TIMESTAMP '2026-09-28 00:00:00');",
+      "expected_kind": "value",
+      "compatibility_mode": "B",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_convert_tz",
+      "capability": "datetime_functions",
+      "fact_refs": [
+        "funcop_b_mode_datetime_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT convert_tz(TIMESTAMP '2026-09-28 10:00:00','UTC','Asia/Shanghai');",
+      "expected_kind": "value",
+      "compatibility_mode": "B",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_unix_timestamp",
+      "capability": "datetime_functions",
+      "fact_refs": [
+        "funcop_b_mode_datetime_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT unix_timestamp(TIMESTAMP '2026-09-28 00:00:00');",
+      "expected_kind": "value",
+      "compatibility_mode": "B",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_interval_literal",
+      "capability": "datetime_functions",
+      "fact_refs": [
+        "core_type_interval_fields"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT INTERVAL '1 day', INTERVAL '02:03:04', INTERVAL '1-2';",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_justify_interval",
+      "capability": "datetime_functions",
+      "fact_refs": [
+        "funcop_datetime_extraction_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT justify_interval(INTERVAL '1 day 25 hours');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_timestamp_to_date_fixture",
+      "capability": "datetime_functions",
+      "fact_refs": [
+        "core_type_timestamp_precision_range",
+        "core_type_a_mode_date_mapping"
+      ],
+      "fixture_ref": "core_expr_fixture",
+      "fixture_setup_sql": [
+        "CREATE TEMP TABLE core_expr_fixture (id integer, num numeric(10,4), txt varchar(64), ts timestamp, tags text[], rng int4range, payload jsonb);",
+        "INSERT INTO core_expr_fixture VALUES (1, 42.4382, 'GaussDB', TIMESTAMP '2026-09-28 10:00:00', ARRAY['a','b'], int4range(1,10), '{\"k\":\"v\",\"n\":1}');"
+      ],
+      "fixture_teardown_sql": [
+        "DROP TABLE core_expr_fixture;",
+        "DROP TABLE core_expr_fixture;"
+      ],
+      "sql": "SELECT ts, ts::date FROM core_expr_fixture;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_basic_casts",
+      "capability": "type_conversion",
+      "fact_refs": [
+        "core_expr_function_cast_resolution",
+        "core_expr_unknown_text_literal"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT '42'::integer, 42::text, '42.5'::numeric, NULL::integer;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_cast_precision",
+      "capability": "type_conversion",
+      "fact_refs": [
+        "core_type_numeric_rounding_to_scale",
+        "core_expr_function_cast_resolution"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT CAST('42.4382' AS numeric(10,4));",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_to_char_number",
+      "capability": "type_conversion",
+      "fact_refs": [
+        "funcop_typecast_to_char"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT to_char(42.4382,'FM999.999');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_to_date_format",
+      "capability": "type_conversion",
+      "fact_refs": [
+        "funcop_typecast_to_date"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT to_date('2026-09-28','YYYY-MM-DD');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_to_number_format",
+      "capability": "type_conversion",
+      "fact_refs": [
+        "funcop_typecast_to_number"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT to_number('42.4382','999.9999');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_to_timestamp_format",
+      "capability": "type_conversion",
+      "fact_refs": [
+        "funcop_typecast_to_timestamp"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT to_timestamp('2026-09-28 10:00:00','YYYY-MM-DD HH24:MI:SS');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_interval_casts",
+      "capability": "type_conversion",
+      "fact_refs": [
+        "funcop_typecast_interval_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT to_dsinterval('1 02:03:04'), to_yminterval('1-2');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_datea_casts",
+      "capability": "type_conversion",
+      "fact_refs": [
+        "core_type_datea_type",
+        "core_expr_datea_allowed_casts"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT to_datea('2026-09-28','yyyy-mm-dd');",
+      "expected_kind": "value",
+      "compatibility_mode": "A",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_union_numeric_type_resolution",
+      "capability": "type_conversion",
+      "fact_refs": [
+        "core_expr_union_case_general_resolution",
+        "core_expr_a_mode_case_priority"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT 1 UNION SELECT 1.2;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_array_constructor_resolution",
+      "capability": "type_conversion",
+      "fact_refs": [
+        "core_expr_array_constructor_type_resolution"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT ARRAY[1,1.2];",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_geometry_type",
+      "capability": "special_types",
+      "fact_refs": [
+        "core_type_geometry_types"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT point(1.1,2.2), box(point(0,0),point(1,1));",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_network_types",
+      "capability": "special_types",
+      "fact_refs": [
+        "core_type_network_types"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT '192.168.1.0/24'::cidr, '10.0.0.1'::inet, '08:00:2b:01:02:03'::macaddr;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_uuid_type",
+      "capability": "special_types",
+      "fact_refs": [
+        "core_type_uuid"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_text_search_types",
+      "capability": "special_types",
+      "fact_refs": [
+        "core_type_text_search_types"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT to_tsvector('english','The Fat Rats'), to_tsquery('english','fat & rat');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_ledger_hash_types",
+      "capability": "special_types",
+      "fact_refs": [
+        "core_type_ledger_hash_types"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT 'e697da2eaa3a775b'::hash16, '685847ed1fe38e18f6b0e2b18c00edee'::hash32;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_xml_probe",
+      "capability": "special_types",
+      "fact_refs": [
+        "core_type_xml_supported_ops"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT XMLPARSE(DOCUMENT '<a/>');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_xmltype_probe",
+      "capability": "special_types",
+      "fact_refs": [
+        "core_type_xmltype",
+        "core_type_xmltype_operation_boundary"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT XMLTYPE('<a/>');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_to_jsonb",
+      "capability": "json_domain",
+      "fact_refs": [
+        "funcop_json_conversion_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT to_jsonb(row(1,'x'));",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_jsonb_build_object",
+      "capability": "json_domain",
+      "fact_refs": [
+        "funcop_json_build_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT jsonb_build_object('k',1,'nested',{'a':2}::jsonb);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_jsonb_path_access",
+      "capability": "json_domain",
+      "fact_refs": [
+        "funcop_json_access_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT '{\"a\":{\"b\":1}}'::jsonb #> '{a,b}', '{\"a\":1}'::jsonb -> 'a', '{\"a\":1}'::jsonb ->> 'a';",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_jsonb_predicates",
+      "capability": "json_domain",
+      "fact_refs": [
+        "funcop_jsonb_predicate_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT '[1,2,3]'::jsonb @> '[1,3]'::jsonb, '{\"k\":1}'::jsonb ? 'k';",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_json_path_functions",
+      "capability": "json_domain",
+      "fact_refs": [
+        "funcop_json_path_search_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT json_extract_path_text('{\"a\":{\"b\":\"x\"}}','a','b'), json_depth('{\"a\":[1,2]}');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_json_mutators",
+      "capability": "json_domain",
+      "fact_refs": [
+        "funcop_json_mutation_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT json_set('{\"a\":1}','$.a',2), json_remove('{\"a\":1,\"b\":2}','$.b');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_json_aggregate",
+      "capability": "json_domain",
+      "fact_refs": [
+        "funcop_json_aggregate_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT jsonb_agg(x) FROM (VALUES (1),(2)) v(x);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_json_type_functions",
+      "capability": "json_domain",
+      "fact_refs": [
+        "funcop_json_type_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT jsonb_typeof('{\"a\":1}'::jsonb), jsonb_typeof('[1]'::jsonb), jsonb_typeof('1'::jsonb);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_json_access_fixture",
+      "capability": "json_domain",
+      "fact_refs": [
+        "funcop_json_access_functions"
+      ],
+      "fixture_ref": "core_expr_fixture",
+      "fixture_setup_sql": [
+        "CREATE TEMP TABLE core_expr_fixture (id integer, num numeric(10,4), txt varchar(64), ts timestamp, tags text[], rng int4range, payload jsonb);",
+        "INSERT INTO core_expr_fixture VALUES (1, 42.4382, 'GaussDB', TIMESTAMP '2026-09-28 10:00:00', ARRAY['a','b'], int4range(1,10), '{\"k\":\"v\",\"n\":1}');"
+      ],
+      "fixture_teardown_sql": [
+        "DROP TABLE core_expr_fixture;",
+        "DROP TABLE core_expr_fixture;"
+      ],
+      "sql": "SELECT payload->>'k', payload#>'{k}' FROM core_expr_fixture;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_hll_hash",
+      "capability": "hll_domain",
+      "fact_refs": [
+        "funcop_hll_hash_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT hll_hash_text('abc'), hll_hash_integer(1), hll_hash_any(1.2::numeric);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_hll_empty_cardinality",
+      "capability": "hll_domain",
+      "fact_refs": [
+        "funcop_hll_construct_functions",
+        "funcop_hll_cardinality_union"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT hll_cardinality(hll_empty());",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_hll_add_agg",
+      "capability": "hll_domain",
+      "fact_refs": [
+        "funcop_hll_cardinality_union"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT hll_cardinality(hll_add_agg(hll_hash_text(x))) FROM (VALUES ('a'),('b'),('a')) v(x);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_hll_union",
+      "capability": "hll_domain",
+      "fact_refs": [
+        "funcop_hll_cardinality_union"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT hll_cardinality(hll_union(hll_add(hll_empty(),hll_hash_text('a')), hll_add(hll_empty(),hll_hash_text('a'))));",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_hll_metadata",
+      "capability": "hll_domain",
+      "fact_refs": [
+        "funcop_hll_metadata_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT hll_log2m(hll_empty()), hll_type(hll_empty()), hll_schema_version(hll_empty());",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_array_constructor",
+      "capability": "array_domain",
+      "fact_refs": [
+        "core_type_array_constructor",
+        "core_expr_array_constructor_type_resolution"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT ARRAY[1,2,3], ARRAY[1,1.2];",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_empty_array_type",
+      "capability": "array_domain",
+      "fact_refs": [
+        "core_type_empty_array_requires_type"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT ARRAY[]::int[];",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_array_from_subquery",
+      "capability": "array_domain",
+      "fact_refs": [
+        "core_type_array_from_subquery"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT ARRAY(SELECT x FROM (VALUES (1),(2)) v(x));",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_array_set_functions",
+      "capability": "array_domain",
+      "fact_refs": [
+        "funcop_array_set_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT array_append(ARRAY[1,2],3), array_cat(ARRAY[1],ARRAY[2]), array_union_distinct(ARRAY[1,1,2],ARRAY[2,3]);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_array_intersect_except",
+      "capability": "array_domain",
+      "fact_refs": [
+        "funcop_array_set_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT array_intersect(ARRAY[1,2,3],ARRAY[2,3,4]), array_except(ARRAY[1,2,3],ARRAY[2,3,4]);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_array_metadata",
+      "capability": "array_domain",
+      "fact_refs": [
+        "funcop_array_metadata_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT array_ndims(ARRAY[[1,2]]), array_length(ARRAY[[1,2]],1), cardinality(ARRAY[1,2]);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_array_positions_sort",
+      "capability": "array_domain",
+      "fact_refs": [
+        "funcop_array_metadata_functions",
+        "funcop_array_sort_string"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT array_positions(ARRAY[1,2,1],1), array_sort(ARRAY[3,1,2]);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_array_to_string_unnest",
+      "capability": "array_domain",
+      "fact_refs": [
+        "funcop_array_sort_string",
+        "funcop_string_to_array_unnest"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT array_to_string(ARRAY[1,NULL,3],',','-'), string_to_array('a,b,c',',');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_array_fixture_access",
+      "capability": "array_domain",
+      "fact_refs": [
+        "funcop_array_metadata_functions"
+      ],
+      "fixture_ref": "core_expr_fixture",
+      "fixture_setup_sql": [
+        "CREATE TEMP TABLE core_expr_fixture (id integer, num numeric(10,4), txt varchar(64), ts timestamp, tags text[], rng int4range, payload jsonb);",
+        "INSERT INTO core_expr_fixture VALUES (1, 42.4382, 'GaussDB', TIMESTAMP '2026-09-28 10:00:00', ARRAY['a','b'], int4range(1,10), '{\"k\":\"v\",\"n\":1}');"
+      ],
+      "fixture_teardown_sql": [
+        "DROP TABLE core_expr_fixture;",
+        "DROP TABLE core_expr_fixture;"
+      ],
+      "sql": "SELECT tags[1], cardinality(tags) FROM core_expr_fixture;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_range_constructor",
+      "capability": "range_domain",
+      "fact_refs": [
+        "core_type_built_in_range_types",
+        "funcop_range_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT int4range(1,10), numrange(1.1,2.2), tsrange(TIMESTAMP '2026-01-01',TIMESTAMP '2026-12-31');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_range_contains",
+      "capability": "range_domain",
+      "fact_refs": [
+        "funcop_range_operators"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT int4range(1,10) @> 5, int4range(1,10) @> int4range(2,3);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_range_overlap",
+      "capability": "range_domain",
+      "fact_refs": [
+        "funcop_range_operators"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT int4range(1,10) && int4range(5,20);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_range_bounds",
+      "capability": "range_domain",
+      "fact_refs": [
+        "funcop_range_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT lower(int4range(1,10)), upper(int4range(1,10)), lower_inc(int4range(1,10)), upper_inc(int4range(1,10));",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_range_set_ops",
+      "capability": "range_domain",
+      "fact_refs": [
+        "funcop_range_operators"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT int4range(1,10)+int4range(5,15), int4range(1,10)*int4range(5,15), int4range(1,10)-int4range(5,15);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_range_empty_behavior",
+      "capability": "range_domain",
+      "fact_refs": [
+        "funcop_range_empty_behavior"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT int4range(1,5) << int4range(10,20), int4range(10,20) >> int4range(1,5);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_range_fixture_contains",
+      "capability": "range_domain",
+      "fact_refs": [
+        "core_type_range_boundaries"
+      ],
+      "fixture_ref": "core_expr_fixture",
+      "fixture_setup_sql": [
+        "CREATE TEMP TABLE core_expr_fixture (id integer, num numeric(10,4), txt varchar(64), ts timestamp, tags text[], rng int4range, payload jsonb);",
+        "INSERT INTO core_expr_fixture VALUES (1, 42.4382, 'GaussDB', TIMESTAMP '2026-09-28 10:00:00', ARRAY['a','b'], int4range(1,10), '{\"k\":\"v\",\"n\":1}');"
+      ],
+      "fixture_teardown_sql": [
+        "DROP TABLE core_expr_fixture;",
+        "DROP TABLE core_expr_fixture;"
+      ],
+      "sql": "SELECT rng, rng @> 5 FROM core_expr_fixture;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_sum_avg_count",
+      "capability": "aggregate_domain",
+      "fact_refs": [
+        "funcop_aggregate_basic_functions",
+        "funcop_aggregate_count_xml"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT count(*), count(x), sum(x), avg(x) FROM (VALUES (1),(2),(NULL)) v(x);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_min_max",
+      "capability": "aggregate_domain",
+      "fact_refs": [
+        "funcop_aggregate_basic_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT min(x),max(x) FROM (VALUES (1),(2)) v(x);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_string_aggregation",
+      "capability": "aggregate_domain",
+      "fact_refs": [
+        "funcop_aggregate_array_string"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT string_agg(x,',' ORDER BY x) FROM (VALUES ('b'),('a')) v(x);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_array_agg",
+      "capability": "aggregate_domain",
+      "fact_refs": [
+        "funcop_aggregate_array_string"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT array_agg(x ORDER BY x) FROM (VALUES (2),(1)) v(x);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_listagg_group_concat",
+      "capability": "aggregate_domain",
+      "fact_refs": [
+        "funcop_aggregate_array_string"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT listagg(x,',') WITHIN GROUP (ORDER BY x), group_concat(x) FROM (VALUES ('a'),('b')) v(x);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_statistical_aggregates",
+      "capability": "aggregate_domain",
+      "fact_refs": [
+        "funcop_aggregate_statistical_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT stddev_pop(x), stddev_samp(x), var_pop(x), var_samp(x) FROM (VALUES (1),(2),(3)) v(x);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_percentile_mode",
+      "capability": "aggregate_domain",
+      "fact_refs": [
+        "funcop_aggregate_statistical_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY x), mode() WITHIN GROUP (ORDER BY x) FROM (VALUES (1),(1),(2)) v(x);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_bit_bool_aggregates",
+      "capability": "aggregate_domain",
+      "fact_refs": [
+        "funcop_aggregate_bit_bool_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT bit_and(x), bit_or(x), bool_and(x>0), bool_or(x>0) FROM (VALUES (1),(2)) v(x);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_keep_aggregate",
+      "capability": "aggregate_domain",
+      "fact_refs": [
+        "funcop_aggregate_keep"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT min(x) KEEP(DENSE_RANK FIRST ORDER BY x) FROM (VALUES (1),(2)) v(x);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_checksum_aggregate",
+      "capability": "aggregate_domain",
+      "fact_refs": [
+        "funcop_aggregate_checksum_warning"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT checksum(x) FROM (VALUES (1),(2)) v(x);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_row_number",
+      "capability": "window_domain",
+      "fact_refs": [
+        "funcop_window_rank_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT x,row_number() OVER(ORDER BY x) FROM (VALUES (2),(1)) v(x) ORDER BY x;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_rank_dense_rank",
+      "capability": "window_domain",
+      "fact_refs": [
+        "funcop_window_rank_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT x,rank() OVER(ORDER BY x),dense_rank() OVER(ORDER BY x) FROM (VALUES (1),(1),(2)) v(x) ORDER BY x;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_ntile_percent",
+      "capability": "window_domain",
+      "fact_refs": [
+        "funcop_window_rank_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT x,ntile(2) OVER(ORDER BY x),percent_rank() OVER(ORDER BY x),cume_dist() OVER(ORDER BY x) FROM (VALUES (1),(2),(3)) v(x) ORDER BY x;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_lag_lead",
+      "capability": "window_domain",
+      "fact_refs": [
+        "funcop_window_lag_lead"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT x,lag(x) OVER(ORDER BY x),lead(x) OVER(ORDER BY x) FROM (VALUES (1),(2),(3)) v(x) ORDER BY x;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_first_last_value",
+      "capability": "window_domain",
+      "fact_refs": [
+        "funcop_window_first_last_value"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT x,first_value(x) OVER(ORDER BY x),last_value(x) OVER(ORDER BY x) FROM (VALUES (1),(2),(3)) v(x) ORDER BY x;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_nth_value",
+      "capability": "window_domain",
+      "fact_refs": [
+        "funcop_window_nth_value"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT x,nth_value(x,2) OVER(ORDER BY x) FROM (VALUES (1),(2),(3)) v(x) ORDER BY x;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_ratio_to_report",
+      "capability": "window_domain",
+      "fact_refs": [
+        "funcop_window_ratio_to_report"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT x,ratio_to_report(x) OVER(PARTITION BY x%2) FROM (VALUES (1),(2),(3),(4)) v(x) ORDER BY x;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_window_filter_pushdown",
+      "capability": "window_domain",
+      "fact_refs": [
+        "funcop_window_filter_pushdown"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT * FROM (SELECT x,row_number() OVER(ORDER BY x) rn FROM (VALUES (1),(2),(3)) v(x)) q WHERE rn <= 2;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_coalesce",
+      "capability": "conditional_domain",
+      "fact_refs": [
+        "funcop_coalesce"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT coalesce(NULL,1), coalesce(NULL,NULL,'x');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_decode",
+      "capability": "conditional_domain",
+      "fact_refs": [
+        "funcop_decode"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT decode(1,1,'one',2,'two','other');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_nullif",
+      "capability": "conditional_domain",
+      "fact_refs": [
+        "funcop_nullif"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT nullif(1,1), nullif(1,2);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_nvl_nvl2",
+      "capability": "conditional_domain",
+      "fact_refs": [
+        "funcop_nvl_nvl2"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT nvl(NULL,2), nvl2(NULL,1,3);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_greatest_least",
+      "capability": "conditional_domain",
+      "fact_refs": [
+        "funcop_greatest_least"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT greatest(1,2,3), least(1,2,3);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_lnnvl_isnull",
+      "capability": "conditional_domain",
+      "fact_refs": [
+        "funcop_lnnvl",
+        "funcop_isnull"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT lnnvl(1=1), isnull(NULL), isnull(1);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_if_b_mode",
+      "capability": "conditional_domain",
+      "fact_refs": [
+        "funcop_if_b_mode"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT if(1,'true-path','false-path');",
+      "expected_kind": "value",
+      "compatibility_mode": "B",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_ifnull_b_mode",
+      "capability": "conditional_domain",
+      "fact_refs": [
+        "funcop_ifnull_b_mode"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT ifnull(NULL,2);",
+      "expected_kind": "value",
+      "compatibility_mode": "B",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_empty_lob",
+      "capability": "conditional_domain",
+      "fact_refs": [
+        "funcop_empty_blob_clob"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT empty_blob(), empty_clob();",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_case_type_priority",
+      "capability": "expression_semantics",
+      "fact_refs": [
+        "core_expr_a_mode_case_priority"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT CASE WHEN true THEN 1 ELSE 1.2 END;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_union_case_type_resolution",
+      "capability": "expression_semantics",
+      "fact_refs": [
+        "core_expr_union_case_general_resolution",
+        "core_expr_a_mode_case_priority"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT CASE WHEN true THEN 1 ELSE 1.2 END UNION ALL SELECT 1.2;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_c_mode_case_coalesce",
+      "capability": "expression_semantics",
+      "fact_refs": [
+        "core_expr_c_mode_case_coalesce"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT coalesce(1,'x');",
+      "expected_kind": "value",
+      "compatibility_mode": "C",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Known A/C difference; static probe only."
+    },
+    {
+      "id": "core_expr_candidate_a_mode_decode_numeric",
+      "capability": "expression_semantics",
+      "fact_refs": [
+        "core_expr_a_mode_decode_numeric"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT decode(1,2,1,2.5);",
+      "expected_kind": "value",
+      "compatibility_mode": "A",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_null_compare_boundaries",
+      "capability": "expression_semantics",
+      "fact_refs": [
+        "core_expr_null_comparison",
+        "core_expr_distinct_from",
+        "core_expr_between_equivalence"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT NULL IS NULL, NULL IS NOT NULL, NULL IS DISTINCT FROM NULL, 2 BETWEEN 1 AND 3;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_safe_equal_b_mode",
+      "capability": "expression_semantics",
+      "fact_refs": [
+        "core_expr_safe_equal_b_only"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT NULL <=> NULL;",
+      "expected_kind": "value",
+      "compatibility_mode": "B",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_row_comparison",
+      "capability": "expression_semantics",
+      "fact_refs": [
+        "core_expr_row_comparison"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT ROW(1,2)=ROW(1,2), ROW(1,2)<ROW(1,3);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_array_null_semantics",
+      "capability": "expression_semantics",
+      "fact_refs": [
+        "core_expr_array_in_null_semantics",
+        "core_expr_array_any_all_null_semantics"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT 1 IN (1,NULL), 1 IN (2,NULL), 1 < ANY(ARRAY[NULL,2]), 1 < ALL(ARRAY[NULL,2]);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_subquery_predicates",
+      "capability": "expression_semantics",
+      "fact_refs": [
+        "core_expr_exists_semantics",
+        "core_expr_any_some_all_subquery"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT EXISTS(SELECT 1 WHERE false), 1 IN(SELECT * FROM (VALUES (1)) q(x)), 1 < ALL(SELECT * FROM (VALUES (2)) q(x));",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_interval_expression_b_mode",
+      "capability": "expression_semantics",
+      "fact_refs": [
+        "core_expr_interval_b_mode"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT DATE '2023-01-10' - INTERVAL '1' DAY;",
+      "expected_kind": "value",
+      "compatibility_mode": "B",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_rownum_limit",
+      "capability": "expression_semantics",
+      "fact_refs": [
+        "core_type_rownum_assignment",
+        "core_type_rownum_paging_requires_subquery"
+      ],
+      "fixture_ref": "rownum_fixture",
+      "fixture_setup_sql": [
+        "CREATE TEMP TABLE core_expr_rownum_fixture AS SELECT generate_series(1,10) AS id;"
+      ],
+      "fixture_teardown_sql": [
+        "DROP TABLE core_expr_rownum_fixture;"
+      ],
+      "sql": "SELECT id FROM core_expr_rownum_fixture WHERE ROWNUM <= 3 ORDER BY id;",
+      "expected_kind": "lifecycle",
+      "compatibility_mode": "A",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_rownum_order_boundary",
+      "capability": "expression_semantics",
+      "fact_refs": [
+        "core_type_rownum_update_and_group_boundary"
+      ],
+      "fixture_ref": "rownum_fixture",
+      "fixture_setup_sql": [
+        "CREATE TEMP TABLE core_expr_rownum_fixture AS SELECT generate_series(1,10) AS id;"
+      ],
+      "fixture_teardown_sql": [
+        "DROP TABLE core_expr_rownum_fixture;"
+      ],
+      "sql": "SELECT * FROM (SELECT id,ROWNUM rn FROM (SELECT id FROM core_expr_rownum_fixture ORDER BY id) q) q2 WHERE rn BETWEEN 2 AND 3;",
+      "expected_kind": "lifecycle",
+      "compatibility_mode": "A",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": ""
+    },
+    {
+      "id": "core_expr_candidate_expression_general",
+      "capability": "expression_general",
+      "fact_refs": [
+        "funcop_logical_operators",
+        "funcop_comparison_operators",
+        "funcop_comparison_spacing_pitfall",
+        "funcop_comparison_xml_unsupported",
+        "funcop_json_operators",
+        "funcop_array_operators",
+        "funcop_range_operators",
+        "funcop_range_simple_compare",
+        "funcop_range_datea_restriction",
+        "funcop_datetime_operators",
+        "funcop_window_over_required",
+        "funcop_window_orderby_literal"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT TRUE AND NULL, TRUE OR FALSE, NOT TRUE, 1 < 2, '{\"a\":1}'::jsonb @> '{\"a\":1}'::jsonb, ARRAY[1] && ARRAY[2], int4range(1,10) && int4range(5,20), TIMESTAMP '2026-01-01' + INTERVAL '1 day', row_number() OVER();",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_conversion_inventory",
+      "capability": "conversion_inventory",
+      "fact_refs": [
+        "core_expr_operator_resolution_unknown_prefer_string",
+        "core_expr_implicit_conversion_caution",
+        "core_expr_type_conversion_overview",
+        "core_expr_a_mode_common_cast_matrix",
+        "funcop_typecast_internal_inventory",
+        "funcop_typecast_to_nchar"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT text 'abc' || 'def', 1::numeric, CAST('42' AS integer), to_nchar(42), pg_typeof(1), pg_typeof(1.2);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_xml_constraints",
+      "capability": "xml_constraints",
+      "fact_refs": [
+        "core_expr_xml_comparison_restriction",
+        "core_expr_xml_conversion_forbidden",
+        "core_type_xml_type",
+        "core_type_xml_unsupported_ops"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT XMLPARSE(DOCUMENT '<a/>') IS DOCUMENT;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_special_type_domains",
+      "capability": "special_type_domains",
+      "fact_refs": [
+        "core_type_oid_types",
+        "core_type_pseudo_types",
+        "core_type_set_type_definition",
+        "core_type_set_type_constraints",
+        "core_type_aclitem_format",
+        "core_type_vector_constraints",
+        "core_type_vector_engine_supported_types",
+        "core_type_smalldatetime",
+        "core_type_b_mode_year",
+        "core_type_time_precision",
+        "core_type_timestamptz_time_zone"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT 1::oid, NULL::record, NULL::trigger, NULL::void, TIMESTAMP '2026-01-01 00:00:00'::smalldatetime, 2026::year;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_type_size_boundaries",
+      "capability": "type_size_boundaries",
+      "fact_refs": [
+        "core_type_varchar_overflow_truncate",
+        "core_type_tuple_size_limit",
+        "core_type_over_1gb_blob_dbe_lob_only",
+        "core_type_binary_types",
+        "core_type_encrypted_binary_types"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT 'abc'::bytea, 'DEADBEEF'::raw;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_statistical_and_rowid",
+      "capability": "statistical_and_rowid",
+      "fact_refs": [
+        "core_type_rowid_format",
+        "core_type_rowid_comparison",
+        "funcop_aggregate_median_default",
+        "funcop_array_mutation_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT median(x) OVER() FROM (VALUES (1),(2)) v(x), 'AAAAAAAAAP//BBBBBAAAAAAAAAAAC'::rowid;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_case_expression_semantics",
+      "capability": "expression_general",
+      "fact_refs": [
+        "core_expr_case_semantics",
+        "core_expr_nullif_greatest_least_nvl",
+        "core_expr_constants_macros"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT CASE WHEN true THEN 't' ELSE 'f' END, nullif(1,1), greatest(1,2), least(1,2), CURRENT_SCHEMA, CURRENT_USER, LOCALTIMESTAMP;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_subquery_null_semantics",
+      "capability": "expression_general",
+      "fact_refs": [
+        "core_expr_in_subquery_null_semantics",
+        "core_expr_union_case_excluded_types"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT 1 IN(SELECT x FROM (VALUES (1),(NULL)) q(x)), EXISTS(SELECT 1 WHERE false);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_array_definition_boundary",
+      "capability": "array_domain",
+      "fact_refs": [
+        "core_type_array_definition"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT ARRAY[1,2], ARRAY[[1,2]], ARRAY(VALUES (1));",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_datetime_type_boundary",
+      "capability": "datetime_functions",
+      "fact_refs": [
+        "core_type_date_range",
+        "core_type_b_mode_time_duration",
+        "core_type_smalldatetime",
+        "core_type_b_mode_year"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT DATE '2026-09-28', TIME '12:34:56.123456', TIMESTAMP '2026-09-28 12:34:56.123456', SMALLDATETIME '2026-09-28 12:34:56.7', 2026::year;",
+      "expected_kind": "value",
+      "compatibility_mode": "B",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_hll_type_boundary",
+      "capability": "hll_domain",
+      "fact_refs": [
+        "core_type_hll_purpose",
+        "core_type_hll_parameters",
+        "core_type_hll_type_match",
+        "funcop_hll_compare_operators"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT hll_empty(12,4,8,0), hll_log2m(hll_empty(12,4,8,0)), hll_empty(12,4,8,0)=hll_empty(12,4,8,0);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_jsonb_type_boundary",
+      "capability": "json_domain",
+      "fact_refs": [
+        "core_type_json_jsonb_storage",
+        "core_type_jsonb_normalization",
+        "core_type_jsonb_compare_order",
+        "core_type_jsonb_constraints",
+        "funcop_json_gin_indexes",
+        "funcop_json_a_mode_date_empty_string"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT '{\"b\":2,\"a\":1}'::jsonb, '{\"a\":1,\"a\":2}'::jsonb, '[1,2]'::jsonb @> '[2]'::jsonb, to_jsonb(''::text);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_b_mode_numeric_defaults",
+      "capability": "numeric_type_domain",
+      "fact_refs": [
+        "core_type_numeric_b_mode_defaults",
+        "core_type_serial_semantics"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT 42::numeric, 42.5::numeric, 1::smallserial, 1::serial, 1::bigserial;",
+      "expected_kind": "value",
+      "compatibility_mode": "B",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_special_char_types",
+      "capability": "string_domain",
+      "fact_refs": [
+        "core_type_special_char_types",
+        "funcop_b_mode_string_helpers",
+        "funcop_bpchar_like_compare_guc"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT 'abc'::name, 'a'::\"char\", 'abc' LIKE 'a%', 'abc' ~ '^a';",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_bit_concat_boundary",
+      "capability": "boolean_and_bit",
+      "fact_refs": [
+        "funcop_bit_concat_limit"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT B'1'||B'0'||B'1'||B'0', B'1'||B'0'||B'1'||B'0'||B'1';",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_range_datea_boundary",
+      "capability": "range_domain",
+      "fact_refs": [
+        "core_type_datea_not_range_subtype",
+        "funcop_range_datea_restriction"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT daterange(DATE '2026-01-01',DATE '2026-12-31'), int4range(1,10) @> 5;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_regexp_function_inventory",
+      "capability": "string_domain",
+      "fact_refs": [
+        "funcop_regexp_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT regexp_count('a1b2','[0-9]'), regexp_instr('a1b2','[0-9]'), regexp_substr('a1b2','[0-9]');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_json_iteration_populate",
+      "capability": "json_domain",
+      "fact_refs": [
+        "funcop_json_iteration_functions",
+        "funcop_json_populate_record",
+        "funcop_json_record_conversion"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT * FROM jsonb_array_elements('[1,2]'::jsonb);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_sleep_function",
+      "capability": "datetime_functions",
+      "fact_refs": [
+        "funcop_sleep_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT pg_sleep(0);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_window_delta_keep",
+      "capability": "window_domain",
+      "fact_refs": [
+        "funcop_window_delta",
+        "funcop_window_keep"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT x,delta(x) OVER(ORDER BY x ROWS 1 PRECEDING),min(x) KEEP(DENSE_RANK FIRST ORDER BY x) OVER(PARTITION BY x%2) FROM (VALUES (1),(2),(3)) v(x) ORDER BY x;",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_geometry_domain",
+      "capability": "geometry_domain",
+      "fact_refs": [
+        "wave2a_geometry_operators",
+        "wave2a_geometry_measurement_functions",
+        "wave2a_geometry_conversion_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT area(box(point(0,0),point(2,2))), center(circle(point(0,0),1)), isclosed(path '((0,0),(1,1),(0,0))'), npoints(polygon '((0,0),(1,0),(1,1),(0,0))');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_network_domain",
+      "capability": "network_domain",
+      "fact_refs": [
+        "wave2a_network_operators",
+        "wave2a_network_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT family('192.168.1.1'::inet), host('192.168.1.1/24'::inet), masklen('192.168.1.0/24'::cidr), network('192.168.1.1/24'::inet), abbrev('192.168.1.0/24'::cidr);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_textsearch_domain",
+      "capability": "textsearch_domain",
+      "fact_refs": [
+        "wave2a_textsearch_operators",
+        "wave2a_textsearch_query_vector_functions",
+        "wave2a_textsearch_debug_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT to_tsvector('english','The Fat Rats') @@ to_tsquery('english','fat & rat'), plainto_tsquery('english','fat rat'), ts_rank(to_tsvector('english','fat rat'),to_tsquery('english','fat'));",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_sequence_metadata",
+      "capability": "sequence_metadata",
+      "fact_refs": [
+        "wave2a_sequence_nextval",
+        "wave2a_sequence_currval_lastval",
+        "wave2a_sequence_setval",
+        "wave2a_sequence_introspection"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT proname, pg_get_function_identity_arguments(oid) FROM pg_proc WHERE proname IN ('nextval','currval','lastval','setval','pg_sequence_last_value','last_insert_id') ORDER BY proname;",
+      "expected_kind": "metadata",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_security_metadata",
+      "capability": "security_metadata",
+      "fact_refs": [
+        "wave2a_security_encryption_functions",
+        "wave2a_security_digest_password_functions",
+        "wave2a_security_audit_functions",
+        "wave2a_security_masking_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT proname, pg_get_function_identity_arguments(oid) FROM pg_proc WHERE proname IN ('gs_encrypt_aes128','gs_decrypt_aes128','gs_digest','gs_password_lifetime','login_audit_messages','gs_query_audit','creditcardmasking') ORDER BY proname;",
+      "expected_kind": "metadata",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_srf_generate_series",
+      "capability": "srf_domain",
+      "fact_refs": [
+        "wave2a_srf_evaluation_rules",
+        "wave2a_generate_series",
+        "wave2a_search_function_helpers"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT * FROM generate_series(2,4);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_srf_nested_rules",
+      "capability": "srf_domain",
+      "fact_refs": [
+        "wave2a_srf_evaluation_rules"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT x,y,x*y FROM (VALUES (2),(3)) v(x), generate_series(1,2) AS y;",
+      "expected_kind": "metadata",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_overload_query_metadata",
+      "capability": "overload_metadata",
+      "fact_refs": [
+        "wave2a_overload_query_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT proname, pg_get_function_identity_arguments(oid) FROM pg_proc WHERE proname IN ('abs','round','substring') ORDER BY proname;",
+      "expected_kind": "metadata",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_sysinfo_session_identity",
+      "capability": "system_info_domain",
+      "fact_refs": [
+        "wave2a_sysinfo_session_identity",
+        "wave2a_sysinfo_session_ids"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT current_catalog, current_database, current_schema, current_user, session_user, version();",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_sysinfo_context_network",
+      "capability": "system_info_domain",
+      "fact_refs": [
+        "wave2a_sysinfo_context_and_temp_schema",
+        "wave2a_sysinfo_network_version"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT pg_trigger_depth(), pg_my_temp_schema(), version(), current_setting('sql_compatibility', true);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_sysinfo_privilege_visibility",
+      "capability": "system_info_domain",
+      "fact_refs": [
+        "wave2a_sysinfo_privilege_functions",
+        "wave2a_sysinfo_visibility_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT has_database_privilege(current_user,current_database(),'CONNECT'), pg_table_is_visible('pg_class'::regclass), pg_function_is_visible('now'::regproc);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_sysinfo_object_description",
+      "capability": "system_info_domain",
+      "fact_refs": [
+        "wave2a_sysinfo_object_description",
+        "wave2a_sysinfo_memory_session_detail"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT format_type('integer'::regtype,-1), pg_describe_object('pg_class'::regclass,'pg_class'::regclass,0);",
+      "expected_kind": "metadata",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_hash_functions_wave2a",
+      "capability": "hash_domain",
+      "fact_refs": [
+        "wave2a_hashfunc_inventory",
+        "wave2a_ora_hash",
+        "wave2a_bpchar_hash_guc"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT hash_numeric(30), hash_array(ARRAY[1,2]), hash_range(numrange(1.1,2.2)), hashbpchar('hello'), hashinet('127.0.0.1'::inet);",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_xml_build",
+      "capability": "xml_domain",
+      "fact_refs": [
+        "wave2a_xml_build_functions",
+        "wave2a_xml_limitations",
+        "wave2a_xmlelement_compat_guc"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT xmlcomment('test'), xmlconcat(XMLPARSE(CONTENT '<a/>'),XMLPARSE(CONTENT '<b/>')), xmlelement(NAME item, 'value');",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_xml_query",
+      "capability": "xml_domain",
+      "fact_refs": [
+        "wave2a_xml_query_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT xml_is_well_formed('<a/>'), xmlexists('/a' PASSING XMLPARSE(CONTENT '<a/>')), xpath('/a', XMLPARSE(CONTENT '<a/>'));",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_xml_export_metadata",
+      "capability": "xml_domain",
+      "fact_refs": [
+        "wave2a_xml_export_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT proname FROM pg_proc WHERE proname IN ('query_to_xml','schema_to_xml','database_to_xml','table_to_xml') ORDER BY proname;",
+      "expected_kind": "metadata",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_xml_oracle_compat",
+      "capability": "xml_domain",
+      "fact_refs": [
+        "wave2a_xml_oracle_compat_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT proname FROM pg_proc WHERE proname IN ('getclobval','getstringval','xmlsequence','xmlcast') ORDER BY proname;",
+      "expected_kind": "metadata",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_xmltype_construct_extract",
+      "capability": "xmltype_domain",
+      "fact_refs": [
+        "wave2a_xmltype_construct_functions",
+        "wave2a_xmltype_extract_functions",
+        "wave2a_xmltype_method_chaining"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT XMLTYPE('<a><b>text</b></a>').getrootelement();",
+      "expected_kind": "value",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_xmltype_cast_query",
+      "capability": "xmltype_domain",
+      "fact_refs": [
+        "wave2a_xmltype_cast_query_functions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT XMLCAST(XMLQUERY('/a/b/text()' PASSING XMLTYPE('<a><b>text</b></a>') RETURNING CONTENT) AS text);",
+      "expected_kind": "value",
+      "compatibility_mode": "A",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_sqltool_metadata",
+      "capability": "sqltool_metadata",
+      "fact_refs": [
+        "wave2a_sqltool_dbe_sql_util",
+        "wave2a_sqltool_permissions"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT proname, pg_get_function_identity_arguments(oid) FROM pg_proc WHERE pronamespace = 'dbe_sql_util'::regnamespace ORDER BY proname;",
+      "expected_kind": "metadata",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    },
+    {
+      "id": "core_expr_candidate_rowid_functions_metadata",
+      "capability": "rowid_metadata",
+      "fact_refs": [
+        "wave2a_rowid_functions",
+        "wave2a_scope_note"
+      ],
+      "fixture_ref": "no_fixture",
+      "fixture_setup_sql": [],
+      "fixture_teardown_sql": [],
+      "sql": "SELECT proname, pg_get_function_identity_arguments(oid) FROM pg_proc WHERE proname IN ('rowid_tableoid','rowid_sequence') ORDER BY proname;",
+      "expected_kind": "metadata",
+      "compatibility_mode": "any",
+      "oracle_status": "needs_verification",
+      "execution_status": "not_executed",
+      "notes": "Wave 2A fact-bound representative probe."
+    }
+  ],
+  "referenced_fact_ids": [
+    "core_expr_a_mode_case_priority",
+    "core_expr_a_mode_common_cast_matrix",
+    "core_expr_a_mode_decode_numeric",
+    "core_expr_any_some_all_subquery",
+    "core_expr_array_any_all_null_semantics",
+    "core_expr_array_constructor_type_resolution",
+    "core_expr_array_in_null_semantics",
+    "core_expr_between_equivalence",
+    "core_expr_c_mode_case_coalesce",
+    "core_expr_case_semantics",
+    "core_expr_constants_macros",
+    "core_expr_datea_allowed_casts",
+    "core_expr_distinct_from",
+    "core_expr_exists_semantics",
+    "core_expr_function_cast_resolution",
+    "core_expr_implicit_conversion_caution",
+    "core_expr_in_subquery_null_semantics",
+    "core_expr_interval_b_mode",
+    "core_expr_null_comparison",
+    "core_expr_nullif_greatest_least_nvl",
+    "core_expr_operator_resolution_unknown_prefer_string",
+    "core_expr_row_comparison",
+    "core_expr_safe_equal_b_only",
+    "core_expr_type_conversion_overview",
+    "core_expr_union_case_excluded_types",
+    "core_expr_union_case_general_resolution",
+    "core_expr_unknown_text_literal",
+    "core_expr_value_storage_length_conversion",
+    "core_expr_xml_comparison_restriction",
+    "core_expr_xml_conversion_forbidden",
+    "core_type_a_mode_date_mapping",
+    "core_type_aclitem_format",
+    "core_type_array_constructor",
+    "core_type_array_definition",
+    "core_type_array_from_subquery",
+    "core_type_b_mode_char_semantics",
+    "core_type_b_mode_float_input_output",
+    "core_type_b_mode_time_duration",
+    "core_type_b_mode_year",
+    "core_type_binary_types",
+    "core_type_bit_cast_truncation",
+    "core_type_bit_string",
+    "core_type_boolean_values",
+    "core_type_built_in_range_types",
+    "core_type_char_a_mode_units",
+    "core_type_char_basic",
+    "core_type_date_range",
+    "core_type_datea_not_range_subtype",
+    "core_type_datea_type",
+    "core_type_empty_array_requires_type",
+    "core_type_encrypted_binary_types",
+    "core_type_float_approximate_risk",
+    "core_type_geometry_types",
+    "core_type_hll_parameters",
+    "core_type_hll_purpose",
+    "core_type_hll_type_match",
+    "core_type_integer_display_width_zerofill",
+    "core_type_integer_family",
+    "core_type_integer_unsigned_mode",
+    "core_type_interval_fields",
+    "core_type_json_jsonb_storage",
+    "core_type_jsonb_compare_order",
+    "core_type_jsonb_constraints",
+    "core_type_jsonb_normalization",
+    "core_type_ledger_hash_types",
+    "core_type_money_conversion",
+    "core_type_network_types",
+    "core_type_numeric_b_mode_defaults",
+    "core_type_numeric_precision_scale",
+    "core_type_numeric_rounding_to_scale",
+    "core_type_oid_types",
+    "core_type_over_1gb_blob_dbe_lob_only",
+    "core_type_pseudo_types",
+    "core_type_range_boundaries",
+    "core_type_rowid_comparison",
+    "core_type_rowid_format",
+    "core_type_rownum_assignment",
+    "core_type_rownum_paging_requires_subquery",
+    "core_type_rownum_update_and_group_boundary",
+    "core_type_serial_semantics",
+    "core_type_set_type_constraints",
+    "core_type_set_type_definition",
+    "core_type_smalldatetime",
+    "core_type_special_char_types",
+    "core_type_text_search_types",
+    "core_type_time_precision",
+    "core_type_timestamp_precision_range",
+    "core_type_timestamptz_time_zone",
+    "core_type_tuple_size_limit",
+    "core_type_uuid",
+    "core_type_varchar_max_length",
+    "core_type_varchar_overflow_truncate",
+    "core_type_vector_constraints",
+    "core_type_vector_engine_supported_types",
+    "core_type_xml_supported_ops",
+    "core_type_xml_type",
+    "core_type_xml_unsupported_ops",
+    "core_type_xmltype",
+    "core_type_xmltype_operation_boundary",
+    "funcop_aggregate_array_string",
+    "funcop_aggregate_basic_functions",
+    "funcop_aggregate_bit_bool_functions",
+    "funcop_aggregate_checksum_warning",
+    "funcop_aggregate_count_xml",
+    "funcop_aggregate_keep",
+    "funcop_aggregate_median_default",
+    "funcop_aggregate_statistical_functions",
+    "funcop_array_metadata_functions",
+    "funcop_array_mutation_functions",
+    "funcop_array_operators",
+    "funcop_array_set_functions",
+    "funcop_array_sort_string",
+    "funcop_b_mode_datetime_functions",
+    "funcop_b_mode_string_helpers",
+    "funcop_binary_functions",
+    "funcop_bit_concat_limit",
+    "funcop_bit_integer_cast",
+    "funcop_bit_operators",
+    "funcop_bit_string_functions",
+    "funcop_bpchar_like_compare_guc",
+    "funcop_coalesce",
+    "funcop_comparison_operators",
+    "funcop_comparison_spacing_pitfall",
+    "funcop_comparison_xml_unsupported",
+    "funcop_current_date_a_mode",
+    "funcop_current_timestamp_a_mode",
+    "funcop_current_timestamp_b_mode",
+    "funcop_datetime_current_functions",
+    "funcop_datetime_extraction_functions",
+    "funcop_datetime_operators",
+    "funcop_decode",
+    "funcop_empty_blob_clob",
+    "funcop_encoding_conversion",
+    "funcop_extract_datea_guc",
+    "funcop_format_semantics",
+    "funcop_greatest_least",
+    "funcop_hash_functions",
+    "funcop_hll_cardinality_union",
+    "funcop_hll_compare_operators",
+    "funcop_hll_construct_functions",
+    "funcop_hll_hash_functions",
+    "funcop_hll_metadata_functions",
+    "funcop_if_b_mode",
+    "funcop_ifnull_b_mode",
+    "funcop_isnull",
+    "funcop_json_a_mode_date_empty_string",
+    "funcop_json_access_functions",
+    "funcop_json_aggregate_functions",
+    "funcop_json_build_functions",
+    "funcop_json_conversion_functions",
+    "funcop_json_gin_indexes",
+    "funcop_json_iteration_functions",
+    "funcop_json_mutation_functions",
+    "funcop_json_operators",
+    "funcop_json_path_search_functions",
+    "funcop_json_populate_record",
+    "funcop_json_record_conversion",
+    "funcop_json_type_functions",
+    "funcop_jsonb_predicate_functions",
+    "funcop_like_escape_rules",
+    "funcop_lnnvl",
+    "funcop_logical_operators",
+    "funcop_nullif",
+    "funcop_numeric_division_no_truncation",
+    "funcop_numeric_function_inventory",
+    "funcop_numeric_operators",
+    "funcop_nvl_nvl2",
+    "funcop_oracle_date_functions",
+    "funcop_pattern_matching_operators",
+    "funcop_range_datea_restriction",
+    "funcop_range_empty_behavior",
+    "funcop_range_functions",
+    "funcop_range_operators",
+    "funcop_range_simple_compare",
+    "funcop_regexp_functions",
+    "funcop_regexp_functions_inventory",
+    "funcop_regexp_operators",
+    "funcop_round_semantics",
+    "funcop_similar_to_metacharacters",
+    "funcop_sleep_functions",
+    "funcop_string_inventory",
+    "funcop_string_padding_semantics",
+    "funcop_string_to_array_unnest",
+    "funcop_trunc_semantics",
+    "funcop_typecast_internal_inventory",
+    "funcop_typecast_interval_functions",
+    "funcop_typecast_to_char",
+    "funcop_typecast_to_date",
+    "funcop_typecast_to_nchar",
+    "funcop_typecast_to_number",
+    "funcop_typecast_to_timestamp",
+    "funcop_window_delta",
+    "funcop_window_filter_pushdown",
+    "funcop_window_first_last_value",
+    "funcop_window_keep",
+    "funcop_window_lag_lead",
+    "funcop_window_nth_value",
+    "funcop_window_orderby_literal",
+    "funcop_window_over_required",
+    "funcop_window_rank_functions",
+    "funcop_window_ratio_to_report",
+    "wave2a_bpchar_hash_guc",
+    "wave2a_generate_series",
+    "wave2a_geometry_conversion_functions",
+    "wave2a_geometry_measurement_functions",
+    "wave2a_geometry_operators",
+    "wave2a_hashfunc_inventory",
+    "wave2a_network_functions",
+    "wave2a_network_operators",
+    "wave2a_ora_hash",
+    "wave2a_overload_query_functions",
+    "wave2a_rowid_functions",
+    "wave2a_scope_note",
+    "wave2a_search_function_helpers",
+    "wave2a_security_audit_functions",
+    "wave2a_security_digest_password_functions",
+    "wave2a_security_encryption_functions",
+    "wave2a_security_masking_functions",
+    "wave2a_sequence_currval_lastval",
+    "wave2a_sequence_introspection",
+    "wave2a_sequence_nextval",
+    "wave2a_sequence_setval",
+    "wave2a_sqltool_dbe_sql_util",
+    "wave2a_sqltool_permissions",
+    "wave2a_srf_evaluation_rules",
+    "wave2a_sysinfo_context_and_temp_schema",
+    "wave2a_sysinfo_memory_session_detail",
+    "wave2a_sysinfo_network_version",
+    "wave2a_sysinfo_object_description",
+    "wave2a_sysinfo_privilege_functions",
+    "wave2a_sysinfo_session_identity",
+    "wave2a_sysinfo_session_ids",
+    "wave2a_sysinfo_visibility_functions",
+    "wave2a_textsearch_debug_functions",
+    "wave2a_textsearch_operators",
+    "wave2a_textsearch_query_vector_functions",
+    "wave2a_xml_build_functions",
+    "wave2a_xml_export_functions",
+    "wave2a_xml_limitations",
+    "wave2a_xml_oracle_compat_functions",
+    "wave2a_xml_query_functions",
+    "wave2a_xmlelement_compat_guc",
+    "wave2a_xmltype_cast_query_functions",
+    "wave2a_xmltype_construct_functions",
+    "wave2a_xmltype_extract_functions",
+    "wave2a_xmltype_method_chaining"
+  ],
+  "uncovered_fact_ids": [],
+  "summary": {
+    "source_fact_count": 246,
+    "candidate_count": 171,
+    "fixture_count": 3,
+    "referenced_fact_count": 246,
+    "candidate_fact_reference_count": 293,
+    "uncovered_fact_count": 0,
+    "all_candidates_read_only": true,
+    "static_chain_complete": true,
+    "runtime_executed": false,
+    "runtime_verified": false
+  },
+  "limits": [
+    "This chain does not connect to GaussDB or execute SQL.",
+    "A generated candidate is not a runtime receipt.",
+    "Representative coverage does not prove every documented input domain.",
+    "Oracle status remains needs_verification until database evidence exists."
+  ]
+}

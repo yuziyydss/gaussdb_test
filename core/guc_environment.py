@@ -116,12 +116,13 @@ class GucValueDomainDef(StrictGucModel):
 
 
 class GucParameterDef(StrictGucModel):
-    schema_version: Literal[1]
+    schema_version: Literal[1, 2]
     kind: Literal["guc_parameter"]
     id: str
     name: str
     category: Literal[
-        "compatibility", "query_planning", "transaction", "wal", "lock", "plancache"
+        "compatibility", "query_planning", "transaction", "wal", "lock", "plancache",
+        "data_import_export", "runtime_statistics"
     ]
     description: str
     value_type: Literal["boolean", "enum", "string", "integer"]
@@ -199,7 +200,7 @@ class GucParameterDef(StrictGucModel):
 
 
 class GucEnvironmentDef(StrictGucModel):
-    schema_version: Literal[1]
+    schema_version: Literal[1, 2]
     kind: Literal["guc_environment"]
     id: str
     name: str

@@ -6,6 +6,84 @@
 |---|---|
 | [Full-Document Catalog V1](FULL_DOCUMENT_CATALOG.md) | 83个本地catalog合并后的权威全书目录：5,686页、49页front matter、5,637/5,637正文页、515个唯一章节与来源哈希审计 |
 | [Non-SQL Reference Schema V1](NON_SQL_REFERENCE_SCHEMA_V1.md) | 67个非SQL参考YAML、885条facts的类型化Schema：分类、来源哈希、状态审计与3条未决项 |
+| [GUC Reference Schema V2](GUC_REFERENCE_SCHEMA_V2.md) | 权威7.3全章GUC参考目录：1,177个定义、1,175个唯一参数、82个小节、20/20 V1 pilot对齐与重复定义显式保留 |
+| [GUC Candidate Matrix V1](GUC_CANDIDATE_MATRIX_V1.md) | 从GUC V2派生的候选准入矩阵：158个布尔USERSET候选、7个confirmed fact下一批评审项、1个needs_verification延期项 |
+| [GUC Environment V2](GUC_ENVIRONMENT_V2.md) | 20项V1试点扩展至27项；新增5个session overlay、2个人工复核参数，保留捕获/应用/验证/恢复安全边界 |
+| [GUC Overlay Plan Export V1](GUC_OVERLAY_PLAN_EXPORT_V1.md) | 19个session overlay计划、95个SQL步骤、8个排除项与来源哈希；静态计划不是执行收据 |
+| [GUC API V1](GUC_API_V1.md) | `/guc` 页面与 `/api/guc/v2/*` 路由：参数过滤、计划JSON与SQL导出；不连接数据库 |
+| [GUC V2 Audit](GUC_V2_AUDIT.md) | 14项跨层静态检查：参数身份、候选对齐、计划覆盖、策略隔离与SQL边界 |
+| [GUC V2 Preflight](GUC_V2_PREFLIGHT.md) | 27个只读current_setting查询、值域匹配与失败关闭结果；不修改GUC、不执行目标SQL |
+| [GUC V2 Preflight Audit](GUC_V2_PREFLIGHT_AUDIT.md) | Preflight结果与计划身份、查询SQL、计数和状态边界的独立审计 |
+| [GUC V2 Evidence Bundle](GUC_V2_EVIDENCE_BUNDLE.md) | 15个证据产物、11个当前存在、4个缺失，静态/Preflight/Runtime三层完整性清单 |
+| [GUC V2 Capability Adapter](GUC_V2_CAPABILITY_ADAPTER.md) | 19个session overlay能力、38个允许值、runtime fact绑定与overlay计划；尚未写入Factor Package |
+| [GUC V2 Requirement Adapter](GUC_V2_REQUIREMENT_ADAPTER.md) | 9个可转换环境门禁、8个缺fact阻断、2个空值阻断；不修改specs |
+| [GUC V2 Requirement Resolver](GUC_V2_REQUIREMENT_RESOLVER.md) | 场景`guc_*`门禁静态解析、Capability Plan绑定与失败关闭；不执行SQL |
+| [GUC V2 Execution Selector](GUC_V2_EXECUTION_SELECTOR.md) | 从已解析门禁选择具体GUC值并生成五步overlay计划；仍不执行SQL |
+| [Advanced Package Evidence Bundle](ADVANCED_PACKAGE_EVIDENCE_BUNDLE.md) | 高级包Pilot V1证据清单：22/22个支持包、251个接口、27个runtime候选与缺失receipt |
+| [Advanced Package Runtime Plan API](ADVANCED_PACKAGE_RUNTIME_PLAN.md) | `/api/advanced-package/runtime-plan`：29个单元、37个SQL步骤与授权边界；只读dry-run |
+| [Advanced Package Runtime Candidate Coverage API](ADVANCED_PACKAGE_RUNTIME_CANDIDATE_COVERAGE.md) | `/api/advanced-package/runtime-candidate-coverage`：39个候选接口、39个已覆盖接口、0个覆盖缺口 |
+| [Advanced Package Static Chain](ADVANCED_PACKAGE_CHAIN.md) | 一键重建Runtime Dry Run与Evidence Bundle，并用`--check`校验哈希；不执行SQL |
+| [Advanced Package Execution Gate](ADVANCED_PACKAGE_EXECUTION_GATE.md) | 静态证据、runtime plan、授权与数据库启用分层门禁；不伪造执行许可 |
+| [Advanced Package Candidate Matrix](ADVANCED_PACKAGE_CANDIDATE_MATRIX.md) | 22个DBE包扩展矩阵：22个已建模、0个未建模、294个相关facts |
+| [Advanced Package Policy Audit](ADVANCED_PACKAGE_POLICY_AUDIT.md) | 新增8包覆盖与策略复审：99/99 distinct callable、126/126签名已建模、38个已case化runtime candidate、6个首批block |
+| [Advanced Package Runtime Preflight](ADVANCED_PACKAGE_RUNTIME_PREFLIGHT.md) | 27个runtime case的只读前置计划与Result/Audit模型：8个SELECT查询、77个candidate接口 |
+| [Core Type & Expression Extraction V1](CORE_TYPE_EXPRESSION_EXTRACTION_V1.md) | 1.3类型、1.7表达式、1.8伪列、1.9类型转换细抽取：38章、122页、99个facts |
+| [Core Function & Operator Extraction V1](CORE_FUNCTION_OPERATOR_EXTRACTION_V1.md) | 1.6核心函数与操作符细抽取：16章、312页、102个facts |
+| [Core Function & Operator Wave 2A](CORE_FUNCTION_OPERATOR_WAVE2A_V1.md) | 1.6剩余高价值函数抽取：13章、112页、45个facts |
+| [Core System Management Wave 2B-1](CORE_SYSTEM_ADMIN_WAVE2B1_V1.md) | 1.6.27配置/文件/信号函数细抽取：5页、20个facts |
+| [Core System Management Wave 2B-2](CORE_SYSTEM_ADMIN_WAVE2B2_V1.md) | 1.6.27备份/恢复/容灾控制函数细抽取：21页、30个facts |
+| [Core System Management Wave 2B-3](CORE_SYSTEM_ADMIN_WAVE2B3_V1.md) | 1.6.27容灾查询/快照/对象函数细抽取：12页、20个facts |
+| [Core System Management Wave 2B-4](CORE_SYSTEM_ADMIN_WAVE2B4_V1.md) | 1.6.27咨询锁/逻辑复制基础细抽取：16页、28个facts |
+| [Core System Management Wave 2B-5A](CORE_SYSTEM_ADMIN_WAVE2B5A_V1.md) | 逻辑复制area changes/槽状态/并行解码细抽取：21页、21个facts |
+| [Core System Management Wave 2B-5B](CORE_SYSTEM_ADMIN_WAVE2B5B_V1.md) | 1.6.27.10剩余replication origin/SQL apply/回放跳过：14页、29个facts |
+| [Core System Management Wave 2B-6](CORE_SYSTEM_ADMIN_WAVE2B6_V1.md) | 段页式存储函数细抽取：22页、25个facts |
+| [Core System Management Wave 2B-7](CORE_SYSTEM_ADMIN_WAVE2B7_V1.md) | hashbucket与Undo系统函数细抽取：19页、28个facts |
+| [Core System Management Wave 2B-8](CORE_SYSTEM_ADMIN_WAVE2B8_V1.md) | 行存压缩与HTAP系统函数细抽取：23页、17个facts |
+| [Core System Management Wave 2B-9](CORE_SYSTEM_ADMIN_WAVE2B9_V1.md) | 1.6.27.16 NVMe系统函数细抽取：9页、11个facts |
+| [Core System Management Wave 2B-10](CORE_SYSTEM_ADMIN_WAVE2B10_V1.md) | 1.6.27.17其它函数首批：计划缓存、会话线程、WDR/ASP与I/O诊断细抽取：10页、29个facts |
+| [Core System Management Wave 2B-11](CORE_SYSTEM_ADMIN_WAVE2B11_V1.md) | 1.6.27.17其它函数第二批：刷脏、buffer、回放、全局SQL与COPY错误表细抽取：9页、35个facts |
+| [Core System Management Wave 2B-12](CORE_SYSTEM_ADMIN_WAVE2B12_V1.md) | 1.6.27.17其它函数第三批：功能开关、页面解析、Xlog dump、UBTree与WAL统计细抽取：13页、26个facts |
+| [Core System Management Wave 2B-13](CORE_SYSTEM_ADMIN_WAVE2B13_V1.md) | 1.6.27.17其它函数第四批：目录文件、AntiCache/Vlog、UStore统计、页面重放与GIN清理细抽取：12页、25个facts |
+| [Core System Management Wave 2B-14](CORE_SYSTEM_ADMIN_WAVE2B14_V1.md) | 1.6.27.17其它函数第五批：空间/膨胀率估算与备机WAL接收写入统计细抽取：8页、13个facts |
+| [Core System Management Wave 2B-15](CORE_SYSTEM_ADMIN_WAVE2B15_V1.md) | 1.6.27.17其它函数第六批：GSTrace、主降备耗时与tcache清理收尾：10页、21个facts |
+| [Core System Management Wave 2B Summary](CORE_SYSTEM_ADMIN_WAVE2B_SUMMARY_V1.md) | 1.6.27系统管理函数Wave 2B汇总：213页全覆盖、17个子节、378个facts、33个open questions |
+| [Core SPM Plan Management Wave 3-1](CORE_SPM_PLAN_WAVE3_1_V1.md) | 1.6.28 SPM计划管理函数首轮抽取：9页、9个接口、21个facts |
+| [Core Statistics Functions Wave 4-1](CORE_STATISTICS_WAVE4_1_V1.md) | 1.6.29统计信息函数首批：恢复冲突、复制、锁、数据库/表统计与autovacuum：10页、33个facts |
+| [Core Statistics Functions Wave 4-2](CORE_STATISTICS_WAVE4_2_V1.md) | 1.6.29统计信息函数第二批：会话/后端统计、重置、控制组、黑匣子与plan trace：14页、45个facts |
+| [Core Statistics Functions Wave 4-3](CORE_STATISTICS_WAVE4_3_V1.md) | 1.6.29统计信息函数第三批：VACUUM进度、负载/会话统计、Unique SQL、Paxos与WLM：9页、36个facts |
+| [Core Statistics Functions Wave 4-4](CORE_STATISTICS_WAVE4_4_V1.md) | 1.6.29统计信息函数第四批：DBE_PERF全局/汇总统计、文件I/O、复制、线程池与按需读队列：10页、55个facts |
+| [Core Statistics Functions Wave 4-5](CORE_STATISTICS_WAVE4_5_V1.md) | 1.6.29统计信息函数第五批：回放耗时、Xlog类型统计、内存上下文、线程栈与火焰图采集：12页、20个facts |
+| [Core Statistics Functions Wave 4-6](CORE_STATISTICS_WAVE4_6_V1.md) | 1.6.29统计信息函数第六批：火焰图查询/清理与性能抖动监控：11页、23个facts |
+| [Core Statistics Functions Wave 4-7](CORE_STATISTICS_WAVE4_7_V1.md) | 1.6.29统计信息函数第七批：线程内存/线程池统计、会话GUC、WAL预解析与资源池统计：7页、24个facts |
+| [Core Statistics Functions Wave 4-8](CORE_STATISTICS_WAVE4_8_V1.md) | 1.6.29统计信息函数第八批：WLM空间/会话、极致RTO、回放冲突与WAL统计：9页、19个facts |
+| [Core Statistics Functions Wave 4-9](CORE_STATISTICS_WAVE4_9_V1.md) | 1.6.29统计信息函数第九批：延迟DDL、PL/SQL内存统计与分区汇总统计：8页、14个facts |
+| [Core Statistics Functions Wave 4-10](CORE_STATISTICS_WAVE4_10_V1.md) | 1.6.29统计信息函数第十批收尾：单字段分区统计、ALT状态、内存profiling与jemalloc：4页、21个facts |
+| [Core Statistics Functions Wave 4 Summary](CORE_STATISTICS_WAVE4_SUMMARY_V1.md) | 1.6.29统计信息函数Wave 4汇总：89页全覆盖、10个批次、290个facts、20个open questions |
+| [Core System Function Extraction Summary](CORE_SYSTEM_FUNCTION_EXTRACTION_SUMMARY_V1.md) | 1.6.26–1.6.29系统函数跨章节汇总：341页全覆盖、31个批次、811个facts、63个open questions |
+| [Core System Information Functions Wave 5-1](CORE_SYSTEM_INFO_WAVE5_1_V1.md) | 1.6.26系统信息函数首批：上下文、会话/连接、版本/节点、编码与内存明细：12页、37个facts |
+| [Core System Information Functions Wave 5-2](CORE_SYSTEM_INFO_WAVE5_2_V1.md) | 1.6.26系统信息函数第二批：对象/角色/ANY权限查询：8页、22个facts |
+| [Core System Information Functions Wave 5-3](CORE_SYSTEM_INFO_WAVE5_3_V1.md) | 1.6.26系统信息函数第三批：模式可见性、对象定义、类型/序列/表空间与注释：8页、32个facts |
+| [Core System Information Functions Wave 5-4](CORE_SYSTEM_INFO_WAVE5_4_V1.md) | 1.6.26系统信息函数第四批收尾：事务ID/快照、控制状态、内存/文件/WLM与内核信息：7页、31个facts |
+| [Core System Information Functions Wave 5 Summary](CORE_SYSTEM_INFO_WAVE5_SUMMARY_V1.md) | 1.6.26系统信息函数Wave 5汇总：33页全覆盖、4个批次、122个facts、8个open questions |
+| [Core Expression Candidate Chain V1](CORE_EXPRESSION_CANDIDATE_CHAIN_V1.md) | Wave 1A/1B/2A事实→fixture→静态SQL候选：246个facts、171个candidates |
+| [Core Expression Probe Plan V1](CORE_EXPRESSION_PROBE_PLAN_V1.md) | 静态SQL probe第一批dry-run：150筛94、无fixture、只读 |
+| [Core Expression Probe Batches V1](CORE_EXPRESSION_PROBE_BATCHES_V1.md) | 94个SQL probe拆成4个授权审查批次：dry-run only |
+| [Core Expression Batch 01 Execution V1](CORE_EXPRESSION_BATCH01_EXECUTION_V1.md) | Batch 01执行计划与receipt audit：23步、dry-run only |
+| [Core Expression Batch Execution Plans V1](CORE_EXPRESSION_BATCH_EXECUTION_PLANS_V1.md) | 四个probe批次的统一execution plan与receipt audit schema |
+| [Core Expression Oracle Draft V1](CORE_EXPRESSION_ORACLE_DRAFT_V1.md) | 94个SQL probe的expected oracle草案：0个具体值声明 |
+| [Core Expression Oracle Review Sheet V1](CORE_EXPRESSION_ORACLE_REVIEW_SHEET_V1.md) | 94个oracle草案的人工复核清单：14个能力域、94个pending |
+| [Core Expression Oracle Review Decisions V1](CORE_EXPRESSION_ORACLE_REVIEW_DECISIONS_V1.md) | 94项oracle决策登记：基线94 pending、0 confirmed |
+| [Core Expression Oracle Promotion V1](CORE_EXPRESSION_ORACLE_PROMOTION_V1.md) | executable oracle promotion：0 confirmed、0 promoted、94 excluded |
+| [Core Expression Oracle Assertion Authoring V1](CORE_EXPRESSION_ORACLE_ASSERTION_AUTHORING_V1.md) | executable oracle断言编写清单：0 promoted、4类允许断言 |
+| [Core Expression Oracle Capture V1](CORE_EXPRESSION_ORACLE_CAPTURE_V1.md) | 94个SQL probe的标准evidence capture槽位：94 pending |
+| [Core Expression Oracle Capture Ingestion V1](CORE_EXPRESSION_ORACLE_CAPTURE_INGESTION_V1.md) | 已审计batch receipt到capture slots的转换与hash |
+| [Advanced Package Runtime Plan API](ADVANCED_PACKAGE_RUNTIME_PLAN.md) | `/api/advanced-package/runtime-plan`：29个单元、37个SQL步骤与授权边界；只读dry-run |
+| [Advanced Package Runtime Candidate Coverage API](ADVANCED_PACKAGE_RUNTIME_CANDIDATE_COVERAGE.md) | `/api/advanced-package/runtime-candidate-coverage`：39个候选接口、39个已覆盖接口、0个覆盖缺口 |
+| [GUC V2 Static Chain](GUC_V2_CHAIN.md) | 一键重建8层静态证据链；不连接数据库、不执行Preflight或Runtime Pilot |
+| [GUC V2 Readiness](GUC_V2_READINESS.md) | 静态、Preflight、授权与运行时证据四层分离；当前ready_for_authorized_execution=false |
+| [GUC V2 Runtime Pilot](GUC_V2_RUNTIME_PILOT.md) | 19个GUC overlay单元、95个SQL步骤、显式授权与恢复边界；当前仅dry-run，不是执行回执 |
+| [GUC V2 Runtime Receipt Audit](GUC_V2_RUNTIME_RECEIPT_AUDIT.md) | 回执与计划哈希、单元/步骤计数、恢复边界和SQL安全审计；当前无回执 |
+| [GUC V2 Execution Gate](GUC_V2_EXECUTION_GATE.md) | 技术就绪、显式授权与数据库可用三层门禁；当前因Preflight缺失而阻断 |
 | [PDF类型规则第二批：显式A整数](COMMON_TYPE_BATCH_02.md) | 9月11日下午：4 SELECT＋2 INSERT候选、九格类型单元检查；1,912项全量静态通过，旧5263候选保全；长度/精度实际消费者缺口独立评审，未执行数据库 |
 | [PDF值存储与UNION/CASE首批](COMMON_TYPE_BATCH_01.md) | 9月11日：新增9条PG有限候选，1,903项全量静态回归通过；10组规则分层处理、实际DDL/输出类型检查、跨包fixture及旧SQL保全，实机仍未验证 |
 | [9月9日至10日夜间演进](NIGHT_EVOLUTION_20260910.md) | 当前窗口：生成列、MERGE默认值、RETURNING输出列合同与M PREPARE/SET代表；数量及逐批真实收据见正文，历史全量单列 |

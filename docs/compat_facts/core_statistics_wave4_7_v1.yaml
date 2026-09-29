@@ -1,0 +1,167 @@
+document: 集中式版参考 / 1.6.29 统计信息函数（Wave 4-7）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-29'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapter: 1.6.29 统计信息函数
+  subsection: 1.6.29 统计信息函数（第七批：线程内存、线程池执行统计、会话GUC、WAL预解析与资源池统计）
+  physical_page_start: 874
+  physical_page_end: 881
+  physical_page_count: 7
+  excludes:
+  - 1.6.29 统计信息函数起始于页881的gs_wlm_user_space_info及后续函数
+facts:
+- id: stats_wave4_7_thread_memctx_detail
+  type: constraint
+  statement: "gs_get_thread_memctx_detail(tid,text)返回指定线程内存上下文的内存申请明细，仅支持查询GS_THREAD_MEMORY_CONTEXT返回的tid和contextname；需SYSADMIN或MONADMIN权限；Non-PDB返回全部信息，PDB返回空列表。"
+  source_anchor: "1.6.29 页874"
+  source_refs: &id001
+  - w4_7_1_6_29
+  status: confirmed
+- id: stats_wave4_7_thread_memctx_detail_fields
+  type: syntax
+  statement: "gs_get_thread_memctx_detail输出file、line和size；同一文件同一行多次申请的内存大小会累加，size单位为byte。"
+  source_anchor: "1.6.29 页874"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_tpworker_execstmt_stat
+  type: constraint
+  statement: "gs_tpworker_execstmt_stat()描述正在执行语句的运行时信息；SYSADMIN和MONADMIN显示全部正在执行语句，普通用户只能查询自己执行的SQL语句信息。"
+  source_anchor: "1.6.29 页874"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_tpworker_execstmt_stat_fields
+  type: syntax
+  statement: "gs_tpworker_execstmt_stat输出db_oid、db_name、threadpool_worker、thread_id、session_id、query_id、query_text、unique_sql_id、client_hostname、client_app_name、慢SQL阈值、语句开始时间、已耗时和管控信息。"
+  source_anchor: "1.6.29 页874-875"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_tpworker_execstmt_control
+  type: behavior_oracle
+  statement: "gs_tpworker_execstmt_stat的stmt_control_status可为Waiting、Running、Control或Downgraded，分别表示等待线程、正常执行、进入资源管控和进入CPU管控；stmt_control_iostat记录当前IOPS与上限，格式curVal/maxVal；memstat、cpustat和netstat字段预留且暂不支持。"
+  source_anchor: "1.6.29 页875-876"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_tpworker_execslot_stat
+  type: constraint
+  statement: "gs_tpworker_execslot_stat()描述线程运行时信息；SYSADMIN和MONADMIN显示全部线程，普通用户只能查询自己执行的SQL语句所在线程信息。"
+  source_anchor: "1.6.29 页875-876"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_tpworker_execslot_stat_fields
+  type: syntax
+  statement: "gs_tpworker_execslot_stat输出numagroup、worker_id、worker_bind_type、worker_cpu_affinity、worker_status、served_query_id和served_query_text。"
+  source_anchor: "1.6.29 页875-876"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_tpworker_worker_status
+  type: behavior_oracle
+  statement: "gs_tpworker_execslot_stat的worker_status可为Waiting、Running或Control，分别表示等待session获得线程、当前语句正常执行和当前语句进入资源管控。"
+  source_anchor: "1.6.29 页876"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_session_all_settings_by_sessionid
+  type: constraint
+  statement: "gs_session_all_settings(sessionid bigint)查询本节点指定会话的全量GUC参数配置，需要SYSADMIN或MONADMIN权限；PDB下仅返回本PDB数据，Non-PDB返回全局数据；输出name、setting和unit。"
+  source_anchor: "1.6.29 页876"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_session_all_settings_all
+  type: constraint
+  statement: "gs_session_all_settings()查询本节点所有会话的全量GUC参数配置，需要SYSADMIN或MONADMIN权限；PDB仅返回本PDB数据，Non-PDB返回全局数据；输出sessionid、pid、name、setting和unit。"
+  source_anchor: "1.6.29 页876-877"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_local_wal_preparse_statistics
+  type: constraint
+  statement: "gs_local_wal_preparse_statistics()查询本节点日志预解析线程最近一次启动和预解析日志情况，需要SYSADMIN权限；线程通常在备DN双机复制链路断开时由CM组件发送命令启动。"
+  source_anchor: "1.6.29 页877"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_local_wal_preparse_fields
+  type: syntax
+  statement: "gs_local_wal_preparse_statistics输出preparser_term、start_time、end_time、start_location、end_location、total_bytes、speed和is_valid；speed单位为byte/ms，total_bytes单位为byte。"
+  source_anchor: "1.6.29 页877-878"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_local_wal_preparse_default
+  type: behavior_oracle
+  statement: "若日志预解析线程尚未启动，gs_local_wal_preparse_statistics返回默认值，term为0，时间为2000-01-01 08:00:00+08，位置为00000000/00000000，字节数、速度为0，is_valid为f。"
+  source_anchor: "1.6.29 页877-878"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_respool_cpu_info
+  type: syntax
+  statement: "gs_wlm_respool_cpu_info()描述资源池CPU资源限制和使用信息，输出respool_name、control_group、cpu_affinity和cpu_usage；多租模式下禁用。"
+  source_anchor: "1.6.29 页878"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_respool_cpu_usage
+  type: behavior_oracle
+  statement: "gs_wlm_respool_cpu_info的cpu_usage为资源池CPU使用率；如果资源池没有进行CPU管控，该项显示为0。"
+  source_anchor: "1.6.29 页878"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_respool_connection_info
+  type: syntax
+  statement: "gs_wlm_respool_connection_info()描述资源池连接数限制和使用信息，输出respool_name、max_connections和curr_connections；多租模式下禁用。"
+  source_anchor: "1.6.29 页878-879"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_respool_memory_info
+  type: syntax
+  statement: "gs_wlm_respool_memory_info()描述资源池内存限制和使用信息，输出respool_name、max/current_dynamic_memory、max/current_shared_memory和shared_memory_hits_percent；多租模式下禁用。"
+  source_anchor: "1.6.29 页879"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_respool_memory_reserved_field
+  type: constraint
+  statement: "gs_wlm_respool_memory_info的shared_memory_hits_percent功能不可用，字段保留且恒为0。"
+  source_anchor: "1.6.29 页879"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_respool_memory_over_limit
+  type: behavior_oracle
+  statement: "资源池动态内存使用超过最大值时，可能出现current_dynamic_memory查询结果大于max_dynamic_memory的情况；文档说明这属于正常现象，实际并未申请内存。"
+  source_anchor: "1.6.29 页879"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_respool_concurrency_info
+  type: syntax
+  statement: "gs_wlm_respool_concurrency_info()描述资源池并发数限制和使用信息，输出respool_name、max_concurrency、running_concurrency和waiting_concurrency；多租模式下禁用。"
+  source_anchor: "1.6.29 页879-880"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_respool_concurrency_no_limit
+  type: behavior_oracle
+  statement: "gs_wlm_respool_concurrency_info中，如果资源池没有进行并发限制，running_concurrency显示为0。"
+  source_anchor: "1.6.29 页880"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_respool_io_info
+  type: syntax
+  statement: "gs_wlm_respool_io_info()描述资源池I/O限制和使用信息，输出respool_name、io_limits、io_priority和current_iops；多租模式下禁用。"
+  source_anchor: "1.6.29 页880"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_respool_io_semantics
+  type: behavior_oracle
+  statement: "gs_wlm_respool_io_info中io_limits为每秒IOPS上限，0表示不控制；io_priority在I/O利用率高达90%时生效，None表示不控制；current_iops可能因统计算法偶尔超过上限，未管控时显示0；IOPS计数单位由GUC参数io_control_unit定义。"
+  source_anchor: "1.6.29 页880"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_7_scope_note
+  type: environment
+  statement: "Wave 4-7覆盖1.6.29统计信息函数第七批：线程内存上下文、线程池语句/槽位统计、会话全量GUC、WAL预解析和资源池CPU/连接/内存/并发/I/O统计，物理页874-880。"
+  source_anchor: "1.6.29 页874-880"
+  source_refs: *id001
+  status: confirmed
+open_questions:
+- id: stats_wave4_7_oq_tpworker_status_matrix
+  statement: "线程池语句和槽位统计在不同权限、负载、等待、资源管控和CPU降级状态下的输出矩阵需授权环境验证。"
+  status: open
+- id: stats_wave4_7_oq_respool_limits_matrix
+  statement: "资源池CPU、连接、内存、并发和I/O限制在多租开关、无限制配置、超限场景和io_control_unit变化下的行为矩阵需实机验证。"
+  status: open

@@ -1,0 +1,173 @@
+document: 集中式版参考 / 1.6.27 系统管理函数（Wave 2B-13）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-29'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapter: 1.6.27 系统管理函数
+  subsection: 1.6.27.17 其它函数（第四批：系统表属性、目录文件、AntiCache/Vlog、UStore统计、页面重放与GIN清理）
+  physical_page_start: 777
+  physical_page_end: 789
+  physical_page_count: 12
+  excludes:
+  - 1.6.27.17 其它函数起始于页788的gs_stat_freespace及后续函数
+facts:
+- id: wave2b13_catalog_attribute_records
+  type: constraint
+  statement: "gs_catalog_attribute_records()返回指定系统表oid对应的字段定义；仅支持oid小于10000的普通系统表，不支持索引、toast表等。"
+  source_anchor: "1.6.27.17 页777"
+  source_refs: &id001
+  - w2b13_1_6_27
+  status: confirmed
+- id: wave2b13_comm_proxy_thread_status
+  type: behavior_oracle
+  statement: "gs_comm_proxy_thread_status()返回comm_proxy收发数据包统计；仅在集中式环境部署用户态网络且comm_proxy_attr中enable_dfx为true时显示具体信息，其他场景报错不支持查询。"
+  source_anchor: "1.6.27.17 页777"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_pg_ls_tmpdir_default
+  type: constraint
+  statement: "pg_ls_tmpdir()返回默认表空间下pgsql_tmp目录中每个文件的名称、大小和最后修改时间；需系统管理员或监控管理员执行。"
+  source_anchor: "1.6.27.17 页777"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_pg_ls_tmpdir_tablespace
+  type: constraint
+  statement: "pg_ls_tmpdir(oid)返回指定表空间下pgsql_tmp目录中每个文件的名称、大小和最后修改时间；需系统管理员或监控管理员执行。"
+  source_anchor: "1.6.27.17 页777-778"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_pg_ls_waldir
+  type: constraint
+  statement: "pg_ls_waldir()返回WAL目录中每个文件的名称、大小和最后修改时间；需系统管理员或监控管理员执行。"
+  source_anchor: "1.6.27.17 页778"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_stat_anti_cache
+  type: syntax
+  statement: "gs_stat_anti_cache()返回AntiCache统计，包括分区数量、分区初始大小、分区大小上限、AntiCache大小上限、实时AntiCache大小和实时最大/最小分区大小。"
+  source_anchor: "1.6.27.17 页778"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_stat_vlog_buffer
+  type: syntax
+  statement: "gs_stat_vlog_buffer()返回verifyLog buffer统计，包括vlog写入位置、刷盘位置、下刷最大/最小/平均字节数和下刷时延统计。"
+  source_anchor: "1.6.27.17 页778-779"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_stat_vlog_related_io
+  type: syntax
+  statement: "gs_stat_vlog_related_io()返回verifylog文件读写I/O统计，包括每秒读文件页面数、每秒读vlog页面数和每秒写vlog页面数。"
+  source_anchor: "1.6.27.17 页779"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_stat_vlog_file
+  type: syntax
+  statement: "gs_stat_vlog_file()查询尚未回收的Vlog/Verifylog文件，输出已完成回收的最后一个文件段号、当前待回收目标段号和当前最大文件段号。"
+  source_anchor: "1.6.27.17 页779-780"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_pause_anti_cache_recycle
+  type: behavior_oracle
+  statement: "pause_anti_cache_recycle(pause)设置是否暂停AntiCache回收，仅供内部使用；pause为true暂停回收，false恢复正常回收；正式版本不支持设置。"
+  source_anchor: "1.6.27.17 页780"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_write_term_log
+  type: behavior_oracle
+  statement: "gs_write_term_log(void)写入一条日志记录DN节点当前term值；备DN返回false，主DN写入成功后返回true。"
+  source_anchor: "1.6.27.17 页780"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_stat_space
+  type: syntax
+  statement: "gs_stat_space(init)查询UStore执行Insert操作时拓展页面的状态；init用于重置已统计数据，输出接口访问、缓存访问、FSM访问、Prune、联合清理、并发扩页和单一扩页等统计。"
+  source_anchor: "1.6.27.17 页780-782"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_stat_space_interpretation
+  type: behavior_oracle
+  statement: "gs_stat_space中cache_succ较小说明系统缓存失效；prune_space较小表示UStore数据页页面清理机制可能存在问题；con_extend_time过高可能表明UStore并发拓页耗时较高。"
+  source_anchor: "1.6.27.17 页782"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_index_dump_read
+  type: constraint
+  statement: "gs_index_dump_read(reset,out_type)查询索引获取新页面时循环队列的buffer read信息，以及索引页面相同key从左到右遍历叶子页面的buffer read信息；多租场景下PDB内禁用。"
+  source_anchor: "1.6.27.17 页782-783"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_index_dump_read_modes
+  type: behavior_oracle
+  statement: "gs_index_dump_read仅支持USTORE索引表；reset为0时重置为0重新统计，1时直接显示当前统计；out_type支持urq、ubtree和all。执行reset后到下次统计到信息前查询记录为0。"
+  source_anchor: "1.6.27.17 页783"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_redo_upage
+  type: constraint
+  statement: "gs_redo_upage(directory_path,backup_path,blocknum,relation_type,xlog_path,lsn)将备份的特定UStore数据页面重放到指定LSN并校验页面；检测到受损则落盘坏块并返回路径、页面LSN和受损信息，否则重放后落盘返回；需系统管理员或运维管理员执行，PDB内禁用。"
+  source_anchor: "1.6.27.17 页783-784"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_redo_upage_params
+  type: syntax
+  statement: "gs_redo_upage的relation_type支持uheap、ubtree、indexurq、undo_record和undo_slot；lsn由两个32位十六进制数组成并以斜杠分隔，例如2/962D1DF8；lsn为0表示重放到最新版本。"
+  source_anchor: "1.6.27.17 页783-784"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_xlogdump_bylastlsn
+  type: constraint
+  statement: "gs_xlogdump_bylastlsn(last_lsn,blocknum,relation_type)根据页面LSN和块号解析WAL日志，并获取对应块号的last LSN继续解析，直到last LSN为0或更老版本WAL已复用回收；需系统管理员或运维管理员执行，不支持备机调用。"
+  source_anchor: "1.6.27.17 页784"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_xlogdump_bylastlsn_params
+  type: syntax
+  statement: "gs_xlogdump_bylastlsn的last_lsn使用十六进制页面LSN，可通过gs_parse_page_bypath等工具获取；blocknum为-1到MaxBlockNumber，-1表示从WAL日志获取默认块号；relation_type支持uheap、ubtree、heap、btree、undo_record和undo_slot。"
+  source_anchor: "1.6.27.17 页784"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_xlogdump_bylastlsn_error
+  type: behavior_oracle
+  statement: "gs_xlogdump_bylastlsn遇到页面LSN对应的WAL日志与relation_type不一致时会报错，示例为The input lsn 0/4593570 related xlog is not ubtree。"
+  source_anchor: "1.6.27.17 页785"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_shared_storage_flush_stat
+  type: constraint
+  statement: "gs_shared_storage_flush_stat(operation)统计共享盘写入和读取数据量、速度、时间等；多租场景下Non-PDB正常运行，PDB调用报错。operation为-1关闭统计，0打开统计（默认打开），1查询统计，2重置统计；关闭后重新打开会清理之前统计。"
+  source_anchor: "1.6.27.17 页785-786"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_shared_storage_flush_stat_outputs
+  type: syntax
+  statement: "gs_shared_storage_flush_stat输出dorado_write_xlog和dorado_read_xlog调用次数、请求/实际数据量、总时间和平均时间、平均速度、线程总睡眠时间，以及统计开始和结束时间。"
+  source_anchor: "1.6.27.17 页785-786"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_full_sql_by_parent_id
+  type: constraint
+  statement: "dbe_perf.get_full_sql_by_parent_id_and_timestamp(parent_id,start_timestamp,end_timestamp)根据存储过程调用语句的unique_sql_id和时间范围获取数据库级全量SQL及子语句记录；只在系统库中可查询结果。"
+  source_anchor: "1.6.27.17 页786-787"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_gin_clean_pending_list
+  type: behavior_oracle
+  statement: "gin_clean_pending_list(index)清理指定GIN/UGIN索引pending list，把条目批量移动到主索引页面并返回清理页面数量；pending list过长可能需多次执行直到返回0；索引未开启fastupdate时不发生清理，结果为0。"
+  source_anchor: "1.6.27.17 页787-788"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b13_scope_note
+  type: environment
+  statement: "Wave 2B-13覆盖1.6.27.17其它函数第四批：系统表属性、用户态网络、临时/WAL目录、AntiCache/Vlog、UStore扩展页统计、索引dump、页面重放、共享盘刷盘统计、存储过程子语句SQL和GIN pending list，物理页777-788。"
+  source_anchor: "1.6.27.17 页777-788"
+  source_refs: *id001
+  status: confirmed
+open_questions:
+- id: wave2b13_oq_file_cache_runtime_matrix
+  statement: "目录文件列表、AntiCache、Vlog和UStore扩展页统计在不同权限、部署形态、PDB/Non-PDB与负载下的输出矩阵需授权环境验证。"
+  status: open
+- id: wave2b13_oq_replay_gin_evidence
+  statement: "gs_redo_upage、gs_xlogdump_bylastlsn、共享盘刷盘统计和GIN pending list清理在真实备份/WAL/索引状态、权限与开关状态下的行为矩阵需实机验证。"
+  status: open

@@ -1,0 +1,109 @@
+"""Statistics Functions Wave 4-3 extraction is source-bound and traceable."""
+import json
+import subprocess
+import sys
+import unittest
+from pathlib import Path
+
+import yaml
+
+ROOT = Path(__file__).resolve().parents[1]
+FACTS_PATH = ROOT / 'docs/compat_facts/core_statistics_wave4_3_v1.yaml'
+MANIFEST_PATH = ROOT / 'generated/core_statistics_wave4_3_v1/manifest.json'
+
+
+class CoreStatisticsWave43Tests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.facts_payload = yaml.safe_load(FACTS_PATH.read_text(encoding='utf-8'))
+        cls.manifest = json.loads(MANIFEST_PATH.read_text(encoding='utf-8'))
+        cls.facts = cls.facts_payload['facts']
+
+    def test_scope_covers_third_statistics_slice(self):
+        self.assertEqual(self.manifest['kind'], 'core_statistics_wave4_3_extraction_manifest')
+        self.assertEqual(self.manifest['scope']['chapter_count'], 1)
+        self.assertEqual(self.manifest['scope']['physical_page_start'], 834)
+        self.assertEqual(self.manifest['scope']['physical_page_end_exclusive'], 843)
+        self.assertEqual(self.manifest['scope']['physical_page_count'], 9)
+        self.assertIn('1.6.29 统计信息函数', self.manifest['scope']['subsection'])
+        self.assertEqual(self.manifest['summary']['fact_count'], len(self.facts))
+        self.assertEqual(self.manifest['summary']['fact_count'], 36)
+        self.assertEqual(self.manifest['summary']['open_question_count'], 2)
+        self.assertTrue(self.manifest['summary']['all_sources_resolved'])
+        self.assertTrue(self.manifest['summary']['all_facts_bound_to_scope'])
+
+    def test_facts_are_unique_confirmed_and_traceable(self):
+        ids = [item['id'] for item in self.facts]
+        self.assertEqual(len(ids), len(set(ids)))
+        for fact in self.facts:
+            with self.subTest(fact=fact['id']):
+                self.assertEqual(fact['status'], 'confirmed')
+                self.assertIn(fact['type'], {'syntax', 'constraint', 'environment', 'behavior_oracle'})
+                self.assertEqual(fact['source_refs'], ['w4_3_1_6_29'])
+                self.assertTrue(fact['source_anchor'])
+
+    def test_expected_statistic_families_are_covered(self):
+        ids = {item['id'] for item in self.facts}
+        expected = {
+            'stats_wave4_3_progress_vacuum',
+            'stats_wave4_3_progress_vacuum_fields',
+            'stats_wave4_3_progress_vacuum_phases',
+            'stats_wave4_3_instr_workload_info',
+            'stats_wave4_3_instr_workload_info_boundaries',
+            'stats_wave4_3_pv_instance_time',
+            'stats_wave4_3_global_instance_time',
+            'stats_wave4_3_get_instr_unique_sql',
+            'stats_wave4_3_reset_unique_sql',
+            'stats_wave4_3_reset_unique_sql_params',
+            'stats_wave4_3_instr_wait_event',
+            'stats_wave4_3_instr_user_login',
+            'stats_wave4_3_rt_percentile',
+            'stats_wave4_3_node_stat_reset_time',
+            'stats_wave4_3_global_os_runtime',
+            'stats_wave4_3_global_os_threads',
+            'stats_wave4_3_summary_workload_sql_count',
+            'stats_wave4_3_summary_workload_sql_elapse',
+            'stats_wave4_3_global_workload_transaction',
+            'stats_wave4_3_global_session_stat',
+            'stats_wave4_3_global_session_time',
+            'stats_wave4_3_global_session_memory',
+            'stats_wave4_3_global_session_memory_detail',
+            'stats_wave4_3_paxos_stat_replication',
+            'stats_wave4_3_paxos_stat_replication_fields',
+            'stats_wave4_3_wlm_get_user_info',
+            'stats_wave4_3_readjust_user_space',
+            'stats_wave4_3_readjust_user_space_by_name',
+            'stats_wave4_3_readjust_user_space_reset_flag',
+            'stats_wave4_3_io_wait_hotkeys_unsupported',
+            'stats_wave4_3_global_session_stat_activity',
+            'stats_wave4_3_global_thread_wait_status',
+            'stats_wave4_3_global_operator_history_table',
+            'stats_wave4_3_global_operator_history_runtime',
+            'stats_wave4_3_global_statement_complex_history',
+        }
+        self.assertTrue(expected.issubset(ids))
+
+    def test_manifest_resolves_source_and_page_slice(self):
+        self.assertEqual(len(self.manifest['sources']), 1)
+        source = self.manifest['sources'][0]
+        self.assertEqual(source['section_number'], '1.6.29')
+        self.assertEqual(source['physical_page_start'], 834)
+        self.assertEqual(source['physical_page_end'], 843)
+        self.assertRegex(source['chapter_sha256'], r'[0-9a-f]{64}')
+        self.assertEqual(source['chapter_sha256'], source['resolved_sha256'])
+        self.assertGreater(source['page_line_count'], 0)
+
+    def test_written_manifest_is_current(self):
+        self.assertTrue(MANIFEST_PATH.is_file())
+        result = subprocess.run(
+            [sys.executable, str(ROOT / 'scripts/build_core_statistics_wave4_3.py'), '--check'],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(json.loads(MANIFEST_PATH.read_text(encoding='utf-8')), self.manifest)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -1,0 +1,239 @@
+document: 集中式版参考 / 1.6.29 统计信息函数（Wave 4-3）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-29'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapter: 1.6.29 统计信息函数
+  subsection: 1.6.29 统计信息函数（第三批：VACUUM进度、负载/实例/会话统计、Unique SQL、Paxos与WLM空间）
+  physical_page_start: 834
+  physical_page_end: 843
+  physical_page_count: 9
+  excludes:
+  - 1.6.29 统计信息函数起始于页843的DBE_PERF.get_global_statement_complex_runtime及后续函数
+facts:
+- id: stats_wave4_3_progress_vacuum
+  type: constraint
+  statement: "gs_stat_progress_vacuum(pid)查看当前VACUUM进度；仅统计Astore和Ustore页式表，不支持hashbucket和段页式。"
+  source_anchor: "1.6.29 页834"
+  source_refs: &id001
+  - w4_3_1_6_29
+  status: confirmed
+- id: stats_wave4_3_progress_vacuum_fields
+  type: syntax
+  statement: "gs_stat_progress_vacuum输出pid、dataname、relid、relname、phase和detail；detail包含总页面数、已扫描页面数、已清理页面数和已清理索引数。"
+  source_anchor: "1.6.29 页834-835"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_progress_vacuum_phases
+  type: behavior_oracle
+  statement: "gs_stat_progress_vacuum的phase可为invalid、initialize、vacuuming_main_part、scanning_heap、vacuuming_indexes、vacuuming_heap、vacuuming_part_cache、cleaning_up_indexes、truncating_heap、vacuuming_urq或unknown，分别对应启动、准备扫描、清理分区主表、扫描堆表、清理索引、清理堆表、清理分区缓存死元组、收尾清理、截断空页、回收Ustore索引页面或未知阶段。"
+  source_anchor: "1.6.29 页835"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_instr_workload_info
+  type: syntax
+  statement: "get_instr_workload_info(integer)获取数据库主节点上的事务量和事务时间信息，输出用户与前端、后端、分布式事务的commit/rollback计数及最小/最大/平均/总响应时间，以及dbid；响应时间单位为微秒。"
+  source_anchor: "1.6.29 页836-837"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_instr_workload_info_boundaries
+  type: constraint
+  statement: "get_instr_workload_info在Non-PDB返回全部信息，PDB仅返回本PDB相关信息；集中式不存在分布式事务，因此分布式事务统计始终为0；仅统计主事务信息，不统计子事务。"
+  source_anchor: "1.6.29 页836-837"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_pv_instance_time
+  type: syntax
+  statement: "pv_instance_time()获取当前节点各关键阶段时间消耗，包括DB_TIME、CPU_TIME、EXECUTION_TIME、PARSE_TIME、PLAN_TIME、REWRITE_TIME、PL_EXECUTION_TIME、PL_COMPILATION_TIME、NET_SEND_TIME和DATA_IO_TIME，单位微秒。"
+  source_anchor: "1.6.29 页837-838"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_global_instance_time
+  type: constraint
+  statement: "DBE_PERF.get_global_instance_time()提供整个数据库各关键阶段时间消耗，查询需要MONADMIN权限，返回record。"
+  source_anchor: "1.6.29 页838"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_get_instr_unique_sql
+  type: constraint
+  statement: "get_instr_unique_sql()获取当前节点归一化SQL执行信息；SYSADMIN和MONADMIN可查询全部信息，其他用户只能查询自己执行的语句信息；字段参考DBE_PERF.STATEMENT；Non-PDB返回全部信息，PDB仅返回本PDB信息。"
+  source_anchor: "1.6.29 页838"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_reset_unique_sql
+  type: constraint
+  statement: "reset_unique_sql(scope,clean_type,clean_value)清理数据库节点内存中的Unique SQL，需要sysadmin或monitor admin权限；PDB调用仅清理PDB数据，Non-PDB调用清理全局数据。"
+  source_anchor: "1.6.29 页838-839"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_reset_unique_sql_params
+  type: behavior_oracle
+  statement: "reset_unique_sql的scope支持GLOBAL和LOCAL；clean_type支持BY_USERID、BY_CNID和ALL；多租下禁用BY_USERID；clean_value为ALL时不生效。当前集中式中GLOBAL与LOCAL功能一致，且不支持BY_CNID。"
+  source_anchor: "1.6.29 页838-839"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_instr_wait_event
+  type: syntax
+  statement: "get_instr_wait_event(NULL)获取当前节点event等待统计信息，返回record。"
+  source_anchor: "1.6.29 页839"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_instr_user_login
+  type: constraint
+  statement: "get_instr_user_login()获取当前节点用户登录登出次数信息，需要SYSADMIN或MONADMIN权限；Non-PDB返回全部信息，PDB仅返回本PDB信息。"
+  source_anchor: "1.6.29 页839"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_rt_percentile
+  type: syntax
+  statement: "get_instr_rt_percentile(integer)获取SQL响应时间P80和P95分布信息；在PDB中执行时返回当前PDB的分布信息。"
+  source_anchor: "1.6.29 页839"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_node_stat_reset_time
+  type: syntax
+  statement: "get_node_stat_reset_time()获取当前节点统计信息重置时间，重置场景包括重启、主备倒换和数据库删除。"
+  source_anchor: "1.6.29 页839"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_global_os_runtime
+  type: constraint
+  statement: "DBE_PERF.get_global_os_runtime()显示当前操作系统运行状态信息，查询需要MONADMIN权限，返回record。"
+  source_anchor: "1.6.29 页839"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_global_os_threads
+  type: constraint
+  statement: "DBE_PERF.get_global_os_threads()提供所有正常节点线程状态信息，需要MONADMIN权限；Non-PDB返回全部信息，PDB仅返回本PDB信息。"
+  source_anchor: "1.6.29 页839"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_summary_workload_sql_count
+  type: constraint
+  statement: "DBE_PERF.get_summary_workload_sql_count()提供整个数据库SELECT、UPDATE、INSERT、DELETE、DDL、DML和DCL计数信息，需要MONADMIN权限；Non-PDB返回全部信息，PDB仅返回本PDB信息。"
+  source_anchor: "1.6.29 页839-840"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_summary_workload_sql_elapse
+  type: constraint
+  statement: "DBE_PERF.get_summary_workload_sql_elapse_time()提供不同负载SELECT、UPDATE、INSERT、DELETE的TOTAL、AVG、MIN和MAX响应时间信息，需要MONADMIN权限；Non-PDB返回全部信息，PDB仅返回本PDB信息。"
+  source_anchor: "1.6.29 页840"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_global_workload_transaction
+  type: constraint
+  statement: "DBE_PERF.get_global_workload_transaction()获取数据库内所有节点的事务量和事务时间信息，需要MONADMIN权限；Non-PDB返回全部信息，PDB仅返回本PDB信息。"
+  source_anchor: "1.6.29 页840"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_global_session_stat
+  type: constraint
+  statement: "DBE_PERF.get_global_session_stat()获取数据库节点会话状态信息，需要MONADMIN权限；状态信息有14项：commit、rollback、sql、table_scan、blocks_fetched、physical_read_operation、shared_blocks_dirtied、local_blocks_dirtied、shared_blocks_read、local_blocks_read、blocks_read_time、blocks_write_time、sort_imemory和sort_idisk。"
+  source_anchor: "1.6.29 页840"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_global_session_time
+  type: constraint
+  statement: "DBE_PERF.get_global_session_time()提供整个数据库各节点关键阶段时间消耗，需要MONADMIN权限，返回record。"
+  source_anchor: "1.6.29 页840"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_global_session_memory
+  type: constraint
+  statement: "DBE_PERF.get_global_session_memory()汇聚各节点Session级内存使用情况，包含执行作业在数据节点上GaussDB线程和Stream线程分配的所有内存，单位MB，需要MONADMIN权限。"
+  source_anchor: "1.6.29 页840"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_global_session_memory_detail
+  type: constraint
+  statement: "DBE_PERF.get_global_session_memory_detail()汇聚各节点线程内存使用情况并以MemoryContext节点统计，需要MONADMIN权限，返回record。"
+  source_anchor: "1.6.29 页840"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_paxos_stat_replication
+  type: syntax
+  statement: "gs_paxos_stat_replication()在主机端查询备机信息，返回setof record。"
+  source_anchor: "1.6.29 页840-841"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_paxos_stat_replication_fields
+  type: syntax
+  statement: "gs_paxos_stat_replication输出local_role、peer_role、local_dcf_role、peer_dcf_role、peer_state、sender_write/commit/flush/replay位置、receiver_write/commit/flush/replay位置、sync_percent、dcf_run_mode和channel。"
+  source_anchor: "1.6.29 页840-841"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_wlm_get_user_info
+  type: constraint
+  statement: "gs_wlm_get_user_info(int)获取所有用户相关信息；入参可为任意int值或NULL，仅SYSADMIN可执行，多租模式下调用返回空。"
+  source_anchor: "1.6.29 页841"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_readjust_user_space
+  type: constraint
+  statement: "gs_wlm_readjust_user_space(oid)修正指定用户存储空间使用情况；普通用户只能修正自己，管理员可修正所有用户；oid为0时修正所有用户；多租模式禁用。"
+  source_anchor: "1.6.29 页841"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_readjust_user_space_by_name
+  type: constraint
+  statement: "gs_wlm_readjust_user_space_through_username(text)按用户名修正指定用户存储空间使用情况；权限边界与oid版本一致，name为0000时修正所有用户，多租模式禁用。"
+  source_anchor: "1.6.29 页841"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_readjust_user_space_reset_flag
+  type: constraint
+  statement: "gs_wlm_readjust_user_space_with_reset_flag(name,isfirst)修正用户存储空间使用情况；isfirst为true从0开始统计，否则从上一次结果继续统计；权限和0000全用户语义与前两个变体一致，多租模式禁用。"
+  source_anchor: "1.6.29 页842"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_io_wait_hotkeys_unsupported
+  type: environment
+  statement: "gs_io_wait_status()、global_stat_get_hotkeys_info()和global_stat_clean_hotkeys()目前不支持单机和集中式，暂不可用。"
+  source_anchor: "1.6.29 页842"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_global_session_stat_activity
+  type: constraint
+  statement: "DBE_PERF.get_global_session_stat_activity()汇聚数据库内各节点正在运行线程信息，需要MONADMIN权限；Non-PDB返回全部信息，PDB仅返回本PDB信息。"
+  source_anchor: "1.6.29 页842"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_global_thread_wait_status
+  type: constraint
+  statement: "DBE_PERF.get_global_thread_wait_status()汇聚所有节点工作线程和辅助线程的阻塞等待情况，需要MONADMIN权限。"
+  source_anchor: "1.6.29 页842"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_global_operator_history_table
+  type: constraint
+  statement: "DBE_PERF.get_global_operator_history_table()汇聚当前用户数据库主节点上执行作业结束后的算子相关持久化记录，需要MONADMIN权限。"
+  source_anchor: "1.6.29 页842"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_global_operator_history_runtime
+  type: constraint
+  statement: "DBE_PERF.get_global_operator_history()汇聚作业结束后的算子记录，DBE_PERF.get_global_operator_runtime()汇聚作业实时算子记录；两者都需要SYSADMIN和MONADMIN权限。"
+  source_anchor: "1.6.29 页842"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_global_statement_complex_history
+  type: constraint
+  statement: "DBE_PERF.get_global_statement_complex_history()汇聚复杂查询历史记录，DBE_PERF.get_global_statement_complex_history_table()汇聚复杂查询历史持久化记录；两者都需要MONADMIN权限。"
+  source_anchor: "1.6.29 页842"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_3_scope_note
+  type: environment
+  statement: "Wave 4-3覆盖1.6.29统计信息函数第三批：VACUUM进度、负载事务、实例/会话时间与内存、Unique SQL、等待事件、OS/线程、Paxos复制、WLM用户空间和全局算子/复杂查询统计，物理页834-842。"
+  source_anchor: "1.6.29 页834-842"
+  source_refs: *id001
+  status: confirmed
+open_questions:
+- id: stats_wave4_3_oq_vacuum_progress_matrix
+  statement: "VACUUM进度在Astore、Ustore、分区表、全局索引、hashbucket和段页式对象上的阶段、detail输出与不支持边界需授权环境验证。"
+  status: open
+- id: stats_wave4_3_oq_workload_paxos_wlm_matrix
+  statement: "负载/会话/Unique SQL/Paxos/WLM统计在不同节点角色、权限、PDB/Non-PDB、多租开关和真实负载下的输出矩阵需实机验证。"
+  status: open

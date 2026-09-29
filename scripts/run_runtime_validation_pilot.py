@@ -13,6 +13,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core.executor import ExecConfig
+from core.advanced_package_gate import evaluate_advanced_package_gate
 from core.runtime_validation_pilot import (
     DatabaseRuntimeTransport,
     build_dry_run,
@@ -47,7 +48,7 @@ def main(argv=None) -> int:
         write_json(args.output, payload)
         return 0
 
-    if not args.authoritized:
+    if not args.authorized:
         raise SystemExit("runtime execution requires --authorized")
     if os.getenv("GAUSSDB_RUNTIME_PILOT_AUTHORIZED", "").lower() not in {"true", "1", "yes"}:
         raise SystemExit("GAUSSDB_RUNTIME_PILOT_AUTHORIZED must be true for runtime execution")
@@ -55,6 +56,18 @@ def main(argv=None) -> int:
     config = ExecConfig(enabled=True)
     if not config.enabled:
         raise SystemExit("GAUSSDB_ENABLED must be true for runtime execution")
+
+    gate = evaluate_advanced_package_gate(
+        ROOT,
+        authorized_flag=args.authorized,
+        authorization_environment_set=os.getenv("GAUSSDB_RUNTIME_PILOT_AUTHORIZED", "").lower() in {"true", "1", "yes"},
+        database_enabled=config.enabled,
+    )
+    if not gate.allowed:
+        raise SystemExit(
+            "Advanced package runtime execution blocked:\n- "
+            + "\n- ".join(gate.blockers)
+        )
 
     transport = DatabaseRuntimeTransport(
         host=config.host,

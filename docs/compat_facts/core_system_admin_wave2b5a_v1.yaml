@@ -1,0 +1,149 @@
+document: 集中式版参考 / 1.6.27 系统管理函数（Wave 2B-5A）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-29'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapter: 1.6.27 系统管理函数
+  subsection: 1.6.27.10 逻辑复制函数（area changes、槽状态、并行解码、性能观测）
+  physical_page_start: 641
+  physical_page_end: 662
+  physical_page_count: 21
+  excludes:
+  - 1.6.27.10中pg_replication_origin_create开始的replication origin、分布式解码、SQL apply等后续子族
+facts:
+- id: wave2b5a_pg_logical_get_area_changes
+  type: syntax
+  statement: pg_logical_get_area_changes(start_lsn,upto_lsn,upto_nchanges,decoding_plugin,xlog_path,options)按LSN区间或指定Xlog文件解码，返回text,xid,text三列。
+  source_anchor: 1.6.27.10 页641-645
+  source_refs: &id001
+  - w2b5a_1_6_27
+  status: confirmed
+- id: wave2b5a_area_changes_preconditions
+  type: constraint
+  statement: pg_logical_get_area_changes要求网络硬件正常；单条元组建议不超过500MB，500MB~1GB会报错；不支持不落Xlog的数据页复制日志解码。
+  source_anchor: 1.6.27.10 页641-642
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5a_area_changes_wal_level
+  type: constraint
+  statement: pg_logical_get_area_changes要求wal_level=logical；只有logical级别期间产生的日志文件能解析；wal_level非logical时报错不解码。
+  source_anchor: 1.6.27.10 页641-642
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5a_area_changes_xlog_constraints
+  type: constraint
+  statement: Xlog文件只能由完全同构DN副本解析；不支持VACUUM FULL之前日志解码；不能解码扩容前Xlog；相关Xlog缺失则内容无法解码。
+  source_anchor: 1.6.27.10 页641-642
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5a_area_changes_memory_guidance
+  type: constraint
+  statement: 按范围解码不指定文件时，建议一次解码约一个Xlog文件；粗估内存占用为Xlog文件大小的2~3倍。
+  source_anchor: 1.6.27.10 页642
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5a_area_changes_ddl_rules
+  type: constraint
+  statement: enable-ddl关闭时不支持toast/clob/blob字段解码，且检测到DDL会对所有表不解码；enable-ddl打开时支持DDL区间解码并输出DDL。
+  source_anchor: 1.6.27.10 页642
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5a_area_changes_replica_identity
+  type: constraint
+  statement: 解析UPDATE/DELETE需为目标表配置REPLICA IDENTITY；sql_decoding插件不支持该选项；Ustore表的NOTHING/DEFAULT实际效果等同FULL。
+  source_anchor: 1.6.27.10 页642-645
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5a_area_changes_permissions
+  type: constraint
+  statement: 打开三权分立时仅数据库初始用户可调用pg_logical_get_area_changes；关闭三权分立时需要SYSADMIN/REPLICATION权限或gs_role_replication。
+  source_anchor: 1.6.27.10 页642
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5a_pg_get_replication_slots
+  type: syntax
+  statement: pg_get_replication_slots()返回复制槽列表；non-PDB返回全部信息，PDB返回本PDB信息；slot_type包含physical和logical，active字段f/t表示未激活/激活。
+  source_anchor: 1.6.27.10 页645-646
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5a_parallel_decode_status
+  type: syntax
+  statement: gs_get_parallel_decode_status()监控各解码线程读取日志队列和解码结果队列长度，用于定位并行解码瓶颈。
+  source_anchor: 1.6.27.10 页646
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5a_slot_decoded_wal_time
+  type: syntax
+  statement: gs_get_slot_decoded_wal_time(slot_name)查询复制槽最新解码WAL日志时间；时间来自checkpoint和commit日志，有误差；不存在槽返回NULL；不支持串行解码。
+  source_anchor: 1.6.27.10 页647
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5a_logical_decode_parameter
+  type: syntax
+  statement: gs_get_logical_decode_parameter()查询活跃并行逻辑解码任务参数，包括slot_name、include_xids、include_timestamp、skip_empty_xacts、only_local、include_username、enable_ddl_decoding、decode_style、parallel_decode_num等；non-PDB返回全部，PDB返回本PDB。
+  source_anchor: 1.6.27.10 页647-650
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5a_logical_parallel_decode_status
+  type: syntax
+  statement: gs_logical_parallel_decode_status(slot_name)返回活跃复制槽的29项并行解码统计指标，例如事务数、DML数、过滤DML、TOAST、候选xmin/LSN/CSN等；non-PDB可查全部，PDB查本PDB。
+  source_anchor: 1.6.27.10 页651-654
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5a_parallel_decode_metric_constraints
+  type: constraint
+  statement: 并行解码指标约束包括wal_read_total_time>=wal_wait_total_time、transaction_count>=big_transaction_count、dml_count>=dml_filtered_count和dml_count>=toast_count；多线程下部分约束可能不满足。
+  source_anchor: 1.6.27.10 页654
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5a_parallel_decode_reset_status
+  type: behavior_oracle
+  statement: gs_logical_parallel_decode_reset_status(slot_name)重置并行解码统计指标，返回text；non-PDB可重置PDB和non-PDB槽指标，PDB重置本PDB槽指标；不存在槽不报错返回空。
+  source_anchor: 1.6.27.10 页655
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5a_logical_decode_start_stop_observe
+  type: behavior_oracle
+  statement: gs_logical_decode_start_observe(slot_name,window,interval)开启逻辑复制性能指标采样；gs_logical_decode_stop_observe(slot_name)停止采样；non-PDB可操作PDB和non-PDB，PDB仅本PDB。
+  source_anchor: 1.6.27.10 页655-657
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5a_logical_decode_observe_data
+  type: syntax
+  statement: gs_logical_decode_observe_data(slot_name)展示逻辑复制性能指标采样原始数据，返回setof record；不存在槽不报错返回空记录。
+  source_anchor: 1.6.27.10 页657-658
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5a_logical_decode_observe
+  type: syntax
+  statement: gs_logical_decode_observe(slot_name)展示逻辑复制性能指标，包括logical_decode_rate、wal_read_rate、parser_rate、decoder_rate、sender_rate和net_send_rate；返回setof record。
+  source_anchor: 1.6.27.10 页658-659
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5a_logical_decode_observe_status
+  type: behavior_oracle
+  statement: gs_logical_decode_observe_status(slot_name)查询指定逻辑解码任务监控状态，返回START/STOP/invalid slot name等文本；PDB仅本PDB，Non-PDB可查Non-PDB和PDB。
+  source_anchor: 1.6.27.10 页660
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5a_parallel_decode_thread_info
+  type: syntax
+  statement: gs_get_parallel_decode_thread_info()返回当前DN并行解码线程信息：thread_id、slot_name、thread_type和seq_number；sender/reader各1个，decoder从1到并行度。
+  source_anchor: 1.6.27.10 页660-661
+  source_refs: *id001
+  status: confirmed
+- id: wave2b5a_scope_note
+  type: environment
+  statement: Wave 2B-5A覆盖1.6.27.10剩余逻辑复制函数中的area changes、复制槽列表、并行解码状态/参数、性能观测和线程信息，物理页641-661。
+  source_anchor: 1.6.27.10 页641-661
+  source_refs: *id001
+  status: confirmed
+open_questions:
+- id: wave2b5a_oq_area_changes_matrix
+  statement: pg_logical_get_area_changes在DDL、TOAST、大元组、扩容前后和同构DN场景下的结果矩阵需实机验证。
+  status: open
+- id: wave2b5a_oq_parallel_decode_metrics
+  statement: 并行解码29项指标、重置行为和性能观测指标需不同并发规模与槽类型验证。
+  status: open

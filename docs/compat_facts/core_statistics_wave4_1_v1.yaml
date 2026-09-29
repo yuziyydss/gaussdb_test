@@ -1,0 +1,221 @@
+document: 集中式版参考 / 1.6.29 统计信息函数（Wave 4-1）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-29'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapter: 1.6.29 统计信息函数
+  subsection: 1.6.29 统计信息函数（首批：恢复冲突、锁、复制、数据库/表统计、autovacuum）
+  physical_page_start: 812
+  physical_page_end: 822
+  physical_page_count: 10
+  excludes:
+  - 1.6.29 统计信息函数起始于页821的pg_autovac_status及后续函数
+facts:
+- id: stats_wave4_1_scope_model
+  type: environment
+  statement: "统计信息函数分为两类：针对数据库访问的函数以数据库中每个表或索引的OID为参数；针对服务器访问的函数以服务器线程号为参数，范围从1到当前活跃服务器数目。"
+  source_anchor: "1.6.29 页812"
+  source_refs: &id001
+  - w4_1_1_6_29
+  status: confirmed
+- id: stats_wave4_1_recovery_conflict_functions
+  type: syntax
+  statement: "恢复冲突统计包括pg_stat_get_db_conflict_tablespace、pg_stat_get_db_conflict_truncate、pg_stat_get_db_conflict_force_recycle、pg_stat_get_db_conflict_standby_query_timeout、pg_stat_get_db_conflict_bufferpin、pg_stat_get_db_conflict_snapshot、pg_stat_get_db_conflict_startup_deadlock和pg_stat_get_db_conflict_all。"
+  source_anchor: "1.6.29 页812-813"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_recovery_conflict_semantics
+  type: behavior_oracle
+  statement: "pg_stat_get_db_conflict_tablespace返回因删除表空间恢复冲突取消的查询数；truncate返回因回放truncate冲突取消的查询数；force_recycle返回极致RTO备机读强制回收取消的查询数；standby_query_timeout返回超过极致RTO查询时间上限取消的查询数；bufferpin、snapshot和startup_deadlock分别返回冲突缓冲区、快照和死锁数目；all返回备用服务器上因数据库恢复冲突取消的查询数量。"
+  source_anchor: "1.6.29 页812-813"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_recovery_conflict_pdb
+  type: constraint
+  statement: "恢复冲突统计在多租场景下PDB内仅可查询本PDB信息；pg_stat_get_db_conflict_bufferpin、snapshot、startup_deadlock和all未在对应描述中重复该限制。"
+  source_anchor: "1.6.29 页812-813"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_control_group_config
+  type: constraint
+  statement: "pg_control_group_config()在当前节点打印cgroup配置，返回record；需要SYSADMIN权限，多租下禁用。"
+  source_anchor: "1.6.29 页813"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_db_stat_reset_time
+  type: behavior_oracle
+  statement: "pg_stat_get_db_stat_reset_time(oid)返回上次重置数据库统计信息的时间；首次连接的数据库返回连接时的系统时间；调用pg_stat_reset或对库内表/索引执行pg_stat_reset_single_table_counters都会更新该时间；PDB内仅可查询本PDB信息。"
+  source_anchor: "1.6.29 页813"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_function_total_time
+  type: syntax
+  statement: "pg_stat_get_function_total_time(oid)返回该函数花费的总挂钟时间，单位微秒，包括函数内部调用其它函数花费的时间。"
+  source_anchor: "1.6.29 页813"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_xact_basic_stats
+  type: syntax
+  statement: "事务级基础统计包括pg_stat_get_xact_tuples_returned、pg_stat_get_xact_numscans、pg_stat_get_xact_blocks_fetched和pg_stat_get_xact_blocks_hit；分别返回当前事务顺序扫描读取行/索引条目数、扫描次数、磁盘块获取请求数和缓存命中请求数。"
+  source_anchor: "1.6.29 页813-814"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_lock_status
+  type: syntax
+  statement: "pg_lock_status()查询打开事务所持有的锁信息，所有用户可执行；返回字段参考PG_LOCKS视图，PDB内仅返回本PDB信息，Non-PDB返回全局信息。"
+  source_anchor: "1.6.29 页813"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_lwlock_status
+  type: syntax
+  statement: "gs_lwlock_status()查询数据库系统内所有轻量级锁信息，包括等锁和持锁信息，所有用户可执行，返回setof record。"
+  source_anchor: "1.6.29 页813"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_xact_function_stats
+  type: syntax
+  statement: "事务级函数统计包括pg_stat_get_xact_function_calls、pg_stat_get_xact_function_self_time和pg_stat_get_xact_function_total_time；分别返回当前事务调用次数、仅花费在函数自身的时间，以及包含内部其它函数调用的总挂钟时间。"
+  source_anchor: "1.6.29 页814"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_wal_senders
+  type: constraint
+  statement: "pg_stat_get_wal_senders()在主机端查询walsender信息，返回setof record；多租场景下PDB内部返回为空。"
+  source_anchor: "1.6.29 页814-815"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_wal_senders_fields
+  type: syntax
+  statement: "pg_stat_get_wal_senders输出包括pid、sender_pid、local_role、peer_role、peer_state、state、catchup_start/end、主备发送/写盘/flush/replay位置、sync_percent、sync_state、sync_group、sync_priority、sync_most_available和channel。"
+  source_anchor: "1.6.29 页814-815"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_paxos_replication_info
+  type: syntax
+  statement: "get_paxos_replication_info()查询Paxos模式下主机或备机的复制状态，返回paxos_write_location、paxos_commit_location、local_write_location、local_flush_location、local_replay_location和dcf_replication_info。"
+  source_anchor: "1.6.29 页815-817"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_dcf_replication_fields
+  type: syntax
+  statement: "get_paxos_replication_info的dcf_replication_info为JSON字符串，包含role、term、run_mode、work_mode、hb_interval、elc_timeout、applied_index、commit_index、first_index、last_index、cluster_min_apply_idx、leader_id/IP/port和nodes等字段。"
+  source_anchor: "1.6.29 页816"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_dcf_roles_modes
+  type: syntax
+  statement: "DCF role包括LEADER、FOLLOWER、LOGGER、PASSIVE和UNKNOW；run_mode当前0表示自动选举模式，1表示手动选举模式，2表示关闭选举模式。"
+  source_anchor: "1.6.29 页816"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_stream_replications
+  type: syntax
+  statement: "pg_stat_get_stream_replications()查询主备复制状态，返回local_role、static_connections、db_state和detail_information。"
+  source_anchor: "1.6.29 页817"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_db_activity_stats
+  type: syntax
+  statement: "数据库活动统计包括pg_stat_get_db_numbackends、pg_stat_get_db_xact_commit和pg_stat_get_db_xact_rollback，分别返回处理该数据库活跃服务器线程数、已提交事务数和回滚事务数；多租场景下PDB仅可查询本PDB信息。"
+  source_anchor: "1.6.29 页817-818"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_db_io_tuple_stats
+  type: syntax
+  statement: "数据库I/O与Tuple统计包括pg_stat_get_db_blocks_fetched、pg_stat_get_db_blocks_hit、pg_stat_get_db_tuples_returned、pg_stat_get_db_tuples_fetched、pg_stat_get_db_tuples_inserted、pg_stat_get_db_tuples_updated和pg_stat_get_db_tuples_deleted；多租场景下PDB仅可查询本PDB信息。"
+  source_anchor: "1.6.29 页817-818"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_db_block_time
+  type: syntax
+  statement: "pg_stat_get_db_blk_read_time和pg_stat_get_db_blk_write_time分别返回数据库后端读取和写入数据文件块花费的时间，单位毫秒，返回double。"
+  source_anchor: "1.6.29 页818"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_db_conflict_deadlock
+  type: syntax
+  statement: "pg_stat_get_db_conflict_lock返回数据库锁冲突数量，pg_stat_get_db_deadlocks返回数据库死锁数量；PDB内仅可查询本PDB信息。"
+  source_anchor: "1.6.29 页818"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_numscans
+  type: syntax
+  statement: "pg_stat_get_numscans(oid)在参数为表时返回顺序扫描读取次数，在参数为索引时返回索引行扫描次数，返回bigint。"
+  source_anchor: "1.6.29 页818"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_role_name
+  type: constraint
+  statement: "pg_stat_get_role_name(oid)根据用户OID获取用户名；仅SYSADMIN和MONADMIN用户可以访问，返回text。"
+  source_anchor: "1.6.29 页818-819"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_table_tuple_stats
+  type: syntax
+  statement: "表级Tuple统计包括pg_stat_get_tuples_returned、pg_stat_get_tuples_fetched、pg_stat_get_tuples_inserted、pg_stat_get_tuples_updated、pg_stat_get_tuples_deleted、pg_stat_get_tuples_changed和pg_stat_get_tuples_hot_updated；其中tuples_changed统计上次analyze或autoanalyze之后插入、更新、删除行总数。"
+  source_anchor: "1.6.29 页819"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_live_dead_tuples
+  type: syntax
+  statement: "pg_stat_get_live_tuples返回表活行数；pg_stat_get_dead_tuples返回表死行数，在Ustore表中仅代表不活跃行指针数量。"
+  source_anchor: "1.6.29 页819"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_table_block_stats
+  type: syntax
+  statement: "pg_stat_get_blocks_fetched返回表或索引磁盘块抓取请求数量；pg_stat_get_blocks_hit返回在缓冲区中找到的表或索引磁盘块请求数目。"
+  source_anchor: "1.6.29 页819"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_xact_tuple_stats
+  type: syntax
+  statement: "事务级Tuple统计包括pg_stat_get_xact_tuples_fetched、pg_stat_get_xact_tuples_inserted、pg_stat_get_xact_tuples_deleted、pg_stat_get_xact_tuples_hot_updated和pg_stat_get_xact_tuples_updated，均返回bigint。"
+  source_anchor: "1.6.29 页819-820"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_vacuum_analyze_stats
+  type: syntax
+  statement: "Vacuum/Analyze统计包括pg_stat_get_last_vacuum_time、pg_stat_get_last_autovacuum_time、pg_stat_get_vacuum_count、pg_stat_get_autovacuum_count、pg_stat_get_last_analyze_time、pg_stat_get_last_autoanalyze_time、pg_stat_get_analyze_count和pg_stat_get_autoanalyze_count。"
+  source_anchor: "1.6.29 页820"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_vacuum_analyze_manual_auto
+  type: behavior_oracle
+  statement: "last_vacuum_time包含用户手动启动或autovacuum线程启动清理的时间；last_autovacuum_time仅表示autovacuum守护线程启动清理的时间；last_analyze_time包含用户手动启动或autovacuum线程启动分析的时间；last_autoanalyze_time仅表示autovacuum守护线程启动分析的时间。"
+  source_anchor: "1.6.29 页820"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_total_autovac_tuples
+  type: syntax
+  statement: "pg_total_autovac_tuples(bool)返回total autovac相关tuple记录，入参表示是否查询relation信息；输出nodename、nspname、relname、partname、n_dead_tuples、n_live_tuples和changes_since_analyze。"
+  source_anchor: "1.6.29 页820-821"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_total_autovac_ustore_boundary
+  type: constraint
+  statement: "pg_total_autovac_tuples输出中n_dead_tuples在Ustore表中仅代表不活跃行指针数量。"
+  source_anchor: "1.6.29 页821"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_gsi_autovac_unsupported
+  type: environment
+  statement: "pg_total_gsi_autovac_tuples(bool)在集中式不支持。"
+  source_anchor: "1.6.29 页821"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_1_scope_note
+  type: environment
+  statement: "Wave 4-1覆盖1.6.29统计信息函数首批：恢复冲突、cgroup、数据库/表/索引/事务统计、锁、WAL sender、Paxos/DCF复制、vacuum/analyze和total autovac tuple统计，物理页812-821。"
+  source_anchor: "1.6.29 页812-821"
+  source_refs: *id001
+  status: confirmed
+open_questions:
+- id: stats_wave4_1_oq_conflict_replication_matrix
+  statement: "恢复冲突、WAL sender、Paxos/DCF和主备复制统计在不同主备状态、PDB/Non-PDB、DCF角色和复制模式下的输出矩阵需授权环境验证。"
+  status: open
+- id: stats_wave4_1_oq_reset_vacuum_evidence
+  statement: "数据库/表统计重置时间、vacuum/analyze计数、autovac tuple输出以及Ustore死行语义在真实维护负载和不同表类型下的行为矩阵需实机验证。"
+  status: open

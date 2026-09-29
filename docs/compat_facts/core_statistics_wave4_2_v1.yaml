@@ -1,0 +1,293 @@
+document: 集中式版参考 / 1.6.29 统计信息函数（Wave 4-2）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-29'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapter: 1.6.29 统计信息函数
+  subsection: 1.6.29 统计信息函数（第二批：autovac状态、会话/后端统计、重置、控制组、黑匣子与plan trace）
+  physical_page_start: 821
+  physical_page_end: 835
+  physical_page_count: 14
+  excludes:
+  - 1.6.29 统计信息函数起始于页834的gs_stat_progress_vacuum及后续函数
+facts:
+- id: stats_wave4_2_autovac_status
+  type: constraint
+  statement: "pg_autovac_status(oid)返回autovac状态相关参数，包括节点、Schema、对象名、analyze/vacuum设置、阈值和tuple数；仅SYSADMIN可使用，返回setof record。"
+  source_anchor: "1.6.29 页821-822"
+  source_refs: &id001
+  - w4_2_1_6_29
+  status: confirmed
+- id: stats_wave4_2_autovac_status_fields
+  type: syntax
+  statement: "pg_autovac_status输出nspname、relname、nodename、doanalyze、anltuples、anlthresh、dovacuum、vactuples和vacthresh。"
+  source_anchor: "1.6.29 页821-822"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_autovac_timeout
+  type: behavior_oracle
+  statement: "pg_autovac_timeout(oid)返回某个表做autovac连续超时的次数；表信息非法或node信息异常时返回NULL。"
+  source_anchor: "1.6.29 页822"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_get_last_data_changed_time
+  type: behavior_oracle
+  statement: "pg_stat_get_last_data_changed_time(oid)返回表上最后一次insert/update/delete/truncate以及表分区上exchange/truncate/drop操作的时间；PG_STAT_ALL_TABLES.last_data_changed由该函数求值，大表场景建议直接调用函数而非视图。"
+  source_anchor: "1.6.29 页822"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_set_last_data_changed_time
+  type: syntax
+  statement: "pg_stat_set_last_data_changed_time(oid)手动设置表上最后一次insert/update/delete、exchange/truncate/drop partition操作的时间，返回void。"
+  source_anchor: "1.6.29 页822"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_get_last_updated
+  type: constraint
+  statement: "pg_stat_get_last_updated(oid,text)返回DBE_PERF监控视图中表指标字段的更新时间；第二参数取值必须为stat_table、stat_index或stat_io。"
+  source_anchor: "1.6.29 页822"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_backend_pid
+  type: syntax
+  statement: "pg_backend_pid()返回当前会话服务器线程的线程ID，返回integer。"
+  source_anchor: "1.6.29 页822"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_stat_get_activity
+  type: constraint
+  statement: "pg_stat_get_activity(integer)返回指定PID后台线程记录；参数为NULL时返回每个活动后台线程记录；结果不包含connection_info列；初始用户、系统管理员和MONADMIN可查看所有数据，普通用户只能查询自己的结果；Non-PDB返回全部信息，PDB仅返回本PDB信息。"
+  source_anchor: "1.6.29 页822-824"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_stat_get_activity_fields
+  type: syntax
+  statement: "pg_stat_get_activity输出包括datid、pid、sessionid、usesysid、application_name、state、query、waiting、xact_start、query_start、backend_start、state_change、client_addr、client_hostname、client_port、enqueue、query_id、srespool、global_sessionid、unique_sql_id和trace_id。"
+  source_anchor: "1.6.29 页823-824"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_stat_get_activity_semantics
+  type: behavior_oracle
+  statement: "pg_stat_get_activity中，state为active时query显示当前正在执行查询，其他状态显示上一个查询；waiting为true表示后台正在等待锁；没有活跃事务时xact_start为null，当前查询是首个事务时等同于query_start。"
+  source_anchor: "1.6.29 页823-824"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_activity_with_conninfo
+  type: constraint
+  statement: "pg_stat_get_activity_with_conninfo(integer)返回指定PID或全部活动后台线程记录；权限边界与pg_stat_get_activity一致；初始用户、系统管理员和MONADMIN可查看所有数据，普通用户只能查询自己的结果。"
+  source_anchor: "1.6.29 页824-826"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_activity_with_conninfo_fields
+  type: syntax
+  statement: "pg_stat_get_activity_with_conninfo输出基础会话字段外，还包含query_id、connection_info、srespool、global_sessionid、unique_sql_id、trace_id、top_xid、current_xid和xlog_quantity；connection_info为JSON字符串。"
+  source_anchor: "1.6.29 页824-826"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_get_explain
+  type: constraint
+  statement: "gs_get_explain(integer)返回指定PID后台线程的运行态计划，PID不能为空；生效必要条件是track_activities=on；支持可EXPLAIN且计划不包含STREAM算子的SQL。"
+  source_anchor: "1.6.29 页826"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_get_explain_collection
+  type: behavior_oracle
+  statement: "gs_get_explain中plan_collect_thresh=-1时结果一直为空；=0时在SQL执行时间达到log_min_duration_statement且算子处理tuple总和达到10000后开始收集，之后每超过10000增量收集一次；>0时按指定阈值增量收集。"
+  source_anchor: "1.6.29 页826"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_function_call_stats
+  type: syntax
+  statement: "pg_stat_get_function_calls(oid)返回函数被调用次数；pg_stat_get_function_self_time(oid)返回仅花费在该函数上的时间，排除函数调用其它函数的时间。"
+  source_anchor: "1.6.29 页826-827"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_backend_idset
+  type: syntax
+  statement: "pg_stat_get_backend_idset()返回当前活动服务器线程编号集合，编号从1到活动服务器线程数量；Non-PDB返回全部信息，PDB仅返回本PDB相关信息。"
+  source_anchor: "1.6.29 页827"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_backend_identity_stats
+  type: syntax
+  statement: "后端身份统计包括pg_stat_get_backend_pid、pg_stat_get_backend_dbid和pg_stat_get_backend_userid，分别返回给定服务器线程的线程ID、数据库ID和用户ID。"
+  source_anchor: "1.6.29 页827"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_backend_activity_stats
+  type: constraint
+  statement: "pg_stat_get_backend_activity和pg_stat_get_backend_activity_start要求调用者是系统管理员或被查询会话用户，并打开track_activities；返回当前活动查询及其起始时间。"
+  source_anchor: "1.6.29 页827"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_backend_waiting_xact
+  type: constraint
+  statement: "pg_stat_get_backend_waiting仅在给定线程等待锁、调用者是系统管理员或被查询会话用户且track_activities打开时返回真；pg_stat_get_backend_xact_start返回当前事务开始时间并受相同权限和GUC条件限制。"
+  source_anchor: "1.6.29 页827"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_backend_start
+  type: constraint
+  statement: "pg_stat_get_backend_start(integer)返回给定服务器线程启动时间；如果当前用户不是系统管理员或被查询后端的用户，则返回NULL。"
+  source_anchor: "1.6.29 页827-828"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_backend_client_info
+  type: behavior_oracle
+  statement: "pg_stat_get_backend_client_addr返回客户端IP；Unix域套接字或无权限时返回NULL。pg_stat_get_backend_client_port返回客户端TCP端口；Unix域套接字返回-1，无权限时返回NULL。"
+  source_anchor: "1.6.29 页828"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_bgwriter_checkpoint_stats
+  type: syntax
+  statement: "pg_stat_get_bgwriter_timed_checkpoints和pg_stat_get_bgwriter_requested_checkpoints分别统计定时检查点和后端请求检查点；定时检查点对应checkpoint_timeout过期，请求检查点对应超过checkpoint_segments或执行CHECKPOINT。"
+  source_anchor: "1.6.29 页828"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_bgwriter_buffer_stats
+  type: syntax
+  statement: "pg_stat_get_bgwriter_buf_written_checkpoints、pg_stat_get_bgwriter_buf_written_clean、pg_stat_get_bgwriter_maxwritten_clean、pg_stat_get_buf_written_backend和pg_stat_get_buf_alloc分别统计检查点写入、日常清理写入、达到bgwriter_lru_maxpages停止清理、后端因分配新缓冲区写入和总分配缓冲区数。"
+  source_anchor: "1.6.29 页828-829"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_bgwriter_pdb_defaults
+  type: behavior_oracle
+  statement: "bgwriter和buffer统计在多租场景下Non-PDB正常返回，PDB调用返回默认值0；若字段是时间戳，则是0s对应的时间戳。"
+  source_anchor: "1.6.29 页828-829"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_stat_snapshot_reset
+  type: constraint
+  statement: "pg_stat_clear_snapshot清理当前统计快照，仅SYSADMIN和MONADMIN可执行；pg_stat_reset、pg_stat_reset_shared、pg_stat_reset_single_table_counters和pg_stat_reset_single_function_counters需要系统管理员权限。"
+  source_anchor: "1.6.29 页829"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_stat_reset_scope
+  type: behavior_oracle
+  statement: "pg_stat_reset为当前数据库重置统计计数器；pg_stat_reset_shared重置shared cluster每个节点当前数据统计计数器；pg_stat_reset_single_table_counters重置当前数据库中一个表或索引；pg_stat_reset_single_function_counters重置一个函数。"
+  source_anchor: "1.6.29 页829"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_fenced_udf_process
+  type: constraint
+  statement: "fenced_udf_process(integer)查看本地UDF Master和Work进程数；入参1查看master进程数，2查看worker进程数，3终止所有worker进程；仅SYSADMIN和MONADMIN有权限终止所有worker进程。"
+  source_anchor: "1.6.29 页829"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_total_cpu_memory
+  type: syntax
+  statement: "total_cpu()返回当前节点使用的CPU时间，单位jiffies；total_memory()返回当前节点使用的虚拟内存大小，单位KB。"
+  source_anchor: "1.6.29 页829"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_nodegroup_cgroup_info
+  type: syntax
+  statement: "GS_ALL_NODEGROUP_CONTROL_GROUP_INFO(text)返回指定NODEGROUP的控制组信息，包括name、type、gid、classgid、class、workload、shares、limits、wdlevel和cpucores。"
+  source_anchor: "1.6.29 页829-830"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_bad_block
+  type: constraint
+  statement: "pg_stat_bad_block(...)获取当前节点自启动后读取出现的Page损坏信息；Non-PDB返回全部信息，PDB仅返回本PDB相关信息。"
+  source_anchor: "1.6.29 页830"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_bad_block_clear
+  type: constraint
+  statement: "pg_stat_bad_block_clear()清理节点记录的读取Page损坏信息，需要系统管理员权限；Non-PDB正常运行，PDB调用报错。"
+  source_anchor: "1.6.29 页830"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_respool_exception_info
+  type: syntax
+  statement: "gs_respool_exception_info(pool text)查看指定资源池关联的查询规则信息，返回record。"
+  source_anchor: "1.6.29 页830"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_control_group_info
+  type: constraint
+  statement: "gs_control_group_info(pool text)查看资源池关联的控制组信息，需要SYSADMIN权限；输出name、class、workload、type、gid、shares、limits、rate和cpucores。"
+  source_anchor: "1.6.29 页830-831"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_prepared_statements
+  type: constraint
+  statement: "gs_prepared_statements()显示所有会话所有可用预备语句，需要SYSADMIN权限；字段与GS_ALL_PREPARED_STATEMENTS视图一致；PDB内仅返回本PDB信息，Non-PDB返回全局信息。"
+  source_anchor: "1.6.29 页831"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_cgroup_and_memory_views
+  type: syntax
+  statement: "gs_all_control_group_info()查看数据库内所有控制组信息；gs_get_control_group_info()查看所有控制组信息且需要SYSADMIN权限；gs_get_session_sql_memory()查看当前运行中语句的内存使用量，字段参考DBE_PERF.SESSION_SQL_MEMORY。"
+  source_anchor: "1.6.29 页831"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_blackbox_dump
+  type: syntax
+  statement: "gs_blackbox_dump()将系统黑匣子文件导出到$GAUSSLOG/gs_blackbox/{nodename}目录，成功后返回生成的黑匣子文件名称。"
+  source_anchor: "1.6.29 页831"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_blackbox_show
+  type: syntax
+  statement: "gs_blackbox_show(blackBoxFile cstring)解析黑匣子文件并按表格展示；参数不指定时读取当前进程采集的黑匣子文件，指定时仅支持文件名称、不支持路径；文件不存在则报错。"
+  source_anchor: "1.6.29 页831-833"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_blackbox_show_fields
+  type: syntax
+  statement: "gs_blackbox_show输出type、tid、sample_time和value，分别表示黑匣子字段类型、线程号、采集时间和记录内容。"
+  source_anchor: "1.6.29 页832-833"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_blackbox_list
+  type: syntax
+  statement: "gs_blackbox_list()列举当前实例默认$GAUSSLOG/gs_blackbox/{nodename}目录下的黑匣子文件，输出文件名file。"
+  source_anchor: "1.6.29 页833"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_plan_trace_delete
+  type: syntax
+  statement: "gs_plan_trace_delete(TIMESTAMPTZ)删除当前用户小于等于指定时间max_time的所有plan trace；所有用户可用，无异常时返回t。"
+  source_anchor: "1.6.29 页833"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_plan_trace_watch
+  type: constraint
+  statement: "gs_plan_trace_watch_sqlid(bigint)侦听要生成plan trace的unique sql id，该ID来自dbe_perf.statement的unique_sql_id字段；仅初始用户和SYSADMIN/OPRADMIN/MONADMIN可调用，无异常时返回t。"
+  source_anchor: "1.6.29 页833-834"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_plan_trace_watch_cycle
+  type: behavior_oracle
+  statement: "被侦听的unique sql id保存在长度128的循环数组中；调用过于频繁可能导致未生成plan trace的ID被覆盖；同一ID只侦听一次只生成一次plan trace，重复侦听会生成多次plan trace。"
+  source_anchor: "1.6.29 页834"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_plan_trace_show_sqlids
+  type: constraint
+  statement: "gs_plan_trace_show_sqlids()查看当前系统中待生成plan trace的unique sql id字符串列表；仅初始用户和SYSADMIN/OPRADMIN/MONADMIN可调用；看不到正在生成plan trace的ID。"
+  source_anchor: "1.6.29 页834"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_standby_read_delay
+  type: constraint
+  statement: "gs_standby_read_delay()获取主机事务日志在备机回放时的时间差，即同步延迟；仅支持集中式，其他场景可直连备DN查询延迟时间。"
+  source_anchor: "1.6.29 页834"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_2_scope_note
+  type: environment
+  statement: "Wave 4-2覆盖1.6.29统计信息函数第二批：autovac状态/超时、数据修改时间、活动会话、后端/bgwriter统计、统计重置、UDF/CPU/内存、控制组、坏块、预备语句、黑匣子、plan trace和备机读延迟，物理页821-834。"
+  source_anchor: "1.6.29 页821-834"
+  source_refs: *id001
+  status: confirmed
+open_questions:
+- id: stats_wave4_2_oq_activity_backend_matrix
+  statement: "pg_stat_get_activity、conninfo变体和backend统计在不同PID、权限、track_activities、Unix socket/IP连接和PDB/Non-PDB下的输出矩阵需授权环境验证。"
+  status: open
+- id: stats_wave4_2_oq_reset_trace_blackbox_evidence
+  statement: "统计重置、plan trace循环数组覆盖、黑匣子导出/解析以及资源池控制组信息在真实负载、权限和故障场景下的行为矩阵需实机验证。"
+  status: open

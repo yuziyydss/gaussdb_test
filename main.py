@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -27,6 +27,24 @@ from core.no_manifest_dispositions import category_label, load_no_manifest_dispo
 from core.package_inventory import package_inventory
 from core.progress_reporting import factor_progress, summarize_progress
 from core.runtime_status import build_runtime_status
+from core.guc_environment import GucEnvironmentRegistry
+from core.guc_plan_export import GucOverlayPlanExportRegistry, render_guc_overlay_plan_sql
+from core.guc_audit import build_guc_v2_audit
+from core.guc_capability import GucCapabilityRegistry
+from core.guc_requirement_adapter import GucRequirementAdapterRegistry
+from core.guc_requirement_resolver import resolve_guc_requirements
+from core.guc_execution_selector import GucExecutionSelectionError, select_guc_execution_values
+from core.guc_preflight import GucV2PreflightRegistry
+from core.guc_readiness import build_guc_v2_readiness
+from core.guc_execution_gate import evaluate_guc_v2_execution_gate
+from core.guc_evidence_bundle import build_guc_v2_evidence_bundle, verify_guc_v2_evidence_bundle
+from core.guc_runtime_pilot import GucV2RuntimePilotRegistry
+from core.advanced_package import AdvancedPackageRegistry
+from core.advanced_package_candidate import build_advanced_package_candidate_matrix
+from core.advanced_package_gate import evaluate_advanced_package_gate
+from core.advanced_package_evidence import AdvancedEvidenceBundleRegistry, verify_advanced_package_evidence_bundle
+from core.runtime_validation_pilot import RuntimePilotPlanDef
+from core.advanced_package_gate import evaluate_advanced_package_gate
 
 BASE_DIR = Path(__file__).resolve().parent
 FACTORS_DIR = BASE_DIR / "factors"
@@ -442,6 +460,329 @@ async def runtime_status_page(request: Request):
 async def runtime_status_api():
     """JSON API：聚合当前 runtime 计划、回执、审计与预检状态。"""
     return JSONResponse(build_runtime_status(BASE_DIR).model_dump())
+
+
+# ===== GUC V2 API =====
+def _guc_v2_environment():
+    """Load the strict GUC Environment V2 inventory."""
+    registry = GucEnvironmentRegistry(
+        BASE_DIR,
+        inventory_path=BASE_DIR / "environments/guc_parameters_v2.yaml",
+    )
+    registry.load_all()
+    return registry
+
+
+def _guc_v2_plan_export():
+    """Load the deterministic GUC V2 overlay plan export."""
+    return GucOverlayPlanExportRegistry(BASE_DIR).load()
+
+
+@app.get("/guc", response_class=HTMLResponse)
+async def guc_v2_page(request: Request):
+    """GUC V2 browser page; local artifacts only, no database execution."""
+    registry = _guc_v2_environment()
+    export = _guc_v2_plan_export()
+    return templates.TemplateResponse(request, "_guc.html", {
+        "request": request,
+        "environment": registry.environment.model_dump(),
+        "parameters": [
+            parameter.model_dump()
+            for parameter in sorted(
+                registry.parameters.values(),
+                key=lambda item: (item.category, item.name),
+            )
+        ],
+        "plans": export.model_dump(),
+        "plan_sql": render_guc_overlay_plan_sql(export),
+        "audit": build_guc_v2_audit(BASE_DIR).model_dump(),
+        "preflight": GucV2PreflightRegistry(BASE_DIR).load().model_dump(),
+        "readiness": build_guc_v2_readiness(BASE_DIR).model_dump(),
+        "capabilities": GucCapabilityRegistry(BASE_DIR).load().model_dump(),
+        "requirement_adapter": GucRequirementAdapterRegistry(BASE_DIR).load().model_dump(),
+        "execution_selections": select_guc_execution_values(
+            resolve_guc_requirements(
+                {
+                    item.requirement.key: item.requirement.allowed_values
+                    for item in GucRequirementAdapterRegistry(BASE_DIR).load().requirements
+                },
+                BASE_DIR,
+            ),
+            BASE_DIR,
+        ).model_dump(),
+        "evidence_bundle": build_guc_v2_evidence_bundle(BASE_DIR).model_dump(),
+        "evidence_verification": verify_guc_v2_evidence_bundle(BASE_DIR).model_dump(),
+        "execution_gate": evaluate_guc_v2_execution_gate(
+            build_guc_v2_readiness(BASE_DIR),
+            authorized_flag=False,
+            authorization_environment_set=os.getenv("GAUSSDB_GUC_V2_RUNTIME_AUTHORIZED", "").lower() in {"true", "1", "yes"},
+            database_enabled=os.getenv("GAUSSDB_ENABLED", "false").lower() in {"true", "1", "yes"},
+        ).model_dump(),
+        "runtime_plan": GucV2RuntimePilotRegistry(BASE_DIR).load(
+            BASE_DIR / "generated/guc_environment_v2/runtime_dry_run.json"
+        ).model_dump(),
+    })
+
+
+@app.get("/api/guc/v2/summary")
+async def guc_v2_summary_api():
+    """JSON API：GUC Environment V2 与 overlay plan export 摘要。"""
+    registry = _guc_v2_environment()
+    export = _guc_v2_plan_export()
+    return JSONResponse({
+        "environment": registry.environment.model_dump(exclude={"parameters"}),
+        "overlay_plans": export.model_dump(exclude={"plans"}),
+    })
+
+
+@app.get("/api/guc/v2/parameters")
+async def guc_v2_parameters_api(policy: Optional[str] = None):
+    """JSON API：GUC Environment V2 参数清单，可按 policy 过滤。"""
+    registry = _guc_v2_environment()
+    parameters = [
+        parameter.model_dump()
+        for parameter in sorted(
+            registry.parameters.values(),
+            key=lambda item: (item.category, item.name),
+        )
+        if policy is None or parameter.execution_policy == policy
+    ]
+    return JSONResponse({
+        "total": len(parameters),
+        "policy_filter": policy,
+        "parameters": parameters,
+    })
+
+
+@app.get("/api/guc/v2/parameters/{parameter_id}")
+async def guc_v2_parameter_api(parameter_id: str):
+    """JSON API：单个 GUC Environment V2 参数。"""
+    registry = _guc_v2_environment()
+    parameter = registry.parameters.get(parameter_id)
+    if parameter is None:
+        return JSONResponse({"detail": "GUC parameter not found"}, status_code=404)
+    return JSONResponse(parameter.model_dump())
+
+
+@app.get("/api/guc/v2/plans")
+async def guc_v2_plans_api():
+    """JSON API：19个session overlay计划。"""
+    return JSONResponse(_guc_v2_plan_export().model_dump())
+
+
+@app.get("/api/guc/v2/plans.sql", response_class=PlainTextResponse)
+async def guc_v2_plans_sql_api():
+    """Plain-text API：session overlay SQL计划。"""
+    return PlainTextResponse(
+        render_guc_overlay_plan_sql(_guc_v2_plan_export()),
+        media_type="text/plain; charset=utf-8",
+    )
+
+
+@app.get("/api/guc/v2/runtime-plan")
+async def guc_v2_runtime_plan_api():
+    """JSON API：19个GUC V2 runtime pilot dry-run单元。"""
+    plan = GucV2RuntimePilotRegistry(BASE_DIR).load(
+        BASE_DIR / "generated/guc_environment_v2/runtime_dry_run.json"
+    )
+    return JSONResponse(plan.model_dump())
+
+
+@app.get("/api/guc/v2/audit")
+async def guc_v2_audit_api():
+    """JSON API：跨Reference/Candidate/Environment/Plan的静态审计。"""
+    return JSONResponse(build_guc_v2_audit(BASE_DIR).model_dump())
+
+
+@app.get("/api/guc/v2/preflight-plan")
+async def guc_v2_preflight_plan_api():
+    """JSON API：27个只读GUC V2 preflight查询。"""
+    return JSONResponse(GucV2PreflightRegistry(BASE_DIR).load().model_dump())
+
+
+@app.get("/api/guc/v2/readiness")
+async def guc_v2_readiness_api():
+    """JSON API：GUC V2静态、preflight、授权与运行时证据分层。"""
+    return JSONResponse(build_guc_v2_readiness(BASE_DIR).model_dump())
+
+
+@app.get("/api/guc/v2/capabilities")
+async def guc_v2_capabilities_api():
+    """JSON API：19个GUC V2环境能力适配项。"""
+    return JSONResponse(GucCapabilityRegistry(BASE_DIR).load().model_dump())
+
+
+@app.get("/api/guc/v2/requirement-adapter")
+async def guc_v2_requirement_adapter_api():
+    """JSON API：GUC V2到Factor Package环境门禁的保守适配层。"""
+    return JSONResponse(GucRequirementAdapterRegistry(BASE_DIR).load().model_dump())
+
+
+@app.get("/api/guc/v2/execution-selector")
+async def guc_v2_execution_selector_api(requirement: str, value: Optional[str] = None):
+    """JSON API：为一个GUC环境门禁选择具体值并生成五步计划。"""
+    adapter = GucRequirementAdapterRegistry(BASE_DIR).load()
+    matched = next(
+        (item for item in adapter.requirements if item.requirement.key == requirement),
+        None,
+    )
+    if matched is None:
+        return JSONResponse({"detail": "GUC requirement not found"}, status_code=404)
+    selected_value = value or matched.requirement.allowed_values[0]
+    if selected_value not in matched.requirement.allowed_values:
+        return JSONResponse(
+            {"detail": "GUC value is not allowed", "allowed_values": matched.requirement.allowed_values},
+            status_code=400,
+        )
+    gates = {requirement: [selected_value]}
+    resolved = resolve_guc_requirements(gates, BASE_DIR)
+    try:
+        selection = select_guc_execution_values(
+            resolved, BASE_DIR, selections={requirement: selected_value}
+        )
+    except GucExecutionSelectionError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+    return JSONResponse(selection.model_dump())
+
+
+@app.get("/api/guc/v2/evidence-bundle")
+async def guc_v2_evidence_bundle_api():
+    """JSON API：GUC V2静态、Preflight与Runtime证据清单。"""
+    return JSONResponse(build_guc_v2_evidence_bundle(BASE_DIR).model_dump())
+
+
+@app.get("/api/guc/v2/evidence-bundle/verify")
+async def guc_v2_evidence_bundle_verify_api():
+    """JSON API：校验Evidence Bundle与当前产物文件是否一致。"""
+    return JSONResponse(verify_guc_v2_evidence_bundle(BASE_DIR).model_dump())
+
+
+@app.get("/api/guc/v2/execution-gate")
+async def guc_v2_execution_gate_api(authorized: bool = False):
+    """JSON API：GUC V2执行门禁预览；不执行数据库操作。"""
+    readiness = build_guc_v2_readiness(BASE_DIR)
+    gate = evaluate_guc_v2_execution_gate(
+        readiness,
+        authorized_flag=authorized,
+        authorization_environment_set=os.getenv("GAUSSDB_GUC_V2_RUNTIME_AUTHORIZED", "").lower() in {"true", "1", "yes"},
+        database_enabled=os.getenv("GAUSSDB_ENABLED", "false").lower() in {"true", "1", "yes"},
+    )
+    return JSONResponse(gate.model_dump())
+
+
+# ===== Advanced Package Pilot API =====
+def _advanced_package_registry():
+    """Load the strict Advanced Package Pilot inventory."""
+    registry = AdvancedPackageRegistry(BASE_DIR)
+    registry.load_all()
+    return registry
+
+
+@app.get("/advanced-package", response_class=HTMLResponse)
+async def advanced_package_page(request: Request):
+    """Advanced Package browser page; local artifacts only, no database execution."""
+    registry = _advanced_package_registry()
+    candidate_matrix = build_advanced_package_candidate_matrix(BASE_DIR)
+    evidence = AdvancedEvidenceBundleRegistry(BASE_DIR).build()
+    runtime_status = build_runtime_status(BASE_DIR)
+    return templates.TemplateResponse(request, "_advanced_package.html", {
+        "request": request,
+        "environment": registry.environment.model_dump(),
+        "packages": [
+            package.model_dump()
+            for package in sorted(
+                registry.environment.packages,
+                key=lambda item: item.name,
+            )
+        ],
+        "candidate_matrix": candidate_matrix.model_dump(),
+        "evidence": evidence.model_dump(),
+        "runtime_status": runtime_status.model_dump(),
+        "execution_gate": evaluate_advanced_package_gate(
+            BASE_DIR,
+            authorized_flag=False,
+            authorization_environment_set=os.getenv("GAUSSDB_RUNTIME_PILOT_AUTHORIZED", "").lower() in {"true", "1", "yes"},
+            database_enabled=os.getenv("GAUSSDB_ENABLED", "false").lower() in {"true", "1", "yes"},
+        ).model_dump(),
+    })
+
+
+@app.get("/api/advanced-package/runtime-plan")
+async def advanced_package_runtime_plan_api():
+    """JSON API：高级包 Runtime Validation Pilot dry-run 计划。"""
+    path = BASE_DIR / "generated/runtime_validation_pilot/dry_run.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload.pop("plan_sha256", None)
+    plan = RuntimePilotPlanDef(**payload)
+    return JSONResponse(plan.model_dump())
+
+
+@app.get("/api/advanced-package/pilot")
+async def advanced_package_pilot_api():
+    """JSON API：高级包Pilot的包、接口与runtime候选合同。"""
+    registry = _advanced_package_registry()
+    return JSONResponse(registry.environment.model_dump())
+
+
+@app.get("/api/advanced-package/candidate-matrix")
+async def advanced_package_candidate_matrix_api():
+    """JSON API：22个支持高级包的扩展候选矩阵。"""
+    return JSONResponse(build_advanced_package_candidate_matrix(BASE_DIR).model_dump())
+
+
+@app.get("/api/advanced-package/evidence-bundle")
+async def advanced_package_evidence_bundle_api():
+    """JSON API：高级包静态合同、runtime dry run与缺失证据清单。"""
+    return JSONResponse(AdvancedEvidenceBundleRegistry(BASE_DIR).build().model_dump())
+
+
+@app.get("/api/advanced-package/runtime-candidate-coverage")
+async def advanced_package_runtime_candidate_coverage_api():
+    """JSON API：高级包runtime candidate接口与runtime dry run覆盖对账。"""
+    evidence = AdvancedEvidenceBundleRegistry(BASE_DIR).build()
+    runtime_candidate_interface_ids = sorted({
+        interface.id
+        for package in _advanced_package_registry().environment.packages
+        for interface in package.interfaces
+        if interface.execution_policy == "runtime_candidate"
+    })
+    runtime_case_interface_ids = sorted({
+        interface_id
+        for unit in evidence.runtime_dry_run.units
+        for interface_id in unit.interface_refs
+    })
+    uncovered_runtime_candidate_interface_ids = sorted(
+        set(runtime_candidate_interface_ids) - set(runtime_case_interface_ids)
+    )
+    return JSONResponse({
+        "kind": "advanced_package_runtime_candidate_coverage",
+        "schema_version": 1,
+        "runtime_candidate_interface_count": len(runtime_candidate_interface_ids),
+        "runtime_case_interface_count": len(runtime_case_interface_ids),
+        "uncovered_runtime_candidate_interface_count": len(uncovered_runtime_candidate_interface_ids),
+        "runtime_candidate_case_coverage_complete": not uncovered_runtime_candidate_interface_ids,
+        "runtime_candidate_interface_ids": runtime_candidate_interface_ids,
+        "runtime_case_interface_ids": runtime_case_interface_ids,
+        "uncovered_runtime_candidate_interface_ids": uncovered_runtime_candidate_interface_ids,
+    })
+
+
+@app.get("/api/advanced-package/execution-gate")
+async def advanced_package_execution_gate_api(authorized: bool = False):
+    """JSON API：高级包执行门禁预览；不执行数据库操作。"""
+    gate = evaluate_advanced_package_gate(
+        BASE_DIR,
+        authorized_flag=authorized,
+        authorization_environment_set=os.getenv("GAUSSDB_RUNTIME_PILOT_AUTHORIZED", "").lower() in {"true", "1", "yes"},
+        database_enabled=os.getenv("GAUSSDB_ENABLED", "false").lower() in {"true", "1", "yes"},
+    )
+    return JSONResponse(gate.model_dump())
+
+
+@app.get("/api/advanced-package/evidence-bundle/verify")
+async def advanced_package_evidence_bundle_verify_api():
+    """JSON API：校验高级包Evidence Bundle与当前产物文件是否一致。"""
+    return JSONResponse(verify_advanced_package_evidence_bundle(BASE_DIR).model_dump())
 
 
 @app.get("/factor/{factor_id}", response_class=HTMLResponse)

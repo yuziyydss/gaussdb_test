@@ -1,0 +1,586 @@
+<section class="page-shell" aria-labelledby="guc-v2-title">
+  <header class="page-header">
+    <div class="page-header__copy">
+      <div class="page-header__meta">
+        <span class="overline">GUC Environment V2</span>
+        <span class="mono-id">reference → candidate → environment → plans</span>
+      </div>
+      <h1 id="guc-v2-title" class="page-title">GUC 参数与环境计划</h1>
+      <p class="page-description">展示 27 个参数的安全策略、来源锚点与 19 个 session overlay 静态计划。页面只读本地产物，不连接数据库，也不执行任何 GUC。</p>
+    </div>
+    <div class="page-header__actions">
+      <a href="/api/guc/v2/summary" target="_blank" rel="noopener" class="primary-button">
+        <i data-lucide="braces" aria-hidden="true"></i>查看 JSON
+      </a>
+      <a href="/api/guc/v2/plans.sql" target="_blank" rel="noopener" class="ghost-button">
+        <i data-lucide="file-code" aria-hidden="true"></i>查看 SQL
+      </a>
+    </div>
+  </header>
+
+  <div class="page-stack">
+    <section class="metric-grid metric-grid--six" aria-label="GUC V2 summary">
+      <article class="metric-card metric-card--dark">
+        <span class="metric-card__label">参数总数</span>
+        <strong class="metric-card__value">{{ environment.parameters | length }}</strong>
+        <span class="metric-card__hint">V1 20 + 新增 7</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-card__label">Session overlay</span>
+        <strong class="metric-card__value">{{ plans.summary.exported_plan_count }}</strong>
+        <span class="metric-card__hint">捕获 → 应用 → 验证 → 恢复</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-card__label">人工复核</span>
+        <strong class="metric-card__value">{{ plans.summary.execution_policy_counts.manual_review }}</strong>
+        <span class="metric-card__hint">DML/系统表副作用</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-card__label">只读</span>
+        <strong class="metric-card__value">{{ plans.summary.execution_policy_counts.read_only }}</strong>
+        <span class="metric-card__hint">INTERNAL 参数</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-card__label">阻断</span>
+        <strong class="metric-card__value">{{ plans.summary.execution_policy_counts.blocked }}</strong>
+        <span class="metric-card__hint">POSTMASTER 参数</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-card__label">SQL步骤</span>
+        <strong class="metric-card__value">{{ plans.summary.step_count }}</strong>
+        <span class="metric-card__hint">静态计划，不是执行收据</span>
+      </article>
+    </section>
+
+    <aside class="callout callout--warning" aria-label="GUC boundary">
+      <i data-lucide="shield-alert" aria-hidden="true"></i>
+      <div>
+        <strong>当前页面只读取本地 GUC V2 产物</strong>
+        <div style="margin-top:3px;">Reference、Candidate、Environment 与 Plan 是四层静态证据；不表示数据库行为验证通过。</div>
+      </div>
+    </aside>
+
+    <section class="panel" aria-labelledby="guc-parameters-title">
+      <div class="panel__header">
+        <div>
+          <h2 id="guc-parameters-title" class="panel__heading">参数清单</h2>
+          <p class="panel__description">按分类与参数名排序；安全策略直接来自 GUC Environment V2。</p>
+        </div>
+        <span class="chip">{{ parameters | length }}</span>
+      </div>
+      <div class="panel__body">
+        <div class="data-table-wrap" tabindex="0" aria-label="GUC 参数清单，可横向滚动">
+          <table class="data-table" style="min-width:1080px;">
+            <caption class="sr-only">GUC 参数清单</caption>
+            <thead>
+              <tr>
+                <th scope="col">参数</th>
+                <th scope="col">分类</th>
+                <th scope="col">Context</th>
+                <th scope="col">类型</th>
+                <th scope="col">默认值</th>
+                <th scope="col">策略</th>
+                <th scope="col">来源锚点</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for parameter in parameters %}
+              <tr>
+                <th scope="row"><span class="mono-id">{{ parameter.name }}</span></th>
+                <td>{{ parameter.category }}</td>
+                <td>{{ parameter.context_type }}</td>
+                <td>{{ parameter.value_type }}</td>
+                <td><code>{{ parameter.default_value }}</code></td>
+                <td>
+                  {% if parameter.execution_policy == 'session_overlay' %}
+                  <span class="chip chip--positive">session_overlay</span>
+                  {% elif parameter.execution_policy == 'manual_review' %}
+                  <span class="chip chip--warning">manual_review</span>
+                  {% elif parameter.execution_policy == 'read_only' %}
+                  <span class="chip">read_only</span>
+                  {% else %}
+                  <span class="chip chip--negative">blocked</span>
+                  {% endif %}
+                </td>
+                <td><span class="mono-id">{{ parameter.source.anchor }}</span></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="guc-plans-title">
+      <div class="panel__header">
+        <div>
+          <h2 id="guc-plans-title" class="panel__heading">Session overlay 计划</h2>
+          <p class="panel__description">19 个计划、95 个 SQL 步骤；恢复使用捕获原值，不使用 RESET。</p>
+        </div>
+        <span class="chip chip--positive">{{ plans.plans | length }}</span>
+      </div>
+      <div class="panel__body">
+        <div class="data-table-wrap" tabindex="0" aria-label="GUC overlay 计划，可横向滚动">
+          <table class="data-table" style="min-width:900px;">
+            <caption class="sr-only">GUC overlay 计划</caption>
+            <thead>
+              <tr>
+                <th scope="col">参数</th>
+                <th scope="col">原值</th>
+                <th scope="col">目标值</th>
+                <th scope="col">步骤数</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for plan in plans.plans %}
+              <tr>
+                <th scope="row"><span class="mono-id">{{ plan.parameter_name }}</span></th>
+                <td><code>{{ plan.original_value }}</code></td>
+                <td><code>{{ plan.target_value }}</code></td>
+                <td>{{ plan.steps | length }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="guc-readiness-title">
+      <div class="panel__header">
+        <div>
+          <h2 id="guc-readiness-title" class="panel__heading">执行就绪分层</h2>
+          <p class="panel__description">静态产物、只读Preflight、显式授权与运行时证据分开判断，不互相冒充。</p>
+        </div>
+        {% if readiness.ready_for_authorized_execution %}
+        <span class="chip chip--positive">Ready for authorization</span>
+        {% else %}
+        <span class="chip chip--warning">Blocked</span>
+        {% endif %}
+      </div>
+      <div class="panel__body">
+        <div class="metric-grid metric-grid--six" aria-label="GUC V2 readiness">
+          <article class="metric-card {% if readiness.static_audit_valid %}metric-card--dark{% endif %}">
+            <span class="metric-card__label">静态审计</span>
+            <strong class="metric-card__value">{{ 'Valid' if readiness.static_audit_valid else 'Invalid' }}</strong>
+            <span class="metric-card__hint">{{ readiness.summary.static_audit_check_count }} checks</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">Preflight计划</span>
+            <strong class="metric-card__value">{{ 'Valid' if readiness.preflight_plan_valid else 'Invalid' }}</strong>
+            <span class="metric-card__hint">{{ readiness.summary.preflight_query_count }} queries</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">Preflight结果</span>
+            <strong class="metric-card__value">{{ 'Present' if readiness.preflight_result_present else 'Missing' }}</strong>
+            <span class="metric-card__hint">只读数据库检查 + 独立审计</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">执行授权</span>
+            <strong class="metric-card__value">{{ 'Authorized' if readiness.execution_authorized else 'Not authorized' }}</strong>
+            <span class="metric-card__hint">需要显式授权</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">运行时验证</span>
+            <strong class="metric-card__value">{{ 'Verified' if readiness.runtime_verified else 'Not verified' }}</strong>
+            <span class="metric-card__hint">需要执行回执</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">Overlay计划</span>
+            <strong class="metric-card__value">{{ readiness.summary.overlay_plan_count }}</strong>
+            <span class="metric-card__hint">{{ readiness.summary.overlay_step_count }} steps</span>
+          </article>
+        </div>
+        <div class="fine-print" style="margin-top:16px;display:grid;gap:8px;">
+          <strong>Preflight审计</strong>
+          <span>
+            {% if readiness.preflight_audit_valid %}
+            <span class="chip chip--positive">Valid</span>
+            {% else %}
+            <span class="chip chip--warning">Missing or invalid</span>
+            {% endif %}
+          </span>
+          <strong>阻断项</strong>
+          <ul style="margin:0;padding-left:20px;display:grid;gap:6px;">
+            {% for blocker in readiness.blockers %}
+            <li>{{ blocker }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="guc-capabilities-title">
+      <div class="panel__header">
+        <div>
+          <h2 id="guc-capabilities-title" class="panel__heading">Capability Adapter</h2>
+          <p class="panel__description">19个session overlay参数的环境能力适配层；尚未写入Factor Package。</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span class="chip chip--positive">{{ capabilities.summary.runtime_fact_bound_count }} fact-bound</span>
+          <span class="chip chip--warning">{{ capabilities.summary.needs_runtime_fact_count }} needs fact</span>
+        </div>
+      </div>
+      <div class="panel__body">
+        <div class="data-table-wrap" tabindex="0" aria-label="GUC V2 capabilities">
+          <table class="data-table" style="min-width:1100px;">
+            <caption class="sr-only">GUC V2 capabilities</caption>
+            <thead>
+              <tr>
+                <th scope="col">Requirement key</th>
+                <th scope="col">参数</th>
+                <th scope="col">分类</th>
+                <th scope="col">允许值</th>
+                <th scope="col">状态</th>
+                <th scope="col">Fact refs</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for capability in capabilities.capabilities %}
+              <tr>
+                <th scope="row"><span class="mono-id">{{ capability.requirement_key }}</span></th>
+                <td><span class="mono-id">{{ capability.parameter_name }}</span></td>
+                <td>{{ capability.category }}</td>
+                <td><code>{{ capability.allowed_values | join(', ') }}</code></td>
+                <td>
+                  {% if capability.integration_status == 'runtime_fact_bound' %}
+                  <span class="chip chip--positive">fact-bound</span>
+                  {% else %}
+                  <span class="chip chip--warning">needs fact</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if capability.fact_refs %}
+                  <span class="mono-id">{{ capability.fact_refs | join(', ') }}</span>
+                  {% else %}
+                  <span class="chip">none</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="guc-requirement-adapter-title">
+      <div class="panel__header">
+        <div>
+          <h2 id="guc-requirement-adapter-title" class="panel__heading">Requirement Adapter</h2>
+          <p class="panel__description">将可安全转换的GUC能力映射为Factor Package V1 EnvironmentRequirementDef；不修改specs。</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span class="chip chip--positive">{{ requirement_adapter.summary.requirement_count }} converted</span>
+          <span class="chip chip--warning">{{ requirement_adapter.summary.blocked_count }} blocked</span>
+        </div>
+      </div>
+      <div class="panel__body">
+        <div class="data-table-wrap" tabindex="0" aria-label="GUC V2 requirement adapter">
+          <table class="data-table" style="min-width:1100px;">
+            <caption class="sr-only">GUC V2 requirement adapter</caption>
+            <thead>
+              <tr>
+                <th scope="col">参数</th>
+                <th scope="col">Requirement key</th>
+                <th scope="col">允许值</th>
+                <th scope="col">Fact refs</th>
+                <th scope="col">状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in requirement_adapter.requirements %}
+              <tr>
+                <th scope="row"><span class="mono-id">{{ item.parameter_name }}</span></th>
+                <td><span class="mono-id">{{ item.requirement.key }}</span></td>
+                <td><code>{{ item.requirement.allowed_values | join(', ') }}</code></td>
+                <td><span class="mono-id">{{ item.requirement.fact_refs | join(', ') }}</span></td>
+                <td><span class="chip chip--positive">converted</span></td>
+              </tr>
+              {% endfor %}
+              {% for item in requirement_adapter.blocked %}
+              <tr>
+                <th scope="row"><span class="mono-id">{{ item.parameter_name }}</span></th>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td><span class="chip chip--warning">{{ item.reason }}</span></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="guc-evidence-title">
+      <div class="panel__header">
+        <div>
+          <h2 id="guc-evidence-title" class="panel__heading">Evidence Bundle</h2>
+          <p class="panel__description">静态、Preflight与Runtime三层证据清单；缺失文件不会被伪装成已验证。</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          {% if evidence_verification.valid %}
+          <span class="chip chip--positive">Verified</span>
+          {% else %}
+          <span class="chip chip--negative">Drift</span>
+          {% endif %}
+          <span class="chip">{{ evidence_bundle.summary.present_count }} / {{ evidence_bundle.summary.artifact_count }}</span>
+        </div>
+      </div>
+      <div class="panel__body">
+        <div class="metric-grid metric-grid--six" aria-label="GUC V2 evidence bundle">
+          <article class="metric-card {% if evidence_bundle.summary.static_complete %}metric-card--dark{% endif %}">
+            <span class="metric-card__label">静态证据</span>
+            <strong class="metric-card__value">{{ 'Complete' if evidence_bundle.summary.static_complete else 'Incomplete' }}</strong>
+            <span class="metric-card__hint">9 artifacts</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">Preflight证据</span>
+            <strong class="metric-card__value">{{ 'Complete' if evidence_bundle.summary.preflight_complete else 'Incomplete' }}</strong>
+            <span class="metric-card__hint">result + audit</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">Runtime证据</span>
+            <strong class="metric-card__value">{{ 'Complete' if evidence_bundle.summary.runtime_complete else 'Incomplete' }}</strong>
+            <span class="metric-card__hint">receipt + audit</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">已存在</span>
+            <strong class="metric-card__value">{{ evidence_bundle.summary.present_count }}</strong>
+            <span class="metric-card__hint">本地文件</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">缺失</span>
+            <strong class="metric-card__value">{{ evidence_bundle.summary.missing_count }}</strong>
+            <span class="metric-card__hint">不伪造运行时证据</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">全链完整</span>
+            <strong class="metric-card__value">{{ 'Complete' if evidence_bundle.summary.all_complete else 'Incomplete' }}</strong>
+            <span class="metric-card__hint">static + preflight + runtime</span>
+          </article>
+        </div>
+        <div class="data-table-wrap" style="margin-top:16px;" tabindex="0" aria-label="GUC V2 evidence artifacts">
+          <table class="data-table" style="min-width:1000px;">
+            <caption class="sr-only">GUC V2 evidence artifacts</caption>
+            <thead>
+              <tr>
+                <th scope="col">Artifact</th>
+                <th scope="col">Path</th>
+                <th scope="col">存在</th>
+                <th scope="col">大小</th>
+                <th scope="col">SHA-256</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for artifact in evidence_bundle.artifacts %}
+              <tr>
+                <th scope="row">{{ artifact.name }}</th>
+                <td><code class="mono-id">{{ artifact.path }}</code></td>
+                <td>
+                  {% if artifact.exists %}
+                  <span class="chip chip--positive">存在</span>
+                  {% else %}
+                  <span class="chip">缺失</span>
+                  {% endif %}
+                </td>
+                <td>{{ artifact.size_bytes if artifact.size_bytes is not none else '-' }}</td>
+                <td><code class="mono-id">{{ artifact.sha256 or '-' }}</code></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="guc-execution-gate-title">
+      <div class="panel__header">
+        <div>
+          <h2 id="guc-execution-gate-title" class="panel__heading">Execution Gate</h2>
+          <p class="panel__description">技术就绪、显式授权与数据库可用分层判定；当前为预览，不执行数据库操作。</p>
+        </div>
+        {% if execution_gate.allowed %}
+        <span class="chip chip--positive">Allowed</span>
+        {% else %}
+        <span class="chip chip--warning">Blocked</span>
+        {% endif %}
+      </div>
+      <div class="panel__body">
+        <div class="metric-grid metric-grid--six" aria-label="GUC V2 execution gate">
+          <article class="metric-card {% if execution_gate.technical_ready %}metric-card--dark{% endif %}">
+            <span class="metric-card__label">技术就绪</span>
+            <strong class="metric-card__value">{{ 'Ready' if execution_gate.technical_ready else 'Blocked' }}</strong>
+            <span class="metric-card__hint">静态 + Preflight + Runtime Plan</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">授权请求</span>
+            <strong class="metric-card__value">{{ 'Requested' if execution_gate.authorization_requested else 'Not requested' }}</strong>
+            <span class="metric-card__hint">CLI flag</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">环境授权</span>
+            <strong class="metric-card__value">{{ 'Set' if execution_gate.authorization_environment_set else 'Not set' }}</strong>
+            <span class="metric-card__hint">GAUSSDB_GUC_V2_RUNTIME_AUTHORIZED</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">授权就绪</span>
+            <strong class="metric-card__value">{{ 'Ready' if execution_gate.authorization_ready else 'Blocked' }}</strong>
+            <span class="metric-card__hint">CLI + 环境变量</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">数据库</span>
+            <strong class="metric-card__value">{{ 'Enabled' if execution_gate.database_ready else 'Disabled' }}</strong>
+            <span class="metric-card__hint">GAUSSDB_ENABLED</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">门禁结果</span>
+            <strong class="metric-card__value">{{ 'Allowed' if execution_gate.allowed else 'Blocked' }}</strong>
+            <span class="metric-card__hint">三层全部满足才允许</span>
+          </article>
+        </div>
+        <div class="fine-print" style="margin-top:16px;display:grid;gap:8px;">
+          <strong>阻断项</strong>
+          <ul style="margin:0;padding-left:20px;display:grid;gap:6px;">
+            {% for blocker in execution_gate.blockers %}
+            <li>{{ blocker }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="guc-runtime-title">
+      <div class="panel__header">
+        <div>
+          <h2 id="guc-runtime-title" class="panel__heading">Runtime Pilot</h2>
+          <p class="panel__description">19个GUC overlay单元、95个SQL步骤；当前仅dry-run，不连接数据库，不执行SQL。</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span class="chip">{{ runtime_plan.profile }}</span>
+          <span class="chip chip--positive">{{ runtime_plan.units | length }} units</span>
+        </div>
+      </div>
+      <div class="panel__body">
+        <div class="data-table-wrap" tabindex="0" aria-label="GUC V2 runtime pilot units">
+          <table class="data-table" style="min-width:1000px;">
+            <caption class="sr-only">GUC V2 runtime pilot units</caption>
+            <thead>
+              <tr>
+                <th scope="col">Unit</th>
+                <th scope="col">接口</th>
+                <th scope="col">步骤数</th>
+                <th scope="col">恢复</th>
+                <th scope="col">状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for unit in runtime_plan.units %}
+              <tr>
+                <th scope="row"><span class="mono-id">{{ unit.id }}</span></th>
+                <td><span class="mono-id">{{ unit.interface_refs | join(', ') }}</span></td>
+                <td>{{ unit.execution_plan | length }}</td>
+                <td>
+                  {% if unit.cleanup.restore_original_guc %}
+                  <span class="chip chip--positive">restore original</span>
+                  {% else %}
+                  <span class="chip chip--negative">missing restore</span>
+                  {% endif %}
+                </td>
+                <td><span class="chip">{{ unit.status }}</span></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="guc-preflight-title">
+      <div class="panel__header">
+        <div>
+          <h2 id="guc-preflight-title" class="panel__heading">只读 Preflight</h2>
+          <p class="panel__description">27个current_setting查询；只读取当前值，不修改GUC，不执行目标SQL。</p>
+        </div>
+        <span class="chip chip--positive">{{ preflight.summary.query_count }} queries</span>
+      </div>
+      <div class="panel__body">
+        <div class="data-table-wrap" tabindex="0" aria-label="GUC V2 preflight queries">
+          <table class="data-table" style="min-width:900px;">
+            <caption class="sr-only">GUC V2 preflight queries</caption>
+            <thead>
+              <tr>
+                <th scope="col">参数</th>
+                <th scope="col">SQL</th>
+                <th scope="col">说明</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for query in preflight.queries %}
+              <tr>
+                <th scope="row"><span class="mono-id">{{ query.parameter_name }}</span></th>
+                <td><code>{{ query.sql }}</code></td>
+                <td>{{ query.description }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="guc-audit-title">
+      <div class="panel__header">
+        <div>
+          <h2 id="guc-audit-title" class="panel__heading">跨层静态审计</h2>
+          <p class="panel__description">校验 Reference、Candidate、Environment 与 Plan 四层产物的身份、计数、策略与SQL边界。</p>
+        </div>
+        {% if audit.valid %}
+        <span class="chip chip--positive">Valid</span>
+        {% else %}
+        <span class="chip chip--negative">Invalid</span>
+        {% endif %}
+      </div>
+      <div class="panel__body">
+        <div class="data-table-wrap" tabindex="0" aria-label="GUC V2 audit checks">
+          <table class="data-table" style="min-width:900px;">
+            <caption class="sr-only">GUC V2 audit checks</caption>
+            <thead>
+              <tr>
+                <th scope="col">检查项</th>
+                <th scope="col">结果</th>
+                <th scope="col">说明</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for check in audit.checks %}
+              <tr>
+                <th scope="row">{{ check.name }}</th>
+                <td>
+                  {% if check.passed %}
+                  <span class="chip chip--positive">Pass</span>
+                  {% else %}
+                  <span class="chip chip--negative">Fail</span>
+                  {% endif %}
+                </td>
+                <td>{{ check.detail }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <details class="panel" aria-labelledby="guc-sql-title">
+      <summary class="panel__summary">
+        <span id="guc-sql-title" class="panel__heading">查看 SQL 计划</span>
+        <span class="chip">{{ plans.summary.step_count }} steps</span>
+      </summary>
+      <div class="panel__body">
+        <pre class="code-block" tabindex="0"><code>{{ plan_sql }}</code></pre>
+      </div>
+    </details>
+  </div>
+</section>

@@ -1,0 +1,80 @@
+schema_version: 1
+kind: advanced_package_policy_audit
+id: advanced_package_policy_audit_v1
+name: Advanced Package Expansion Policy Inventory
+description: 新增DBE包接口的执行策略复审输入；不自动修改当前inventory中的execution_policy。
+runtime_candidate_interfaces:
+- adv_dbe_stats_get_stats_history_availability
+- adv_dbe_stats_get_stats_history_retention
+- adv_dbe_xmldom_createelement
+- adv_dbe_xmldom_createelement_ns
+- adv_dbe_xmldom_freedocument
+- adv_dbe_xmldom_getattribute_ns
+- adv_dbe_xmldom_getattributes
+- adv_dbe_xmldom_getchildnodes
+- adv_dbe_xmldom_getchildrenbytagname_ns
+- adv_dbe_xmldom_getdocumentelement
+- adv_dbe_xmldom_getelementsbytagname_element
+- adv_dbe_xmldom_getelementsbytagname_element_ns
+- adv_dbe_xmldom_getfirstchild
+- adv_dbe_xmldom_getlastchild
+- adv_dbe_xmldom_getlength_nodelist
+- adv_dbe_xmldom_getlocalname_element
+- adv_dbe_xmldom_getnameditem_ns
+- adv_dbe_xmldom_isnull_document
+- adv_dbe_xmldom_isnull_element
+- adv_dbe_xmldom_isnull_namednodemap
+- adv_dbe_xmldom_isnull_node
+- adv_dbe_xmldom_isnull_nodelist
+- adv_dbe_xmldom_isnull_text
+- adv_dbe_xmldom_item_map
+- adv_dbe_xmldom_makenode_document
+- adv_dbe_xmldom_makenode_element
+- adv_dbe_xmldom_makenode_text
+- adv_dbe_xmldom_newdomdocument
+- adv_dbe_xmldom_newdomdocument_clob
+- adv_dbe_xmldom_newdomdocument_no_arg
+- adv_dbe_xmldom_setattribute_no_ns
+- adv_dbe_xmldom_writetobuffer
+- adv_dbe_xmldom_writetobuffer_node
+- adv_dbe_xmlparser_freeparser
+- adv_dbe_xmlparser_getdocument
+- adv_dbe_xmlparser_getvalidationmode
+- adv_dbe_xmlparser_newparser
+- adv_dbe_xmlparser_parsebuffer
+blocked_interfaces:
+- adv_dbe_ilm_execute_ilm
+- adv_dbe_ilm_admin_customize_ilm
+- adv_dbe_ilm_admin_disable_ilm
+- adv_dbe_ilm_admin_enable_ilm
+- adv_dbe_ilm_admin_create_ilm_db_policy
+- adv_dbe_ilm_admin_delete_ilm_db_policy
+static_probe_interfaces:
+- adv_dbe_describe_number_table
+- adv_dbe_describe_varchar2_table
+- adv_dbe_xmldom_domattr
+- adv_dbe_xmldom_domdocument
+- adv_dbe_xmldom_domelement
+- adv_dbe_xmldom_domnamednodemap
+- adv_dbe_xmldom_domnodelist
+- adv_dbe_xmldom_domnode
+- adv_dbe_xmldom_domtext
+- adv_dbe_xmlparser_parser
+manual_review_reasons:
+  dbe_compression: 需要ILM开启、兼容的物理对象与压缩类型 fixture；TURBO统计还依赖buffer状态。
+  dbe_describe: DESCRIBE_PROCEDURE返回多个PL/SQL集合且对对象类型/权限敏感；先补专用case设计。
+  dbe_heat_map: 需要真实ctid、ILM对象和可选debug fixture；不作为首批无状态case。
+  dbe_ilm: STOP_ILM会影响压缩任务；EXECUTE_ILM会生成压缩Job，直接block。
+  dbe_ilm_admin: 影响实例级ILM后台调度或库级策略，首批runtime pilot禁止直接执行。
+  dbe_stats: 除两个只读历史信息函数外，锁定、恢复、清理、导入导出和建删统计表都改变统计对象或历史数据。
+  dbe_xmldom: DOM资源释放和节点修改需要生命周期case；尚未建模的接口不能自动执行。
+  dbe_xmlparser: PARSECLOB、SETVALIDATIONMODE和异常路径需要专用fixture；未进入首批候选。
+prerequisites:
+  dbe_xmldom: A兼容模式；非SQL_ASCII字符集时不得注入非ASCII样本；每个用例必须FREEDOCUMENT/FREEELEMENT/FREENODE/FREENODELIST释放资源。
+  dbe_xmlparser: A兼容模式；UTF-8字符串；解析成功与失败路径都必须FREEPARSER，生成的DOMDOCUMENT必须释放。
+  dbe_stats: 只读函数需要统计历史初始化；变更类接口需要独立schema、备份/恢复和显式UNLOCK或清理。
+  dbe_ilm_admin: enable_ilm、SYSADMIN/相应授权、独立库和job状态审计；首批不执行。
+  dbe_ilm: enable_ilm、CREATE JOB授权、表owner、独立ILM对象和job清理；首批不执行。
+  dbe_compression: enable_ilm、表owner、压缩类型fixture、分区名边界和表空间容量评估。
+  dbe_heat_map: enable_ilm、独立表空间/表、已知ctid和时间同步预期。
+  dbe_describe: 独立procedure/function、权限失败样本、包内对象排除和DBLINK负例。

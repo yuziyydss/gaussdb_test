@@ -1,0 +1,721 @@
+document: 集中式版参考 / 1.3 数据类型 + 1.5 常量和宏 + 1.7 表达式 + 1.8 伪列 + 1.9 类型转换
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-28'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters: 38
+  physical_pages: 122
+  includes:
+  - 1.3.*
+  - '1.5'
+  - 1.7.*
+  - '1.8'
+  - 1.9.*
+  excludes:
+  - 1.6函数和操作符，后续Wave 1B
+facts:
+- id: core_type_integer_family
+  type: syntax
+  statement: TINYINT、SMALLINT、MEDIUMINT、INTEGER、BIGINT、INT16等整数族支持有符号范围；M或B兼容模式下相应整数可加UNSIGNED。
+  source_anchor: 1.3.1 表1-2 页86-87
+  source_refs:
+  - cte_1_3_1
+  status: confirmed
+- id: core_type_integer_unsigned_mode
+  type: constraint
+  statement: TINYINT/SMALLINT/INTEGER/BIGINT的UNSIGNED形式仅在M或B兼容模式中使用；指定UNSIGNED后不允许负值。
+  source_anchor: 1.3.1 表1-2与说明 页86-87
+  source_refs:
+  - cte_1_3_1
+  status: confirmed
+- id: core_type_integer_display_width_zerofill
+  type: constraint
+  statement: B兼容模式设置b_format_version=5.7且b_format_dev_version=s1后整型支持显示宽度和ZEROFILL；ZEROFILL会隐式添加UNSIGNED并用前导零补足显示宽度。
+  source_anchor: 1.3.1 说明 页87
+  source_refs:
+  - cte_1_3_1
+  status: confirmed
+- id: core_type_numeric_precision_scale
+  type: syntax
+  statement: NUMERIC/DECIMAL/NUMBER的精度p范围为1到1000，标度s范围为0到p；未指定精度时整数部分最大131072位、小数部分最大16383位。
+  source_anchor: 1.3.1 表1-3 页89
+  source_refs:
+  - cte_1_3_1
+  status: confirmed
+- id: core_type_numeric_b_mode_defaults
+  type: environment
+  statement: B兼容模式在b_format_version=5.7且b_format_dev_version=s1时，未指定精度和标度的NUMERIC/DECIMAL在表列定义中按NUMERIC(10,0)处理；其他场景仍按原NUMERIC范围。
+  source_anchor: 1.3.1 表1-3与说明 页89-91
+  source_refs:
+  - cte_1_3_1
+  status: confirmed
+- id: core_type_numeric_rounding_to_scale
+  type: behavior_oracle
+  statement: 插入数值的小数位超过NUMERIC/DECIMAL定义标度s时按定义标度四舍五入，如DECIMAL(10,4)插入123456.12354返回123456.1235。
+  source_anchor: 1.3.1 示例 页89-90
+  source_refs:
+  - cte_1_3_1
+  status: confirmed
+- id: core_type_serial_semantics
+  type: constraint
+  statement: SMALLSERIAL/SERIAL/BIGSERIAL/LARGESERIAL是唯一标识便利形式而非真实独立类型；列自动关联序列并加NOT NULL，但不会自动加UNIQUE/PRIMARY KEY，临时表不支持SERIAL列，且不能将既有列类型转换为SERIAL。
+  source_anchor: 1.3.1 表1-4与说明 页91-92
+  source_refs:
+  - cte_1_3_1
+  status: confirmed
+- id: core_type_float_approximate_risk
+  type: constraint
+  statement: REAL、FLOAT4、DOUBLE、DOUBLE PRECISION、FLOAT8、FLOAT(p)、BINARY_DOUBLE为近似二进制浮点类型；货币等精确计算应使用numeric，浮点相等比较和下溢需特别复核。
+  source_anchor: 1.3.1 说明 页96
+  source_refs:
+  - cte_1_3_1
+  status: confirmed
+- id: core_type_b_mode_float_input_output
+  type: environment
+  statement: B兼容模式在b_format_version=5.7且b_format_dev_version=s1时，FLOAT/DOUBLE/DEC/REAL等带精度的非法或越界输入在strict_trans_tables下报错，否则告警并返回0或截断值；DEC无精度时按NUMERIC(10,0)转换。
+  source_anchor: 1.3.1 说明 页91、96
+  source_refs:
+  - cte_1_3_1
+  status: confirmed
+- id: core_type_money_conversion
+  type: syntax
+  statement: money为8字节固定两位小数类型；numeric/int/bigint可直接转money，float/double建议先转numeric再转money；money到float8需经numeric两步转换；money除法返回double precision。
+  source_anchor: 1.3.2 页97-98
+  source_refs:
+  - cte_1_3_2
+  status: confirmed
+- id: core_type_boolean_values
+  type: syntax
+  statement: BOOLEAN为1字节，取值为true/false/null；文本真值包括TRUE、t、true、y、yes、on、1及非0数值，假值包括FALSE、f、false、n、no、off、0等。
+  source_anchor: 1.3.3 表1-7 页98
+  source_refs:
+  - cte_1_3_3
+  status: confirmed
+- id: core_type_char_basic
+  type: syntax
+  statement: CHAR(n)/CHARACTER(n)/NCHAR(n)为定长字符串，不足补空格；未指定n默认1。常规实现n为字节长度，最大10485760字节。
+  source_anchor: 1.3.4 表1-8 页99
+  source_refs:
+  - cte_1_3_4
+  status: confirmed
+- id: core_type_char_a_mode_units
+  type: environment
+  statement: A兼容模式支持CHAR(n byte)/CHAR(n char)，默认byte；SQL_ASCII下单字节字符集即使指定char仍按字节处理，且实际容量受10MB存储限制约束。
+  source_anchor: 1.3.4 表1-8 页99-100
+  source_refs:
+  - cte_1_3_4
+  status: confirmed
+- id: core_type_b_mode_char_semantics
+  type: environment
+  statement: B兼容模式设置b_format_version=5.7且b_format_dev_version=s1后，CHAR(n)按字符计长，范围0到10485760；strict_trans_tables下越界报错，否则截断并告警；输出尾部空格受pad_char_to_full_length影响。
+  source_anchor: 1.3.4 表1-8 页99
+  source_refs:
+  - cte_1_3_4
+  status: confirmed
+- id: core_type_varchar_max_length
+  type: constraint
+  statement: 变长字符串最大存储长度需扣除元组头和列描述等开销；示例中三列表的varchar最大为1073741727字节，单varchar列表最大为1073741735字节。
+  source_anchor: 1.3.4 变长类型最大存储长度说明 页104
+  source_refs:
+  - cte_1_3_4
+  status: confirmed
+- id: core_type_varchar_overflow_truncate
+  type: behavior_oracle
+  statement: 向定长VARCHAR列插入超长值报value too long；显式CAST为VARCHAR(n)时截断到n。
+  source_anchor: 1.3.4 示例 页105
+  source_refs:
+  - cte_1_3_4
+  status: confirmed
+- id: core_type_special_char_types
+  type: syntax
+  statement: name为64字节对象名内部类型；"char"为1字节内部单字节类型。
+  source_anchor: 1.3.4 表1-9 页104
+  source_refs:
+  - cte_1_3_4
+  status: confirmed
+- id: core_type_binary_types
+  type: syntax
+  statement: 支持BYTEA、RAW、BLOB等二进制类型；RAW(n)的n是字节长度建议值不做输入校验；B模式下TINYBLOB/BLOB/MEDIUMBLOB/LONGBLOB按BYTEA显示。
+  source_anchor: 1.3.5 表1-10与说明 页106-108
+  source_refs:
+  - cte_1_3_5
+  status: confirmed
+- id: core_type_tuple_size_limit
+  type: constraint
+  statement: 除列大小限制外，每个元组总大小不可超过1GB-1字节。
+  source_anchor: 1.3.5 说明 页108
+  source_refs:
+  - cte_1_3_5
+  status: confirmed
+- id: core_type_encrypted_binary_types
+  type: constraint
+  statement: BYTEAWITHOUTORDERCOL等密态二进制类型不能直接用于CREATE TABLE；对应变长二进制最大为1GB-53字节。
+  source_anchor: 1.3.5 表1-10与说明 页107-108
+  source_refs:
+  - cte_1_3_5
+  status: confirmed
+- id: core_type_over_1gb_blob_dbe_lob_only
+  type: constraint
+  statement: 超过1GB的BLOB只有DBE_LOB相关高级包支持，系统函数不支持大于1GB的BLOB。
+  source_anchor: 1.3.5 说明 页108
+  source_refs:
+  - cte_1_3_5
+  status: confirmed
+- id: core_type_date_range
+  type: syntax
+  statement: DATE最小为公元前4713年4714-11-24，最大为公元5874897-12-31；B兼容版本5.7/s1时输入输出和范围有MySQL式差异。
+  source_anchor: 1.3.6 表1-11 页110
+  source_refs:
+  - cte_1_3_6
+  status: confirmed
+- id: core_type_a_mode_date_mapping
+  type: environment
+  statement: A兼容模式下DATE由mapping_date_to_datea控制：off时用TIMESTAMP(0) WITHOUT TIME ZONE替代，on时用DATEA；两者OID、范围、输入格式、驱动元数据和COPY选项不同。
+  source_anchor: 1.3.6 说明 页109
+  source_refs:
+  - cte_1_3_6
+  status: confirmed
+- id: core_type_time_precision
+  type: syntax
+  statement: TIME[(p)] WITHOUT TIME ZONE为8字节，p范围0到6；表列默认精度0，表达式默认精度6。
+  source_anchor: 1.3.6 表1-11 页112
+  source_refs:
+  - cte_1_3_6
+  status: confirmed
+- id: core_type_b_mode_time_duration
+  type: environment
+  statement: B兼容版本5.7/s1时TIME可表示持续时间或相对时间，范围为-838:59:59.000000到838:59:59.000000；strict_trans_tables与非strict模式下的非法/越界处理不同。
+  source_anchor: 1.3.6 表1-11 页112
+  source_refs:
+  - cte_1_3_6
+  status: confirmed
+- id: core_type_timestamp_precision_range
+  type: syntax
+  statement: TIMESTAMP[(p)] WITHOUT TIME ZONE为8字节，p范围0到6；范围从公元前4713年4714-11-24 00:00:00到公元294277-01-09 04:00:54.775807。
+  source_anchor: 1.3.6 表1-11 页114
+  source_refs:
+  - cte_1_3_6
+  status: confirmed
+- id: core_type_timestamptz_time_zone
+  type: behavior_oracle
+  statement: TIMESTAMP[(p)] WITH TIME ZONE别名为TIMESTAMPTZ，输入/UTC/服务器时区显示三者都不得超出范围；时区文件更新不改变已有数据，只影响新数据处理。
+  source_anchor: 1.3.6 表1-11 页116
+  source_refs:
+  - cte_1_3_6
+  status: confirmed
+- id: core_type_smalldatetime
+  type: syntax
+  statement: SMALLDATETIME为8字节、不带时区，精确到分钟且秒位大于等于30时进位；范围为4714-11-24 BC 00:00:00到294277-01-09 AD 04:00:00。
+  source_anchor: 1.3.6 表1-11 页116
+  source_refs:
+  - cte_1_3_6
+  status: confirmed
+- id: core_type_interval_fields
+  type: syntax
+  statement: INTERVAL DAY(l) TO SECOND(p)为16字节，l与p范围0到6；INTERVAL [FIELDS][(p)]支持YEAR、MONTH、DAY、HOUR、MINUTE、SECOND及组合字段，p仅在包含SECOND的组合上有效。
+  source_anchor: 1.3.6 表1-11 页116-117
+  source_refs:
+  - cte_1_3_6
+  status: confirmed
+- id: core_type_b_mode_year
+  type: environment
+  statement: year[(w)]仅在B兼容模式生效；4位年份范围1901到2155，两位数字按00-69到2000-2069、70-99到1970-1999解析。
+  source_anchor: 1.3.6 表1-11 页120
+  source_refs:
+  - cte_1_3_6
+  status: confirmed
+- id: core_type_datea_type
+  type: environment
+  statement: DATEA仅在A兼容模式生效，范围为公元前4712-01-01 00:00:00到公元9999-12-31 23:59:59；输入必须符合nls_date_format，输出为YYYY-MM-DD HH24:MI:SS AD/BC且不受DateStyle影响。
+  source_anchor: 1.3.6 表1-11 页121
+  source_refs:
+  - cte_1_3_6
+  status: confirmed
+- id: core_type_geometry_types
+  type: syntax
+  statement: 支持point、lseg、box、open/closed path、polygon、circle；point是基础构造，坐标使用float8。
+  source_anchor: 1.3.7 表1-18 页132
+  source_refs:
+  - cte_1_3_7
+  status: confirmed
+- id: core_type_network_types
+  type: syntax
+  statement: cidr和inet均支持IPv4/IPv6网络，存储7或19字节；macaddr为6字节。inet可包含主机和可选子网，cidr不接受主机位；排序时IPv4排在IPv6前。
+  source_anchor: 1.3.8 表1-19 页134-136
+  source_refs:
+  - cte_1_3_8
+  status: confirmed
+- id: core_type_uuid
+  type: syntax
+  statement: UUID存储RFC 4122定义的128位标识符；标准输出为8-4-4-4-12组小写十六进制格式，也接受大写、花括号、省略连字符等输入形式。
+  source_anchor: 1.3.10 页137
+  source_refs:
+  - cte_1_3_10
+  status: confirmed
+- id: core_type_text_search_types
+  type: syntax
+  statement: tsvector存储已词位化的文档，tsquery存储检索条件并支持AND/OR/NOT、PHRASE和权重/前缀匹配；tsvector和tsquery自身不做词法规范化，需用to_tsvector/to_tsquery。
+  source_anchor: 1.3.11 页138-140
+  source_refs:
+  - cte_1_3_11
+  status: confirmed
+- id: core_type_json_jsonb_storage
+  type: syntax
+  statement: JSON保存输入文本，JSONB保存解析后的二进制结构；JSONB支持格式归一化、重复键保留最后值、键排序、包含/存在操作和BTREE索引。
+  source_anchor: 1.3.12 页140-143
+  source_refs:
+  - cte_1_3_12
+  status: confirmed
+- id: core_type_jsonb_normalization
+  type: behavior_oracle
+  statement: JSONB对象会去除语义无关空白、删除重复键只保留最后值，并按键长度和ASCII顺序重排键。
+  source_anchor: 1.3.12 页143
+  source_refs:
+  - cte_1_3_12
+  status: confirmed
+- id: core_type_jsonb_compare_order
+  type: behavior_oracle
+  statement: JSONB大小比较先按object、array、bool、number、string、null的类型顺序，再按同类型内容比较；object/array先比长度再逐项比较。
+  source_anchor: 1.3.12 页143
+  source_refs:
+  - cte_1_3_12
+  status: confirmed
+- id: core_type_jsonb_constraints
+  type: constraint
+  statement: JSONB不支持作为分区键，也不支持外表。
+  source_anchor: 1.3.12 页142
+  source_refs:
+  - cte_1_3_12
+  status: confirmed
+- id: core_type_hll_purpose
+  type: syntax
+  statement: HLL用于近似统计唯一值个数；默认最大空间约16KB，可统计最大唯一值约1.1e+15，误差率约0.8%。
+  source_anchor: 1.3.13 表1-21与须知 页144-145
+  source_refs:
+  - cte_1_3_13
+  status: confirmed
+- id: core_type_hll_parameters
+  type: syntax
+  statement: HLL类型支持log2m、log2explicit、log2sparse、duplicatecheck四个参数；log2m范围10到16，入参-1使用默认值，非法范围创建报错。
+  source_anchor: 1.3.13 表1-22与说明 页145
+  source_refs:
+  - cte_1_3_13
+  status: confirmed
+- id: core_type_hll_type_match
+  type: constraint
+  statement: 向HLL列表插入HLL对象时，目标列HLL参数必须与对象参数一致，否则报错。
+  source_anchor: 1.3.13 说明 页146
+  source_refs:
+  - cte_1_3_13
+  status: confirmed
+- id: core_type_built_in_range_types
+  type: syntax
+  statement: 内建范围类型包括int4range、int8range、numrange、tsrange、tstzrange、daterange，也可以自定义范围类型。
+  source_anchor: 1.3.14 页148
+  source_refs:
+  - cte_1_3_14
+  status: confirmed
+- id: core_type_range_boundaries
+  type: syntax
+  statement: 范围文本使用[、(、]、)表示包含或排除上下界；输出规范化为[lower,upper)或empty；lower_inc/upper_inc、lower_inf/upper_inf分别检查边界包含与无限。
+  source_anchor: 1.3.14 页149-150
+  source_refs:
+  - cte_1_3_14
+  status: confirmed
+- id: core_type_datea_not_range_subtype
+  type: constraint
+  statement: A兼容模式开启mapping_date_to_datea后date映射为datea；datea不能作为范围类型，daterange不支持datea入参。
+  source_anchor: 1.3.14 说明 页149
+  source_refs:
+  - cte_1_3_14
+  status: confirmed
+- id: core_type_oid_types
+  type: syntax
+  statement: 对象标识符类型用于保存系统对象OID，例如REGCLASS、REGPROC等；具体输入会根据目录查找转换为对象引用。
+  source_anchor: 1.3.15 表1-23 页152
+  source_refs:
+  - cte_1_3_15
+  status: confirmed
+- id: core_type_pseudo_types
+  type: constraint
+  statement: any、anyelement、anyarray、anynonarray、anyenum、anyrange、record、trigger、void、internal等伪类型用于函数声明；SQL查询不能直接调用含internal参数的函数。
+  source_anchor: 1.3.16 表1-24 页154-155
+  source_refs:
+  - cte_1_3_16
+  status: confirmed
+- id: core_type_ledger_hash_types
+  type: syntax
+  statement: HASH16用8字节无符号64位整数存储16字符十六进制摘要；HASH32用16字节无符号整型数组存储32字符十六进制摘要。
+  source_anchor: 1.3.17 表1-25 页155-156
+  source_refs:
+  - cte_1_3_17
+  status: confirmed
+- id: core_type_xml_type
+  type: syntax
+  statement: XML存储格式良好的XML文档或内容片段，内部格式与TEXT相同、最大1GB，并支持基于LIBXML2的规范检查和XML函数。
+  source_anchor: 1.3.18 页156-157
+  source_refs:
+  - cte_1_3_18
+  status: confirmed
+- id: core_type_xml_unsupported_ops
+  type: constraint
+  statement: XML不支持逻辑表达式、多数系统函数入参、作为分布/分区/外键/主键/唯一约束、XML与字符串隐式转换、数组/行/子查询表达式、普通索引、大多数比较表达式、decode/nullif/greatest/least、distinct/group by/order by及大量聚合函数。
+  source_anchor: 1.3.18 页157
+  source_refs:
+  - cte_1_3_18
+  status: confirmed
+- id: core_type_xml_supported_ops
+  type: syntax
+  statement: XML支持物理备份恢复、IS NULL/IS NOT NULL、CASE/COALESCE、临时表、显式转换、表达式索引、gs_dump/gs_restore、并行查询、自定义函数/存储过程参数和JDBC SQLXML操作。
+  source_anchor: 1.3.18 页157-158
+  source_refs:
+  - cte_1_3_18
+  status: confirmed
+- id: core_type_set_type_definition
+  type: syntax
+  statement: SET类型随表字段定义创建，字段值必须是定义成员集合的子集，可为空集合；未知成员报错。
+  source_anchor: 1.3.20 页159-160
+  source_refs:
+  - cte_1_3_20
+  status: confirmed
+- id: core_type_set_type_constraints
+  type: constraint
+  statement: 开启回收站时含SET字段的表删除不进回收站；SET字段不能通过ALTER TABLE改成其他SET类型；CREATE TABLE AS/LIKE不支持含SET字段；SET值按定义顺序输出并以bitmap存储。
+  source_anchor: 1.3.20 页160-161
+  source_refs:
+  - cte_1_3_20
+  status: confirmed
+- id: core_type_aclitem_format
+  type: syntax
+  statement: aclitem格式为user1=privs/user2，aclitem[]为花括号包裹的多个aclitem；用户/角色和权限必须已存在。
+  source_anchor: 1.3.21 页161
+  source_refs:
+  - cte_1_3_21
+  status: confirmed
+- id: core_type_array_definition
+  type: syntax
+  statement: 数组可用元素类型后接[]定义，也支持ARRAY[n]语法；但维数和尺寸声明不影响运行时行为。允许最大6维，最大134217727个元素，总存储不超过1GB-1字节。
+  source_anchor: 1.3.22 页161-162
+  source_refs:
+  - cte_1_3_22
+  status: confirmed
+- id: core_type_array_constructor
+  type: syntax
+  statement: ARRAY[...]构造数组，元素类型按UNION/CASE相同规则推导；可用显式转换指定类型，record和表类型也可构造数组。
+  source_anchor: 1.3.22 页162-163
+  source_refs:
+  - cte_1_3_22
+  status: confirmed
+- id: core_type_empty_array_requires_type
+  type: constraint
+  statement: 空数组必须显式指定元素类型，例如ARRAY[]::int[]。
+  source_anchor: 1.3.22 页163
+  source_refs:
+  - cte_1_3_22
+  status: confirmed
+- id: core_type_array_from_subquery
+  type: syntax
+  statement: ARRAY(SELECT ...)从只返回一列的子查询构造一维数组，元素类型匹配子查询输出字段。
+  source_anchor: 1.3.22 页163
+  source_refs:
+  - cte_1_3_22
+  status: confirmed
+- id: core_type_vector_constraints
+  type: constraint
+  statement: floatvector和boolvector必须在建表时指定维度；成员和向量本身均不支持NULL，floatvector成员也不支持NaN/Inf。
+  source_anchor: 1.3.23 页167
+  source_refs:
+  - cte_1_3_23
+  status: confirmed
+- id: core_type_vector_engine_supported_types
+  type: environment
+  statement: 向量化引擎支持整数、numeric/decimal、浮点、serial、money、布尔、字符、二进制、位串、日期时间、网络地址、全文检索、JSON、HLL和部分范围类型；enum只能通过CREATE TYPE创建。
+  source_anchor: 1.3.24 表1-27 页167-169
+  source_refs:
+  - cte_1_3_24
+  status: confirmed
+- id: core_type_rowid_format
+  type: syntax
+  statement: ROWID以28字符编码表示，内部由node_slice、table_oid、bucket_id、row_no组成；格式或范围非法时报Invalid rowid。
+  source_anchor: 1.3.25 表1-28 页173-174
+  source_refs:
+  - cte_1_3_25
+  status: confirmed
+- id: core_type_rowid_comparison
+  type: behavior_oracle
+  statement: ROWID支持=、<>、<、>、<=、>=，比较按node_slice、table_oid、bucket_id、row_no依次进行；与不能隐式转换的类型比较报Inconsistent datatypes。
+  source_anchor: 1.3.25 操作符 页174-175
+  source_refs:
+  - cte_1_3_25
+  status: confirmed
+- id: core_expr_constants_macros
+  type: syntax
+  statement: 支持CURRENT_CATALOG、CURRENT_ROLE、CURRENT_SCHEMA、CURRENT_USER、LOCALTIMESTAMP、NULL、SESSION_USER、SYSDATE和USER等常量/宏。
+  source_anchor: 1.5 表1-29 页186-187
+  source_refs:
+  - cte_1_5
+  status: confirmed
+- id: core_expr_between_equivalence
+  type: syntax
+  statement: a BETWEEN x AND y等价于a>=x AND a<=y；a NOT BETWEEN x AND y等价于a<x OR a>y。
+  source_anchor: 1.7.1 页1117
+  source_refs:
+  - cte_1_7_1
+  status: confirmed
+- id: core_expr_null_comparison
+  type: syntax
+  statement: 判断空值使用IS NULL/IS NOT NULL；ISNULL/NOTNULL是非标准等价写法。不要使用expression=NULL或expression<>NULL。
+  source_anchor: 1.7.1 页1117
+  source_refs:
+  - cte_1_7_1
+  status: confirmed
+- id: core_expr_distinct_from
+  type: behavior_oracle
+  statement: IS DISTINCT FROM在类型或值不完全相同时为true，IS NOT DISTINCT FROM在完全相同时为true；两者都将NULL视为相同值。
+  source_anchor: 1.7.1 页1117-1118
+  source_refs:
+  - cte_1_7_1
+  status: confirmed
+- id: core_expr_safe_equal_b_only
+  type: environment
+  statement: <=>是B兼容模式专用安全等于，语义与IS NOT DISTINCT FROM相同；NULL<=>NULL为true。
+  source_anchor: 1.7.1 页1118
+  source_refs:
+  - cte_1_7_1
+  status: confirmed
+- id: core_expr_xml_comparison_restriction
+  type: constraint
+  statement: XML类型仅支持IS NULL和IS NOT NULL比较表达式。
+  source_anchor: 1.7.1 页1117
+  source_refs:
+  - cte_1_7_1
+  status: confirmed
+- id: core_expr_case_semantics
+  type: syntax
+  statement: CASE按WHEN条件返回首个真条件的result；无匹配且无ELSE返回NULL；支持XML操作；enable_case_intervaltonumeric=true时支持INTERVAL转NUMERIC。
+  source_anchor: 1.7.2 页1119-1120
+  source_refs:
+  - cte_1_7_2
+  status: confirmed
+- id: core_expr_nullif_greatest_least_nvl
+  type: syntax
+  statement: 条件表达式族包括NULLIF、GREATEST/LEAST和NVL；NVL在value1为NULL时返回value2，否则返回value1，并支持XML操作。
+  source_anchor: 1.7.2 页1121-1122
+  source_refs:
+  - cte_1_7_2
+  status: confirmed
+- id: core_expr_exists_semantics
+  type: syntax
+  statement: EXISTS/NOT EXISTS判断子查询是否返回行；子查询通常可在确认至少一行后停止执行；不支持XML操作。
+  source_anchor: 1.7.3 页1123-1124
+  source_refs:
+  - cte_1_7_3
+  status: confirmed
+- id: core_expr_in_subquery_null_semantics
+  type: behavior_oracle
+  statement: IN要求右侧子查询只返回一列；若比较结果不等或NULL且至少有一个NULL，IN结果为NULL而不是false；不支持XML操作。
+  source_anchor: 1.7.3 页1124
+  source_refs:
+  - cte_1_7_3
+  status: confirmed
+- id: core_expr_any_some_all_subquery
+  type: syntax
+  statement: ANY/SOME在子查询任一比较为真时为真，ALL在全部比较为真时为真；右侧子查询必须只返回一列；SOME是ANY同义词；不支持XML操作。
+  source_anchor: 1.7.3 页1125-1126
+  source_refs:
+  - cte_1_7_3
+  status: confirmed
+- id: core_expr_array_in_null_semantics
+  type: behavior_oracle
+  statement: 表达式IN列表在无匹配且列表中至少一个NULL时返回NULL；NOT IN在所有情况下等价于NOT(expression IN ...)；不支持XML操作。
+  source_anchor: 1.7.4 页1126-1127
+  source_refs:
+  - cte_1_7_4
+  status: confirmed
+- id: core_expr_array_any_all_null_semantics
+  type: behavior_oracle
+  statement: ANY/SOME数组在无真值且数组含NULL时返回NULL；ALL数组在比较无假值但数组含NULL时返回NULL；空数组使ALL为true；SOME是ANY同义词。
+  source_anchor: 1.7.4 页1127
+  source_refs:
+  - cte_1_7_4
+  status: confirmed
+- id: core_expr_row_comparison
+  type: syntax
+  statement: 行构造器之间可按字段逐个比较，字段数必须相同；支持=、<>、<、<=、>、>=等比较语义。
+  source_anchor: 1.7.5 页1128
+  source_refs:
+  - cte_1_7_5
+  status: confirmed
+- id: core_expr_interval_b_mode
+  type: environment
+  statement: INTERVAL DATE UNIT表达式仅在B兼容模式且b_format_version=5.7、b_format_dev_version=s1时支持；支持MICROSECOND到YEAR_MONTH等UNIT。
+  source_anchor: 1.7.6 页1129-1130
+  source_refs:
+  - cte_1_7_6
+  status: confirmed
+- id: core_expr_operator_resolution_unknown_prefer_string
+  type: behavior_oracle
+  statement: 操作符解析时未定类型文本可转换为候选类型；多个候选中优先选择最准确匹配和类型范畴首选类型；unknown和已知同类型参数时假设unknown为该类型。
+  source_anchor: 1.9.2 页1135-1136
+  source_refs:
+  - cte_1_9_2
+  status: confirmed
+- id: core_expr_implicit_conversion_caution
+  type: constraint
+  statement: 操作符解析出隐式类型转换后可能出现意外行为；例如bpchar转text会消除行尾空格，后续比较可能出错，必要时应显式转换。
+  source_anchor: 1.9.2 说明 页1136
+  source_refs:
+  - cte_1_9_2
+  status: confirmed
+- id: core_expr_function_cast_resolution
+  type: syntax
+  statement: 函数和操作符的类型转换依据pg_cast中的显式/赋值/隐式类别；目标类型自身的长度转换会在存储前应用。
+  source_anchor: 1.9.3 页1137-1139
+  source_refs:
+  - cte_1_9_3
+  status: confirmed
+- id: core_expr_a_mode_common_cast_matrix
+  type: environment
+  statement: A兼容模式提供常用源类型到目标的转换矩阵，例如整数族、浮点、numeric、日期时间、字符、CLOB、RAW/BLOB和XML/XMLTYPE的转换范围各不相同。
+  source_anchor: 1.9.3 表1-308 页1139-1140
+  source_refs:
+  - cte_1_9_3
+  status: confirmed
+- id: core_expr_value_storage_length_conversion
+  type: behavior_oracle
+  statement: 目标列为CHARACTER(n)时，unknown文本和text结果可经二进制兼容转换到bpchar，再调用长度转换函数完成长度检查和空格填充。
+  source_anchor: 1.9.4 页1140
+  source_refs:
+  - cte_1_9_4
+  status: confirmed
+- id: core_expr_union_case_general_resolution
+  type: behavior_oracle
+  statement: UNION/INTERSECT/EXTRACT/CASE/ARRAY/VALUES/GREATEST/LEAST按每个输出列解析类型：同类型保留；全unknown解析为text；跨类型范畴失败；同范畴选择首选类型并要求可隐式转换。
+  source_anchor: 1.9.5 页1140-1141
+  source_refs:
+  - cte_1_9_5
+  status: confirmed
+- id: core_expr_union_case_excluded_types
+  type: constraint
+  statement: 输入含xml、xmltype、json、txid_snapshot、sys_refcursor或几何类型时不能进行UNION。
+  source_anchor: 1.9.5 页1141
+  source_refs:
+  - cte_1_9_5
+  status: confirmed
+- id: core_expr_c_mode_case_coalesce
+  type: environment
+  statement: C模式下CASE/COALESCE如果输入包含字符串（unknown按text）和数字，则解析为字符串类型；其他跨类型范畴报错。
+  source_anchor: 1.9.5 页1143
+  source_refs:
+  - cte_1_9_5
+  status: confirmed
+- id: core_expr_a_mode_case_priority
+  type: environment
+  statement: A模式CASE按数值numeric>float8>float4>int8>int4>int2>int1、字符text>varchar=nvarchar2>bpchar>char、日期timestamptz>timestamp>datea等优先级推导。
+  source_anchor: 1.9.5 页1143
+  source_refs:
+  - cte_1_9_5
+  status: confirmed
+- id: core_expr_a_mode_decode_numeric
+  type: environment
+  statement: A模式开启sql_beta_feature=a_style_coerce后，DECODE的result1为字符时返回同范畴更高精度类型；result1为数值范畴时最终返回numeric。
+  source_anchor: 1.9.5 页1145-1146
+  source_refs:
+  - cte_1_9_5
+  status: confirmed
+- id: core_expr_array_constructor_type_resolution
+  type: behavior_oracle
+  statement: 数组构造器元素类型遵循UNION/CASE类型推导规则；可显式转换目标数组类型。
+  source_anchor: 1.3.22 页162
+  source_refs:
+  - cte_1_3_22
+  status: confirmed
+- id: core_type_bit_string
+  type: syntax
+  statement: bit(n)和bit varying(n)存储位串，n最大83886080（约10MB）；bit必须精确匹配长度，bit varying最长为n；未指定长度的bit等效bit(1)，未指定长度的bit varying不限长。
+  source_anchor: 1.3.9 页136-137
+  source_refs:
+  - cte_1_3_9
+  status: confirmed
+- id: core_type_bit_cast_truncation
+  type: behavior_oracle
+  statement: 显式转换为bit(n)时，超长右侧截断、不足右侧补零；显式转换为bit varying(n)时超长右侧截断。
+  source_anchor: 1.3.9 说明 页136
+  source_refs:
+  - cte_1_3_9
+  status: confirmed
+- id: core_type_xmltype
+  type: syntax
+  statement: XMLTYPE存储格式良好的XML文档，内部字符串存储最大1GB；支持LIBXML2相关XML操作和规范性检查。
+  source_anchor: 1.3.19 页158
+  source_refs:
+  - cte_1_3_19
+  status: confirmed
+- id: core_type_xmltype_operation_boundary
+  type: constraint
+  statement: XMLTYPE与XML一样不支持逻辑表达式、非XMLTYPE系统函数入参、分布/分区/外键/主键/唯一约束、隐式转换、数组/行/子查询表达式、普通索引、大多数比较表达式、decode/nullif/greatest/least、distinct/group by/order by及大量聚合。
+  source_anchor: 1.3.19 页158-159
+  source_refs:
+  - cte_1_3_19
+  status: confirmed
+- id: core_type_rownum_assignment
+  type: behavior_oracle
+  statement: ROWNUM在结果集产生过程中动态分配：WHERE过滤后、ORDER BY前赋值；ROWNUM<=N可限制行数，ROWNUM=1返回第一行，ROWNUM=n(n>1)、ROWNUM>n、ROWNUM>=n(n>1)通常不返回行。
+  source_anchor: 1.8 页1131-1132
+  source_refs:
+  - cte_1_8
+  status: confirmed
+- id: core_type_rownum_paging_requires_subquery
+  type: constraint
+  statement: 分页或排序后取前N行必须先在子查询排序并固定ROWNUM别名，再在外层筛选；否则ROWNUM在排序前分配会导致结果不符合预期。
+  source_anchor: 1.8 页1132-1133
+  source_refs:
+  - cte_1_8
+  status: confirmed
+- id: core_type_rownum_update_and_group_boundary
+  type: constraint
+  statement: ROWNUM可用于UPDATE限定行数；含ROWNUM的HAVING要求GROUP BY包含该ROWNUM（不在聚合中），且HAVING中的ROWNUM条件不能下推到扫描节点。
+  source_anchor: 1.8 页1133-1134
+  source_refs:
+  - cte_1_8
+  status: confirmed
+- id: core_expr_type_conversion_overview
+  type: syntax
+  statement: 类型转换规则覆盖函数调用、操作符、值存储以及UNION/CASE/ARRAY/GREATEST/LEAST四类结构；转换关系存于pg_cast。
+  source_anchor: 1.9.1 页1134-1135
+  source_refs:
+  - cte_1_9_1
+  status: confirmed
+- id: core_expr_unknown_text_literal
+  type: behavior_oracle
+  statement: 未声明类型的字符串文本首先解析为unknown；可用text、point等前缀显式声明类型。
+  source_anchor: 1.9.1 页1134
+  source_refs:
+  - cte_1_9_1
+  status: confirmed
+- id: core_expr_xml_conversion_forbidden
+  type: constraint
+  statement: XML类型不支持隐式类型转换，包括字符串和XML之间的隐式转换。
+  source_anchor: 1.9.1 页1135
+  source_refs:
+  - cte_1_9_1
+  status: confirmed
+- id: core_expr_datea_allowed_casts
+  type: environment
+  statement: A兼容模式DATEA仅支持与text、bpchar、varchar、clob、nvarchar2、timestamp、timestamp with time zone之间的类型转换。
+  source_anchor: 1.9.1 页1135
+  source_refs:
+  - cte_1_9_1
+  status: confirmed
+open_questions:
+- id: cte_oq_vector_engine_full_type_table
+  statement: 1.3.24表1-27为向量化引擎支持类型总表；后续若要生成向量引擎执行用例，需要把表逐行展开为机器可判定类型集合。
+  status: open
+- id: cte_oq_locale_money_format
+  statement: money的输入/输出货币符号依赖区域字符集，具体locale矩阵需在目标环境确认。
+  status: open
+- id: cte_oq_xml_full_disable_matrix
+  statement: XML的disable/enable清单较长，建议后续生成独立的操作兼容矩阵而非仅事实陈述。
+  status: open

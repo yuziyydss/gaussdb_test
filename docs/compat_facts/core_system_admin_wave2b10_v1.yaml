@@ -1,0 +1,197 @@
+document: 集中式版参考 / 1.6.27 系统管理函数（Wave 2B-10）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-29'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapter: 1.6.27 系统管理函数
+  subsection: 1.6.27.17 其它函数（首批：计划缓存、会话线程、WDR/ASP与I/O诊断）
+  physical_page_start: 746
+  physical_page_end: 756
+  physical_page_count: 10
+  excludes:
+  - 1.6.27.17 其它函数第756页及之后的后续函数
+facts:
+- id: wave2b10_plan_seed
+  type: syntax
+  statement: plan_seed()获取前一次查询语句的seed值，属于内部使用函数，返回int。
+  source_anchor: 1.6.27.17 页746
+  source_refs: &id001
+  - w2b10_1_6_27
+  status: confirmed
+- id: wave2b10_pg_stat_get_env
+  type: constraint
+  statement: pg_stat_get_env()获取当前节点环境变量信息，仅sysadmin和monitor admin可以访问；多租场景下PDB内部返回为空。
+  source_anchor: 1.6.27.17 页747
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_plancache_clean
+  type: syntax
+  statement: pg_catalog.plancache_clean()与DBE_PERF.global_plancache_clean()清理节点上无人使用的全局计划缓存；多租不支持，默认情况下需要MONADMIN权限。
+  source_anchor: 1.6.27.17 页747
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_plancache_status
+  type: syntax
+  statement: pg_catalog.plancache_status(is_with_plan)与DBE_PERF.global_plancache_status(is_with_plan)显示全局计划缓存信息；is_with_plan为bool且默认false，true时显示plan_info，返回信息与GLOBAL_PLANCACHE_STATUS视图一致。
+  source_anchor: 1.6.27.17 页747
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_plancache_status_notes
+  type: constraint
+  statement: plancache_status在is_with_plan为true且计划较多时可能产生性能劣化，推荐用global_plancache_show_plan查单条SQL；依赖表权限不足时plan_info列显示权限不足。
+  source_anchor: 1.6.27.17 页747
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_plancache_set_invalid
+  type: constraint
+  statement: pg_catalog.global_plancache_set_invalid(hashkey,unique_sql_id)用bigint参数手动失效本节点GPC计划；默认需MONADMIN权限，不建议常用，且不支持unique_sql_id为0的计划。
+  source_anchor: 1.6.27.17 页748
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_plancache_show_plan
+  type: syntax
+  statement: pg_catalog.global_plancache_show_plan(hashkey,unique_sql_id)用bigint参数查看对应GPC缓存计划并返回text；不支持explain_perf_mode pretty模式，也不支持unique_sql_id为0的计划。
+  source_anchor: 1.6.27.17 页748
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_textlen
+  type: syntax
+  statement: textlen(text)提供查询text逻辑长度的方法，返回int。
+  source_anchor: 1.6.27.17 页748
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_threadpool_status
+  type: behavior_oracle
+  statement: threadpool_status()显示线程池中工作线程及会话状态；多租场景下Non-PDB可见全局数据，主节点PDB内仅可见PDB数据，备节点PDB内查询返回空。
+  source_anchor: 1.6.27.17 页748
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_active_session
+  type: syntax
+  statement: get_local_active_session()提供当前节点内存中的历史活跃session状态采样记录；多租场景下PDB内仅可见PDB数据，Non-PDB可见全局数据。
+  source_anchor: 1.6.27.17 页748
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_stat_get_thread
+  type: constraint
+  statement: pg_stat_get_thread()提供当前节点所有线程状态；sysadmin和monitor admin可查看所有线程，普通用户仅查看本用户线程；PDB调用仅返回该PDB相关信息。
+  source_anchor: 1.6.27.17 页748-749
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_stat_get_sql_count
+  type: syntax
+  statement: pg_stat_get_sql_count()提供用户执行SELECT/UPDATE/INSERT/DELETE/MERGE INTO的计数结果，以及DDL/DML/DCL语句计数结果；管理员可查看全部用户统计，普通用户仅查看本用户统计。
+  source_anchor: 1.6.27.17 页749
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_data_senders_wait_events
+  type: syntax
+  statement: pg_stat_get_data_senders()提供当前活跃数据复制发送线程详情，多租场景下PDB内部返回为空；get_wait_event_info()提供wait event事件具体信息。
+  source_anchor: 1.6.27.17 页749
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_wdr_reports
+  type: constraint
+  statement: generate_wdr_report与generate_wdr_db_report基于两个snapshot生成系统诊断报告或库级报告；需在系统库执行，默认初始化用户或monadmin可访问；report_type支持summary/detail/all，report_scope支持cluster/node。
+  source_anchor: 1.6.27.17 页749-751
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_wdr_snapshot_controls
+  type: constraint
+  statement: create_wdr_snapshot()手工生成系统诊断快照并需sysadmin权限；kill_snapshot()终止后台WDR snapshot线程，需SYSADMIN、REPLICATION或继承内置角色gs_role_replication的权限。
+  source_anchor: 1.6.27.17 页751
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_asp_report
+  type: constraint
+  statement: generate_asp_report(start_time,end_time,slot_count,node_name)基于时间戳生成ASP诊断报告，monadmin可访问，只能在主DN上使用；node_name可缺省，缺省时生成当前节点报告。
+  source_anchor: 1.6.27.17 页751
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_active_session_profile
+  type: syntax
+  statement: dbe_perf.get_active_session_profile(start_ts,end_ts,need_final,node_name)查询ASP内存与磁盘数据；need_final默认false，node_name用于区分主备DN且不可缺省；PDB查询PDB数据，Non-PDB可查所有数据。
+  source_anchor: 1.6.27.17 页751
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_capture_view_to_json
+  type: constraint
+  statement: capture_view_to_json(text,integer)将视图结果存入GUC perf_directory指定目录；is_crossdb为1时访问所有database一次，为0时仅访问当前database一次；仅sysadmin和monitor admin可执行。
+  source_anchor: 1.6.27.17 页751
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_reset_unique_sql
+  type: constraint
+  statement: reset_unique_sql(scope,clean_type,clean_value)清理数据库节点内存中的Unique SQL，需要sysadmin或monitor admin权限；scope支持GLOBAL/LOCAL，GLOBAL仅主节点可执行，clean_type支持BY_USERID/BY_CNID/ALL。
+  source_anchor: 1.6.27.17 页751-752
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_wdr_xdb_query
+  type: constraint
+  statement: wdr_xdb_query(db_name_str,query)提供本地跨数据库执行query能力，仅初始化用户有权限；多租场景下Non-PDB可正常运行，PDB调用报错。
+  source_anchor: 1.6.27.17 页752
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_wlm_controls
+  type: syntax
+  statement: pg_wlm_jump_queue(pid)将任务调整到数据库主节点队列最前端；gs_wlm_switch_cgroup(pid,cgroup)将作业优先级调整到新控制组；两者均返回boolean表示成功或失败。
+  source_anchor: 1.6.27.17 页752
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_session_memctx_detail
+  type: constraint
+  statement: pv_session_memctx_detail(threadid,MemoryContextName)将线程内存上下文信息写入$GAUSSLOG/gs_log/${node_name}/dumpmem/threadid_timestamp.log；正式发布版本仅接受MemoryContextName为空串，需管理员权限。
+  source_anchor: 1.6.27.17 页752-753
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_shared_memctx_detail
+  type: environment
+  statement: pg_shared_memctx_detail(MemoryContextName)仅在DEBUG版本供内部开发测试调试使用，正式发布版本调用不会有任何操作；该函数需管理员权限。
+  source_anchor: 1.6.27.17 页753
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_aio_stats
+  type: syntax
+  statement: local_aio_completer_stat()显示AIO Completer线程统计，local_aio_slot_usage_status()显示异步I/O提交槽位统计。
+  source_anchor: 1.6.27.17 页753-754
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_io_type
+  type: behavior_oracle
+  statement: gs_get_io_type()显示本实例I/O模式，返回BIO、DIO或BIO->DIO (In progress)，分别表示ADIO未打开、已打开或正在切换。
+  source_anchor: 1.6.27.17 页754
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_bgwriter_candidate_buffer
+  type: syntax
+  statement: local_bgwriter_stat()显示本实例bgwriter线程刷页信息；local_candidate_stat()显示候选buffer链页面个数和buffer淘汰信息，覆盖normal buffer pool与segment buffer pool。
+  source_anchor: 1.6.27.17 页754-755
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_buffer_manager_info
+  type: syntax
+  statement: gs_buffer_manager_info()打印自上次调用或实例启动以来的缓冲区页面访问数、未命中数量、读取率和智能淘汰算法各轮次休眠时间。
+  source_anchor: 1.6.27.17 页755
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_ckpt_double_write
+  type: syntax
+  statement: local_ckpt_stat()显示本实例检查点信息和各类日志刷页情况；local_double_write_stat()显示本实例双写文件情况；多租场景下PDB内部均返回空列表。
+  source_anchor: 1.6.27.17 页755
+  source_refs: *id001
+  status: confirmed
+- id: wave2b10_scope_note
+  type: environment
+  statement: Wave 2B-10覆盖1.6.27.17其它函数首批计划缓存、会话线程、WDR/ASP、Unique SQL、内存上下文、AIO、bgwriter、候选buffer、检查点和双写诊断函数，物理页746-755。
+  source_anchor: 1.6.27.17 页746-755
+  source_refs: *id001
+  status: confirmed
+open_questions:
+- id: wave2b10_oq_plancache_runtime_matrix
+  statement: GPC清理、状态、手动失效和单计划查看在不同权限、计划数量、unique_sql_id=0与多租模式下的行为矩阵需实机验证。
+  status: open
+- id: wave2b10_oq_diagnostics_permission_matrix
+  statement: WDR、ASP、Unique SQL、内存上下文dump和I/O诊断函数在系统库、用户库、主备DN、PDB/Non-PDB及不同管理员权限下的输出与错误矩阵需授权环境验证。
+  status: open
