@@ -67,6 +67,8 @@
 | [Core System Information Functions Wave 5 Summary](CORE_SYSTEM_INFO_WAVE5_SUMMARY_V1.md) | 1.6.26系统信息函数Wave 5汇总：33页全覆盖、4个批次、122个facts、8个open questions |
 | [Core Utility Functions Wave 6-1](CORE_UTILITY_WAVE6_1_V1.md) | 1.6.30–1.6.34触发器/Hash/提示/全局临时表/故障注入抽取：10页、22个facts |
 | [Core PL/SQL Runtime and Recompile Wave 6-2](CORE_PLSQL_WAVE6_2_V1.md) | 1.6.45–1.6.48、1.6.59 PL/SQL缓存/字节码/透视/标识符/重编译抽取：15页、25个facts |
+| [Core Security Functions Wave 6-3](CORE_SECURITY_WAVE6_3_V1.md) | 1.6.20安全函数：加解密/摘要/密码策略/审计/脱敏抽取：13页、31个facts |
+| [Core Ledger, Encrypted, SRF and Overload Wave 6-4](CORE_SECURITY_LEDGER_WAVE6_4_V1.md) | 1.6.21–1.6.24账本/密态/集合/重载函数抽取：20页、29个facts |
 | [Core Expression Candidate Chain V1](CORE_EXPRESSION_CANDIDATE_CHAIN_V1.md) | Wave 1A/1B/2A事实→fixture→静态SQL候选：246个facts、171个candidates |
 | [Core Expression Probe Plan V1](CORE_EXPRESSION_PROBE_PLAN_V1.md) | 静态SQL probe第一批dry-run：150筛94、无fixture、只读 |
 | [Core Expression Probe Batches V1](CORE_EXPRESSION_PROBE_BATCHES_V1.md) | 94个SQL probe拆成4个授权审查批次：dry-run only |
