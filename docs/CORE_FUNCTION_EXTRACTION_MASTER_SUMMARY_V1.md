@@ -8,41 +8,41 @@
 
 | 指标 | 当前值 |
 |---|---:|
-| Manifest artifacts | 52 |
-| Sources | 140 |
-| Source page slices | 1219 |
-| Unique pages | 1050 |
-| Sections | 99 |
-| Full coverage sections | 43 |
-| Partial coverage sections | 56 |
-| 结构化 facts | 1475 |
-| Open questions | 109 |
+| Manifest artifacts | 53 |
+| Sources | 148 |
+| Source page slices | 1235 |
+| Unique pages | 1062 |
+| Sections | 101 |
+| Full coverage sections | 51 |
+| Partial coverage sections | 50 |
+| 结构化 facts | 1487 |
+| Open questions | 110 |
 
 ## Fact分布
 
 | 类型 | 数量 |
 |---|---:|
-| syntax | 823 |
-| constraint | 388 |
-| behavior_oracle | 151 |
-| environment | 113 |
-| 总计 | 1475 |
+| syntax | 829 |
+| constraint | 391 |
+| behavior_oracle | 153 |
+| environment | 114 |
+| 总计 | 1487 |
 
 所有facts全局ID唯一，状态均为`confirmed`；所有open questions全局ID唯一，状态均为`open`。
 
 ## 覆盖口径
 
-覆盖模式为`included_extraction_artifacts`，表示只统计已纳入52个manifest的source切片，不宣称整本手册已全覆盖。
+覆盖模式为`included_extraction_artifacts`，表示只统计已纳入53个manifest的source切片；当前纳入小节的页级覆盖已闭环。
 
 当前：
 
-- 已覆盖unique页：1050
-- 已纳入artifact所在章节 required 页：1055
-- 缺失页：137、179、187、247、1146
-- 完整覆盖小节：43
-- 部分覆盖小节：56
+- 已覆盖unique页：1062
+- 已纳入artifact所在章节 required 页：1062
+- 缺失页：无
+- 完整覆盖小节：51
+- 部分覆盖小节：50
 
-缺失页主要来自早期类型/表达式域中按目标事实选择页面的部分抽取；后续可按需补页或保持按事实覆盖。
+部分覆盖小节表示对应大章节的manifest只按目标事实或目标函数族选择页面，不代表整章所有页都纳入。
 
 ## 产物
 
