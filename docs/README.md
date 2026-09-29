@@ -78,13 +78,17 @@
 | [Core Geometry Functions Wave 7-5](CORE_GEOMETRY_WAVE7_5_V1.md) | 1.6.10几何函数/操作符/类型转换抽取：11页、15个facts |
 | [Core Text Search Wave 7-6](CORE_TEXTSEARCH_WAVE7_6_V1.md) | 1.6.12文本检索操作符/构造/排名/调试抽取：8页、20个facts |
 | [Core Corruption Detection/Repair Wave 7-7](CORE_CORRUPTION_WAVE7_7_V1.md) | 1.6.41数据损坏检测修复：文件/页面/Undo/UBTree回收队列/表索引校验：21页、27个facts |
+| [Core XML Wave 7-8](CORE_XML_WAVE7_8_V1.md) | 1.6.43–1.6.44 XML类型/XMLTYPE函数、XPath与对象映射抽取：29页、29个facts |
 | [Core Text Search Wave 7-6](CORE_TEXTSEARCH_WAVE7_6_V1.md) | 1.6.12文本检索操作符/构造/排名/调试抽取：8页、20个facts |
 | [Core Corruption Detection/Repair Wave 7-7](CORE_CORRUPTION_WAVE7_7_V1.md) | 1.6.41数据损坏检测修复：文件/页面/Undo/UBTree回收队列/表索引校验：21页、27个facts |
+| [Core XML Wave 7-8](CORE_XML_WAVE7_8_V1.md) | 1.6.43–1.6.44 XML类型/XMLTYPE函数、XPath与对象映射抽取：29页、29个facts |
 | [Core Geometry Functions Wave 7-5](CORE_GEOMETRY_WAVE7_5_V1.md) | 1.6.10几何函数/操作符/类型转换抽取：11页、15个facts |
 | [Core Text Search Wave 7-6](CORE_TEXTSEARCH_WAVE7_6_V1.md) | 1.6.12文本检索操作符/构造/排名/调试抽取：8页、20个facts |
 | [Core Corruption Detection/Repair Wave 7-7](CORE_CORRUPTION_WAVE7_7_V1.md) | 1.6.41数据损坏检测修复：文件/页面/Undo/UBTree回收队列/表索引校验：21页、27个facts |
+| [Core XML Wave 7-8](CORE_XML_WAVE7_8_V1.md) | 1.6.43–1.6.44 XML类型/XMLTYPE函数、XPath与对象映射抽取：29页、29个facts |
 | [Core Text Search Wave 7-6](CORE_TEXTSEARCH_WAVE7_6_V1.md) | 1.6.12文本检索操作符/构造/排名/调试抽取：8页、20个facts |
 | [Core Corruption Detection/Repair Wave 7-7](CORE_CORRUPTION_WAVE7_7_V1.md) | 1.6.41数据损坏检测修复：文件/页面/Undo/UBTree回收队列/表索引校验：21页、27个facts |
+| [Core XML Wave 7-8](CORE_XML_WAVE7_8_V1.md) | 1.6.43–1.6.44 XML类型/XMLTYPE函数、XPath与对象映射抽取：29页、29个facts |
 | [Core Vector Database Wave 7-2](CORE_VECTOR_WAVE7_2_V1.md) | 1.6.51向量数据库函数/操作符/BM25检索抽取：24页、30个facts |
 | [Core Multi-tenant Database Wave 7-3](CORE_MULTITENANT_WAVE7_3_V1.md) | 1.6.52多租数据库配置/资源计划/用户/SQL统计抽取：11页、19个facts |
 | [Core Vector Database Wave 7-2](CORE_VECTOR_WAVE7_2_V1.md) | 1.6.51向量数据库函数/操作符/BM25检索抽取：24页、30个facts |
