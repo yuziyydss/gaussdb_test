@@ -144,10 +144,14 @@ gsql -d <dbname> -p <port> -f docs/extended_validation_script.sql
 | [CORE_NETWORK_SEQUENCE_WAVE7_4_V1.md](docs/CORE_NETWORK_SEQUENCE_WAVE7_4_V1.md) | 1.6.11网络地址与1.6.15 SEQUENCE函数抽取：10页、20个facts |
 | [CORE_GEOMETRY_WAVE7_5_V1.md](docs/CORE_GEOMETRY_WAVE7_5_V1.md) | 1.6.10几何函数/操作符/类型转换抽取：11页、15个facts |
 | [CORE_TEXTSEARCH_WAVE7_6_V1.md](docs/CORE_TEXTSEARCH_WAVE7_6_V1.md) | 1.6.12文本检索操作符/构造/排名/调试抽取：8页、20个facts |
+| [CORE_CORRUPTION_WAVE7_7_V1.md](docs/CORE_CORRUPTION_WAVE7_7_V1.md) | 1.6.41数据损坏检测修复：文件/页面/Undo/UBTree回收队列/表索引校验：21页、27个facts |
 | [CORE_TEXTSEARCH_WAVE7_6_V1.md](docs/CORE_TEXTSEARCH_WAVE7_6_V1.md) | 1.6.12文本检索操作符/构造/排名/调试抽取：8页、20个facts |
+| [CORE_CORRUPTION_WAVE7_7_V1.md](docs/CORE_CORRUPTION_WAVE7_7_V1.md) | 1.6.41数据损坏检测修复：文件/页面/Undo/UBTree回收队列/表索引校验：21页、27个facts |
 | [CORE_GEOMETRY_WAVE7_5_V1.md](docs/CORE_GEOMETRY_WAVE7_5_V1.md) | 1.6.10几何函数/操作符/类型转换抽取：11页、15个facts |
 | [CORE_TEXTSEARCH_WAVE7_6_V1.md](docs/CORE_TEXTSEARCH_WAVE7_6_V1.md) | 1.6.12文本检索操作符/构造/排名/调试抽取：8页、20个facts |
+| [CORE_CORRUPTION_WAVE7_7_V1.md](docs/CORE_CORRUPTION_WAVE7_7_V1.md) | 1.6.41数据损坏检测修复：文件/页面/Undo/UBTree回收队列/表索引校验：21页、27个facts |
 | [CORE_TEXTSEARCH_WAVE7_6_V1.md](docs/CORE_TEXTSEARCH_WAVE7_6_V1.md) | 1.6.12文本检索操作符/构造/排名/调试抽取：8页、20个facts |
+| [CORE_CORRUPTION_WAVE7_7_V1.md](docs/CORE_CORRUPTION_WAVE7_7_V1.md) | 1.6.41数据损坏检测修复：文件/页面/Undo/UBTree回收队列/表索引校验：21页、27个facts |
 | [CORE_VECTOR_WAVE7_2_V1.md](docs/CORE_VECTOR_WAVE7_2_V1.md) | 1.6.51向量数据库函数/操作符/BM25检索抽取：24页、30个facts |
 | [CORE_MULTITENANT_WAVE7_3_V1.md](docs/CORE_MULTITENANT_WAVE7_3_V1.md) | 1.6.52多租数据库配置/资源计划/用户/SQL统计抽取：11页、19个facts |
 | [CORE_VECTOR_WAVE7_2_V1.md](docs/CORE_VECTOR_WAVE7_2_V1.md) | 1.6.51向量数据库函数/操作符/BM25检索抽取：24页、30个facts |
