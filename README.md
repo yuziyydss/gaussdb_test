@@ -140,6 +140,7 @@ gsql -d <dbname> -p <port> -f docs/extended_validation_script.sql
 | [CORE_SQL_CONTROL_WAVE6_6_V1.md](docs/CORE_SQL_CONTROL_WAVE6_6_V1.md) | 1.6.49–1.6.50 SQL限流与SQL PATCH工具抽取：15页、28个facts |
 | [CORE_INTEGRATION_TOOLS_WAVE6_7_V1.md](docs/CORE_INTEGRATION_TOOLS_WAVE6_7_V1.md) | 1.6.53–1.6.58 DBLink/资源统计/自治事务/DSL/消息队列/ROWID抽取：18页、25个facts |
 | [CORE_DEPRECATED_WAVE6_8_V1.md](docs/CORE_DEPRECATED_WAVE6_8_V1.md) | 1.6.61废弃函数清单抽取：4页、7个facts |
+| [CORE_INTERNAL_WAVE7_1_V1.md](docs/CORE_INTERNAL_WAVE7_1_V1.md) | 1.6.39/1.6.40/1.6.42内部函数、Global SysCache与Multixact回收抽取：16页、20个facts |
 | [CORE_EXPRESSION_CANDIDATE_CHAIN_V1.md](docs/CORE_EXPRESSION_CANDIDATE_CHAIN_V1.md) | 核心表达式候选链：246个facts、171个静态SQL候选 |
 | [CORE_EXPRESSION_PROBE_PLAN_V1.md](docs/CORE_EXPRESSION_PROBE_PLAN_V1.md) | 核心表达式SQL probe第一批：150筛94、94个dry-run步骤 |
 | [CORE_EXPRESSION_PROBE_BATCHES_V1.md](docs/CORE_EXPRESSION_PROBE_BATCHES_V1.md) | 核心表达式probe拆成4批：23/20/31/20步骤 |

@@ -73,6 +73,7 @@
 | [Core SQL Control and Tools Wave 6-6](CORE_SQL_CONTROL_WAVE6_6_V1.md) | 1.6.49–1.6.50 SQL限流与SQL PATCH工具抽取：15页、28个facts |
 | [Core Integration and Tools Wave 6-7](CORE_INTEGRATION_TOOLS_WAVE6_7_V1.md) | 1.6.53–1.6.58 DBLink/资源统计/自治事务/DSL/消息队列/ROWID抽取：18页、25个facts |
 | [Core Deprecated Functions Wave 6-8](CORE_DEPRECATED_WAVE6_8_V1.md) | 1.6.61废弃函数清单抽取：4页、7个facts |
+| [Core Internal, Cache and Recovery Wave 7-1](CORE_INTERNAL_WAVE7_1_V1.md) | 1.6.39/1.6.40/1.6.42内部函数、Global SysCache与Multixact回收抽取：16页、20个facts |
 | [Core Expression Candidate Chain V1](CORE_EXPRESSION_CANDIDATE_CHAIN_V1.md) | Wave 1A/1B/2A事实→fixture→静态SQL候选：246个facts、171个candidates |
 | [Core Expression Probe Plan V1](CORE_EXPRESSION_PROBE_PLAN_V1.md) | 静态SQL probe第一批dry-run：150筛94、无fixture、只读 |
 | [Core Expression Probe Batches V1](CORE_EXPRESSION_PROBE_BATCHES_V1.md) | 94个SQL probe拆成4个授权审查批次：dry-run only |
