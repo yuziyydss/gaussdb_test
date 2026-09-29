@@ -142,7 +142,9 @@ gsql -d <dbname> -p <port> -f docs/extended_validation_script.sql
 | [CORE_DEPRECATED_WAVE6_8_V1.md](docs/CORE_DEPRECATED_WAVE6_8_V1.md) | 1.6.61废弃函数清单抽取：4页、7个facts |
 | [CORE_INTERNAL_WAVE7_1_V1.md](docs/CORE_INTERNAL_WAVE7_1_V1.md) | 1.6.39/1.6.40/1.6.42内部函数、Global SysCache与Multixact回收抽取：16页、20个facts |
 | [CORE_VECTOR_WAVE7_2_V1.md](docs/CORE_VECTOR_WAVE7_2_V1.md) | 1.6.51向量数据库函数/操作符/BM25检索抽取：24页、30个facts |
+| [CORE_MULTITENANT_WAVE7_3_V1.md](docs/CORE_MULTITENANT_WAVE7_3_V1.md) | 1.6.52多租数据库配置/资源计划/用户/SQL统计抽取：11页、19个facts |
 | [CORE_VECTOR_WAVE7_2_V1.md](docs/CORE_VECTOR_WAVE7_2_V1.md) | 1.6.51向量数据库函数/操作符/BM25检索抽取：24页、30个facts |
+| [CORE_MULTITENANT_WAVE7_3_V1.md](docs/CORE_MULTITENANT_WAVE7_3_V1.md) | 1.6.52多租数据库配置/资源计划/用户/SQL统计抽取：11页、19个facts |
 | [CORE_EXPRESSION_CANDIDATE_CHAIN_V1.md](docs/CORE_EXPRESSION_CANDIDATE_CHAIN_V1.md) | 核心表达式候选链：246个facts、171个静态SQL候选 |
 | [CORE_EXPRESSION_PROBE_PLAN_V1.md](docs/CORE_EXPRESSION_PROBE_PLAN_V1.md) | 核心表达式SQL probe第一批：150筛94、94个dry-run步骤 |
 | [CORE_EXPRESSION_PROBE_BATCHES_V1.md](docs/CORE_EXPRESSION_PROBE_BATCHES_V1.md) | 核心表达式probe拆成4批：23/20/31/20步骤 |
