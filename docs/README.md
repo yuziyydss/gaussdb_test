@@ -76,7 +76,11 @@
 | [Core Internal, Cache and Recovery Wave 7-1](CORE_INTERNAL_WAVE7_1_V1.md) | 1.6.39/1.6.40/1.6.42内部函数、Global SysCache与Multixact回收抽取：16页、20个facts |
 | [Core Network and Sequence Wave 7-4](CORE_NETWORK_SEQUENCE_WAVE7_4_V1.md) | 1.6.11网络地址与1.6.15 SEQUENCE函数抽取：10页、20个facts |
 | [Core Geometry Functions Wave 7-5](CORE_GEOMETRY_WAVE7_5_V1.md) | 1.6.10几何函数/操作符/类型转换抽取：11页、15个facts |
+| [Core Text Search Wave 7-6](CORE_TEXTSEARCH_WAVE7_6_V1.md) | 1.6.12文本检索操作符/构造/排名/调试抽取：8页、20个facts |
+| [Core Text Search Wave 7-6](CORE_TEXTSEARCH_WAVE7_6_V1.md) | 1.6.12文本检索操作符/构造/排名/调试抽取：8页、20个facts |
 | [Core Geometry Functions Wave 7-5](CORE_GEOMETRY_WAVE7_5_V1.md) | 1.6.10几何函数/操作符/类型转换抽取：11页、15个facts |
+| [Core Text Search Wave 7-6](CORE_TEXTSEARCH_WAVE7_6_V1.md) | 1.6.12文本检索操作符/构造/排名/调试抽取：8页、20个facts |
+| [Core Text Search Wave 7-6](CORE_TEXTSEARCH_WAVE7_6_V1.md) | 1.6.12文本检索操作符/构造/排名/调试抽取：8页、20个facts |
 | [Core Vector Database Wave 7-2](CORE_VECTOR_WAVE7_2_V1.md) | 1.6.51向量数据库函数/操作符/BM25检索抽取：24页、30个facts |
 | [Core Multi-tenant Database Wave 7-3](CORE_MULTITENANT_WAVE7_3_V1.md) | 1.6.52多租数据库配置/资源计划/用户/SQL统计抽取：11页、19个facts |
 | [Core Vector Database Wave 7-2](CORE_VECTOR_WAVE7_2_V1.md) | 1.6.51向量数据库函数/操作符/BM25检索抽取：24页、30个facts |
