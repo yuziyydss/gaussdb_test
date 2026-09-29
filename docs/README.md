@@ -74,6 +74,7 @@
 | [Core Integration and Tools Wave 6-7](CORE_INTEGRATION_TOOLS_WAVE6_7_V1.md) | 1.6.53–1.6.58 DBLink/资源统计/自治事务/DSL/消息队列/ROWID抽取：18页、25个facts |
 | [Core Deprecated Functions Wave 6-8](CORE_DEPRECATED_WAVE6_8_V1.md) | 1.6.61废弃函数清单抽取：4页、7个facts |
 | [Core Internal, Cache and Recovery Wave 7-1](CORE_INTERNAL_WAVE7_1_V1.md) | 1.6.39/1.6.40/1.6.42内部函数、Global SysCache与Multixact回收抽取：16页、20个facts |
+| [Core Network and Sequence Wave 7-4](CORE_NETWORK_SEQUENCE_WAVE7_4_V1.md) | 1.6.11网络地址与1.6.15 SEQUENCE函数抽取：10页、20个facts |
 | [Core Vector Database Wave 7-2](CORE_VECTOR_WAVE7_2_V1.md) | 1.6.51向量数据库函数/操作符/BM25检索抽取：24页、30个facts |
 | [Core Multi-tenant Database Wave 7-3](CORE_MULTITENANT_WAVE7_3_V1.md) | 1.6.52多租数据库配置/资源计划/用户/SQL统计抽取：11页、19个facts |
 | [Core Vector Database Wave 7-2](CORE_VECTOR_WAVE7_2_V1.md) | 1.6.51向量数据库函数/操作符/BM25检索抽取：24页、30个facts |
