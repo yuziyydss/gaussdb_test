@@ -91,8 +91,10 @@
 | [Core XML Wave 7-8](CORE_XML_WAVE7_8_V1.md) | 1.6.43–1.6.44 XML类型/XMLTYPE函数、XPath与对象映射抽取：29页、29个facts |
 | [Core Vector Database Wave 7-2](CORE_VECTOR_WAVE7_2_V1.md) | 1.6.51向量数据库函数/操作符/BM25检索抽取：24页、30个facts |
 | [Core Multi-tenant Database Wave 7-3](CORE_MULTITENANT_WAVE7_3_V1.md) | 1.6.52多租数据库配置/资源计划/用户/SQL统计抽取：11页、19个facts |
+| [Core Other System PostgreSQL-compatible List Wave 7-9](CORE_OTHER_SYSTEM_PG_COMPAT_WAVE7_9_V1.md) | 1.6.60其他系统函数第一阶段：兼容PostgreSQL清单抽取：18页、13个facts |
 | [Core Vector Database Wave 7-2](CORE_VECTOR_WAVE7_2_V1.md) | 1.6.51向量数据库函数/操作符/BM25检索抽取：24页、30个facts |
 | [Core Multi-tenant Database Wave 7-3](CORE_MULTITENANT_WAVE7_3_V1.md) | 1.6.52多租数据库配置/资源计划/用户/SQL统计抽取：11页、19个facts |
+| [Core Other System PostgreSQL-compatible List Wave 7-9](CORE_OTHER_SYSTEM_PG_COMPAT_WAVE7_9_V1.md) | 1.6.60其他系统函数第一阶段：兼容PostgreSQL清单抽取：18页、13个facts |
 | [Core Expression Candidate Chain V1](CORE_EXPRESSION_CANDIDATE_CHAIN_V1.md) | Wave 1A/1B/2A事实→fixture→静态SQL候选：246个facts、171个candidates |
 | [Core Expression Probe Plan V1](CORE_EXPRESSION_PROBE_PLAN_V1.md) | 静态SQL probe第一批dry-run：150筛94、无fixture、只读 |
 | [Core Expression Probe Batches V1](CORE_EXPRESSION_PROBE_BATCHES_V1.md) | 94个SQL probe拆成4个授权审查批次：dry-run only |
