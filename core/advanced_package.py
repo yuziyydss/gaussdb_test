@@ -91,6 +91,7 @@ class AdvancedInterfaceDef(StrictAdvancedPackageModel):
     id: str
     package_ref: str
     call_name: str
+    overload_key: Optional[str] = None
     callable_kind: Literal["procedure", "function", "collection_type"]
     parameters: List[AdvancedParameterDef] = Field(default_factory=list)
     return_type: Optional[str] = None
@@ -112,6 +113,15 @@ class AdvancedInterfaceDef(StrictAdvancedPackageModel):
     def ensure_call_name(cls, value: str) -> str:
         if QUALIFIED_CALL_RE.fullmatch(value) is None:
             raise ValueError("call_name 必须是 PACKAGE.INTERFACE 形式")
+        return value
+
+    @field_validator("overload_key")
+    @classmethod
+    def ensure_overload_key(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        if not re.fullmatch(r"[a-z][a-z0-9_]*", value):
+            raise ValueError("overload_key 必须是 snake_case")
         return value
 
     @model_validator(mode="after")
@@ -158,13 +168,20 @@ class AdvancedPackageDef(StrictAdvancedPackageModel):
     @model_validator(mode="after")
     def ensure_unique_interfaces(self) -> "AdvancedPackageDef":
         ids = [item.id for item in self.interfaces]
-        names = [item.call_name for item in self.interfaces]
         if len(set(ids)) != len(ids):
             raise ValueError("interface id 重复")
-        if len(set(names)) != len(names):
-            raise ValueError("interface call_name 重复")
+        names = [item.call_name for item in self.interfaces]
         if any(item.package_ref != self.id for item in self.interfaces):
             raise ValueError("interface package_ref 与所属 package 不一致")
+        for name in set(names):
+            variants = [item for item in self.interfaces if item.call_name == name]
+            if len(variants) == 1:
+                continue
+            keys = [item.overload_key for item in variants]
+            if keys.count(None) > 1:
+                raise ValueError(f"interface {name} 只能有一个未标记的默认 overload")
+            if len(set(keys)) != len(keys):
+                raise ValueError(f"interface {name} 的 overload_key 重复")
         return self
 
 

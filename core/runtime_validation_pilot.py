@@ -89,7 +89,7 @@ class RuntimeUnitDef(StrictRuntimePilotModel):
 class RuntimePilotPlanDef(StrictRuntimePilotModel):
     schema_version: Literal[1]
     kind: Literal["runtime_validation_pilot"]
-    profile: Literal["runtime_validation_pilot_v1"]
+    profile: Literal["runtime_validation_pilot_v1", "runtime_guc_v2_pilot_v1"]
     status: Literal["ready_for_authorized_execution"]
     database_executed: bool = False
     execution_authorized: bool = False
@@ -233,18 +233,49 @@ def _guc_unit(
     )
 
 
+ADVANCED_VALUE_ROWS = {
+    "adv_case_dbe_raw_get_length": [[3]],
+    "adv_case_dbe_raw_substr": [["BCD"]],
+    "adv_case_dbe_raw_concat": [["ABCD"]],
+    "adv_case_dbe_raw_copies": [["ABABAB"]],
+    "adv_case_dbe_raw_compare": [[0]],
+    "adv_case_dbe_raw_bit_and": [[2]],
+    "adv_case_dbe_raw_bit_or": [[7]],
+    "adv_case_dbe_raw_bit_xor": [[5]],
+    "adv_case_dbe_raw_cast_double_roundtrip": [[1.25]],
+    "adv_case_dbe_raw_cast_float_roundtrip": [[1.5]],
+    "adv_case_dbe_raw_cast_number_roundtrip": [[42]],
+}
+
+ADVANCED_OUTPUT_NOTICES = {
+    "adv_case_dbe_output_direct_print": "hello, database!",
+    "adv_case_dbe_output_buffer_lifecycle": "buffered",
+    "adv_case_dbe_output_put_line": "put_line",
+    "adv_case_dbe_output_buffer_size": "buffer resized",
+    "adv_case_dbe_sql_select_lifecycle": "value=1",
+}
+
+
 def _advanced_unit(case, package_ref: str) -> RuntimeUnitDef:
     expected_rows = []
     expected_notice = None
     if case.oracle.kind == "value":
-        expected_value = "ABC" if case.id.endswith("varchar_roundtrip") else 742
-        expected_rows = [[expected_value]]
+        if case.id in ADVANCED_VALUE_ROWS:
+            expected_rows = ADVANCED_VALUE_ROWS[case.id]
+        elif case.id.endswith("varchar_roundtrip"):
+            expected_rows = [["ABC"]]
+        elif case.id.endswith("integer_roundtrip"):
+            expected_rows = [[742]]
     else:
         expected_notice = {
             "adv_case_dbe_output_direct_print": "hello, database!",
             "adv_case_dbe_output_buffer_lifecycle": "buffered",
             "adv_case_dbe_sql_select_lifecycle": "value=1",
-        }[case.id]
+        }.get(case.id)
+        if case.id == "adv_case_dbe_output_put_line":
+            expected_notice = "put_line"
+        if case.id == "adv_case_dbe_output_buffer_size":
+            expected_notice = "buffer resized"
     return RuntimeUnitDef(
         id=case.id,
         kind="advanced_package",
@@ -295,7 +326,7 @@ def build_dry_run(root: Path) -> RuntimePilotPlanDef:
             guc_planner,
         ),
     ]
-    for package_id in ("dbe_output", "dbe_raw", "dbe_sql"):
+    for package_id in ("dbe_output", "dbe_raw", "dbe_sql", "dbe_xmldom", "dbe_xmlparser", "dbe_stats"):
         for case in advanced_planner.plan_package(package_id):
             units.append(_advanced_unit(case, package_id))
 

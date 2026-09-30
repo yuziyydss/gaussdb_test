@@ -1,0 +1,179 @@
+document: 集中式版参考 / 1.6.27 系统管理函数（Wave 2B-12）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-29'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapter: 1.6.27 系统管理函数
+  subsection: 1.6.27.17 其它函数（第三批：功能开关、页面解析、Xlog dump、共享盘、UBTree与WAL统计）
+  physical_page_start: 765
+  physical_page_end: 778
+  physical_page_count: 13
+  excludes:
+  - 1.6.27.17 其它函数第777页起gs_catalog_attribute_records及后续函数
+facts:
+- id: wave2b12_dynamic_func_control
+  type: constraint
+  statement: "dynamic_func_control(scope,function_name,action,params)动态开启内置功能，当前仅支持动态开启全量SQL；scope仅支持LOCAL，function_name仅支持STMT和GSTRACE，返回record。"
+  source_anchor: "1.6.27.17 页765-767"
+  source_refs: &id001
+  - w2b12_1_6_27
+  status: confirmed
+- id: wave2b12_dynamic_stmt_actions
+  type: constraint
+  statement: "dynamic_func_control的function_name为STMT时，action仅支持TRACK、UNTRACK、LIST、CLEAN；LIST对所有用户可用，其他action需系统管理员或MONADMIN权限。"
+  source_anchor: "1.6.27.17 页766"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_dynamic_gstrace_actions
+  type: constraint
+  statement: "dynamic_func_control的function_name为GSTRACE时，action支持TRACE_SQL、TRACE_FUNC、UNTRACE_SQL、UNTRACE_FUNC、UNTRACE_ALL_SQL、UNTRACE_ALL_FUNC、LIST_TRACE_SQL、LIST_TRACE_FUNC、SHOW_TRACED_FUNC、SHOW_MANGLED_FUNC和SHOW_SUBFUNC。"
+  source_anchor: "1.6.27.17 页766"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_dynamic_params
+  type: syntax
+  statement: "dynamic_func_control的params为text[]；STMT的TRACK使用归一化SQLID和L0/L1/L2，UNTRACK使用归一化SQLID，LIST和CLEAN使用空数组；GSTRACE各action的params沿用对应gstrace函数入参说明。"
+  source_anchor: "1.6.27.17 页766-767"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_parse_page_bypath
+  type: syntax
+  statement: "gs_parse_page_bypath(path,blocknum,relation_type,read_memory)解析指定表页面并返回存放解析内容的路径；需系统管理员或运维管理员执行。"
+  source_anchor: "1.6.27.17 页767"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_parse_page_unflushed
+  type: constraint
+  statement: "gs_parse_page_bypath解析未落盘页面时，因磁盘实际为空页，解析结果自然为空，且relation_type参数不生效。"
+  source_anchor: "1.6.27.17 页767"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_parse_page_path
+  type: constraint
+  statement: "gs_parse_page_bypath的path支持普通表、段页式表、VM、clog、csnlog、undo record和undo meta等相对路径；表路径可通过pg_relation_filepath或pg_partition_filepath查找。"
+  source_anchor: "1.6.27.17 页768"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_parse_page_blocknum
+  type: constraint
+  statement: "gs_parse_page_bypath的blocknum为-1时解析所有block并强制从磁盘解析；0到MaxBlockNumber解析对应block；BTree/UBTree索引0为元页面；undo record和undo meta使用逻辑块号。"
+  source_anchor: "1.6.27.17 页768"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_parse_page_relation_types
+  type: syntax
+  statement: "gs_parse_page_bypath的relation_type支持heap、uheap、btree、ubtree、vm、fsm、clog、csnlog、undo_slot、undo_record、indexurq、向量索引、UGIN/GIN/GiST索引、跨页压缩、BM25索引和logical_standby等类型；read_memory为false时从磁盘解析，true时优先从共享缓冲区解析。"
+  source_anchor: "1.6.27.17 页769"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_parse_page_blocknum_error
+  type: behavior_oracle
+  statement: "gs_parse_page_bypath的blocknum超出取值范围时报错，示例错误为Blocknum should be between -1 and 4294967294。"
+  source_anchor: "1.6.27.17 页769-770"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_xlogdump_lsn
+  type: syntax
+  statement: "gs_xlogdump_lsn(start_lsn,end_lsn)解析指定LSN范围内的Xlog日志并返回存放解析内容的路径；可通过pg_current_xlog_location()获取当前Xlog位置，需系统管理员或运维管理员执行。"
+  source_anchor: "1.6.27.17 页770"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_xlogdump_xid
+  type: syntax
+  statement: "gs_xlogdump_xid(c_xid)解析指定事务ID的Xlog日志并返回存放解析内容的路径；可通过txid_current()获取当前事务ID，需系统管理员或运维管理员执行。"
+  source_anchor: "1.6.27.17 页770"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_xlogdump_tablepath
+  type: constraint
+  statement: "gs_xlogdump_tablepath(path,blocknum,relation_type)解析指定表页面对应日志并返回存放解析内容的路径；多租场景下PDB内部禁用，需系统管理员或运维管理员执行。"
+  source_anchor: "1.6.27.17 页770-771"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_xlogdump_tablepath_types
+  type: syntax
+  statement: "gs_xlogdump_tablepath的path支持普通表或段页式表相对路径，blocknum为-1时解析所有block；relation_type支持heap、uheap、btree、ubtree和segment。"
+  source_anchor: "1.6.27.17 页770-771"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_xlogdump_parsepage_tablepath
+  type: constraint
+  statement: "gs_xlogdump_parsepage_tablepath(path,blocknum,relation_type,read_memory)解析指定表页面及其对应日志，可视为一次执行gs_parse_page_bypath和gs_xlogdump_tablepath；前置条件是表文件存在，PDB内部禁用，需系统管理员或运维管理员执行。"
+  source_anchor: "1.6.27.17 页771-772"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_xlogdump_parsepage_deleted_table
+  type: constraint
+  statement: "如需查看已删除表的相关日志，应直接调用gs_xlogdump_tablepath，而不是gs_xlogdump_parsepage_tablepath。"
+  source_anchor: "1.6.27.17 页771"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_shared_storage_xlogdump_lsn
+  type: syntax
+  statement: "gs_shared_storage_xlogdump_lsn(start_lsn,end_lsn[,xlog_file_path])解析指定Xlog日志共享盘的LSN范围并返回存放解析内容的路径；未指定路径时解析当前DN所有Xlog日志共享盘，需系统管理员或运维管理员执行。"
+  source_anchor: "1.6.27.17 页772"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_shared_storage_ctlinfo
+  type: syntax
+  statement: "gs_shared_storage_ctlinfo()获取当前DN共享盘元数据，包括xlog_file_path、system_id、term、xlog_file_size、insert_tail、insert_head和shared_storage_flush_lsn。"
+  source_anchor: "1.6.27.17 页772-773"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_index_verify
+  type: syntax
+  statement: "gs_index_verify(oid,blkno)校验UBtree索引页面或索引树上key顺序是否正确；blkno为0时校验整个索引树所有页面，大于0时校验页面编码等于blkno的索引页面。"
+  source_anchor: "1.6.27.17 页773"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_index_recycle_queue
+  type: syntax
+  statement: "gs_index_recycle_queue(oid,type,blkno)解析UBtree索引回收队列；type为0解析整个待回收队列，1解析整个空页队列，2解析单个页面；blkno仅在type=2时有效，取值1到4294967294。"
+  source_anchor: "1.6.27.17 页773-774"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_stat_wal_entrytable
+  type: syntax
+  statement: "gs_stat_wal_entrytable(idx)输出Xlog预写日志插入状态表内容；idx为-1时查询数组所有元素，0到最大值查询具体元素；输出idx、endlsn、lrc和status。"
+  source_anchor: "1.6.27.17 页774"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_stat_wal_entrytable_semantics
+  type: behavior_oracle
+  statement: "gs_stat_wal_entrytable输出的endlsn为0表示对应Xlog尚未完全复制到wal buffer，非0表示COPIED；status为当前版本预留字段，查询显示0。"
+  source_anchor: "1.6.27.17 页774"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_walwriter_flush_position
+  type: syntax
+  statement: "gs_walwriter_flush_position()输出预写日志刷新位置，包括上一个刷盘tblEntry下标、最新LRC、当前字节位置、上一条Xlog长度、全局刷盘位置、主机发送位置、共享内存请求/结果write与flush位置和当前时间。"
+  source_anchor: "1.6.27.17 页774-775"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_walwriter_flush_stat_operations
+  type: constraint
+  statement: "gs_walwriter_flush_stat(operation)的operation为-1时关闭统计开关（默认关闭），0打开统计开关，1查询统计信息，2重置统计信息。"
+  source_anchor: "1.6.27.17 页775-776"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_walwriter_flush_stat_outputs
+  type: syntax
+  statement: "gs_walwriter_flush_stat输出Xlog write与sync次数、请求与实际刷盘数据量、平均数据量、write/sync时间、当前最新创建与正在写的Xlog段文件编号、上次重置时间和当前时间。"
+  source_anchor: "1.6.27.17 页776-777"
+  source_refs: *id001
+  status: confirmed
+- id: wave2b12_scope_note
+  type: environment
+  statement: "Wave 2B-12覆盖1.6.27.17其它函数第三批：功能开关、页面解析、Xlog dump、共享盘元数据、UBTree校验/回收队列和WAL统计，物理页765-777。"
+  source_anchor: "1.6.27.17 页765-777"
+  source_refs: *id001
+  status: confirmed
+open_questions:
+- id: wave2b12_oq_page_xlogdump_matrix
+  statement: "页面解析、Xlog dump和共享盘dump在不同relation_type、blocknum、read_memory、路径、PDB/Non-PDB与权限下的输出和错误矩阵需授权环境验证。"
+  status: open
+- id: wave2b12_oq_wal_index_runtime_evidence
+  statement: "dynamic_func_control、UBTree索引校验/回收队列、WAL entrytable和walwriter统计在真实负载、权限与开关状态下的行为矩阵需实机验证。"
+  status: open

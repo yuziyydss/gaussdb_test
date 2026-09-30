@@ -1,0 +1,143 @@
+document: 集中式版参考 / 1.6.29 统计信息函数（Wave 4-5）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-29'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapter: 1.6.29 统计信息函数
+  subsection: 1.6.29 统计信息函数（第五批：回放耗时、Xlog类型统计、内存上下文、线程栈与火焰图采集）
+  physical_page_start: 853
+  physical_page_end: 865
+  physical_page_count: 12
+  excludes:
+  - 1.6.29 统计信息函数起始于页864的gs_perf_query及后续函数
+facts:
+- id: stats_wave4_5_local_redo_time_count
+  type: syntax
+  statement: "local_redo_time_count([operation])返回本节点回放流程耗时统计；仅在备机上存在有效数据。并行回放模式返回各回放线程流程耗时，极致RTO模式还返回不同日志类型的流程耗时。"
+  source_anchor: "1.6.29 页853-858"
+  source_refs: &id001
+  - w4_5_1_6_29
+  status: confirmed
+- id: stats_wave4_5_local_redo_time_operations
+  type: constraint
+  statement: "local_redo_time_count的operation可选：无输入时查询统计信息；-1关闭统计开关且默认关闭；0打开统计开关；1查询统计信息；2重置统计信息；关闭后重新打开会清理之前统计信息。"
+  source_anchor: "1.6.29 页853"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_5_local_redo_time_thread_fields
+  type: syntax
+  statement: "local_redo_time_count按回放线程输出thread_name和step1到step9的total/count字段；每个step在不同线程上对应获取日志、处理日志、更新状态、读取page、分发、decode、回放、同步等待或推进LSN等流程。"
+  source_anchor: "1.6.29 页853-858"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_5_local_redo_time_mode_steps
+  type: behavior_oracle
+  statement: "极致RTO模式下的step覆盖redo batch/redo manager/redo worker/trxn manager/trxn worker/read worker/read page worker/startup等线程流程；并行回放模式下的step覆盖page redo和startup的获取、处理、状态更新、undo/share/sync/single/all/multi worker回放和强同步等待。"
+  source_anchor: "1.6.29 页854-858"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_5_local_redo_time_log_type_sampling
+  type: constraint
+  statement: "极致RTO模式下日志类型流程耗时统计在统计开关关闭时会对回放日志抽样统计；输出thread_name及step1到step7的total/count。"
+  source_anchor: "1.6.29 页857-858"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_5_local_redo_time_log_type_steps
+  type: behavior_oracle
+  statement: "极致RTO日志类型统计中，数据类型日志覆盖处理日志、回放page、读取数据page、回放page日志和更新fsm；事务类型日志覆盖回放事务日志、事务线程同步等待、redo_worker回放和同步等待。"
+  source_anchor: "1.6.29 页858"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_5_local_xlog_redo_statics
+  type: syntax
+  statement: "local_xlog_redo_statics()返回本节点已经回放的各类型日志统计信息，仅在备机上有有效数据；输出xlog_type、rmid、info、num和extra。"
+  source_anchor: "1.6.29 页858-859"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_5_local_xlog_redo_statics_extra
+  type: behavior_oracle
+  statement: "local_xlog_redo_statics的extra仅在page回放日志和xact日志上有有效值：page页回放日志表示从磁盘读取page的个数；xact日志表示删除文件的个数。"
+  source_anchor: "1.6.29 页859"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_5_shared_memctx_detail
+  type: constraint
+  statement: "gs_get_shared_memctx_detail(text)返回指定共享内存上下文的内存申请明细，包括file、line和size；仅支持查询GS_SHARED_MEMORY_DETAIL返回的contextname；需SYSADMIN或MONADMIN权限；Non-PDB返回全部信息，PDB返回空列表。"
+  source_anchor: "1.6.29 页859"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_5_session_memctx_detail
+  type: constraint
+  statement: "gs_get_session_memctx_detail(text)返回指定内存上下文的内存申请明细，包括file、line和size；仅在线程池模式生效；仅支持查询GS_SESSION_MEMORY_CONTEXT返回的contextname；需SYSADMIN或MONADMIN权限；Non-PDB返回全部信息，PDB返回空列表。"
+  source_anchor: "1.6.29 页859-860"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_5_memory_detail_accumulation
+  type: constraint
+  statement: "共享和会话内存上下文明细中，同一文件同一行多次申请的内存大小会累加；session明细的size单位为byte。"
+  source_anchor: "1.6.29 页859-860"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_5_history_memory_detail
+  type: constraint
+  statement: "gs_get_history_memory_detail(cstring)查询历史内存快照；入参NULL显示当前节点所有内存快照log文件列表，入参为列表中的文件名时显示该文件详细内容，其他入参提示入参错误或打开文件失败；需SYSADMIN或MONADMIN权限。"
+  source_anchor: "1.6.29 页860"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_5_stack
+  type: constraint
+  statement: "gs_stack([tid])显示线程调用栈；指定tid时返回该线程调用栈text，不指定时返回所有线程调用栈setof record；需SYSADMIN或MONADMIN权限；不支持多个gs_stack()并发。"
+  source_anchor: "1.6.29 页860-861"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_5_perf_service_precondition
+  type: constraint
+  statement: "gs_perf_start、gs_perf_start_offcpu、gs_perf_start_all和gs_perf_start_detail都需要gs_perf_service正常运行；采集过程申请环形buffer，大小受/proc/sys/kernel/perf_event_mlock_kb控制；出现perf mmap failed时可调整该内核参数后重试。"
+  source_anchor: "1.6.29 页861-862"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_5_perf_start_oncpu
+  type: syntax
+  statement: "gs_perf_start(duration[,freq])采集当前节点各线程on-cpu火焰图堆栈数据并返回落盘地址；需SYSADMIN或MONADMIN权限；duration为1到60秒，freq为10到1000HZ且默认100；ROOT/DBUSER模式可用，DISABLE不可用。"
+  source_anchor: "1.6.29 页861-862"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_5_perf_start_offcpu
+  type: syntax
+  statement: "gs_perf_start_offcpu(duration)采集当前节点各线程off-cpu火焰图堆栈数据并返回落盘地址；需SYSADMIN或MONADMIN权限；duration为50到3000毫秒；ROOT模式可用，DBUSER和DISABLE不可用。"
+  source_anchor: "1.6.29 页862"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_5_perf_start_detail
+  type: syntax
+  statement: "gs_perf_start_detail(duration[,freq])采集当前机器所有CPU核心、所有线程的on-cpu/off-cpu堆栈调用详细信息，返回多核多线程原始数据压缩文件地址；每次运行会删除历史多核多线程数据；需SYSADMIN或MONADMIN权限；duration为50到3000毫秒，freq为10到1000HZ；ROOT模式可用，DBUSER和DISABLE不可用。"
+  source_anchor: "1.6.29 页862-863"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_5_perf_start_all
+  type: syntax
+  statement: "gs_perf_start_all(duration[,freq])采集当前节点所在机器所有节点的on-cpu/off-cpu火焰图堆栈数据并返回所有节点落盘地址；需SYSADMIN或MONADMIN权限；duration为50到3000毫秒，freq为10到1000HZ；ROOT模式可用，DBUSER只能采集oncpu，DISABLE不可用。"
+  source_anchor: "1.6.29 页863-864"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_5_perf_list
+  type: syntax
+  statement: "gs_perf_list()查看当前节点保存的on-cpu/off-cpu火焰图采集数据，不展示多核多线程火焰图记录；ROOT/DBUSER模式可用，DISABLE不可用；输出nodename、filename和collect_type。"
+  source_anchor: "1.6.29 页864"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_5_scope_note
+  type: environment
+  statement: "Wave 4-5覆盖1.6.29统计信息函数第五批：本节点回放耗时、Xlog类型回放统计、共享/会话/历史内存上下文、线程栈和on-cpu/off-cpu/detail/all火焰图采集列表，物理页853-864。"
+  source_anchor: "1.6.29 页853-864"
+  source_refs: *id001
+  status: confirmed
+open_questions:
+- id: stats_wave4_5_oq_redo_time_matrix
+  statement: "并行回放和极致RTO在不同线程类型、日志类型、统计开关和备机负载下的step耗时矩阵需授权环境验证。"
+  status: open
+- id: stats_wave4_5_oq_memory_perf_evidence
+  statement: "内存上下文明细、历史快照、线程栈和gs_perf采集在不同权限、线程池模式、perf_service状态、内核buffer限制和采集时长下的行为矩阵需实机验证。"
+  status: open

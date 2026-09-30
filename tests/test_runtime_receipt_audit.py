@@ -18,27 +18,25 @@ def success(rows=None, notices=None):
     return RuntimeStepResult(success=True, rows=rows or [], notices=notices or [])
 
 
-def all_success_responses():
-    return [
-        success(rows=[["on"]]), success(),
-        success(rows=[["off"]]), success(),
-        success(rows=[["on"]]),
-        success(rows=[["off"]]), success(),
-        success(rows=[["on"]]), success(),
-        success(rows=[["off"]]),
-        success(notices=["hello, database!"]),
-        success(notices=["buffered"]),
-        success(rows=[["ABC"]]),
-        success(rows=[[742]]),
-        success(notices=["value=1"]),
-    ]
+def all_success_responses(plan):
+    """Generate one successful response for every step in the current plan."""
+    responses = []
+    for unit in plan.units:
+        for step in unit.execution_plan:
+            responses.append(RuntimeStepResult(
+                success=True,
+                rows=list(step.expected_rows or []),
+                notices=[step.expected_notice] if step.expected_notice else [],
+            ))
+    return responses
+
 
 
 class RuntimeReceiptAuditTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.plan = build_dry_run(ROOT)
-        transport = ScriptedRuntimeTransport(all_success_responses())
+        transport = ScriptedRuntimeTransport(all_success_responses(cls.plan))
         cls.receipt = execute_plan(cls.plan, transport, authorized=True)
 
     def test_valid_receipt_matches_plan_and_internal_counts(self):
@@ -46,10 +44,10 @@ class RuntimeReceiptAuditTests(unittest.TestCase):
         self.assertTrue(audit.valid, audit.errors)
         self.assertTrue(audit.plan_verified)
         self.assertEqual(audit.summary, {
-            "units": 7,
-            "runtime_verified": 7,
+            "units": 29,
+            "runtime_verified": 29,
             "failed_units": 0,
-            "executed_steps": 15,
+            "executed_steps": 37,
         })
 
     def test_missing_plan_is_not_trusted(self):
@@ -108,12 +106,12 @@ class RuntimeReceiptAuditTests(unittest.TestCase):
         bad["units"][0]["steps"][0]["error"] = "simulated failure"
         bad["units"][0]["runtime_verified"] = False
         bad["units"][0]["status"] = "execution_failed"
-        bad["runtime_verified"] = 6
+        bad["runtime_verified"] = 28
         bad["failed_units"] = 1
         bad["status"] = "failed"
         audit = audit_runtime_receipt(bad, plan=self.plan)
         self.assertTrue(audit.valid, audit.errors)
-        self.assertEqual(audit.summary["runtime_verified"], 6)
+        self.assertEqual(audit.summary["runtime_verified"], 28)
         self.assertEqual(audit.summary["failed_units"], 1)
 
 

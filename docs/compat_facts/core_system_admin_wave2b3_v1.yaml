@@ -1,0 +1,146 @@
+document: 集中式版参考 / 1.6.27 系统管理函数（Wave 2B-3）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-29'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapter: 1.6.27 系统管理函数
+  subsections:
+  - 1.6.27.6 双数据库实例容灾查询函数
+  - 1.6.27.7 快照同步函数
+  - 1.6.27.8 数据库对象函数
+  physical_page_start: 618
+  physical_page_end: 630
+  physical_page_count: 12
+  excludes:
+  - 1.6.27.9 咨询锁函数及后续逻辑复制、段页式存储、HTAP等子族
+facts:
+- id: wave2b3_dr_local_barrier_status
+  type: syntax
+  statement: gs_get_local_barrier_status()查询灾备实例每个节点当前日志回放状态，返回barrier_id、barrier_lsn、archive_lsn和flush_lsn；archive_lsn当前未生效。
+  source_anchor: 1.6.27.6 页618
+  source_refs: &id001
+  - w2b3_1_6_27
+  status: confirmed
+- id: wave2b3_dr_recovery_switchover_checks
+  type: syntax
+  statement: gs_hadr_in_recovery()查询当前节点是否基于目标barrier恢复；gs_streaming_dr_get_switchover_barrier()查询灾备DN是否完成switchover barrier回放；gs_streaming_dr_service_truncation_check()查询主机DN是否完成barrier日志发送。
+  source_anchor: 1.6.27.6 页618
+  source_refs: *id001
+  status: confirmed
+- id: wave2b3_dr_rto_rpo_local_remote
+  type: syntax
+  statement: gs_hadr_local_rto_and_rpo_stat()查询主备日志流控、当前/目标RTO/RPO和睡眠时间；gs_hadr_remote_rto_and_rpo_stat()用于其它非本地分片，当前版本暂不支持。
+  source_anchor: 1.6.27.6 页618-620
+  source_refs: *id001
+  status: confirmed
+- id: wave2b3_dr_cluster_mode_barrier_truncate
+  type: syntax
+  statement: disaster_cluster_run_mode()当前查询返回-1；gs_hadr_create_recovery_pause_barrier()在投产模式生成使灾备回放卡住的一致性barrier；gs_is_wal_truncate_complete()查询投产失败后灾备日志在线截断是否完成。
+  source_anchor: 1.6.27.6 页619
+  source_refs: *id001
+  status: confirmed
+- id: wave2b3_dr_local_replay_delay_stat
+  type: syntax
+  statement: gs_hadr_local_replay_delay_stat()显示灾备实例barrier接收、barrier回放、延迟配置和当前剩余间隔等信息，返回record。
+  source_anchor: 1.6.27.6 页619-620
+  source_refs: *id001
+  status: confirmed
+- id: wave2b3_dorado_state_control_query
+  type: syntax
+  statement: gs_change_dorado_state(device_name,dorado_state,term)更改Dorado共享盘通道状态，仅初始化用户可执行；gs_get_dorado_state()查询健康和运行状态。
+  source_anchor: 1.6.27.6 页620-621
+  source_refs: *id001
+  status: confirmed
+- id: wave2b3_snapshot_export_functions
+  type: syntax
+  statement: pg_export_snapshot()保存当前快照并返回文本标识；pg_export_snapshot_and_csn()保存快照和CSN系统信息并返回标识。导出快照可用SET TRANSACTION SNAPSHOT。
+  source_anchor: 1.6.27.7 页622
+  source_refs: *id001
+  status: confirmed
+- id: wave2b3_pg_column_size
+  type: syntax
+  statement: pg_column_size(any)计算指定字段或表达式存储所需字节数。
+  source_anchor: 1.6.27.8 页623
+  source_refs: *id001
+  status: confirmed
+- id: wave2b3_pg_database_size
+  type: syntax
+  statement: pg_database_size(oid/name)返回指定数据库使用的磁盘空间；查询耗时与库中对象文件数基本呈线性关系。
+  source_anchor: 1.6.27.8 页622-623
+  source_refs: *id001
+  status: confirmed
+- id: wave2b3_get_db_source_datasize
+  type: constraint
+  statement: get_db_source_datasize()估算当前数据库非压缩态数据总容量；调用前需要ANALYZE。
+  source_anchor: 1.6.27.8 页622-623
+  source_refs: *id001
+  status: confirmed
+- id: wave2b3_pg_relation_size
+  type: syntax
+  statement: pg_relation_size(relation[,fork])返回表/索引指定fork的磁盘空间；省略fork等价于main。
+  source_anchor: 1.6.27.8 页623
+  source_refs: *id001
+  status: confirmed
+- id: wave2b3_partition_size_functions
+  type: syntax
+  statement: pg_partition_size按表OID/表名和分区OID/分区名返回分区空间；pg_partition_indexes_size返回指定分区索引空间。
+  source_anchor: 1.6.27.8 页623
+  source_refs: *id001
+  status: confirmed
+- id: wave2b3_pg_indexes_size_pretty
+  type: syntax
+  statement: pg_indexes_size(regclass)返回表附加索引总空间；pg_size_pretty(bigint/numeric)将字节数格式化为kB/MB/GB/TB等易读格式。
+  source_anchor: 1.6.27.8 页623
+  source_refs: *id001
+  status: confirmed
+- id: wave2b3_pg_table_size
+  type: syntax
+  statement: pg_table_size(regclass)返回表磁盘空间，不含索引，但包含TOAST、free space map和visibility map。
+  source_anchor: 1.6.27.8 页623-624
+  source_refs: *id001
+  status: confirmed
+- id: wave2b3_pg_tablespace_size
+  type: syntax
+  statement: pg_tablespace_size(oid/name)返回指定表空间使用的全部磁盘空间。
+  source_anchor: 1.6.27.8 页624
+  source_refs: *id001
+  status: confirmed
+- id: wave2b3_total_relation_size_datalength
+  type: syntax
+  statement: pg_total_relation_size(regclass)返回表及全部索引、TOAST的总磁盘空间；datalength(any)计算指定数据值所需字节数，不考虑管理空间、压缩和类型转换。
+  source_anchor: 1.6.27.8 页623-625
+  source_refs: *id001
+  status: confirmed
+- id: wave2b3_relation_filenode_filepath
+  type: syntax
+  statement: pg_relation_filenode(relation)返回关系的filenode；pg_relation_filepath(relation)返回相对PGDATA的完整文件路径；视图等无存储关系可能返回NULL；非段页式关系适用。
+  source_anchor: 1.6.27.8 页626
+  source_refs: *id001
+  status: confirmed
+- id: wave2b3_filenode_relation_functions
+  type: syntax
+  statement: pg_filenode_relation(tablespace,filenode)反向查找表；pg_partition_filenode(partition_oid)获取分区filenode；pg_partition_filepath(partition_oid)返回分区文件路径，非段页式关系适用。
+  source_anchor: 1.6.27.8 页626-627
+  source_refs: *id001
+  status: confirmed
+- id: wave2b3_recycle_object_checks
+  type: syntax
+  statement: gs_is_recycle_object(classid,objid,objname)和gs_is_recycle_obj(classid,objid,objname)判断对象是否为回收站对象，返回Boolean。
+  source_anchor: 1.6.27.8 页627
+  source_refs: *id001
+  status: confirmed
+- id: wave2b3_scope_note
+  type: environment
+  statement: Wave 2B-3覆盖1.6.27.6双数据库实例容灾查询函数、1.6.27.7快照同步函数、1.6.27.8数据库对象函数，物理页618-629。
+  source_anchor: 1.6.27.6-1.6.27.8 页618-629
+  source_refs: *id001
+  status: confirmed
+open_questions:
+- id: wave2b3_oq_dr_query_permission_matrix
+  statement: 容灾查询和Dorado状态函数的角色、PDB/non-PDB和部署模式矩阵需目标环境确认。
+  status: open
+- id: wave2b3_oq_object_size_cost
+  statement: pg_database_size、pg_tablespace_size等在大型库上的耗时、权限和文件系统影响需基准测试。
+  status: open

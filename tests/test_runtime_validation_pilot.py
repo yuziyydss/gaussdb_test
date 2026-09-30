@@ -25,7 +25,24 @@ def failure(error="simulated failure"):
     return RuntimeStepResult(success=False, error=error)
 
 
-def _all_success_responses():
+def _all_success_responses(plan):
+    responses = []
+    for unit in plan.units:
+        if unit.kind == "guc_overlay":
+            for step in unit.execution_plan:
+                responses.append(success(rows=step.expected_rows))
+            continue
+        step = unit.execution_plan[0]
+        if step.expected_rows:
+            responses.append(success(rows=step.expected_rows))
+        elif step.expected_notice:
+            responses.append(success(notices=[step.expected_notice]))
+        else:
+            responses.append(success())
+    return responses
+
+
+def _old_all_success_responses():
     return [
         # GUC enable_seqscan: on -> off -> on.
         success(rows=[["on"]]), success(),
@@ -49,12 +66,12 @@ class RuntimeValidationPilotTests(unittest.TestCase):
     def setUpClass(cls):
         cls.plan = build_dry_run(ROOT)
 
-    def test_dry_run_contains_two_guc_and_five_advanced_units(self):
+    def test_dry_run_contains_two_guc_and_nineteen_advanced_units(self):
         self.assertEqual(self.plan.profile, "runtime_validation_pilot_v1")
-        self.assertEqual(len(self.plan.units), 7)
+        self.assertEqual(len(self.plan.units), 29)
         self.assertEqual(
             [unit.kind for unit in self.plan.units],
-            ["guc_overlay", "guc_overlay"] + ["advanced_package"] * 5,
+            ["guc_overlay", "guc_overlay"] + ["advanced_package"] * 27,
         )
         self.assertFalse(self.plan.database_executed)
         self.assertFalse(self.plan.execution_authorized)
@@ -78,7 +95,7 @@ class RuntimeValidationPilotTests(unittest.TestCase):
 
     def test_advanced_units_keep_unverified_oracles_and_cleanup_boundary(self):
         advanced = self.plan.units[2:]
-        self.assertEqual(len(advanced), 5)
+        self.assertEqual(len(advanced), 27)
         for unit in advanced:
             with self.subTest(unit=unit.id):
                 self.assertEqual(unit.oracle.status, "needs_verification")
@@ -93,26 +110,33 @@ class RuntimeValidationPilotTests(unittest.TestCase):
         self.assertEqual(plan_sha256(self.plan), plan_sha256(rebuilt))
 
     def test_authorized_execution_verifies_all_units_with_scripted_transport(self):
-        transport = ScriptedRuntimeTransport(_all_success_responses())
+        transport = ScriptedRuntimeTransport(_all_success_responses(self.plan))
         receipt = execute_plan(self.plan, transport, authorized=True)
         self.assertEqual(receipt["status"], "runtime_verified")
         self.assertTrue(receipt["database_executed"])
         self.assertTrue(receipt["execution_authorized"])
-        self.assertEqual(receipt["runtime_verified"], 7)
+        self.assertEqual(receipt["runtime_verified"], 29)
         self.assertEqual(receipt["failed_units"], 0)
-        self.assertEqual(receipt["executed_steps"], 15)
-        self.assertEqual(receipt["plan_step_count"], 15)
-        self.assertEqual(len(receipt["plan_unit_ids"]), 7)
+        self.assertEqual(receipt["executed_steps"], 37)
+        self.assertEqual(receipt["plan_step_count"], 37)
+        self.assertEqual(len(receipt["plan_unit_ids"]), 29)
         self.assertIn("plan_sha256", receipt)
-        self.assertEqual(len(transport.calls), 15)
+        self.assertEqual(len(transport.calls), 37)
 
     def test_missing_notice_oracle_fails_unit_without_faking_pass(self):
-        responses = _all_success_responses()
-        responses[10] = success(notices=["unexpected output"])
+        responses = _all_success_responses(self.plan)
+        notice_unit_index = next(
+            index for index, unit in enumerate(self.plan.units)
+            if unit.kind == "advanced_package" and unit.execution_plan[0].expected_notice
+        )
+        notice_index = sum(
+            len(unit.execution_plan) for unit in self.plan.units[:notice_unit_index]
+        )
+        responses[notice_index] = success(notices=["unexpected output"])
         transport = ScriptedRuntimeTransport(responses)
         receipt = execute_plan(self.plan, transport, authorized=True)
         self.assertEqual(receipt["status"], "failed")
-        self.assertEqual(receipt["runtime_verified"], 6)
+        self.assertEqual(receipt["runtime_verified"], 28)
         self.assertEqual(receipt["failed_units"], 1)
         failed_unit = next(unit for unit in receipt["units"] if unit["status"] == "execution_failed")
         self.assertFalse(failed_unit["runtime_verified"])
@@ -123,6 +147,30 @@ class RuntimeValidationPilotTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "explicit authorization"):
             execute_plan(self.plan, transport, authorized=False)
 
+    def test_cli_rejects_execution_without_authorization_flag(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "receipt.json"
+            with self.assertRaisesRegex(SystemExit, "runtime execution requires --authorized"):
+                cli_main(["--execute", "--output", str(output)])
+
+    def test_cli_gate_blocks_execution_without_environment_authorization(self):
+        import io
+        import contextlib
+        import os
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "receipt.json"
+            with patch.dict(os.environ, {
+                "GAUSSDB_ENABLED": "true",
+                "GAUSSDB_RUNTIME_PILOT_AUTHORIZED": "",
+            }):
+                with self.assertRaisesRegex(
+                    SystemExit,
+                    "GAUSSDB_RUNTIME_PILOT_AUTHORIZED must be true",
+                ):
+                    cli_main(["--execute", "--authorized", "--output", str(output)])
+
     def test_cli_writes_dry_run_without_overwrite(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "dry_run.json"
@@ -130,7 +178,7 @@ class RuntimeValidationPilotTests(unittest.TestCase):
             payload = json.loads(output.read_text())
             self.assertEqual(payload["kind"], "runtime_validation_pilot")
             self.assertFalse(payload["database_executed"])
-            self.assertEqual(len(payload["units"]), 7)
+            self.assertEqual(len(payload["units"]), 29)
             self.assertIn("plan_sha256", payload)
             with self.assertRaisesRegex(SystemExit, "already exists"):
                 cli_main(["--output", str(output)])

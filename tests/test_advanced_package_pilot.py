@@ -18,12 +18,40 @@ class AdvancedPackagePilotTests(unittest.TestCase):
         cls.registry.load_all()
         cls.planner = AdvancedPackagePlanner(cls.registry)
 
-    def test_three_pilot_packages_have_complete_interface_inventory(self):
-        self.assertEqual(set(self.registry.packages), {"dbe_output", "dbe_raw", "dbe_sql"})
-        self.assertEqual(len(self.registry.interfaces), 46)
+    def test_twenty_two_modeled_packages_have_interface_inventory(self):
+        self.assertEqual(
+            set(self.registry.packages),
+            {
+                "dbe_output", "dbe_raw", "dbe_sql", "dbe_match", "dbe_utility",
+                "dbe_lob", "dbe_file", "dbe_obfuscation", "dbe_xmlgen", "dbe_alert",
+                "dbe_session", "dbe_random", "dbe_application_info", "dbe_scheduler",
+                "dbe_compression", "dbe_describe", "dbe_heat_map", "dbe_ilm",
+                "dbe_ilm_admin", "dbe_stats", "dbe_xmldom", "dbe_xmlparser",
+            },
+        )
+        self.assertEqual(len(self.registry.interfaces), 251)
         self.assertEqual(len(self.registry.interfaces_for_package("dbe_output")), 10)
         self.assertEqual(len(self.registry.interfaces_for_package("dbe_raw")), 22)
         self.assertEqual(len(self.registry.interfaces_for_package("dbe_sql")), 14)
+        self.assertEqual(len(self.registry.interfaces_for_package("dbe_match")), 1)
+        self.assertEqual(len(self.registry.interfaces_for_package("dbe_utility")), 14)
+        self.assertEqual(len(self.registry.interfaces_for_package("dbe_lob")), 19)
+        self.assertEqual(len(self.registry.interfaces_for_package("dbe_file")), 8)
+        self.assertEqual(len(self.registry.interfaces_for_package("dbe_obfuscation")), 7)
+        self.assertEqual(len(self.registry.interfaces_for_package("dbe_xmlgen")), 2)
+        self.assertEqual(len(self.registry.interfaces_for_package("dbe_alert")), 5)
+        self.assertEqual(len(self.registry.interfaces_for_package("dbe_session")), 4)
+        self.assertEqual(len(self.registry.interfaces_for_package("dbe_random")), 2)
+        self.assertEqual(len(self.registry.interfaces_for_package("dbe_application_info")), 4)
+        self.assertEqual(len(self.registry.interfaces_for_package("dbe_scheduler")), 3)
+        self.assertEqual(len(self.registry.interfaces_for_package("dbe_compression")), 6)
+        self.assertEqual(len(self.registry.interfaces_for_package("dbe_describe")), 3)
+        self.assertEqual(len(self.registry.interfaces_for_package("dbe_heat_map")), 1)
+        self.assertEqual(len(self.registry.interfaces_for_package("dbe_ilm")), 2)
+        self.assertEqual(len(self.registry.interfaces_for_package("dbe_ilm_admin")), 5)
+        self.assertEqual(len(self.registry.interfaces_for_package("dbe_stats")), 36)
+        self.assertEqual(len(self.registry.interfaces_for_package("dbe_xmldom")), 75)
+        self.assertEqual(len(self.registry.interfaces_for_package("dbe_xmlparser")), 8)
 
     def test_sources_and_facts_are_traceable_and_confirmed(self):
         for package in self.registry.packages.values():
@@ -55,8 +83,33 @@ class AdvancedPackagePilotTests(unittest.TestCase):
         for interface_id, signature in expected.items():
             self.assertEqual(self.registry.interfaces[interface_id].signature(), signature)
 
+    def test_new_match_and_utility_contracts_start_manual_review(self):
+        self.assertEqual(
+            self.registry.interfaces["adv_dbe_match_edit_distance_similarity"].signature(),
+            "DBE_MATCH.EDIT_DISTANCE_SIMILARITY(str1 IN TEXT, str2 IN TEXT) RETURN INTEGER",
+        )
+        self.assertEqual(
+            self.registry.interfaces["adv_dbe_utility_canonicalize"].signature(),
+            "DBE_UTILITY.CANONICALIZE(name IN VARCHAR2, canon_name OUT VARCHAR2, "
+            "canon_len IN BINARY_INTEGER DEFAULT 1024)",
+        )
+        self.assertEqual(
+            self.registry.interfaces["adv_dbe_utility_get_sql_hash"].signature(),
+            "DBE_UTILITY.GET_SQL_HASH(str IN VARCHAR2, hash OUT RAW, "
+            "version OUT INTEGER) RETURN NUMBER",
+        )
+        for interface_id in (
+            "adv_dbe_match_edit_distance_similarity",
+            "adv_dbe_utility_canonicalize",
+            "adv_dbe_utility_get_sql_hash",
+        ):
+            self.assertEqual(
+                self.registry.interfaces[interface_id].execution_policy,
+                "manual_review",
+            )
+
     def test_runtime_candidates_keep_oracles_unverified(self):
-        self.assertEqual(len(self.registry.test_cases), 5)
+        self.assertEqual(len(self.registry.test_cases), 27)
         for test_case in self.registry.test_cases.values():
             with self.subTest(case=test_case.id):
                 self.assertEqual(test_case.status, "runtime_candidate")
@@ -79,7 +132,8 @@ class AdvancedPackagePilotTests(unittest.TestCase):
 
     def test_planner_returns_package_cases_and_rejects_manual_review(self):
         for package_id, expected_count in (
-            ("dbe_output", 2), ("dbe_raw", 2), ("dbe_sql", 1)
+            ("dbe_output", 5), ("dbe_raw", 15), ("dbe_sql", 2),
+            ("dbe_match", 0), ("dbe_utility", 0), ("dbe_obfuscation", 0),
         ):
             with self.subTest(package=package_id):
                 cases = self.planner.plan_package(package_id)

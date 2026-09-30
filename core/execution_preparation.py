@@ -13,6 +13,8 @@ from .factor_package_model import CandidateScenarioStepDef
 from .file_fdw_options_contract import check_file_fdw, parse_create
 from .insert_conflict_key_contract import check_same_key_tuple
 from .log_fdw_catalog_contract import check_log_fdw_option_seed
+from .guc_requirement_resolver import resolve_guc_requirements
+from .guc_execution_selector import GucExecutionSelectionError, select_guc_execution_values
 
 
 def sql_identity(sql):
@@ -450,6 +452,29 @@ def prepare_unit(scenario, cases, generator):
             gates[key] = values
     if len(gates.get('compatibility_mode', [])) != 1:
         blockers.append('physical_mode_unresolved')
+    guc_gates = {key: values for key, values in gates.items() if key.startswith('guc_')}
+    guc_environment_plan = None
+    guc_execution_plan = None
+    if guc_gates:
+        resolved_guc = resolve_guc_requirements(
+            guc_gates, generator.registry.specs_dir.parent
+        )
+        guc_environment_plan = resolved_guc.model_dump()
+        blockers.extend(
+            f"guc_requirement_unsupported:{key}"
+            for key in guc_environment_plan["unsupported"]
+        )
+        blockers.extend(
+            f"guc_requirement_invalid_values:{item['requirement_key']}"
+            for item in guc_environment_plan["invalid_values"]
+        )
+        if resolved_guc.supported and not resolved_guc.unsupported and not resolved_guc.invalid_values:
+            try:
+                guc_execution_plan = select_guc_execution_values(
+                    resolved_guc, generator.registry.specs_dir.parent
+                ).model_dump()
+            except GucExecutionSelectionError as exc:
+                blockers.append(f"guc_execution_selection_failed:{exc}")
     file_plan, file_blockers = file_preparation_plan(scenario, bound_cases, setup, generator)
     blockers.extend(file_blockers)
     unit = {
@@ -459,10 +484,13 @@ def prepare_unit(scenario, cases, generator):
         'steps': steps, 'environment_requirements': gates, 'ownership_plan': ownership,
         'static_blockers': sorted(set(blockers)), 'oracle_calibration_pending': calibration,
         **({'finite_contract_evidence': finite_evidence} if finite_evidence else {}),
+        **({'guc_environment_plan': guc_environment_plan} if guc_environment_plan else {}),
+        **({'guc_execution_plan': guc_execution_plan} if guc_execution_plan else {}),
         'm_environment_plan_ref': BOOTSTRAP_PATH if gates.get('compatibility_mode') == ['M'] else None,
         'required_runtime_evidence': ['explicit_database_authorization', 'actual_physical_database_mode',
                                       'isolated_connection_and_namespace', 'per_create_success_receipts',
-                                      'per_step_target_and_oracle_results', 'owned_cleanup_and_residue_check'],
+                                      'per_step_target_and_oracle_results', 'owned_cleanup_and_residue_check',
+                                      *(['guc_overlay_capture_apply_verify_restore_verify'] if guc_environment_plan else [])],
         'failure_policy': {'environment': 'stop_before_setup', 'setup': 'skip_target_retain_partial_inventory',
                            'target': 'preserve_original_error_do_not_accept_arbitrary_error',
                            'oracle': 'unresolved_oracle_is_pending_not_pass',

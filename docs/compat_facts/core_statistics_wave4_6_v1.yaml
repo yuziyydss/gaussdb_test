@@ -1,0 +1,161 @@
+document: 集中式版参考 / 1.6.29 统计信息函数（Wave 4-6）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-29'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapter: 1.6.29 统计信息函数
+  subsection: 1.6.29 统计信息函数（第六批：火焰图查询/清理与性能抖动监控）
+  physical_page_start: 864
+  physical_page_end: 875
+  physical_page_count: 11
+  excludes:
+  - 1.6.29 统计信息函数起始于页874的gs_get_thread_memctx_detail及后续函数
+facts:
+- id: stats_wave4_6_perf_query
+  type: syntax
+  statement: "gs_perf_query([filename])查询历史采集on-cpu/off-cpu火焰图的堆栈调用数据，归并各线程函数调用栈并求和运行时间；filename默认为最近一次手动采集火焰图，输出backtrace、period、level、sequence、thread_name和overhead。"
+  source_anchor: "1.6.29 页864-865"
+  source_refs: &id001
+  - w4_6_1_6_29
+  status: confirmed
+- id: stats_wave4_6_perf_query_boundary
+  type: constraint
+  statement: "gs_perf_query需要SYSADMIN或MONADMIN权限；ROOT/DBUSER模式可用，DISABLE模式不可用；返回setof record。"
+  source_anchor: "1.6.29 页864"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_perf_query_general
+  type: syntax
+  statement: "gs_perf_query_general([filename])查询历史采集on-cpu/off-cpu火焰图的堆栈函数调用占比，filename默认为最近一次手动采集火焰图，输出function_name和percentage。"
+  source_anchor: "1.6.29 页866-867"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_perf_query_general_precision
+  type: constraint
+  statement: "gs_perf_query_general的占比数据因计算精度原因，总和可能不等于1；函数需SYSADMIN或MONADMIN权限；ROOT/DBUSER模式可用，DISABLE不可用。"
+  source_anchor: "1.6.29 页866"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_perf_query_detail
+  type: syntax
+  statement: "gs_perf_query_detail([filename])查询历史采集火焰图的堆栈函数调用占比及调用堆栈详细信息，filename默认为最近一次手动采集火焰图，输出function_name、percentage、function_callstack和function_callstack_percentage。"
+  source_anchor: "1.6.29 页867-868"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_perf_query_detail_precision
+  type: constraint
+  statement: "gs_perf_query_detail的占比数据因计算精度原因，总和可能不等于1；函数需SYSADMIN或MONADMIN权限；ROOT/DBUSER模式可用，DISABLE不可用。"
+  source_anchor: "1.6.29 页867"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_perf_report
+  type: behavior_oracle
+  statement: "gs_perf_report()在当前版本默认落盘逻辑下用于展示上一次手动查询oncpu的文件地址；需SYSADMIN或MONADMIN权限；ROOT/DBUSER模式可用，DISABLE不可用，返回text。"
+  source_anchor: "1.6.29 页868"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_perf_clean
+  type: environment
+  statement: "gs_perf_clean()当前版本提示废弃，后续版本会移除；当前采集逻辑默认落盘，采集后不占用内存上下文，也不再需要手动清理内存数据；需SYSADMIN或MONADMIN权限；ROOT/DBUSER模式可用，DISABLE不可用。"
+  source_anchor: "1.6.29 页868"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_start_shaking_collect
+  type: constraint
+  statement: "gs_perf_start_shaking_collect(scope,unique_querys,duration,max_collect_times,ringbuffer_size)开启本节点性能抖动监控；scope仅支持local且NULL等效local；unique_querys为被监控unique sql id列表，长度0到32；duration为5到6000分钟且默认60；max_collect_times为1到10且默认3；ringbuffer_size为1到32MB且默认8。"
+  source_anchor: "1.6.29 页868-869"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_start_shaking_collect_result
+  type: behavior_oracle
+  statement: "gs_perf_start_shaking_collect返回nodename和message；message可表示开启成功、已在监控、开启失败且成功关闭，或开启失败且关闭失败。"
+  source_anchor: "1.6.29 页869-870"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_shaking_service_precondition
+  type: constraint
+  statement: "gs_perf_start_shaking_collect、gs_perf_do_shaking_collect、gs_perf_close_shaking_collect和gs_perf_get_shaking_collect_status都需要gs_perf_service正常运行；环形buffer大小由CPU核心数和start接口的ringbuffer_size控制。"
+  source_anchor: "1.6.29 页870"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_shaking_frontend_timeout_boundary
+  type: constraint
+  statement: "性能抖动监控命令被手动中止或消息返回超时只会中断前端SQL，不会终止后台gs_perf_service任务；do_shaking_collect过程中可通过kill -9 perf_service进程强制打断后台任务。"
+  source_anchor: "1.6.29 页870"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_shaking_restart_init
+  type: behavior_oracle
+  statement: "采集进程gs_perf_service重启后性能抖动监控会被解除，需重新执行开启监控命令；start_shaking_collect启动后数据库约需1秒完成火焰图资源初始化，然后采集性能抖动火焰图文件。"
+  source_anchor: "1.6.29 页870"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_do_shaking_collect
+  type: constraint
+  statement: "gs_perf_do_shaking_collect(scope)执行性能抖动多核多线程火焰图落盘并保存快照；依赖start_shaking_collect已开启监控；两次落盘最小间隔1分钟；scope仅支持local且NULL等效local。"
+  source_anchor: "1.6.29 页870-871"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_do_shaking_collect_timeout
+  type: constraint
+  statement: "为防止后台采集进程阻塞，单节点执行性能抖动火焰图生成时，gs_perf_service超过10分钟未完成或异常退出会返回超时消息；函数需SYSADMIN或MONADMIN权限；ROOT模式可用，DBUSER/DISABLE不可用。"
+  source_anchor: "1.6.29 页871"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_do_shaking_collect_result
+  type: behavior_oracle
+  statement: "gs_perf_do_shaking_collect返回nodename和message；message可表示快照保存成功、未在监控状态保存失败、1分钟内重复保存被跳过或执行失败。"
+  source_anchor: "1.6.29 页871-872"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_close_shaking_collect
+  type: constraint
+  statement: "gs_perf_close_shaking_collect(scope)关闭性能抖动监控并返回关闭结果；依赖start_shaking_collect先启动监控；scope仅支持local且NULL等效local；需SYSADMIN或MONADMIN权限；ROOT模式可用，DBUSER/DISABLE不可用。"
+  source_anchor: "1.6.29 页871-872"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_close_shaking_collect_result
+  type: behavior_oracle
+  statement: "gs_perf_close_shaking_collect返回nodename和message；message可表示成功退出CPU_SHAKE模式、当前未在监控状态或关闭失败。"
+  source_anchor: "1.6.29 页872"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_shaking_collect_result
+  type: syntax
+  statement: "gs_perf_get_shaking_collect_result(scope)查看最近一次监控中的性能抖动火焰图采集历史文件；每次开启监控会清空历史；scope仅支持local且NULL等效local；需SYSADMIN或MONADMIN权限；ROOT模式可用，DBUSER/DISABLE不可用。"
+  source_anchor: "1.6.29 页872-873"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_shaking_collect_result_fields
+  type: syntax
+  statement: "gs_perf_get_shaking_collect_result输出nodename、num、filename和shake_time，分别表示节点名、采集序号、快照文件名和快照落盘时间。"
+  source_anchor: "1.6.29 页873"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_shaking_collect_status
+  type: constraint
+  statement: "gs_perf_get_shaking_collect_status(scope)查看节点性能抖动监控状态；scope仅支持local且NULL等效local；需SYSADMIN或MONADMIN权限；ROOT模式可用，DBUSER/DISABLE不可用。"
+  source_anchor: "1.6.29 页873"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_shaking_collect_status_values
+  type: behavior_oracle
+  statement: "gs_perf_get_shaking_collect_status输出nodename和status；status可为NOT IN SHAKE MODE、IN SHAKE MODE、NO PERF SERVICE或Unexpected Result查询失败信息。"
+  source_anchor: "1.6.29 页873-874"
+  source_refs: *id001
+  status: confirmed
+- id: stats_wave4_6_scope_note
+  type: environment
+  statement: "Wave 4-6覆盖1.6.29统计信息函数第六批：on-cpu/off-cpu火焰图数据查询、函数占比、report/clean以及性能抖动监控开启、落盘、关闭、历史和状态查询，物理页864-874。"
+  source_anchor: "1.6.29 页864-874"
+  source_refs: *id001
+  status: confirmed
+open_questions:
+- id: stats_wave4_6_oq_perf_query_matrix
+  statement: "gs_perf_query、general和detail在不同采集类型、文件名、权限、ROOT/DBUSER模式和高负载数据下的输出与占比精度矩阵需授权环境验证。"
+  status: open
+- id: stats_wave4_6_oq_shaking_evidence
+  statement: "性能抖动监控在唯一SQL列表、监控时长、快照次数、环形buffer、1分钟间隔、10分钟超时和perf_service重启/异常退出下的行为矩阵需实机验证。"
+  status: open

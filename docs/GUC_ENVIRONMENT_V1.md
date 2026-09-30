@@ -2,6 +2,8 @@
 
 ## 目标
 
+> V2扩展见 [GUC Environment V2](GUC_ENVIRONMENT_V2.md)。本文件保留V1试点的原始口径。
+
 `environments/guc_parameters_v1.yaml` 将 GUC 从 SQL syntax factor 中拆出来，作为独立的环境能力建模。当前目标是建立可审计、可恢复、可失败关闭的 **session overlay 试点**，不是宣称全量 GUC 行为闭环。
 
 ## 当前试点

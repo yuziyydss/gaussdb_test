@@ -1,0 +1,184 @@
+document: 集中式版参考 / 1.6.41 数据损坏检测修复函数（Wave 7-7）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-29'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapter: 1.6.41 数据损坏检测修复函数
+  subsection: 1.6.41 数据损坏检测修复函数（文件/页面/Undo/UBTree回收队列/表索引一致性）
+  physical_page_start: 931
+  physical_page_end: 952
+  physical_page_count: 21
+  excludes: []
+facts:
+- id: corruption_wave7_7_scope_constraints
+  type: constraint
+  statement: "1.6.41覆盖主机/备机文件和页面检测修复约束：普通行存、段页式、压缩表、undo、unlogged init fork等按主备和文件/页面级别区分手动或自动检测修复；备机修复支持首备和级联备。"
+  source_anchor: "1.6.41 页931"
+  source_refs: &ref771
+  - w7_7_1_6_41
+  status: confirmed
+- id: corruption_wave7_7_critical_section
+  type: constraint
+  statement: "数据库临界区保护关键资源一致性，不允许在临界区内抛错；临界区内访问损坏页面会触发PANIC，不支持修复检测及自动修复。INSERT/DELETE/UPDATE/DROP等写操作可能进入临界区；AutoVacuum和analyze期间临时关闭远程访问可能导致备机修复主机失败。"
+  source_anchor: "1.6.41 页931-932"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_verify_data_file
+  type: syntax
+  statement: "gs_verify_data_file(verify_segment)校验当前实例当前库数据表主文件是否存在中间段丢失；false默认校验非段页式表，true仅校验段页式表；返回record。"
+  source_anchor: "1.6.41 页932"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_verify_data_file_boundary
+  type: constraint
+  statement: "gs_verify_data_file默认仅初始用户、sysadmin属性用户和运维模式下运维管理员可查看；段页式表所有表共用文件，rel_oid/rel_name无法显示具体表；段页式第一个文件损坏时不检查后续.1/.2文件，不足5个文件时未生成文件也会校验出来。"
+  source_anchor: "1.6.41 页932"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_repair_file
+  type: constraint
+  statement: "gs_repair_file(tableoid,path,timeout)根据gs_verify_data_file结果修复文件；仅支持有正常主备连接的主DN和数据表主文件修复；段页式表tableoid可为0到4294967295任意值，内部按路径判断；需初始用户、sysadmin属性或运维模式下运维管理员权限。"
+  source_anchor: "1.6.41 页932-933"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_repair_file_boundary
+  type: behavior_oracle
+  statement: "文件损坏时升主校验报PANIC无法升主属于正常现象；文件存在但大小为0时不修复，需先删除0大小文件再修复。"
+  source_anchor: "1.6.41 页932-933"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_local_bad_block_info
+  type: syntax
+  statement: "local_bad_block_info()显示本实例页面CRC校验失败的损坏记录，输出损坏文件相对路径、block_num、发现时间和修复时间；支持段页式。"
+  source_anchor: "1.6.41 页933-934"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_local_bad_block_permissions
+  type: constraint
+  statement: "local_bad_block_info默认仅初始用户、sysadmin属性、监控管理员属性、运维模式下运维管理员属性及监控用户可查看；Non-PDB返回全部信息，PDB仅返回本PDB信息。"
+  source_anchor: "1.6.41 页933"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_clear_bad_block_info
+  type: constraint
+  statement: "local_clear_bad_block_info()清理local_bad_block_info中已修复页面（repair_time非空）的数据；需管理员类权限；Non-PDB正常运行，PDB调用报错。"
+  source_anchor: "1.6.41 页934"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_inconsistency_info
+  type: syntax
+  statement: "gs_inconsistency_info(reset)显示或重置数据不一致信息；reset=false显示，true重置；输出不一致类型、节点、表空间/库/表、bucket_node、backend、index_oid、tuple位置、count和last_update_time。"
+  source_anchor: "1.6.41 页934"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_verify_tryrepair_page
+  type: syntax
+  statement: "gs_verify_and_tryrepair_page(path,blocknum,verify_mem,is_segment)校验本实例指定页面；输出disk_page_res、mem_page_res和is_repair；verify_mem=true时校验内存和磁盘，发现磁盘损坏可将内存页基本校验后刷盘修复。"
+  source_anchor: "1.6.41 页934-935"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_verify_tryrepair_boundary
+  type: constraint
+  statement: "gs_verify_and_tryrepair_page默认主DN管理员类用户可用；PDB调用报错；该函数触发的修复仅修复内存页面，需内存页落盘后物理页面修复才正式生效；blocknum输入负值会被强制转为非负整数。"
+  source_anchor: "1.6.41 页934-935"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_repair_page
+  type: constraint
+  statement: "gs_repair_page(path,blocknum,is_segment,timeout)修复本实例指定页面，仅支持有正常主备连接的主DN；timeout等待备DN回放，范围60s至3600s；需管理员类权限。"
+  source_anchor: "1.6.41 页935-936"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_seg_verify_datafile
+  type: syntax
+  statement: "gs_seg_verify_datafile(tablespace_name,database_name,file_id,bucketnode,start_block_id,end_block_id)校验段页式1至5文件main fork页面损坏，并将结果记录到local_bad_block_info；仅sysadmin属性或运维模式下运维管理员可执行。"
+  source_anchor: "1.6.41 页936-937"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_seg_verify_bucketnode
+  type: constraint
+  statement: "gs_seg_verify_datafile的bucketnode为0至1023表示hashbucket表bucketnode，1024表示段页式普通表；当前仅支持hashbucket表和段页式普通表，集中式暂不支持hashbucket表。"
+  source_anchor: "1.6.41 页936-937"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_edit_page_bypath
+  type: constraint
+  statement: "gs_edit_page_bypath(path,blocknum,offset,data,data_size,read_backup,storage_type)修改复制页面的目标字段并落盘到指定路径，不直接修改原页面；仅主节点系统管理员或运维模式下运维管理员可执行。"
+  source_anchor: "1.6.41 页937-938"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_repair_page_bypath
+  type: syntax
+  statement: "gs_repair_page_bypath(src_path,src_blkno,dest_path,dest_blkno)从源路径复制修复指定页面；主机src_path可为standby，备机可指定primary，均支持段页式；需系统管理员或运维模式下运维管理员，仅主DN/备DN对应角色执行。"
+  source_anchor: "1.6.41 页939-940"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_edit_repair_page
+  type: syntax
+  statement: "gs_edit_repair_page(path,blocknum,area,index,name,value,value_type,timeout,recovery_backup)编辑/修复页面指定区域的字段；支持heap/ubtree元组和uheap td/ted等区域字段，需管理员类权限。"
+  source_anchor: "1.6.41 页941-943"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_repair_undo_byzone
+  type: syntax
+  statement: "gs_repair_undo_byzone(zone_id)重建/修复指定Undo Zone元信息，输出zone_id和repair_detail；zone_id为0到1048575时修复对应zone；zone被活跃线程占用时会结束占用线程强制修复。"
+  source_anchor: "1.6.41 页943"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_verify_urq
+  type: syntax
+  statement: "gs_verify_urq(index_oid,partindex_oid,blocknum,queue_type)校验UBTree索引回收队列（潜在队列/可用队列/单页面）正确性；输出error_code和detail。"
+  source_anchor: "1.6.41 页944"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_urq_dump_stat
+  type: syntax
+  statement: "gs_urq_dump_stat(index_oid,partindex_oid)输出UBTree索引回收队列详细统计信息；当前仅支持USTORE索引表。"
+  source_anchor: "1.6.41 页945-946"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_repair_urq
+  type: syntax
+  statement: "gs_repair_urq(index_oid,partindex_oid)重建UBTree索引回收队列，删除并重建空回收队列文件；仅主节点调用。"
+  source_anchor: "1.6.41 页946-947"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_check_table
+  type: syntax
+  statement: "gs_check_table(table_oid,partition_oid,index_oid,partindex_oid,start_block,block_count,duration,need_repair,mode)校验堆表和索引一致性，支持Astore/Ustore表和B-tree/UB-tree索引；输出verify_code和output_file。"
+  source_anchor: "1.6.41 页947-949"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_check_index
+  type: syntax
+  statement: "gs_check_index(index_oid,partindex_oid,duration,need_repair,mode)校验堆表和索引正向数据一致性，支持增量/断点续做/全量校验，输出verify_code和落盘文件路径。"
+  source_anchor: "1.6.41 页950-951"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_check_common_boundary
+  type: constraint
+  statement: "gs_check_table和gs_check_index为高危操作；校验错误码0表示未发现一致性问题，非0需联系工程师；断点/增量信息不持久化，进程重启后丢失；默认低优先级IO流控；仅初始用户、系统管理员、运维管理员或监控管理员可执行，只能校验当前数据库；建议业务低峰期使用。"
+  source_anchor: "1.6.41 页949-951"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_standby_bad_block_info
+  type: syntax
+  statement: "gs_get_standby_bad_block_info()显示备机已检测未修复的页面；invalid_type包括NOT_PRESENT、NOT_INITIALIZED、LSN_CHECK_ERROR和CRC_CHECK_ERROR；仅备DN管理员类用户或监控用户可查看。"
+  source_anchor: "1.6.41 页951"
+  source_refs: *ref771
+  status: confirmed
+- id: corruption_wave7_7_scope_note
+  type: environment
+  statement: "Wave 7-7完整覆盖1.6.41数据损坏检测修复函数，包括文件丢失校验/修复、坏块显示/清理、页面校验/修复/编辑、Undo Zone修复、UBTree回收队列校验/统计/修复，以及表和索引一致性校验与备机坏块查询。"
+  source_anchor: "1.6.41 页931-951"
+  source_refs: *ref771
+  status: confirmed
+open_questions:
+- id: corruption_wave7_7_oq_repair_matrix
+  statement: "文件/页面/Undo/回收队列修复在不同主备状态、段页式、压缩表、并发临界区和异常中断下的行为矩阵需授权环境验证。"
+  status: open
+- id: corruption_wave7_7_oq_check_evidence
+  statement: "gs_check_table和gs_check_index在Astore/Ustore、B-tree/UB-tree、增量/全量校验、断点续做和高负载下的一致性与性能影响需实机验证。"
+  status: open

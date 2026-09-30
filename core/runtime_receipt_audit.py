@@ -62,7 +62,7 @@ class RuntimeReceiptUnitDef(StrictRuntimeReceiptAuditModel):
 class RuntimeReceiptDef(StrictRuntimeReceiptAuditModel):
     kind: Literal["runtime_validation_receipt"]
     schema_version: Literal[1]
-    profile: Literal["runtime_validation_pilot_v1"]
+    profile: Literal["runtime_validation_pilot_v1", "runtime_guc_v2_pilot_v1"]
     status: Literal["runtime_verified", "failed"]
     database_executed: bool
     execution_authorized: bool

@@ -1,0 +1,194 @@
+document: 集中式版参考 / 1.6.49–1.6.50 SQL限流与SQL工具函数（Wave 6-6）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-29'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.6.49 SQL限流函数
+  - 1.6.50 SQL工具函数
+  physical_page_start: 991
+  physical_page_end: 1006
+  physical_page_count: 15
+  excludes: []
+facts:
+- id: sqlcontrol_wave6_6_add_workload_rule
+  type: syntax
+  statement: "gs_add_workload_rule(rule_type,rule_name,databases,start_time,end_time,max_workload,option_val)创建SQL限流规则并返回int8规则ID；需sysadmin权限。"
+  source_anchor: "1.6.49 页991-992"
+  source_refs: &ref491
+  - w6_6_1_6_49
+  status: confirmed
+- id: sqlcontrol_wave6_6_rule_types
+  type: syntax
+  statement: "限流规则类型包括sqlid、select/insert/update/delete/merge、resource和client，分别按Unique SQL ID、查询类型与关键字、系统资源利用率、客户端信息限流。"
+  source_anchor: "1.6.49 页991-992"
+  source_refs: *ref491
+  status: confirmed
+- id: sqlcontrol_wave6_6_rule_priority
+  type: constraint
+  statement: "限流规则生效优先级为client > resource > sqlid > select = insert = update = delete = merge。"
+  source_anchor: "1.6.49 页991-992"
+  source_refs: *ref491
+  status: confirmed
+- id: sqlcontrol_wave6_6_common_params
+  type: syntax
+  statement: "限流规则中rule_name可为NULL；databases为区分大小写的已创建数据库名数组，NULL表示所有数据库；start_time为NULL表示当前时间生效，end_time为NULL表示一直生效；max_workload为最大并发数。"
+  source_anchor: "1.6.49 页992-993"
+  source_refs: *ref491
+  status: confirmed
+- id: sqlcontrol_wave6_6_database_scope
+  type: constraint
+  statement: "databases列表中多个数据库为“或”关系；只有查询类型和client类型规则使用数据库列表，Unique SQL ID本身绑定库，resource规则对整个DN进程生效。"
+  source_anchor: "1.6.49 页992"
+  source_refs: *ref491
+  status: confirmed
+- id: sqlcontrol_wave6_6_time_boundary
+  type: constraint
+  statement: "创建限流规则时建议避免sysdate作为开始/结束时间，因秒后小数会四舍五入可能导致极短时间内不生效，推荐使用now()。"
+  source_anchor: "1.6.49 页992"
+  source_refs: *ref491
+  status: confirmed
+- id: sqlcontrol_wave6_6_option_val
+  type: syntax
+  statement: "option_val与rule_type匹配：sqlid提供Unique SQL ID及慢SQL管控选项；查询类型提供关键字序列；resource提供cpu/memory阈值；client提供ip和/或appname。"
+  source_anchor: "1.6.49 页993"
+  source_refs: *ref491
+  status: confirmed
+- id: sqlcontrol_wave6_6_update_rule
+  type: syntax
+  statement: "gs_update_workload_rule(rule_id,rule_name,databases,start_time,end_time,max_workload,option_val)更新SQL限流规则，需sysadmin权限，返回Boolean。"
+  source_anchor: "1.6.49 页994-996"
+  source_refs: *ref491
+  status: confirmed
+- id: sqlcontrol_wave6_6_delete_rule
+  type: syntax
+  statement: "gs_delete_workload_rule(rule_id int8)删除一条SQL限流规则，需sysadmin权限，返回Boolean。"
+  source_anchor: "1.6.49 页997"
+  source_refs: *ref491
+  status: confirmed
+- id: sqlcontrol_wave6_6_add_abnormal_sql
+  type: constraint
+  statement: "add_abnormal_sql('unique_sql_id')手动添加需CPU资源管控的异常SQL，需SYSADMIN或MONADMIN权限；成功返回Add succeed，失败返回Add failed及原因。"
+  source_anchor: "1.6.49 页997-998"
+  source_refs: *ref491
+  status: confirmed
+- id: sqlcontrol_wave6_6_add_abnormal_sql_state
+  type: behavior_oracle
+  statement: "手动加入异常SQL后，abnormal_count取abnormal_sql_effective_count上限，control_expiration_time取abnormal_sql_control_duration失效时间，abnormal_type为sql_abnormal_manual。"
+  source_anchor: "1.6.49 页998"
+  source_refs: *ref491
+  status: confirmed
+- id: sqlcontrol_wave6_6_clean_abnormal_sql
+  type: constraint
+  statement: "clean_abnormal_sql(operation,unique_sql_id)清理被CPU资源管控的异常SQL并加入审计白名单；operation支持BY_ID或BY_ALL，需SYSADMIN/MONITORADMIN权限。"
+  source_anchor: "1.6.49 页998"
+  source_refs: *ref491
+  status: confirmed
+- id: sqlcontrol_wave6_6_abnormal_allowlist
+  type: syntax
+  statement: "abnormal_sql_manage_allowlist(operation,unique_sql_id)在白名单添加或删除异常SQL；operation支持ADD或DELETE，需SYSADMIN/MONITORADMIN权限。"
+  source_anchor: "1.6.49 页998-999"
+  source_refs: *ref491
+  status: confirmed
+- id: sqlcontrol_wave6_6_abnormal_cpu_limit
+  type: constraint
+  statement: "abnormal_sql_cpu_limit()获取throttle异常Cgroup组CPU使用率控制上限百分比；需SYSADMIN/MONITORADMIN权限，enable_mtd开启时失效。"
+  source_anchor: "1.6.49 页999"
+  source_refs: *ref491
+  status: confirmed
+- id: sqlcontrol_wave6_6_workload_rule_stat
+  type: syntax
+  statement: "gs_get_workload_rule_stat(rule_id)查询限流规则拦截SQL次数，需sysadmin权限；rule_id为-1表示查询所有规则；Non-PDB正常，PDB报错。"
+  source_anchor: "1.6.49 页999-1000"
+  source_refs: *ref491
+  status: confirmed
+- id: sqlcontrol_wave6_6_refresh_cache
+  type: constraint
+  statement: "gs_refresh_workload_rule_cache()刷新限流规则缓存与系统表一致；不支持事务中执行，需sysadmin权限；事务回滚后若缓存不一致需手动调用。"
+  source_anchor: "1.6.49 页1000"
+  source_refs: *ref491
+  status: confirmed
+- id: sqlpatch_wave6_6_create_hint_patch
+  type: syntax
+  statement: "DBE_SQL_UTIL.create_hint_sql_patch创建调优SQL PATCH并返回Boolean；支持含is_sql_hash的重载和支持parent_unique_sql_id限制生效范围的重载。"
+  source_anchor: "1.6.50 页1000-1001"
+  source_refs: &ref501
+  - w6_6_1_6_50
+  status: confirmed
+- id: sqlpatch_wave6_6_create_hint_permissions
+  type: constraint
+  statement: "create_hint_sql_patch仅初始用户、sysadmin、opradmin和monadmin用户可调用；query_string传入EXECUTE语句时会获取当前会话对应PREPARE语句，若无对应PREPARE则无效。"
+  source_anchor: "1.6.50 页1000-1001"
+  source_refs: *ref501
+  status: confirmed
+- id: sqlpatch_wave6_6_parent_scope
+  type: behavior_oracle
+  statement: "create_hint_sql_patch重载中parent_unique_sql_id为0时PATCH仅在外层SQL生效，非0时仅在特定存储过程中生效。"
+  source_anchor: "1.6.50 页1001"
+  source_refs: *ref501
+  status: confirmed
+- id: sqlpatch_wave6_6_create_abort_patch
+  type: syntax
+  statement: "DBE_SQL_UTIL.create_abort_sql_patch创建SQL异常阻断补丁并返回Boolean；支持基础重载和支持parent_unique_sql_id的重载。"
+  source_anchor: "1.6.50 页1001-1002"
+  source_refs: *ref501
+  status: confirmed
+- id: sqlpatch_wave6_6_drop_enable_disable
+  type: syntax
+  statement: "DBE_SQL_UTIL.drop_sql_patch(patch_name)、enable_sql_patch(patch_name)和disable_sql_patch(patch_name)分别删除、开启和禁用SQL PATCH，均返回Boolean。"
+  source_anchor: "1.6.50 页1003-1004"
+  source_refs: *ref501
+  status: confirmed
+- id: sqlpatch_wave6_6_drop_enable_disable_permissions
+  type: constraint
+  statement: "drop_sql_patch、enable_sql_patch和disable_sql_patch均仅初始用户、sysadmin、opradmin和monadmin用户可调用。"
+  source_anchor: "1.6.50 页1003-1004"
+  source_refs: *ref501
+  status: confirmed
+- id: sqlpatch_wave6_6_show_patch
+  type: syntax
+  statement: "DBE_SQL_UTIL.show_sql_patch(patch_name)输出unique_sql_id、status、enabled、abort和hint_str；status为d表示Unique SQL ID，h表示SQL HASH。"
+  source_anchor: "1.6.50 页1004"
+  source_refs: *ref501
+  status: confirmed
+- id: sqlpatch_wave6_6_query_hash
+  type: syntax
+  statement: "DBE_SQL_UTIL.sqlpatch_query_hash(query_string,need_validate)获取SQL对应HASH值，返回int8；仅初始用户、sysadmin、opradmin和monadmin可调用。"
+  source_anchor: "1.6.50 页1004-1005"
+  source_refs: *ref501
+  status: confirmed
+- id: sqlpatch_wave6_6_query_hash_cursor_sharing
+  type: constraint
+  statement: "cursor_sharing=force时SQL HASH基于参数化后的SQL文本计算；sqlpatch_query_hash应传入参数化SQL并将need_validate设为false。"
+  source_anchor: "1.6.50 页1005"
+  source_refs: *ref501
+  status: confirmed
+- id: sqlpatch_wave6_6_show_plan_by_hash
+  type: syntax
+  statement: "DBE_SQL_UTIL.gs_show_plan_by_hash(sql_hash,plan_hash)在sql_hash、plan_hash和outline合法时打印计划，仅sysadmin、opradmin和monadmin可调用。"
+  source_anchor: "1.6.50 页1005"
+  source_refs: *ref501
+  status: confirmed
+- id: sqlpatch_wave6_6_show_plan_boundary
+  type: constraint
+  statement: "gs_show_plan_by_hash要求sql_hash存在于gs_spm_sql，sql_hash与plan_hash存在于gs_spm_baseline，SQL可正常执行；cursor_sharing仅支持exact模式；不支持存储过程带变量查询；执行者需有对象访问权限；还原不使用原参数类型。"
+  source_anchor: "1.6.50 页1005"
+  source_refs: *ref501
+  status: confirmed
+- id: sqlcontrol_wave6_6_scope_note
+  type: environment
+  statement: "Wave 6-6完整覆盖1.6.49 SQL限流函数和1.6.50 SQL工具函数，包括限流规则、异常SQL管控、SQL PATCH管理和SPM计划还原，物理页991-1005。"
+  source_anchor: "1.6.49–1.6.50 页991-1005"
+  source_refs: &refscope
+  - w6_6_1_6_49
+  - w6_6_1_6_50
+  status: confirmed
+open_questions:
+- id: sqlcontrol_wave6_6_oq_rule_matrix
+  statement: "SQL限流规则在五类rule_type、多库、时间边界、资源阈值、客户端组合、事务回滚和PDB/Non-PDB下的拦截矩阵需授权环境验证。"
+  status: open
+- id: sqlcontrol_wave6_6_oq_patch_plan_matrix
+  statement: "SQL PATCH创建/启停/展示/删除和计划还原在Unique SQL ID、SQL HASH、PREPARE、cursor_sharing和权限边界下的行为矩阵需实机验证。"
+  status: open

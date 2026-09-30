@@ -1,0 +1,173 @@
+document: 集中式版参考 / 1.6.27 系统管理函数（Wave 2B-6）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-29'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapter: 1.6.27 系统管理函数
+  subsection: 1.6.27.11 段页式存储函数
+  physical_page_start: 674
+  physical_page_end: 696
+  physical_page_count: 22
+  excludes:
+  - 1.6.27.12 hashbucket系统函数及后续子族
+facts:
+- id: wave2b6_bucketnode_mapping
+  type: syntax
+  statement: 段页式函数中bucketnode取值：1024普通表、1025全局临时表、1026 unlogged表、1027本地临时表。
+  source_anchor: 1.6.27.11 页674-675
+  source_refs: &id001
+  - w2b6_1_6_27
+  status: confirmed
+- id: wave2b6_forknum_mapping
+  type: syntax
+  statement: 段页式函数中forknum取值：0 main fork、1 fsm fork、2 vm fork。
+  source_anchor: 1.6.27.11 页674-675
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_page_contents
+  type: syntax
+  statement: 段页式函数contents取值：permanent永久、unlogged不记录日志、temporary全局临时、temporary2本地临时。
+  source_anchor: 1.6.27.11 页674-675
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_local_space_shrink
+  type: constraint
+  statement: local_space_shrink(tablespacename,databasename)在当前节点对指定段页式空间做物理收缩；目前仅支持当前连接database。
+  source_anchor: 1.6.27.11 页674
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_gs_space_shrink
+  type: constraint
+  statement: gs_space_shrink(tablespace,database,extent_type,forknum)按OID收缩段页式空间；extent_type范围[2,5]，1表示段页式元数据且不支持收缩；该函数仅限工具使用。
+  source_anchor: 1.6.27.11 页674
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_dump_page_by_file
+  type: syntax
+  statement: gs_seg_dump_page(tablespacename,file_id,bucketnode,file_block_id,forknum=0)解析指定段页式物理页面，返回解析内容；仅sysadmin或运维管理员可执行；结果不包含实际用户数据。
+  source_anchor: 1.6.27.11 页674-676
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_dump_page_by_relid
+  type: syntax
+  statement: gs_seg_dump_page(relid,bucketnode,block_id,partition)在DN上按relation OID解析指定页面；仅sysadmin或运维管理员可执行。
+  source_anchor: 1.6.27.11 页675-677
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_dump_page_page_types
+  type: constraint
+  statement: gs_seg_dump_page可识别业务页面（heap、uheap、btree、ubtree等）和段页式元页面（bucket main head、file head、spc header等），并输出unknown页面。
+  source_anchor: 1.6.27.11 页674-677
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_spc_location_overloads
+  type: syntax
+  statement: gs_seg_get_spc_location支持按tablespace_name/bucketnode/file_id/file_block_id，或按relid/bucketnode/block_id/partition获取空间位置信息。
+  source_anchor: 1.6.27.11 页677-678
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_seg_get_location
+  type: syntax
+  statement: gs_seg_get_location(block_id,as_extent=false)返回全局block id对应的段页式位置；as_extent=true时按扩展维度返回。
+  source_anchor: 1.6.27.11 页678-679
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_segment_layout
+  type: syntax
+  statement: gs_seg_get_segment_layout()返回段页式布局的version、section_id、section_type、extent_size、extent_page_count、extent_count_start/end和total_size。
+  source_anchor: 1.6.27.11 页679-680
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_datafile_layout
+  type: syntax
+  statement: gs_seg_get_datafile_layout()返回1~5号数据文件静态布局，包括seg_storage_type、file_id、section_id、section_type、page_start/end/count和total_size；仅管理员可查。
+  source_anchor: 1.6.27.11 页680-683
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_datafile_section_types
+  type: syntax
+  statement: 数据文件section_type包括file_header、spc_header、map_header、map_pages、ip_pages和data_pages。
+  source_anchor: 1.6.27.11 页682-683
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_slice_layout
+  type: syntax
+  statement: gs_seg_get_slice_layout(file_id,bucketnode,slice_id)返回指定slice布局，包括file_header、spc_header、map_header、map_pages、ip_pages和data_pages。
+  source_anchor: 1.6.27.11 页684-685
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_get_segment_overloads
+  type: syntax
+  statement: gs_seg_get_segment支持按tablespace_name/bucketnode以及按relid/bucketnode/partition查询段信息。
+  source_anchor: 1.6.27.11 页685-687
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_get_extents_overloads
+  type: syntax
+  statement: gs_seg_get_extents支持按tablespace_name/bucketnode/file_id/start_block/count以及按relid/bucketnode/partition/start_block/count查询扩展信息。
+  source_anchor: 1.6.27.11 页687-690
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_extent_type_mapping
+  type: syntax
+  statement: 段页式1~5号文件的extent_type映射为1、8、128、1024、4096。
+  source_anchor: 1.6.27.11 页690
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_extent_page_types
+  type: syntax
+  statement: 查询结果中的type包括segment head、fork head、level1 page和data extent。
+  source_anchor: 1.6.27.11 页690
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_free_spc_remain_segment
+  type: constraint
+  statement: gs_seg_free_spc_remain_segment释放指定表空间残留段在1号文件占用的页面；为兜底离线清理手段；同一节点同一database不允许并发运行多个残留清理操作。
+  source_anchor: 1.6.27.11 页691-692
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_auto_free_remain_segment
+  type: constraint
+  statement: gs_seg_auto_free_remain_segment()是在线段页式清理手段，需要GUC enable_auto_segment_remain_cleanup=on；同样不允许同一节点同一database并发执行多个残留清理操作。
+  source_anchor: 1.6.27.11 页692
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_free_spc_remain_extent
+  type: constraint
+  statement: gs_seg_free_spc_remain_extent释放残留孤立扩展；是离线清理的可靠保证；同一节点同一database不允许并发运行多个残留清理操作。
+  source_anchor: 1.6.27.11 页692-694
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_get_datafiles
+  type: syntax
+  statement: gs_seg_get_datafiles(database_name)查看实例所有段页式数据文件信息；仅管理员可查；contents包括permanent、unlogged、temporary、temporary2。
+  source_anchor: 1.6.27.11 页694-695
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_get_spc_extents
+  type: syntax
+  statement: gs_seg_get_spc_extents(tablespace_name,file_id,bucketnode,start_block,count)返回指定表空间扩展信息；仅管理员可查；包含extent_page_type、allocated和shrink_is_residual等字段。
+  source_anchor: 1.6.27.11 页695-696
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_extent_page_type_values
+  type: syntax
+  statement: 扩展页面类型包括segment head、fork head、level1 page和data extent；allocated Y/N表示已分配/未分配；shrink_is_residual Y/N表示是否为shrink残留扩展。
+  source_anchor: 1.6.27.11 页695-696
+  source_refs: *id001
+  status: confirmed
+- id: wave2b6_scope_note
+  type: environment
+  statement: Wave 2B-6覆盖1.6.27.11段页式存储函数，物理页674-695。
+  source_anchor: 1.6.27.11 页674-696
+  source_refs: *id001
+  status: confirmed
+open_questions:
+- id: wave2b6_oq_dump_page_permission_matrix
+  statement: gs_seg_dump_page在不同页面类型、forknum、bucketnode和PDB/Non-PDB下的输出/权限矩阵需实机验证。
+  status: open
+- id: wave2b6_oq_cleanup_concurrency
+  statement: segment/extent残留清理函数的并发限制、GUC开关和失败恢复行为需隔离环境验证。
+  status: open

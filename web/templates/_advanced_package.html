@@ -1,0 +1,306 @@
+<section class="page-shell" aria-labelledby="advanced-package-title">
+  <header class="page-header">
+    <div class="page-header__copy">
+      <div class="page-header__meta">
+        <span class="overline">Advanced Package Pilot</span>
+        <span class="mono-id">interface contracts + candidate matrix + evidence</span>
+      </div>
+      <h1 id="advanced-package-title" class="page-title">高级包静态证据链</h1>
+      <p class="page-description">浏览 {{ evidence.summary.package_count }} 个已建模包、{{ evidence.summary.interface_count }} 个接口合同和 runtime 证据缺口。页面只读本地产物，不连接数据库，也不执行 PL/SQL。</p>
+    </div>
+    <div class="page-header__actions">
+      <a href="/api/advanced-package/pilot" target="_blank" rel="noopener" class="primary-button">
+        <i data-lucide="braces" aria-hidden="true"></i>查看 JSON
+      </a>
+      <a href="/api/advanced-package/evidence-bundle/verify" target="_blank" rel="noopener" class="ghost-button">
+        <i data-lucide="shield-check" aria-hidden="true"></i>校验证据
+      </a>
+    </div>
+  </header>
+
+  <div class="page-stack">
+    <section class="metric-grid metric-grid--six" aria-label="Advanced Package summary">
+      <article class="metric-card metric-card--dark">
+        <span class="metric-card__label">已建模包</span>
+        <strong class="metric-card__value">{{ evidence.summary.package_count }}</strong>
+        <span class="metric-card__hint">支持包 {{ evidence.summary.supported_package_count }} 个</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-card__label">接口合同</span>
+        <strong class="metric-card__value">{{ evidence.summary.interface_count }}</strong>
+        <span class="metric-card__hint">来源哈希与 confirmed facts</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-card__label">Runtime候选接口</span>
+        <strong class="metric-card__value">{{ evidence.summary.runtime_candidate_interface_count }}</strong>
+        <span class="metric-card__hint">已登记用例 {{ evidence.summary.test_case_count }} 个</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-card__label">Manual review</span>
+        <strong class="metric-card__value">{{ evidence.summary.manual_review_interface_count }}</strong>
+        <span class="metric-card__hint">暂不自动执行</span>
+      </article>
+      <article class="metric-card">
+        <span class="metric-card__label">静态证据</span>
+        <strong class="metric-card__value">{{ 'Complete' if evidence.summary.static_complete else 'Incomplete' }}</strong>
+        <span class="metric-card__hint">合同 + dry run + bundle</span>
+      </article>
+      <article class="metric-card {% if evidence.summary.runtime_complete %}metric-card--dark{% endif %}">
+        <span class="metric-card__label">Runtime证据</span>
+        <strong class="metric-card__value">{{ 'Complete' if evidence.summary.runtime_complete else 'Missing' }}</strong>
+        <span class="metric-card__hint">receipt + receipt audit</span>
+      </article>
+    </section>
+
+    <aside class="callout callout--warning" aria-label="Advanced package boundary">
+      <i data-lucide="shield-alert" aria-hidden="true"></i>
+      <div>
+        <strong>当前页面只读取本地高级包产物</strong>
+        <div style="margin-top:3px;">静态合同与 runtime dry run 不是执行收据；所有 Oracle 仍为 needs_verification。</div>
+      </div>
+    </aside>
+
+    <section class="panel" aria-labelledby="advanced-package-packages-title">
+      <div class="panel__header">
+        <div>
+          <h2 id="advanced-package-packages-title" class="panel__heading">已建模包</h2>
+          <p class="panel__description">每个包绑定来源文件、来源 SHA-256 和文档锚点。</p>
+        </div>
+        <span class="chip">{{ packages | length }}</span>
+      </div>
+      <div class="panel__body">
+        <div class="data-table-wrap" tabindex="0" aria-label="Advanced packages">
+          <table class="data-table" style="min-width:1080px;">
+            <caption class="sr-only">Advanced packages</caption>
+            <thead>
+              <tr>
+                <th scope="col">Package</th>
+                <th scope="col">接口数</th>
+                <th scope="col">来源文件</th>
+                <th scope="col">来源 SHA-256</th>
+                <th scope="col">锚点</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for package in packages %}
+              <tr>
+                <th scope="row"><span class="mono-id">{{ package.name }}</span></th>
+                <td>{{ package.interfaces | length }}</td>
+                <td><code class="mono-id">{{ package.source.source_relpath }}</code></td>
+                <td><code class="mono-id">{{ package.source.source_sha256 }}</code></td>
+                <td>{{ package.source.anchor }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="advanced-package-candidates-title">
+      <div class="panel__header">
+        <div>
+          <h2 id="advanced-package-candidates-title" class="panel__heading">Candidate Matrix</h2>
+          <p class="panel__description">22个支持包的建模状态和扩展优先级；near-term 不代表可自动执行。</p>
+        </div>
+        <span class="chip">{{ candidate_matrix.summary.modeled_package_count }} / {{ candidate_matrix.summary.supported_package_count }}</span>
+      </div>
+      <div class="panel__body">
+        <div class="data-table-wrap" tabindex="0" aria-label="Advanced package candidate matrix">
+          <table class="data-table" style="min-width:1080px;">
+            <caption class="sr-only">Advanced package candidate matrix</caption>
+            <thead>
+              <tr>
+                <th scope="col">Package</th>
+                <th scope="col">状态</th>
+                <th scope="col">Facts</th>
+                <th scope="col">Syntax</th>
+                <th scope="col">Behavior</th>
+                <th scope="col">Environment</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for package in candidate_matrix.packages %}
+              <tr>
+                <th scope="row"><span class="mono-id">{{ package.package_name }}</span></th>
+                <td>
+                  {% if package.modeled %}
+                  <span class="chip chip--positive">modeled</span>
+                  {% elif package.candidate_tier == 'near_term_candidate' %}
+                  <span class="chip chip--warning">near term</span>
+                  {% elif package.candidate_tier == 'needs_extraction' %}
+                  <span class="chip chip--negative">needs extraction</span>
+                  {% else %}
+                  <span class="chip">later batch</span>
+                  {% endif %}
+                </td>
+                <td>{{ package.fact_count }}</td>
+                <td>{{ package.syntax_fact_count }}</td>
+                <td>{{ package.behavior_oracle_fact_count }}</td>
+                <td>{{ package.environment_fact_count }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="advanced-package-gate-title">
+      <div class="panel__header">
+        <div>
+          <h2 id="advanced-package-gate-title" class="panel__heading">Execution Gate</h2>
+          <p class="panel__description">静态证据、runtime plan、preflight、显式授权与数据库可用分层判断；当前预览不执行数据库操作。</p>
+        </div>
+        {% if execution_gate.allowed %}
+        <span class="chip chip--positive">Allowed</span>
+        {% else %}
+        <span class="chip chip--warning">Blocked</span>
+        {% endif %}
+      </div>
+      <div class="panel__body">
+        <div class="metric-grid metric-grid--six" aria-label="Advanced package execution gate">
+          <article class="metric-card {% if execution_gate.static_ready %}metric-card--dark{% endif %}">
+            <span class="metric-card__label">静态证据</span>
+            <strong class="metric-card__value">{{ 'Ready' if execution_gate.static_ready else 'Blocked' }}</strong>
+            <span class="metric-card__hint">Evidence Bundle 无漂移</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">Runtime plan</span>
+            <strong class="metric-card__value">{{ 'Ready' if execution_gate.runtime_plan_ready else 'Blocked' }}</strong>
+            <span class="metric-card__hint">29 units / 37 steps</span>
+          </article>
+          <article class="metric-card {% if execution_gate.preflight_ready %}metric-card--dark{% endif %}">
+            <span class="metric-card__label">Preflight</span>
+            <strong class="metric-card__value">{{ 'Ready' if execution_gate.preflight_ready else 'Blocked' }}</strong>
+            <span class="metric-card__hint">Result + audit + 0 findings</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">授权请求</span>
+            <strong class="metric-card__value">{{ 'Requested' if execution_gate.authorization_requested else 'Not requested' }}</strong>
+            <span class="metric-card__hint">CLI flag</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">环境授权</span>
+            <strong class="metric-card__value">{{ 'Set' if execution_gate.authorization_environment_set else 'Not set' }}</strong>
+            <span class="metric-card__hint">GAUSSDB_RUNTIME_PILOT_AUTHORIZED</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">数据库</span>
+            <strong class="metric-card__value">{{ 'Enabled' if execution_gate.database_ready else 'Disabled' }}</strong>
+            <span class="metric-card__hint">GAUSSDB_ENABLED</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">门禁结果</span>
+            <strong class="metric-card__value">{{ 'Allowed' if execution_gate.allowed else 'Blocked' }}</strong>
+            <span class="metric-card__hint">静态、计划、preflight、授权与数据库全部满足</span>
+          </article>
+        </div>
+        <div class="fine-print" style="margin-top:16px;display:grid;gap:8px;">
+          <strong>阻断项</strong>
+          <ul style="margin:0;padding-left:20px;display:grid;gap:6px;">
+            {% for blocker in execution_gate.blockers %}
+            <li>{{ blocker }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="advanced-package-coverage-title">
+      <div class="panel__header">
+        <div>
+          <h2 id="advanced-package-coverage-title" class="panel__heading">Runtime候选覆盖</h2>
+          <p class="panel__description">对账 runtime candidate 接口和 dry run 已覆盖接口；覆盖缺口需单独设计 Oracle 与清理。</p>
+        </div>
+        <span class="chip chip--warning">{{ evidence.summary.uncovered_runtime_candidate_interface_count }} uncovered</span>
+      </div>
+      <div class="panel__body">
+        <div class="metric-grid metric-grid--six" aria-label="Advanced package runtime coverage">
+          <article class="metric-card">
+            <span class="metric-card__label">Runtime候选接口</span>
+            <strong class="metric-card__value">{{ evidence.summary.runtime_candidate_interface_count }}</strong>
+            <span class="metric-card__hint">接口策略登记</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-card__label">已覆盖接口</span>
+            <strong class="metric-card__value">{{ evidence.summary.runtime_case_interface_count }}</strong>
+            <span class="metric-card__hint">dry run 引用</span>
+          </article>
+          <article class="metric-card {% if evidence.summary.runtime_candidate_case_coverage_complete %}metric-card--dark{% endif %}">
+            <span class="metric-card__label">覆盖缺口</span>
+            <strong class="metric-card__value">{{ evidence.summary.uncovered_runtime_candidate_interface_count }}</strong>
+            <span class="metric-card__hint">需单独设计用例</span>
+          </article>
+        </div>
+        <details style="margin-top:16px;">
+          <summary class="fine-print">查看覆盖缺口接口</summary>
+          <ul class="fine-print" style="margin:8px 0 0;padding-left:20px;display:grid;gap:6px;">
+            {% for interface_id in evidence.uncovered_runtime_candidate_interface_ids %}
+            <li><span class="mono-id">{{ interface_id }}</span></li>
+            {% endfor %}
+          </ul>
+        </details>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="advanced-package-evidence-title">
+      <div class="panel__header">
+        <div>
+          <h2 id="advanced-package-evidence-title" class="panel__heading">Evidence Bundle</h2>
+          <p class="panel__description">记录已存在与缺失的运行时证据；缺失项不会被伪装成已验证。</p>
+        </div>
+        <span class="chip">{{ evidence.summary.present_count }} / {{ evidence.summary.artifact_count }}</span>
+      </div>
+      <div class="panel__body">
+        <div class="data-table-wrap" tabindex="0" aria-label="Advanced package evidence artifacts">
+          <table class="data-table" style="min-width:1080px;">
+            <caption class="sr-only">Advanced package evidence artifacts</caption>
+            <thead>
+              <tr>
+                <th scope="col">Artifact</th>
+                <th scope="col">Path</th>
+                <th scope="col">存在</th>
+                <th scope="col">大小</th>
+                <th scope="col">SHA-256</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for artifact in evidence.artifacts %}
+              <tr>
+                <th scope="row">{{ artifact.name }}</th>
+                <td><code class="mono-id">{{ artifact.path }}</code></td>
+                <td>
+                  {% if artifact.exists %}
+                  <span class="chip chip--positive">存在</span>
+                  {% else %}
+                  <span class="chip">缺失</span>
+                  {% endif %}
+                </td>
+                <td>{{ artifact.size_bytes if artifact.size_bytes is not none else '-' }}</td>
+                <td><code class="mono-id">{{ artifact.sha256 or '-' }}</code></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="advanced-package-boundary-title">
+      <div class="panel__header">
+        <div>
+          <h2 id="advanced-package-boundary-title" class="panel__heading">边界</h2>
+          <p class="panel__description">这些限制必须与静态结论一起保留。</p>
+        </div>
+      </div>
+      <div class="panel__body">
+        <ul class="fine-print" style="margin:0;padding-left:20px;display:grid;gap:8px;">
+          {% for limit in evidence.limits %}
+          <li>{{ limit }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </section>
+  </div>
+</section>

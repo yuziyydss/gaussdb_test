@@ -1,0 +1,208 @@
+document: 集中式版参考 / 1.6.20 安全函数（Wave 6-3）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-29'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapter: 1.6.20 安全函数
+  subsection: 1.6.20 安全函数（加密、摘要、密码策略、登录审计、审计日志与数据脱敏）
+  physical_page_start: 522
+  physical_page_end: 535
+  physical_page_count: 13
+  excludes: []
+facts:
+- id: security_wave6_3_encrypt_aes128
+  type: constraint
+  statement: "gs_encrypt_aes128(encryptstr,keystr)以keystr为口令加密字符串并返回text；keystr长度8-16字节且至少包含大写字母、小写字母、数字、特殊字符中的3类。"
+  source_anchor: "1.6.20 页522"
+  source_refs: &ref201
+  - w6_3_1_6_20
+  status: confirmed
+- id: security_wave6_3_encrypt_aes128_output
+  type: syntax
+  statement: "gs_encrypt_aes128返回值至少92字节，不超过4*[(Len+68)/3]字节；Len为加密前数据字节数。"
+  source_anchor: "1.6.20 页522"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_encrypt
+  type: syntax
+  statement: "gs_encrypt(encryptstr,keystr,encrypttype)按encrypttype加密并返回text；encrypttype不区分大小写，支持aes128、sm4、aes128_cbc_sha256、aes256_cbc_sha256、aes128_gcm_sha256、aes256_gcm_sha256和sm4_ctr_sm3。"
+  source_anchor: "1.6.20 页523"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_legacy_encrypt_modes
+  type: constraint
+  statement: "gs_encrypt中aes128和sm4为兼容旧版本参数；aes128使用AES128 CBC模式并用SHA1完整性校验；sm4使用SM4 CTR模式且不进行完整性校验。"
+  source_anchor: "1.6.20 页523"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_encrypt_bytea
+  type: syntax
+  statement: "gs_encrypt_bytea(encryptstr,keystr,encrypttype)加密字符串并返回bytea；encrypttype支持aes128_cbc_sha256、aes256_cbc_sha256、aes128_gcm_sha256、aes256_gcm_sha256和sm4_ctr_sm3。"
+  source_anchor: "1.6.20 页523"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_key_policy
+  type: constraint
+  statement: "gs_encrypt/gs_encrypt_bytea/gs_decrypt/gs_decrypt_bytea的keystr均为8-16字节且至少包含大写字母、小写字母、数字、特殊字符中的3类，不得为空。"
+  source_anchor: "1.6.20 页523-525"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_gsql_history_boundary
+  type: environment
+  statement: "加解密函数执行需传入口令；为安全起见，gsql不将包含这些函数名字样的SQL记入执行历史，无法通过上下翻页找到执行历史。"
+  source_anchor: "1.6.20 页522-525"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_decrypt_aes128
+  type: constraint
+  statement: "gs_decrypt_aes128(decryptstr,keystr)解密gs_encrypt_aes128结果；keystr必须与加密时一致且不得为空。"
+  source_anchor: "1.6.20 页524"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_decrypt
+  type: constraint
+  statement: "gs_decrypt(decryptstr,keystr,decrypttype)需与gs_encrypt使用的decrypttype和keystr一致；keystr不得为空，返回text。"
+  source_anchor: "1.6.20 页524-525"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_decrypt_bytea
+  type: syntax
+  statement: "gs_decrypt_bytea(decryptstr,keystr,decrypttype)解密gs_encrypt_bytea结果；decryptstr为bytea，返回text；keystr和decrypttype必须与加密时一致。"
+  source_anchor: "1.6.20 页525"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_aes_encrypt
+  type: syntax
+  statement: "aes_encrypt(str,key_str,init_vector)基于AES算法加密并返回text；str或key_str为NULL时返回NULL；两者均非NULL时init_vector不可为NULL，长度需至少16字节，超过16字节忽略。"
+  source_anchor: "1.6.20 页525-526"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_aes_encrypt_boundary
+  type: constraint
+  statement: "aes_encrypt仅在sql_compatibility='B'时有效；建议OFB模式每次加密IV唯一，CBC/CFB模式IV不可预测；存储过程、debug_print_plan日志需避免泄露参数；服务端和客户端均为SQL_ASCII时才能避免openssl返回的非ASCII数据报错。"
+  source_anchor: "1.6.20 页526"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_aes_decrypt
+  type: syntax
+  statement: "aes_decrypt(pass_str,key_str,init_vector)基于AES解密并返回text；pass_str或key_str为NULL时返回NULL；两者均非NULL时init_vector不可为NULL，长度至少16字节，超过部分忽略。"
+  source_anchor: "1.6.20 页526-527"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_aes_decrypt_boundary
+  type: constraint
+  statement: "aes_decrypt仅在sql_compatibility='B'时有效；成功解密需block_encryption_mode、key_str和IV与加密一致；不支持直接从gsql复制密文解密；SQL_ASCII场景客户端编码也需为SQL_ASCII。"
+  source_anchor: "1.6.20 页527"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_digest
+  type: syntax
+  statement: "gs_digest(input_string,hash_algorithm)计算字符串哈希并以十六进制text返回；input_string不能为NULL，当前支持SHA256、SHA384、SHA512和SM3，大小写均可，不支持算法报错。"
+  source_anchor: "1.6.20 页527"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_password_deadline
+  type: syntax
+  statement: "gs_password_deadline显示当前账户密码距离过期的时间，返回interval。"
+  source_anchor: "1.6.20 页527"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_password_notifytime
+  type: syntax
+  statement: "gs_password_notifytime()显示账户密码到期前提醒天数，返回int32。"
+  source_anchor: "1.6.20 页527"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_password_lifetime
+  type: syntax
+  statement: "gs_password_lifetime(roleName)显示指定账户密码剩余有效时间；未传参数时默认当前账户；未设置密码有效期返回'-'，返回string。"
+  source_anchor: "1.6.20 页527-528"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_password_deadline_lifetime_distinction
+  type: constraint
+  statement: "gs_password_deadline查询password_effect_time设置的密码到期时间；gs_password_lifetime查询账户密码自身设置的到期时间。"
+  source_anchor: "1.6.20 页528"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_login_audit_messages
+  type: behavior_oracle
+  statement: "login_audit_messages(Boolean)查看登录信息；true查询上一次登录成功的日期、时间和IP等，false查询自上次登录成功以来失败的尝试次数、日期和时间。"
+  source_anchor: "1.6.20 页528"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_login_audit_messages_pid
+  type: behavior_oracle
+  statement: "login_audit_messages_pid基于当前backendid向前查找登录信息，不会受同一用户后续登录影响；线程池开启时backendid可能切换，多次调用结果可能不一致，不建议在线程池下调用。"
+  source_anchor: "1.6.20 页528-529"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_inet_server_client
+  type: syntax
+  statement: "安全函数章节中的inet_server_addr与inet_client_addr分别显示服务器IP和客户端IP，返回inet；本地连接显示为空。"
+  source_anchor: "1.6.20 页529"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_query_audit
+  type: syntax
+  statement: "gs_query_audit(starttime,endtime[,audit_log])和pg_query_audit(starttime,endtime[,audit_log])查看当前节点传统审计日志，返回record。"
+  source_anchor: "1.6.20 页529-531"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_query_audit_fields
+  type: syntax
+  statement: "传统审计日志输出time、type、result、userid、username、database、client_conninfo、object_name、detail_info、node_name、thread_id、local_port和remote_port。"
+  source_anchor: "1.6.20 页530-531"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_query_audit_pdb
+  type: constraint
+  statement: "传统审计函数在多租场景下Non-PDB返回全部传统审计日志，PDB仅返回该PDB相关日志。"
+  source_anchor: "1.6.20 页529-531"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_query_unified_audit
+  type: syntax
+  statement: "gs_query_unified_audit(starttime,endtime[,audit_log])查看当前节点统一审计日志，返回record；多租场景下Non-PDB返回全部日志，PDB仅返回本PDB相关日志。"
+  source_anchor: "1.6.20 页531-532"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_unified_audit_fields
+  type: syntax
+  statement: "统一审计日志在传统审计字段基础上增加policy_id、unified_audit_type和unified_audit_policy。"
+  source_anchor: "1.6.20 页532"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_delete_audit
+  type: constraint
+  statement: "gs_delete_audit(starttime,endtime)和pg_delete_audit(starttime,endtime)删除指定时间段审计日志；Non-PDB可删除全局时间段日志，PDB仅删除本PDB相关时间段日志；返回void。"
+  source_anchor: "1.6.20 页533"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_masking_functions
+  type: syntax
+  statement: "脱敏策略内部函数包括alldigitsmasking、creditcardmasking、randommasking、fullemailmasking、basicemailmasking和shufflemasking，均返回text。"
+  source_anchor: "1.6.20 页533-534"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_masking_semantics
+  type: behavior_oracle
+  statement: "alldigitsmasking对所有字符脱敏；creditcardmasking对信用卡信息脱敏；randommasking使用随机策略；fullemailmasking对最后一个'.'之前且除'@'外的文本脱敏；basicemailmasking对第一个'@'之前文本脱敏；shufflemasking乱序排列字符。"
+  source_anchor: "1.6.20 页533-534"
+  source_refs: *ref201
+  status: confirmed
+- id: security_wave6_3_scope_note
+  type: environment
+  statement: "Wave 6-3完整覆盖1.6.20安全函数：对称加解密、AES向量模式、摘要、密码策略、登录审计、传统/统一审计、审计删除和数据脱敏内部函数，物理页522-534。"
+  source_anchor: "1.6.20 页522-534"
+  source_refs: *ref201
+  status: confirmed
+open_questions:
+- id: security_wave6_3_oq_crypto_matrix
+  statement: "各加密/解密函数在不同encrypttype、block_encryption_mode、IV、字符集、NULL与非法密钥下的输出和错误矩阵需授权环境验证。"
+  status: open
+- id: security_wave6_3_oq_audit_masking_evidence
+  statement: "登录审计、传统/统一审计、审计删除和脱敏函数在真实负载、权限、PDB/Non-PDB和时间边界下的行为矩阵需实机验证。"
+  status: open

@@ -125,6 +125,123 @@ V1 Pairwise 流程：
 - V1页面使用注册表、生成器和覆盖审计器，不依赖数据库即可浏览和生成SQL。
 - `core/progress_reporting.py`给同一审计结果附加生成模型诊断，详情、总览、JSON和Markdown共用；不更改审计结论，不重复触发生成。取值/规则/重复输入/pair等阻断与Oracle未校准分层展示；解释无法与原结论核对时显示unknown/inconsistent性质的提示，不假定完成。详见[诊断说明](GENERATION_DIAGNOSTICS.md)。
 
+### GUC V2 静态证据链
+
+GUC V2 当前已经形成一条独立的非SQL参考证据链，不套用单条SQL命令的Factor Package模型。
+
+```text
+GUC Reference Schema V2
+  → GUC Candidate Matrix V1
+  → GUC Environment V2
+  → GUC Overlay Plan Export V1
+  → GUC V2 Capability Matrix
+  → GUC V2 Requirement Adapter
+  → GUC V2 Requirement Resolver
+  → GUC V2 Execution Selector
+  → GUC V2 Preflight Plan
+  → GUC V2 Runtime Pilot Dry Run
+  → GUC V2 Cross-Layer Static Audit
+  → GUC V2 Readiness
+  → GUC V2 Evidence Bundle
+```
+
+一键重建静态链：
+
+```bash
+python scripts/build_guc_v2_chain.py
+```
+
+检查静态链重建稳定性：
+
+```bash
+python scripts/build_guc_v2_chain.py --check
+```
+
+校验 Evidence Bundle 与当前产物文件是否一致：
+
+```bash
+python scripts/verify_guc_v2_evidence_bundle.py
+```
+
+当前规模：
+
+| 层 | 结果 |
+|---|---|
+| Reference | 1,177 个定义、1,175 个唯一参数 |
+| Candidate Matrix | 158 个布尔USERSET候选、7个下一批评审项 |
+| Environment V2 | 27 个参数、19个session overlay |
+| Overlay Plan | 19个计划、95个SQL步骤 |
+| Preflight Plan | 27个只读current_setting查询 |
+| Runtime Pilot Dry Run | 19个单元、95个步骤（GUC V2另有21单元/29步骤） |
+| Capability Matrix | 19个能力、38个允许值 |
+| Requirement Adapter | 9个可转换环境门禁、10个显式阻断 |
+| Requirement Resolver | 场景`guc_*`门禁静态解析与失败关闭 |
+| Execution Selector | 具体GUC值选择与五步overlay计划 |
+| Static Audit | 25项跨层检查 |
+| Evidence Bundle | 15个产物、11个当前存在、4个缺失 |
+
+当前边界：
+
+- 静态链完整。
+- Preflight result / audit 缺失。
+- Runtime receipt / audit 缺失。
+- 未连接数据库。
+- 未执行任何GUC。
+- 不能宣称GUC行为验证通过。
+
+详细文档见：
+
+- [GUC Reference Schema V2](GUC_REFERENCE_SCHEMA_V2.md)
+- [GUC Candidate Matrix V1](GUC_CANDIDATE_MATRIX_V1.md)
+- [GUC Environment V2](GUC_ENVIRONMENT_V2.md)
+- [GUC Overlay Plan Export V1](GUC_OVERLAY_PLAN_EXPORT_V1.md)
+- [GUC V2 Preflight](GUC_V2_PREFLIGHT.md)
+- [GUC V2 Runtime Pilot](GUC_V2_RUNTIME_PILOT.md)
+- [GUC V2 Evidence Bundle](GUC_V2_EVIDENCE_BUNDLE.md)
+- [GUC V2 Static Chain](GUC_V2_CHAIN.md)
+
+### Advanced Package Pilot
+
+高级包当前采用独立 Pilot V1，不套用 SQL statement factor 模型。已建模 14 个支持包：
+
+```text
+DBE_OUTPUT / DBE_RAW / DBE_SQL / DBE_MATCH / DBE_UTILITY / DBE_LOB / DBE_FILE / DBE_OBFUSCATION_TOOLKIT / DBE_XMLGEN / DBE_ALERT / DBE_SESSION / DBE_RANDOM / DBE_APPLICATION_INFO / DBE_TASK / DBE_SCHEDULER
+```
+
+静态链：
+
+```text
+Interface Inventory
+  → Candidate Matrix
+  → Runtime Validation Pilot Dry Run
+  → Advanced Package Evidence Bundle
+```
+
+一键重建：
+
+```bash
+python scripts/build_advanced_package_chain.py --check
+```
+
+当前规模：
+
+| 层 | 结果 |
+|---|---|
+| Supported Packages | 22 |
+| Modeled Pilot Packages | 14 |
+| Unmodeled Packages | 8 |
+| Interfaces | 115 |
+| Runtime Cases | 22 |
+| Evidence Artifacts | 5（3 present / 2 missing） |
+
+当前边界：
+
+- 接口合同静态完成。
+- Runtime receipt / audit 缺失。
+- 未连接数据库。
+- 未执行高级包调用。
+- 不能宣称高级包行为验证通过。
+
 ### Legacy V0
 
 - `core/spec_model.py`、`core/spec_generator.py`、`grammars/`、`matrices/`、`manifests/`：旧三文件规格运行时。
@@ -166,6 +283,7 @@ python3 scripts/manage_extraction_queue.py verify --task-id <task_id>
 - V1 fixture/scenario真实数据库执行；
 - 目标SQLSTATE在具体版本上的校准；
 - 多会话权限、事务和对象生命周期执行；
-- GUC、函数、操作符、系统目录等非SQL命令的专用抽取Schema；
+- 函数、操作符、系统目录等非SQL命令的专用抽取Schema；
+- GUC V2 当前仅完成静态证据链和授权门禁，未完成真实数据库Preflight与Runtime执行；
 - 可跨包导入的全局 Capability Matrix 和公共 SELECT/表达式/数据类型 Subgrammar；
 - 5800页文档全量任务目录和完整抽取。

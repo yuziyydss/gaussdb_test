@@ -1,0 +1,193 @@
+document: 集中式版参考 / 1.6.27 系统管理函数（Wave 2B-4）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-09-29'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapter: 1.6.27 系统管理函数
+  subsections:
+  - 1.6.27.9 咨询锁函数
+  - 1.6.27.10 逻辑复制函数（槽管理与文本/二进制decode基础）
+  physical_page_start: 627
+  physical_page_end: 643
+  physical_page_count: 16
+  excludes:
+  - 1.6.27.10中的并行解码状态、replication origin、SQL apply、逻辑字典等后续子族
+facts:
+- id: wave2b4_advisory_lock_overview
+  type: syntax
+  statement: 咨询锁用于管理应用程序定义的资源；键可用一个64位键或两个不重叠32位键标识，也支持指定lock_id和database_name的形式。
+  source_anchor: 1.6.27.9 页627-628
+  source_refs: &id001
+  - w2b4_1_6_27
+  status: confirmed
+- id: wave2b4_advisory_session_exclusive
+  type: syntax
+  statement: pg_advisory_lock(key bigint)、pg_advisory_lock(key1 int,key2 int)和pg_advisory_lock(lock_id,lock_id,database_name)获取会话级排他咨询锁；资源已被其他会话持有时阻塞等待。
+  source_anchor: 1.6.27.9 页627-628
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_advisory_session_exclusive_stack
+  type: behavior_oracle
+  statement: 同一资源的多个会话级排他锁请求会入栈；若同一资源被锁定三次，必须解锁三次后才能释放给其他会话。
+  source_anchor: 1.6.27.9 页627
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_advisory_reserved_key_pair
+  type: constraint
+  statement: 键值对(65535,65535)的会话级或事务级排他咨询锁仅sysadmin可加，普通用户无权限。
+  source_anchor: 1.6.27.9 页628-629
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_advisory_session_shared
+  type: syntax
+  statement: pg_advisory_lock_shared(key bigint)和pg_advisory_lock_shared(key1,key2)获取会话级共享咨询锁；共享锁会话之间可共享资源，但与排他锁互斥。
+  source_anchor: 1.6.27.9 页627-628
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_advisory_unlock
+  type: behavior_oracle
+  statement: pg_advisory_unlock(key bigint)、pg_advisory_unlock(key1,key2)和pg_advisory_unlock(lock_id,lock_id,database_name)释放会话级排他咨询锁；成功返回true，未持锁返回false并产生SQL警告。
+  source_anchor: 1.6.27.9 页628
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_advisory_unlock_shared
+  type: behavior_oracle
+  statement: pg_advisory_unlock_shared(key bigint)和pg_advisory_unlock_shared(key1,key2)释放会话级共享咨询锁。
+  source_anchor: 1.6.27.9 页628
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_advisory_unlock_all
+  type: behavior_oracle
+  statement: pg_advisory_unlock_all()释放当前会话持有的所有咨询锁；会话结束时隐含调用，客户端异常断开也适用。
+  source_anchor: 1.6.27.9 页628
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_advisory_xact_lock
+  type: syntax
+  statement: pg_advisory_xact_lock(key bigint)和pg_advisory_xact_lock(key1,key2)获取事务级排他咨询锁；事务结束自动释放，不能显式释放。
+  source_anchor: 1.6.27.9 页628-629
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_advisory_xact_lock_shared
+  type: syntax
+  statement: pg_advisory_xact_lock_shared(key bigint)和pg_advisory_xact_lock_shared(key1,key2)获取事务级共享咨询锁；事务结束自动释放，不能显式释放。
+  source_anchor: 1.6.27.9 页629
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_advisory_try_lock
+  type: syntax
+  statement: pg_try_advisory_lock(key bigint)和pg_try_advisory_lock(key1,key2)尝试获取会话级排他咨询锁；不阻塞，立即返回true或false。
+  source_anchor: 1.6.27.9 页629
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_advisory_try_lock_shared
+  type: syntax
+  statement: pg_try_advisory_lock_shared(key bigint)和pg_try_advisory_lock_shared(key1,key2)尝试获取会话级共享咨询锁。
+  source_anchor: 1.6.27.9 页629
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_logical_replication_guc
+  type: constraint
+  statement: 使用逻辑复制函数前必须设置GUC参数wal_level=logical。
+  source_anchor: 1.6.27.10 页630
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_create_logical_slot
+  type: syntax
+  statement: pg_create_logical_replication_slot(slot_name,plugin_name,output_order)创建逻辑复制槽，返回name,text；插件支持mppdb_decoding、sql_decoding和parallel_binary/json/text_decoding。
+  source_anchor: 1.6.27.10 页630-631
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_logical_slot_output_order
+  type: behavior_oracle
+  statement: output_order=0为LSN序复制槽，confirmed_csn为0，结果按COMMIT LSN排序；output_order=1为CSN序复制槽，confirmed_csn非0，结果按CSN排序；CSN序仅分布式强一致解码使用。
+  source_anchor: 1.6.27.10 页630-631
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_logical_slot_permissions
+  type: constraint
+  statement: 创建逻辑复制槽需要SYSADMIN、REPLICATION权限或继承gs_role_replication；函数目前只支持在主机调用。
+  source_anchor: 1.6.27.10 页631
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_create_physical_slot
+  type: constraint
+  statement: pg_create_physical_replication_slot(slot_name,isDummyStandby)创建物理复制槽；PDB内不支持；需要SYSADMIN/REPLICATION权限或gs_role_replication；无restart_lsn的槽视为无效，checkpoint时自动删除。
+  source_anchor: 1.6.27.10 页631
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_drop_replication_slot
+  type: syntax
+  statement: pg_drop_replication_slot(slot_name)删除流复制槽；non-PDB可删除non-PDB和PDB复制槽，PDB只能删除本PDB复制槽；需要SYSADMIN/REPLICATION权限或gs_role_replication。
+  source_anchor: 1.6.27.10 页631-632
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_logical_slot_name_rules
+  type: constraint
+  statement: 复制槽名仅支持小写字母、数字、“_”“?”“-”“.”；不支持“.”或“..”单独作为名称；gs_roach开头为内部保留槽名。
+  source_anchor: 1.6.27.10 页630-632
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_peek_changes
+  type: syntax
+  statement: pg_logical_slot_peek_changes(slot_name,upto_lsn,upto_nchanges,options)解码但不推进流复制槽；返回LSN/CSN位置、xid和解码内容三列。
+  source_anchor: 1.6.27.10 页632-637
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_get_changes
+  type: behavior_oracle
+  statement: pg_logical_slot_get_changes(slot_name,upto_lsn,upto_nchanges,options)解码并推进流复制槽；支持主机或备机调用，备机调用会同步推进主机槽。
+  source_anchor: 1.6.27.10 页637
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_peek_binary_changes
+  type: syntax
+  statement: pg_logical_slot_peek_binary_changes(slot_name,upto_lsn,upto_nchanges,options)以二进制格式解码且不推进流复制槽。
+  source_anchor: 1.6.27.10 页637-641
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_get_binary_changes
+  type: syntax
+  statement: pg_logical_slot_get_binary_changes(slot_name,upto_lsn,upto_nchanges,options)以二进制格式解码并推进流复制槽；仅主机调用。
+  source_anchor: 1.6.27.10 页640-641
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_decode_limits
+  type: constraint
+  statement: upto_lsn和upto_nchanges任一达到限制即停止解码；非PDB只能操作本non-PDB复制槽，PDB只能操作本PDB复制槽；需要SYSADMIN/REPLICATION权限或gs_role_replication。
+  source_anchor: 1.6.27.10 页637-641
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_slot_advance
+  type: syntax
+  statement: pg_replication_slot_advance(slot_name,upto_lsn)直接推进流复制槽到指定位置，不输出解码结果。
+  source_anchor: 1.6.27.10 页641-642
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_decode_option_groups
+  type: syntax
+  statement: 逻辑解码选项包括include-xids、skip-empty-xacts、include-timestamp、only-urls、exclude-users、dynamic-resolution、restart-lsn、decode-sequence、enable-decode-position、enable-rowno等。
+  source_anchor: 1.6.27.10 页632-640
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_decode_sequence_option
+  type: constraint
+  statement: 解码选项decode-sequence当前仅允许false；设为true会在启动解码时报错。
+  source_anchor: 1.6.27.10 页640
+  source_refs: *id001
+  status: confirmed
+- id: wave2b4_scope_note
+  type: environment
+  statement: Wave 2B-4覆盖1.6.27.9咨询锁函数，以及1.6.27.10逻辑复制函数中的槽管理和文本/二进制decode基础部分，物理页627-642。
+  source_anchor: 1.6.27.9-1.6.27.10 页627-642
+  source_refs: *id001
+  status: confirmed
+open_questions:
+- id: wave2b4_oq_advisory_lock_concurrency_matrix
+  statement: 会话/事务、排他/共享、try/blocking和多会话栈行为需并发实机矩阵。
+  status: open
+- id: wave2b4_oq_logical_decode_option_matrix
+  statement: 不同插件和复制槽类型下的逻辑解码选项、输出格式和权限矩阵需目标环境验证。
+  status: open
