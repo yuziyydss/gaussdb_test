@@ -1,0 +1,406 @@
+[[PDF_PAGE physical=991 printed=942]]
+1.6.49 SQL 限流函数
+        ●   gs_add_workload_rule(rule_type, rule_name, databases, start_time, end_time,
+            max_workload, option_val)
+            描述：创建一条SQL限流规则。需要具有sysadmin权限的用户才可执行。
+            参数：参数介绍请参见表1-266。
+            返回值类型：int8
+[[PDF_PAGE physical=992 printed=943]]
+表 1-266 gs_add_workload_rule 参数说明
+参数名称         类型        描述           取值范围
+
+rule_type    text      限流规则类        “sqlid”：根据Unique SQL ID进行
+                       型，不区分大       限流。
+                       小写。          “select”、“insert”、
+                                    “update”、“delete”、
+                                    “merge”：根据查询类型和关键
+                                    字进行限流。
+                                    “resource”：根据系统资源利用率
+                                    进行DN进程级别的限流。
+                                    “client”：根据客户端信息，包括
+                                    IP、ApplicationName进行限流。
+                                    说明
+                                     限流规则生效的优先级如下：
+                                        client > resource > sqlid > select =
+                                        insert = update = delete = merge
+
+rule_name    name      限流规则名        任意字符串，可以为NULL。
+                       称，用于检索
+                       限流规则。
+
+databases    name[]    限流规则生效       数据库名列表，必须为已创建的数
+                       的数据库名称       据库名。可以为NULL，表示所有数
+                       数组，区分大       据库生效。多个数据库之间是
+                       小写。          “或”的关系。
+                                    目前只有指定rule_type为查询类型
+                                    或client类型时，数据库列表才生
+                                    效，因为Unique SQL ID本身是与库
+                                    进行绑定的，其只属于某个库；客
+                                    户端进行连接时会指定库；而根据
+                                    资源利用率的限流规则是对整个DN
+                                    进程生效的，即对所有库生效。
+
+start_time   timesta   限流规则生效       可以为NULL，表示从当前时间开始
+             mptz      的开始时间。       生效。
+                                    说明
+                                     建议在创建限流规则时，SQL中尽量避
+                                     免使用 sysdate 作为限流规则的开始时
+                                     间和结束时间，因为 sysdate 的精度仅
+                                     到秒级，其秒后的小数部分会被四舍五
+                                     入，可能导致限流规则在极短时间内不
+                                     生效，推荐使用now()替换sysdate。
+
+end_time     timesta   限流规则生效       可以为NULL，表示规则一直生效。
+             mptz      的结束时间。
+
+max_work     int8      限流规则设置       -
+load                   的最大并发
+                       数。
+[[PDF_PAGE physical=993 printed=944]]
+ 参数名称              类型               描述                      取值范围
+
+ option_val        text[]           限流规则的补                  与rule_type匹配，具体匹配关系如
+                                    充信息。                    下：
+                                                            ● “sqlid”：要限流的Unique
+                                                              SQL ID，以及慢SQL管控规则，
+                                                              格式为'{id=1234,
+                                                              time_limit=100,
+                                                              max_execute_time=500,
+                                                              max_iops=1}'，其中id值为
+                                                              Unique SQL ID，为必选项，可
+                                                              通过dbe_perf.statement或者
+                                                              pg_stat_activity视图获取。其他
+                                                              选项非必选，其含义请参见
+                                                              《SQL调优指南》中“使用Plan
+                                                              Hint进行调优 > 设置慢SQL管控
+                                                              规则的Hint”章节。
+                                                            ● “select”、“insert”、
+                                                              “update”、“delete”、
+                                                              “merge”：要限流的关键字序
+                                                              列，不区分大小写，可以为
+                                                              NULL。多个关键字之间是
+                                                              “且”的关系。
+                                                            ● “resource”：要限流的资源阈
+                                                              值，形式为'{cpu-80,
+                                                              memory-70}'，表示触发DN进程
+                                                              级别限流的操作系统资源阈值，
+                                                              可以为NULL，表示不管资源利
+                                                              用率直接进行限流。当cpu和
+                                                              memory字段同时出现时，它们
+                                                              之间是“且”的关系。
+                                                            ● “client”：要限流的客户端信
+                                                              息，包括IP、
+                                                              ApplicationName，格式为
+                                                              '{ip=192.168.1.1,
+                                                              appname=app1}'，其中ip或
+                                                              appname至少指定其中之一。
+
+
+
+示例：
+gaussdb=# SELECT gs_add_workload_rule('sqlid', 'rule for one query', '', now(), '', 20, '{id=32413214}');
+ gs_add_workload_rule
+----------------------
+               1
+(1 row)
+
+gaussdb=# CREATE DATABASE db1;
+gaussdb=# CREATE DATABASE db2;
+gaussdb=# SELECT gs_add_workload_rule('select', 'rule for select', '{db1, db2}', '', '', 100, '{tb1, tb2}');
+ gs_add_workload_rule
+----------------------
+               2
+(1 row)
+[[PDF_PAGE physical=994 printed=945]]
+    gaussdb=# SELECT gs_add_workload_rule('resource', 'rule for resource', '{}', '', '', 20, '{cpu-80}');
+     gs_add_workload_rule
+    ----------------------
+                   3
+    (1 row)
+
+    gaussdb=# SELECT gs_add_workload_rule('client', 'rule for client', '{}', '', '', 20, '{appname=app1}');
+     gs_add_workload_rule
+    ----------------------
+                   4
+    (1 row)
+
+    gaussdb=# SELECT gs_delete_workload_rule(rule_id) FROM gs_workload_rule; -- 删除全部限流规则
+     gs_delete_workload_rule
+    -------------------------
+     t
+     t
+     t
+     t
+    (4 rows)
+
+    gaussdb=# DROP DATABASE db1;
+    gaussdb=# DROP DATABASE db2;
+
+●   gs_update_workload_rule(rule_id, rule_name, databases, start_time, end_time,
+    max_workload, option_val)
+    描述：更新一条SQL限流规则，需要重新设置全部参数，不支持只指定部分参
+    数。需要具有sysadmin权限的用户才可执行。
+    参数：参数介绍请参见表1-267。
+    返回值类型：BOOLEAN
+
+    表 1-267 gs_update_workload_rule 参数说明
+     参数名称              类型              描述                      取值范围
+
+     rule_id           int8            要更新的限流                  -
+                                       规则ID。
+
+     rule_name         name            限流规则名                   任意字符串，可以为NULL。
+                                       称，用于检索
+                                       限流规则。
+
+     databases         name[]          限流规则生效                  数据库名列表，必须为已创建的数
+                                       的数据库名称                  据库名。可以为NULL，表示所有数
+                                       数组，区分大                  据库生效。多个数据库之间是
+                                       小写。                     “或”的关系。
+                                                               目前只有指定rule_type为查询类型
+                                                               或client类型时，数据库列表才生
+                                                               效，因为Unique SQL ID本身是与库
+                                                               进行绑定的，其只属于某个库；客
+                                                               户端进行连接时会指定库；而根据
+                                                               资源利用率的限流规则是对整个DN
+                                                               进程生效的，即对所有库生效。
+[[PDF_PAGE physical=995 printed=946]]
+参数名称         类型        描述       取值范围
+
+start_time   timesta   限流规则生效   可以为NULL，表示从当前时间开始
+             mptz      的开始时间。   生效。
+                                说明
+                                 建议在更新限流规则时，SQL中尽量避
+                                 免使用 sysdate 作为限流规则的开始时
+                                 间和结束时间，因为 sysdate 的精度仅
+                                 到秒级，其秒后的小数部分会被四舍五
+                                 入，可能导致限流规则在极短时间内不
+                                 生效，推荐使用now()替换sysdate。
+
+end_time     timesta   限流规则生效   可以为NULL，表示规则一直生效。
+             mptz      的结束时间。
+
+max_work     int8      限流规则设置   -
+load                   的最大并发
+                       数。
+[[PDF_PAGE physical=996 printed=947]]
+ 参数名称              类型               描述                      取值范围
+
+ option_val        text[]           限流规则的补                  与rule_type匹配，具体匹配关系如
+                                    充信息。                    下：
+                                                            ● “sqlid”：要限流的Unique
+                                                              SQL ID，以及慢SQL管控规则，
+                                                              格式为'{id=1234,
+                                                              time_limit=100,
+                                                              max_execute_time=500,
+                                                              max_iops=1}'，其中id指为
+                                                              Unique SQL ID，为必选项，可
+                                                              通过dbe_perf.statement或者
+                                                              pg_stat_activity视图获取。其他
+                                                              选项非必选，其含义请参见
+                                                              《SQL调优指南》中“使用Plan
+                                                              Hint进行调优 > 设置慢SQL管控
+                                                              规则的Hint”章节。
+                                                            ● “select”、“insert”、
+                                                              “update”、“delete”、
+                                                              “merge” ：要限流的关键字序
+                                                              列，不区分大小写，可以为
+                                                              NULL。多个关键字之间是
+                                                              “且”的关系。
+                                                            ● “resource”：要限流的资源阈
+                                                              值，形式为'{cpu-80,
+                                                              memory-70}'，表示触发DN进程
+                                                              级别限流的操作系统资源阈值，
+                                                              可以为NULL，表示不管资源利
+                                                              用率直接进行限流。当cpu和
+                                                              memory字段同时出现时，它们
+                                                              之间是“且”的关系。
+                                                            ● “client”：要限流的客户端信
+                                                              息，包括IP、
+                                                              ApplicationName，格式为
+                                                              '{ip=192.168.1.1,
+                                                              appname=app1}'，其中ip或
+                                                              appname至少指定其中之一。
+
+
+
+示例：
+gaussdb=# CREATE DATABASE db1;
+gaussdb=# SELECT gs_add_workload_rule('select', 'rule for select', '{db1}', '', '', 100, '{tb1, tb2}');
+ gs_add_workload_rule
+----------------------
+                5
+(1 row)
+
+gaussdb=# SELECT gs_update_workload_rule(5, 'rule for select 2', '{db1}', now(), '', 50, '{tb1}');
+ gs_update_workload_rule
+-------------------------
+ t
+(1 row)
+
+gaussdb=# SELECT gs_delete_workload_rule(rule_id) FROM gs_workload_rule; -- 删除全部限流规则
+[[PDF_PAGE physical=997 printed=948]]
+     gs_delete_workload_rule
+    -------------------------
+     t
+    (1 row)
+
+    gaussdb=# DROP DATABASE db1;
+
+●   gs_delete_workload_rule(rule_id int8)
+    描述：删除一条SQL限流规则。需要具有sysadmin权限的用户才可执行。
+    参数：rule_id，要更新的限流规则ID，类型为int8。
+    返回值类型：BOOLEAN
+    示例：
+    gaussdb=# SELECT gs_add_workload_rule('sqlid', 'rule for one query', '', '', '', 20, '{id=32413214}');
+     gs_add_workload_rule
+    ----------------------
+                    6
+    (1 row)
+
+    gaussdb=# SELECT gs_delete_workload_rule(6);
+     gs_delete_workload_rule
+    -------------------------
+     t
+    (1 row)
+
+●   add_abnormal_sql('unique_sql_id')
+    描述：手动添加需要被CPU资源管控的异常SQL，将其加入到异常SQL管理名单
+    中。仅具有SYSADMIN/MONADMIN权限的用户可执行该操作。
+    参数：
+     名称                    取值范围                       描述
+
+     unique_sql_i          [-263 , 263-1]             需要添加到异常SQL管理名单中的异常
+     d                                                SQL的id。
+
+
+
+
+    返回值类型：
+     名称                    类型                         描述
+
+     result                TEXT                       返回信息处理结果。
+                                                      操作成功：返回“Add succeed.”
+                                                      操作失败：返回“Add failed.
+                                                      Reason:'<string>'”，其中<string>为具体
+                                                      的错误原因。
+[[PDF_PAGE physical=998 printed=949]]
+         说明
+
+        可以通过DBE_PERF.ABNORMAL_SQL视图查看异常SQL的基本信息。当将unique_sql_id手
+        动加入到异常SQL管理名单中（即进行add_abnormal_sql('unique_sql_id')操作）时，存在
+        以下情况：
+        ● abnormal_count的值为GUC参数abnormal_sql_effective_count设置的上限值
+        ● control_expiration_time的值为GUC参数abnormal_sql_control_duration设置的失效时
+          间。
+        ● abnormal_type的值为sql_abnormal_manual。
+●   clean_abnormal_sql('operation', 'unique_sql_id')
+    描述：清理被CPU资源管控的异常SQL，并加入到审计白名单。需要具有
+    SYSADMIN/MONITORADMIN权限的用户才可执行。
+    参数：
+     名称             取值范围                描述
+
+     operation      BY_ID、BY_ALL        指定需要操作的行为，清除指定
+                                        unique_sql_id的SQL或所有SQL。
+
+     unique_sql_i   -2^63 ~ 2^63-1      异常SQL的ID。
+     d
+
+
+
+
+    返回值类型：
+     名称             类型                  描述
+
+     result         TEXT                返回信息处理结果。
+                                        操作成功：Clean succeed.
+                                        操作失败：Clean failed. Reason:'%s'
+
+
+●   abnormal_sql_manage_allowlist ('operation', 'unique_s ql_id')
+    描述：在白名单上添加或删除异常SQL信息，加入审计白名单。需要具有
+    SYSADMIN/MONITORADMIN权限的用户才可执行。
+    参数：
+     名称             取值范围                描述
+
+     operation      ADD、DELETE          指定需要操作的行为，添加或删除。
+
+     unique_sql_i   -2^63 ~ 2^63-1      异常SQL的ID。
+     d
+
+
+
+
+    返回值类型：
+[[PDF_PAGE physical=999 printed=950]]
+     名称                    类型                         描述
+
+     result                TEXT                       返回信息处理结果。
+                                                      操作成功：ADD/DELETE succeed.
+                                                      操作失败：ADD/DELETE failed.
+                                                      Reason:'%s'
+
+
+●   abnormal_sql_cpu_limit()
+    描述：获取throttle异常Cgroup组CPU使用率控制上限百分比。需要具有
+    SYSADMIN/MONITORADMIN权限的用户才可执行。多租数据库特性
+    （enable_mtd）开启时，本函数失效。
+    返回值类型：text
+●   gs_get_workload_rule_stat(rule_id)
+    描述：查询SQL限流规则拦截SQL的次数。需要具有sysadmin权限的用户才可执
+    行。多租场景下，non-PDB调用该函数时正常运行，PDB调用该函数时报错。
+    参数：rule_id，要查询的限流规则ID，类型为int8。可以指定rule_id为-1，此时
+    表示查询所有的SQL限流规则。
+    表3 返回值类型
+     名称                    类型                         描述
+
+     rule_id               int8                       SQL限流规则的ID。
+
+     validate_cou          int8                       SQL限流规则拦截SQL的次数。
+     nt
+
+
+
+    示例：
+    gaussdb=# SELECT gs_add_workload_rule('sqlid', 'rule for one query', '', now(), '', 20, '{id=32413214}');
+     gs_add_workload_rule
+    ----------------------
+                    7
+    (1 row)
+
+    gaussdb=# SELECT gs_add_workload_rule('resource', 'rule for resource', '{}', '', '', 20, '{cpu-80}');
+     gs_add_workload_rule
+    ----------------------
+                    8
+    (1 row)
+
+    gaussdb=# SELECT * FROM gs_get_workload_rule_stat(7);
+     rule_id | validate_count
+    ---------+----------------
+          7|           0
+    (1 row)
+
+    gaussdb=# SELECT * FROM gs_get_workload_rule_stat(-1);
+     rule_id | validate_count
+    ---------+----------------
+          7|           0
+          8|           0
+    (2 rows)
+
+    gaussdb=# SELECT gs_delete_workload_rule(rule_id) FROM gs_workload_rule;
+     gs_delete_workload_rule
+    -------------------------
+[[PDF_PAGE physical=1000 printed=951]]
+     t
+     t
+    (2 rows)
+
+●   gs_refresh_workload_rule_cache()
+    描述：刷新限流规则缓存，使其与限流规则系统表中的数据重新保持一致。不支
+    持在事务中执行。需要具有sysadmin权限的用户才可执行。
+    返回值类型：BOOLEAN
+          说明
+
+        当在事务中对限流规则执行增、删、改操作且该事务最终发生回滚时，由于限流规则缓存
+        无法感知事务回滚，系统表将恢复至事务开始前的状态，而限流规则缓存仍会保留变更后
+        的内容，从而导致系统表与限流规则缓存数据不一致，此时需及时调用本函数手动同步。

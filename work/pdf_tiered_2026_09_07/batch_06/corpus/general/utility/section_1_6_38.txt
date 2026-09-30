@@ -1,0 +1,61 @@
+[[PDF_PAGE physical=917 printed=868]]
+1.6.38 层次递归查询函数
+       层次递归查询语句中可使用以下函数返回连接路径上的相关信息。
+
+       ●   sys_connect_by_path(col, separator)
+           描述：仅在层次递归查询中适用，用于返回从根节点到当前行的连接路径。
+           参数col为在路径中显示的列的名称，只支持类型为CHAR、VARCHAR、
+           NVARCHAR2、TEXT、ROWID、INT1、INT2、INT4、INT8、FLOAT4、FLOAT8
+           和NUMERIC的列，参数separator为路径节点之间的分隔符。当前该函数col输入
+           不支持表达式输入，列内容与分隔符separator重复时可正常运行，不会报错。
+[[PDF_PAGE physical=918 printed=869]]
+    返回值类型：text
+    示例：
+    --建表导数。
+    gaussdb=# CREATE TABLE connect_by_table(id int,pid int,name text);
+    CREATE TABLE
+    gaussdb=# INSERT INTO connect_by_table VALUES(1,0,'a'),(2,1,'b'),(3,2,'c'),(4,1,'d');
+    INSERT 0 4
+    --查询。
+    gaussdb=# SELECT *, sys_connect_by_path(name, '-') FROM connect_by_table START WITH id = 1
+    CONNECT BY prior id = pid ORDER BY pid, id;
+     id | pid | name | sys_connect_by_path
+    ----+-----+------+---------------------
+      1 | 0 | a | -a
+      2 | 1 | b | -a-b
+      4 | 1 | d | -a-d
+      3 | 2 | c | -a-b-c
+    (4 rows)
+    --恢复环境。
+    gaussdb=# DROP TABLE IF EXISTS connect_by_table;
+    DROP TABLE
+
+●   connect_by_root(col)
+    描述：仅在层次递归查询中适用，用于返回当前行最顶层父亲行中某列的值。
+    参数col为输出列的名称。仅支持如下类型的列：INT8、INT1、INT2、OID、
+    INT4、BOOL、CHAR、NAME、FLOAT4、FLOAT8、ABSTIME、RELTIME、
+    DATE、CASH、TIME、TIMESTAMP、TIMESTAMPTZ、SMALLDATETIME、
+    UUID、INTERVAL、TIMETZ、INT2VECTOR、CLOB、NVARCHAR2、
+    VARCHAR、TEXT、ROWID、VECTOR、BPCHAR、RAW、BYTEA、NUMERIC、
+    XID、CID以及TID，且通过强制类型转换为上述类型的操作无法绕开白名单限
+    制，如：connect_by_root(col::text)（其中col不是上述白名单中的类型）。
+    返回值类型：即为所指定列col的数据类型。
+    示例：
+    --建表导数。
+    gaussdb=# CREATE TABLE connect_by_table(id int,pid int,name text);
+    CREATE TABLE
+    gaussdb=# INSERT INTO connect_by_table VALUES(1,0,'a'),(2,1,'b'),(3,2,'c'),(4,1,'d');
+    INSERT 0 4
+    --查询。
+    gaussdb=# SELECT *, connect_by_root(name) FROM connect_by_table START WITH id = 1 CONNECT
+    BY prior id = pid ORDER BY pid, id;
+     id | pid | name | connect_by_root
+    ----+-----+------+-----------------
+      1| 0|a |a
+      2| 1|b |a
+      4| 1|d |a
+      3| 2|c |a
+    (4 rows)
+    --恢复环境。
+    gaussdb=# drop table if exists connect_by_table;
+    DROP TABLE

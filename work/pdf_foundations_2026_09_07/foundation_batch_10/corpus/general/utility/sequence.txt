@@ -1,0 +1,182 @@
+[[PDF_PAGE physical=439 printed=390]]
+1.6.15 SEQUENCE 函数
+         序列函数为用户从序列对象中获取后续的序列值提供了简单的多用户安全的方法。
+
+         ●   nextval(regclass)
+             描述：递增序列并返回新值。该函数仅支持在主机上执行，备机不支持执行。
+[[PDF_PAGE physical=440 printed=391]]
+          说明
+
+        ● 为了避免从同一个序列获取值的并发事务被阻塞，nextval操作不会回滚；即一旦值被
+          抓取，就认为它已经被用过，并且不会再被返回。即使该操作处于事务中，当事务之后
+          中断，或者如果调用查询结束不使用该值，也是如此。这种情况将在指定值的顺序中留
+          下未使用的“空洞”。因此，GaussDB序列对象不能用于获得“无间隙”序列。
+        ● 如果插入语句中同时包含SRF（Set-Returning-Functions）函数和序列自增列，则序列
+          的值会跳数一位。SRF函数以generate_series为例：
+            CREATE TABLE t1 (a int, b serial);
+            INSERT INTO t1(a) VALUES(generate_series(1,1)); -- 插入数据b列为1
+            INSERT INTO t1(a) VALUES(generate_series(1,1)); -- 插入数据b列为3，跳号2
+        ● nextval函数只能在主机上执行，备机不支持执行此函数。
+        ● 对于rowid系统列的序列，nextval()仅支持在维护模式下操作。
+    返回类型：numeric
+    nextval函数有两种调用方式（其中第二种调用方式目前不支持Sequence命名中有
+    特殊字符"."的情况），如下：
+    gaussdb=# CREATE SEQUENCE seqDemo;
+    --示例1：
+    gaussdb=# SELECT nextval('seqDemo');
+     nextval
+    ---------
+          1
+    (1 row)
+    --示例2：
+    gaussdb=# SELECT seqDemo.nextval;
+     nextval
+    ---------
+          2
+    (1 row)
+    gaussdb=# DROP SEQUENCE seqDemo;
+
+●   currval(regclass)
+    描述：返回当前会话里最近一次nextval返回的数值。如果当前会话还没有调用过
+    指定的sequence的nextval，那么调用currval将会报错。
+    参数：regclass指定序列名，或者序列的oid。
+    返回类型：numeric
+    currval函数有两种调用方式（其中第二种调用方式目前不支持Sequence命名中有
+    特殊字符"."的情况），如下：
+    gaussdb=# CREATE SEQUENCE seq1;
+    gaussdb=# SELECT nextval('seq1');
+    --示例1：
+    gaussdb=# SELECT currval('seq1');
+     currval
+    ---------
+          1
+    (1 row)
+    --示例2：
+    gaussdb=# SELECT seq1.currval;
+     currval
+    ---------
+          1
+    (1 row)
+    gaussdb=# DROP SEQUENCE seq1;
+
+●   lastval()
+    描述：返回当前会话里最近一次nextval返回的数值。这个函数等效于currval，只
+    是它不用序列名为参数，它抓取当前会话里面最近一次nextval使用的序列。如果
+    当前会话还没有调用过nextval，那么调用lastval将会报错。
+    返回类型：numeric
+[[PDF_PAGE physical=441 printed=392]]
+    示例：
+    gaussdb=# CREATE SEQUENCE seq1;
+    gaussdb=# SELECT nextval('seq1');
+    gaussdb=# SELECT lastval();
+     lastval
+    ---------
+          1
+    (1 row)
+    gaussdb=# DROP SEQUENCE seq1;
+
+●   setval(regclass, numeric)
+    描述：设置序列的当前数值。
+    返回类型：numeric
+    示例：
+    gaussdb=# CREATE SEQUENCE seqDemo;
+    gaussdb=# SELECT nextval('seqDemo');
+    gaussdb=# SELECT setval('seqDemo',5);
+     setval
+    --------
+         5
+    (1 row)
+    gaussdb=# DROP SEQUENCE seqDemo;
+
+●   setval(regclass, numeric, Boolean)
+    描述：设置序列的当前数值以及is_called标志。
+    返回类型：numeric
+    示例：
+    gaussdb=# CREATE SEQUENCE seqDemo;
+    gaussdb=# SELECT nextval('seqDemo');
+    gaussdb=# SELECT setval('seqDemo',5,true);
+     setval
+    --------
+         5
+    (1 row)
+    gaussdb=# DROP SEQUENCE seqDemo;
+
+          说明
+
+        ● Setval()操作执行后，当前会话会立即生效，其自身的序列缓存也将失效。但是对于其
+          他会话中的缓存并不会立即失效，需等待其缓存序列值用尽后，才会感知到此次
+          setval()操作带来的变更。若缓存模式为节点级缓存
+          （sequence_cache_mode=instance），setval()执行后节点级别的缓存会立即更新。为
+          避免潜在的序列值冲突，建议谨慎使用setval()操作。
+        ● 序列对象具有非事务特性，setval()的修改操作不可回滚，即使在事务块中执行也不会
+          因事务中止而撤销。
+        ● 对于包含rowid系统列的序列，setval()操作仅允许在数据库维护模式下执行，常规运行
+          时禁止修改。
+●   pg_sequence_last_value(sequence_oid oid, OUT cache_value int16, OUT
+    last_value int16)
+    描述：获取指定sequence的参数，包含缓存值和当前值。
+    返回类型：int16，int16
+●   gs_get_sequence_parameters(sequence_oid)
+    描述：获取指定序列的参数信息，包括起始值、最小值、最大值和递增值等。
+    返回类型：int16、int16、int16、int16、Boolean
+●   gs_get_sequence_last_value(sequence_oid oid, OUT cache_value int16, OUT
+    last_value int16)
+[[PDF_PAGE physical=442 printed=393]]
+    描述：获取指定sequence的参数，包含缓存值和当前值。
+    返回类型：int16、int16
+●   last_insert_id()
+    描述：获取最近一次为自动增长列成功插入的第一个自动生成的值。
+    返回类型：int16
+    示例：
+    gaussdb=# create database b_format_db with dbcompatibility = 'b';
+    gaussdb=# \c b_format_db;
+    b_format_db=# CREATE TABLE animals_test (
+    b_format_db=# id int PRIMARY KEY NOT NULL AUTO_INCREMENT,
+    b_format_db=# name CHAR(30) NOT NULL
+    b_format_db=# );
+    NOTICE: CREATE TABLE will create implicit sequence "animals_test_id_seq" for serial column
+    "animals_test.id"
+    NOTICE: CREATE TABLE / PRIMARY KEY will create implicit index "animals_test_pkey" for table
+    "animals_test"
+    CREATE TABLE
+    b_format_db=# SELECT last_insert_id();
+     last_insert_id
+    ----------------
+               0
+    (1 row)
+    b_format_db=# INSERT INTO animals_test (name) VALUES ('dog');
+    INSERT 0 1
+    b_format_db=# SELECT last_insert_id();
+     last_insert_id
+    ----------------
+               1
+    (1 row)
+    b_format_db=# DROP TABLE animals_test;
+    b_format_db=# \c postgres;
+    gaussdb=# DROP DATABASE b_format_db;
+
+●   last_insert_id(int16)
+    描述：设置下一次last_insert_id()函数的返回值，并返回此值。若参数为NULL，
+    将下一次last_insert_id()函数的返回值设为0，此函数返回NULL。
+    返回值类型：int16
+    示例：
+    gaussdb=# create database b_format_db with dbcompatibility = 'b';
+    gaussdb=# \c b_format_db;
+    b_format_db=# SELECT last_insert_id(100);
+     last_insert_id
+    ----------------
+              100
+    (1 row)
+    b_format_db=# SELECT last_insert_id();
+     last_insert_id
+    ----------------
+              100
+    (1 row)
+    b_format_db=# \c postgres;
+    gaussdb=# DROP DATABASE b_format_db;
+
+          说明
+
+        ● last_insert_id()和last_insert_id(int16)是会话级别的函数，若当前会话未对自动增长列
+          插入任何数据，last_insert_id()返回值为0。
+        ● last_insert_id()和last_insert_id(int16)仅在参数sql_compatibility='B'时可用。

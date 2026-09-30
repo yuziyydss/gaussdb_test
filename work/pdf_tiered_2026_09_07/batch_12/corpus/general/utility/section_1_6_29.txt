@@ -1,0 +1,4620 @@
+[[PDF_PAGE physical=812 printed=763]]
+1.6.29 统计信息函数
+       统计信息函数根据访问对象分为两种类型：针对某个数据库进行访问的函数，以数据
+       库中每个表或索引的OID作为参数，标识需要报告的数据库；针对某个服务器进行访
+       问的函数，以一个服务器线程号为参数，其范围从1到当前活跃服务器的数目。
+
+       ●   pg_stat_get_db_conflict_tablespace(oid)
+           描述：由于恢复与数据库中删除的表空间发生冲突而取消的查询数。在多租场景
+           下，在PDB仅可查询本PDB的信息。
+           返回值类型：bigint
+       ●   pg_stat_get_db_conflict_truncate(oid)
+           描述：由于与数据库中在回放的truncate操作发生冲突而取消的查询数。在多租
+           场景下，在PDB仅可查询本PDB的信息。
+           返回值类型：bigint
+       ●   pg_stat_get_db_conflict_force_recycle(oid)
+           描述：由于极致RTO备机读触发强制回收而取消的查询数。在多租场景下，在
+           PDB仅可查询本PDB的信息。
+           返回值类型：bigint
+       ●   pg_stat_get_db_conflict_standby_query_timeout(oid)
+           描述：由于超过极致RTO备机读设置的查询时间上限而取消的查询数。在多租场
+           景下，在PDB仅可查询本PDB的信息。
+           返回值类型：bigint
+       ●   pg_stat_get_db_conflict_bufferpin(oid)
+           描述：冲突的缓冲区数目。
+           返回值类型：bigint
+[[PDF_PAGE physical=813 printed=764]]
+●   pg_stat_get_db_conflict_snapshot(oid)
+    描述：冲突的快照数目。
+    返回值类型：bigint
+●   pg_stat_get_db_conflict_startup_deadlock(oid)
+    描述：冲突的死锁数目。
+    返回值类型：bigint
+●   pg_stat_get_db_conflict_all(oid)
+    描述：由于数据库恢复冲突取消的查询数量（只在备用服务器发生的冲突）。
+    返回值类型：bigint
+●   pg_control_group_config()
+    描述：在当前节点上打印cgroup配置。该函数需要SYSADMIN权限的用户才能够
+    执行。多租下禁用。
+    返回值类型：record
+●   pg_stat_get_db_stat_reset_time(oid)
+    描述：上次重置数据库统计信息的时间。查询首次连接的数据库将返回数据库连
+    接时的系统时间。当在数据库上调用pg_stat_reset以及针对其中的任何表或索引
+    执行pg_stat_reset_single_table_counters时，重置时间都会更新。在多租场景
+    下，在PDB仅可查询本PDB的信息。
+    返回值类型：timestamptz
+●   pg_stat_get_function_total_time(oid)
+    描述：该函数花费的总挂钟时间，以微秒为单位。包括花费在此函数调用其它函
+    数上的时间。
+    返回值类型：bigint
+●   pg_stat_get_xact_tuples_returned(oid)
+    描述：当前事务中参数为表时通过顺序扫描读取的行数，或参数为索引时返回的
+    索引条目数。
+    返回值类型：bigint
+●   pg_lock_status()
+    描述：查询打开事务所持有的锁信息，所有用户均可执行该函数。在多租场景
+    下，在PDB仅返回本PDB信息，在Non-PDB返回全局信息。
+    返回值类型：返回字段可参考PG_LOCKS视图（请参见PG_LOCKS）返回字段，该
+    视图是通过查询本函数得到的结果。
+●   gs_lwlock_status()
+    描述：查询数据库系统内所有轻量级锁信息，包括等锁和持锁信息，所有用户均
+    可执行该函数。
+    返回值类型：setof record
+●   pg_stat_get_xact_numscans(oid)
+    描述：当前事务中参数为表时执行的顺序扫描次数，或参数为索引时执行的索引
+    扫描次数。
+    返回值类型：bigint
+●   pg_stat_get_xact_blocks_fetched(oid)
+    描述：当前事务中对表或索引的磁盘块获取请求数。
+    返回值类型：bigint
+[[PDF_PAGE physical=814 printed=765]]
+●   pg_stat_get_xact_blocks_hit(oid)
+    描述：当前事务中对缓存中找到的表或索引的磁盘块获取请求数。
+    返回值类型：bigint
+●   pg_stat_get_xact_function_calls(oid)
+    描述：在当前事务中调用该函数的次数。
+    返回值类型：bigint
+●   pg_stat_get_xact_function_self_time(oid)
+    描述：在当前事务中仅花费在此函数上的时间，不包括花费在此函数内部调用其
+    它函数上的时间。
+    返回值类型：bigint
+●   pg_stat_get_xact_function_total_time(oid)
+    描述：当前事务中该函数所花费的总挂钟时间（以微秒为单位），包括花费在此
+    函数内部调用其它函数上的时间。
+    返回值类型：bigint
+●   pg_stat_get_wal_senders()
+    描述：在主机端查询walsender信息。在多租场景下，PDB内部返回为空。
+    返回值类型：setof record
+    返回字段说明如下：
+
+    表 1-221 返回字段说明
+     字段名称                       字段类型                  字段说明
+
+     pid                        bigint                walsender的线程号。
+
+     sender_pid                 integer               walsender的pid相对的
+                                                      轻量级线程号。
+
+     local_role                 text                  主节点类型。
+
+     peer_role                  text                  备节点类型。
+
+     peer_state                 text                  备节点状态。
+
+     state                      text                  walsender状态。
+
+     catchup_start              timestamp with time   catchup启动时间。
+                                zone
+
+     catchup_end                timestamp with time   catchup结束时间。
+                                zone
+
+     sender_sent_location       text                  主节点发送位置。
+
+     sender_write_location      text                  主节点落盘位置。
+
+     sender_flush_location      text                  主节点flush磁盘位置。
+
+     sender_replay_location     text                  主节点redo位置。
+
+     receiver_received_locati   text                  备节点接收位置。
+     on
+[[PDF_PAGE physical=815 printed=766]]
+     字段名称                         字段类型          字段说明
+
+     receiver_write_location      text          备节点落盘位置。
+
+     receiver_flush_location      text          备节点flush磁盘位置。
+
+     receiver_replay_location     text          备节点redo磁盘位置。
+
+     sync_percent                 text          同步百分比。
+
+     sync_state                   text          同步状态。
+
+     sync_group                   text          同步复制的所属分组。
+
+     sync_priority                text          同步复制的优先级。
+
+     sync_most_available          text          最大可用模式设置。
+
+     channel                      text          walsender信道信息。
+
+
+●   get_paxos_replication_info()
+    描述：查询Paxos模式下主机或备机的复制状态。
+    返回值类型：setof record
+    返回字段说明如下：
+
+    表 1-222 返回字段说明
+     字段名称                  字段类型          字段说明
+
+     paxos_write_locati    text          已经写入DCF的Xlog位置。
+     on
+
+     paxos_commit_loc      text          已经在DCF中达成一致的Xlog位置。
+     ation
+
+     local_write_locatio   text          节点的落盘位置。
+     n
+
+     local_flush_locatio   text          节点的flush磁盘位置。
+     n
+
+     local_replay_locati   text          节点的redo磁盘位置。
+     on
+[[PDF_PAGE physical=816 printed=767]]
+ 字段名称                            字段类型                         字段说明
+
+ dcf_replication_inf             text                         节点的DCF模块信息。字符串为json
+ o                                                            格式，其中各字段含义分别如下，
+                                                              role：表示当前节点角色，角色一共
+                                                              有如下几种，LEADER、
+                                                              FOLLOWER、LOGGER、PASSIVE、
+                                                              UNKNOW。
+                                                              term：选举任期。run_mode：DCF
+                                                              运行模式，当前0表示自动选举模
+                                                              式，1表示手动选举模式，2表示关闭
+                                                              选举模式。
+                                                              work_mode:DCF工作模式；
+                                                              hb_interval:DCF节点间心跳间隔时
+                                                              间，单位ms。
+                                                              elc_timeout:DCF选举超时时间，单位
+                                                              ms。applied_index:被应用到状态机
+                                                              的日志位置。
+                                                              commit_index:已被大多数DCF节点
+                                                              保存的日志位置，此commit_index之
+                                                              前日志均已持久化。
+                                                              first_index:DCF节点保存的首条日志
+                                                              位置，此位置会随着DN调用
+                                                              dcf_truncate而向后推进，之前的日
+                                                              志会被清理。
+                                                              last_index:DCF节点保存的最后一条
+                                                              日志位置，此日志位置包含DCF节点
+                                                              存储在内存里但是没有持久化的日
+                                                              志。
+                                                              cluster_min_apply_idx:集群最小已应
+                                                              用的日志位置。leader_id:leader节点
+                                                              ID。leader_ip:leader节点IP。
+                                                              leader_port:leader节点端口，DCF内
+                                                              部使用 。
+                                                              nodes:本集群其他节点信息，包含节
+                                                              点的id、ip、port、role等关键信息。
+
+
+
+示例：
+gaussdb=# select * from get_paxos_replication_info();
+ paxos_write_location | paxos_commit_location | local_write_location | local_flush_location |
+local_replay_location |
+
+
+                                                                    dcf_replication_info
+
+
+
+----------------------+-----------------------+----------------------+----------------------+-----------------------
++---------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------
+[[PDF_PAGE physical=817 printed=768]]
+    -----------------------------------------------------------------------------------------------------------------------
+    -------------------------------------------------
+    -----------------------------------------------------------------------------------------------------------------------
+    -------------------------------------------------
+    -----------------------------------------------------------------------------------------------------------------------
+    -------------------------------------------------
+    -----------------------------------------------------------------------------------------------------------------------
+    -------------------------------------------------
+    ---------------------------------------------------------------------------
+      38F/CD54F690           | 38F/CD54F690            | 38F/CD54F690            | 38F/CD546CF8            | 38F/
+    CD546CF8            | {"stream_id":1,"local_node_id":1,"role":"LEADER","
+    term":1215,"run_mode":1,"work_mode":0,"stg_mode":1,"hb_interval":1000,"elc_timeout":3000,"auto_el
+    c_pri_en":1,"elc_switch_thd":0,"group":0,"priority":3898464883456,"lead
+    er_group":0,"is_in_major":1,"applied_index":362830766,"commit_index":362830766,"first_index":35533
+    0879,"last_index":3916160068856,"last_term":1215,"dcf_last_index":3628
+    30766,"dcf_last_disk":362830754,"cluster_min_apply_idx":362830764,"cluster_mode":"primary_cluster",
+    "leader_id":1,"leader_ip":"*.*.*.*","leader_port":*,"nodes"
+    :
+    [{"node_id":1,"ip":"*.*.*.*","port":*,"role":"LEADER","next_index":362830766,"match_index":362830765,"
+    apply_index":362830765},{"node_id":2,"ip":"*.*.*.*
+    ","port":*,"role":"FOLLOWER","next_index":362830767,"match_index":362830766,"apply_index":362830
+    765},{"node_id":3,"ip":"*.*.*.*","port":*,"role":"LOGGER"
+    ,"next_index":362830767,"match_index":362830766,"apply_index":362830764}]}
+    (1 row)
+
+●   pg_stat_get_stream_replications()
+    描述：查询主备复制状态。
+    返回值类型：setof record
+    返回值说明如下表所示：
+
+    表 1-223 返回值说明
+
+     返回参数                                    返回参数类型                                  返回参数说明
+
+     local_role                              text                                    本地角色。
+
+     static_connections                      integer                                 连接统计。
+
+     db_state                                text                                    数据库状态。
+
+     detail_information                      text                                    详细信息。
+
+
+●   pg_stat_get_db_numbackends(oid)
+    描述：处理该数据库活跃的服务器线程数目。在多租场景下，在PDB仅可查询本
+    PDB的信息。
+    返回值类型：integer
+●   pg_stat_get_db_xact_commit(oid)
+    描述：数据库中已提交事务的数量。在多租场景下，在PDB仅可查询本PDB的信
+    息。
+    返回值类型：bigint
+●   pg_stat_get_db_xact_rollback(oid)
+    描述：数据库中回滚事务的数量。在多租场景下，在PDB仅可查询本PDB的信
+    息。
+    返回值类型：bigint
+●   pg_stat_get_db_blocks_fetched(oid)
+[[PDF_PAGE physical=818 printed=769]]
+    描述：数据库中磁盘块抓取请求的总数。在多租场景下，在PDB仅可查询本PDB
+    的信息。
+    返回值类型：bigint
+●   pg_stat_get_db_blocks_hit(oid)
+    描述：数据库在缓冲区中找到的磁盘块抓取请求的总数。在多租场景下，在PDB
+    仅可查询本PDB的信息。
+    返回值类型：bigint
+●   pg_stat_get_db_tuples_returned(oid)
+    描述：数据库返回的Tuple数。在多租场景下，在PDB仅可查询本PDB的信息。
+    返回值类型：bigint
+●   pg_stat_get_db_tuples_fetched(oid)
+    描述：数据库中获取的Tuple数。在多租场景下，在PDB仅可查询本PDB的信息。
+    返回值类型：bigint
+●   pg_stat_get_db_tuples_inserted(oid)
+    描述：数据库中插入的Tuple数。在多租场景下，在PDB仅可查询本PDB的信息。
+    返回值类型：bigint
+●   pg_stat_get_db_tuples_updated(oid)
+    描述：数据库中更新的Tuple数。在多租场景下，在PDB仅可查询本PDB的信息。
+    返回值类型：bigint
+●   pg_stat_get_db_blk_read_time(oid)
+    描述：通过数据库后端读取数据文件块花费的时间，以毫秒计算。
+    返回值类型：double
+●   pg_stat_get_db_blk_write_time(oid)
+    描述：通过数据库后端写入数据文件块花费的时间，以毫秒计算。
+    返回值类型：double
+●   pg_stat_get_db_tuples_deleted(oid)
+    描述：数据库中删除Tuple数。在多租场景下，在PDB仅可查询本PDB的信息。
+    返回值类型：bigint
+●   pg_stat_get_db_conflict_lock(oid)
+    描述：数据库中锁冲突的数量。在PDB仅可查询本PDB的信息。
+    返回值类型：bigint
+●   pg_stat_get_db_deadlocks(oid)
+    描述：数据库中死锁的数量。在多租场景下，在PDB仅可查询本PDB的信息。
+    返回值类型：bigint
+●   pg_stat_get_numscans(oid)
+    描述：如果参数是一个表，则顺序扫描读取的次数。如果参数是一个索引，则返
+    回索引行的扫描次数。
+    返回值类型：bigint
+●   pg_stat_get_role_name(oid)
+    描述：根据用户oid获取用户名。仅SYSADMIN和MONADMIN用户可以访问。
+    返回值类型：text
+[[PDF_PAGE physical=819 printed=770]]
+    示例：
+    gaussdb=# SELECT pg_stat_get_role_name(10);
+     pg_stat_get_role_name
+    -----------------------
+     aabbcc
+    (1 row)
+
+●   pg_stat_get_tuples_returned(oid)
+    描述：如果参数是一个表，则顺序扫描读取的活跃行数目。如果参数是一个索
+    引，则返回的活跃索引行的数目。
+    返回值类型：bigint
+●   pg_stat_get_tuples_fetched(oid)
+    描述：如果参数是一个表，则位图扫描抓取的行数目。如果参数是一个索引，则
+    用简单索引扫描在原表中抓取的行数目。
+    返回值类型：bigint
+●   pg_stat_get_tuples_inserted(oid)
+    描述：已插入表中的行数。
+    返回值类型：bigint
+●   pg_stat_get_tuples_updated(oid)
+    描述：在表中已更新行的数量。
+    返回值类型：bigint
+●   pg_stat_get_tuples_deleted(oid)
+    描述：从表中删除行的数量。
+    返回值类型：bigint
+●   pg_stat_get_tuples_changed(oid)
+    描述：该表上一次analyze或autoanalyze之后插入、更新、删除行的总数量。
+    返回值类型：bigint
+●   pg_stat_get_tuples_hot_updated(oid)
+    描述：表热更新的行数。
+    返回值类型：bigint
+●   pg_stat_get_live_tuples(oid)
+    描述：表活行数。
+    返回值类型：bigint
+●   pg_stat_get_dead_tuples(oid)
+    描述：表死行数。在Ustore表中仅代表不活跃行指针数量。
+    返回值类型：bigint
+●   pg_stat_get_blocks_fetched(oid)
+    描述：表或者索引的磁盘块抓取请求的数量。
+    返回值类型：bigint。
+●   pg_stat_get_blocks_hit(oid)
+    描述：在缓冲区中找到的表或者索引的磁盘块请求数目。
+    返回值类型：bigint
+●   pg_stat_get_xact_tuples_fetched(oid)
+    描述：事务中扫描的tuple行数。
+[[PDF_PAGE physical=820 printed=771]]
+    返回值类型：bigint
+●   pg_stat_get_xact_tuples_inserted(oid)
+    描述：表相关的活跃子事务中插入的tuple数。
+    返回值类型：bigint
+●   pg_stat_get_xact_tuples_deleted(oid)
+    描述：表相关的活跃子事务中删除的tuple数。
+    返回值类型：bigint
+●   pg_stat_get_xact_tuples_hot_updated(oid)
+    描述：表相关的活跃子事务中热更新的tuple数。
+    返回值类型：bigint
+●   pg_stat_get_xact_tuples_updated(oid)
+    描述：表相关的活跃子事务中更新的tuple数。
+    返回值类型：bigint
+●   pg_stat_get_last_vacuum_time(oid)
+    描述：用户在该表上最后一次手动启动清理或者autovacuum线程启动清理的时
+    间。
+    返回值类型：timestamptz
+●   pg_stat_get_last_autovacuum_time(oid)
+    描述：autovacuum守护线程在该表上最后一次启动清理的时间。
+    返回值类型：timestamptz
+●   pg_stat_get_vacuum_count(oid)
+    描述：用户在该表上启动清理的次数。
+    返回值类型：bigint
+●   pg_stat_get_autovacuum_count(oid)
+    描述：autovacuum守护线程在该表上启动清理的次数。
+    返回值类型：bigint
+●   pg_stat_get_last_analyze_time(oid)
+    描述：用户在该表上最后一次手动启动分析或者autovacuum线程启动分析的时
+    间。
+    返回值类型：timestamptz
+●   pg_stat_get_last_autoanalyze_time(oid)
+    描述：autovacuum守护线程在该表上最后一次启动分析的时间。
+    返回值类型：timestamptz
+●   pg_stat_get_analyze_count(oid)
+    描述：用户在该表上启动分析的次数。
+    返回值类型：bigint
+●   pg_stat_get_autoanalyze_count(oid)
+    描述：autovacuum守护线程在该表上启动分析的次数。
+    返回值类型：bigint
+●   pg_total_autovac_tuples(bool)
+[[PDF_PAGE physical=821 printed=772]]
+    描述：返回total autovac相关的tuple记录，如nodename、nspname、relname
+    以及各类tuple的IUD信息，入参为：是否查询relation信息。
+    返回值类型：setof record
+    返回参数：如表1-224所示。
+
+    表 1-224 返回参数说明
+
+     返回参数                     返回参数类型           返回参数说明
+
+     nodename                 name             节点名称。
+
+     nspname                  name             名称空间名称。
+
+     relname                  name             表、索引、视图等对象
+                                               名称。
+
+     partname                 name             分区名称。
+
+     n_dead_tuples            bigint           表分区内的死行数。在
+                                               Ustore表中仅代表不活
+                                               跃行指针数量。
+
+     n_live_tuples            bigint           表分区内的活行数。
+
+     changes_since_analyze    bigint           analyze产生改变的数
+                                               量。
+
+
+●   pg_total_gsi_autovac_tuples(bool)
+    描述：集中式不支持。
+    返回值类型：setof record
+●   pg_autovac_status(oid)
+    描述：返回和autovac状态相关的参数信息，如
+    nodename,nspname,relname,analyze,vacuum设置，analyze/vacuum阈值,
+    analyze/vacuum tuple数等。仅SYSADMIN可以使用该函数。
+    返回值类型：setof record
+    返回参数：如表1-225所示。
+
+    表 1-225 返回参数说明
+
+     返回参数                     返回参数类型           返回参数说明
+
+     nspname                  text             名称空间名称。
+
+     relname                  text             表、索引、视图等对象
+                                               名称。
+
+     nodename                 text             节点名称。
+
+     doanalyze                Boolean          是否执行analyze。
+
+     anltuples                bigint           analyze tuple数量。
+
+     anlthresh                bigint           analyze阈值。
+[[PDF_PAGE physical=822 printed=773]]
+     返回参数                                  返回参数类型                                返回参数说明
+
+     dovacuum                              Boolean                               是否执行vacuum。
+
+     vactuples                             bigint                                vacuum tuple数量。
+
+     vacthresh                             bigint                                vacuum阈值。
+
+
+●   pg_autovac_timeout(oid)
+    描述：返回某个表做autovac连续超时的次数，表信息非法或node信息异常返回
+    NULL。
+    返回值类型：bigint
+●   pg_stat_get_last_data_changed_time(oid)
+    描述：对于在表上的修改insert/update/delete/truncate和在表的分区(partition/
+    subpartition)上的修改exchange/truncate/drop，在该表上最后一次操作的时
+    间，PG_STAT_ALL_TABLES视图（PG_STAT_ALL_TABLES）的last_data_changed
+    列的数据是通过该函数求值，在表数量很大的场景中，通过视图获取表数据最后
+    修改时间的性能较差，建议直接使用该函数获取表数据的最后修改时间。入参是
+    表的oid。
+    返回值类型：timestamptz
+●   pg_stat_set_last_data_changed_time(oid)
+    描述：手动设置该表上最后一次insert/update/delete, exchange/truncate/drop
+    partition操作的时间。
+    返回值类型：void
+●   pg_stat_get_last_updated(oid, text)
+    描述：返回DBE_PERF.stat_all_tables, DBE_PERF.stat_all_indexes,
+    DBE_PERF.statio_all_indexes, DBE_PERF.statio_all_tables视图中对各表各项监控
+    指标字段更新的时间。入参1为表的oid，入参2为text类型，取值为"stat_table",
+    "stat_index", "stat_io"。
+    返回值类型：timestamptz
+●   pg_backend_pid()
+    描述：当前会话的服务器线程的线程ID。
+    返回值类型：integer
+●   pg_stat_get_activity(integer)
+    描述：返回一个关于带有特殊PID的后台线程的记录信息，当参数为NULL时，则
+    返回每个活动的后台线程的记录。返回结果不包含connection_info列。初始用
+    户、系统管理员和MONADMIN可以查看所有的数据，普通用户只能查询自己的
+    结果。多租场景下，non-PDB调用该函数时返回全部信息，PDB调用该函数时仅
+    返回该PDB相关信息。
+    示例：
+    gaussdb=# SELECT * FROM pg_stat_get_activity(139881386280704);
+      datid |     pid      | sessionid | usesysid | application_name | state |
+    query                      | waiting |       xact_start          |       query_start          |
+        backend_start          |       state_change         | client_addr | client_hostname | client_port | enqueue
+    |    query_id      | srespool | global_sessionid | unique_sql_id | trace_id
+    -------+-----------------+-----------+----------+------------------+--------
+    +------------------------------------------------------+---------+-------------------------------
+    +-------------------------------+-----
+    --------------------------+------------------------------+-------------+-----------------+-------------+---------
+[[PDF_PAGE physical=823 printed=774]]
++-------------------+--------------+------------------+---------------+----------
+ 16545 | 139881386280704 |            69 |      10 | gsql          | active | select * from
+pg_stat_get_activity(139881386280704); | f            | 2022-01-18 19:43:05.167718+08 | 2022-01-18
+19:43:05.167718+08 | 2022
+-01-18 19:42:33.513507+08 | 2022-01-18 19:43:05.16773+08 |                      |           | -1 |   |
+72620543991624410 | default_pool | 1938253334#69#0 | 3751941862 |
+(1 row)
+返回值类型：setof record
+返回参数：如表1-226所示。
+
+表 1-226 返回参数说明
+ 返回参数                                 返回参数类型                            返回参数说明
+
+ datid                                oid                               用户会话在后台连接到
+                                                                        的数据库OID。
+
+ pid                                  bigint                            后台线程ID。
+
+ sessionid                            bigint                            会话ID。
+
+ usesysid                             oid                               登录该后台的用户OID。
+
+ application_name                     text                              连接到该后台的应用
+                                                                        名。
+
+ state                                text                              该后台当前总体状态。
+
+ query                                text                              该后台的最新查询。如
+                                                                        果state状态是active（活
+                                                                        跃的），此字段显示当
+                                                                        前正在执行的查询。所
+                                                                        有其他情况表示上一个
+                                                                        查询。
+
+ waiting                              Boolean                           如果后台当前正等待锁
+                                                                        则为true。
+
+ xact_start                           timestamp with time               启动当前事务的时间，
+                                      zone                              如果没有事务是活跃
+                                                                        的，则为null。
+                                                                        如果当前查询是首个事
+                                                                        务，则这列等同于
+                                                                        query_start列。
+
+ query_start                          timestamp with time               开始当前活跃查询的时
+                                      zone                              间，如果state的值不是
+                                                                        active，则这个值是上一
+                                                                        个查询的开始时间。
+
+ backend_start                        timestamp with time               该过程开始的时间，即
+                                      zone                              当客户端连接服务器
+                                                                        时。
+
+ state_change                         timestamp with time               上次状态改变的时间。
+                                      zone
+[[PDF_PAGE physical=824 printed=775]]
+     返回参数                       返回参数类型            返回参数说明
+
+     client_addr                inet              连接到该后台的客户端
+                                                  的IP地址。如果此字段是
+                                                  null，它表明通过服务器
+                                                  机器上UNIX套接字连接
+                                                  客户端或者这是内部线
+                                                  程，如autovacuum。
+
+     client_hostname            text              客户端的主机名，这个
+                                                  字段是通过client_addr
+                                                  的反向DNS查找得到。
+                                                  这个字段只有在启动
+                                                  log_hostname且使用IP
+                                                  连接时才非空。
+
+     client_port                integer           客户端用于与后台通讯
+                                                  的TCP端口号，如果使用
+                                                  Unix套接字，则为-1。
+
+     enqueue                    text              该字段暂不支持。
+
+     query_id                   bigint            查询语句的ID。
+
+     srespool                   name              资源池名字。
+
+     global_sessionid           text              全局会话id。
+
+     unique_sql_id              bigint            语句的unique sql id。
+
+     trace_id                   text              驱动传入的trace id，与
+                                                  应用的一次请求相关
+                                                  联。
+
+
+●   pg_stat_get_activity_with_conninfo(integer)
+    描述：返回一个关于带有特殊PID的后台线程的记录信息，当参数为NULL时，则
+    返回每个活动的后台线程的记录。初始用户、系统管理员和MONADMIN可以查
+    看所有的数据，普通用户只能查询自己的结果。
+    返回值类型：setof record
+    返回值说明：如表1-227所示。
+
+    表 1-227 返回值说明
+     返回值                      返回值类型               返回值说明
+
+     datid                    oid                 用户会话在后台连接到
+                                                  的数据库OID。
+
+     pid                      bigint              后台线程ID。
+
+     sessionid                bigint              会话ID。
+
+     usesysid                 oid                 登录该后台的用户OID。
+[[PDF_PAGE physical=825 printed=776]]
+返回值                返回值类型                 返回值说明
+
+application_name   text                  连接到该后台的应用
+                                         名。
+
+state              text                  该后台当前总体状态。
+
+query              text                  该后台的最新查询。如
+                                         果state状态是active（活
+                                         跃的），此字段显示当
+                                         前正在执行的查询。所
+                                         有其他情况表示上一个
+                                         查询。
+
+waiting            Boolean               如果后台当前正等待锁
+                                         则为true。
+
+xact_start         timestamp with time   启动当前事务的时间，
+                   zone                  如果没有事务是活跃
+                                         的，则为null。如果当前
+                                         查询是首个事务，则这
+                                         列等同于query_start
+                                         列。
+
+query_start        timestamp with time   开始当前活跃查询的时
+                   zone                  间，如果state的值不是
+                                         active，则这个值是上一
+                                         个查询的开始时间。
+
+backend_start      timestamp with time   该过程开始的时间，即
+                   zone                  当客户端连接服务器
+                                         时。
+
+state_change       timestamp with time   上次状态改变的时间。
+                   zone
+
+client_addr        inet                  连接到该后台的客户端
+                                         的IP地址。如果此字段是
+                                         null，它表明通过服务器
+                                         机器上UNIX套接字连接
+                                         客户端或者这是内部线
+                                         程，如autovacuum。
+
+client_hostname    text                  客户端的主机名，这个
+                                         字段是通过client_addr
+                                         的反向DNS查找得到。
+                                         这个字段只有在启动
+                                         log_hostname且使用IP
+                                         连接时才非空。
+
+client_port        integer               客户端用于与后台通讯
+                                         的TCP端口号，如果使用
+                                         Unix套接字，则为-1。
+
+enqueue            text                  该字段暂不支持。
+[[PDF_PAGE physical=826 printed=777]]
+     返回值                       返回值类型             返回值说明
+
+     query_id                  bigint            查询语句的ID。
+
+     connection_info           text              json格式字符串，记录当
+                                                 前连接数据库的驱动类
+                                                 型、驱动版本号、当前
+                                                 驱动的部署路径、线程
+                                                 属主用户等信息。
+
+     srespool                  name              资源池名字。
+
+     global_sessionid          text              全局会话ID。
+
+     unique_sql_id             bigint            语句的unique sql id。
+
+     trace_id                  text              驱动传入的trace id，与
+                                                 应用的一次请求相关
+                                                 联。
+
+     top_xid                   xid               事务的顶层事务ID。
+
+     current_xid               xid               事务的当前事务ID。
+
+     xlog_quantity             bigint            事务当前使用的Xlog
+                                                 量，单位为字节。
+
+
+●   gs_get_explain(integer)
+    描述：返回一个关于指定PID的后台线程的运行态计划，PID不能为空。该功能生
+    效的必要条件是GUC参数track_activities为on，支持语句的范围为可以explain且
+    其计划不包含STREAM算子的SQL，详细说明如下：
+    –   若GUC参数plan_collect_thresh=-1，则该函数的返回结果一直为空。
+    –   若GUC参数plan_collect_thresh=0，若当前SQL执行时间大于等于GUC参数
+        log_min_duration_statement指定值，且计划中所有算子处理的tuple数量和
+        大于等于10000时，开始收集运行态计划；且后续每当所有算子处理tuple数
+        量的和的增量超过10000时，进行一次收集。
+    –   若GUC参数plan_collect_thresh>0，会按照该参数指定的阈值进行增量收集
+        运行态计划。
+    返回值类型：text，具体各个字段的类型和含义如下：
+
+     参数                 类型              描述
+
+     运行态计划字             text            其中计划字符串中的A-rows是算子实时返回
+     符串                                 行数。
+
+
+●   pg_stat_get_function_calls(oid)
+    描述：函数已被调用次数。
+    返回值类型：bigint
+●   pg_stat_get_function_self_time(oid)
+    描述：只有在此函数上所花费的时间。此函数调用其它函数所花费的时间被排除
+    在外。
+[[PDF_PAGE physical=827 printed=778]]
+    返回值类型：bigint
+●   pg_stat_get_backend_idset()
+    描述：设置当前活动的服务器线程数（从1到活动服务器线程的数量）。多租场景
+    下，non-PDB调用该函数时返回全部信息，PDB调用该函数时仅返回该PDB相关
+    信息。
+    返回值类型：setofinteger
+●   pg_stat_get_backend_pid(integer)
+    描述：给定的服务器线程的线程ID。多租场景下，non-PDB调用该函数时返回全
+    部信息，PDB调用该函数时仅返回该PDB相关信息。
+    返回值类型：bigint
+●   pg_stat_get_backend_dbid(integer)
+    描述：给定服务器线程的数据库ID。多租场景下，non-PDB调用该函数时返回全
+    部信息，PDB调用该函数时仅返回该PDB相关信息。
+    返回值类型：oid
+●   pg_stat_get_backend_userid(integer)
+    描述：给定服务器线程的用户ID。本函数仅系统管理员可调用。多租场景下，
+    non-PDB调用该函数时返回全部信息，PDB调用该函数时仅返回该PDB相关信
+    息。
+    返回值类型：oid
+●   pg_stat_get_backend_activity(integer)
+    描述：给定服务器线程的当前活动查询，仅在调用者是系统管理员或被查询会话
+    的用户，并且打开track_activities的时候才能获得结果。多租场景下，non-PDB调
+    用该函数时返回全部信息，PDB调用该函数时仅返回该PDB相关信息。
+    返回值类型：text
+●   pg_stat_get_backend_waiting(integer)
+    描述：如果给定服务器线程在等待某个锁，并且调用者是系统管理员或被查询会
+    话的用户，并且打开track_activities的时候才返回真。多租场景下，non-PDB调用
+    该函数时返回全部信息，PDB调用该函数时仅返回该PDB相关信息。
+    返回值类型：Boolean
+●   pg_stat_get_backend_activity_start(integer)
+    描述：给定服务器线程当前正在执行的查询的起始时间，仅在调用者是系统管理
+    员或被查询会话的用户，并且打开track_activities的时候才能获得结果。多租场景
+    下，non-PDB调用该函数时返回全部信息，PDB调用该函数时仅返回该PDB相关
+    信息。
+    返回值类型：timestampwithtimezone
+●   pg_stat_get_backend_xact_start(integer)
+    描述：给定服务器线程当前正在执行的事务的开始时间，但只有当前用户是系统
+    管理员或被查询会话的用户，并且打开track_activities的时候才能获得结果。多租
+    场景下，non-PDB调用该函数时返回全部信息，PDB调用该函数时仅返回该PDB
+    相关信息。
+    返回值类型：timestampwithtimezone
+●   pg_stat_get_backend_start(integer)
+    描述：给定服务器线程启动的时间，如果当前用户不是系统管理员或被查询的后
+    端的用户，则返回NULL。多租场景下，non-PDB调用该函数时返回全部信息，
+    PDB调用该函数时仅返回该PDB相关信息。
+[[PDF_PAGE physical=828 printed=779]]
+    返回值类型：timestampwithtimezone
+●   pg_stat_get_backend_client_addr(integer)
+    描述：连接到给定客户端后端的IP地址。如果是通过Unix域套接字连接的则返回
+    NULL；如果当前用户不是系统管理员或被查询会话的用户，也返回NULL。多租
+    场景下，non-PDB调用该函数时返回全部信息，PDB调用该函数时仅返回该PDB
+    相关信息。
+    返回值类型：inet。
+●   pg_stat_get_backend_client_port(integer)
+    描述：连接到给定客户端后端的TCP端口。如果是通过Unix域套接字连接的则返
+    回-1；如果当前用户不是系统管理员或被查询会话的用户，也返回NULL。多租场
+    景下，non-PDB调用该函数时返回全部信息，PDB调用该函数时仅返回该PDB相
+    关信息。
+    返回值类型：integer
+●   pg_stat_get_bgwriter_timed_checkpoints()
+    描述：后台写线程开启定时检查点的时间（因为checkpoint_timeout时间已经过
+    期了）。多租场景下，non-PDB调用该函数时正常返回，PDB调用该函数时返回
+    默认值0（若是时间戳，则是0s对应的时间戳）。
+    返回值类型：bigint
+●   pg_stat_get_bgwriter_requested_checkpoints()
+    描述：后台写线程开启基于后端请求的检查点的时间，因为已经超过了
+    checkpoint_segments或因为已经执行了CHECKPOINT。多租场景下，non-PDB
+    调用该函数时正常返回，PDB调用该函数时返回默认值0（若是时间戳，则是0s对
+    应的时间戳）。
+    返回值类型：bigint
+●   pg_stat_get_bgwriter_buf_written_checkpoints()
+    描述：在检查点期间后台写线程写入的缓冲区数目。多租场景下，non-PDB调用
+    该函数时正常返回，PDB调用该函数时返回默认值0（若是时间戳，则是0s对应的
+    时间戳）。
+    返回值类型：bigint
+●   pg_stat_get_bgwriter_buf_written_clean()
+    描述：为日常清理脏块，后台写线程写入的缓冲区数目。多租场景下，non-PDB
+    调用该函数时正常返回，PDB调用该函数时返回默认值0（若是时间戳，则是0s对
+    应的时间戳）。
+    返回值类型：bigint
+●   pg_stat_get_bgwriter_maxwritten_clean()
+    描述：后台写线程停止清理扫描的时间，因为已经写入了更多的缓冲区（相比
+    bgwriter_lru_maxpages参数声明的缓冲区数）。多租场景下，non-PDB调用该函
+    数时正常返回，PDB调用该函数时返回默认值0（若是时间戳，则是0s对应的时间
+    戳）。
+    返回值类型：bigint
+●   pg_stat_get_buf_written_backend()
+    描述：后端线程写入的缓冲区数，因为它们需要分配一个新的缓冲区。多租场景
+    下，non-PDB调用该函数时正常返回，PDB调用该函数时返回默认值0（若是时间
+    戳，则是0s对应的时间戳）。
+    返回值类型：bigint
+[[PDF_PAGE physical=829 printed=780]]
+●   pg_stat_get_buf_alloc()
+    描述：分配的总缓冲区数。多租场景下，non-PDB调用该函数时正常返回，PDB
+    调用该函数时返回默认值0（若是时间戳，则是0s对应的时间戳）。
+    返回值类型：bigint
+●   pg_stat_clear_snapshot()
+    描述：清理当前的统计快照。该函数仅SYSADMIN和MONADMIN可以执行。
+    返回值类型：void
+●   pg_stat_reset()
+    描述：为当前数据库重置统计计数器为0（需要系统管理员权限）。
+    返回值类型：void
+●   pg_stat_reset_shared(text)
+    描述：重置shared cluster每个节点当前数据统计计数器为0（需要系统管理员权
+    限）。
+    返回值类型：void
+●   pg_stat_reset_single_table_counters(oid)
+    描述：为当前数据库中的一个表或索引重置统计为0（需要系统管理员权限）。
+    返回值类型：void
+●   pg_stat_reset_single_function_counters(oid)
+    描述：为当前数据库中的一个函数重置统计为0（需要系统管理员权限）。
+    返回值类型：void
+●   fenced_udf_process(integer)
+    描述：查看本地UDF Master和Work进程数。仅SYSADMIN和MONADMIN用户有
+    权限终止所有worker进程。入参为1时查看master进程数，入参为2时查看worker
+    进程数，入参为3时终止所有worker进程。
+    返回值类型：text
+●   total_cpu()
+    描述：获取当前节点使用的CPU时间，单位是jiffies。
+    返回值类型：bigint
+●   total_memory()
+    描述：获取当前节点使用的虚拟内存大小，单位KB。
+    返回值类型：bigint
+●   GS_ALL_NODEGROUP_CONTROL_GROUP_INFO(text)
+    描述：提供了所有NODEGROUP的控制组信息。该函数在调用的时候需要指定要
+    查询NODEGROUP的名称。例如要查询'installation'NODEGROUP的控制组信
+    息：
+    SELECT * FROM GS_ALL_NODEGROUP_CONTROL_GROUP_INFO('installation')
+    返回值类型：record
+    函数返回字段如下：
+     名称                 类型          描述
+
+     name               text        控制组的名称。
+
+     type               text        控制组的类型。
+[[PDF_PAGE physical=830 printed=781]]
+     名称                    类型            描述
+
+     gid                   bigint        控制组ID。
+
+     classgid              bigint        Workload所属Class的控制组ID。
+
+     class                 text          Class控制组。
+
+     workload              text          Workload控制组。
+
+     shares                bigint        控制组分配的CPU资源配额。
+
+     limits                bigint        控制组分配的CPU资源限额。
+
+     wdlevel               bigint        Workload控制组层级。
+
+     cpucores              text          控制组使用的CPU核的信息。
+
+
+●   pg_stat_bad_block(text, int, int, int, int, int, timestamp with time zone,
+    timestamp with time zone)
+    描述：获取当前节点自启动后，读取出现Page的损坏信息。多租场景下，non-
+    PDB调用该函数时返回全部信息，PDB调用该函数时仅返回该PDB相关信息。
+    返回值类型：record
+    示例：
+    SELECT * FROM pg_stat_bad_block();
+
+●   pg_stat_bad_block_clear()
+    描述：清理节点记录的读取出现的Page损坏信息（需要系统管理员权限）。多租
+    场景下，non-PDB调用该函数时正常运行，PDB调用该函数时报错。
+    返回值类型：void
+●   gs_respool_exception_info(pool text)
+    描述：查看某个资源池关联的查询规则信息。
+    返回值类型：record
+●   gs_control_group_info(pool text)
+    描述：查看资源池关联的控制组信息。该函数需要SYSADMIN权限的用户才能够
+    执行。
+    返回值类型：record
+    返回信息如下：
+
+     属性                       属性值                    描述
+
+     name                     class_a:workload_a     class和workload名称。
+                              1
+
+     class                    class_a                Class控制组名称。
+
+     workload                 workload_a1            Workload控制组名称。
+
+     type                     DEFWD                  控制组类型（Top、CLASS、
+                                                     BAKWD、DEFWD、TSWD）。
+
+     gid                      87                     控制组id。
+[[PDF_PAGE physical=831 printed=782]]
+     属性                  属性值                 描述
+
+     shares              30                  占父节点CPU资源的百分比。
+
+     limits              0                   占父节点CPU核数的百分比。
+
+     rate                0                   Timeshare中的分配比例。
+
+     cpucores            0-3                 CPU核心数。
+
+
+●   gs_prepared_statements()
+    描述：显示所有会话所有可用的预备语句，该函数需要SYSADMIN权限的用户才
+    能够执行，函数返回信息具体的字段和GS_ALL_PREPARED_STATEMENTS视图
+    （请参见GS_ALL_PREPARED_STATEMENTS）的字段一致。在多租场景下，在
+    PDB中该函数仅返回本PDB的信息，在Non-PDB则可以返回全局信息。
+    返回值类型：record
+●   gs_all_control_group_info()
+    描述：查看数据库内所有的控制组信息。
+    返回值类型：record
+●   gs_get_control_group_info()
+    描述：查看所有的控制组信息。函数返回信息具体的字段参考
+    GS_GET_CONTROL_GROUP_INFO字段。该函数需要SYSADMIN权限的用户才能
+    够执行。
+    返回值类型：record
+●   gs_get_session_sql_memory()
+    描述：查看当前运行中语句的内存使用量。函数返回信息具体字段参考
+    DBE_PERF.SESSION_SQL_MEMORY字段。
+    返回值类型：record
+●   gs_blackbox_dump()
+    描述：将系统中的黑匣子文件导出到“$GAUSSLOG/gs_blackbox/{nodename}”
+    目录中。执行成功后返回在“$GAUSSLOG/gs_blackbox/{nodename}”中生成的
+    黑匣子文件的名称。
+    返回值类型：text
+●   gs_blackbox_show(blackBoxFile cstring)
+    描述：解析黑匣子文件，并按照表格方式展示。
+    参数：
+[[PDF_PAGE physical=832 printed=783]]
+参数名称                 参数说明                取值范围
+
+blackBoxFile         指定需要解析的黑匣子          字符串，或者不指定，
+                     文件，不指定参数表示          指定有效的黑匣子文件
+                     当前进程采集的黑匣子          名字，则读取
+                     文件。                 “$GAUSSLOG/
+                                         gs_blackbox/
+                                         nodename”目录下对应
+                                         名称的文件。仅支持名
+                                         称，不支持路径，如果
+                                         在“$GAUSSLOG/
+                                         gs_blackbox/
+                                         nodename”下不存在对
+                                         应名称的文件，则报错
+                                         返回。
+
+
+
+
+返回值类型：setof record
+返回值说明如下：
+返回值                  返回值类型               返回值说明
+
+type                 text                黑匣子字段类型。
+
+tid                  bigint              线程号。
+
+sample_time          timestamp           采集时间。
+
+value                text                黑匣子记录的内容。
+
+
+
+
+查询结果举例如下：
+type                 tid         sample_time     value
+
+ERRNUMBER            123456      2024-03-19      19460
+                                 09:33:17.386
+[[PDF_PAGE physical=833 printed=784]]
+     type                     tid       sample_time     value
+
+     BLACK_BOX_PLSQL_EX       45678     2024-03-19      message:
+     CEPTION                            09:33:18.396    "Dropped
+                                                        rowtype
+                                                        entry for
+                                                        non-
+                                                        dropped
+                                                        column
+                                                        when make
+                                                        tuple."
+                                                        funcname:
+                                                        basic_make_
+                                                        tuple_from_r
+                                                        ow
+                                                        filename:pl_
+                                                        exec.cpp
+                                                        context:xxxx
+
+
+●   gs_blackbox_list()
+    描述：列举当前实例黑匣子目录下的黑匣子文件。默认是“$GAUSSLOG/
+    gs_blackbox/{nodename}”目录下。
+    返回值类型：setof record
+    返回值说明如下：
+     返回值                      返回值类型             返回值说明
+
+     file                     text              黑匣子文件名称。
+
+
+●   gs_plan_trace_delete(TIMESTAMPTZ)
+    描述：删除当前用户的小于等于指定时间max_time的所有plan trace。所有用户
+    都可以使用该函数，且只要该函数在执行过程中没有任何异常，那么该函数将返
+    回t。
+    返回值类型：Boolean
+●   gs_plan_trace_watch_sqlid(bigint)
+    描述：侦听一个要生成plan trace的unique sql id，该id来自dbe_perf.statement
+    系统表的unique_sql_id字段。另外，该函数只能被初始用户和有SYSADMIN/
+    OPRADMIN/MONADMIN权限的用户调用，且只要该函数在执行过程中没有任何
+    异常，那么该函数将返回t。
+    返回值类型：Boolean
+[[PDF_PAGE physical=834 printed=785]]
+       须知
+
+    1. 在数据库系统中，当前被侦听的unique sql id被存放到一个长度为128的循环
+       数组中，如果调用该函数的速度过于频繁，那么有可能存在被侦听但是没有生
+       成plan trace的unique sql id被覆盖掉。
+    2. 如果一个unique sql id只被侦听一次，那么该unique sql id只能生成一次plan
+       trace。如果相同的unique sql id被侦听多次，那么该unique sql id会生成多次
+       plan trace。
+
+●   gs_plan_trace_show_sqlids()
+    描述：查看当前系统中待生成plan trace的unique sql id字符串列表。该函数只能
+    被初始用户和有SYSADMIN/OPRADMIN/MONADMIN权限的用户调用。
+    返回值类型：text
+
+
+
+       须知
+
+    1. 系统中有两个待生成plan trace的unique sq id：730834934、730834935，那
+       么使用该函数看到的结果为字符串文本：“730834934,730834935,”。
+    2. 使用这个函数看不到正在生成plan trace的unique sql id。
+
+●   gs_standby_read_delay()
+    描述：获取主机上事务产生的日志在备机上回放时的时间差。当主机上的事务提
+    交或回滚时，将时间戳添加到相应的日志中。而备机在回放此类日志时，用当前
+    系统时间减去该时间，所得结果就是回放的延迟，也就是同步延迟。
+    返回值类型：bigint
+
+
+
+       须知
+
+    只支持集中式。其他场景下，可以直连备DN查询延迟时间。
+
+●   gs_stat_progress_vacuum(pid)
+    描述：用于查看当前VACUUM的进度。仅统计Astore和Ustore的页式表的
+    VACUUM进度，不支持统计hashbucket和段页式。
+    返回值类型：record
+
+    表 1-228 返回值参数说明
+
+     名称             类型        描述
+
+     pid            bigint    VACUUM线程的线程pid。
+
+     dataname       text      正在清理的数据库名称。
+
+     relid          oid       正在清理表的OID。
+
+     relname        text      正在清理的表名称。
+
+     phase          text      当前VACUUM所处的阶段。
+[[PDF_PAGE physical=835 printed=786]]
+ 名称                   类型          描述
+
+ detail               text        清理进度详情，包含总页面数、已扫描页面数、已清
+                                  理页面数和已清理索引数。
+
+
+
+表 1-229 phase 取值详细说明
+ phase               字段类          说明
+                     型
+
+ invalid             text         VACUUM正在启动，此时将获取表锁。
+
+ initialize          text         VACUUM正在准备开始扫描堆表，该阶段预计非常
+                                  短暂。
+
+ vacuuming           text         VACUUM正在清理分区主表（通常为清理分区主表
+ main part                        的GPI），可通过detail列信息查看清理进度。
+
+ scanning            text         VACUUM正在扫描堆表，必要时会对每个页面进行
+ heap                             碎片整理或执行冻结操作，可通过detail列信息查看
+                                  清理进度。
+
+ vacuuming           text         VACUUM正在清理索引。若表存在索引，该阶段至
+ indexes                          少发生一次，并可能在按需对索引进行多次清理后，
+                                  才会返回继续扫描堆表，可通过detail列信息查看清
+                                  理进度。
+
+ vacuuming           text         VACUUM正在对堆表进行清理（区别于扫描堆
+ heap                             表），并且在每次索引清理后执行。若堆表未完全扫
+                                  描，将在此阶段后返回继续扫描，可通过detail列信
+                                  息查看清理进度。
+
+ vacuuming           text         VACUUM正在清理已缓存分区的死元组，可通过
+ part cache                       detail列信息查看清理进度。
+
+ cleaning up         text         VACUUM正在清理索引，该阶段在堆表完全扫描且
+ indexes                          所有索引与堆表清理完成后执行。
+
+ truncating          text         VACUUM正在截断堆表的尾部空页，并将空页返回
+ heap                             操作系统。
+
+ vacuuming           text         VACUUM正在回收Ustore表的索引的页面。
+ urq
+
+ unknown             text         表示当前处于未在上述阶段中定义的未知状态，通常
+ phase                            不会出现。
+
+
+
+-- 设置guc参数：
+gaussdb=# SET vacuum_cost_delay=100;
+SET
+gaussdb=# CREATE TABLE t1 (a int, b int, c text) with (storage_type=astore)
+gaussdb-# partition by range(a) (
+gaussdb(# partition p1 values less than(10000),
+gaussdb(# partition p2 values less than(20000),
+gaussdb(# partition p3 values less than(30000),
+[[PDF_PAGE physical=836 printed=787]]
+    gaussdb(# partition p4 values less than(40000),
+    gaussdb(# partition p5 values less than(50000),
+    gaussdb(# partition p6 values less than(60000),
+    gaussdb(# partition p7 values less than(70000),
+    gaussdb(# partition p8 values less than(80000),
+    gaussdb(# partition p9 values less than(90000),
+    gaussdb(# partition p10 values less than(maxvalue));
+    CREATE TABLE
+    gaussdb=# CREATE INDEX idx11 on t1(a) global;
+    CREATE INDEX
+    gaussdb=#
+    gaussdb=# CREATE INDEX idx12 on t1(b) global;
+    CREATE INDEX
+    gaussdb=#
+    gaussdb=# CREATE INDEX idx13 on t1(c) global;
+    CREATE INDEX
+    gaussdb=# INSERT INTO t1 VALUES (generate_Series(1,100000), generate_series(1,3), 'abcde');
+    INSERT 0 300000
+    gaussdb=# DELETE t1;
+    DELETE 300000
+    gaussdb=# VACUUM t1;
+    VACUUM
+    -- 新起一个会话连接当前节点，执行如下
+    gaussdb=# SELECT pid,query FROM pg_stat_activity where query = 'vacuum t1;';
+          pid      | query
+    -----------------+------------
+      140242746078976 | vacuum t1;
+    (1 row)
+    gaussdb=# SELECT * FROM gs_stat_progress_vacuum(140242746078976);
+          pid      | dataname | relid | relname | phase
+    |                                                                                       detail
+
+    -----------------+----------+-------+---------+----------------
+    +---------------------------------------------------------------------------------------------------------------------
+    --------------------------------------------
+    --------------------------------------------------------------------------------------------------------------------
+     140242746078976 | postgres | 24962 | t1             | vacuuming heap | vacuum command "vacuum t1;"
+    starts at 2025-09-09 17:20:00.659862-04, vacuumed 0/11 partitions, current part "p10", current phase
+    already run 0s; heap: scanned 1
+    63/163 blocks, skipped 0 blocks, vacuumed 53/163 blocks; info: found 30003 dead tuples, already run
+    47s, delay 47s.
+    (1 row)
+
+●   get_instr_workload_info(integer)
+    描述：获取数据库主节点上事务量信息，事务时间信息。多租场景下，non-PDB
+    调用该函数时返回全部信息，PDB调用该函数时仅返回该PDB相关信息。
+    返回值类型：record
+     属性                              类型                               描述
+
+     user_oid                        oid                              用户ID。
+
+     commit_counter                  bigint                           前端事务commit数量。
+
+     rollback_counter                bigint                           前端事务rollback数量。
+
+     resp_min                        bigint                           前端事务最小响应时间（单位：微
+                                                                      秒）。
+
+     resp_max                        bigint                           前端事务最大响应时间（单位：微
+                                                                      秒）。
+
+     resp_avg                        bigint                           前端事务平均响应时间(单位：微
+                                                                      秒)。
+[[PDF_PAGE physical=837 printed=788]]
+     属性                   类型       描述
+
+     resp_total           bigint   前端事务总响应时间（单位：微
+                                   秒）。
+
+     bg_commit_count      bigint   后端事务commit数量。
+     er
+
+     bg_rollback_count    bigint   后端事务rollback数量。
+     er
+
+     bg_resp_min          bigint   后端事务最小响应时间（单位：微
+                                   秒）。
+
+     bg_resp_max          bigint   后端事务最大响应时间（单位：微
+                                   秒）。
+
+     bg_resp_avg          bigint   后端事务平均响应时间（单位：微
+                                   秒）。
+
+     bg_resp_total        bigint   后端事务总响应时间（单位：微
+                                   秒）。
+
+     dist_commit_coun     bigint   分布式事务commit数量。
+     ter
+
+     dist_rollback_coun   bigint   分布式事务rollback数量。
+     ter
+
+     dist_resp_min        bigint   分布式事务最小响应时间（单位：
+                                   微秒）。
+
+     dist_resp_max        bigint   分布式事务最大响应时间（单位：
+                                   微秒）。
+
+     dist_resp_avg        bigint   分布式事务平均响应时间（单位：
+                                   微秒）。
+
+     dist_resp_total      bigint   分布式事务总响应时间（单位：微
+                                   秒）。
+
+     dbid                 oid      数据库标识。
+
+
+
+
+         说明
+
+       ● 集中式不存在分布式事务，因此分布式事务统计信息在集中式场景下查询结果始终为
+         0。
+       ● 仅统计主事务信息，子事务信息不会被统计在内。
+●   pv_instance_time()
+    描述：获取当前节点上各个关键阶段的时间消耗。
+    返回值类型：record
+[[PDF_PAGE physical=838 printed=789]]
+     Stat_name属性        属性值         描述
+
+     DB_TIME            1062385     所有线程端到端的时间消耗总和(单位： 微
+                                    秒)。
+
+     CPU_TIME           311777      所有线程CPU时间消耗总和(单位： 微秒)。
+
+     EXECUTION_TIM      380037      消耗在执行器上的时间总和(单位： 微秒)。
+     E
+
+     PARSE_TIME         6033        消耗在SQL解析上的时间总和(单位： 微秒)。
+
+     PLAN_TIME          173356      消耗在执行计划生成上的时间总和(单位： 微
+                                    秒)。
+
+     REWRITE_TIME       2274        消耗在查询重写上的时间总和(单位： 微
+                                    秒)。
+
+     PL_EXECUTION_      0           消耗在PL/SQL执行上的时间总和(单位： 微
+     TIME                           秒)。
+
+     PL_COMPILATIO      557         消耗在SQL编译上的时间总和(单位： 微秒)。
+     N_TIME
+
+     NET_SEND_TIM       1673        消耗在网络发送上的时间总和(单位： 微
+     E                              秒)。
+
+     DATA_IO_TIME       426622      消耗在数据读写上的时间总和(单位： 微
+                                    秒)。
+
+
+●   DBE_PERF.get_global_instance_time()
+    描述：提供整个数据库各个关键阶段的时间消耗，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   get_instr_unique_sql()
+    描述：获取当前节点的执行语句（归一化SQL）信息，具有SYSADMIN和
+    MONADMIN权限的用户可查询全部信息，其他用户只能查询自己执行的语句的
+    信息。函数返回信息具体字段参考DBE_PERF.STATEMENT字段。多租场景下，
+    non-PDB调用该函数时返回全部信息，PDB调用该函数时仅返回该PDB相关信
+    息。
+    返回值类型：record
+●   reset_unique_sql(scope, clean_type, clean_value)
+    描述：用来清理数据库节点内存中的Unique SQL（需要sysadmin/monitor
+    admin权限）。多租场景下，在PDB调用仅清理PDB的数据，在Non-PDB调用会
+    清理全局的数据。
+    返回值类型：Boolean
+
+    表 1-230 reset_unique_sql 参数说明
+
+     参数              类型              描述
+
+     scope           text            'GLOBAL' 、'LOCAL' 表示清理本节点。
+[[PDF_PAGE physical=839 printed=790]]
+     参数              类型                描述
+
+     clean_type      text              'BY_USERID' - 按用户ID来进行清理Unique
+                                       SQL。多租场景下禁用该选项。
+                                       'BY_CNID' - 按节点的ID来进行清理Unique
+                                       SQL。
+                                       'ALL' - 全部清理.
+
+     clean_value     int8              具体清理type对应的清理值。如果第二个参
+                                       数为ALL，则第三个参数不起作用，可以取任
+                                       意值。
+
+
+
+
+         说明
+
+        当前GaussDB为集中式数据库，global与local功能一致，取值范围不支持BY_CNID。
+●   get_instr_wait_event(NULL)
+    描述：获取当前节点event等待的统计信息。
+    返回值类型：record
+●   get_instr_user_login()
+    描述：获取当前节点的用户登录登出次数信息，查询该函数必须具有SYSADMIN
+    或者MONADMIN权限。多租场景下，non-PDB调用该函数时返回全部信息，PDB
+    调用该函数时仅返回该PDB相关信息。
+    返回值类型：record
+●   get_instr_rt_percentile(integer)
+    描述：获取数据库SQL响应时间P80、P95分布信息。如果在PDB中执行该函数，
+    将返回当前PDB的SQL响应时间P80、P95分布信息。
+    返回值类型：record
+●   get_node_stat_reset_time()
+    描述：获取当前节点的统计信息重置（重启，主备倒换，数据库删除）时间。
+    返回值类型：record
+●   DBE_PERF.get_global_os_runtime()
+    描述：显示当前操作系统运行的状态信息，查询该函数必须具有MONADMIN权
+    限。
+    返回值类型：record
+●   DBE_PERF.get_global_os_threads()
+    描述：提供整个数据库中所有正常节点下的线程状态信息，查询该函数必须具有
+    MONADMIN权限。多租场景下，non-PDB调用该函数时返回全部信息，PDB调用
+    该函数时仅返回该PDB相关信息。
+    返回值类型：record
+●   DBE_PERF.get_summary_workload_sql_count()
+    描述：提供整个数据库中不同负载SELECT、UPDATE、INSERT、DELETE、DDL、
+    DML、DCL计数信息，查询该函数必须具有MONADMIN权限。多租场景下，
+    non-PDB调用该函数时返回全部信息，PDB调用该函数时仅返回该PDB相关信
+    息。
+[[PDF_PAGE physical=840 printed=791]]
+    返回值类型：record
+●   DBE_PERF.get_summary_workload_sql_elapse_time()
+    描述：提供整个数据库中不同负载SELECT、UPDATE、INSERT、DELETE，响应
+    时间信息（TOTAL、AVG、MIN、MAX），查询该函数必须具有MONADMIN权
+    限。多租场景下，non-PDB调用该函数时返回全部信息，PDB调用该函数时仅返
+    回该PDB相关信息。
+    返回值类型：record
+●   DBE_PERF.get_global_workload_transaction()
+    描述：获取数据库内所有节点上的事务量信息，事务时间信息，查询该函数必须
+    具有MONADMIN权限。多租场景下，non-PDB调用该函数时返回全部信息，PDB
+    调用该函数时仅返回该PDB相关信息。
+    返回值类型：record
+●   DBE_PERF.get_global_session_stat()
+    描述：获取数据库节点上的会话状态信息，查询该函数必须具有MONADMIN权
+    限。
+    返回值类型：record
+         说明
+
+       状态信息有14项：commit、rollback、sql、table_scan、blocks_fetched、
+       physical_read_operation、shared_blocks_dirtied、local_blocks_dirtied、
+       shared_blocks_read、local_blocks_read、blocks_read_time、blocks_write_time、
+       sort_imemory、sort_idisk。
+●   DBE_PERF.get_global_session_time()
+    描述：提供整个数据库各节点各个关键阶段的时间消耗，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_session_memory()
+    描述：汇聚各节点的Session级别的内存使用情况，包含执行作业在数据节点上
+    GaussDB线程和Stream线程分配的所有内存，单位为MB，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_session_memory_detail()
+    描述：汇聚各节点的线程的内存使用情况，以MemoryContext节点来统计，查询
+    该函数必须具有MONADMIN权限。
+    返回值类型：record
+●   gs_paxos_stat_replication()
+    描述：在主机端查询备机信息。
+    返回值类型：setof record
+    返回字段说明如下：
+
+     字段名称                字段类        字段说明
+                         型
+
+     local_role          text       发送日志节点的角色。
+
+     peer_role           text       接收日志节点的角色。
+[[PDF_PAGE physical=841 printed=792]]
+     字段名称                 字段类    字段说明
+                          型
+
+     local_dcf_role       text   发送日志节点的DCF角色。
+
+     peer_dcf_role        text   接收日志节点的DCF角色。
+
+     peer_state           text   接收日志节点的状态。
+
+     sender_write_loca    text   发送日志节点写到Xlog buffer的位置。
+     tion
+
+     sender_commit_l      text   发送日志节点DCF日志达成一致性点。
+     ocation
+
+     sender_flush_loca    text   发送日志节点写到Xlog disk的位置。
+     tion
+
+     sender_replay_loc    text   发送日志节点replay的位置。
+     ation
+
+     receiver_write_loc   text   接收日志节点写到Xlog buffer的位置。
+     ation
+
+     receiver_commit_l    text   接收日志节点DCF日志达成一致性点。
+     ocation
+
+     receiver_flush_loc   text   接收日志节点写到Xlog disk的位置。
+     ation
+
+     receiver_replay_lo   text   接收日志节点重演Xlog的位置。
+     cation
+
+     sync_percent         text   同步百分比。
+
+     dcf_run_mode         int4   DCF同步模式。
+
+     channel              text   信道信息。
+
+
+●   gs_wlm_get_user_info(int)
+    描述：获取所有用户的相关信息，入参为int类型，可以为任意int值或NULL。该
+    函数只有SYSADMIN权限的用户可以执行。在多租模式下调用返回空。
+    返回值类型：record
+●   gs_wlm_readjust_user_space(oid)
+    描述：修正指定用户的存储空间使用情况。普通用户仅可修正自己的使用情况，
+    管理员用户可以修正所有用户的使用情况。当参数oid传入0时，表示需要修正所
+    有用户的使用情况。本函数在多租模式下禁用。
+    返回值类型：record
+●   gs_wlm_readjust_user_space_through_username(text name)
+    描述：修正指定用户的存储空间使用情况。该函数普通用户只能修正自己的使用
+    情况，只有管理员用户可以修正所有用户的使用情况。当name指定为
+    “0000”，表示需要修正所有用户的使用情况。本函数在多租模式下禁用。
+    返回值类型：record
+[[PDF_PAGE physical=842 printed=793]]
+●   gs_wlm_readjust_user_space_with_reset_flag(text name, boolean isfirst)
+    描述：修正指定用户的存储空间使用情况。入参isfirst为true表示从0开始统计，
+    否则从上一次结果继续统计。该函数普通用户只能修正自己的使用情况，只有管
+    理员用户可以修正所有用户的使用情况。当name指定为“0000”，表示需要修
+    正所有用户的使用情况。本函数在多租模式下禁用。
+    返回值类型：record
+●   gs_io_wait_status()
+    描述：目前该接口不支持单机和集中式，暂不可用。
+●   global_stat_get_hotkeys_info()
+    描述：获取整个数据库实例中热点key的统计情况。目前该接口不支持单机和集中
+    式，暂不可用。
+●   global_stat_clean_hotkeys()
+    描述：清理整个数据库实例中热点key的统计信息。目前该接口不支持单机和集中
+    式，暂不可用。
+●   DBE_PERF.get_global_session_stat_activity()
+    描述：汇聚数据库内各节点上正在运行的线程相关的信息，查询该函数必须具有
+    MONADMIN权限。多租场景下，non-PDB调用该函数时返回全部信息，PDB调用
+    该函数时仅返回该PDB相关信息。
+    返回值类型：record
+●   DBE_PERF.get_global_thread_wait_status()
+    描述：汇聚所有节点上工作线程（backend thread）以及辅助线程（auxiliary
+    thread）的阻塞等待情况，查询该函数必须具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_operator_history_table()
+    描述：汇聚当前用户数据库主节点上执行作业结束后的算子相关记录（持久
+    化），查询该函数必须具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_operator_history()
+    描述：汇聚当前用户数据库主节点上执行作业结束后的算子相关记录，查询该函
+    数必须具有SYSADMIN和MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_operator_runtime()
+    描述：汇聚当前用户数据库主节点上执行作业实时的算子相关记录，查询该函数
+    必须具有SYSADMIN和MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_statement_complex_history()
+    描述：汇聚当前用户数据库主节点上复杂查询的历史记录，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_statement_complex_history_table()
+    描述：汇聚当前用户数据库主节点上复杂查询的历史记录（持久化），查询该函
+    数必须具有MONADMIN权限。
+    返回值类型：record
+[[PDF_PAGE physical=843 printed=794]]
+●   DBE_PERF.get_global_statement_complex_runtime()
+    描述：汇聚当前用户数据库主节点上复杂查询的实时信息，查询该函数必须具有
+    SYSADMIN和MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_memory_node_detail()
+    描述：汇聚所有节点某个数据库节点内存使用情况，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_shared_memory_detail()
+    描述：汇聚所有节点已产生的共享内存上下文的使用信息，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_statio_all_indexes()
+    描述：汇聚所有节点当前数据库中的每个索引行，显示特定索引的I/O的统计，查
+    询该函数必须具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_summary_stat_all_tables()
+    描述：显示汇聚各节点数据中每个表（包括TOAST表）的一行的统计信息，查询
+    该函数必须具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_stat_all_tables()
+    描述：显示各节点数据中每个表（包括TOAST表）的一行的统计信息，查询该函
+    数必须具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_local_toastname_and_toastindexname()
+    描述：提供本地toast表的name和index和其关联表的对应关系，查询该函数必须
+    具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_summary_statio_all_indexes()
+    描述：统计所有节点当前数据库中的每个索引行，显示特定索引的I/O的统计，查
+    询该函数必须具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_statio_all_sequences()
+    描述：提供命名空间中所有sequences的IO状态信息，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_statio_all_tables()
+    描述：汇聚各节点的数据库中每个表I/O的统计，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_summary_statio_all_tables()
+    描述：统计数据库内数据库中每个表I/O的统计，查询该函数必须具有
+    MONADMIN权限。
+[[PDF_PAGE physical=844 printed=795]]
+    返回值类型：record
+●   DBE_PERF.get_local_toast_relation()
+    描述：提供本地toast表的name和其关联表的对应关系，集群创建后的默认情况
+    下，查询该函数必须具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_statio_sys_indexes()
+    描述：汇聚各节点的命名空间中所有系统表索引的IO状态信息，查询该函数必须
+    具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_summary_statio_sys_indexes()
+    描述：统计各节点的命名空间中所有系统表索引的IO状态信息，查询该函数必须
+    具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_statio_sys_sequences()
+    描述：提供命名空间中所有系统表为sequences的IO状态信息，查询该函数必须具
+    有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_statio_sys_tables()
+    描述：提供各节点的命名空间中所有系统表的IO状态信息，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_summary_statio_sys_tables()
+    描述：数据库内汇聚命名空间中所有系统表的IO状态信息，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_statio_user_indexes()
+    描述：各节点的命名空间中所有用户关系表索引的IO状态信息，查询该函数必须
+    具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_summary_statio_user_indexes()
+    描述：数据库内汇聚命名空间中所有用户关系表索引的IO状态信息，查询该函数
+    必须具有MONADMIN权限。
+    返回值类型：record。
+●   DBE_PERF.get_global_statio_user_sequences()
+    描述：显示各节点的命名空间中所有用户的sequences的IO状态信息，查询该函数
+    必须具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_statio_user_tables()
+    描述：显示各节点的命名空间中所有用户关系表的IO状态信息，查询该函数必须
+    具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_summary_statio_user_tables()
+[[PDF_PAGE physical=845 printed=796]]
+    描述：数据库内汇聚命名空间中所有用户关系表的IO状态信息，查询该函数必须
+    具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_stat_all_indexes()
+    描述：汇聚所有节点数据库中每个索引的统计信息，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_summary_stat_all_indexes()
+    描述：统计所有节点数据库中每个索引的统计信息，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_stat_sys_tables()
+    描述：汇聚各节点pg_catalog、information_schema模式的所有命名空间中系统
+    表的统计信息，查询该函数必须具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_summary_stat_sys_tables()
+    描述：统计各节点pg_catalog、information_schema模式的所有命名空间中系统
+    表的统计信息，查询该函数必须具有MONADMIN权限。
+    返回值类型：record。
+●   DBE_PERF.get_global_stat_sys_indexes()
+    描述：汇聚各节点pg_catalog、information_schema模式中所有系统表的索引状
+    态信息，查询该函数必须具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_summary_stat_sys_indexes()
+    描述：统计各节点pg_catalog、information_schema模式中所有系统表的索引状
+    态信息，查询该函数必须具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_stat_user_tables()
+    描述：汇聚所有命名空间中用户自定义普通表的状态信息，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_summary_stat_user_tables()
+    描述：统计所有命名空间中用户自定义普通表的状态信息，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_stat_user_indexes()
+    描述：汇聚所有数据库中用户自定义普通表的索引状态信息，查询该函数必须具
+    有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_summary_stat_user_indexes()
+    描述：统计所有数据库中用户自定义普通表的索引状态信息，查询该函数必须具
+    有MONADMIN权限。
+    返回值类型：record
+[[PDF_PAGE physical=846 printed=797]]
+●   DBE_PERF.get_global_stat_database()
+    描述：汇聚所有节点数据库统计信息，查询该函数必须具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_stat_database_conflicts()
+    描述：统计所有节点数据库统计信息，查询该函数必须具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_stat_xact_all_tables()
+    描述：汇聚命名空间中所有普通表和toast表的事务状态信息，查询该函数必须具
+    有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_summary_stat_xact_all_tables()
+    描述：统计命名空间中所有普通表和toast表的事务状态信息，查询该函数必须具
+    有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_stat_xact_sys_tables()
+    描述：汇聚所有节点命名空间中系统表的事务状态信息，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_summary_stat_xact_sys_tables()
+    描述：统计所有节点命名空间中系统表的事务状态信息，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_stat_xact_user_tables()
+    描述：汇聚所有节点命名空间中用户表的事务状态信息，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_summary_stat_xact_user_tables()
+    描述：统计所有节点命名空间中用户表的事务状态信息，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_stat_user_functions()
+    描述：汇聚所有节点命名空间中用户定义函数的事务状态信息，查询该函数必须
+    具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_stat_xact_user_functions()
+    描述：统计所有节点命名空间中用户定义函数的事务状态信息，查询该函数必须
+    具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_stat_bad_block()
+    描述：汇聚所有节点表、索引等文件的读取失败信息，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+[[PDF_PAGE physical=847 printed=798]]
+●   DBE_PERF.get_global_file_redo_iostat()
+    描述：统计所有节点表、索引等文件的读取失败信息，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_file_iostat()
+    描述：汇聚所有节点数据文件IO的统计，查询该函数必须具有MONADMIN权
+    限。多租场景下，non-PDB调用该函数时返回全部信息，PDB调用该函数时仅返
+    回该PDB相关信息。在PDB中通过该函数查询到的I/O统计信息是未持久化的，数
+    据库重启后清零。
+    返回值类型：record
+●   DBE_PERF.get_global_locks()
+    描述：汇聚所有节点的锁信息，查询该函数必须具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_replication_slots()
+    描述：汇聚所有节点上逻辑复制信息，查询该函数必须具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.GET_GLOBAL_PARALLEL_DECODE_STATUS()
+    描述：汇聚当前节点上的复制槽的并行解码信息，查询该函数必须具有
+    MONADMIN权限。返回值同视图
+    DBE_PERF.GLOBAL_PARALLEL_DECODE_STATUS。
+    返回值类型：record
+●   DBE_PERF.GET_GLOBAL_PARALLEL_DECODE_THREAD_INFO()
+    描述：汇聚当前节点上的复制槽的并行解码线程信息，查询该函数必须具有
+    MONADMIN权限。返回值同视图
+    DBE_PERF.GLOBAL_PARALLEL_DECODE_THREAD_INFO。
+    返回值类型：record
+●   DBE_PERF.get_global_bgwriter_stat()
+    描述：汇聚所有节点后端写线程活动的统计信息，查询该函数必须具有
+    MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_replication_stat()
+    描述：汇聚各节点日志同步状态信息，如发起端发送日志位置，接收端接收日志
+    位置等，查询该函数必须具有MONADMIN权限。多租场景下，non-PDB调用该
+    函数时返回全部信息，PDB调用该函数时仅返回该PDB相关信息，当前不支持PDB
+    级别的日志同步，则实际返回了空列表。
+    返回值类型：record
+●   DBE_PERF.get_global_transactions_running_xacts()
+    描述：汇聚各节点运行事务的信息，查询该函数必须具有MONADMIN权限。多
+    租场景下，non-PDB调用该函数时返回全部信息，PDB调用该函数时仅返回该
+    PDB相关信息。
+    返回值类型：record
+●   DBE_PERF.get_summary_transactions_running_xacts()
+[[PDF_PAGE physical=848 printed=799]]
+    描述：统计各节点运行事务的信息，查询该函数必须具有MONADMIN权限。多
+    租场景下，non-PDB调用该函数时返回全部信息，PDB调用该函数时仅返回该
+    PDB相关信息。
+    返回值类型：record
+●   DBE_PERF.get_global_transactions_prepared_xacts()
+    描述：汇聚各节点当前准备好进行两阶段提交的事务的信息，查询该函数必须具
+    有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_summary_transactions_prepared_xacts()
+    描述：统计各节点当前准备好进行两阶段提交的事务的信息，查询该函数必须具
+    有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_summary_statement()
+    描述：汇聚各节点历史执行语句状态信息，查询该函数必须具有MONADMIN权
+    限。函数返回信息具体字段参考DBE_PERF.SUMMARY_STATEMENT字段。多租
+    场景下，non-PDB调用该函数时返回全部信息，PDB调用该函数时仅返回该PDB
+    相关信息。
+    返回值类型：record
+●   DBE_PERF.get_global_statement_count()
+    描述：汇聚各节点SELECT、UPDATE、INSERT、DELETE，响应时间信息
+    （TOTAL、AVG、MIN、MAX），查询该函数必须具有MONADMIN权限。多租
+    场景下，non-PDB调用该函数时返回全部信息，PDB调用该函数时仅返回该PDB
+    相关信息。
+    返回值类型：record
+●   DBE_PERF.get_global_config_settings()
+    描述：汇聚各节点GUC参数配置信息，查询该函数必须具有MONADMIN权限。
+    返回值类型：record
+●   DBE_PERF.get_global_wait_events()
+    描述：汇聚各节点wait events状态信息，查询该函数必须具有MONADMIN权
+    限。
+    返回值类型：record
+●   DBE_PERF.get_statement_responsetime_percentile()
+    描述：获取数据库SQL响应时间P80，P95分布信息，查询该函数必须具有
+    MONADMIN权限。如果在PDB中查询返回当前PDB的信息。
+    返回值类型：record
+●   DBE_PERF.get_summary_user_login()
+    描述：统计数据库各节点用户登录登出次数信息，查询该函数必须具有
+    MONADMIN权限。在多租场景下，如果在PDB中查询返回当前PDB的信息。
+    返回值类型：record
+●   DBE_PERF.get_global_record_reset_time()
+    描述：汇聚数据库统计信息重置（重启，主备倒换，数据库删除）时间，查询该
+    函数必须具有MONADMIN权限。
+    返回值类型：record
+[[PDF_PAGE physical=849 printed=800]]
+●   DBE_PERF.standby_statement_history(only_slow[, time1, time2])
+    描述：备机中用来查询FULL SQL记录的函数，主机通过表statement_history进行
+    查询，备机通过此函数进行查询。查询该函数必须具有MONADMIN权限。函数
+    返回信息具体字段参考STATEMENT_HISTORY字段。
+    参数：如表1-231所示 。
+    返回值类型：record
+
+
+    表 1-231 standby_statement_history 参数说明
+
+     参数         类型            描述
+
+     only_slo   boolean       是否仅查询慢SQL。
+     w                        true为是，相当于 select .. where is_slow_sql = true;。
+                              false或NULL为查询全部SQL，相当于不对is_slow_sql
+                              进行过滤。
+
+     time1      timestam      可选输入，表示查询SQL的finish_time的最小时间。
+                ptz
+
+     time2      timestam      可选输入，表示查询SQL的finish_time的最大时间。若
+                ptz           time1>=time2，则函数执行报错。
+
+
+
+
+         说明
+
+        ● 两个时间参数time1、time2的说明：表示查询的SQL的finish_time所属时间段，分别表
+          示起始与终止时间，输入NULL或者不输入表示没有限制, 功能等同于select .. where
+          finish_time between time1 and time2;。
+        ● 备机上该功能的数据并非存在表里，不存在start_time列的索引，推荐使用参数对
+          finish_time进行条件查找。
+        ● 由于备机Full/Slow SQL采用异步下盘方式，所以用户SQL信息存储时刻可能有所滞
+          后，建议客户查询此接口适当扩大时间查询范围。
+●   pg_stat_get_mem_mbytes_reserved(tid)
+    描述：统计资源管理相关变量值，仅用于定位问题使用。
+    参数：线程id。
+    返回值类型：text
+●   pg_stat_get_file_stat()
+    描述：通过对数据文件I/O的统计，反映数据的I/O性能，用于发现I/O操作异常等
+    性能问题。多租场景下，non-PDB调用该函数时返回全部信息，PDB调用该函数
+    时仅返回该PDB相关信息。在PDB中通过该函数查询到的I/O统计信息是未持久化
+    的，数据库重启后清零。
+    返回值类型：record
+●   pg_stat_get_redo_stat()
+    描述：用于统计会话线程日志回放情况。
+    返回值类型：record
+●   pg_stat_get_status(int8)
+[[PDF_PAGE physical=850 printed=801]]
+    描述：可以检测当前实例中工作线程（backend thread）以及辅助线程
+    （auxiliary thread）的阻塞等待情况。多租场景下，non-PDB调用该函数时返回
+    全部信息，PDB调用该函数时仅返回该PDB相关信息。
+    返回值类型：record
+●   get_local_rel_iostat()
+    描述：查询当前节点的数据文件I/O状态累计值。多租场景下，non-PDB调用该函
+    数时返回全部信息，PDB调用该函数时仅返回该PDB相关信息。在PDB中通过该函
+    数查询到的I/O统计信息是被持久化的，数据库重启后不会清零，会不断进行累
+    计。
+    返回值类型：record
+●   DBE_PERF.get_global_rel_iostat()
+    描述：汇聚所有节点数据文件I/O的统计，查询该函数必须具有MONADMIN权
+    限。多租场景下，non-PDB调用该函数时返回全部信息，PDB调用该函数时仅返
+    回该PDB相关信息。在PDB中通过该函数查询到的I/O统计信息是被持久化的，数
+    据库重启后不会清零，会不断进行累计。
+    返回值类型：record
+●   DBE_PERF.global_threadpool_status()
+    描述：显示在所有节点上的线程池中工作线程及会话的状态信息。函数返回信息
+    和DBE_PERF.GLOBAL_THREADPOOL_STATUS一致，查询该函数必须具有
+    MONADMIN权限。
+    在多租场景下，Non-PDB可见全局数据；主节点下在PDB内部仅可见PDB自身数
+    据；备节点不做线程组隔离，在PDB内部查询返回空。
+    返回值类型：record
+●   pg_catalog.gs_plancache_stat()
+    描述：查看当前进程内全部session的参数化语句相关信息，函数返回信息和
+    DBE_PERF.GS_PLANCACHE_STAT一致。查询该函数需要MONITORADMIN权
+    限。
+    返回值类型：record
+●   pv_os_run_info()
+    描述：显示当前操作系统运行的状态信息，具体字段信息参考
+    GS_OS_RUN_INFO。
+    参数：nan
+    返回值类型：setof record
+●   pv_session_stat()
+    描述：以会话线程或AutoVacuum线程为单位，统计会话状态信息，具体字段信
+    息参考GS_SESSION_STAT。
+    参数：nan
+    返回值类型：setof record
+●   pv_session_time()
+    描述：用于统计会话线程的运行时间信息，及各执行阶段所消耗时间，具体字段
+    信息参考GS_SESSION_TIME。
+    参数：nan
+    返回值类型：setof record
+●   pg_stat_get_db_temp_bytes()
+[[PDF_PAGE physical=851 printed=802]]
+    描述：用于统计通过数据库查询写入临时文件的数据总量。计算所有临时文件，
+    不论临时文件为何创建，也不管log_temp_files如何设置。在多租场景下，在PDB
+    仅可查询本PDB的信息。
+    参数：oid
+    返回值类型：bigint
+●   pg_stat_get_db_temp_files()
+    描述：通过数据库查询创建的临时文件数量。计算所有临时文件，不论临时文件
+    为何创建（比如排序或者哈希），也不管log_temp_files如何设置。在多租场景
+    下，在PDB仅可查询本PDB的信息。
+    参数：oid
+    返回值类型：bigint
+●   remote_candidate_stat()
+    描述：用于显示数据库所有实例的检查点信息和各类日志刷页情况（本节点除
+    外），集中式不支持。
+    返回值类型：record
+●   remote_ckpt_stat()
+    描述：用于显示数据库所有实例的检查点信息和各类日志刷页情况（本节点除
+    外），集中式不支持。
+    返回值类型：record
+●   remote_single_flush_dw_stat()
+    描述：显示数据库所有实例的单页面双写文件的情况(本节点除外)，集中式不支
+    持。
+    返回值类型：record
+●   remote_double_write_stat()
+    描述：显示数据库所有实例的双写文件的情况(本节点除外)，集中式不支持。
+    返回值类型：record
+●   remote_pagewriter_stat()
+    描述：显示数据库所有实例的刷页信息和检查点信息(本节点除外)，集中式不支
+    持。
+    返回值类型：record
+●   remote_recovery_status()
+    描述：显示关于主机和备机的日志流控信息(本节点除外)，集中式不支持。
+    返回值类型：record
+●   remote_redo_stat()
+    描述：显示所有实例的日志回放情况(本节点除外)，集中式不支持。
+    返回值类型：record
+●   DBE_PERF.gs_stat_activity_timeout(int)
+    描述：获取当前节点上执行时间超过超时阈值的查询作业信息。需要GUC参数
+    track_activities设置为on才能正确返回结果。超时阈值的取值范围是
+    0~2147483，查询该函数必须具有MONADMIN权限。
+    返回值类型：setof record
+[[PDF_PAGE physical=852 printed=803]]
+     名称                 类型          描述
+
+     database           name        用户会话连接的数据库名称。
+
+     pid                bigint      后台线程ID。
+
+     sessionid          bigint      会话ID。
+
+     usesysid           oid         登录该后台的用户OID。
+
+     application_na     text        连接到该后台的应用名。
+     me
+
+     query              text        该后台正在执行的查询。
+
+     xact_start         timesta     启动当前事务的时间。
+                        mptz
+
+     query_start        timesta     开始当前查询的时间。
+                        mptz
+
+     query_id           bigint      查询语句ID。
+
+
+●   gs_wlm_user_resource_info(name text)
+    描述：查询具体某个用户的资源限额和资源使用情况。普通用户只能查询到自己
+    相关的信息，管理员权限的用户可以查看全部用户的信息。
+    返回值类型：record
+●   gs_stat_ondemand_waiting_queue()
+    描述：按需读阶段，查询所有后台回放线程待回放的lsn队列的实时状态。
+    参数：nan
+    返回值类型：record
+    备注：无权限限制。
+
+    表 1-232 gs_stat_ondemand_waiting_queue 返回值说明
+
+     字段名                          类型             描述
+
+     batch_id                     uint32         回放线程所属的
+                                                 pipeline。
+
+     redo_id                      uint32         回放线程在当前pipeline
+                                                 下的序号。
+
+     queue_free_space             uint64         回放线程队列的空闲空
+                                                 间。
+
+     queue_used_space             uint64         回放线程队列的使用空
+                                                 间。
+
+     queue_capacity               uint64         回放线程队列的容量。
+
+     is_undo_space_worker         bool           是否为undo回放线程。
+[[PDF_PAGE physical=853 printed=804]]
+         说明
+
+       ● 仅在按需读阶段支持查询，否则查询报错。
+       ● 返回值每一行代表不同RedoPageWorker的待回放队列情况。
+●   local_redo_time_count([int])
+    描述：返回本节点回放流程的耗时统计（仅在备机上存在有效数据）。在并行回
+    放模式下，返回各个回放线程的流程耗时统计。在极致RTO模式下，返回各回放
+    线程的流程耗时统计和不同日志类型的流程耗时统计。
+    参数：
+     参数类       参数名         类型      描述
+     型
+
+     输入参       operation   int     可选输入，若无输入则行为是查询统计信息。
+     数                             ● -1：表示关闭统计开关（默认状态为关
+                                     闭）。
+                                   ● 0：表示打开统计开关。
+                                   ● 1：表示查询统计信息。
+                                   ● 2：表示重置统计信息。
+                                   关闭统计开关后，重新打开时会清理之前的统
+                                   计信息。
+
+
+
+
+    返回值如下：
+     字段名                                描述
+
+     thread_name                        线程名字。
+[[PDF_PAGE physical=854 printed=805]]
+字段名           描述
+
+step1_total   step1的总时间，每个线程对应的流程
+              如下：
+              ● 极致RTO：
+                redo batch：从队列中获取一条日
+                志。
+               redo manager：从队列中获取一条
+               日志。
+               redo worker：从队列中获取一条日
+               志。
+               trxn manager：从队列中读取一条
+               日志。
+               trxn worker：从队列中读取一条日
+               志。
+               read worker：从文件中读取一次
+               Xlog page（整体）。
+               read page worker：从队列中获取
+               一个日志。
+               startup：从队列中获取一个日志。
+              ● 并行回放：
+                page redo：从队列中获取一条日
+                志。
+               startup：读取一条日志。
+
+step1_count   step1的统计次数。
+[[PDF_PAGE physical=855 printed=806]]
+字段名           描述
+
+step2_total   step2的总时间，每个线程对应的流程
+              如下：
+              ● 极致RTO：
+                redo batch：处理日志（整体）。
+                redo manager：处理日志（整
+                体）。
+                redo worker：处理日志（整体）。
+                trxn manager：处理日志（整
+                体）。
+                trxn worker：处理日志（整体）。
+                read worker：读取Xlog page耗
+                时。
+                read page worker：生成和发送lsn
+                forwarder。
+                startup：check stop(是否回放到指
+                定位置）。
+              ● 并行回放：
+                page redo：处理日志（整体）。
+                startup：check stop（是否回放到
+                指定位置）。
+
+step2_count   step2的统计次数。
+
+step3_total   step3的总时间，每个线程对应的流程
+              如下：
+              ● 极致RTO：
+                redo batch：更新standbystate。
+                redo manager：数据日志处理。
+                redo worker：回放page页日志
+                （整体）。
+                trxn manager：更新flush lsn。
+                trxn worker：回放日志处理。
+                read worker：推进Xlog
+                segment。
+                read page worker：获取一个新的
+                item。
+                startup：redo delay（延迟回放特
+                性等待时间）。
+              ● 并行回放：
+                page redo：更新standbystate。
+                startup：redo delay（延迟回放特
+                性等待时间）。
+
+step3_count   step3的统计次数。
+[[PDF_PAGE physical=856 printed=807]]
+字段名           描述
+
+step4_total   step4的总时间，每个线程对应的流程
+              如下：
+              ● 极致RTO：
+                redo batch：解析Xlog。
+                redo manager：DDL处理。
+                redo worker：读取数据page页。
+                trxn manager：同步等待时间。
+                trxn worker：更新本线程lsn。
+                read page worker：将日志放入分
+                发线程。
+                startup：分发（整体）。
+              ● 并行回放：
+                page redo：undo日志回放。
+                startup：分发（整体）。
+
+step4_count   step4的统计次数。
+
+step5_total   step5的总时间，每个线程对应的流程
+              如下：
+              ● 极致RTO：
+                redo manager：database类日志
+                处理。
+                redo worker：回放数据page页的
+                日志。
+                trxn manager：分发给trxn
+                worker。
+                trxn worker：强同步类型日志通知
+                完成等待。
+                read page worker：更新本线程
+                lsn。
+                startup：日志decode。
+              ● 并行回放:
+                page redo：share trxn日志回放。
+                startup：日志回放。
+
+step5_count   step5的统计次数。
+[[PDF_PAGE physical=857 printed=808]]
+字段名               描述
+
+step6_total       step6的总时间，每个线程对应的流程
+                  如下：
+                  ● 极致RTO：
+                    redo worker：回放非数据页page
+                    日志。
+                    trxn manager：全局lsn更新。
+                  ● 并行回放：
+                    page redo：synctrxn日志回放。
+                    startup：强同步等待。
+
+step6_count       step6的统计次数。
+
+step7_total       step7的总时间，每个线程对应的流程
+                  如下：
+                  ● 极致RTO：
+                    redo manager：创建表空间。
+                    redo worker：fsm更新。
+                  ● 并行回放：
+                    page redo：single日志回放。
+
+step7_count       step7的统计次数。
+
+step8_total       step8的总时间，每个线程对应的流程
+                  如下：
+                  ● 极致RTO：
+                    redo worker：强同步等待。
+                    redo manager：段页式类日志处
+                    理。
+                  ● 并行回放：
+                    page redo：all workers do日志回
+                    放。
+
+step8_count       step8的统计次数。
+
+step9_total       step9的总时间，每个线程对应的流程
+                  如下：
+                  ● 极致RTO：
+                    redo manager：处理段页式UNDO
+                    日志。
+                  ● 并行回放：
+                    page redo：multi workers do日志
+                    回放。
+
+step9_count       step9的统计次数。
+
+
+
+日志类型的流程耗时统计
+（开关为关闭的情况下，会对回放的日志进行抽样统计）
+[[PDF_PAGE physical=858 printed=809]]
+     字段名                    流程描述
+
+     thread_name            采样的名称。
+
+     step1_total            极致RTO:
+                            ● 数据类型日志：处理日志整体用时，包含step2。
+                            ● 事务类型日志：回放事务日志。
+
+     step1_count            step1的统计次数。
+
+     step2_total            极致RTO:
+                            ● 数据类型日志：回放page页日志整体用时，包含
+                              step3、step4。step2和（step3+step4）的差值主要
+                              是执行备机读多版本页面的构建。
+                            ● 事务类型日志：事务线程回放前同步等待时间。
+
+     step2_count            step2的统计次数。
+
+     step3_total            极致RTO:
+                            ● 数据类型日志：读取数据page页。
+
+     step3_count            step3的统计次数。
+
+     step4_total            极致RTO:
+                            ● 数据类型日志：回放数据page页的日志。
+
+     step4_count            step4的统计次数。
+
+     step5_total            极致RTO:
+                            ● 事务类型日志：在redo_worker线程回放的用时。
+
+     step5_count            step5的统计次数。
+
+     step6_total            极致RTO:
+                            ● 数据类型日志：更新fsm。
+
+     step6_count            step6的统计次数。
+
+     Step7_total            极致RTO:
+                            ● 事务类型日志：在redo_worker线程同步等待的用
+                              时。
+
+     Step7_count            Step7的统计次数。
+
+
+●   local_xlog_redo_statics()
+    描述：返回本节点已经回放的各个类型的日志统计信息（仅在备机上有有效数
+    据）。
+    返回值如下：
+[[PDF_PAGE physical=859 printed=810]]
+    表 1-233 local_xlog_redo_statics 返回参数说明
+
+     字段名                         描述
+
+     xlog_type                   日志类型。
+
+     rmid                        resource manager id。
+
+     info                        Xlog operation。
+
+     num                         日志个数。
+
+     extra                       针对page回放日志和xact日志有有效值。
+                                 ● 如果是page页回放日志类型则表示从磁盘读
+                                   取page的个数。
+                                 ● 如果是xact日志类型则表示删除文件的个
+                                   数。
+
+
+●   gs_get_shared_memctx_detail(text)
+    描述：返回指定内存上下文上的内存申请的详细信息，包含每一处内存申请所在
+    的文件、行号和大小（同一文件同一行大小会做累加）。只支持查询通过
+    GS_SHARED_MEMORY_DETAIL视图（请参见GS_SHARED_MEMORY_DETAIL）
+    查询出来的内存上下文，入参为内存上下文名称（即
+    GS_SHARED_MEMORY_DETAIL视图返回结果的contextname列）。查询该函数
+    必须具有SYSADMIN权限或者MONADMIN权限。多租场景下，non-PDB调用该
+    函数时返回全部信息，PDB调用该函数时返回空列表。
+    返回值类型：setof record
+
+     名称              类型       描述
+
+     file            text     申请内存所在文件的文件名。
+
+     line            int8     申请内存所在文件的代码行号。
+
+     size            int8     申请的内存大小，同一文件同一行多次申请会做累
+                              加。
+
+
+●   gs_get_session_memctx_detail(text)
+    描述：返回指定内存上下文上的内存申请的详细信息，包含每一处内存申请所在
+    的文件、行号和大小（同一文件同一行大小会做累加）。仅在线程池模式下生
+    效。只支持查询通过GS_SESSION_MEMORY_CONTEXT视图（请参见
+    GS_SESSION_MEMORY_CONTEXT）查询出来的内存上下文，入参为内存上下
+    文名称（即GS_SESSION_MEMORY_CONTEXT视图返回结果的contextname
+    列）。查询该函数必须具有SYSADMIN权限或者MONADMIN权限。多租场景
+    下，non-PDB调用该函数时返回全部信息，PDB调用该函数时返回空列表。
+    返回值类型：setof record
+
+     名称              类型       描述
+
+     file            text     申请内存所在文件的文件名。
+
+     line            int8     申请内存所在文件的代码行号。
+[[PDF_PAGE physical=860 printed=811]]
+     名称                        类型             描述
+
+     size                      int8           申请的内存大小，单位为byte，同一文件同一行多
+                                              次申请会做累加。
+
+
+
+
+            说明
+
+         该视图仅在线程池模式下生效。
+●   gs_get_history_memory_detail(cstring)
+    描述：查询历史内存快照信息，入参类型为cstring，取值为NULL或内存快照log
+    文件名称：
+    a.    若入参为NULL，则显示当前节点所有的内存快照log文件列表。
+    b.    若入参为a查询到的列表中的内存快照log名称，则显示该log文件记录的内存
+          快照详细信息。
+    c.    若输入其他入参，则会提示入参错误或打开文件失败。
+    查询该函数必须具有SYSADMIN权限或者MONADMIN权限。
+    返回值类型：text
+     名称                        类型             描述
+
+     memory_info               text           内存信息，如果函数入参为NULL，该列显示内存快
+                                              照文件列表信息；入参为内存快照文件名称，则显
+                                              示该文件的具体内容。
+
+
+●   gs_stack()
+    描述：显示线程调用栈。查询该函数需要有SYSADMIN权限或者MONADMIN权
+    限。
+    参数：tid，线程id。tid是可选参数，指定tid参数时，函数返回tid对应线程调用
+    栈；当不指定tid参数时，函数返回所有线程的调用栈。
+    返回值：当指定tid时，返回值为text；当不指定tid时，返回值为setof record。
+    示例：
+    获取指定线程调用栈。
+    gaussdb=# SELECT * FROM gs_stack(139663481165568);
+                            gs_stack
+    --------------------------------------------------------------------
+     __poll + 0x2d                                            +
+     WaitLatchOrSocket(Latch volatile*, int, int, long) + 0x29f           +
+     WaitLatch(Latch volatile*, int, long) + 0x2e                       +
+     JobScheduleMain() + 0x90f                                       +
+     int GaussDbThreadMain<(knl_thread_role)9>(knl_thread_arg*) + 0x456+
+     InternalThreadFunc(void*) + 0x2d                                  +
+     ThreadStarterFunc(void*) + 0xa4                                  +
+     start_thread + 0xc5                                        +
+     clone + 0x6d                                             +
+    (1 row)
+    获取所有线程的调用栈。
+    gaussdb=# select * from gs_stack();
+    -[ RECORD
+    1 ]-------------------------------------------------------------------------------------------------------
+    tid | 139670364324352
+    lwtid | 308
+[[PDF_PAGE physical=861 printed=812]]
+    stack | __poll + 0x2d
+         | CommWaitPollParam::caller(int (*)(pollfd*, unsigned long, int), unsigned long) + 0x34
+         | int comm_socket_call<CommWaitPollParam, int (*)(pollfd*, unsigned long,
+    int)>(CommWaitPollParam*, int (*)(pollfd*, unsigned long
+    , int)) + 0x28
+         | comm_poll(pollfd*, unsigned long, int) + 0xb1
+         | ServerLoop() + 0x72b
+         | PostmasterMain(int, char**) + 0x314e
+         | main + 0x617
+         | __libc_start_main + 0xf5
+         | 0x55d38f8db3a7
+    [ RECORD 2 ]-------------------------------------------------------------------------------------------------------
+    tid | 139664851859200
+    lwtid | 520
+    stack | __poll + 0x2d
+         | WaitLatchOrSocket(Latch volatile*, int, int, long) + 0x29f
+         | SysLoggerMain(int) + 0xc86
+         | int GaussDbThreadMain<(knl_thread_role)17>(knl_thread_arg*) + 0x45d
+         | InternalThreadFunc(void*) + 0x2d
+         | ThreadStarterFunc(void*) + 0xa4
+         | start_thread + 0xc5
+         | clone + 0x6d
+
+            说明
+
+         不支持多个gs_stack()并发。
+●   gs_perf_start(duration integer[, freq integer])
+    描述：采集当前节点上各个线程的on-cpu火焰图的堆栈调用数据，函数返回火焰
+    图落盘地址。查询该函数需要有SYSADMIN权限或者MONADMIN权限。该函数
+    在ROOT/DBUSER模式下可用，在DISABLE模式下不可用。
+    参数说明如下：
+     参数名             描述                                                   类型            范围
+     称
+
+     duration        采集堆栈时长（单位为秒，如果输                                      integer       1~60
+                     入浮点型，会对浮点型小数点后第
+                     一位进行四舍五入后取整处理）。
+
+     freq            采集堆栈频率（可选参数，单位为                                      integer       10~1000
+                     HZ，默认为100，如果输入浮点
+                     型，会对浮点型小数点后第一位进
+                     行四舍五入后取整处理）。
+
+
+
+
+    返回值类型：text
+    示例：
+    设置频率为100HZ，采集10s的on-cpu堆栈信息。
+    gaussdb=# SELECT gs_perf_start(10,100);
+                                gs_perf_start
+    ------------------------------------------------------------------------------------
+     Successfully collected perf flamegraph data, the result filepaths are :             +
+     $GAUSSLOG/gs_flamegraph/dn_6001/flamegraph-manual-oncpu-2025-02-28_175628.html.gz;+
+     Record 29427 cpu clock samples.                                               +
+
+    (1 row)
+[[PDF_PAGE physical=862 printed=813]]
+       须知
+
+    执行该函数时（包括后述gs_perf_start_offcpu()、gs_perf_start_all()、
+    gs_perf_start_detail()）需要gs_perf_service正常运行。同时gs_perf_service在采
+    集过程中，需要申请环形buffer，该buffer的大小受操作系统中/proc/sys/kernel/
+    perf_event_mlock_kb控制。如果采集过程中出现“perf mmap failed”错误，可
+    以在调整/proc/sys/kernel/perf_event_mlock_kb的大小后，再重新执行采集。
+
+●   gs_perf_start_offcpu(duration integer)
+    描述：采集当前节点上各个线程的off-cpu火焰图的堆栈调用数据，函数返回火焰
+    图落盘地址。查询该函数需要有SYSADMIN权限或者MONADMIN权限。该函数
+    在ROOT模式下可用，在DBUSER/DISABLE模式下不可用。
+    参数说明如下：
+     参数名          描述                                        类型         范围
+     称
+
+     duration     采集堆栈时长（单位为毫秒，如果                           integer    50~3000
+                  输入浮点型，会对浮点型小数点后
+                  第一位进行四舍五入后取整处
+                  理）。
+
+
+
+
+    返回值类型：text
+    示例：
+    采集2000ms的off-cpu堆栈信息。
+    gaussdb=# SELECT gs_perf_start_offcpu(2000);
+                             gs_perf_start_offcpu
+    -------------------------------------------------------------------------------------
+     Successfully collected perf flamegraph data, the result filepaths are :              +
+     $GAUSSLOG/gs_flamegraph/dn_6001/flamegraph-manual-offcpu-2025-02-28_175828.html.gz;+
+     Record 482670 sched switch samples.                                              +
+
+    (1 row)
+
+●   gs_perf_start_detail(duration integer[, freq integer])
+    描述：采集当前节点所在机器上所有CPU核心的所有线程中on-cpu/off-cpu堆栈的
+    调用栈详细信息，函数返回多核多线程原始数据压缩文件地址。每次运行该命令
+    时，都会删除历史采集的多核多线程数据。查询该函数需要有SYSADMIN权限或
+    者MONADMIN权限。该函数在ROOT模式下可用，在DBUSER/DISABLE模式下不
+    可用。
+    参数说明如下：
+     参数名          描述                                        类型         范围
+     称
+
+     duration     采集堆栈时长（单位为毫秒，如果                           integer    50~3000
+                  输入浮点型，会对浮点型小数点后
+                  第一位进行四舍五入后取整处
+                  理）。
+[[PDF_PAGE physical=863 printed=814]]
+     参数名              描述                                                    类型             范围
+     称
+
+     freq             采集堆栈频率（可选参数，单位为                                       integer        10~1000
+                      HZ，默认为100，如果输入浮点
+                      型，会对浮点型小数点后第一位进
+                      行四舍五入后取整处理）。
+
+
+
+    返回值类型：text
+    示例：
+    采集2000ms的多核多线程火焰图数据。
+    gaussdb=# SELECT gs_perf_start_detail(2000);
+                                   gs_perf_start_detail
+    ---------------------------------------------------------------------------------------------------
+     Successfully collected perf detail data, the result filepath is :                              +
+     $GAUSSLOG/gs_flamegraph/dn_6001/detail-2025-03-03_100929.lz4                                       +
+     Please save the file locally, otherwise the file will be deleted during the next data collection.+
+     Record 1965659 samples.                                                                 +
+
+    (1 row)
+
+●   gs_perf_start_all(duration integer[, freq integer])
+    描述：采集当前节点所在机器上所有节点中on-cpu/off-cpu火焰图的堆栈调用数
+    据，函数返回所有节点落盘火焰图文件地址。查询该函数需要有SYSADMIN权限
+    或者MONADMIN权限。该函数在ROOT模式下可用，在DBUSER模式下只能采集
+    oncpu火焰图数据，在DISABLE模式下不可用。
+    参数说明如下：
+     参数名              描述                                                    类型             范围
+     称
+
+     duration         采集堆栈时长（单位为毫秒，如果                                       integer        50~3000
+                      输入浮点型，会对浮点型小数点后
+                      第一位进行四舍五入后取整处
+                      理）。
+
+     freq             采集堆栈频率（可选参数，单位为                                       integer        10~1000
+                      HZ，默认为100，如果输入浮点
+                      型，会对浮点型小数点后第一位进
+                      行四舍五入后取整处理）。
+
+
+
+    返回值类型：text
+    示例：
+    设置频率为100HZ，采集1000ms当前节点所在机器上所有节点中oncpu/offcpu火
+    焰图数据。
+    gaussdb=# SELECT gs_perf_start_all(1000,100);
+                                       gs_perf_start_all
+    ---------------------------------------------------------------------------------------------------------
+     Successfully collected perf flamegraph data, the result filepaths are :                                  +
+     $GAUSSLOG/gs_flamegraph/{nodename}/flamegraph-manual-
+    oncpu-2025-03-03_101036.html.gz;                       +
+     $GAUSSLOG/gs_flamegraph/{nodename}/flamegraph-manual-
+    offcpu-2025-03-03_101036.html.gz;                      +
+[[PDF_PAGE physical=864 printed=815]]
+    Please visit gs_flamegraph directory(all nodes of current machine) to get results for individual nodes.+
+    Record 11289 cpu clock samples.                                                     +
+    Record 3293 sched switch samples.                                                    +
+
+    (1 row)
+
+●   gs_perf_list()
+    描述：查看当前节点上保存的on-cpu/off-cpu火焰图的采集数据，不会展示多核
+    多线程火焰图记录。该函数在ROOT/DBUSER模式下可用，在DISABLE模式下不可
+    用。
+    参数：nan
+    返回值类型：setof record
+    函数返回字段说明：
+
+     名称                        类型                        描述
+
+     nodename                  text                      采集节点名称。
+
+     filename                  text                      采集落盘文件名称。
+
+     collect_type              text                      采集类型。
+
+
+
+
+    示例：
+    查询当前节点上保存的火焰图生成记录。
+    gaussdb=# SELECT * FROM gs_perf_list() limit 10;
+     nodename |                      filename                     | collect_type
+    ----------+--------------------------------------------------------+--------------
+     dn_6001 | flamegraph-manual-offcpu-2025-03-02_154210.html.gz                      | manual
+     dn_6001 | flamegraph-manual-oncpu-2025-03-02_154311.html.gz                        | manual
+     dn_6001 | flamegraph-auto-oncpu-2025-03-02_154312.html.gz                       | auto
+     dn_6001 | flamegraph-auto-offcpu-2025-03-02_154315.html.gz                     | auto
+     dn_6001 | flamegraph-auto-oncpu-2025-03-02_154801.html.gz                       | auto
+     dn_6001 | flamegraph-auto-offcpu-2025-03-02_154801.html.gz                     | auto
+     dn_6001 | flamegraph-auto-oncpu-2025-03-02_155301.html.gz                       | auto
+     dn_6001 | flamegraph-auto-offcpu-2025-03-02_155302.html.gz                     | auto
+     dn_6001 | flamegraph-cpuspiking-oncpu-2025-03-02_155409.html.gz | cpuspiking
+     dn_6001 | flamegraph-cpuspiking-offcpu-2025-03-02_155409.html.gz | cpuspiking
+    (10 rows)
+
+●   gs_perf_query([filename text])
+    描述：查询历史采集on-cpu/off-cpu火焰图的堆栈调用数据。函数归并各个线程
+    的函数调用栈并求和函数运行时间，返回聚集后的结果。查询该函数需要有
+    SYSADMIN权限或者MONADMIN权限。该函数在ROOT/DBUSER模式下可用，在
+    DISABLE模式下不可用。
+    参数说明如下：
+
+     参数名称                  描述                                                                      类型
+
+     filename              历史采集的文件的名称（可选参数，默认为最近                                                   text
+                           一次手动采集的火焰图）。
+
+
+
+
+    返回值类型：setof record
+    函数返回字段说明：
+[[PDF_PAGE physical=865 printed=816]]
+ 名称                          类型                         描述
+
+ backtrace                   text                       堆栈名称（带树状结构）。
+
+ period                      bigint                     堆栈的执行时间。
+
+ level                       integer                    堆栈所在堆栈调用树的层级。
+
+ sequence                    integer                    堆栈调用树排序后的顺序。
+
+ thread_name                 text                       该堆栈所在的线程名称。
+
+ overhead                    float                      该堆栈执行所占时间百分比。
+
+
+
+示例：
+查询采集到的堆栈信息。
+gaussdb=# SELECT * FROM gs_perf_query() WHERE overhead > 2 AND level < 10;
+                            backtrace                               | period | level | sequence |
+thread_name | overhead
+-------------------------------------------------------------------------------+-------------+-------+----------
++---------------+----------
+  root                                                           +| 74140000000 |      0|        1 | root        |
+100
+                                                               |            |    |      |             |
+     worker                                                       +| 69930000000 |        1|      2 | worker
+| 94.32
+                                                               |            |    |      |             |
+     |── start_thread                                               +| 67620000000 |       2|       3 | worker
+| 91.21
+                                                               |            |    |      |             |
+     | └── ThreadStarterFunc                                            +| 67620000000 |      3|          4|
+worker         | 91.21
+                                                               |            |    |      |             |
+     |      └── internal_thread_func                                    +| 67620000000 |      4|          5|
+worker         | 91.21
+                                                               |            |    |      |             |
+     |        └── int gauss_db_thread_main                                 +| 67620000000 |       5|         6|
+worker         | 91.21
+                                                               |            |    |      |             |
+       |         └── backend_run                                     +| 67620000000 |        6|        7|
+worker         | 91.21
+                                                               |            |    |      |             |
+     |              |── PostgresMain                                 +| 67520000000 |        7|       8 | worker
+| 91.07
+                                                               |            |    |      |             |
+     |              | |── exec_simple_query                            +| 64800000000 |       8|         9|
+worker         |   87.4
+                                                               |            |    |      |             |
+     |              | | |── OpFusion::opfusion_process                     +| 30130000000 |      9|        10 |
+worker         | 40.64
+                                                               |            |    |      |             |
+     |              | | |── pg_analyze_and_rewrite                       +| 11290000000 |       9|       1405 |
+worker         | 15.23
+                                                               |            |    |      |             |
+     |              | | |── pg_plan_queries                          +| 9550000000 |        9|     2660 |
+worker         | 12.88
+                                                               |            |    |      |             |
+     |              | | |── PortalRun                              +| 4680000000 |        9|    4310 | worker
+|      6.31
+                                                               |            |    |      |             |
+     |              | | |── finish_xact_command                          +| 3120000000 |       9|       4923 |
+worker         |   4.21
+                                                               |            |    |      |             |
+     |              | | |── pg_parse_query                            +| 1520000000 |       9|     5262 |
+[[PDF_PAGE physical=866 printed=817]]
+    worker      |   2.05
+                                                          |        |    |     |                |
+       |             | | |── OpFusion::opfusion_factory           +| 1500000000 |        9|        5374 |
+    worker      |   2.02
+                                                          |        |   |       |               |
+       txnsnapworker                                           +| 1640000000 |      1|        6770 |
+    txnsnapworker |  2.21
+                                                          |        |    |     |              |
+       |── start_thread                                       +| 1620000000 |   2|        6771 |
+    txnsnapworker |    2.19
+                                                          |        |   |     |                 |
+       | └── ThreadStarterFunc                                  +| 1620000000 |      3|        6772 |
+    txnsnapworker | 2.19
+                                                          |        |   |     |                 |
+       |    └── internal_thread_func                            +| 1620000000 |      4|        6773 |
+    txnsnapworker |   2.19
+                                                          |        |    |     |                |
+       |      └── int gauss_db_thread_main                         +| 1620000000 |        5|       6774 |
+    txnsnapworker |  2.19
+                                                          |        |       |     |           |
+       |        └── txn_snap_cap_worker_main                           +| 1620000000 |     6|        6775 |
+    txnsnapworker | 2.19
+                                                         |      |    |     |          |
+       |            └── PostgresInitializer::InitTxnSnapWorker    +| 1620000000 |    7|   6776 |
+    txnsnapworker |   2.19
+                                                         |      |    |     |          |
+       |              |── PostgresInitializer::SetDatabase     +| 1600000000 |    8|    6777 |
+    txnsnapworker |   2.16
+                                                         |      |    |     |          |
+       |              | └── PostgresInitializer::SetDatabaseByName+| 1600000000 |     9|    6778 |
+    txnsnapworker |   2.16
+
+●   gs_perf_query_general([filename text])
+    描述：查询历史采集on-cpu/off-cpu火焰图的堆栈调用函数占比数据，由于计算
+    精度原因，该占比数据总和可能会不等于1。查询该函数需要有SYSADMIN权限或
+    者MONADMIN权限。该函数在ROOT/DBUSER模式下可用，在DISABLE模式下不
+    可用。
+    参数说明如下：
+     参数名称                  描述                                                                  类型
+
+     filename              历史采集的文件的名称（可选参数，默认为最近                                               text
+                           一次手动采集的火焰图）。
+
+
+
+
+    返回值类型：setof record
+    函数返回字段说明：
+     名称                       类型                  描述
+
+     function_name            text                堆栈函数名称。
+
+     percentage               float               堆栈函数调用占比。
+
+
+
+
+    示例：
+    查询最近一次手动采集生成的火焰图函数调用占比。
+    gaussdb=# SELECT * FROM gs_perf_query_general();
+           function_name           | percentage
+    -------------------------------+------------
+[[PDF_PAGE physical=867 printed=818]]
+     pthread_mutex_lock             |      28.57
+     do_select              |         7.17
+     undopage::init_undo_zone_lock |            7.14
+     unknown                  |         7.14
+     undo::recycle_main          |        7.14
+     undo::is_valid_zone_id       |       7.14
+     __vdso_gettimeofday            |       7.14
+     hrtimer_start_range_ns         |       7.14
+     undo::get_zone_id          |         7.14
+     __pthread_mutex_unlock             |     7.14
+     gs_stat_encap_status_info        |      7.14
+    (11 rows)
+
+●   gs_perf_query_detail([filename text])
+    描述：查询历史采集on-cpu/off-cpu火焰图的堆栈函数调用占比及调用堆栈详细
+    信息，由于计算精度原因，该占比数据总和可能会不等于1。查询该函数需要有
+    SYSADMIN权限或者MONADMIN权限。该函数在ROOT/DBUSER模式下可用，在
+    DISABLE模式下不可用。
+    参数说明如下：
+        参数名称                描述                                                                          类型
+
+        filename            历史采集的文件的名称（可选参数，默认为最近                                                       text
+                            一次手动采集的火焰图）。
+
+
+
+    返回值类型：setof record
+    函数返回字段说明：
+        名称                      类型                          描述
+
+        function_name           text                        堆栈函数名称。
+
+        percentage              float                       堆栈函数调用占比。
+
+        function_callsta        text                        堆栈函数调用栈。
+        ck
+
+        function_callsta        float                       堆栈函数调用栈占比。
+        ck_percentage
+
+
+
+    示例：
+    查询最近一次手动采集生成的火焰图调用占比详情。
+    testdb3=# SELECT * FROM gs_perf_query_detail();
+        function_name       | percentage
+    |
+          function_callstack
+                                                                                                                       |
+    function_callstack_percentage
+    --------------------------+------------
+    +---------------------------------------------------------------------------------------------------------------------
+    ------------------------------------------------------------------------
+    -----------------------------------------------------------------------------------------------------------------------
+    --------------------------+-------------------------------
+     pthread_mutex_lock           |      30 | TrackStmtWorker->unknown->internal_thread_func->int
+    gauss_db_other_feature_thread_main->pthread_mutex_lock
+
+    |                     30
+[[PDF_PAGE physical=868 printed=819]]
+     stmt_flush_main      |      20 | TrackStmtWorker->unknown->internal_thread_func->int
+    gauss_db_other_feature_thread_main->stmt_flush_main
+
+    |                   20
+     finish_task_switch    |      20 | AntiRecycler->unknown->internal_thread_func->int
+    gauss_db_storage_thread_main->anti_recycler_main->anti_tab_recycle_loop->__select ->[enter kernel]-
+    >system_call_fastpath->SyS_select->core_
+    sys_select->do_select->poll_schedule_timeout->schedule_hrtimeout_range-
+    >schedule_hrtimeout_range_clock->schedule->__schedule->finish_task_switch |                     10
+     finish_task_switch    |      20 | vlogwriter->unknown->internal_thread_func->int
+    gauss_db_storage_thread_main->verifylogwriter_main->__select ->[enter kernel]-
+    >system_call_fastpath->SyS_select->core_sys_select->do_select->
+    poll_schedule_timeout->schedule_hrtimeout_range->schedule_hrtimeout_range_clock->schedule-
+    >__schedule->finish_task_switch                  |                 10
+     system_call_after_swapgs |       10 | WALwriter->semctl ->[enter kernel]->system_call_after_swapgs
+
+    |                 10
+     lwlock_release      |    10 | AntiRecycler->unknown->internal_thread_func->int
+    gauss_db_storage_thread_main->anti_recycler_main->anti_tab_recycle_loop->lwlock_release
+
+    |                 10
+     __select         |     10 | AntiRecycler->unknown->internal_thread_func->int
+    gauss_db_storage_thread_main->anti_recycler_main->anti_tab_recycle_loop->__select
+
+    |                     10
+    (7 rows)
+
+●   gs_perf_report()
+    描述：当前版本采集逻辑默认落盘，不再需要手动指令进行落盘。作用为展示上
+    一次手动查询oncpu的文件地址。查询该函数需要有SYSADMIN权限或者
+    MONADMIN权限。该函数在ROOT/DBUSER模式下可用，在DISABLE模式下不可
+    用。
+    参数：nan
+    返回值类型：text
+    示例：
+    生成火焰图文件。
+    testdb3=# SELECT * FROM gs_perf_report();
+                 gs_perf_report
+    ------------------------------------------------
+     flamegraph-manual-oncpu-2025-01-24_140232.html.gz
+    (1 row)
+
+●   gs_perf_clean()
+    描述：当前版本采集逻辑默认落盘，采集后不再占用内存上下文，不再需要手动
+    指令进行清理内存数据。当前版本提示函数废弃，后续版本直接移除函数。查询
+    该函数需要有SYSADMIN权限或者MONADMIN权限。该函数在ROOT/DBUSER模
+    式下可用，在DISABLE模式下不可用。
+    参数：nan
+    返回值类型：text
+    示例：
+    清理perf产生的数据。
+    gaussdb=# SELECT * FROM gs_perf_clean();
+                                                  gs_perf_clean
+    -----------------------------------------------------------------------------------------------------------------------
+    ----------
+     gs_perf_clean is a duplicated function. now you don't need clean perf memory. this function will be
+    removed in the next version
+    (1 row)
+
+●   gs_perf_start_shaking_collect(scope text, unique_querys textarray, duration
+    int, max_collect_times int, ringbuffer_size int)
+[[PDF_PAGE physical=869 printed=820]]
+描述：用于开启性能抖动监控，并返回开启操作是否成功。开启性能抖动监控后
+会清理已存在的性能抖动火焰图文件。重复执行gs_perf_start_shaking_collect函
+数，若前一次性能抖动监控未结束，后一次仅会重设unique_querys参数和清理已
+存在的性能抖动火焰图文件，不会影响gs_perf_service的行为。查询该函数需要
+有SYSADMIN权限或者MONADMIN权限。该函数在ROOT模式下可用，在
+DBUSER/DISABLE模式下不可用。
+
+表 1-234 gs_perf_start_shaking_collect 参数说明
+参数名称             类型        描述                     范围
+
+scope            text      local代表开始本节点监控。必       local
+                           填，填NULL则为local。
+
+unique_query     textarr   被监控的unique sql id列表，   列表长度限制为
+s                ay        慢SQL属于这个列表的话是性         0-32
+                           能抖动。必填，填NULL则为
+                           空列表。
+
+duration         int       性能抖动最长连续监控时长，          5-6000
+                           单位为分钟。必填，填NULL
+                           则为60。
+
+max_collect_ti   int       最大性能抖动快照保存次数，          1-10
+mes                        超过该值停止采集perf数据。
+                           必填，填NULL则为3。
+
+ringbuffer_siz   int       保存性能perf的环形缓冲区的        1-32
+e                          大小，单位为MB。必填，填
+                           NULL则为8。
+
+
+
+
+返回值说明如下：
+
+表 1-235 gs_perf_start_shaking_collect 返回值说明
+名称                类型             描述
+
+nodename          text           节点名称。
+[[PDF_PAGE physical=870 printed=821]]
+     名称                     类型                     描述
+
+     message                text                   返回值为“Successfully entered
+                                                   CPU_SHAKE mode.”，表示性能抖动监
+                                                   控开启成功。
+                                                   返回值为“Current is in CPU_SHAKE
+                                                   mode.”，表示重复开启监控。
+                                                   返回值为“Unexpected Result:
+                                                   start_shaking_collect error，try to close
+                                                   shaking collect success. Details：详细报
+                                                   错消息”，表示该节点开启失败，并成功
+                                                   关闭。
+                                                   返回值为“Unexpected Result:
+                                                   start_shaking_collect error，try to close
+                                                   shaking collect failed. Details：详细报错
+                                                   消息”，表示该节点开启失败，并且关闭
+                                                   失败，常见于断连状态。
+
+
+
+
+    示例：
+    开启性能抖动监控。设置要监控的unique sql id 列表为
+    {4124148646,2053082188}，监控时长为60分钟，最大性能抖动快照保存次数为
+    4次，环形缓冲区大小为8MB。
+    gaussdb=# SELECT gs_perf_start_shaking_collect('local','{4124148646,2053082188}',60,4,8);
+             gs_perf_start_shaking_collect
+    ---------------------------------------------------
+     (datanode,"Successfully entered CPU_SHAKE mode.")
+    (1 row)
+
+    gaussdb=# SELECT * FROM gs_perf_start_shaking_collect('local','{4124148646,2053082188}',60,4,8);
+     nodename |             message
+    ----------+-------------------------------
+     datanode | Current is in CPU_SHAKE mode.
+    (1 row)
+
+          说明
+
+         ● 执行gs_perf_start_shaking_collect()、gs_perf_do_shaking_collect()、
+           gs_perf_close_shaking_collect()、gs_perf_get_shaking_collect_status()需要
+           gs_perf_service正常运行。同时gs_perf_service在采集过程中，需要申请环形buffer，
+           该buffer的大小由cpu核心数和gs_perf_start_shaking_collect()的入参ringbuffer_size控
+           制。
+         ● 执行gs_perf_start_shaking_collect()、gs_perf_do_shaking_collect()、
+           gs_perf_close_shaking_collect()、gs_perf_get_shaking_collect_status()命令过程中手
+           动中止或者消息返回超时只会中断前端SQL，不会终止后台perf_service进程执行对应
+           任务。在gs_perf_do_shaking_collect()执行过程中可以通过sudo kill -9 perf_service进
+           程PID方式关闭perf_service进程，强制打断后台任务。
+         ● 采集进程gs_perf_service重启之后，性能抖动监控会被解除。如果希望再次监控，需要
+           重新执行开启性能抖动监控的命令。
+         ● 使用gs_perf_start_shaking_collect()函数启动性能抖动监控后，数据库需要约1秒的时
+           间完成火焰图资源的初始化，随后采集性能抖动火焰图文件。
+●   gs_perf_do_shaking_collect(scope text)
+    描述：用于执行性能抖动多核多线程火焰图落盘操作，即保存性能抖动快照，返
+    回是否保存成功的结果。该操作依赖于gs_perf_start_shaking_collect()接口，开
+[[PDF_PAGE physical=871 printed=822]]
+    启性能抖动监控才能执行性能抖动快照落盘。两次落盘最小时间间隔为1min。为
+    防止后台采集进程发生阻塞，当单节点执行性能抖动火焰图生成动作时，后台采
+    集进程gs_perf_service执行时间超过10min未完成，或者该进程在性能抖动采集过
+    程中异常退出，会返回超时消息。执行该函数需要有SYSADMIN权限或者
+    MONADMIN权限。该函数在ROOT模式下可用，在DBUSER/DISABLE模式下不可
+    用。
+
+    表 1-236 gs_perf_do_shaking_collect 参数说明
+
+     参数名称                     类型             描述                                              范围
+
+     scope                    text           local代表本节点的性能抖动快                                local
+                                             照落盘。必填，填NULL则为
+                                             local。
+
+
+
+
+    返回值说明如下：
+
+    表 1-237 gs_perf_do_shaking_collect 返回值说明
+
+     名称                         类型           描述
+
+     nodename                   text         节点名称。
+
+     message                    text         返回值为“Successfully collect perf detail
+                                             data ......”，表示性能抖动快照保存成功。
+                                             返回值为“Current is not in CPU_SHAKE
+                                             mode.”，表示未在监控状态，性能抖动快照保存
+                                             失败。
+                                             返回值为“Skipping collection this time ......”，表
+                                             示1min内重复保存。
+                                             返回值为“Unexpected Result: do_shaking_collect
+                                             error. Details: 详细报错消息”，表示执行失败。
+
+
+
+
+    示例：
+    执行性能抖动快照落盘。返回保存成功、快照路径和落盘时间。
+    gaussdb=# SELECT * FROM gs_perf_do_shaking_collect('local');
+
+     nodename |
+    message
+    ----------
+    +---------------------------------------------------------------------------------------------------------------------
+    ------------------------------------------------------------------------
+     datanode | Successfully collect perf detail data. The file path is: $GAUSSLOG/gs_flamegraph/
+    datanode/shake_detail-2025-10-31_163826.lz4, collect time is 2025-10-31_163826
+    (1 row)
+
+●   gs_perf_close_shaking_collect(scope text)
+    描述：用于关闭性能抖动监控，并返回关闭操作是否成功。该函数依赖于
+    gs_perf_start_shaking_collect()接口，必须先启动监控才能关闭，否则将返回未
+    在监控中的提示信息。查询该函数需要有SYSADMIN权限或者MONADMIN权
+    限。该函数在ROOT模式下可用，在DBUSER/DISABLE模式下不可用。
+[[PDF_PAGE physical=872 printed=823]]
+    表 1-238 gs_perf_close_shaking_collect 参数说明
+     参数名称                 类型          描述                              范围
+
+     scope                text        local代表关闭本节点监控。必                local
+                                      填，填NULL则为local。
+
+
+
+
+    返回值说明如下：
+
+    表 1-239 gs_perf_close_shaking_collect 返回值说明
+     名称                     类型        描述
+
+     nodename               text      节点名称。
+
+     message                text      返回值为“Successfully exit CPU_SHAKE
+                                      mode.”，表示性能抖动监控关闭成功。
+                                      返回值为“Current is not in CPU_SHAKE
+                                      mode.”，表示未在监控状态，关闭失败。
+                                      返回值为“Unexpected Result:
+                                      close_shaking_collect error. Detail: 详细报错消
+                                      息”，表示关闭失败。
+
+
+
+
+    示例：
+    关闭性能抖动监控。返回成功关闭性能抖动监控。
+    gaussdb=# SELECT * FROM gs_perf_close_shaking_collect('local');
+     nodename |              message
+    ----------+-----------------------------------
+     datanode | Successfully exit CPU_SHAKE mode.
+    (1 row)
+
+●   gs_perf_get_shaking_collect_result(scope text)
+    描述：用于查看最近一次监控中的性能抖动火焰图采集历史文件。每次开启性能
+    抖动监控时，会清空性能抖动快照采集历史。查询该函数需要有SYSADMIN权限
+    或者MONADMIN权限。该函数在ROOT模式下可用，在DBUSER/DISABLE模式下
+    不可用。
+
+    表 1-240 gs_perf_get_shaking_collect_result 参数说明
+     参数名称                 类型          描述                              范围
+
+     scope                text        local代表查询本节点性能抖动                local
+                                      快照落盘历史。必填，填
+                                      NULL则为local。
+
+
+
+
+    返回值说明如下：
+[[PDF_PAGE physical=873 printed=824]]
+    表 1-241 gs_perf_get_shaking_collect_result 返回值说明
+
+     名称                     类型                     描述
+
+     nodename               text                   节点名称。
+
+     num                    text                   采集序号。
+
+     filename               text                   性能抖动快照文件名。
+
+     shake_time             text                   性能抖动快照落盘时间。
+
+
+
+
+    示例：
+    查看最近一次监控中的性能抖动火焰图采集历史。
+    gaussdb=# SELECT * FROM gs_perf_get_shaking_collect_result('local');
+     nodename | num |               filename             | shake_time
+    ----------+-----+------------------------------------+-------------------
+     datanode | 1 | shake_detail-2025-10-25_155617.lz4 | 2025-10-25_155617
+    (1 row)
+
+●   gs_perf_get_shaking_collect_status(scope text)
+    描述：用于查看节点性能抖动监控状态。查询该函数需要有SYSADMIN权限或者
+    MONADMIN权限。该函数在ROOT模式下可用，在DBUSER/DISABLE模式下不可
+    用。
+
+    表 1-242 gs_perf_get_shaking_collect_status 参数说明
+
+     参数名称                 类型           描述                                       范围
+
+     scope                text         local代表查询本节点所在机器                         local
+                                       是否开启性能抖动监控。必
+                                       填，填NULL则为local。
+
+
+
+
+    表 1-243 gs_perf_get_shaking_collect_status 返回值说明
+
+     名称                     类型                     描述
+
+     nodename               text                   节点名称。
+
+     status                 text                   该节点所在机器是否已开启性能抖动监
+                                                   控。
+                                                   ● NOT IN SHAKE MODE：未在监控。
+                                                   ● IN SHAKE MODE：已在监控中。
+                                                   ● NO PERF SERVICE：采集进程未响
+                                                     应。
+                                                   ● Unexpected Result:
+                                                     get_shaking_connect_status error.
+                                                     Detail: 详细报错消息：表示查询失
+                                                     败。
+[[PDF_PAGE physical=874 printed=825]]
+    示例：
+    查看该节点所在机器是否已开启性能抖动监控。返回节点datanode已在监控中。
+    gaussdb=# SELECT * FROM gs_perf_get_shaking_collect_status('local');
+     nodename | status
+    ----------+---------------
+     datanode | IN SHAKE MODE
+    (1 row)
+
+●   gs_get_thread_memctx_detail(tid,text)
+    描述：返回指定内存上下文上的内存申请的详细信息，包含每一处内存申请所在
+    的文件、行号和大小（同一文件同一行大小会做累加）。只支持查询通过
+    GS_THREAD_MEMORY_CONTEXT视图（请参见
+    GS_THREAD_MEMORY_CONTEXT）查询出来的内存上下文，第一个入参为线
+    程id（即GS_THREAD_MEMORY_CONTEXT视图返回数据的tid列），第二个参数
+    为内存上下文名称（即GS_THREAD_MEMORY_CONTEXT视图返回数据的
+    contextname列）。查询该函数必须具有SYSADMIN权限或者MONADMIN权限。
+    多租场景下，non-PDB调用该函数时返回全部信息，PDB调用该函数时返回空列
+    表。
+    返回值类型：setof record
+     名称                   类型           描述
+
+     file                 text         申请内存所在文件的文件名。
+
+     line                 int8         申请内存所在文件的代码行号。
+
+     size                 int8         申请的内存大小，单位为byte，同一文件同一行多
+                                       次申请会做累加。
+
+
+●   gs_tpworker_execstmt_stat()
+    描述：描述语句的运行时信息，SYSADMIN和MONADMIN用户执行则显示全部
+    正在执行的语句的信息，普通用户查询只能查询自己执行的SQL语句的信息。
+    返回值类型：setof record
+     名称                     类型                     描述
+
+     db_oid                 oid                    用户会话在后台连接到的数据库OID。
+
+     db_name                name                   用户会话在后台连接到的数据库名称。
+
+     threadpool_wo          varchar                线程所属的numagroup和线程的ID，格式
+     rker                                          如下：numagroup_threadid。
+
+     thread_id              bigint                 线程ID。
+
+     session_id             bigint                 会话ID。
+
+     query_id               bigint                 正在执行的SQL语句的ID。
+
+     query_text             text                   正在执行的SQL语句内容。
+
+     unique_sql_id          bigint                 SQL语句生成的唯一id。
+[[PDF_PAGE physical=875 printed=826]]
+     名称                类型               描述
+
+     client_hostnam    text             客户端的主机名，这个字段是通过
+     e                                  client_addr的反向DNS查找得到。这个字
+                                        段只有在启动log_hostname且使用IP连接
+                                        时才非空。
+
+     client_app_nam    text             客户端app的名字。
+     e
+
+     stmt_slow_time    int              单位毫秒，SQL语句被标记为慢SQL的预
+     _threshold                         设超时时间。
+
+     stmt_start_time   timestamp with   语句执行的开始时间。
+                       time zone
+
+     stmt_elapse_ti    bigint           距离查询开始执行时已经过去的时间。
+     me
+
+     stmt_control_st   varchar          当前语句状态：
+     atus                               ● Waiting：等待状态，session接入未获
+                                          得线程执行。
+                                        ● Running：当前语句正常执行。
+                                        ● Control：当前语句进入了资源管控阶
+                                          段。
+                                        ● Downgraded：当前语句进入CPU管控
+                                          状态。
+
+     stmt_control_ru   text             当前语对应的慢SQL管控规则。
+     le
+
+     stmt_control_io   text             当前语句的iops值和最大iops上限。格式
+     stat                               如下：curVal/maxVal。
+
+     stmt_control_m    text             当前字段预留，暂不支持。
+     emstat
+
+     stmt_control_c    text             当前字段预留，暂不支持。
+     pustat
+
+     stmt_control_n    text             当前字段预留，暂不支持。
+     etstat
+
+
+●   gs_tpworker_execslot_stat()
+    描述：描述线程的运行时信息，SYSADMIN和MONADMIN用户执行则显示全部
+    线程的信息，普通用户查询只能查询自己执行的SQL语句所在的线程的信息。
+    返回值类型：setof record
+
+     名称                类型         描述
+
+     numagroup         int        当前线程所属的numagroup。
+
+     worker_id         int        当前线程的ID。
+[[PDF_PAGE physical=876 printed=827]]
+     名称                   类型            描述
+
+     worker_bind_t        text          线程绑定方式numabind, cpubind, allbind，
+     ype                                nobind。
+
+     worker_cpu_aff text                线程和CPU的亲和性，即线程可以调度的cpu核数
+     inity                              范围。
+
+     worker_status        varchar       当前线程状态：
+                                        ● Waiting：等待状态，session接入未获得线程
+                                          执行。
+                                        ● Running：当前语句正常执行。
+                                        ● Control：当前语句进入了资源管控阶段。
+
+     served_query_i       bigint        正在执行的SQL语句的ID。
+     d
+
+     served_query_t       text          正在执行的SQL语句内容。
+     ext
+
+
+●   gs_session_all_settings(sessionid bigint)
+    描述：查询本节点上sessionid对应的session的全量GUC参数配置。需要
+    SYSADMIN或者MONADMIN权限执行。在PDB下仅返回本PDB的数据，在Non-
+    PDB返回全局数据。
+    入参说明：sessionid，会话ID。
+    返回值类型：setof record
+    函数返回字段说明如下：
+     名称                    类型                    描述
+
+     name                  text                  参数名称。
+
+     setting               text                  参数当前值。
+
+     unit                  text                  参数的隐式单位。
+
+
+
+    示例：
+    gaussdb=# SELECT sessionid FROM pg_stat_activity WHERE usename = 'testuser';
+     sessionid
+    -----------
+       788861
+    (1 row)
+
+    gaussdb=# SELECT * FROM gs_session_all_settings(788861) WHERE name = 'work_mem';
+      name | setting | unit
+    ----------+---------+------
+     work_mem | 131072 | kB
+    (1 row)
+
+●   gs_session_all_settings()
+    描述：查询本节点上所有session的全量GUC参数配置。需要SYSADMIN或者
+    MONADMIN权限执行。在多租场景下，在PDB仅返回本PDB的数据，在Non-
+    PDB返回全局数据。
+[[PDF_PAGE physical=877 printed=828]]
+    返回值类型：setof record
+
+     名称                   类型                    描述
+
+     sessionid            bigint                会话的ID。
+
+     pid                  bigint                后端线程的ID。
+
+     name                 text                  参数名称。
+
+     setting              text                  参数当前值。
+
+     unit                 text                  参数的隐式单位。
+
+
+
+
+    示例：
+    gaussdb=# SELECT * FROM gs_session_all_settings() WHERE name = 'work_mem';
+       sessionid |        pid      | name | setting | unit
+    -----------------+-----------------+----------+---------+------
+     140550214145792 |              96974 | work_mem | 65536 | kB
+     140550214145792 |              96971 | work_mem | 65536 | kB
+     140549731735296 | 140549731735296 | work_mem | 65536 | kB
+     140549764413184 | 140549764413184 | work_mem | 65536 | kB
+    (4 rows)
+
+●   gs_local_wal_preparse_statistics()
+    描述：查询本节点上日志预解析线程最近一次启动，预解析日志的情况。需要
+    SYSADMIN权限执行。日志预解析线程通常在备DN双机复制链路断开时，由CM
+    组件发送启动命令启动。如果日志预解析线程已经被启动，可以通过调用该函数
+    查询最近一次的预解析状态。如果线程尚未启动，该函数将返回默认值。
+    返回值类型：setof record
+
+     名称                     类型                 描述
+
+     preparser_term         text               最近一次预解析日志得到的最大term值。
+
+     preparser_start_t      timestamptz        最近一次预解析启动时间。
+     ime
+
+     preparser_end_ti       timestamptz        最近一次预解析结束时间。
+     me
+
+     preparser_start_l      text               最近一次预解析日志起始位置。
+     ocation
+
+     preparser_end_lo       text               最近一次预解析日志结束位置。
+     cation
+
+     preparser_total_       int8               最近一次预解析日志量，单位：byte。
+     bytes
+
+     preparser_speed        int8               最近一次预解析速度，单位：byte/ms。
+
+     is_valid               bool               最近一次预解析结果是否可以用于选主。
+
+
+
+
+    拉起过日志预解析线程后的查询结果示例：
+[[PDF_PAGE physical=878 printed=829]]
+    gaussdb=# SELECT * FROM gs_local_wal_preparse_statistics();
+     preparser_term |      preparser_start_time        |     preparser_end_time          | preparser_start_location |
+    preparser_end_location | preparser_total_bytes | preparser_speed | is_valid
+    ----------------+-------------------------------+-------------------------------+--------------------------
+    +------------------------+-----------------------+-----------------+----------
+     3107          | 2023-02-01 17:04:23.367946+08 | 2023-02-01 17:04:25.354434+08 | 00000003/
+    C3EEA660          | 00000004/0BE60738           |        1207394520 |         1207394520 | f
+    (1 row)
+    未拉起过日志预解析线程时的查询查询结果示例：
+    gaussdb=# SELECT * FROM gs_local_wal_preparse_statistics();
+     preparser_term | preparser_start_time | preparser_end_time | preparser_start_location |
+    preparser_end_location | preparser_total_bytes | preparser_speed | is_valid
+    ----------------+------------------------+------------------------+--------------------------
+    +------------------------+-----------------------+-----------------+----------
+     0           | 2000-01-01 08:00:00+08 | 2000-01-01 08:00:00+08 | 00000000/00000000            |
+    00000000/00000000           |                0|             0|f
+    (1 row)
+
+●   gs_wlm_respool_cpu_info()
+    描述：描述资源池的CPU资源限制和使用信息。本函数在多租模式下禁用。
+    返回值类型：setof record
+     名称                        类型               描述
+
+     respool_name              name             资源池名称。
+
+     control_group             name             cgroup名称。
+
+     cpu_affinity              name             CPU绑定core的数值。
+
+     cpu_usage                 integer          资源池的cpu使用率。如果资源池没有进行cpu管
+                                                控，则该项显示为0。
+
+
+
+
+    示例：
+    gaussdb=# SELECT * FROM GS_WLM_RESPOOL_CPU_INFO();
+     respool_name | control_group            | cpu_affinity | cpu_usage
+    ---------------+----------------------+--------------+-----------
+     respool_cpu_2 | respool_cpu_2:Medium | 0-95               |       78
+     default_pool | DefaultClass:Medium | 0-32               |       65
+    (2 rows)
+
+●   gs_wlm_respool_connection_info()
+    描述：描述资源池的连接数资源限制和使用信息。本函数在多租模式下禁用。
+    返回值类型：setof record
+     名称                        类型               描述
+
+     respool_name              name             资源池名称。
+
+     max_connectio             name             资源池最大连接数。
+     ns
+
+     curr_connectio            integer          当前资源池已有连接数。
+     ns
+
+
+
+
+    示例：
+[[PDF_PAGE physical=879 printed=830]]
+    gaussdb=# SELECT * FROM GS_WLM_RESPOOL_CONNECTION_INFO();
+     respool_name | max_connections | curr_connections
+    ---------------+-----------------+------------------
+     respool1      |           -1 |            0
+     default_pool |             -1 |             1
+    (2 rows)
+
+●   gs_wlm_respool_memory_info()
+    描述：描述资源池的内存资源限制和使用信息。本函数在多租模式下禁用。
+    返回值类型：setof record
+     名称                             类型             描述
+
+     respool_name                   name           资源池名称。
+
+     max_dynamic_me                 integer        最大可使用的动态内存。
+     mory
+
+     current_dynamic_               integer        当前已经使用的动态内存。
+     memory
+
+     max_shared_mem                 integer        最大可使用的共享内存。
+     ory
+
+     current_shared_m               integer        当前已经使用的共享内存。
+     emory
+
+     shared_memory_h                integer        该功能不可用，留待后续演进。字段保留，恒
+     its_percent                                   为0。
+
+
+
+
+           说明
+
+         在出现资源池动态内存使用超过最大值时，可能会出现查询GUC参数
+         current_dynamic_memory返回的结果大于max_dynamic_memory的情况，这属于正常现
+         象，实际并未申请内存。
+    示例：
+    gaussdb=# SELECT * FROM GS_WLM_RESPOOL_MEMORY_INFO();
+      respool_name | max_dynamic_memory | current_dynamic_memory | max_shared_memory |
+    current_shared_memory | shared_memory_hits_percent
+    -----------------+--------------------+------------------------+-------------------+-----------------------
+    +----------------------------
+      default_pool | -1                | 3383kB               | -1            | 3848kB               |
+    0
+      resource_pool_a | 30720kB             | 0kB                 | -1            | 0kB
+    |                    0
+    (2 rows)
+
+●   gs_wlm_respool_concurrency_info()
+    描述：描述资源池中的并发数资源限制和使用信息。本函数在多租模式下禁用。
+    返回值类型：setof record
+     名称                      类型                描述
+
+     respool_nam             name              资源池名称。
+     e
+[[PDF_PAGE physical=880 printed=831]]
+     名称                  类型              描述
+
+     max_concurr         integer         资源池支持的最大并发数。
+     ency
+
+     running_conc        integer         当前资源池正在执行的并发数。如果资源池没有进
+     urrency                             行并发限制，则该项显示为0。
+
+     waiting_conc        integer         当前资源池正在等待的并发数。
+     urrency
+
+
+
+
+    示例：
+    gaussdb=# SELECT * FROM GS_WLM_RESPOOL_CONCURRENCY_INFO();
+     respool_name | max_concurrency | running_concurrency | waiting_concurrency
+    -----------------+-----------------+---------------------+---------------------
+     default_pool |               -1 |              1|                0
+     resource_pool_a |             -1 |               0|                0
+    (2 rows)
+
+●   gs_wlm_respool_io_info()
+    描述：描述资源池的I/O资源限制和使用信息。本函数在多租模式下禁用。
+    返回值类型：setof record
+
+     名称                  类型              描述
+
+     respool_nam         name            资源池名称。
+     e
+
+     io_limits           integer         每秒触发I/O的次数上限（单位：IOPS）。0表示
+                                         不控制。
+
+     io_priority         text            I/O 资源管控的优先级等级。当I/O利用率高达
+                                         90%时，作业的I/O操作按此优先级进行管控。
+                                         None表示不控制。
+
+     current_iops        integer         当前I/O已经触发的次数（单位：IOPS）。
+                                         ● 因该值与I/O统计算法有关，存在偶尔超过上限
+                                           的情况，属于正常波动。
+                                         ● 如果资源池没有进行I/O管控，则该项显示为
+                                           0。
+
+
+
+
+          说明
+
+         在I/O管控过程中，I/O操作的计数单位由GUC参数io_control_unit定义。1个
+         io_control_unit次为1次IOPS。
+    示例：
+    gaussdb=# SELECT * FROM GS_WLM_RESPOOL_IO_INFO();
+     respool_name | io_limits | io_priority | current_iops
+    -----------------+-----------+-------------+--------------
+     default_pool |           0 | None       |         0
+     resource_pool_a |         0 | Low         |        0
+    (2 rows)
+[[PDF_PAGE physical=881 printed=832]]
+●   gs_wlm_user_space_info()
+    描述：描述用户的存储空间的使用信息。本函数在多租模式下禁用。
+    返回值类型：setof record
+
+     名称                                    类型         描述
+
+     user_name                             nam        用户名称。
+                                           e
+
+     max_permanent_space                   bigi       用户可使用的最大永久存储空间，单位：B。
+                                           nt
+
+     current_                              bigi       当前用户已使用的永久存储空间，单位：B。
+     permanent_space                       nt
+
+     max_temp_space                        bigi       用户可使用的最大临时存储空间，单位：B。
+                                           nt
+
+     current_temp_space                    bigi       当前用户已使用的临时存储空间，单位：B。
+                                           nt
+
+     max_spill_space                       bigi       用户可使用的最大算子落盘存储空间，单
+                                           nt         位：B。
+
+     current_spill_space                   bigi       当前用户已使用的算子落盘存储空间，单
+                                           nt         位：B。
+
+
+
+
+    示例：
+    gaussdb=# SELECT * FROM GS_WLM_USER_SPACE_INFO();
+            user_name           | max_permanent_space | current_permanent_space | max_temp_space |
+    current_temp_space | max_spill_space | current_spill_space
+    -----------------------------+---------------------+-------------------------+----------------+--------------------
+    +-----------------+---------------------
+      xy                    |             -1 |                2464 |           -1 |              0|           -1
+    |               0
+    (1 rows)
+
+●   gs_wlm_session_io_info()
+    描述：描述session的I/O的使用信息。本函数在多租模式下禁用。
+    返回值类型：setof record
+
+     名称                      类型                描述。
+
+     session_id              integer           会话ID。
+
+     io_limits               integer           每秒触发I/O的次数上限（单位：IOPS）。0表示
+                                               不控制。
+
+     io_priority             text              I/O 资源管控的优先级等级。当I/O利用率高达
+                                               90%时，作业的I/O操作按此优先级进行管控。
+                                               None表示不控制。
+
+     current_iops            integer           当前I/O已经触发的次数（单位：IOPS）。因该值
+                                               与I/O统计算法有关，存在偶尔超过上限的情况，
+                                               属于正常波动。
+[[PDF_PAGE physical=882 printed=833]]
+     名称                      类型               描述。
+
+     wait_time               integer          当前I/O超过上限后等待的时间总和。
+
+
+
+
+           说明
+
+         在I/O管控过程中，I/O操作的计数单位由GUC参数io_control_unit定义。1个
+         io_control_unit次为1次IOPS。
+    示例：
+    gaussdb=# SELECT * FROM GS_WLM_SESSION_IO_INFO();
+      session_id | io_limits | io_priority | current_iops | wait_time
+    -----------------+-----------+-------------+--------------+-----------
+     139976325986048 |           10 | None        |         0|     2709
+    (1 row)
+
+●   gs_emergency_operation_records()
+    描述：展示当前节点对Unix Domain Socket运维通道的使用情况。
+    返回值：setof record
+     名称                             类型             描述
+
+     record_time                    timesta        使用运维通道的时间。
+                                    mptz
+
+     action                         text           使用运维通道执行的操作。
+
+     source                         text           接入运维通道的来源，取值为gsql和cm。
+
+     detail                         text           执行操作的具体结果。
+
+
+●   gs_wlm_session_memory_info()
+    描述：描述session的内存的使用信息。在多租场景下，在PDB下仅返回本PDB的
+    数据，在Non-PDB返回全局数据。
+    返回值类型：setof record
+     名称                             类型             描述
+
+     session_id                     integer        session_id。
+
+     sess_used_dynami               bigint         当前已经使用的动态内存。
+     c_memory
+
+     sess_max_dynami                bigint         最大可使用的动态内存。
+     c_memory
+
+
+
+    示例：
+    gaussdb=# SELECT * FROM GS_WLM_SESSION_MEMORY_INFO();
+        sessid     | sess_used_dynamic_memory | sess_max_dynamic_memory
+    -----------------+--------------------------+-------------------------
+     139976325986048 |                   4326056 |                    -1
+     139976402532096 |                   4452664 |                    -1
+    (2 rows)
+[[PDF_PAGE physical=883 printed=834]]
+●   gs_hot_standby_space_info()
+    描述：查询standby_read/base_page，standby_read/block_info_meta，
+    standby_read/lsn_info_meta文件夹中的文件总数和总大小。
+    返回值类型：setof record
+
+     名称                      类型                      描述
+
+     base_page_file_         xid                     base_page_file的总数量。
+     num
+
+     base_page_tota          xid                     base_page_file的总大小。
+     l_size
+
+     lsn_info_meta_f         xid                     lsn_info_meta_file的总数量。
+     ile_num
+
+     lsn_info_meta_t         xid                     lsn_info_meta_file的总大小。
+     otal_size
+
+     block_info_met          xid                     block_info_meta_file的总数量。
+     a_file_num
+
+     block_info_met          xid                     block_info_meta_file的总大小。
+     a_total_size
+
+
+
+
+    示例：
+    gaussdb=# SELECT * FROM gs_hot_standby_space_info();
+      base_page_file_num | base_page_total_size | lsn_info_meta_file_num | lsn_info_meta_total_size |
+    block_info_meta_file_num | block_info_meta_total_size
+    --------------------+----------------------+------------------------+--------------------------
+    +--------------------------+----------------------------
+                  6|             163840 |                   6|                 3136 |               16
+    |                147456
+    (1 row)
+
+●   exrto_file_read_stat()
+    描述：查询备机读新增的base page file、lsn info meta file和block info meta
+    file三种类型的文件磁盘访问次数和访问总时延。连接备DN查询，其他情况查询
+    结果为0。
+    返回值类型：setof record
+
+     名称                              类型                                描述
+
+     lsn_info_page_disk_re           int8                              lsn info meta file的磁盘访
+     ad_counter                                                        问次数。
+
+     lsn_info_page_disk_re           int8                              lsn info meta file的磁盘访
+     ad_dur                                                            问总时延。
+
+     blk_info_meta_disk_re           int8                              block info meta file的磁盘
+     ad_counter                                                        访问次数。
+
+     blk_info_meta_disk_re           int8                              block info meta file的磁盘
+     ad_dur                                                            访问总时延。
+[[PDF_PAGE physical=884 printed=835]]
+     名称                               类型                                 描述
+
+     base_page_read_disk_             int8                               base page file的磁盘访问
+     counter                                                             次数。
+
+     base_page_read_disk_             int8                               base page file的磁盘访问
+     dur                                                                 总时延。
+
+
+
+
+    示例：
+    gaussdb=# SELECT * FROM exrto_file_read_stat();
+      lsn_info_page_disk_read_counter | lsn_info_page_disk_read_dur | blk_info_meta_disk_read_counter |
+    blk_info_meta_disk_read_dur | base_page_read_disk_counter | base_page_read_disk_dur
+    ---------------------------------+-----------------------------+---------------------------------
+    +-----------------------------+-----------------------------+-------------------------
+                         14987 |                    92313 |                      23879 |              129811
+    |                     0|                   0
+    (1 row)
+
+●   gs_exrto_recycle_info()
+    描述：查询资源回收位置，其中包括每个线程的回收lsn，全局回收的lsn，查询线
+    程最旧的快照的lsn。连接备DN查询，其他情况查询结果为0。
+    返回值类型：setof record
+
+     名称                               类型                                 描述
+
+     page_redo_worker_th              text                               redo线程的回收lsn位置，其
+     read_id                                                             中thread_id为redo线程的线
+                                                                         程id。
+
+     global_recycle_lsn               text                               全局回收位置的lsn。
+
+     exrto_snapshot_oldes             text                               查询线程的最旧的快照lsn。
+     t_lsn
+
+
+
+
+    示例：
+    gaussdb=# SELECT * FROM gs_exrto_recycle_info();
+              thread_id            | recycle_lsn
+    ----------------------------------+-------------
+     page_redo_worker_140148895381248 | 0/7B4552E0
+     page_redo_worker_140148872312576 | 0/7B4535B8
+     global_recycle_lsn               | 0/7B4535B8
+     exrto_snapshot_oldest_lsn            | 0/8488E6D0
+    (4 rows)
+
+●   gs_stat_get_db_conflict_all(oid)
+    描述：查询发送不同类型回放冲突信号的数量。
+    参数：输入参数为数据库的oid。
+    返回值类型：setof record
+
+     名称                               类型               描述
+
+     conflict_all                     int8             发送回放冲突信号的总数量。
+[[PDF_PAGE physical=885 printed=836]]
+     名称                                类型                描述
+
+     conflict_tablespace               int8              发送tablespace类型回放冲突信号的数
+                                                         量。
+
+     conflict_lock                     int8              发送lock类型回放冲突信号的数量。
+
+     conflict_snapshot                 int8              发送snapshot类型回放冲突信号的数
+                                                         量。
+
+     conflict_bufferpin                int8              发送bufferpin类型回放冲突信号的数
+                                                         量。
+
+     conflict_startup_deadl            int8              发送startup_deadlock类型回放冲突信号
+     ock                                                 的数量。
+
+     conflict_truncate                 int8              发送truncate类型回放冲突信号的数量。
+
+     conflict_standby_quer             int8              发送standby_query_timeout类型回放冲
+     y_timeout                                           突信号的数量。
+
+     conflict_force_recycle            int8              发送force_recycle类型回放冲突信号的数
+                                                         量。
+
+
+
+
+    示例：
+    gaussdb=# SELECT * FROM gs_stat_get_db_conflict_all(12738);
+      conflict_all | conflict_tablespace | conflict_lock | conflict_snapshot | conflict_bufferpin |
+    conflict_startup_deadlock | conflict_truncate | conflict_standby_query_timeout | conflict_force_recycle
+    --------------+---------------------+---------------+-------------------+--------------------
+    +---------------------------+-------------------+--------------------------------+------------------------
+              0|                 0|         0|              0|               0|                    0|          0
+    |                         0|                0
+    (1 row)
+
+●   gs_redo_stat_info([int])
+    描述：查询WAL日志回放的相关统计信息。包括回放线程的缓存命中率、回放
+    DDL日志删除文件数量、回放线程读取数据页时产生物理读、回放线程读取WAL
+    日志的等待事件信息。需要连接备DN查询。
+    返回值类型：setof record
+     参数类          名称                      类型            描述
+     型
+
+     输入参          operation               int           可选输入，若无输入则行为是查询统计信
+     数                                                  息。
+                                                        ● 1：表示查询统计信息。
+                                                        ● 2：表示重置缓存命中率的统计信息。
+
+     输出参          buffer_hit_rat          float8        回放线程的缓存命中率。
+     数            e
+
+     输出参          ddl_unlink_nr           int8          回放DDL日志删除文件数量。
+     数            els_count
+[[PDF_PAGE physical=886 printed=837]]
+     参数类        名称                   类型            描述
+     型
+
+     输出参        read_buffer_io       int8          回放线程读取数据页时产生物理读的
+     数          _counter                           waitevent触发次数。
+
+     输出参        read_buffer_io       int8          回放线程读取数据页时产生物理读的
+     数          _total_dur                         waitevent总用时。
+
+     输出参        read_buffer_io       int8          回放线程读取数据页时产生物理读的
+     数          _avg_dur                           waitevent平均用时。
+
+     输出参        read_buffer_io       int8          回放线程读取数据页时产生物理读的
+     数          _min_dur                           waitevent最小用时。
+
+     输出参        read_buffer_io       int8          回放线程读取数据页时产生物理读的
+     数          _max_dur                           waitevent最大用时。
+
+     输出参        read_wal_buf_        int8          回放线程读取WAL日志的waitevent触发
+     数          counter                            次数。
+
+     输出参        read_wal_buf_        int8          回放线程读取WAL日志的waitevent总用
+     数          total_dur                          时。
+
+     输出参        read_wal_buf_        int8          回放线程读取WAL日志的waitevent平均
+     数          avg_dur                            用时。
+
+     输出参        read_wal_buf_        int8          回放线程读取WAL日志的waitevent最小
+     数          min_dur                            用时。
+
+     输出参        read_wal_buf_        int8          回放线程读取WAL日志的waitevent最大
+     数          max_dur                            用时。
+
+
+
+
+    示例：
+    gaussdb=# SELECT * FROM gs_redo_stat_info();
+    -[ RECORD 1 ]------------+----------
+    buffer_hit_rate      | 70.5707
+    ddl_unlink_nrels_count | 3
+    read_buffer_io_counter | 1732
+    read_buffer_io_total_dur | 2850806
+    read_buffer_io_avg_dur | 1645
+    read_buffer_io_min_dur | 3
+    read_buffer_io_max_dur | 981639
+    read_wal_buf_counter     | 9779
+    read_wal_buf_total_dur | 193612470
+    read_wal_buf_avg_dur      | 19798
+    read_wal_buf_min_dur       |3
+    read_wal_buf_max_dur       | 1914777
+
+●   gs_recovery_conflict_waitevent_info()
+    描述：查询处理回放冲突的函数的waitevent相关信息。需要连接备DN查询。
+    返回值类型：setof record
+     名称                                     类型       描述
+
+     conflict_lock_counter                  int8     处理lock类型回放冲突的触发次数。
+[[PDF_PAGE physical=887 printed=838]]
+名称                              类型     描述
+
+conflict_lock_total_dur         int8   处理lock类型回放冲突的总用时。
+
+conflict_lock_avg_dur           int8   处理lock类型回放冲突的平均用时。
+
+conflict_lock_min_dur           int8   处理lock类型回放冲突的最小用时。
+
+conflict_lock_max_dur           int8   处理lock类型回放冲突的最大用时。
+
+conflict_snapshot_counter       int8   处理snapshot类型回放冲突的触发次
+                                       数。
+
+conflict_snapshot_total_dur     int8   处理snapshot类型回放冲突的总用
+                                       时。
+
+conflict_snapshot_avg_dur       int8   处理snapshot类型回放冲突的平均用
+                                       时。
+
+conflict_snapshot_min_dur       int8   处理snapshot类型回放冲突的最小用
+                                       时。
+
+conflict_snapshot_max_dur       int8   处理snapshot类型回放冲突的最大用
+                                       时。
+
+conflict_tablespace_counter     int8   处理tablespace类型回放冲突的触发次
+                                       数。
+
+conflict_tablespace_total_dur   int8   处理tablespace类型回放冲突的总用
+                                       时。
+
+conflict_tablespace_avg_dur     int8   处理tablespace类型回放冲突的平均用
+                                       时。
+
+conflict_tablespace_min_dur     int8   处理tablespace类型回放冲突的最小用
+                                       时。
+
+conflict_tablespace_max_dur     int8   处理tablespace类型回放冲突的最大用
+                                       时。
+
+conflict_database_counter       int8   处理database类型回放冲突的触发次
+                                       数。
+
+conflict_database_total_dur     int8   处理database类型回放冲突的总用
+                                       时。
+
+conflict_database_avg_dur       int8   处理database类型回放冲突的平均用
+                                       时。
+
+conflict_database_min_dur       int8   处理database类型回放冲突的最小用
+                                       时。
+
+conflict_database_max_dur       int8   处理database类型回放冲突的最大用
+                                       时。
+
+conflict_truncate_counter       int8   处理truncate类型回放冲突的触发次
+                                       数。
+
+conflict_truncate_total_dur     int8   处理truncate类型回放冲突的总用时。
+[[PDF_PAGE physical=888 printed=839]]
+名称                               类型     描述
+
+conflict_truncate_avg_dur        int8   处理truncate类型回放冲突的平均用
+                                        时。
+
+conflict_truncate_min_dur        int8   处理truncate类型回放冲突的最小用
+                                        时。
+
+conflict_truncate_max_dur        int8   处理truncate类型回放冲突的最大用
+                                        时。
+
+conflict_standby_query_time      int8   处理standby_query_timeout类型回放
+out_counter                             冲突的触发次数。
+
+conflict_standby_query_time      int8   处理standby_query_timeout类型回放
+out_total_dur                           冲突的总用时。
+
+conflict_standby_query_time      int8   处理standby_query_timeout类型回放
+out_avg_dur                             冲突的平均用时。
+
+conflict_standby_query_time      int8   处理standby_query_timeout类型回放
+out_min_dur                             冲突的最小用时。
+
+conflict_standby_query_time      int8   处理standby_query_timeout类型回放
+out_max_dur                             冲突的最大用时。
+
+conflict_force_recycle_counte    int8   处理force_recycle类型回放冲突的触发
+r                                       次数。
+
+conflict_force_recycle_total_d   int8   处理force_recycle类型回放冲突的总用
+ur                                      时。
+
+conflict_force_recycle_avg_d     int8   处理force_recycle类型回放冲突的平均
+ur                                      用时。
+
+conflict_force_recycle_min_d     int8   处理force_recycle类型回放冲突的最小
+ur                                      用时。
+
+conflict_force_recycle_max_d     int8   处理force_recycle类型回放冲突的最大
+ur                                      用时。
+
+conflict_bufferpin_counter       int8   处理buffer pin类型回放冲突的触发次
+                                        数。
+
+conflict_bufferpin_total_dur     int8   处理buffer pin类型回放冲突的总用
+                                        时。
+
+conflict_bufferpin_avg_dur       int8   处理buffer pin类型回放冲突的平均用
+                                        时。
+
+conflict_bufferpin_min_dur       int8   处理buffer pin类型回放冲突的最小用
+                                        时。
+
+conflict_bufferpin_max_dur       int8   处理buffer pin类型回放冲突的最大用
+                                        时。
+
+
+
+示例：
+[[PDF_PAGE physical=889 printed=840]]
+    gaussdb=# SELECT * FROM gs_recovery_conflict_waitevent_info();
+    -[ RECORD 1 ]----------------------------+------
+    conflict_lock_counter               |0
+    conflict_lock_total_dur              |0
+    conflict_lock_avg_dur                |0
+    conflict_lock_min_dur                |0
+    conflict_lock_max_dur                 |0
+    conflict_snapshot_counter               |0
+    conflict_snapshot_total_dur             |0
+    conflict_snapshot_avg_dur                |0
+    conflict_snapshot_min_dur                |0
+    conflict_snapshot_max_dur                 |0
+    conflict_tablespace_counter              |0
+    conflict_tablespace_total_dur            |0
+    conflict_tablespace_avg_dur              |0
+    conflict_tablespace_min_dur               |0
+    conflict_tablespace_max_dur               |0
+    conflict_database_counter               |0
+    conflict_database_total_dur             |0
+    conflict_database_avg_dur                |0
+    conflict_database_min_dur                |0
+    conflict_database_max_dur                 |0
+    conflict_truncate_counter             |6
+    conflict_truncate_total_dur            | 35872
+    conflict_truncate_avg_dur              | 5978
+    conflict_truncate_min_dur               | 5130
+    conflict_truncate_max_dur                | 7459
+    conflict_standby_query_timeout_counter | 0
+    conflict_standby_query_timeout_total_dur | 0
+    conflict_standby_query_timeout_avg_dur | 0
+    conflict_standby_query_timeout_min_dur | 0
+    conflict_standby_query_timeout_max_dur | 0
+    conflict_force_recycle_counter           |0
+    conflict_force_recycle_total_dur         |0
+    conflict_force_recycle_avg_dur           |0
+    conflict_force_recycle_min_dur            |0
+    conflict_force_recycle_max_dur             |0
+    conflict_bufferpin_counter             |0
+    conflict_bufferpin_total_dur           |0
+    conflict_bufferpin_avg_dur              |0
+    conflict_bufferpin_min_dur              |0
+    conflict_bufferpin_max_dur               |0
+
+●   gs_display_delay_ddl_info()
+    描述：查看备机中延迟删除的文件信息。多租场景下，non-PDB调用该函数时返
+    回全部信息，PDB调用该函数时仅返回该PDB相关信息。
+    返回值类型：setof record
+
+
+    表 1-244
+
+     名称                       类型                         描述
+
+     type                     INT4                       删除操作的对象是表或数据库。
+
+     lsn                      TEXT                       标识特定日志文件记录在此日志文
+                                                         件中的位置。
+
+     tablespace               INT4                       数据库中用于存储表和索引的物理
+                                                         空间。
+
+     database                 INT4                       该数据库的物理存储位置。
+
+     relation                 INT4                       数据库中的对象，可以是表、视
+                                                         图、索引的物理位置。
+[[PDF_PAGE physical=890 printed=841]]
+     名称                          类型                              描述
+
+     bucketid                    INT4                            指定关系对象所属的bucket。
+
+     opt                         INT4                            压缩表相关属性。
+
+     forknum                     INT4                            主体命名之后的后缀命名，通过主
+                                                                 体命名和后缀命名，可以找到唯一
+                                                                 的物理文件。
+
+
+
+    示例：
+    gaussdb=# SELECT * FROM gs_display_delay_ddl_info();
+     type | lsn | tablespace | database | relation | bucketid | opt | forknum
+    ------+-----+------------+----------+----------+----------+-----+---------
+    (0 rows)
+
+●   gs_plsql_statements(sessionid bigint, pkg id oid, function id oid)
+    描述：返回存储过程相关内存信息。
+           说明
+
+         查询函数时，GaussDB会根据current_user的权限来决定是否允许访问。如果current_user
+         是初始用户或系统管理员，则可以查询所有会话信息。如果current_user是普通用户，则只
+         能查看自己的会话信息（即session_user是当前用户的信息）。
+    返回值类型：setof record
+    函数返回字段说明：
+     名称                       类型                        描述
+
+     pid                      bigint                    后台线程id。
+
+     sessionid                bigint                    会话id。
+
+     global_sessioni          text                      全局会话id。
+     d
+
+     databaseid               oid                       数据库id。
+
+     pkg_id                   oid                       存储过程所属PACKAGE id，如果不属于
+                                                        PACKAGE则为0。
+
+     func_id                  oid                       存储过程id。
+
+     func_signature           text                      存储过程名称（name + fn_collation +
+                                                        search_path）。
+
+     plsql_compiled           bigint                    存储过程编译产物的总内存大小。
+     _totalsize
+
+     plsql_plan_tota          bigint                    存储过程内计划的总内存大小。
+     lsize
+
+
+
+    示例：
+    gaussdb=#
+    CREATE OR REPLACE PROCEDURE proc_assign AS
+[[PDF_PAGE physical=891 printed=842]]
+       a int := 0;
+    BEGIN
+       a = a + 1;
+       RAISE INFO '%', a;
+    END;
+    /
+    gaussdb=# CALL proc_assign();
+    INFO: 1
+     proc_assign
+    -------------
+
+    (1 row)
+
+    gaussdb=# SELECT * FROM pg_catalog.gs_plsql_statements(pg_current_sessid());
+       pid | sessionid | global_sessionid | databaseid | pkg_id | func_id |
+    func_signature
+              | plsql_compiled_totalsize | plsql_plan_totalsize
+    -----------+-----------+------------------+------------+--------+---------
+    +----------------------------------------------------------------------
+    ------------+--------------------------+----------------------
+     536868608 |        5052 | 0:0#0           |     13108 |      0 | 16854 | name: proc_assign(), fn_collation: 0,
+    search_path: addUser: false, schemas: 2200 |                       8192 |         65536
+    (1 row)
+
+    -- 需要过滤function id --
+    gaussdb=# SELECT * FROM pg_catalog.gs_plsql_statements(NULL, NULL, 16854);
+       pid | sessionid | global_sessionid | databaseid | pkg_id | func_id |
+    func_signature
+              | plsql_compiled_totalsize | plsql_plan_totalsize
+    -----------+-----------+------------------+------------+--------+---------
+    +----------------------------------------------------------------------
+    ------------+--------------------------+----------------------
+     536868608 |        5052 | 0:0#0           |     13108 |      0 | 16854 | name: proc_assign(), fn_collation: 0,
+    search_path: addUser: false, schemas: 2200 |                       8192 |         65536
+    (1 row)
+
+●   gs_plsql_statements_details(sessionid bigint, pkg id oid, function id oid)
+    描述：返回存储过程计划缓存语句相关内存信息。
+           说明
+
+         查询函数时，GaussDB会根据current_user的权限来决定是否允许访问。如果current_user
+         是初始用户或系统管理员，则可以查询所有会话信息。如果current_user是普通用户，则只
+         能查看自己的会话信息（即session_user是当前用户的信息）。
+    返回值类型：setof record
+    函数返回字段说明：
+     名称                        类型                       描述
+
+     pid                       bigint                   后台线程id。
+
+     sessionid                 bigint                   会话id。
+
+     global_sessioni           text                     全局会话id。
+     d
+
+     databaseid                oid                      数据库id。
+
+     pkg_id                    oid                      存储过程所属PACKAGE id，如果不属于
+                                                        PACKAGE则为0。
+
+     func_id                   oid                      存储过程id。
+[[PDF_PAGE physical=892 printed=843]]
+ 名称                        类型                       描述
+
+ func_signature            text                     存储过程名称（name + fn_collation +
+                                                    search_path）。
+
+ lineno                    bigint                   语句在存储过程内行号。
+
+ query                     text                     计划缓存语句。
+
+ usedsize                  bigint                   计划缓存语句使用内存大小。
+
+ totalsize                 bigint                   计划缓存语句总内存大小。
+
+
+
+
+示例：
+gaussdb=#
+CREATE OR REPLACE PROCEDURE proc_assign AS
+   a int := 0;
+BEGIN
+   a = a + 1;
+   RAISE INFO '%', a;
+END;
+/
+gaussdb=# CALL proc_assign();
+INFO: 1
+ proc_assign
+-------------
+
+(1 row)
+
+gaussdb=# SELECT * FROM pg_catalog.gs_plsql_statements_details(pg_current_sessid());
+   pid | sessionid | global_sessionid | databaseid | pkg_id | func_id |
+func_signature
+          | lineno | query       | usedsize | totalsize
+-----------+-----------+------------------+------------+--------+---------
++----------------------------------------------------------------------
+------------+--------+--------------+----------+-----------
+ 536868608 |        5251 | 0:0#0           |     13108 |      0 | 16854 | name: proc_assign(), fn_collation: 0,
+search_path: addUser: false, schemas: 2200 |            3 | SELECT a + 1 | 15064 |    25600
+ 536868608 |        5251 | 0:0#0           |     13108 |      0 | 16854 | name: proc_assign(), fn_collation: 0,
+search_path: addUser: false, schemas: 2200 |            4 | SELECT a    | 12320 |    17408
+ 536868608 |        5251 | 0:0#0           |     13108 |      0 | 16854 | name: proc_assign(), fn_collation: 0,
+search_path: addUser: false, schemas: 2200 |            1 | SELECT 0    | 12088 |    21504
+(3 rows)
+
+-- 需要过滤function id --
+gaussdb=# SELECT * FROM pg_catalog.gs_plsql_statements(NULL, NULL, 16854);
+   pid | sessionid | global_sessionid | databaseid | pkg_id | func_id |
+func_signature
+          | lineno | query       | usedsize | totalsize
+-----------+-----------+------------------+------------+--------+---------
++----------------------------------------------------------------------
+------------+--------+--------------+----------+-----------
+ 536868608 |        5251 | 0:0#0           |     13108 |      0 | 16854 | name: proc_assign(), fn_collation: 0,
+search_path: addUser: false, schemas: 2200 |            3 | SELECT a + 1 | 15064 |    25600
+ 536868608 |        5251 | 0:0#0           |     13108 |      0 | 16854 | name: proc_assign(), fn_collation: 0,
+search_path: addUser: false, schemas: 2200 |            4 | SELECT a    | 12320 |    17408
+ 536868608 |        5251 | 0:0#0           |     13108 |      0 | 16854 | name: proc_assign(), fn_collation: 0,
+search_path: addUser: false, schemas: 2200 |            1 | SELECT 0    | 12088 |    21504
+(3 rows)
+[[PDF_PAGE physical=893 printed=844]]
+分区表统计信息函数
+      ●   gs_stat_get_partition_stats(oid)
+          描述：获取特定分区的统计信息。
+          返回值类型：record
+      ●   gs_stat_get_xact_partition_stats(oid)
+          描述：获取特定分区的事务中统计信息。
+          返回值类型：record
+      ●   gs_stat_get_all_partitions_stats()
+          描述：获取所有分区的统计信息。
+          返回值类型：setof record
+      ●   gs_stat_get_xact_all_partitions_stats()
+          描述：获取所有分区的事务中统计信息。
+          返回值类型：setof record
+      ●   gs_statio_get_all_partitions_stats()
+          描述：获取所有分区的I/O统计信息。
+          返回值类型：setof record
+          上述五个函数示例：
+
+
+               注意
+
+          运行时统计信息上报是异步的，且基于UDP协议，后台线程处理可能存在延迟和
+          丢包，此处示例预期仅供参考。
+
+          事务外统计信息查询：
+          gaussdb=# CREATE TABLE part_tab1
+          gaussdb-# (
+          gaussdb(#    a int, b int
+          gaussdb(# )
+          gaussdb-# PARTITION BY RANGE(b)
+          gaussdb-# (
+          gaussdb(#    PARTITION P1 VALUES LESS THAN(10),
+          gaussdb(#    PARTITION P2 VALUES LESS THAN(20),
+          gaussdb(#    PARTITION P3 VALUES LESS THAN(MAXVALUE)
+          gaussdb(# );
+          CREATE TABLE
+          gaussdb=# CREATE TABLE subpart_tab1
+          gaussdb-# (
+          gaussdb(#    month_code VARCHAR2 ( 30 ) NOT NULL ,
+          gaussdb(#    dept_code VARCHAR2 ( 30 ) NOT NULL ,
+          gaussdb(#    user_no VARCHAR2 ( 30 ) NOT NULL ,
+          gaussdb(#    sales_amt int
+          gaussdb(# )
+          gaussdb-# PARTITION BY RANGE (month_code) SUBPARTITION BY RANGE (dept_code)
+          gaussdb-# (
+          gaussdb(# PARTITION p_201901 VALUES LESS THAN( '201903' )
+          gaussdb(# (
+          gaussdb(#    SUBPARTITION p_201901_a VALUES LESS THAN( '2' ),
+          gaussdb(#    SUBPARTITION p_201901_b VALUES LESS THAN( '3' )
+          gaussdb(# ),
+          gaussdb(# PARTITION p_201902 VALUES LESS THAN( '201904' )
+          gaussdb(# (
+          gaussdb(#    SUBPARTITION p_201902_a VALUES LESS THAN( '2' ),
+          gaussdb(#    SUBPARTITION p_201902_b VALUES LESS THAN( '3' )
+[[PDF_PAGE physical=894 printed=845]]
+gaussdb(# )
+gaussdb(# );
+CREATE TABLE
+gaussdb=# CREATE INDEX index_part_tab1 ON part_tab1(b) LOCAL
+gaussdb-# (
+gaussdb(# PARTITION b_index1,
+gaussdb(# PARTITION b_index2,
+gaussdb(# PARTITION b_index3
+gaussdb(# );
+CREATE INDEX
+gaussdb=# CREATE INDEX idx_user_no ON subpart_tab1(user_no) LOCAL;
+CREATE INDEX
+gaussdb=# INSERT INTO part_tab1 VALUES(1, 1);
+INSERT 0 1
+gaussdb=# INSERT INTO part_tab1 VALUES(1, 11);
+INSERT 0 1
+gaussdb=# INSERT INTO part_tab1 VALUES(1, 21);
+INSERT 0 1
+gaussdb=# UPDATE part_tab1 SET a = 2 WHERE b = 1;
+UPDATE 1
+gaussdb=# UPDATE part_tab1 SET a = 3 WHERE b = 11;
+UPDATE 1
+gaussdb=# UPDATE /*+ indexscan(part_tab1) */ part_tab1 SET a = 4 WHERE b = 21;
+UPDATE 1
+gaussdb=# DELETE FROM part_tab1;
+DELETE 3
+gaussdb=# ANALYZE part_tab1;
+ANALYZE
+gaussdb=# VACUUM part_tab1;
+VACUUM
+gaussdb=# INSERT INTO subpart_tab1 VALUES('201902', '1', '1', 1);
+INSERT 0 1
+gaussdb=# INSERT INTO subpart_tab1 VALUES('201902', '2', '2', 1);
+INSERT 0 1
+gaussdb=# INSERT INTO subpart_tab1 VALUES('201903', '1', '3', 1);
+INSERT 0 1
+gaussdb=# INSERT INTO subpart_tab1 VALUES('201903', '2', '4', 1);
+INSERT 0 1
+gaussdb=# UPDATE subpart_tab1 SET sales_amt = 2 WHERE user_no='1';
+UPDATE 1
+gaussdb=# UPDATE subpart_tab1 SET sales_amt = 3 WHERE user_no='2';
+UPDATE 1
+gaussdb=# UPDATE subpart_tab1 SET sales_amt = 4 WHERE user_no='3';
+UPDATE 1
+gaussdb=# UPDATE /*+ indexscan(subpart_tab1) */ subpart_tab1 SET sales_amt = 5 WHERE
+user_no='4';
+UPDATE 1
+gaussdb=# DELETE FROM subpart_tab1;
+DELETE 4
+gaussdb=# ANALYZE subpart_tab1;
+ANALYZE
+gaussdb=# VACUUM subpart_tab1;
+VACUUM
+gaussdb=# SELECT * FROM gs_stat_all_partitions;
+  partition_oid | schemaname | relname | partition_name | sub_partition_name | seq_scan |
+seq_tup_read | idx_scan | idx_tup_fetch | n_tup_ins | n_tup_upd | n_tup_del | n_tup_hot_upd | n_live_tup
+|
+  n_dead_tup |         last_vacuum           | last_autovacuum          |       last_analyze          |
+last_autoanalyze | vacuum_count | autovacuum_count | analyze_count | autoanalyze_count
+---------------+------------+--------------+----------------+--------------------+----------+--------------
++----------+---------------+-----------+-----------+-----------+---------------+------------+
+------------+-------------------------------+------------------------+-------------------------------
++------------------------+--------------+------------------+---------------+-------------------
+        16964 | public     | subpart_tab1 | p_201902          | p_201902_b          |      5|           1|   4
+|           1|       1|        1|       1|           1|         0|
+         1 | 2023-05-15 20:36:45.293965+08 | 2000-01-01 08:00:00+08 | 2023-05-15
+20:36:44.688861+08 | 2000-01-01 08:00:00+08 |                   1|             0|           1|             0
+        16963 | public     | subpart_tab1 | p_201902          | p_201902_a          |      5|           1|   4
+|           0|       1|        1|       1|           1|         0|
+[[PDF_PAGE physical=895 printed=846]]
+       1 | 2023-05-15 20:36:45.291022+08 | 2000-01-01 08:00:00+08 | 2023-05-15
+20:36:44.688843+08 | 2000-01-01 08:00:00+08 |         1|          0|         1|           0
+      16961 | public   | subpart_tab1 | p_201901    | p_201901_b       |    5|        1|     4
+|         0|      1|       1|      1|         1|      0|
+       1 | 2023-05-15 20:36:45.288037+08 | 2000-01-01 08:00:00+08 | 2023-05-15
+20:36:44.688829+08 | 2000-01-01 08:00:00+08 |         1|          0|         1|           0
+      16960 | public   | subpart_tab1 | p_201901    | p_201901_a       |    5|        1|     4
+|         0|      1|       1|      1|         1|      0|
+       1 | 2023-05-15 20:36:45.285311+08 | 2000-01-01 08:00:00+08 | 2023-05-15
+20:36:44.688802+08 | 2000-01-01 08:00:00+08 |         1|          0|         1|           0
+      16954 | public   | part_tab1 | p3          |           |      2|       1|      1|        1
+|      1|      1|       1|         1|       0|
+       1 | 2023-05-15 20:36:29.490636+08 | 2000-01-01 08:00:00+08 | 2023-05-15
+20:36:28.540115+08 | 2000-01-01 08:00:00+08 |         1|          0|         1|           0
+      16953 | public   | part_tab1 | p2          |           |      4|       1|      1|        0
+|      1|      1|       1|         1|       0|
+       1 | 2023-05-15 20:36:29.487914+08 | 2000-01-01 08:00:00+08 | 2023-05-15
+20:36:28.540098+08 | 2000-01-01 08:00:00+08 |         1|          0|         1|           0
+      16952 | public   | part_tab1 | p1          |           |      5|       1|      1|        0
+|      1|      1|       1|         1|       0|
+       1 | 2023-05-15 20:36:29.48536+08 | 2000-01-01 08:00:00+08 | 2023-05-15 20:36:28.540071+08
+| 2000-01-01 08:00:00+08 |         1|          0|         1|            0
+(7 rows)
+
+gaussdb=# SELECT * FROM gs_statio_all_partitions;
+  partition_oid | schemaname | relname | partition_name | sub_partition_name | heap_blks_read |
+heap_blks_hit | idx_blks_read | idx_blks_hit | toast_blks_read | toast_blks_hit | tidx_blks_read | t
+idx_blks_hit
+---------------+------------+--------------+----------------+--------------------+----------------+---------------
++---------------+--------------+-----------------+----------------+----------------+--
+-------------
+        16964 | public     | subpart_tab1 | p_201902         | p_201902_b          |           4|          8
+|          2|         21 |             |            |            |
+
+      16963 | public    | subpart_tab1 | p_201902            | p_201902_a          |          4|           8
+|        2|        21 |            |          |                  |
+
+      16961 | public    | subpart_tab1 | p_201901            | p_201901_b          |          4|           8
+|        2|        21 |            |          |                  |
+
+      16960 | public    | subpart_tab1 | p_201901            | p_201901_a          |          4|           8
+|        2|        21 |            |          |                  |
+
+      16954 | public      | part_tab1 | p3              |               |              4|       8|             2
+|       15 |              |          |              |
+
+      16953 | public      | part_tab1 | p2              |               |              4|       8|             2
+|       15 |              |          |              |
+
+      16952 | public      | part_tab1 | p1              |               |              4|       8|             2
+|       15 |              |          |              |
+
+(7 rows)
+
+gaussdb=# SELECT * FROM gs_stat_get_partition_stats(16952);
+  partition_oid | seq_scan | seq_tup_read | idx_scan | idx_tup_fetch | n_tup_ins | n_tup_upd | n_tup_del |
+n_tup_hot_upd | n_live_tup | n_dead_tup |             last_vacuum           | last_autovacuum
+   |       last_analyze        | last_autoanalyze | vacuum_count | autovacuum_count |
+analyze_count | autoanalyze_count | last_data_changed | heap_blks_read | heap_blks_hit |
+idx_blks_re
+ad | idx_blks_hit | tup_fetch | block_fetch
+---------------+----------+--------------+----------+---------------+-----------+-----------+-----------
++---------------+------------+------------+------------------------------+----------------------
+--+-------------------------------+------------------------+--------------+------------------+---------------
++-------------------+------------------------+----------------+---------------+------------
+---+--------------+-----------+-------------
+        16952 |       5|          1|       1|           0|       1|        1|        1|          1|         0
+|         1 | 2023-05-15 20:36:29.48536+08 | 2000-01-01 08:00:00+0
+8 | 2023-05-15 20:36:28.540071+08 | 2000-01-01 08:00:00+08 |                    1|             0|            1
+[[PDF_PAGE physical=896 printed=847]]
+|            0 | 2000-01-01 08:00:00+08 |               4|           8|
+ 2|         21 |     0|       12
+(1 row)
+事务内统计信息查询：
+gaussdb=# BEGIN;
+BEGIN
+gaussdb=# INSERT INTO part_tab1 VALUES(1, 1);
+INSERT 0 1
+gaussdb=# INSERT INTO part_tab1 VALUES(1, 11);
+INSERT 0 1
+gaussdb=# INSERT INTO part_tab1 VALUES(1, 21);
+INSERT 0 1
+gaussdb=# UPDATE part_tab1 SET a = 2 WHERE b = 1;
+UPDATE 1
+gaussdb=# UPDATE part_tab1 SET a = 3 WHERE b = 11;
+UPDATE 1
+gaussdb=# UPDATE /*+ indexscan(part_tab1) */ part_tab1 SET a = 4 WHERE b = 21;
+UPDATE 1
+gaussdb=# DELETE FROM part_tab1;
+DELETE 3
+gaussdb=# INSERT INTO subpart_tab1 VALUES('201902', '1', '1', 1);
+INSERT 0 1
+gaussdb=# INSERT INTO subpart_tab1 VALUES('201902', '2', '2', 1);
+INSERT 0 1
+gaussdb=# INSERT INTO subpart_tab1 VALUES('201903', '1', '3', 1);
+INSERT 0 1
+gaussdb=# INSERT INTO subpart_tab1 VALUES('201903', '2', '4', 1);
+INSERT 0 1
+gaussdb=# UPDATE subpart_tab1 SET sales_amt = 2 WHERE user_no='1';
+UPDATE 1
+gaussdb=# UPDATE subpart_tab1 SET sales_amt = 3 WHERE user_no='2';
+UPDATE 1
+gaussdb=# UPDATE subpart_tab1 SET sales_amt = 4 WHERE user_no='3';
+UPDATE 1
+gaussdb=# UPDATE /*+ indexscan(subpart_tab1) */ subpart_tab1 SET sales_amt = 5 WHERE
+user_no='4';
+UPDATE 1
+gaussdb=# DELETE FROM subpart_tab1;
+DELETE 4
+gaussdb=# SELECT * FROM gs_stat_xact_all_partitions;
+  partition_oid | schemaname | relname | partition_name | sub_partition_name | seq_scan |
+seq_tup_read | idx_scan | idx_tup_fetch | n_tup_ins | n_tup_upd | n_tup_del | n_tup_hot_upd
+---------------+------------+--------------+----------------+--------------------+----------+--------------
++----------+---------------+-----------+-----------+-----------+---------------
+        16964 | public     | subpart_tab1 | p_201902         | p_201902_b          |      4|          4|      1
+|           2|       1|        1|       1|           1
+        16963 | public     | subpart_tab1 | p_201902         | p_201902_a          |      4|          4|      1
+|           0|       1|        1|       1|           1
+        16961 | public     | subpart_tab1 | p_201901         | p_201901_b          |      4|          4|      1
+|           0|       1|        1|       1|           1
+        16960 | public     | subpart_tab1 | p_201901         | p_201901_a          |      4|          4|      1
+|           0|       1|        1|       1|           1
+        16954 | public     | part_tab1 | p3             |               |      1|          1|       1|            2
+|        1|       1|        1|          1
+        16953 | public     | part_tab1 | p2             |               |      3|          2|       0|            0
+|        1|       1|        1|          1
+        16952 | public     | part_tab1 | p1             |               |      4|          2|       0|            0
+|        1|       1|        1|          1
+(7 rows)
+
+gaussdb=# SELECT * FROM gs_stat_get_xact_partition_stats(16952);
+ partition_oid | seq_scan | seq_tup_read | idx_scan | idx_tup_fetch | n_tup_ins | n_tup_upd | n_tup_del |
+n_tup_hot_upd | tup_fetch
+---------------+----------+--------------+----------+---------------+-----------+-----------+-----------
++---------------+-----------
+       16952 |        4|         2|       0|           0|        1|       1|        1|           1|      0
+(1 row)
+[[PDF_PAGE physical=897 printed=848]]
+    gaussdb=# DROP TABLE part_tab1;
+    gaussdb=# DROP TABLE subpart_tab1;
+
+●   gs_stat_get_partition_analyze_count(oid)
+    描述：用户在该分区上启动分析的次数。
+    返回值类型：bigint
+●   gs_stat_get_partition_autoanalyze_count(oid)
+    描述：autovacuum守护线程在该分区上启动分析的次数。
+    返回值类型：bigint
+●   gs_stat_get_partition_autovacuum_count(oid)
+    描述：autovacuum守护线程在该分区上启动清理的次数。
+    返回值类型：bigint
+●   gs_stat_get_partition_last_analyze_time(oid)
+    描述：用户在该分区上最后一次手动启动分析或者autovacuum线程启动分析的时
+    间。
+    返回值类型：timestamptz
+●   gs_stat_get_partition_last_autoanalyze_time(oid)
+    描述：autovacuum守护线程在该分区上最后一次启动分析的时间。
+    返回值类型：timestamptz
+●   gs_stat_get_partition_last_autovacuum_time(oid)
+    描述：autovacuum守护线程在该分区上最后一次启动清理的时间。
+    返回值类型：timestamptz
+●   gs_stat_get_partition_last_data_changed_time(oid)
+    描述：对于在分区上的修改insert/update/delete/truncate，在该表上最后一次操
+    作的时间。当前暂不支持。
+    返回值类型：timestamptz
+●   gs_stat_get_partition_last_vacuum_time(oid)
+    描述：用户在该分区上最后一次手动启动清理或者autovacuum线程启动清理的时
+    间。
+    返回值类型：timestamptz
+●   gs_stat_get_partition_numscans(oid)
+    描述：分区顺序扫描读取的行数目。
+    返回值类型：bigint
+●   gs_stat_get_partition_tuples_returned(oid)
+    描述：分区顺序扫描读取的行数目。
+    返回值类型：bigint
+●   gs_stat_get_partition_tuples_fetched(oid)
+    描述：分区位图扫描抓取的行数目。
+    返回值类型：bigint
+●   gs_stat_get_partition_vacuum_count(oid)
+    描述：用户在该分区上启动清理的次数。
+    返回值类型：bigint
+[[PDF_PAGE physical=898 printed=849]]
+●   gs_stat_get_xact_partition_tuples_fetched(oid)
+    描述：事务中扫描的tuple行数。
+    返回值类型：bigint
+●   gs_stat_get_xact_partition_numscans(oid)
+    描述：当前事务中分区执行的顺序扫描次数。
+    返回值类型：bigint
+●   gs_stat_get_xact_partition_tuples_returned(oid)
+    描述：当前事务中分区通过顺序扫描读取的行数。
+    返回值类型：bigint
+●   gs_stat_get_partition_blocks_fetched(oid)
+    描述：分区的磁盘块抓取请求的数量。
+    返回值类型：bigint
+●   gs_stat_get_partition_blocks_hit(oid)
+    描述：在缓冲区中找到的分区的磁盘块请求数目。
+    返回值类型：bigint
+●   pg_stat_get_partition_tuples_inserted(oid)
+    描述：已插入相应表分区中的行数。
+    返回值类型：bigint
+●   pg_stat_get_partition_tuples_updated(oid)
+    描述：在相应表分区中已更新行的数量。
+    返回值类型：bigint
+●   pg_stat_get_partition_tuples_deleted(oid)
+    描述：从相应表分区中删除行的数量。
+    返回值类型：bigint
+●   pg_stat_get_partition_tuples_changed(oid)
+    描述：该表分区上一次analyze或autoanalyze之后插入、更新、删除行的总数
+    量。
+    返回值类型：bigint
+●   pg_stat_get_partition_live_tuples(oid)
+    描述：分区表活行数。
+    返回值类型：bigint
+●   pg_stat_get_partition_dead_tuples(oid)
+    描述：分区表死行数。在Ustore表中仅代表不活跃行指针数量。
+    返回值类型：bigint
+●   pg_stat_get_xact_partition_tuples_inserted(oid)
+    描述：表分区相关的活跃子事务中插入的tuple数。
+    返回值类型：bigint
+●   pg_stat_get_xact_partition_tuples_deleted(oid)
+    描述：表分区相关的活跃子事务中删除的tuple数。
+    返回值类型：bigint
+[[PDF_PAGE physical=899 printed=850]]
+●   pg_stat_get_xact_partition_tuples_hot_updated(oid)
+    描述：表分区相关的活跃子事务中热更新的tuple数。
+    返回值类型：bigint
+●   pg_stat_get_xact_partition_tuples_updated(oid)
+    描述：表分区相关的活跃子事务中更新的tuple数。
+    返回值类型：bigint
+●   pg_stat_get_partition_tuples_hot_updated(oid)
+    描述：返回给定分区id的分区热更新元组数的统计。
+    参数：oid
+    返回值类型：bigint
+●   gs_session_alt_status()
+    描述：查询当前用户所执行的计划外ALT会话的可恢复状态。这里不包括不支持的
+    驱动接口调用所导致的会话状态变更。不可恢复的原因仅提供基本类别；如果是
+    不支持的GUC参数、SQL或系统函数，请查询ALT支持的列表来确认应用程序调用
+    的请求是否在支持范围内，详见《开发指南》中“特性使用指导 > 计划外应用无
+    损透明”章节中对GUC参数、SQL语法和系统函数的ALT支持策略列表描述。
+    返回值类型：setof record
+
+     名称                     类型                描述
+
+     sessionid              integer           会话ID。
+
+     sessionreplay          text              ALT会话恢复的状态。
+     status                                   ● enable: 可恢复。
+                                              ● disable：不可恢复。
+
+     xactreplaysta          text              ALT事务重放的状态。
+     tus                                      ● enable: 可恢复。
+                                              ● disable：不可恢复。
+
+     reason                 text              不可恢复的原因简述。
+
+
+
+
+    示例：
+    gaussdb=# SELECT * FROM GS_SESSION_ALT_STATUS();
+       sessionid | sessionreplaystatus | xactreplaystatus |
+    reason
+    -----------------+---------------------+------------------
+    +----------------------------------------------------------------------------------------
+     140564166014720 | disable                | disable         | Session data types(valid after transaction is
+    finished):unsupported set from current, +
+                 |                |              | Transaction non-replayable types:advisory lock,
+    (1 row)
+
+●   gs_memory_profiling(integer)
+    描述：用于生成GaussDB当前进程的jeprof报告。option表示是否开启内存采集功
+    能，并根据实际输入返回结果为字符串类型的说明。
+    参数：option，整型，操作选项。
+    –     0：表示关闭内存采集，函数返回“memory profiling closed”说明。
+[[PDF_PAGE physical=900 printed=851]]
+    –   1：表示开启内存采集，函数返回“memory profiling opened”说明。
+    –   2：表示在开启内存采集的情况下进行内存调用收集，并生成jeprof报告，报
+        告位于mem_log目录下，报告的命名格式为jeprof-YYYY-mm-
+        dd_HHMMSS，函数返回“dump succeeded”说明。
+    –   其他：返回提示信息“Invalid input, please input 0(disable), 1(enable) or
+        2(dump).”。
+    返回值类型：text
+         说明
+
+        ● 仅具有SYSADMIN权限的用户可以使用该函数。
+        ● 开启内存采集会影响性能，因此仅推荐在尝试分析内存问题（例如内存泄漏）的非性能
+          敏感场景下开启功能。生成的jeprof报告可以通过如下命令生成PDF报告：
+          jeprof --show_bytes gaussdbbin路径 -pdf 生成的jeprof报告路径 > 期待输出文件.pdf
+
+●   gs_jemalloc_info_details()
+    描述：用于统计jemalloc的关键字段并生成jemalloc stat报告。stat报告位于
+    mem_log目录下，命名为memory_stat_report-YY-mm-dd_HHMMSS.log。
+    返回值类型：setof record
+
+    表 1-245 gs_jeamlloc_info_details 字段
+     名称                          类型                      描述
+
+     nodename                    text                    节点名称
+
+     memorytype                  text                    字段名称
+
+     memorymbytes                integer                 对应字段下虚拟内存的
+                                                         大小（单位：MB）
+
+
+
+
+         说明
+
+        仅具有SYSADMIN权限的用户可以使用该函数。

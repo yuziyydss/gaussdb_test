@@ -1,0 +1,1106 @@
+[[PDF_PAGE physical=108 printed=59]]
+1.3.6 日期/时间类型
+       GaussDB支持的日期/时间类型请参见表1-11。该类型的操作符和内置函数请参见时间
+       和日期处理函数和操作符。
+[[PDF_PAGE physical=109 printed=60]]
+说明
+
+● 如果其他的数据库时间格式和GaussDB的时间格式不一致，可通过修改配置参数DateStyle的
+  值来保持一致。
+● 当前日期表示法采用ISO标准，年由4位数组成，以公历公元1年为0001年，以公元前1年为
+  0000年，公元前2年为-0001年，其他以此类推。
+● 在A兼容性下，DATE类型在GUC参数mapping_date_to_datea取值为off时，使用
+  TIMESTAMP(0) WITHOUT TIME ZONE代替，而该GUC参数取值为on时，使用DATEA类型
+  代替。两类型间主要差异总结如下：
+  ●   DATEA类型和TIMESTAMP(0)类型的OID不同，DATEA类型为GaussDB内部实现的一套
+      全新数据类型，有对应配套的操作符、转换函数等。
+  ●   DATEA类型和TIMESTAMP(0)类型支持的范围不同。
+  ●   输入DATEA类型时，需要对字符串进行格式化校验，只有满足nls_date_format格式才
+      可以转换为DATEA类型，而TIMESTAMP(0)类型则仅支持几种固定格式的输入。
+      DATEA类型不支持特殊值输入，如：NOW、EPOCH、TODAY等。
+  ●   在驱动使用方面，TIMESTAMP(0)类型的元数据（包含OID、语言数据类型等）和
+      DATEA类型的元数据不同。在JDBC中设置预编译参数时，对于TIMESTAMP(0)类型，
+      需要使用SetTimestamp或者GetTimestamp；对于DATEA类型，则需要使用SetDate或
+      者GetDate。
+  ●   在COPY导入数据时，可以设置WITH选项，设置导入数据时按照何种格式解析。对于
+      TIMESTAMP(0)类型，需要使用TIMESTAMP_FORMAT指定；对于DATEA类型，则需要
+      使用DATEA_FORMAT指定。具体请参见COPY。
+[[PDF_PAGE physical=110 printed=61]]
+表 1-11 日期/时间类型
+名称               描述                                存储空间
+
+DATE             日期。                               4字节（兼容模式A
+                 最小值：公元前4713年，4714-11-24           下存储空间大小为8
+                 BC。最大值：公元5874897年，                字节）
+                 5874897-12-31AD。
+                 在设置sql_compatibility = 'B'、
+                 b_format_version = '5.7'和
+                 b_format_dev_version = 's1'三个参数
+                 后，输入和输出格式、范围的规格有
+                 差异：
+                 ● 输入格式：支持有分隔符YYYY-
+                   MM-DD和无分隔符 YYYYMMDD
+                   的输入格式。
+                   – 有分隔符场景下，日期的年、
+                     月、日之间不支持“+”、“:”
+                     作为分隔符（某些分隔符混合
+                     使用场景下不支持，规格继承
+                     已有实现。如：date '2020-12?
+                     12'），输入格式不受DateStyle
+                     参数的影响。
+                   – 无分隔符场景下，输入不完整
+                     时可能不会报错，但是输出结
+                     果不一定正确。
+                 ● 输出格式：仅支持YYYY-MM-DD，
+                   且不受DateStyle参数的影响。
+                 ● 范围：4713-01-01 BC ~
+                   5874897-12-31 AD。
+                   – SQL_MODE参数值包含
+                     “strict_trans_tables”时，非
+                     法输入或者超过范围，会报
+                     错。
+                   – SQL_MODE参数值不包含
+                     “strict_trans_tables”时，允
+                     许年、月、日值是0，但是输出
+                     时会按照年、月、日的顺序依
+                     次转换为合法的值，如
+                     '0000-00-10' 转换为：
+                     0002-12-10 BC。 非法输入或
+                     者超过范围时，会报warning信
+                     息，并返回0000-00-00
+                     00:00:00值。
+[[PDF_PAGE physical=111 printed=62]]
+名称   描述                              存储空间
+     说明
+      A兼容性下，mapping_date_to_datea开
+      关关闭时，数据类型DATE会被替换为
+      TIMESTAMP(0) WITHOUT TIME
+      ZONE。
+      A兼容性下，mapping_date_to_datea开
+      关打开时，数据类型DATE会被替换为
+      DATEA。
+[[PDF_PAGE physical=112 printed=63]]
+名称              描述                                存储空间
+
+TIME [(p)]      用于表示一天内的时间，不带时区。                  8字节
+[WITHOUT TIME   p表示小数点后的精度，取值范围为
+ZONE]           0~6。
+                最小值：00:00:00。最大值：
+                24:00:00。
+                在设置sql_compatibility = 'B'、
+                b_format_version = '5.7'和
+                b_format_dev_version = 's1'三个参数
+                后，不限定于表示一天内的时间，如
+                可以表示持续时间、相对时间等概
+                念，且格式、范围、精度的规格有差
+                异：
+                ● 输入格式：支持有分隔符[D]
+                  hh:mm:ss.ffffff和无分隔符
+                  hhmmss.ffffff的输入格式。D是表
+                  示天数，整型数（支持负数），可
+                  选。输出时会按照1天24小时的关
+                  系换算成小时数，加hh后显示。只
+                  支持冒号“:”作为分隔符。
+                ● 输出格式：hh:mm:ss.ffffff。在显
+                  示的时候会自动忽略小数部分末尾
+                  的所有零。
+                ● 范围：-838:59:59.000000 ~
+                  838:59:59.000000。
+                  – SQL_MODE参数值包含
+                    “strict_trans_tables”时，非
+                    法输入返回00:00:00，超过范围
+                    会报错。
+                  – SQL_MODE参数值不包含
+                    “strict_trans_tables”时，非
+                    法输入会返回 00:00:00；合法
+                    输入但是超过范围，会返回最
+                    近的边界值。如：
+                    838:59:59.000001会返回
+                    838:59:59，
+                    而-838:59:59.000001会返
+                    回-838:59:59。
+                ● 精度：p表示小数点后的精度，取
+                  值范围为0~6。当p设置超过6时，
+                  按照p为6进行处理。
+                  – 作为表列的数据类型时，缺省
+                    精度为0。
+                  – 作为表达式使用（如time
+                    '10:10:10.123456'）时，缺省的
+                    精度为6。
+[[PDF_PAGE physical=113 printed=64]]
+名称                 描述                        存储空间
+
+TIME [(p)] [WITH   用于表示一天内的时间，携带时区。          12字节
+TIME ZONE]         p表示小数点后的精度，取值范围为
+                   0~6。
+                   最小值：00:00:00+15:59。最大值：
+                   24:00:00-15:59。
+[[PDF_PAGE physical=114 printed=65]]
+名称               描述                                 存储空间
+
+TIMESTAMP[(p)]   日期和时间，不携带时区。                       8字节
+[WITHOUT TIME    p表示小数点后的精度，取值范围为
+ZONE]            0~6。
+                 最小值：公元前4713年，4714-11-24
+                 BC 00:00:00.000000。最大值：公元
+                 294277年，294277-01-09 AD
+                 04:00:54.775807，最大值等效
+                 infinity。
+                 在设置sql_compatibility = 'B'、
+                 b_format_version = '5.7'和
+                 b_format_dev_version = 's1'三个参数
+                 后，会被替换为TIMESTAMP[(p)]
+                 [WITH TIME ZONE]类型，但格式、
+                 范围、精度的规格有差异：
+                 ● 输入格式：支持有分隔符YYYY-
+                   MM-DD hh:mm:ss.ffffff
+                   +timezone和无分隔符
+                   YYYYMMDDhhmmss.ffffff的输入
+                   格式。
+                   – 有分隔符的情况下，日期年、
+                     月、日之间不支持“+”、“:”
+                     作为分隔符（某些分隔符混合
+                     使用场景下不支持，规格继承
+                     已有实现。如：timestamp
+                     '2020-12?12 00:00:00'），时间
+                     部分只支持冒号“:”作为分隔
+                     符。输入格式不受DateStyle参
+                     数的影响。
+                   – 无分隔符且输入不完整的场景
+                     下，可能不会报错，但是输出
+                     结果不一定正确。
+                   – 年份只有2位数时，00~69对应
+                     范围为2000~2069；70~99对应
+                     范围为：1970~1999。
+                   – 年份只有1位数时，如：
+                     timestamp '1-1-1 00:00:00' 结
+                     果为'0001-01-01 00:00:00'。
+                 ● 输出格式：仅支持YYYY-MM-DD
+                   hh:mm:ss.ffffff格式，且不受
+                   DateStyle参数的影响。在显示的
+                   时候会自动忽略时间部分小数部分
+                   末尾的所有零。
+                 ● 范围：
+                   – SQL_MODE参数值包含
+                     “strict_trans_tables”时，范
+                     围与TIMESTAMP[(p)] WITH
+[[PDF_PAGE physical=115 printed=66]]
+名称   描述                              存储空间
+
+          TIME ZONE一致；非法输入或
+          者超过范围，会报错。
+       – SQL_MODE参数值不包含
+         “strict_trans_tables”时，允
+         许年、月、日值是0，但是输出
+         时会按照年、月、日的顺序依
+         次转换为合法的值，如
+         '0000-00-10 00:00:00'转换为：
+         0002-12-10 00:00:00 BC。 非
+         法输入或者超过范围时，会报
+         warning信息，并返回
+         0000-00-00 00:00:00值。
+     ● 精度：p表示小数点后的精度，取
+       值范围为0~6。当p设置超过6时，
+       按照p为6进行处理。
+       – 作为表列的数据类型时，缺省
+         精度为0。
+       – 作为表达式使用（如timestamp
+         '2000-01-01
+         00:00:00.123456'）时，缺省的
+         精度为6。
+     ● 时区：支持的范围：-15:59~
+       +15:59，或使用时区名称（请参考
+       系统视图
+       PG_TIMEZONE_NAMES），与
+       TIMESTAMP[(p)] WITH TIME
+       ZONE类型的时区规格一致。将指
+       定时区的时间值转换为UTC-0时区
+       的时间。显示时，再将UTC-0时区
+       的时间转换为当前服务器时区
+       （SHOW TIME ZONE可以查看服
+       务器时区）的时间。因此，通过
+       SET TIME ZONE语句更改服务器时
+       区时，显示的结果也会变更。
+[[PDF_PAGE physical=116 printed=67]]
+名称                 描述                                存储空间
+
+TIMESTAMP[(p)]     日期和时间，带时区。TIMESTAMP的              8字节
+[WITH TIME ZONE]   别名为TIMESTAMPTZ。
+                   p表示小数点后的精度，取值范围为
+                   0~6。
+                   最小值：公元前4713年，4714-11-24
+                   BC 00:00:00.000000 +0。最大值：公
+                   元294277年，294277-01-09 AD
+                   04:00:54.775807 +0，最大值等效
+                   infinity。需要注意的是，输入的原始
+                   日期时间、将其转换成UTC-0时区的
+                   日期时间以及转换成当前服务器时区
+                   的日期时间，三者均不能大于
+                   294277-01-09 AD 04:00:54.775807
+                   或小于4714-11-24 BC
+                   00:00:00.000000，否则在使用过程中
+                   有可能出现日期时间超出范围的报
+                   错。
+                   时区更新：部分国家或地区因为政
+                   治、经济、战争等因素经常会更新时
+                   区信息，数据库系统也因此需要同步
+                   修改时区文件以确保时间内容的正确
+                   性。
+                   GaussDB时区类型目前只涉及
+                   timestamp with timezone，当新的
+                   时区文件生效时，不会对已有的数据
+                   进行变更，新数据会随时区文件信息
+                   进行同步调整。
+
+SMALLDATETIME      日期和时间，不带时区。                       8字节
+                   精确到分钟，秒位大于等于30秒进一
+                   位。
+                   最小值：公元前4713年，4714-11-24
+                   BC 00:00:00。最大值：公元294277
+                   年，294277-01-09 AD 04:00:00。
+
+INTERVAL DAY (l)   时间间隔，X天X小时X分X秒。                   16字节
+TO SECOND (p)      ● l：天数的精度，取值范围为0~6。
+                     兼容性考虑，目前未实现具体功
+                     能。
+                   ● p：秒数的精度，取值范围为
+                     0~6。小数末尾的零不显示。
+[[PDF_PAGE physical=117 printed=68]]
+名称                  描述                                存储空间
+
+INTERVAL [FIELDS]   时间间隔。                             12字节
+[ (p) ]             ● FIELDS：可以是YEAR，
+                      MONTH，DAY，HOUR，
+                      MINUTE，SECOND，DAY TO
+                      HOUR，DAY TO MINUTE，DAY
+                      TO SECOND，HOUR TO
+                      MINUTE，HOUR TO SECOND，
+                      MINUTE TO SECOND。
+                    ● p：秒数的精度，取值范围为
+                      0~6，且fields为SECOND，DAY
+                      TO SECOND，HOUR TO
+                      SECOND或MINUTE TO SECOND
+                      时，参数p才有效。小数末尾的零
+                      不显示。
+
+reltime             相对时间间隔。                           4字节
+                    ● 格式为：X years X mons X days
+                      XX:XX:XX。
+                    ● 采用儒略历计时，规定一年为
+                      365.25天，一个月为30天，计算输
+                      入值对应的相对时间间隔。
+
+abstime             日期和时间。                            4字节
+                    ● 格式为：YYYY-MM-DD hh:mm:ss
+                      +timezone。
+                    ● 取值范围为当前时区的1901-12-13
+                      20:45:53~2038-01-18 23:59:59，
+                      精度为秒。插入超出范围的数据会
+                      转换为invalid特殊值存储。
+[[PDF_PAGE physical=118 printed=69]]
+名称              描述                                 存储空间
+
+datetime[(p)]   日期和时间。                             8字节
+                仅在设置sql_compatibility = 'B'、
+                b_format_version = '5.7'以及
+                b_format_dev_version = 's1'三个参数
+                后生效，datetime[(p)]类型会被替换
+                为TIMESTAMP[(p)] WITHOUT TIME
+                ZONE类型，但格式、范围、精度、
+                时区处理的规格有差异：
+                ● 输入格式：支持有分隔符YYYY-
+                  MM-DD hh:mm:ss.ffffff
+                  +timezone和无分隔符
+                  YYYYMMDDhhmmss.ffffff的输入
+                  格式。
+                  – 有分隔符的情况下，日期年、
+                    月、日之间不支持“+”、“:”
+                    作为分隔符（某些分隔符混合
+                    使用场景下不支持，规格继承
+                    已有实现。如：datetime
+                    '2020-12?12 00:00:00'），时间
+                    部分只支持冒号“:”作为分隔
+                    符。输入格式不受DateStyle参
+                    数的影响。
+                  – 无分隔符且输入不完整的场景
+                    下，可能不会报错，但是输出
+                    结果不一定正确。
+                  – 年份只有2位数时，00-69对应
+                    范围为2000-2069；70-99对应
+                    范围为1970-1999。
+                  – 年份只有1位数时，如：
+                    datetime '1-1-1 00:00:00' 结果
+                    为'0001-01-01 00:00:00'。
+                ● 输出格式：仅支持YYYY-MM-DD
+                  hh:mm:ss.ffffff格式，且不受
+                  DateStyle参数的影响。在显示的
+                  时候会自动忽略时间部分小数部分
+                  末尾的所有零。
+                ● 范围：
+                  – SQL_MODE参数值包含
+                    “strict_trans_tables”时，范
+                    围与TIMESTAMP[(p)]
+                    WITHOUT TIME ZONE一致，
+                    非法输入或者超过范围时，会
+                    报错。
+                  – SQL_MODE参数值不包含
+                    “strict_trans_tables”时，允
+                    许年、月、日值是0，但是输出
+[[PDF_PAGE physical=119 printed=70]]
+名称   描述                               存储空间
+
+          时会按照年、月、日的顺序依
+          次转换为合法的值，如
+          '0000-00-10 00:00:00'转换为：
+          0002-12-10 00:00:00 BC。非法
+          输入或者超过范围时，会报
+          warning信息，并返回
+          0000-00-00 00:00:00值。
+     ● 精度：p表示小数点后的精度，取
+       值范围为0~6。给定精度超过6时，
+       按照6处理。
+       – 作为表列的数据类型时，缺省
+         精度为0。
+       – 作为表达式使用（如：
+         datetime '2000-01-01
+         00:00:00.123456'）时，缺省的
+         精度为6。
+     ● 时区：支持的范围：-15:59 ~
+       +15:59，或使用时区名称（请参考
+       系统视图
+       PG_TIMEZONE_NAMES），与
+       TIMESTAMP[(p)] WITH TIME
+       ZONE类型的时区规格一致。将指
+       定时区的时间值转换为当前服务器
+       时区（SHOW TIME ZONE可以查
+       看服务器时区）的时间。如果将转
+       换后的日期时间存入表中，此值不
+       会再随服务器时区的变更而再做时
+       区转换。
+[[PDF_PAGE physical=120 printed=71]]
+名称          描述                              存储空间
+
+year[(w)]   年份。                             1字节
+            仅在设置sql_compatibility = 'B'参数
+            后生效。
+            ● 输入格式：
+              – 4位纯数字字符串：
+                '1901'~'2155'，表示从1901年
+                到2155年。
+              – 4位数字：1901~2155，表示从
+                1901年到2155年。
+              – 1位或者2位的纯数字字符串：
+                '0'~'99'，其中，'0'~'69'表示从
+                2000年到2069年，'70'~'99'表
+                示为从1970年到1999年。'0'、
+                '00'表示为2000年。
+              – 1位或者2位的数字：0~99，其
+                中，1~69表示从2001年到2069
+                年，70~99表示为从1970年到
+                1999年。0表示为0000。
+              – 其他时间函数的返回值，如
+                now()。
+            ● 输出格式：仅支持YYYY格式。w表
+              示输出格式的位数，只支持4位。
+              若不指定，默认为4位。
+            ● 范围：1901~2155。
+              – SQL_MODE参数值包含
+                “strict_trans_tables”时，非
+                法输入或者超过范围，会报
+                错。
+              – SQL_MODE参数值不包含
+                “strict_trans_tables”时，会
+                将非法值转为0000插入，并提
+                示告警。
+[[PDF_PAGE physical=121 printed=72]]
+名称      描述                                存储空间
+
+DATEA   日期和时间。                            8字节
+        仅在设置sql_compatibility = 'A'参数
+        后生效。
+        最小值：公元前4712年1月1日0时0分
+        0秒。
+        最大值：公元9999年12月31日23时
+        59分59秒。
+        输入格式：输入格式必须符合参数
+        nls_date_format设置的时间格式，
+        nls_date_format支持的格式请参见表
+        1-12。
+        ● 支持'-'、'/'、','、'.'、'%'、':'或用""
+          包含的字符串作为分隔符。
+        ● 无分隔符且输入不完整的场景下，
+          可能不会报错，但是输出结果不一
+          定正确。
+        ● 若输入格式包含 YY时，DATEA优
+          先尝试两位年份解析，失败后尝试
+          四位年份解析，最终错误信息以四
+          位年份解析失败返回的信息为准。
+        输出格式：仅支持YYYY-MM-DD
+        HH24:MI:SS AD/BC的时间格式，且
+        不受DateStyle参数的影响。
+        范围：公元前4712年1月1日0时0分0
+        秒 ~ 公元9999年12月31日23时59分
+        59秒， 非法输入或输入超过范围，会
+        报错。
+        精度：不保留小数点后精度，最小精
+        度为秒。
+        说明
+         ● 在A兼容性下，
+           mapping_date_to_datea开关开启
+           时，用于替换DATE类型。
+         ● DATEA类型用于内部功能实现，不建
+           议用户直接使用。
+         ● DATEA类型不支持作为自定义range类
+           型。
+         ● 输入格式若不满足nls_date_format设
+           置的时间格式可能产生以下结果：
+             ● 出现报错提示，提示输入的格式不
+               符合要求。
+             ● 输入成功，但输入的时间与预期结
+               果不符。
+[[PDF_PAGE physical=122 printed=73]]
+      说明
+
+     ● 时间类型的数据在显示的时候会自动忽略末尾的所有零。
+     ● 精度p默认取值为6。
+     ● 对于INTERVAL类型，日期和时间在系统内部分别用int32和double类型存储，所以两者的取
+       值范围和对应数据类型的取值范围一致。
+     ● 插入时间超出范围的时候，系统可能不报错，但不保证行为正常。
+     ● 在参数a_format_version值为10c和a_format_dev_version值为s1的情况下，缺省的DATE值
+       由以下确定：
+        ●     年通过SYSDATE返回当年。
+        ●     月通过SYSDATE返回当月。
+        ●     日返回01（月份的第一天）。
+        ●     小时，分钟，秒都是0。
+
+示例：
+--创建表。
+gaussdb=# CREATE TABLE date_type_tab(coll date);
+
+--插入数据。
+gaussdb=# INSERT INTO date_type_tab VALUES (date '12-10-2010');
+
+--查看数据。
+gaussdb=# SELECT * FROM date_type_tab;
+      coll
+---------------------
+ 2010-12-10
+(1 row)
+
+--删除表。
+gaussdb=# DROP TABLE date_type_tab;
+
+--创建表。
+gaussdb=# CREATE TABLE time_type_tab (da time without time zone ,dai time with time zone,dfgh
+timestamp without time zone,dfga timestamp with time zone, vbg smalldatetime);
+
+--插入数据。
+gaussdb=# INSERT INTO time_type_tab VALUES ('21:21:21','21:21:21 pst','2010-12-12','2013-12-11
+pst','2003-04-12 04:05:06');
+
+--查看数据。
+gaussdb=# SELECT * FROM time_type_tab;
+   da |      dai     |     dfgh         |       dfga         |       vbg
+----------+-------------+---------------------+------------------------+---------------------
+ 21:21:21 | 21:21:21-08 | 2010-12-12 00:00:00 | 2013-12-11 16:00:00+08 | 2003-04-12 04:05:00
+(1 row)
+
+--删除表。
+gaussdb=# DROP TABLE time_type_tab;
+
+--创建表。
+gaussdb=# CREATE TABLE day_type_tab (a int,b INTERVAL DAY(3) TO SECOND (4));
+
+--插入数据。
+gaussdb=# INSERT INTO day_type_tab VALUES (1, INTERVAL '3' DAY);
+
+--查看数据。
+gaussdb=# SELECT * FROM day_type_tab;
+ a| b
+---+--------
+ 1 | 3 days
+(1 row)
+
+--删除表。
+[[PDF_PAGE physical=123 printed=74]]
+gaussdb=# DROP TABLE day_type_tab;
+
+--创建表。
+gaussdb=# CREATE TABLE year_type_tab(a int, b interval year (6));
+
+--插入数据。
+gaussdb=# INSERT INTO year_type_tab VALUES(1,interval '2' year);
+
+--查看数据。
+gaussdb=# SELECT * FROM year_type_tab;
+ a| b
+---+---------
+ 1 | 2 years
+(1 row)
+
+--删除表。
+gaussdb=# DROP TABLE year_type_tab;
+
+-- 当mapping_date_to_datea=on，datea数据类型示例。
+-- 查看参数mapping_date_to_datea。
+gaussdb=# SHOW mapping_date_to_datea;
+ mapping_date_to_datea
+-----------------------
+ on
+(1 row)
+
+-- 创建表。
+gaussdb=# CREATE TABLE datea_type_tab(a int, b date);
+
+-- 设置nls_date_format参数。
+gaussdb=# SET nls_date_format='YYMMDD HH:MI:SS';
+SET
+
+-- 插入数据。
+gaussdb=# INSERT INTO datea_type_tab VALUES(1, '20210512 05:52:23'::date); --YY按照4位年份解析。
+INSERT 0 1
+gaussdb=# INSERT INTO datea_type_tab VALUES(2, '201012 11:12:13'::date); --YY按照2位年份解析。
+INSERT 0 1
+
+gaussdb=# INSERT INTO datea_type_tab VALUES(3, '251126 00:00:00'::date); --最终错误信息来自YY按照四位
+年份解析失败时产生的信息。
+ERROR: The data of "month = 26" is invalid. The value must be between 1 and 12.
+LINE 1: INSERT INTO datea_type_tab VALUES(3, '251126 00:00:00'::date...
+                             ^
+-- 查看数据。
+gaussdb=# SELECT * FROM datea_type_tab ORDER BY a;
+ a|         b
+---+------------------------
+ 1 | 2021-05-12 05:52:23 AD
+ 2 | 2020-10-12 11:12:13 AD
+(2 rows)
+
+-- 删除表。
+gaussdb=# DROP TABLE datea_type_tab;
+
+-- B兼容模式下datetime和timestamp数据类型示例。
+-- 创建B兼容模式下的数据库。
+-- 切换到B兼容模式下的数据库。
+gaussdb=# CREATE DATABASE gaussdb_m dbcompatibility='B';
+gaussdb=# \c gaussdb_m;
+
+-- 设置兼容版本控制参数。
+gaussdb_m=# SET b_format_version = '5.7';
+gaussdb_m=# SET b_format_dev_version = 's1';
+
+-- 创建表。
+gaussdb_m=# CREATE TABLE datetime_typ_tab(col1 datetime, col2 timestamp);
+
+-- 插入数据。
+[[PDF_PAGE physical=124 printed=75]]
+gaussdb_m=# INSERT INTO datetime_typ_tab VALUES ('2003-04-12 04:05:06+09:00', '2003-04-12
+04:05:06+09:00');
+
+-- 查看数据。
+gaussdb_m=# SELECT * FROM datetime_typ_tab;
+      col1        |      col2
+---------------------+---------------------
+ 2003-04-12 03:05:06 | 2003-04-12 03:05:06
+(1 row)
+
+-- 删除表。
+gaussdb_m=# DROP TABLE datetime_typ_tab;
+
+-- 创建表。
+gaussdb_m=# CREATE TABLE year_typ_tab(col1 year, col2 year(4));
+
+-- 插入数据。
+gaussdb_m=# INSERT INTO year_typ_tab VALUES ('2023', now());
+
+-- 查看数据。
+gaussdb_m=# SELECT * FROM year_typ_tab;
+ col1 | col2
+------+------
+ 2023 | 2023
+(1 row)
+
+-- 删除表和数据库。
+gaussdb_m=# DROP TABLE year_typ_tab;
+gaussdb_m=# \c postgres;
+gaussdb=# DROP DATABASE gaussdb_m;
+
+-- 重置参数。
+gaussdb=# RESET ALL;
+
+
+表 1-12 nls_date_format 支持的格式
+
+ 格式                                     描述
+
+ A.D.                                   公元后。
+
+ AD                                     公元后。
+
+ A.M.                                   上午。
+
+ AM                                     上午。
+
+ B.C.                                   公元前。
+
+ BC                                     公元前。
+
+ CC                                     世纪（2位），21世纪从2001-01-01开始。
+
+ DAY                                    全长大写日期名（空白填充为9字符）。
+
+ DL                                     返回指定长日期形式。
+
+ DS                                     返回指定短日期。
+
+ DDD                                    一年里的日数（001~366）。
+
+ DD                                     一个月里的日数（01~31）。
+
+ DY                                     缩写大写日期名（3字符）。
+
+ D                                      一周里的日数（1~7；周日是1）。
+[[PDF_PAGE physical=125 printed=76]]
+格式      描述
+
+FX      强制函数严格按照指定的格式解析或格式化日期。
+
+HH24    一天的小时数（00~23）。
+
+HH12    一天的小时数（01~12）。
+
+HH      一天的小时数（01~12）。
+
+IW      ISO一年里的周数（第一个星期四在第一周里）。
+
+IYYY    ISO年（4位或更多位）。
+
+IYY     ISO年的最后三位。
+
+IY      ISO年的最后两位。
+
+I       ISO年的最后一位。
+
+J       儒略日（自公元前4713年1月1日以后的天数）。
+
+MI      分钟（00~59）。
+
+MM      月份数（01~12）。
+
+MONTH   全长大写月份名（空白填充为9字符）。
+
+MON     大写缩写月份名（3字符）。
+
+P.M.    下午。
+
+PM      下午。
+
+Q       季度。
+
+RM      罗马数字的月份（I~XII，其中I=JAN）（大写）。
+
+RRRR    返回日期的4位年份。
+
+RR      返回日期的2位年份。
+
+SSSSS   午夜后的秒（0~86399）。
+
+SCC     世纪，公元前。
+
+SS      秒（00~59）。
+
+SYEAR   返回字符型年，公元前会显示-。
+
+SYYYY   返回数字型年，公元前会显示-。
+
+TS      返回指定时间格式。
+
+WW      一年里的周数（1~53）（第一周从该年的第一天开
+        始）。
+
+W       一个月里的周数（1~5）（第一周从该月第一天开
+        始）。
+
+Y,YYY   带逗号的年（4和更多位）。
+[[PDF_PAGE physical=126 printed=77]]
+        格式                                       描述
+
+        YEAR                                     返回字符型年。
+
+        YYYY                                     年（4和更多位）。
+
+        YYY                                      年的后三位。
+
+        YY                                       年的后两位。
+
+        Y                                        年的最后一位。
+
+
+
+
+              说明
+
+             GaussDB中，nls_date_format参数值支持使用TH后缀，该后缀的作用是在解析输入的时间字符
+             串时，跳过格式指定部分的两个字节。支持TH后缀的格式包括：HH、HH12、HH24、MI、
+             SS、SSSSS、MM、DDD、DD、D、Y,YYY、YYYY、YYY、YY、Y、RRRR、RR、J、SYYYY。当
+             nls_date_format参数值中包含TH后缀且其不处于字符串末尾时，输入的时间需要预留两个字
+             节，否则会解析错误或者结果异常。例如：
+             ● 正常解析。
+                 gaussdb=# select to_datea('2000TH-10-24', 'YYYYTH-MM-DD'); -- 当TH位于YYYY格式后，输入的
+                 2000年份后需预留两个字节（可为任意字符）。
+                 to_datea
+                 ------------------------
+                 2000-10-24 00:00:00 AD
+                 (1 row)
+
+                 gaussdb=# select to_datea('2000TH-10-24', 'YYYYTH-MM-DDTH'); -- 当TH位于nls_date_format参
+                 数末尾，可正常解析。
+                       to_datea
+                 ------------------------
+                  2000-10-24 00:00:00 AD
+                 (1 row)
+             ● 解析错误。
+                 gaussdb=# select to_datea('2000-10-24', 'YYYYTH-MM-DD');
+                 ERROR: The data of "month = 0" is invalid. The value must be between 1 and 12.
+                 CONTEXT: referenced column: to_datea
+             ● 结果异常。
+                 gaussdb=# select to_datea('2000-11-24', 'YYYYTH-MM-DD'); -- 当TH位于YYYY格式后，由于输入的
+                 2000年份后未预留2个字节，解析时将“-1”跳过，MM解析为1月，结果异常。
+                       to_datea
+                 ------------------------
+                  2000-01-24 00:00:00 AD
+                 (1 row)
+
+
+日期输入
+       日期和时间的输入几乎可以是任何合理的格式，包括ISO-8601格式、SQL-兼容格式或
+       者其它的格式。系统支持按照日、月、年的顺序自定义日期输入。如果把DateStyle参
+       数设置为MDY就按照“月-日-年”解析，设置为DMY就按照“日-月-年”解析，设置
+       为YMD就按照“年-月-日”解析。
+
+       日期的文本输入需要加单引号包围，语法如下：
+       type [ ( p ) ] 'value'
+
+       可选的精度声明中的p是一个整数，表示在秒域中小数部分的位数。表1-13显示了date
+       类型的输入格式。
+[[PDF_PAGE physical=127 printed=78]]
+表 1-13 日期输入格式
+ 例子                       描述
+
+ 1999-01-08               ISO 8601格式（建议格式），任何方式下都是1999年1月8
+                          日。
+
+ January 8, 1999          在任何datestyle输入模式下都无歧义。
+
+ 1/8/1999                 有歧义，在MDY模式下是1月8日，在DMY模式下是8月1日。
+
+ 1/18/1999                MDY模式下是1月18日，其它模式下被拒绝。
+
+ 01/02/03                 ● MDY模式下的2003年1月2日。
+                          ● DMY模式下的2003年2月1日。
+                          ● YMD模式下的2001年2月3日。
+
+ 1999-Jan-08              任何模式下都是1月8日。
+
+ Jan-08-1999              任何模式下都是1月8日。
+
+ 08-Jan-1999              任何模式下都是1月8日。
+
+ 99-Jan-08                YMD模式下是1月8日，否则错误。
+
+ 08-Jan-99                1月8日，除了在YMD模式下是错误的之外。
+
+ Jan-08-99                1月8日，除了在YMD模式下是错误的之外。
+
+ 19990108                 ISO 8601格式，任何模式下都是1999年1月8日。
+
+ 990108                   ISO 8601格式，任何模式下都是1999年1月8日。
+
+ 1999.008                 年和年里的第几天。
+
+ J2451187                 儒略日。
+
+ January 8, 99 BC         公元前99年。
+
+
+
+示例：
+--创建表。
+gaussdb=# CREATE TABLE date_type_tab(coll date);
+
+--插入数据。
+gaussdb=# INSERT INTO date_type_tab VALUES (date '12-10-2010');
+
+--查看数据。
+gaussdb=# SELECT * FROM date_type_tab;
+      coll
+---------------------
+ 2010-12-10
+(1 row)
+
+--查看日期格式。
+gaussdb=# SHOW datestyle;
+ DateStyle
+-----------
+ ISO, MDY
+(1 row)
+[[PDF_PAGE physical=128 printed=79]]
+     --设置日期格式。
+     gaussdb=# SET datestyle='YMD';
+     SET
+
+     --插入数据。
+     gaussdb=# INSERT INTO date_type_tab VALUES(date '2010-12-11');
+
+     --查看数据。
+     gaussdb=# SELECT * FROM date_type_tab;
+           coll
+     ---------------------
+      2010-12-10
+      2010-12-11
+     (2 rows)
+
+     --删除表。
+     gaussdb=# DROP TABLE date_type_tab;
+
+
+时间
+     时间类型包括time [ (p) ] without time zone和time [ (p) ] with time zone。如果只
+     写time等效于time without time zone。
+     如果在time without time zone类型的输入中声明了时区，则会忽略这个时区。
+     时间输入类型的详细信息请参见表1-14，时区输入类型的详细信息请参见表1-15。
+
+     表 1-14 时间输入
+      例子                                                描述
+
+      05:06.8                                           ISO 8601
+
+      4:05:06                                           ISO 8601
+
+      4:05                                              ISO 8601
+
+      040506                                            ISO 8601
+
+      4:05 AM                                           与04:05一样，输入小时数必须<= 12。
+
+      4:05 PM                                           与16:05一样，输入小时数必须<= 12。
+
+      04:05:06.789-8                                    ISO 8601
+
+      04:05:06-08:00                                    ISO 8601
+
+      04:05-08:00                                       ISO 8601
+
+      040506-08                                         ISO 8601
+
+      04:05:06 PST                                      缩写的时区。
+
+      2003-04-12 04:05:06 America/                      用名称声明的时区。
+      New_York
+[[PDF_PAGE physical=129 printed=80]]
+      表 1-15 时区输入
+
+       例子                                        描述
+
+       PST                                       太平洋标准时间（Pacific Standard Time）。
+
+       America/New_York                          完整时区名称。
+
+       -8:00                                     ISO 8601与PST的偏移。
+
+       -800                                      ISO 8601与PST的偏移。
+
+       -8                                        ISO 8601与PST的偏移。
+
+
+
+
+      示例：
+      gaussdb=# SELECT time '04:05:06';
+        time
+      ----------
+       04:05:06
+      (1 row)
+
+      gaussdb=# SELECT time '04:05:06 PST';
+        time
+      ----------
+       04:05:06
+      (1 row)
+
+      gaussdb=# SELECT time with time zone '04:05:06 PST';
+        timetz
+      -------------
+       04:05:06-08
+      (1 row)
+
+
+
+特殊值
+      GaussDB支持几个特殊值，在读取的时候将被转换成普通的日期/时间值，请参考表
+      1-16。
+
+
+      表 1-16 特殊值
+
+       输入字符串             适用类型                           描述
+
+       epoch             date，timestamp                 1970-01-01 00:00:00+00 （Unix系统零
+                                                        时）。
+
+       infinity          timestamp                      无穷大，比任何其他时间戳都晚。
+
+       -infinity         timestamp                      无穷小，比任何其他时间戳都早。
+
+       now               date，time，                     当前事务的开始时间。
+                         timestamp
+
+       today             date，timestamp                 今日午夜零时。
+
+       tomorrow          date，timestamp                 明日午夜零时。
+
+       yesterday         date，timestamp                 昨日午夜零时。
+[[PDF_PAGE physical=130 printed=81]]
+ 输入字符串              适用类型                            描述
+
+ allballs           time                            00:00:00.00 UTC
+
+
+
+示例：
+--创建表。
+gaussdb=# CREATE TABLE realtime_type_special(col1 varchar(20), col2 date, col3 timestamp, col4 time);
+
+--插入数据。
+gaussdb=# INSERT INTO realtime_type_special VALUES('epoch', 'epoch', 'epoch', NULL);
+gaussdb=# INSERT INTO realtime_type_special VALUES('now', 'now', 'now', 'now');
+gaussdb=# INSERT INTO realtime_type_special VALUES('today', 'today', 'today', NULL);
+gaussdb=# INSERT INTO realtime_type_special VALUES('tomorrow', 'tomorrow', 'tomorrow', NULL);
+gaussdb=# INSERT INTO realtime_type_special VALUES('yesterday', 'yesterday', 'yesterday', NULL);
+
+--查看数据。
+gaussdb=# SELECT * FROM realtime_type_special;
+  col1 |         col2        |        col3           |    col4
+-----------+---------------------+----------------------------+-----------------
+ epoch      | 1970-01-01 00:00:00 | 1970-01-01 00:00:00              |
+ now       | 2023-02-27 11:38:13 | 2023-02-27 11:38:13.032815 | 11:38:13.032815
+ today     | 2023-02-27 00:00:00 | 2023-02-27 00:00:00              |
+ tomorrow | 2023-02-28 00:00:00 | 2023-02-28 00:00:00                    |
+ yesterday | 2023-02-26 00:00:00 | 2023-02-26 00:00:00                 |
+(5 rows)
+
+gaussdb=# SELECT * FROM realtime_type_special WHERE col3 < 'infinity';
+  col1 |         col2        |        col3           |    col4
+-----------+---------------------+----------------------------+-----------------
+ epoch      | 1970-01-01 00:00:00 | 1970-01-01 00:00:00              |
+ now       | 2023-02-27 11:38:13 | 2023-02-27 11:38:13.032815 | 11:38:13.032815
+ today     | 2023-02-27 00:00:00 | 2023-02-27 00:00:00              |
+ tomorrow | 2023-02-28 00:00:00 | 2023-02-28 00:00:00                    |
+ yesterday | 2023-02-26 00:00:00 | 2023-02-26 00:00:00                 |
+(5 rows)
+
+gaussdb=# SELECT * FROM realtime_type_special WHERE col3 > '-infinity';
+  col1 |         col2        |        col3           |    col4
+-----------+---------------------+----------------------------+-----------------
+ epoch      | 1970-01-01 00:00:00 | 1970-01-01 00:00:00              |
+ now       | 2023-02-27 11:38:13 | 2023-02-27 11:38:13.032815 | 11:38:13.032815
+ today     | 2023-02-27 00:00:00 | 2023-02-27 00:00:00              |
+ tomorrow | 2023-02-28 00:00:00 | 2023-02-28 00:00:00                    |
+ yesterday | 2023-02-26 00:00:00 | 2023-02-26 00:00:00                 |
+(5 rows)
+
+gaussdb=# SELECT * FROM realtime_type_special WHERE col3 > 'now';
+  col1 |        col2        |     col3        | col4
+----------+---------------------+---------------------+------
+ tomorrow | 2023-02-28 00:00:00 | 2023-02-28 00:00:00 |
+(1 row)
+
+gaussdb=# SELECT * FROM realtime_type_special WHERE col3 = 'today';
+ col1 |       col2        |     col3        | col4
+-------+---------------------+---------------------+------
+ today | 2023-02-27 00:00:00 | 2023-02-27 00:00:00 |
+(1 row)
+
+gaussdb=# SELECT * FROM realtime_type_special WHERE col3 = 'tomorrow';
+  col1 |        col2        |     col3        | col4
+----------+---------------------+---------------------+------
+ tomorrow | 2023-02-28 00:00:00 | 2023-02-28 00:00:00 |
+(1 row)
+
+gaussdb=# SELECT * FROM realtime_type_special WHERE col3 > 'yesterday';
+[[PDF_PAGE physical=131 printed=82]]
+          col1 |        col2        |         col3          |    col4
+        ----------+---------------------+----------------------------+-----------------
+         now      | 2023-02-27 11:38:13 | 2023-02-27 11:38:13.032815 | 11:38:13.032815
+         today | 2023-02-27 00:00:00 | 2023-02-27 00:00:00                 |
+         tomorrow | 2023-02-28 00:00:00 | 2023-02-28 00:00:00                |
+        (3 rows)
+
+        gaussdb=# SELECT TIME 'allballs';
+          time
+        ----------
+         00:00:00
+        (1 row)
+
+        --删除表。
+        gaussdb=# DROP TABLE realtime_type_special;
+
+
+时间段输入
+        reltime的输入方式可以采用任何合法的时间段文本格式，包括数字形式（含负数和小
+        数）及时间形式，其中时间形式的输入支持SQL标准格式、ISO-8601格式等。另外，
+        文本输入需要加单引号。
+        时间段输入的详细信息请参考表1-17。
+
+        表 1-17 时间段输入
+         输入示例                               输出结果                            描述
+
+         60                                 2 mons                          采用数字表示时间段，默认单
+                                                                            位是day，可以是小数或负
+         31.25                              1 mons 1 days 06:00:00          数。特别的，负数时间段，在
+         -365                               -12 mons -5 days                语义上，可以理解为“早于多
+                                                                            久”。
+
+         1 years 1 mons 8 days              1 years 1 mons 8 days           采用POSTGRES格式表示时间
+         12:00:00                           12:00:00                        段，可以正负混用，不区分大
+                                                                            小写，输出结果为将输入时间
+         -13 months -10 hours               -1 years -25 days               段计算并转换得到的简化
+                                            -04:00:00                       POSTGRES格式时间段。
+         -2 YEARS +5 MONTHS                 -1 years -6 mons -25
+         10 DAYS                            days -06:00:00
+
+         P-1.1Y10M                          -3 mons -5 days                 采用ISO-8601格式表示时间
+                                            -06:00:00                       段，可以正负混用，不区分大
+                                                                            小写，输出结果为将输入时间
+         -12H                               -12:00:00                       段计算并转换得到的简化
+                                                                            POSTGRES格式时间段。
+
+
+
+        示例：
+        --创建表。
+        gaussdb=# CREATE TABLE reltime_type_tab(col1 character(30), col2 reltime);
+
+        --插入数据。
+        gaussdb=# INSERT INTO reltime_type_tab VALUES ('90', '90');
+        gaussdb=# INSERT INTO reltime_type_tab VALUES ('-366', '-366');
+        gaussdb=# INSERT INTO reltime_type_tab VALUES ('1975.25', '1975.25');
+        gaussdb=# INSERT INTO reltime_type_tab VALUES ('-2 YEARS +5 MONTHS 10 DAYS', '-2 YEARS +5
+[[PDF_PAGE physical=132 printed=83]]
+MONTHS 10 DAYS');
+gaussdb=# INSERT INTO reltime_type_tab VALUES ('30 DAYS 12:00:00', '30 DAYS 12:00:00');
+gaussdb=# INSERT INTO reltime_type_tab VALUES ('P-1.1Y10M', 'P-1.1Y10M');
+
+--查看数据。
+gaussdb=# SELECT * FROM reltime_type_tab;
+           col1             |             col2
+--------------------------------+-------------------------------------
+ 90                        | 3 mons
+ -366                        | -1 years -18:00:00
+ 1975.25                       | 5 years 4 mons 29 days
+ -2 YEARS +5 MONTHS 10 DAYS                | -1 years -6 mons -25 days -06:00:00
+ 30 DAYS 12:00:00                   | 1 mon 12:00:00
+ P-1.1Y10M                       | -3 mons -5 days -06:00:00
+(6 rows)
+
+--删除表。
+gaussdb=# DROP TABLE reltime_type_tab;

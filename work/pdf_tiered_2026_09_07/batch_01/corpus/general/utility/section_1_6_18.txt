@@ -1,0 +1,1299 @@
+[[PDF_PAGE physical=489 printed=440]]
+1.6.18 聚集函数
+
+聚集函数
+        ●   sum(expression)
+            描述：所有输入行的expression总和。
+            返回类型：
+            通常情况下输入数据类型和输出数据类型是相同的，但以下情况会发生类型转
+            换：
+            –    对于SMALLINT或INT输入，输出类型为BIGINT。
+            –    对于BIGINT输入，输出类型为NUMBER 。
+            –    对于浮点数输入，输出类型为DOUBLE PRECISION。
+            示例：
+            gaussdb=# CREATE TABLE tab(a int);
+            CREATE TABLE
+            gaussdb=# INSERT INTO tab VALUES(1);
+            INSERT 0 1
+            gaussdb=# INSERT INTO tab VALUES(2);
+            INSERT 0 1
+            gaussdb=# SELECT sum(a) FROM tab;
+             sum
+            -----
+              3
+            (1 row)
+            gaussdb=# DROP TABLE tab;
+[[PDF_PAGE physical=490 printed=441]]
+●   max(expression)
+    描述：所有输入行中expression的最大值。
+    参数：类型为任意数组、数值、字符串、日期/时间类型、ROWID类型。
+    返回类型：与参数数据类型相同
+    示例：
+    gaussdb=# CREATE TABLE max_t1(a int, b int);
+
+    gaussdb=# INSERT INTO max_t1 VALUES(1,2),(2,3),(3,4),(4,5);
+
+    gaussdb=# SELECT MAX(a) FROM max_t1;
+     max
+    -----
+      4
+    (1 row)
+
+    gaussdb=# DROP TABLE max_t1;
+
+●   min(expression)
+    描述：所有输入行中expression的最小值。
+    参数：类型为任意数组、数值、字符串、日期/时间类型、ROWID类型。
+    返回类型：与参数数据类型相同
+    示例：
+    gaussdb=# CREATE TABLE min_t1(a int, b int);
+
+    gaussdb=# INSERT INTO min_t1 VALUES(1,2),(2,3),(3,4),(4,5);
+
+    gaussdb=# SELECT MIN(a) FROM min_t1;
+     min
+    -----
+      1
+    (1 row)
+
+    gaussdb=# DROP TABLE min_t1;
+
+●   avg(expression)
+    描述：所有输入值的均值（算术平均）。
+    返回类型：
+    –    对于任何为整数类型或可隐式转换成整数类型的输入参数，函数返回结果为
+         NUMBER类型。
+    –    对于任何为浮点类型或可隐式转换成浮点类型的输入参数，函数返回结果为
+         DOUBLE PRECISION类型。
+    –    其他情况和输入参数的数据类型相同。
+    示例：
+    gaussdb=# CREATE TABLE avg_t1(a int, b int);
+
+    gaussdb=# INSERT INTO avg_t1 VALUES(1,2),(2,3),(3,4),(4,5);
+
+    gaussdb=# SELECT AVG(a) FROM avg_t1;
+          avg
+    --------------------
+     2.5000000000000000
+    (1 row)
+
+    gaussdb=# DROP TABLE avg_t1;
+
+●   count(expression)
+    描述：返回表中满足expression不为NULL的行数。
+[[PDF_PAGE physical=491 printed=442]]
+    返回类型：BIGINT
+    支持对XML类型数据操作。
+    示例：
+    gaussdb=# CREATE TABLE count_t1(a int, b int);
+
+    gaussdb=# INSERT INTO count_t1 VALUES (NULL,1),(1,2),(2,3),(3,4),(4,5);
+
+    gaussdb=# SELECT COUNT(a) FROM count_t1;
+     count
+    -------
+        4
+    (1 row)
+
+    gaussdb=# DROP TABLE count_t1;
+
+●   count(*)
+    描述：返回表中的记录行数。
+    返回类型：BIGINT
+    支持对XML类型数据操作。
+    示例：
+    gaussdb=# CREATE TABLE count_t1(a int, b int);
+
+    gaussdb=# INSERT INTO count_t1 VALUES (NULL,1),(1,2),(2,3),(3,4),(4,5);
+
+    gaussdb=# SELECT COUNT(*) FROM count_t1;
+     count
+    -------
+        5
+    (1 row)
+
+    gaussdb=# DROP TABLE count_t1;
+
+●   KEEP(DENSE_RANK { FIRST | LAST } ORDER BY expr)
+    描述：将查询结果的数据行按指定规则进行排序，返回第一组或者最后一组的
+    值，可用于聚集函数或窗口函数。
+    语法：
+    aggregate_function KEEP ( DENSE_RANK { FIRST | LAST } ORDER BY expr [ DESC | ASC ] [ NULLS
+    { FIRST | LAST } ]
+         [, expr [ DESC | ASC ] [ NULLS { FIRST | LAST } ]]...)
+
+    返回值类型：在aggregate_function中指定列的数据类型。
+          说明
+
+         ● aggregate_function为聚集函数，当前仅支持：MIN、MAX、SUM、AVG、COUNT、
+           VARIANCE和STDDEV。
+         ● KEEP关键字用于语义清晰，限定于聚集函数/窗口函数。
+         ● DENSE_RANK FIRST或DENSE_RANK LAST表示仅聚集最小（FIRST）或最大（LAST）
+           密集排序后的行。
+         ● 不支持生成向量化计划执行 。
+    示例：
+    gaussdb=# CREATE TABLE keep_t1(a int, b int, c int);
+
+    gaussdb=# INSERT INTO keep_t1 values(2, 111, 333), (2, 11, 33), (2, 11, 3), (1, 22, 55), (1, 2, 5);
+
+    gaussdb=# SELECT MIN(b) KEEP(DENSE_RANK FIRST ORDER BY a) MIN_FIRST,
+         MIN(b) KEEP(DENSE_RANK LAST ORDER BY a) MIN_LAST,
+         MAX(b) KEEP(DENSE_RANK FIRST ORDER BY a) MAX_FIRST,
+         MAX(b) KEEP(DENSE_RANK LAST ORDER BY a) MAX_LAST FROM keep_t1;
+[[PDF_PAGE physical=492 printed=443]]
+     min_first | min_last | max_first | max_last
+    -----------+----------+-----------+----------
+           2|      11 |      22 |     111
+    (1 row)
+
+    gaussdb=# DROP TABLE keep_t1;
+
+●   median(expression) [over (query partition clause)]
+    描述：返回表达式的中位数，计算时NULL将会被median函数忽略。可以使用
+    distinct关键字排除表达式中的重复记录。输入expression的数据类型可以是数值
+    类型（包括integer， double，bigint等）， 也可以是interval类型。其他数据类
+    型不支持求取中位数。
+    返回类型：double或interval类型
+    示例：
+    gaussdb=# SELECT median(id) FROM (values(1), (2), (3), (4), (null)) test(id);
+     median
+    --------
+        2.5
+    (1 row)
+
+●   default(column_name)
+    描述：获取表字段的默认值输出。
+    返回值类型：text
+    示例：
+    --创建兼容性B数据库。
+    gaussdb=# CREATE DATABASE gaussdb_m WITH DBCOMPATIBILITY 'B';
+
+    gaussdb=# \c gaussdb_m
+
+    gaussdb_m=# CREATE TABLE t1(id int DEFAULT 100, name varchar(20) DEFAULT 'tt');
+
+    gaussdb_m=# INSERT INTO t1 VALUES(1,'test');
+
+    --执行查询。
+    gaussdb_m=# SELECT default(id), default(name) FROM t1;
+     default | default
+    ---------+---------
+        100 | tt
+    (1 row)
+
+    --删除数据库。
+    gaussdb_m=# \c postgres
+    gaussdb=# DROP DATABASE gaussdb_m;
+
+           说明
+
+         ● default函数仅在参数sql_compatibility='B'时生效；
+         ● 表字段中不存在默认值时，则default函数返回空；
+         ● 表字段是隐藏列（如xmin、cmin）时，default函数返回空值；
+         ● 表字段是自增列，则default函数返回0；
+         ● GaussDB支持分区表、临时表、多表连接查询默认值；
+         ● GaussDB支持查询列名包含字符串值节点（表示名称）和A_Star节点（表示出现
+           “*”），如default(tt.t4.id)和default(tt.t4.*)。不合法的查询列名和A_Star节点，
+           GaussDB和B数据库报错信息有差异。
+         ● GaussDB创建字段默认值，没有检验字段类型的范围，使用default函数可能报错。
+         ● 字段的默认值是函数表达式时，GaussDB的default函数返回建表时字段的default表达
+           式的计算值。B数据库的default函数返回NULL。
+●   array_agg(expression)
+[[PDF_PAGE physical=493 printed=444]]
+    描述：将所有输入值（包括空）连接成一个数组。
+    返回类型：参数类型的数组
+    支持对XML类型数据操作。
+    示例：
+    gaussdb=# CREATE TABLE array_agg_t1(a int, b int);
+
+    gaussdb=# INSERT INTO array_agg_t1 VALUES (NULL,1),(1,2),(2,3),(3,4),(4,5);
+
+    gaussdb=# SELECT ARRAY_AGG(a) FROM array_agg_t1;
+      array_agg
+    ----------------
+     {NULL,1,2,3,4}
+    (1 row)
+
+    gaussdb=# DROP TABLE array_agg_t1;
+
+●   string_agg(expression, delimiter)
+    描述：将输入值连接成为一个字符串，用分隔符分开。
+    返回类型：和参数数据类型相同。
+    支持对显式转换成字符类型后的XML类型数据操作。
+    示例：
+    gaussdb=# CREATE TABLE string_agg_t1(a int, b int);
+
+    gaussdb=# INSERT INTO string_agg_t1 VALUES (NULL,1),(1,2),(2,3),(3,4),(4,5);
+
+    gaussdb=# SELECT STRING_AGG(a,';') FROM string_agg_t1;
+     string_agg
+    ------------
+     1;2;3;4
+    (1 row)
+
+    gaussdb=# DROP TABLE string_agg_t1;
+
+●   listagg([DISTINCT | ALL] expression [, delimiter]) [WITHIN GROUP(ORDER BY
+    order-list)]
+    描述：将聚集列数据按WITHIN GROUP指定的排序方式排列，并用delimiter指定
+    的分隔符拼接成一个字符串。
+    –     DISTINCT：可选。表示对每行拼接后结果进行去重，仅支持A兼容模式。
+    –     expression：必选。指定聚集列名或基于列的有效表达式，不支持VARIADIC
+          参数。
+    –     delimiter：可选。指定分隔符，可以是字符串常数或基于分组列的确定性表
+          达式，缺省时表示分隔符为空。
+    –     order-list：可选。指定分组内的排序方式。
+    返回类型：text
+    示例：
+    聚集列是文本字符集类型。
+    gaussdb=# CREATE TABLE listagg_t1(a int, b text);
+
+    gaussdb=# INSERT INTO listagg_t1 VALUES (NULL,'a1'),(1,'b2'),(1,'c3'),(2,'d4'),(2,'e5'),(3,'f6');
+
+    gaussdb=# SELECT a,LISTAGG(b,';') WITHIN GROUP(ORDER BY b) FROM listagg_t1 GROUP BY a
+    ORDER BY a;
+     a | listagg
+    ---+---------
+     1 | b2;c3
+     2 | d4;e5
+     3 | f6
+[[PDF_PAGE physical=494 printed=445]]
+  | a1
+(4 rows)
+
+gaussdb=# SELECT a,LISTAGG(b,';') FROM listagg_t1 GROUP BY a ORDER BY a;
+ a | listagg
+---+---------
+ 1 | b2;c3
+ 2 | d4;e5
+ 3 | f6
+  | a1
+(4 rows)
+
+gaussdb=# DROP TABLE listagg_t1;
+聚集列是整型。
+gaussdb=# CREATE TABLE listagg_t1(a int, b int);
+
+gaussdb=# INSERT INTO listagg_t1 VALUES (NULL,1),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+gaussdb=# SELECT a,LISTAGG(b,';') WITHIN GROUP(ORDER BY b) FROM listagg_t1 GROUP BY a
+ORDER BY a;
+ a | listagg
+---+---------
+ 1 | 2;3
+ 2 | 4;5
+ 3|6
+  |1
+(4 rows)
+
+gaussdb=# DROP TABLE listagg_t1;
+聚集列是浮点类型。
+gaussdb=# CREATE TABLE listagg_t1(a int, b float);
+
+gaussdb=# INSERT INTO listagg_t1 VALUES (NULL,1.111),(1,2.222),(1,3.333),(2,4.444),(2,5.555),
+(3,6.666);
+
+gaussdb=# SELECT a,LISTAGG(b,';') WITHIN GROUP(ORDER BY b) FROM listagg_t1 GROUP BY a
+ORDER BY a;
+ a|     listagg
+---+-------------------
+ 1 | 2.222000;3.333000
+ 2 | 4.444000;5.555000
+ 3 | 6.666000
+  | 1.111000
+(4 rows)
+
+gaussdb=# DROP TABLE listagg_t1;
+聚集列是时间类型。
+gaussdb=# CREATE TABLE listagg_t1(a int, b timestamp);
+
+gaussdb=# INSERT INTO listagg_t1 VALUES (NULL,'2000-01-01'),(1,'2000-02-02'),(1,'2000-03-03'),
+(2,'2000-04-04'),(2,'2000-05-05'),(3,'2000-06-06');
+
+gaussdb=# SELECT a,LISTAGG(b,';') WITHIN GROUP(ORDER BY b) FROM listagg_t1 GROUP BY a
+ORDER BY a;
+ a|              listagg
+---+-----------------------------------------
+ 1 | 2000-02-02 00:00:00;2000-03-03 00:00:00
+ 2 | 2000-04-04 00:00:00;2000-05-05 00:00:00
+ 3 | 2000-06-06 00:00:00
+  | 2000-01-01 00:00:00
+(4 rows)
+
+gaussdb=# DROP TABLE listagg_t1;
+聚集列是时间间隔类型。
+gaussdb=# CREATE TABLE listagg_t1(a int, b interval);
+[[PDF_PAGE physical=495 printed=446]]
+gaussdb=# INSERT INTO listagg_t1 VALUES (NULL,'1 days'),(1,'2 days'),(1,'3 days'),(2,'4 days'),(2,'5
+days'),(3,'6 days');
+
+gaussdb=# SELECT a,LISTAGG(b,';') WITHIN GROUP(ORDER BY b) FROM listagg_t1 GROUP BY a
+ORDER BY a;
+ a | listagg
+---+---------------
+ 1 | 2 days;3 days
+ 2 | 4 days;5 days
+ 3 | 6 days
+  | 1 day
+(4 rows)
+
+gaussdb=# DROP TABLE listagg_t1;
+
+聚集列是ROWID类型。
+gaussdb=# CREATE TABLE test_table_1(id int, name varchar(29), rwd rowid);
+CREATE TABLE
+gaussdb=# INSERT INTO test_table_1 VALUES (1, 'AAAAAAAAAP//AAAAAAAAAAAAAAAAA',
+'AAAAAAAAAP//AAAAAAAAAAAAAAAAA');
+INSERT 0 1
+gaussdb=# INSERT INTO test_table_1 VALUES (2, 'AAAAAAAAAP//AAAAAAAAAAAAAAABA',
+'AAAAAAAAAP//AAAAAAAAAAAAAAABA');
+INSERT 0 1
+gaussdb=# INSERT INTO test_table_1 VALUES (3, 'AAAAAAAAAP//AAAAAAAAAAAAAACAA',
+'AAAAAAAAAP//AAAAAAAAAAAAAACAA');
+INSERT 0 1
+gaussdb=# -- 5.listagg函数
+gaussdb=# SELECT LISTAGG(rwd, ';') WITHIN GROUP(ORDER BY rwd) FROM test_table_1;
+                                 listagg
+-----------------------------------------------------------------------------------------
+ AAAAAAAAAP//AAAAAAAAAAAAAAAAAAAAAAAAAAP//AAAAAAAAAAAAAAABAAAAAAAAAAP//
+AAAAAAAAAAAAAACAA
+(1 row)
+gaussdb=# DROP TABLE test_table_1;
+DROP TABLE
+
+分隔符缺省时，默认为空。
+gaussdb=# CREATE TABLE listagg_t1(a int, b interval);
+
+gaussdb=# INSERT INTO listagg_t1 VALUES (NULL,'1 days'),(1,'2 days'),(1,'3 days'),(2,'4 days'),(2,'5
+days'),(3,'6 days');
+
+gaussdb=# SELECT a,LISTAGG(b) WITHIN GROUP(ORDER BY b) FROM listagg_t1 GROUP BY a ORDER
+BY a;
+ a | listagg
+---+--------------
+ 1 | 2 days3 days
+ 2 | 4 days5 days
+ 3 | 6 days
+  | 1 day
+(4 rows)
+
+gaussdb=# DROP TABLE listagg_t1;
+
+使用distinct去重，仅支持A兼容模式。
+gaussdb=# CREATE TABLE listagg_t1(a int, b interval);
+
+gaussdb=# INSERT INTO listagg_t1 VALUES(1,'4 days'),(1,'3 days'),(2,'1 days'),(1,'5 days'),(3,'2 days'),
+(1,'4 days'),(NULL,'1 days'),(2,'1 days');
+
+gaussdb=# SELECT a,listagg(distinct b,',') FROM listagg_t1 GROUP BY a ORDER BY a;
+ a|      listagg
+---+----------------------
+ 1 | 3 days,4 days,5 days
+ 2 | 1 day
+ 3 | 2 days
+  | 1 day
+(4 rows)
+[[PDF_PAGE physical=496 printed=447]]
+gaussdb=# DROP TABLE listagg_t1;
+
+使用WITHIN GROUP(ORDER BY order-list)排序。
+gaussdb=# CREATE TABLE listagg_t1(a int, b interval, c int);
+
+gaussdb=# INSERT INTO listagg_t1 VALUES(1,'4 days',4),(1,'3 days',3),(2,'1 days',1),(1,'5 days',1),(3,'2
+days',1),(1,'4 days',2),(NULL,'1 days',1),(2,'1 days',2);
+
+gaussdb=# SELECT a,listagg(distinct b,',') WITHIN GROUP(ORDER BY b) FROM listagg_t1 GROUP BY a
+ORDER BY a;
+ a|      listagg
+---+----------------------
+ 1 | 3 days,4 days,5 days
+ 2 | 1 day
+ 3 | 2 days
+  | 1 day
+(4 rows)
+
+gaussdb=# SELECT a,listagg(distinct b,',') WITHIN GROUP(ORDER BY c) FROM listagg_t1 GROUP BY a
+ORDER BY a;
+ a|      listagg
+---+----------------------
+ 1 | 5 days,4 days,3 days
+ 2 | 1 day
+ 3 | 2 days
+  | 1 day
+(4 rows)
+
+gaussdb=# DROP TABLE listagg_t1;
+
+不使用WITHIN GROUP(ORDER BY order-list)排序，拼接结果无法保证有序。
+gaussdb=# CREATE TABLE listagg_t1(a int, b interval, c int);
+
+gaussdb=# INSERT INTO listagg_t1 VALUES(1,'4 days',4),(1,'3 days',3),(2,'1 days',1),(1,'5 days',1),(3,'2
+days',1),(1,'4 days',2),(NULL,'1 days',1),(2,'1 days',2);
+
+gaussdb=# SELECT a,listagg(distinct b,',') FROM listagg_t1 GROUP BY a ORDER BY a;
+ a|      listagg
+---+----------------------
+ 1 | 3 days,4 days,5 days
+ 2 | 1 day
+ 3 | 2 days
+  | 1 day
+(4 rows)
+
+gaussdb=# DROP TABLE listagg_t1;
+
+listagg作为窗口函数时，listagg列为对应分组的有序聚集。
+gaussdb=# CREATE TABLE listagg_t1(a int, b interval);
+
+gaussdb=# INSERT INTO listagg_t1 VALUES (NULL,'1 days'),(1,'2 days'),(1,'3 days'),(2,'4 days'),(2,'5
+days'),(3,'6 days');
+
+gaussdb=# SELECT a,LISTAGG(b) WITHIN GROUP(ORDER BY b) OVER(PARTITION BY a) FROM
+listagg_t1;
+ a | listagg
+---+--------------
+ 1 | 2 days3 days
+ 1 | 2 days3 days
+ 2 | 4 days5 days
+ 2 | 4 days5 days
+ 3 | 6 days
+   | 1 day
+(6 rows)
+
+gaussdb=# DROP TABLE listagg_t1;
+
+listagg作为窗口函数时，使用distinct去重，仅支持A兼容模式。
+[[PDF_PAGE physical=497 printed=448]]
+    gaussdb=# CREATE TABLE listagg_t1(a int, b interval, c int);
+
+    gaussdb=# INSERT INTO listagg_t1 VALUES(1,'3 days',8),(1,'4 days',7),(2,'1 days',6),(1,'5 days',5),(3,'2
+    days',4),(1,'4 days',3),(NULL,'1 days',2),(2,'1 days',1);
+
+    gaussdb=# SELECT a,listagg(distinct b,',') over(partition by a) FROM listagg_t1 ORDER BY a;
+     a|      listagg
+    ---+----------------------
+     1 | 3 days,4 days,5 days
+     1 | 3 days,4 days,5 days
+     1 | 3 days,4 days,5 days
+     1 | 3 days,4 days,5 days
+     2 | 1 day
+     2 | 1 day
+     3 | 2 days
+      | 1 day
+    (8 rows)
+
+    gaussdb=# SELECT a,listagg(distinct b,',') WITHIN GROUP(ORDER BY b) over(partition by a) FROM
+    listagg_t1 ORDER BY a;
+     a|      listagg
+    ---+----------------------
+     1 | 3 days,4 days,5 days
+     1 | 3 days,4 days,5 days
+     1 | 3 days,4 days,5 days
+     1 | 3 days,4 days,5 days
+     2 | 1 day
+     2 | 1 day
+     3 | 2 days
+       | 1 day
+    (8 rows)
+
+    gaussdb=# SELECT a,listagg(distinct b,',') WITHIN GROUP(ORDER BY c) over(partition by a) FROM
+    listagg_t1 ORDER BY a;
+     a|      listagg
+    ---+----------------------
+     1 | 4 days,5 days,3 days
+     1 | 4 days,5 days,3 days
+     1 | 4 days,5 days,3 days
+     1 | 4 days,5 days,3 days
+     2 | 1 day
+     2 | 1 day
+     3 | 2 days
+       | 1 day
+    (8 rows)
+
+    gaussdb=# DROP TABLE listagg_t1;
+
+●   group_concat([DISTINCT | ALL] expression [,expression ...] [ORDER BY
+    { expression [ [ ASC | DESC | USING operator ] | nlssort_expression_clause ]
+    [ NULLS { FIRST | LAST } ] } [,...]] [SEPARATOR str_val])
+    描述：参数数量不定，可对多列进行拼接，将聚集列数据按照ORDER BY指定的排
+    序方式排列，并用separator指定的分隔符拼接成一个字符串, 不支持作为窗口函
+    数使用。
+    –     DISTINCT：可选，表示对每行拼接后结果进行去重。
+    –     expression：必选，指定聚集列名或基于列的有效表达式。
+    –     ORDER BY: 可选，后跟可变数量表达式及排序规则。group_concat函数中不
+          支持（ORDER BY + 数字）形式。
+    –     SEPARATOR子句: 可选，后跟字符或字符串，分组中相邻两行表达式结果使
+          用此分隔符拼接。若不指定，默认使用英文逗号‘,’。
+    –     当同时指定DISTINCT和ORDER BY时，ORDER BY表达式必须在distinct表达
+          式中，否则报错。
+[[PDF_PAGE physical=498 printed=449]]
+–    使用参数group_concat_max_len限制GROUP_CONCAT最大返回长度，超长
+     截断，目前能返回的最大长度是1073741823。
+返回类型：text
+示例：
+使用separator指定分隔符为';'。
+gaussdb=# CREATE TABLE group_concat_t1(a int, b int);
+
+gaussdb=# INSERT INTO group_concat_t1 VALUES (NULL,1),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+gaussdb=# SELECT a,group_concat(b separator ';') FROM group_concat_t1 GROUP BY a ORDER BY a;
+ a | group_concat
+---+--------------
+ 1 | 2;3
+ 2 | 4;5
+ 3|6
+  |1
+(4 rows)
+
+gaussdb=# DROP TABLE group_concat_t1;
+分隔符缺省时，默认为','。
+gaussdb=# CREATE TABLE group_concat_t1(a int, b int);
+
+gaussdb=# INSERT INTO group_concat_t1 VALUES (NULL,1),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+gaussdb=# SELECT a,group_concat(a,b) FROM group_concat_t1 GROUP BY a ORDER BY a;
+ a | group_concat
+---+--------------
+ 1 | 12,13
+ 2 | 24,25
+ 3 | 36
+  |1
+(4 rows)
+
+gaussdb=# DROP TABLE group_concat_t1;
+聚集列是文本字符集类型。
+gaussdb=# CREATE TABLE group_concat_t1(a int, b text);
+
+gaussdb=# INSERT INTO group_concat_t1 VALUES (NULL,'a1'),(1,'b2'),(1,'c3'),(2,'d4'),(2,'e5'),(3,'f6');
+
+gaussdb=# SELECT a,group_concat(a,b) FROM group_concat_t1 GROUP BY a ORDER BY a;
+ a | group_concat
+---+--------------
+ 1 | 1b2,1c3
+ 2 | 2d4,2e5
+ 3 | 3f6
+  | a1
+(4 rows)
+
+gaussdb=# DROP TABLE group_concat_t1;
+聚集列是整型。
+gaussdb=# CREATE TABLE group_concat_t1(a int, b int);
+
+gaussdb=# INSERT INTO group_concat_t1 VALUES (NULL,1),(1, 2),(1, 3),(2, 4),(2, 5),(3,6);
+
+gaussdb=# SELECT a,group_concat(b) FROM group_concat_t1 GROUP BY a ORDER BY a;
+ a | group_concat
+---+--------------
+ 1 | 2,3
+ 2 | 4,5
+ 3|6
+  |1
+(4 rows)
+
+gaussdb=# DROP TABLE group_concat_t1;
+[[PDF_PAGE physical=499 printed=450]]
+聚集列是浮点类型。
+gaussdb=# CREATE TABLE group_concat_t1(a int, b float);
+
+gaussdb=# INSERT INTO group_concat_t1 VALUES (NULL,1.11),(1,2.22),(1,3.33),(2,4.44),(2,5.55),
+(3,6.66);
+
+gaussdb=# SELECT a,group_concat(b) FROM group_concat_t1 GROUP BY a ORDER BY a;
+ a | group_concat
+---+--------------
+ 1 | 2.22,3.33
+ 2 | 4.44,5.55
+ 3 | 6.66
+  | 1.11
+(4 rows)
+
+gaussdb=# DROP TABLE group_concat_t1;
+
+聚集列是时间类型。
+gaussdb=# CREATE TABLE group_concat_t1(a int, b timestamp);
+
+gaussdb=# INSERT INTO group_concat_t1 VALUES (NULL,'2000-01-01'),(1,'2000-02-02'),
+(1,'2000-03-03'),(2,'2000-04-04'),(2,'2000-05-05'),(3,'2000-06-06');
+
+gaussdb=# SELECT a,group_concat(b) FROM group_concat_t1 GROUP BY a ORDER BY a;
+ a|           group_concat
+---+-----------------------------------------
+ 1 | 2000-02-02 00:00:00,2000-03-03 00:00:00
+ 2 | 2000-04-04 00:00:00,2000-05-05 00:00:00
+ 3 | 2000-06-06 00:00:00
+  | 2000-01-01 00:00:00
+(4 rows)
+
+gaussdb=# DROP TABLE group_concat_t1;
+
+聚集列是二进制类型。
+gaussdb=# CREATE TABLE group_concat_t1(a int, b bytea);
+
+gaussdb=# INSERT INTO group_concat_t1 VALUES (NULL,'1'),(1,'2'),(1,'3'),(2,'4'),(2,'5'),(3,'6');
+
+gaussdb=# SELECT a,group_concat(b) FROM group_concat_t1 GROUP BY a ORDER BY a;
+ a | group_concat
+---+--------------
+ 1 | \x32,\x33
+ 2 | \x34,\x35
+ 3 | \x36
+  | \x31
+(4 rows)
+
+gaussdb=# DROP TABLE group_concat_t1;
+
+聚集列是时间间隔类型。
+gaussdb=# CREATE TABLE group_concat_t1(a int, b interval);
+
+gaussdb=# INSERT INTO group_concat_t1 VALUES (NULL,'1 days'),(1,'2 days'),(1,'3 days'),(2,'4 days'),
+(2,'5 days'),(3,'6 days');
+
+gaussdb=# SELECT a,group_concat(b) FROM group_concat_t1 GROUP BY a ORDER BY a;
+ a | group_concat
+---+---------------
+ 1 | 2 days,3 days
+ 2 | 4 days,5 days
+ 3 | 6 days
+  | 1 day
+(4 rows)
+
+gaussdb=# DROP TABLE group_concat_t1;
+
+使用distinct去重。
+[[PDF_PAGE physical=500 printed=451]]
+    gaussdb=# CREATE TABLE group_concat_t1(a int, b interval);
+
+    gaussdb=# INSERT INTO group_concat_t1 VALUES (NULL,'1 days'),(1,'2 days'),(1,'2 days'),(1,'3 days'),
+    (1,'3 days'),(2,'4 days'),(2,'5 days'),(3,'6 days');
+
+    gaussdb=# SELECT a,group_concat(distinct b) FROM group_concat_t1 GROUP BY a ORDER BY a;
+     a | group_concat
+    ---+---------------
+     1 | 2 days,3 days
+     2 | 4 days,5 days
+     3 | 6 days
+      | 1 day
+    (4 rows)
+
+    gaussdb=# DROP TABLE group_concat_t1;
+    使用ORDER BY排序。
+    gaussdb=# CREATE TABLE group_concat_t1(a int, b interval);
+
+    gaussdb=# INSERT INTO group_concat_t1 VALUES (NULL,'1 days'),(1,'2 days'),(1,'3 days'),(2,'4 days'),
+    (2,'5 days'),(3,'6 days');
+
+    gaussdb=# SELECT a,group_concat(b ORDER BY b desc) FROM group_concat_t1 GROUP BY a ORDER
+    BY a;
+     a | group_concat
+    ---+---------------
+     1 | 3 days,2 days
+     2 | 5 days,4 days
+     3 | 6 days
+      | 1 day
+    (4 rows)
+
+    gaussdb=# DROP TABLE group_concat_t1;
+
+●   wm_concat(expression)
+    描述：将指定的列/列的表达式数据用“,”连接成一个字符串进行输出。
+    返回类型：text
+    示例：
+    gaussdb=# CREATE TABLE wm_concat_t1(a int, b interval);
+    CREATE TABLE
+    gaussdb=# INSERT INTO wm_concat_t1 VALUES (NULL,'1 days'),(1,'2 days'),(1,'3 days'),(2,'4 days'),
+    (2,'5 days'),(3,'6 days');
+    INSERT 0 6
+    gaussdb=# SELECT wm_concat(a) FROM wm_concat_t1;
+     wm_concat
+    -----------
+     1,1,2,2,3
+    (1 row)
+    gaussdb=# SELECT wm_concat(b) FROM wm_concat_t1;
+                 wm_concat
+    ------------------------------------------
+     1 day,2 days,3 days,4 days,5 days,6 days
+    (1 row)
+    gaussdb=# DROP TABLE wm_concat_t1;
+
+          说明
+
+         该函数的返回值为text，拼接结果无序。
+●   covar_pop(Y, X)
+    描述：总体协方差。
+    返回类型：double precision
+    示例：
+    gaussdb=# CREATE TABLE covar_pop_t1(a int, b int);
+[[PDF_PAGE physical=501 printed=452]]
+    gaussdb=# INSERT INTO covar_pop_t1 VALUES (NULL,11),(11,21),(11,31),(21,41),(21,51),(31,61);
+
+    gaussdb=# SELECT COVAR_POP(a,b) FROM covar_pop_t1;
+     covar_pop
+    -----------
+          100
+    (1 row)
+
+    gaussdb=# DROP TABLE covar_pop_t1;
+
+●   covar_samp(Y, X)
+    描述：样本协方差。
+    返回类型：double precision
+    示例：
+    gaussdb=# CREATE TABLE covar_samp_t1(a int, b int);
+
+    gaussdb=# INSERT INTO covar_samp_t1 VALUES (NULL,11),(11,21),(11,31),(21,41),(21,51),(31,61);
+
+    gaussdb=# SELECT COVAR_SAMP(a,b) FROM covar_samp_t1;
+     covar_samp
+    ------------
+          125
+    (1 row)
+
+    gaussdb=# DROP TABLE covar_samp_t1;
+
+●   stddev_pop(expression)
+    描述：总体标准差。
+    返回类型：对于浮点类型的输入返回double precision，其他输入返回numeric。
+    示例：
+    gaussdb=# CREATE TABLE stddev_pop_t1(a int, b int);
+
+    gaussdb=# INSERT INTO stddev_pop_t1 VALUES (NULL,11),(11,21),(11,31),(21,41),(21,51),(31,61);
+
+    gaussdb=# SELECT STDDEV_POP(a) FROM stddev_pop_t1;
+        stddev_pop
+    --------------------
+     7.4833147735478828
+    (1 row)
+
+    gaussdb=# DROP TABLE stddev_pop_t1;
+
+●   stddev_samp(expression)
+    描述：样本标准差。
+    返回类型：对于浮点类型的输入返回double precision，其他输入返回numeric。
+    示例：
+    gaussdb=# CREATE TABLE stddev_samp_t1(a int, b int);
+
+    gaussdb=# INSERT INTO stddev_samp_t1 VALUES (NULL,11),(11,21),(11,31),(21,41),(21,51),(31,61);
+
+    gaussdb=# SELECT STDDEV_SAMP(a) FROM stddev_samp_t1;
+       stddev_samp
+    --------------------
+     8.3666002653407555
+    (1 row)
+
+    gaussdb=# DROP TABLE stddev_samp_t1;
+
+●   var_pop(expression)
+    描述：总体方差（总体标准差的平方）。
+    返回类型：对于浮点类型的输入返回double precision类型，其他输入返回
+    numeric类型。
+[[PDF_PAGE physical=502 printed=453]]
+    示例：
+    gaussdb=# CREATE TABLE var_pop_t1(a int, b int);
+
+    gaussdb=# INSERT INTO var_pop_t1 VALUES (NULL,11),(11,21),(11,31),(21,41),(21,51),(31,61);
+
+    gaussdb=# SELECT VAR_POP(a) FROM var_pop_t1;
+          var_pop
+    ---------------------
+     56.0000000000000000
+    (1 row)
+
+    gaussdb=# DROP TABLE var_pop_t1;
+
+●   var_samp(expression)
+    描述：样本方差（样本标准差的平方）。
+    返回类型：对于浮点类型的输入返回double precision类型，其他输入返回
+    numeric类型。
+    示例：
+    gaussdb=# CREATE TABLE var_samp_t1(a int, b int);
+
+    gaussdb=# INSERT INTO var_samp_t1 VALUES (NULL,11),(11,21),(11,31),(21,41),(21,51),(31,61);
+
+    gaussdb=# SELECT VAR_SAMP(a) FROM var_samp_t1;
+         var_samp
+    ---------------------
+     70.0000000000000000
+    (1 row)
+
+    gaussdb=# DROP TABLE var_samp_t1;
+
+●   bit_and(expression)
+    描述：所有非NULL输入值的按位与(AND)，如果全部输入值皆为NULL，那么结
+    果也为NULL 。
+    返回类型：和参数数据类型相同。
+    示例：
+    gaussdb=# CREATE TABLE bit_and_t1(a int, b int);
+
+    gaussdb=# INSERT INTO bit_and_t1 VALUES (NULL,11),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+    gaussdb=# SELECT BIT_AND(a) FROM bit_and_t1;
+     bit_and
+    ---------
+          0
+    (1 row)
+
+    gaussdb=# DROP TABLE bit_and_t1;
+
+●   bit_or(expression)
+    描述：所有非NULL输入值的按位或(OR)，如果全部输入值皆为NULL，那么结果
+    也为NULL。
+    返回类型：和参数数据类型相同
+    示例：
+    gaussdb=# CREATE TABLE bit_or_t1(a int, b int);
+
+    gaussdb=# INSERT INTO bit_or_t1 VALUES (NULL,11),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+    gaussdb=# SELECT BIT_OR(a) FROM bit_or_t1;
+     bit_or
+    --------
+         3
+    (1 row)
+[[PDF_PAGE physical=503 printed=454]]
+    gaussdb=# DROP TABLE bit_or_t1;
+
+●   bool_and(expression)
+    描述：如果所有输入值都是真，则为真，否则为假。
+    返回类型：bool
+    示例：
+    gaussdb=# SELECT bool_and(100 <2500);
+     bool_and
+    ----------
+     t
+    (1 row)
+
+●   bool_or(expression)
+    描述：如果所有输入值只要有一个为真，则为真，否则为假。
+    返回类型：bool
+    示例：
+    gaussdb=# SELECT bool_or(100 <2500);
+     bool_or
+    ----------
+     t
+    (1 row)
+
+●   corr(Y, X)
+    描述：相关系数。
+    返回类型：double precision
+    示例：
+    gaussdb=# CREATE TABLE corr_t1(a int, b int);
+
+    gaussdb=# INSERT INTO corr_t1 VALUES (NULL,11),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+    gaussdb=# SELECT CORR(a,b) FROM corr_t1;
+          corr
+    ------------------
+     .944911182523068
+    (1 row)
+
+    gaussdb=# DROP TABLE corr_t1;
+
+●   every(expression)
+    描述：等效于bool_and。
+    返回类型：bool
+    示例：
+    gaussdb=# SELECT every(100 <2500);
+     every
+    -------
+     t
+    (1 row)
+
+●   regr_avgx(Y, X)
+    描述：自变量的平均值 (sum(X)/Y)。
+    返回类型：double precision
+    示例：
+    gaussdb=# CREATE TABLE regr_t1(a int, b int);
+
+    gaussdb=# INSERT INTO regr_t1 VALUES (NULL,11),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+    gaussdb=# SELECT REGR_AVGX(a,b) FROM regr_t1;
+[[PDF_PAGE physical=504 printed=455]]
+     regr_avgx
+    -----------
+           4
+    (1 row)
+
+    gaussdb=# DROP TABLE regr_t1;
+
+●   regr_avgy(Y, X)
+    描述：因变量的平均值 (sum(Y)/X)。
+    返回类型：double precision
+    示例：
+    gaussdb=# CREATE TABLE regr_avgy_t1(a int, b int);
+
+    gaussdb=# INSERT INTO regr_avgy_t1 VALUES (NULL,11),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+    gaussdb=# SELECT REGR_AVGY(a,b) FROM regr_avgy_t1;
+     regr_avgy
+    -----------
+          1.8
+    (1 row)
+
+    gaussdb=# DROP TABLE regr_avgy_t1;
+
+●   regr_count(Y, X)
+    描述：两个表达式都不为NULL的输入行数。
+    返回类型：bigint
+    示例：
+    gaussdb=# CREATE TABLE regr_count_t1(a int, b int);
+
+    gaussdb=# INSERT INTO regr_count_t1 VALUES (NULL,11),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+    gaussdb=# SELECT REGR_COUNT(a,b) FROM regr_count_t1;
+     regr_count
+    ------------
+            5
+    (1 row)
+
+    gaussdb=# DROP TABLE regr_count_t1;
+
+●   regr_intercept(Y, X)
+    描述：根据所有输入的点(X, Y)按照最小二乘法拟合成一个线性方程，然后返回该
+    直线的Y轴截距。
+    返回类型：double precision
+    示例：
+    gaussdb=# CREATE TABLE regr_intercept_t1(a int, b int);
+
+    gaussdb=# INSERT INTO regr_intercept_t1 VALUES (NULL,11),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+    gaussdb=# SELECT REGR_INTERCEPT(b,a) FROM regr_intercept_t1;
+      regr_intercept
+    ------------------
+     .785714285714286
+    (1 row)
+
+    gaussdb=# DROP TABLE regr_intercept_t1;
+
+●   regr_r2(Y, X)
+    描述：相关系数的平方。
+    返回类型：double precision
+    示例：
+[[PDF_PAGE physical=505 printed=456]]
+    gaussdb=# CREATE TABLE regr_r2_t1(a int, b int);
+
+    gaussdb=# INSERT INTO regr_r2_t1 VALUES (NULL,11),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+    gaussdb=# SELECT REGR_R2(b,a) FROM regr_r2_t1;
+        regr_r2
+    ------------------
+     .892857142857143
+    (1 row)
+
+    gaussdb=# DROP TABLE regr_r2_t1;
+
+●   regr_slope(Y, X)
+    描述：根据所有输入的点(X, Y)按照最小二乘法拟合成一个线性方程， 然后返回
+    该直线的斜率。
+    返回类型：double precision
+    示例：
+    gaussdb=# CREATE TABLE regr_slope_t1(a int, b int);
+
+    gaussdb=# INSERT INTO regr_slope_t1 VALUES (NULL,11),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+    gaussdb=# SELECT REGR_SLOPE(b,a) FROM regr_slope_t1;
+       regr_slope
+    ------------------
+     1.78571428571429
+    (1 row)
+
+    gaussdb=# DROP TABLE regr_slope_t1;
+
+●   regr_sxx(Y, X)
+    描述：sum(Y^2) - sum(X)^2/N （自变量的“平方和”）。
+    返回类型：double precision
+    示例：
+    gaussdb=# CREATE TABLE regr_sxx_t1(a int, b int);
+
+    gaussdb=# INSERT INTO regr_sxx_t1 VALUES (NULL,11),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+    gaussdb=# SELECT REGR_SXX(b,a) FROM regr_sxx_t1;
+     regr_sxx
+    ----------
+         2.8
+    (1 row)
+
+    gaussdb=# DROP TABLE regr_sxx_t1;
+
+●   regr_sxy(Y, X)
+    描述：sum(X*Y) - sum(X) * sum(Y)/N （自变量和因变量的“乘方积”）。
+    返回类型：double precision
+    示例：
+    gaussdb=# CREATE TABLE regr_sxy_t1(a int, b int);
+
+    gaussdb=# INSERT INTO regr_sxy_t1 VALUES (NULL,11),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+    gaussdb=# SELECT REGR_SXY(b,a) FROM regr_sxy_t1;
+     regr_sxy
+    ----------
+          5
+    (1 row)
+
+    gaussdb=# DROP TABLE regr_sxy_t1;
+
+●   regr_syy(Y, X)
+[[PDF_PAGE physical=506 printed=457]]
+    描述：sum(Y^2) - sum(X)^2/N（因变量的"平方和"）。
+    返回类型：double precision
+    示例：
+    gaussdb=# CREATE TABLE regr_syy_t1(a int, b int);
+
+    gaussdb=# INSERT INTO regr_syy_t1 VALUES (NULL,11),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+    gaussdb=# SELECT REGR_SYY(b,a) FROM regr_syy_t1;
+     regr_syy
+    ----------
+          10
+    (1 row)
+
+    gaussdb=# DROP TABLE regr_syy_t1;
+
+●   stddev(expression)
+    描述：stddev_samp的别名。
+    返回类型：对于浮点类型的输入返回double precision，其他输入返回numeric。
+    示例：
+    gaussdb=# CREATE TABLE stddev_t1(a int, b int);
+
+    gaussdb=# INSERT INTO stddev_t1 VALUES (NULL,11),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+    gaussdb=# SELECT STDDEV(a) FROM stddev_t1;
+          stddev
+    -----------------------
+     .83666002653407554798
+    (1 row)
+
+    gaussdb=# DROP TABLE stddev_t1;
+
+●   variance(expression,expression)
+    描述：var_samp的别名。
+    返回类型：对于浮点类型的输入返回double precision类型，其他输入返回
+    numeric类型。
+    示例：
+    gaussdb=# CREATE TABLE variance_t1(a int, b int);
+
+    gaussdb=# INSERT INTO variance_t1 VALUES (NULL,11),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+    gaussdb=# SELECT VARIANCE(a) FROM variance_t1;
+          variance
+    -----------------------
+     .70000000000000000000
+    (1 row)
+
+    gaussdb=# DROP TABLE variance_t1;
+
+●   delta
+    描述：返回当前行和前一行的差值。
+    参数：numeric
+    返回值类型：numeric
+●   checksum(expression)
+    描述：返回所有输入值的CHECKSUM值。使用该函数可以用来验证GaussDB数据
+    库（不支持GaussDB之外的其他数据库）的备份恢复或者数据迁移操作前后表中
+    的数据是否相同。在备份恢复或者数据迁移操作前后都需要用户通过手工执行
+    SQL命令的方式获取执行结果，通过对比获取的执行结果判断操作前后表中的数
+    据是否相同。
+[[PDF_PAGE physical=507 printed=458]]
+      说明
+
+    ● 对于大表，CHECKSUM函数可能会需要很长时间。
+    ● 如果某两表的CHECKSUM值不同，则表明两表的内容是不同的。由于CHECKSUM函数
+      中使用散列函数不能保证无冲突，因此两个不同内容的表可能会得到相同的
+      CHECKSUM值，存在这种情况的可能性较小。对于列进行的CHECKSUM也存在相同的
+      情况。
+    ● 对于时间类型timestamp, timestamptz和smalldatetime，计算CHECKSUM值时请确保
+      时区设置一致。
+–    若计算某列的CHECKSUM值，且该列类型可以默认转为TEXT类型，则
+     expression为列名。
+–    若计算某列的CHECKSUM值，且该列类型不能默认转为TEXT类型，则
+     expression为列名::TEXT。
+–    若计算所有列的CHECKSUM值，则expression为表名::TEXT。
+可以默认转换为TEXT类型的类型包括：char, name, int8, int2, int1, int4, raw,
+pg_node_tree, float4, float8, bpchar, varchar, nvarchar2, date, datea（仅在A兼
+容性生效）, timestamp, timestamptz, numeric, smalldatetime，其他类型需要
+强制转换为TEXT，例如XML类型。
+返回类型：numeric。
+示例：
+表中可以默认转为TEXT类型的某列的CHECKSUM值。
+gaussdb=# CREATE TABLE checksum_t1(a int, b int);
+
+gaussdb=# INSERT INTO checksum_t1 VALUES (NULL,11),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+gaussdb=# SELECT CHECKSUM(a) FROM checksum_t1;
+  checksum
+-------------
+ 18126842830
+(1 row)
+
+gaussdb=# DROP TABLE checksum_t1;
+表中不能默认转为TEXT类型的某列的CHECKSUM值。注意此时CHECKSUM参数
+是列名::TEXT。
+gaussdb=# CREATE TABLE checksum_t1(a int, b int);
+
+gaussdb=# INSERT INTO checksum_t1 VALUES (NULL,11),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+gaussdb=# SELECT CHECKSUM(a::TEXT) FROM checksum_t1;
+  checksum
+-------------
+ 18126842830
+(1 row)
+
+gaussdb=# DROP TABLE checksum_t1;
+表中所有列的CHECKSUM值。注意此时CHECKSUM参数是表名::TEXT，且表名前
+不加Schema。
+gaussdb=# CREATE TABLE checksum_t1(a int, b int);
+
+gaussdb=# INSERT INTO checksum_t1 VALUES (NULL,11),(1,2),(1,3),(2,4),(2,5),(3,6);
+
+gaussdb=# SELECT CHECKSUM(checksum_t1::TEXT) FROM checksum_t1;
+  checksum
+-------------
+ 11160522226
+(1 row)
+
+gaussdb=# DROP TABLE checksum_t1;
+[[PDF_PAGE physical=508 printed=459]]
+●   percentile_cont(percentile float)
+    描述：对给定的列按照序列排序并返回百分位值。需要与within group (order by)
+    结合使用，指定分位值的列，且该列类型需要为数值型或interval。
+    参数：参数说明如表1-93所示。
+    返回值类型：float或interval，取决于within group (order by)指定列的值为数值
+    型或interval。
+
+    表 1-93 percentile_cont 参数说明
+     参数名                                类型                        描述
+
+     percentile                         float                     指定百分位，取值范围[0，1]，
+                                                                  精度为浮点值，例如0.95为95分
+                                                                  位值。
+
+
+
+
+           说明
+
+         ● percentile为[0,1]之间的小数，精度为浮点值类型，不支持95%写法。
+    示例：
+    gaussdb=# SELECT
+    gaussdb-#        percentile_cont(0.5) WITHIN GROUP (ORDER BY value)
+    gaussdb-# FROM
+    gaussdb-#       (VALUES ('2019-07-12 00:00:01'::timestamptz,'red',1),
+    gaussdb(#       ('2019-07-12 00:00:01'::timestamptz,'blue',2)) v(time,color,value);
+     percentile_cont
+    -----------------
+              1.5
+    (1 row)
+
+●   mode() WITHIN GROUP (ORDER BY value anyelement)
+    描述：返回某列中出现频率最高的值，如果多个值频率相同，则返回最小的值。
+    排序方式和该列类型的默认排序方式相同。其中value为输入参数，可以为任意类
+    型。
+    参数：参照如表1-94所示。
+    返回类型：与输入参数类型相同。
+
+    表 1-94 mode 函数参数说明
+     参数名                                类型                        描述
+
+     value                              anyelement                查询列。
+
+
+
+
+           说明
+
+         ● 需要与within group一起使用，无within group语句，会报错，该函数参数放在group
+           的order by后面。
+         ● 不能和over子句一起使用。
+    示例：
+    gaussdb=# SELECT mode() WITHIN GROUP (ORDER BY value) FROM (values(1, 'a'), (2, 'b'), (2, 'c'))
+    v(value, tag);
+[[PDF_PAGE physical=509 printed=460]]
+              mode
+             ------
+                2
+             (1 row)
+             gaussdb=# SELECT mode() WITHIN GROUP (ORDER BY tag) FROM (values(1, 'a'), (2, 'b'), (2, 'c'))
+             v(value, tag);
+              mode
+             ------
+              a
+             (1 row)
+             gaussdb=# SELECT
+             gaussdb-#      mode() within group (order by value)
+             gaussdb-# FROM
+             gaussdb-#      (VALUES ('2019-07-12 00:00:00'::timestamptz, 1),('2019-07-12 00:01:00'::timestamptz,
+             2),('2019-07-12 00:02:00'::timestamptz, 3)) v(time,value);
+              mode
+             ------
+                1
+             (1 row)
+
+         ●   pivot_func(anyelement)
+             描述：返回某列中唯一不为NULL的值，如果有超过两个非NULL值则报错。其中
+             value为输入参数，可以为任意类型。
+             返回类型：与输入参数类型相同。
+                   说明
+
+                  该聚合函数主要作为pivot语法内部使用。
+             示例：
+             gaussdb=# CREATE TABLE pivot_func_t1(a int, b int);
+
+             gaussdb=# INSERT INTO pivot_func_t1 VALUES (NULL,11),(1,2);
+
+             gaussdb=# SELECT PIVOT_FUNC(a) FROM pivot_func_t1;
+              pivot_func
+             ------------
+                     1
+             (1 row)
+
+             gaussdb=# DROP TABLE pivot_func_t1;
+
+
+聚集函数嵌套
+         描述：对聚集函数分组计算的结果再进行一次聚集函数操作。
+
+         一般可描述为：
+         SELECT AGG1(AGG2(column_name1)) FROM table_name GROUP BY column_name2;
+
+         等价为：
+         SELECT AGG1(value) FROM (SELECT AGG2(column_name1) value FROM table_name GROUP BY
+         column_name2);
+
+         其中：
+
+         ●   AGG1()：表示外层聚集函数。
+         ●   AGG2()：表示内层聚集函数。
+         ●   table_name：表示表名。
+         ●   column_name1、column_name2：表示列名。
+         ●   value：表示内层聚集函数结果的别名。
+[[PDF_PAGE physical=510 printed=461]]
+整体含义可描述为：将内层聚集函数AGG2()分组计算的结果作为外层聚集函数
+AGG1()的输入再计算一次。
+
+      说明
+
+    1. 嵌套的聚集函数应位于SELECT和FROM之间，否则无意义。
+    2. 使用嵌套聚集函数的SELECT语句应包含GROUP BY子句。
+    3. 与嵌套聚集函数同时被SELECT的，应同为嵌套聚集函数，或为常量表达式。
+    4. 聚集函数仅支持一次聚集函数嵌套操作。
+    5. 当前支持以下聚集函数之间的嵌套：avg、max、min、sum、var_pop、var_samp、
+       variance、stddev_pop、stddev_samp、stddev、median、regr_sxx、regr_syy、regr_sxy、
+       regr_avgx、regr_avgy、regr_r2、regr_slope、regr_intercept、covar_pop、covar_samp、
+       corr和listagg。
+    6. 内层聚集函数的返回结果类型应符合外层聚集函数的参数类型。
+
+示例：
+gaussdb=# CREATE TABLE test1 (id INT,val INT);
+CREATE TABLE
+gaussdb=# INSERT INTO test1 VALUES (1, 1);
+INSERT 0 1
+gaussdb=# INSERT INTO test1 VALUES (1, null);
+INSERT 0 1
+gaussdb=# INSERT INTO test1 VALUES (2, 10);
+INSERT 0 1
+gaussdb=# INSERT INTO test1 VALUES (2, 55);
+INSERT 0 1
+
+gaussdb=# SELECT SUM(MIN(val)) FROM test1 GROUP BY id;
+ sum
+-----
+  11
+(1 row)
+
+gaussdb=# DROP TABLE test1;
+DROP TABLE

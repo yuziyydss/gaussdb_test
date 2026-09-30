@@ -1,0 +1,412 @@
+[[PDF_PAGE physical=804 printed=755]]
+1.6.28 SPM 计划管理函数
+       ●   GS_SPM_EVOLUTE_PLAN(sql_hash, plan_hash)
+[[PDF_PAGE physical=805 printed=756]]
+    描述：GS_SPM_EVOLUTE_PLAN属于DBE_SQL_UTIL schema，是SPM特性用于
+    计划演进的接口函数。只要该计划基线相关的表存在，就可以对该计划基线进行
+    演进。
+    参数：如表1-212所示。
+
+    表 1-212 GS_SPM_EVOLUTE_PLAN 入参和返回值列表
+
+     参数                  类型             描述                                        取值范围
+
+     sql_hash            IN bigint      SQL文本的hash值。                              -
+
+     plan_hash           IN bigint      SQL计划outline文本的hash值。                     -
+
+     evolute_status      OUT            演进行为是否正常完成：t表示正                           t/f
+                         boolean        常；异常会报错。
+
+
+
+
+    返回值类型：boolean
+    示例：
+    gaussdb=# SELECT * FROM dbe_sql_util.gs_spm_evolute_plan(107760189, 2284373089);
+     evolute_status
+    ----------------
+     t
+    (1 row)
+
+●   GS_SPM_SET_PLAN_STATUS(sql_hash, plan_hash, plan_status)
+    描述：GS_SPM_SET_PLAN_STATUS属于DBE_SQL_UTIL schema，它是SPM特性
+    用于修改baseline状态的接口函数，该接口生效时，会同步刷新gs_spm_baseline
+    表中的invalid字段为false。
+    参数：如表1-213所示。
+
+    表 1-213 GS_SPM_SET_PLAN_STATUS 入参和返回值列表
+
+     参数                  类型            描述                                  取值范围
+
+     sql_hash            IN bigint     SQL文本的hash值。                        -
+
+     plan_hash           IN bigint     SQL计划outline文本的hash                 -
+                                       值。
+
+     plan_status         IN text       计划的状态。                              ● ACC：表示已
+                                                                             经接受的计
+                                                                             划。
+                                                                           ● UNACC：表示
+                                                                             未接受的计
+                                                                             划。
+                                                                           ● FIXED：一种
+                                                                             特殊的ACC状
+                                                                             态的计划，计
+                                                                             划的匹配优先
+                                                                             级高于ACC状
+                                                                             态的计划。
+[[PDF_PAGE physical=806 printed=757]]
+     参数                   类型            描述                                     取值范围
+
+     execute_status       OUT           修改计划状态行为是否正常                           t/f
+                          boolean       完成：t表示正常；异常会报
+                                        错。
+
+
+
+
+    返回值类型：boolean
+    示例：
+    gaussdb=# SELECT dbe_sql_util.gs_spm_set_plan_status(sql_hash, plan_hash, 'ACC') FROM
+    gs_spm_sql_baseline
+    where outline like '%BitmapScan%';
+     gs_spm_set_plan_status
+    ------------------------
+     t
+    (1 row)
+
+●   GS_SPM_DISPLAY_PLANS(sql_hash)
+    描述：GS_SPM_DISPLAY_PLANS属于DBE_SQL_UTIL schema，它是SPM特性用
+    于查看单条SQL所有baseline的接口函数。
+    参数：如表1-214所示。
+
+    表 1-214 GS_SPM_DISPLAY_PLANS 入参和返回值列表
+     参数               类型            描述                                   取值范围
+
+     sql_hash         IN bigint     SQL的唯一标识。                            -
+
+     sql_hash         OUT           SQL文本的hash值。                         -
+                      bigint
+
+     plan_id          OUT           SQL计划outline文本的hash                  -
+                      bigint        值。
+
+     outline          OUT text      当前计划对应outline的所有                     -
+                                    Hint的组合字符串。
+
+     cost             OUT           当前计划的代价。                             -
+                      double
+
+     status           OUT text      当前计划的状态。                             ● ACC：表示已经接
+                                                                           受的计划。
+                                                                         ● UNACC：表示未
+                                                                           接受的计划。
+                                                                         ● FIXED：一种特殊
+                                                                           的ACC状态的计
+                                                                           划，计划的匹配优
+                                                                           先级高于ACC状态
+                                                                           的计划。
+
+     gplan            OUT           当前计划是否是gplan。t表                      t/f
+                      boolean       示是gplan；异常会报错。
+[[PDF_PAGE physical=807 printed=758]]
+     参数                   类型               描述                                          取值范围
+
+     namespace            OUT text         当前search_path中的OID列                         -
+     _oids                                 表，其中OID满足以下特
+                                           征：
+                                           ● 用户所拥有权限的
+                                             Schema的OID。
+                                           ● 存在的Schema的OID。
+                                           ● 非本地临时表所在
+                                             Schema的OID。
+
+
+
+
+    返回值类型：bigint, text, double, text, boolean
+    示例：
+    gaussdb=# SELECT sql_hash, plan_id, outline, status, gplan, namespace_oids FROM
+    dbe_sql_util.gs_spm_display_plans(739235091) ORDER BY status, outline;
+     sql_hash | plan_id |                 outline               | status | gplan | namespace_oids
+    -----------+------------+----------------------------------------+--------+-------+----------------
+     739235091 | 2783973489 | begin_outline_data                          +| ACC | t     | 11, 2200
+             |        | TableScan(@"sel$1" public.t1@"sel$1")+|                |    |
+             |        | version("1.0.0")                   +|        |     |
+             |        | end_outline_data                      |        |     |
+    (1 row)
+
+●   GS_SPM_RELOAD_PLAN(sql_hash，plan_hash)
+    描述：GS_SPM_RELOAD_PLAN属于DBE_SQL_UTIL schema，它是SPM特性用于
+    加载baseline系统表中某baseline到SPM global cache中的接口函数。
+    参数：如表1-215所示。
+
+
+    表 1-215 GS_SPM_RELOAD_PLAN 入参和返回值列表
+
+     参数                        类型               描述                                             取值范围
+
+     sql_hash                  IN bigint        SQL文本的hash值。                                   -
+
+     plan_id                   IN bigint        SQL计划outline文本的hash                            -
+                                                值。
+
+     execute_status            OUT              baseline的加载行为是否正常                              t/f
+                               boolean          完成：t表示正常；异常会报
+                                                错。
+
+
+
+
+    返回值类型：boolean
+    示例：
+    gaussdb=# SELECT dbe_sql_util.gs_spm_reload_plan(sql_hash, plan_hash) from gs_spm_sql_baseline
+    where outline like '%IndexScan%';
+     gs_spm_reload_plan
+    --------------------
+     t
+    (1 row)
+[[PDF_PAGE physical=808 printed=759]]
+●   GS_SPM_VALIDATE_PLAN(sql_hash, plan_hash)
+    描述：GS_SPM_VALIDATE_PLAN属于DBE_SQL_UTIL schema，它是SPM特性用
+    于计划可用性验证的接口函数。
+    参数：如表1-216所示。
+
+    表 1-216 GS_SPM_VALIDATE_PLAN 入参和返回值列表
+
+     参数                   类型            描                                                取值范围
+
+     sql_hash             IN bigint     SQL文本的hash值。                                     -
+
+     plan_hash            IN bigint     SQL计划outline文本的hash值。                            -
+
+     execute_status       OUT           被验证的计划是否可用：                                      t/f
+                          boolean       t：被验证的计划可用；f: 被验证的计
+                                        划不可用
+
+
+
+
+    返回值类型：boolean
+    示例：
+    gaussdb=# SELECT dbe_sql_util.gs_spm_validate_plan(sql_hash, plan_hash) FROM
+    gs_spm_sql_baseline WHERE outline LIKE '%IndexScan%';
+     gs_spm_validate_plan
+    ----------------------
+     f
+    (1 row)
+
+●   GS_SPM_DELETE_PLAN(sql_hash, plan_hash)
+    描述：GS_SPM_DELETE_PLAN属于DBE_SQL_UTIL schema，它是SPM特性用于
+    计划删除baseline的接口函数。若该函数在执行期间异常中止，可能会导致
+    gs_spm_baseline表中记录数超出GUC参数spm_plan_capture_max_plannum指定
+    的数量。
+    参数：如表1-217所示。
+
+    表 1-217 GS_SPM_DELETE_PLAN 入参和返回值列表
+
+     参数                   类型            描述                                           取值范围
+
+     sql_hash             IN bigint     SQL文本的hash值。                                 -
+
+     plan_hash            IN bigint     SQL计划outline文本的hash值。                        -
+
+     execute_status       OUT           计划删除行为是否正常完成：t表示                             t/f
+                          boolean       正常；异常会报错。
+
+
+
+
+    返回值类型：boolean
+    示例：
+    gaussdb=# SELECT dbe_sql_util.gs_spm_delete_plan(sql_hash, plan_hash) FROM gs_spm_sql_baseline
+    WHERE outline LIKE '%IndexScan%';
+     gs_spm_delete_plan
+    --------------------
+[[PDF_PAGE physical=809 printed=760]]
+     t
+    (1 row)
+
+●   GS_SPM_GET_PLAN_HISTORY(sql_input_hash，history_time)
+    描述：GS_SPM_GET_PLAN_HISTORY属于DBE_SQL_UTIL schema，它是SPM特
+    性用于查看指定查询语句在某个给定历史时间点之前的所有历史计划。
+    参数：如表1-218所示。
+
+    表 1-218 GS_SPM_GET_PLAN_HISTORY 入参和返回值列表
+     参数             类型               描述               取值范围
+
+     sql_input_ha   IN bigint        SQL文本的hash值。     -
+     sh
+
+     history_time   IN timestamp     指定的历史时间点。        -
+                    with time zone
+
+     sql_hash       OUT bigint       SQL文本的hash值。     -
+
+     plan_hash      OUT bigint       SQL计划outline文本   -
+                                     的hash值。
+
+     outline        OUT text         当前计划对应outline    -
+                                     的所有Hint的组合字
+                                     符串。
+
+     plan_status    OUT text         当前计划的状态。         ● ACC：表示已经
+                                                        接受的计划。
+                                                      ● UNACC：表示未
+                                                        接受的计划。
+                                                      ● FIXED：一种特殊
+                                                        的ACC状态的计
+                                                        划，计划的匹配
+                                                        优先级高于ACC
+                                                        状态的计划。
+
+     gplan          OUT boolean      当前计划是否是          t/f
+                                     gplan。t表示是
+                                     gplan；异常会报
+                                     错。
+
+     cost           OUT double       当前计划的代价。         -
+
+     sql_text       OUT text         SQL文本。           -
+
+     param_num      OUT integer      SQL的参数数量。        -
+[[PDF_PAGE physical=810 printed=761]]
+     参数                     类型                         描述                                 取值范围
+
+     source                 OUT text                   baseline的来源。                       ● AUTO：表示该基
+                                                                                            线由AUTO模式捕
+                                                                                            获。
+                                                                                          ● MANUAL：表示
+                                                                                            该基线由
+                                                                                            MANUAL模式捕
+                                                                                            获。
+                                                                                          ● STORE：表示该
+                                                                                            基线由STORE模
+                                                                                            式捕获。
+
+     history_creat          OUT                        跳变历史创建的时                           -
+     ion_time               timestamp with             间。
+                            time zone
+
+     invalid                OUT boolean                当前baseline是否无                      t/f
+                                                       效。
+
+     namespace_             OUT text                   当前search_path中                     -
+     oids                                              的OID列表，其中
+                                                       OID满足以下特征：
+                                                       ● 用户所拥有权限的
+                                                         Schema的OID。
+                                                       ● 存在的Schema的
+                                                         OID。
+                                                       ● 非本地临时表所在
+                                                         Schema的OID。
+
+
+
+
+    返回值类型：record
+    示例：
+    gaussdb=# SELECT dbe_sql_util.gs_spm_get_plan_history(sql_hash, creation_time + 1) FROM
+    pg_catalog.gs_spm_plan_history WHERE sql_hash IN (SELECT sql_hash FROM
+    pg_catalog.gs_spm_baseline WHERE sql_namespace = get_schema_oid(CURRENT_SCHEMA::cstring));
+    -[ RECORD 1 ]-----------
+    +---------------------------------------------------------------------------------------------------------------------
+    ------------------
+    gs_spm_get_plan_history | (812490094,1950233227," begin_outline_data
+                       | TableScan(@""sel$1""
+    test_spm_gplan_change_perception.test_spm_perception_t1@""sel$1"")
+                       | version(""1.0.0"")
+                       | end_outline_data",UNACC,t,180,"select * from test_spm_perception_t1 where a =
+    $1",1,STORE,10,"Mon Jan 13 06:04:22.614726 2025 PST",f,"11, 2200")
+    (4 rows)
+
+●   GS_SPM_ACCEPT_HISTORICAL_PLAN(sql_input_hash, history_time,
+    plan_status, [namespace_oids])
+    描述：GS_SPM_ACCEPT_HISTORICAL_PLAN属于DBE_SQL_UTIL schema，它是
+    SPM特性用于设置执行查询语句在某个时间点之前最新一条的历史计划状态为指
+    定状态。
+    参数：如表1-219所示。
+[[PDF_PAGE physical=811 printed=762]]
+    表 1-219 GS_SPM_ACCEPT_HISTORICAL_PLAN 入参和返回值列表
+
+     参数                类型            描述                                 取值范围
+
+     sql_input_h       IN bigint     SQL文本的hash值。                       -
+     ash
+
+     history_time      IN bigint     指定的历史时间点。                          -
+
+     plan_status       IN text       计划的状态。                             ● ACC：表示已经接受
+                                                                          的计划。
+                                                                        ● FIXED：一种特殊的
+                                                                          ACC状态的计划，计
+                                                                          划的匹配优先级高于
+                                                                          ACC状态的计划。
+
+     namespace_        IN text       可选的输入参数，指定的                        -
+     oids                            Schema的OID为有序列
+                                     表。
+                                     ● 当不指定时，不会区分
+                                       namespace_oids查找
+                                       最新的历史记录。
+                                     ● 当指定时，会在指定
+                                       namespace_oids下查
+                                       找最新的历史记录。
+
+     plan_hash_        OUT           被设置的计划outline文本                    -
+     previous          bigint        的hash值。
+
+
+
+
+    返回值类型：bigint
+    示例：
+    gaussdb=# SELECT dbe_sql_util.gs_spm_accept_historical_plan(sql_hash, creation_time + 1, 'ACC')
+    FROM gs_spm_plan_history where sql_hash IN (SELECT sql_hash FROM pg_catalog.gs_spm_baseline
+    WHERE sql_namespace = get_schema_oid(CURRENT_SCHEMA::cstring));
+     gs_spm_accept_historical_plan
+    -------------------------------
+                     602237302
+    (1 row)
+
+●   GS_SPM_DELETE_PLAN_HISTORY(sql_hash, plan_hash, plan_hash_previous,
+    userid, creation_time)
+    描述：GS_SPM_DELETE_PLAN_HISTORY属于DBE_SQL_UTIL schema，它是SPM
+    特性用于从PG_CATALOG.GS_SPM_PLAN_HISTORY中删除指定记录。
+    参数：如表1-220所示。
+
+
+    表 1-220 GS_SPM_DELETE_PLAN_HISTORY 入参和返回值列表
+
+     参数                          类型                          描述
+
+     sql_hash                    IN bigint                   SQL文本的hash值。
+
+     plan_hash                   IN bigint                   SQL计划outline文本的hash值。
+[[PDF_PAGE physical=812 printed=763]]
+ 参数                          类型                           描述
+
+ plan_hash_previous          IN bigint                    上一次使用的计划outline文本的
+                                                          hash值。
+
+ userid                      IN oid                       用户的oid。
+
+ creation_time               IN timestamp with            跳变历史创建的时间。
+                             time zone
+
+ delete_count                OUT bigint                   被删除历史的个数。
+
+
+
+
+返回值类型：bigint
+示例：
+gaussdb=# SELECT dbe_sql_util.gs_spm_delete_plan_history(sql_hash, plan_hash, plan_hash_previous,
+userid, creation_time) FROM pg_catalog.gs_spm_plan_history WHERE sql_hash IN (SELECT sql_hash
+FROM pg_catalog.gs_spm_baseline WHERE sql_namespace =
+get_schema_oid(CURRENT_SCHEMA::cstring));
+ gs_spm_delete_plan_history
+----------------------------
+                     1
+(1 row)

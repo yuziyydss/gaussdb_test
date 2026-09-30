@@ -1,0 +1,192 @@
+[[PDF_PAGE physical=1131 printed=1082]]
+1.8 伪列
+         ROWNUM是一个伪列，它返回一个数字，表示从查询中获取结果的行编号。第一行的
+         ROWNUM为1，第二行的为2，依此类推，使用ROWNUM来限制查询返回的行数。
+         ROWNUM机制介绍：
+         ●   赋值时机：ROWNUM是在查询结果集产生过程中动态分配的，是在查询获取到
+             结果集之后再加上去的一个伪列。这意味着序号是在数据被WHERE子句过滤后，
+             但在任何ORDER BY排序之前就确定了。
+         ●   比较操作符使用：ROWNUM<=n（n大于1）是有效的，常用语限制返回的行数，
+             例如获取前N条记录。如以下示例所示：
+             gaussdb=# CREATE TABLE Students (name varchar(20), id int) with (STORAGE_TYPE = USTORE);
+             gaussdb=# INSERT INTO Students VALUES ('Jack', 35);
+             gaussdb=# INSERT INTO Students VALUES ('Leon', 15);
+             gaussdb=# INSERT INTO Students VALUES ('James', 24);
+             gaussdb=# INSERT INTO Students VALUES ('Taker', 81);
+             gaussdb=# INSERT INTO Students VALUES ('Mary', 25);
+             gaussdb=# INSERT INTO Students VALUES ('Rose', 64);
+             gaussdb=# INSERT INTO Students VALUES ('Perl', 18);
+             gaussdb=# INSERT INTO Students VALUES ('Under', 57);
+             gaussdb=# INSERT INTO Students VALUES ('Angel', 101);
+             gaussdb=# INSERT INTO Students VALUES ('Frank', 20);
+             gaussdb=# INSERT INTO Students VALUES ('Charlie', 40);
+
+             -- 输出表Students前10行数据。
+             gaussdb=# SELECT * FROM Students WHERE rownum <= 10;
+              name | id
+             -------+-----
+              Jack | 35
+              Leon | 15
+              James | 24
+              Taker | 81
+              Mary | 25
+              Rose | 64
+              Perl | 18
+              Under | 57
+              Angel | 101
+              Frank | 20
+             (10 rows)
+         ●   ROWNUM = 1是有效的，可以查询出第一条记录。
+             gaussdb=# SELECT * FROM Students WHERE rownum = 1;
+              name | id
+             ------+----
+              Jack | 35
+             (1 row)
+             ROWNUM = n（当n > 1）、ROWNUM > n（n >= 1）或ROWNUM >= n（n >
+             1）这些条件结果永远为FALSE，不会返回任何行。这是因为第一条取到的行分配
+             ROWNUM=1，如果它不满足条件（例如ROWNUM > 1），则会被丢弃；接着处
+             理下一条记录，它又成为了新的“第一条”记录，ROWNUM再次被赋值为1，如
+             此循环，所有行都无法满足条件。
+[[PDF_PAGE physical=1132 printed=1083]]
+    gaussdb=# SELECT * FROM Students WHERE rownum > 1;
+     name | id
+    ------+----
+    (0 rows)
+
+ROWNUM的基本使用：
+
+●   限制返回行数。
+    gaussdb=# SELECT * FROM Students WHERE rownum <= 2;
+     name | id
+    ------+----
+     Jack | 35
+     Leon | 15
+    (2 rows)
+
+●   实现分页查询：由于不能直接使用ROWNUM > n，分页查询需要通过子查询为
+    ROWNUM创建一个别名（例如rn），使其成为一个“固定”的列，然后在外层查
+    询中基于这个别名进行范围筛选。
+    gaussdb=# SELECT *
+    FROM (SELECT a.*, ROWNUM AS rn
+         FROM
+         (SELECT * FROM Students ORDER BY id DESC) a -- 内层子查询先排序
+         WHERE ROWNUM <= 10) -- 中层子查询限定上限并生成ROWNUM别名
+    WHERE rn >= 5;
+      name | id | rn
+    ---------+----+----
+     Charlie | 40 | 5
+     Jack | 35 | 6
+     Mary | 25 | 7
+     James | 24 | 8
+     Frank | 20 | 9
+     Perl | 18 | 10
+    (6 rows)
+
+●   排序后的前N条数据：如果直接在同级查询中同时使用WHERE ROWNUM <= N
+    和ORDER BY，可能会得到不正确的结果，应为ROWNUM在排序前就已分配。正
+    确方法是先使用子查询进行排序，后分配ROWNUM。
+    gaussdb=# SELECT rownum, * FROM (SELECT * FROM Students ORDER BY 1) WHERE rownum <= 2;
+     rownum | name | id
+    --------+---------+-----
+         1 | Angel | 101
+         2 | Charlie | 40
+    (2 rows)
+
+●   使用ROWNUM指定给表的一定范围的每一行分配值。
+    gaussdb=# SELECT * FROM Students;
+      name | id
+    ---------+-----
+     Jack | 35
+     Leon | 15
+     James | 24
+     Taker | 81
+     Mary | 25
+     Rose | 64
+     Perl | 18
+     Under | 57
+     Angel | 101
+     Frank | 20
+     Charlie | 40
+    (11 rows)
+
+    gaussdb=# UPDATE Students SET id = id + 5 WHERE rownum < 4;
+    UPDATE 3
+    gaussdb=# SELECT * FROM Students;
+      name | id
+    ---------+-----
+     Jack | 40
+     Leon | 20
+     James | 29
+[[PDF_PAGE physical=1133 printed=1084]]
+     Taker | 81
+     Mary | 25
+     Rose | 64
+     Perl | 18
+     Under | 57
+     Angel | 101
+     Frank | 20
+     Charlie | 40
+    (11 rows)
+
+    gaussdb=# DROP TABLE Students;
+    DROP TABLE
+
+使用ROWNUM有一定的约束条件：
+●   ROWNUM不可作为别名，以免SQL语句出现歧义。
+●   创建索引时不可使用ROWNUM。
+●   创建表时默认值不可为ROWNUM。
+●   Where子句中不可使用ROWNUM的别名。
+●   在插入数据时不可使用ROWNUM。
+●   在无表查询中不可以使用ROWNUM。
+●   ROWNUM不能用于Limit子句。
+●   ROWNUM不能用于EXECUTE语句的参数。
+●   UPSERT语句不支持ROWNUM用做update子句更新。
+●   若HAVING子句中含有ROWNUM（且不在聚合函数中）时，GROUP BY子句中必
+    须含有ROWNUM（且不在聚合函数中），除非GROUP BY子句存在表达式，例
+    如：SELECT a + a FROM t GROUP BY a + a HAVING rownum < 5。
+●   HAVING子句中如果存在ROWNUM条件则不允许HAVING子句下推至扫描节点：
+    gaussdb=# CREATE TABLE test (a int, b int);
+    CREATE TABLE
+    gaussdb=# INSERT INTO test SELECT generate_series, generate_series FROM generate_series(1, 10);
+    INSERT 0 10
+
+    --rownum条件不能下推至seqscan。
+    gaussdb=# EXPLAIN SELECT a,rownum FROM test group by a,rownum having rownum < 5;
+                           QUERY PLAN
+    --------------------------------------------------------------------
+     HashAggregate (cost=42.23..69.10 rows=2149 width=4)
+      Group By Key: a, ROWNUM
+      Filter: ((ROWNUM) < 5)
+      -> Rownum (cost=0.00..31.49 rows=2149 width=4)
+           -> Seq Scan on test (cost=0.00..31.49 rows=2149 width=4)
+    (5 rows)
+
+●   子查询中如果存在ROWNUM条件则不允许谓词下推至扫描节点：
+    -- b<5 不能下推至seqscan。
+    gaussdb=# EXPLAIN SELECT * FROM (SELECT * FROM test WHERE rownum < 5) WHERE b < 5;
+                             QUERY PLAN
+    -------------------------------------------------------------------------
+     Subquery Scan on __unnamed_subquery__ (cost=0.00..0.01 rows=1 width=8)
+      Filter: (__unnamed_subquery__.b < 5)
+      -> Rownum (cost=0.00..0.00 rows=1 width=8)
+           StopKey: (ROWNUM < 5)
+           -> Seq Scan on test (cost=0.00..31.49 rows=2149 width=8)
+    (5 rows)
+
+    gaussdb=# DROP TABLE test;
+    DROP TABLE
+[[PDF_PAGE physical=1134 printed=1085]]
+    说明
+
+    不推荐ROWNUM条件用于JOIN ON子句，GaussDB中ROWNUM条件用于JOIN ON子句时在
+    LEFT JOIN、RIGHT JOIN、FULL JOIN场景下和MERGE INTO场景下与其他数据库行为不一致，
+    直接进行业务迁移存在风险。
+
+当父查询中有rownum限制条件同时子查询的投影列中有rownum时，该限制条件将下
+推至子查询。其中约束条件如下：
+
+●   只有父查询rownum限制条件为“<”、“<=”、“=”，且子查询直接用
+    rownum作为伪列时，才可以下推。
+●   父查询中有多个对子查询中rownum的过滤条件并且满足下推要求时，按顺序仅
+    下推第一个过滤条件。
+●   当子查询中包括volatile函数、存储过程时不能下推。

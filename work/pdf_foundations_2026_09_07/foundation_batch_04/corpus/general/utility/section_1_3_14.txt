@@ -1,0 +1,251 @@
+[[PDF_PAGE physical=148 printed=99]]
+1.3.14 范围类型
+         范围类型是表示某种元素类型（称为范围的subtype）的值范围的数据类型。例如，
+         timestamp的范围可用于表示会议室的预定时间段，此时数据类型是tsrange
+         （“timestamp range”的简写），而timestamp是其subtype。subtype必须具备有序
+         性，这样才能明确判断一个元素值是在范围值之内、之前还是之后。
+         范围类型具有显著优势，它们能将多个元素值统一表达为单一范围值，并清晰表达如
+         范围重叠等概念，如用于时间安排的时间和日期范围，以及价格范围、仪器的量程等
+         场景都是可以表示的。
+
+内建范围类型
+         系统提供有下列内建范围类型：
+
+         ●    int4range — integer的范围
+         ●    int8range — bigint的范围
+         ●    numrange — numeric的范围
+         ●    tsrange — 不带时区的timestamp的范围
+         ●    tstzrange — 带时区的timestamp的范围
+         ●    daterange — date的范围
+         此外，还可以自定义范围类型，具体请参见CREATE TYPE。
+
+例子
+         -- 创建表格并插入数据。
+         gaussdb=# CREATE TABLE reservation (room int, during tsrange);
+         gaussdb=# INSERT INTO reservation VALUES (1108, '[2010-01-01 14:30, 2010-01-01 15:30)');
+
+         -- 判断是否包含。
+         gaussdb=# SELECT int4range(10, 20) @> 3;
+          ?column?
+         ----------
+          f
+         (1 row)
+
+         -- 判断是否重叠。
+         gaussdb=# SELECT numrange(11.1, 22.2) && numrange(20.0, 30.0);
+          ?column?
+         ----------
+          t
+         (1 row)
+[[PDF_PAGE physical=149 printed=100]]
+          -- 抽取上界。
+          gaussdb=# SELECT upper(int8range(15, 25));
+           upper
+          -------
+             25
+          (1 row)
+
+          -- 计算交集。
+          gaussdb=# SELECT int4range(10, 20) * int4range(15, 25);
+           ?column?
+          ----------
+           [15,20)
+          (1 row)
+
+          -- 判断范围是否为空。
+          gaussdb=# SELECT isempty(numrange(1, 5));
+           isempty
+          ---------
+           f
+          (1 row)
+
+          -- 删除表格。
+          gaussdb=# DROP TABLE reservation;
+
+          范围类型上的操作符和函数的完整列表请参见范围函数和操作符。
+
+                说明
+
+              在A兼容模式下，开启mapping_date_to_datea参数后，date类型会映射为datea类型，datea类
+              型不支持作为范围类型，daterange函数不支持datea类型作为入参。
+
+
+包含和排除边界
+          每一个非空范围都有两个边界，下界和上界。上下界之间的所有点都被包括在范围
+          内。一个包含边界意味着边界点本身也被包括在范围内，而一个排除边界意味着边界
+          点不被包括在范围内。
+          在一个范围的文本形式中，包含下界被表达为“[”，不包含下界被表达为“(”；包
+          含上界被表达为“]”，不包含上界被表达为“)”（具体请参见范围输入/输出）。
+          函数lower_inc和upper_inc分别用于检测范围值的上下界。
+
+无限（无界）范围
+          一个范围的下界可以被忽略，意味着所有小于上界的值都被包括在范围中。同样，如
+          果范围的上界被忽略，那么所有比下界大的值都被包括在范围中。如果上下界都被忽
+          略，该元素类型的所有值都被认为在该范围中。当不设置范围的上界和下界时，即上
+          界为正无穷大，下界为负无穷大，该范围为无限（无界）范围。
+          具有infinity概念的元素类型可以作为显式边界值。例如，时间戳范围[today,infinity)
+          表示不包括特殊的timestamp值infinity，类似于[today,)，时间戳范围[today,infinity]
+          表示包括特殊的timestamp值infinity，类似于[today,]。
+          函数lower_inf和upper_inf分别用于检测范围的无限上下界。
+
+范围输入/输出
+          一个范围值的输入必须遵循以下模式之一：
+          (lower-bound,upper-bound)
+          (lower-bound,upper-bound]
+[[PDF_PAGE physical=150 printed=101]]
+       [lower-bound,upper-bound)
+       [lower-bound,upper-bound]
+       empty
+
+       一个范围值的输出必须遵循以下模式之一：
+       [lower-bound,upper-bound)
+       empty
+
+       圆括号或方括号用于指示上下界是否被包含或排除。empty表示一个空范围（一个不
+       包含点的范围）。
+       lower-bound可以是作为subtype的一个合法输入的字符串，或者是空（表示没有下
+       界）。同样地，upper-bound可以是作为subtype的一个合法输入的字符串，或者是空
+       （表示没有上界）。
+       当边界值包含圆括号、方括号、逗号、双引号或反斜杠时，必须使用双引号进行引
+       用，否则这些字符会被认作范围语法的一部分。若要在引用的边界值中包含双引号或
+       反斜杠，需在其前面添加一个反斜杠进行转义（双引号引用的边界值中的连续两个双
+       引号表示一个双引号字符，这与SQL字符串中的单引号转义逻辑一致）。此外，所有
+       可能被解析为范围语法的字符都应进行转义。空字符串边界值需要写成""，什么都不
+       写表示一个无限边界。
+       范围值前后允许有空格，但是圆括号或方括号之间的任何空格会被当做上下界值的一
+       部分（该空格是否具有语义取决于元素类型）。
+       示例：
+       -- 包含3，不包含7，并且包含3和7之间的所有点。
+       gaussdb=# SELECT '[3,7)'::int4range;
+        int4range
+       -----------
+        [3,7)
+       (1 row)
+       -- 既不包含3，也不包含7，但是包含3和7之间的所有点。
+       gaussdb=# SELECT '(3,7)'::int4range;
+        int4range
+       -----------
+        [4,7)
+       (1 row)
+       -- 仅包含单个点4。
+       gaussdb=# SELECT '[4,4]'::int4range;
+        int4range
+       -----------
+        [4,5)
+       (1 row)
+       -- 不包含任何点（并且将被标准化为'空'）。
+       gaussdb=# SELECT '[4,4)'::int4range;
+        int4range
+       -----------
+        empty
+       (1 row)
+
+
+构造范围
+       每种范围类型都有一个与其同名的构造器函数。使用构造器函数通常比写一个范围文
+       字常数更方便，因为它可以避免对边界值的额外引用。构造器函数接受两个或三个参
+       数：
+       ●    两个参数的形式：按标准格式构造范围（下界是包含的，上界是排除的）。
+       ●    三个参数的形式：按第三个参数指定的边界类型构造范围，第三个参数必须为以
+            下字符串之一：“()”、“(]”、“[)”或者“[]”。
+       示例：
+[[PDF_PAGE physical=151 printed=102]]
+         -- 完整形式是：下界、上界以及指示边界包含性/排除性的文本参数。
+         gaussdb=# SELECT numrange(1.0, 14.0, '(]');
+           numrange
+         ------------
+          (1.0,14.0]
+         (1 row)
+         -- 如果第三个参数被忽略，则默认为'[)'。
+         gaussdb=# SELECT numrange(1.0, 14.0);
+           numrange
+         ------------
+          [1.0,14.0)
+         (1 row)
+         -- 对于离散范围类型（如 int8range），尽管第三个参数指定为'(]'，显示时该值将被转换成标准形式。
+         gaussdb=# SELECT int8range(1, 14, '(]');
+          int8range
+         -----------
+          [2,15)
+         (1 row)
+         -- 使用NULL作为边界值将导致对应边界是无界的。
+         gaussdb=# SELECT numrange(NULL, 2.2);
+          numrange
+         ----------
+          (,2.2)
+         (1 row)
+
+
+离散范围类型
+         一种范围的元素类型具有明确的“步长”定义，例如integer或date。在这些类型中，
+         如果两个元素之间不存在合法值，则可将它们称为相邻元素。这与连续范围不同，连
+         续范围中通常可以在两个给定值之间标识其他元素值。例如，numeric类型上的范围就
+         是连续的，timestamp类型上的范围也是（尽管timestamp具有有限的精度，并且在理
+         论上可以被视为离散的，但通常并不关心它的步长，因此也可以被视为连续的）。
+         离散范围类型的另一个特征是每一个元素值都有一个明确的“下一个”或“上一个”
+         值。基于这种特性，通过使用原来给定的下一个或上一个元素值来取代它，就可以在
+         一个范围界限的包含和排除属性之间转换。例如，在整数范围类型中，[4,8]和(3,9)表
+         示相同的值集合，但对于numeric上的范围就并非如此。
+         一个离散范围类型应该具有一个正规化函数，即明确元素类型的指定步长。正规化函
+         数的作用是将具有相同值集合的不同范围表达式转换为统一格式，特别是与包含或者
+         排除界限一致。若未指定正规化函数，那么具有不同格式的范围将总是会被视为不
+         等，即使它们实际上是表达相同的一组值。
+         内建的范围类型int4range、int8range和daterange采用标准的包含下界排除上界的格
+         式（即[)）。但用户定义的范围类型可以使用其他形式。
+
+定义新的范围类型
+         用户可以自定义范围类型。最常见的使用场景是为不存在于内建范围类型的subtype提
+         供范围支持。例如，创建一个以float8为subtype的范围类型：
+         gaussdb=# CREATE TYPE floatrange AS RANGE (
+              subtype = float8,
+              subtype_diff = float8mi
+         );
+         gaussdb=# SELECT '[1.234, 5.678]'::floatrange;
+           floatrange
+         ---------------
+          [1.234,5.678]
+         (1 row)
+         gaussdb=# DROP TYPE floatrange;
+
+         因为float8没有有意义的“步长”，所以在该示例中没有定义正规化函数。
+[[PDF_PAGE physical=152 printed=103]]
+     自定义范围类型允许用户指定使用一个不同的子类型B-树操作符类或者集合，以便更
+     改排序顺序来决定哪些值会落入到给定的范围中。
+
+     当subtype被认为是离散类型时，CREATE TYPE命令需要指定一个canonical函数。正
+     规化函数接收一个范围值作为输入，并且返回一个可能具有不同界限和格式的等价的
+     范围值。对于两个表示相同值集合的范围（例如[1, 7]和[1, 8)），正规化输出必须相
+     同。选择哪一种表达作为正规的没有关系，只要两个具有不同格式的等价值总是能被
+     映射到具有相同格式的相同值就行。除了调整包含/排除界限格式外，正规化函数可能
+     会对超出子类型存储精度的边界值进行舍入。例如，定义以timestamp为subtype且步
+     长为1小时的范围类型时，正规化函数可能需要对不是一小时的倍数的范围值进行舍
+     入，或者可能直接抛出一个错误。
+
+     subtype差异函数接收两个subtype作为输入，并且返回表示差值的float8类型结果（即
+     X减Y）。在上面的例子中，可以使用常规float8减法操作符之下的函数。但是对于任
+     何其他subtype，可能需要实现类型转换或定义差异计算规则。为确保可扩展性，
+     subtype_diff函数需要与选中的操作符类和排序规则的排序顺序保持一致，即只要它的
+     第一个参数根据排序顺序大于第二个参数，它的结果就应该是正值。
+
+     subtype_diff函数相关示例：
+     gaussdb=# CREATE FUNCTION time_subtype_diff(x time, y time) RETURNS float8 AS 'SELECT
+     EXTRACT(EPOCH FROM (x - y))' LANGUAGE sql STRICT IMMUTABLE;
+     gaussdb=# CREATE TYPE timerange AS RANGE (
+         subtype = time,
+         subtype_diff = time_subtype_diff
+      );
+     gaussdb=# SELECT '[11:10, 23:00]'::timerange;
+          timerange
+     ---------------------
+      [11:10:00,23:00:00]
+     (1 row)
+     gaussdb=# DROP TYPE timerange;
+     gaussdb=# DROP FUNCTION time_subtype_diff;
+
+     更多关于创建范围类型的信息请参考CREATE TYPE。
+
+索引
+     B-树索引可以在范围类型的表列上创建。对于这类索引，只有等值操作具有实际意
+     义。虽然对范围值定义了使用<和>操作符时的B-树排序顺序，但该排序顺序较为随
+     机，在实际应用中使用价值有限。范围类型的B-树支持主要是为了允许在查询内部进
+     行排序，而不是创建真正的索引。

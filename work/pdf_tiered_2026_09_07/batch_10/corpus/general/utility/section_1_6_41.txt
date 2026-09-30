@@ -1,0 +1,1052 @@
+[[PDF_PAGE physical=931 printed=882]]
+1.6.41 数据损坏检测修复函数
+      修复主机备机文件页面的约束概述：
+
+       文件类型                    文件页面   主备   检测修复
+                               级别     机
+
+       普通行存表（Astore，           文件&页   主机   手动检测手动修复。
+       Ustore），段页式表，跨页         面
+       透明压缩表，不包括索引、
+       压缩表
+
+       undo（不包括undo meta）      页面     主机   手动检测手动修复（不包括
+                                           analyse verify）。
+
+       unlogged表的init fork文件   文件     主机   手动检测手动修复。
+
+       普通行存表（Astore，           页面     备机   回放过程中自动检测自动修
+       Ustore），ILM压缩表，跨页                   复。
+       透明压缩表，段页式，
+       Hashbucket表（当前集中式
+       版本暂不支持hashbucket
+       表），索引（Btree，
+       UBtree），undo（不包括
+       undo meta，undo只支持
+       CRC校验错误）
+[[PDF_PAGE physical=932 printed=883]]
+    注意
+
+备机修复支持备集群的首备和级联备。
+数据库内部使用临界区保护关键资源的访问的一致性，不允许在临界区内抛出错误。
+如果在临界区内，访问到损坏的页面，则会触发PANIC，不支持修复检测及自动修
+复。典型的执行过程中访问临界区的操作包括INSERT\DELETE\UPDATE\DROP等数据
+库写操作。
+AutoVacuum和analyze执行期间，为保证读取页面的准确性，会临时关闭远程访问功
+能，可能导致备机修复主机失败。
+
+●   gs_verify_data_file(verify_segment bool)
+    描述：校验当前实例当前库是否存在文件丢失的情况。校验只包括数据表主文件
+    是否有中间段丢失的情况。默认参数是false，表示不校验段页式表数据文件。参
+    数设置为true时仅校验段页式表文件。默认只有初始用户、具有sysadmin属性的
+    用户以及在运维模式下具有运维管理员属性的用户可以查看，其余用户需要赋权
+    后才可以使用。
+    返回的结果：
+    –     非段页式表：rel_oid和rel_name是对应文件的表oid和表名，miss_file_path
+          表示丢失文件的相对路径。
+    –     段页式表：因所有表存放在相同文件中，所以rel_oid和rel_name无法显示具
+          体表的信息。对于段页式表，如果第一个文件损坏，不会检查出后面的.1 .2
+          等文件。例如3、3.1、3.2损坏，只能检查出3损坏。当段页式文件不足5个
+          时，使用函数检测时，未生成的文件也会校验出来，例如只有1和2文件，校
+          验段页式时，也会检测出3，4，5文件。以下示例，第一个是校验非段页式表
+          的示例，第二是校验段页式表的示例。
+    参数：
+    –     verify_segment
+          指定文件校验的范围。false校验非段页式表；true校验段页式表。
+          取值范围：true和false，默认是false。
+    返回值类型：record
+    示例（仅当发现有异常时才会输出异常行，否则输出0行）：
+    校验非段页式表
+    gaussdb=# SELECT * FROM gs_verify_data_file();
+    node_name           | rel_oid | rel_name | miss_file_path
+    ------------------+---------+--------------+------------------
+    dn_6001_6002_6003 | 16554 |            test    | base/16552/24745
+    校验段页式表
+    gaussdb=# SELECT * FROM gs_verify_data_file(true);
+        node_name        | rel_oid | rel_name | miss_file_path
+    -------------------+---------+----------+----------------
+     dn_6001_6002_6003 |           0 | none    | base/16552/2
+
+●   gs_repair_file(tableoid Oid, path text, timeout int)
+    描述：根据传入的参数修复文件，仅支持有正常主备连接的主DN使用。只支持数
+    据表主文件修复，参数依据gs_verify_data_file函数返回的oid和路径填写。段页式
+    表tableoid赋值为0到4294967295的任意值（内部校验根据文件路径判断是否是
+    段页式表文件，段页式表文件则不使用tableoid）。修复成功返回值为true，修复
+    失败会显示具体失败原因。默认只有在主DN节点上，使用初始用户、具有
+    sysadmin属性的用户以及在运维模式下具有运维管理员属性的用户可以查看，其
+    余用户需要赋权后才可以使用。
+[[PDF_PAGE physical=933 printed=884]]
+          注意
+
+    1. 当DN实例上存在文件损坏时，进行升主会校验出错，报PANIC退出无法升主，
+       为正常现象。
+    2. 当文件存在但是大小为0时，此时不会去修复该文件，若想要修复该文件，需
+       要将为0的文件删除后再修复。
+    3. 删除文件需要等文件fd自动关闭后再修复，人工操作可以执行重启进程、主备
+       切换命令。
+
+    参数：
+    –    tableoid
+         要修复的文件对应的表oid，依据gs_verify_data_file函数返回的列表中
+         rel_oid一列填写。
+         取值范围： Oid，0 - 4294967295。注意：输入负值等都会被强制转成非负
+         整数类型。
+    –    path
+         需要修复的文件路径，依据gs_verify_data_file函数返回的列表中
+         miss_file_path一列填写。
+         取值范围：字符串。
+    –    timeout
+         等待备DN回放的时长，修复文件需要等待备DN回放到当前主DN对应的位
+         置，根据备DN回放所需时长设定。
+         取值范围：60s - 3600s。
+    返回值类型：bool
+    示例（按照gs_verify_data_file的输出填写tableoid和path）：
+    页式存储：
+    gaussdb=# SELECT * FROM gs_repair_file(16554,'base/16552/24745',360);
+    gs_repair_file
+    ----------------
+    t
+    段页式存储：
+    gaussdb=# SELECT * FROM gs_repair_file(16554,'base/16552/2',360);
+    gs_repair_file
+    ----------------
+    t
+
+●   local_bad_block_info()
+    描述：显示本实例页面损坏的情况。从磁盘读取页面，发现页面CRC校验失败时
+    进行记录。默认只有初始化用户、具有sysadmin属性的用户、具有监控管理员属
+    性的用户以及在运维模式下具有运维管理员属性的用户、以及监控用户可以查
+    看，其余用户需要赋权后才可以使用。多租场景下，non-PDB调用该函数时返回
+    全部信息，PDB调用该函数时仅返回该PDB相关信息。
+    显示信息：file_path是损坏文件的相对路径。支持段页式。block_num是该文件
+    损坏的具体页面号，页面号从0开始。check_time表示发现页面损坏的时间。
+    repair_time表示修复页面的时间。
+    返回值类型：record
+    示例（仅当有损坏记录时输出相关条目，否则输出0行）：
+    gaussdb=# SELECT * FROM local_bad_block_info();
+    node_name | spc_node | db_node | rel_node| bucket_node | fork_num | block_num |   file_path   |
+[[PDF_PAGE physical=934 printed=885]]
+    check_time            | repair_time
+    -----------------+-------+--------+--------+--------------+----------+-----------+-----------------
+    +--------------------------+-------------------------------
+    dn_6001_6002_6003| 1663 | 16552 | 24745 |                 -1 | 0 | 0            | base/16552/24745 |
+    2022-01-13 20:19:08.385004+08 | 2022-01-13 20:19:08.407314+08
+
+●   local_clear_bad_block_info()
+    描述：清理local_bad_block_info中已修复页面的数据，也就是repair_time不为空
+    的信息。默认只有初始化用户、具有sysadmin属性的用户以及在运维模式下具有
+    运维管理员属性的用户、以及监控用户可以查看，其余用户需要赋权后才可以使
+    用。多租场景下，non-PDB调用该函数时正常运行，PDB调用该函数时报错。
+    返回值类型：Boolean
+    示例：
+    gaussdb=# SELECT * FROM local_clear_bad_block_info();
+    result
+    --------
+    t
+
+●   gs_inconsistency_info(reset bool)
+    描述：显示/重置数据库中存在的数据不一致相关信息，入参reset为true时进行重
+    置，为false时则进行显示。默认只有初始用户、具有sysadmin属性的用户、具有
+    监控管理员属性的用户、在运维模式下具有运维管理员属性的用户以及监控用户
+    可以查看，其余用户需要赋权后才可以使用。其中，inconsistency_type是不一致
+    的类型，node_name是节点名，spc_node是表空间ID，db_node是库节点ID，
+    rel_node是表ID，bucket_node是hashbucket的ID（当前集中式版本暂不支持
+    hashbucket，值为-1），backend是临时表的ID，index_oid是索引的oid，
+    tuple_blkno是元组所在堆表的页号，tuple_offset是元组所在堆表页的偏移，
+    count是这一条不一致信息出现的次数，last_update_time是最后更新这条不一致
+    信息的时间。
+    返回值类型：record
+    示例：（在入参reset为false，且当有不一致信息被校验出来时，才会输出相关条
+    目；其他情况下输出0行。）
+    gaussdb=# SELECT * FROM gs_inconsistency_info(false);
+     inconsistency_type | node_name | spc_node | db_node | rel_node | bucket_node | backend | index_oid
+    | tuple_blkno | tuple_offset | count |       last_update_time
+    ---------------------+-----------+----------+---------+----------+-------------+---------+-----------+-------------
+    +--------------+-------+------------------------------
+     INCONSISTENCY_INDEX | sgnode |               1663 | 12902 | 16722 |              -1 |    -1 |    16728 |
+    0|          1|     1 | 2024-11-20 16:18:56.85289-05
+
+●   gs_verify_and_tryrepair_page (path text, blocknum oid, verify_mem bool,
+    is_segment bool)
+    描述：校验本实例指定页面的情况。默认只有在主DN节点上，使用初始化用户、
+    具有sysadmin属性的用户以及在运维模式下具有运维管理员属性的用户可以查
+    看，其余用户需要赋权后才可以使用。
+    返回的结果信息：disk_page_res表示磁盘上页面的校验结果；mem_page_res表
+    示内存中页面的校验结果；is_repair表示在校验的过程中是否触发修复功能，t表
+    示已修复，f表示未修复。多租场景下，non-PDB调用该函数时正常运行，PDB调
+    用该函数时报错。
+           说明
+
+         ● 当DN实例上存在页面损坏时，进行升主会校验出错，报PANIC退出而无法升主，这属
+           于正常现象。
+         ● 此函数触发的修复仅支持修复内存中的页面，需要在内存页面落盘后的物理页面修复
+           后，才能正式生效。
+[[PDF_PAGE physical=935 printed=886]]
+    参数：
+    –     path
+          损坏文件的路径。依据local_bad_block_info中file_path一列填写。如果要对
+          存储类型为USTORE的表进行UNDO页面校验，请直接填写需要校验的UNDO
+          页面路径。
+          取值范围：字符串。
+    –     blocknum
+          损坏文件的页号。依据local_bad_block_info中block_num一列填写。如果要
+          对存储类型为USTORE的表进行UNDO页面校验，请直接填写需要校验的
+          UNDO页面的块号。
+          取值范围：Oid，0 - 4294967295。注意：输入负值等都会被强制转成非负
+          整数类型。
+    –     verify_mem
+          指定是否校验内存中的指定页面。设定为false时，只校验磁盘上的页面。设
+          置为true时，校验内存中的页面和磁盘上的页面。如果发现磁盘上页面损
+          坏，会将内存中的页面做一个基本信息校验刷盘，修复磁盘上页面。如果校
+          验内存页面时发现页面不在内存中，会经内存接口读取磁盘上的页面。此过
+          程中如果磁盘页面有问题，则会触发远程读自动修复功能。
+          取值范围：Boolean，true和false。
+    –     is_segment
+          是否是段页式表。根据local_bad_block_info中的bucket_node列值决定。如
+          果bucket_node为-1时，表示不是段页式表，将is_segment设置为false；
+          非-1的情况将is_segment设置为true。支持段页式存储。
+          取值范围：Boolean，true和false。
+    返回值类型：record
+    示例（请依据local_bad_block_info的输出传参，否则报错）：
+    页式存储：
+    gaussdb=# SELECT * FROM gs_verify_and_tryrepair_page('base/16552/24745',0,false,false);
+    node_name           |     path      | blocknum |          disk_page_res         | mem_page_res | is_repair
+    ------------------+------------------+------------+-----------------------------+---------------+----------
+    dn_6001_6002_6003 | base/16552/24745 |             0     | page verification succeeded.|              |f
+
+    段页式存储：
+    gaussdb=# SELECT * FROM gs_verify_and_tryrepair_page('base/14365/1',4494,false,true);
+    node_name           |    path     | blocknum |        disk_page_res         | mem_page_res | is_repair
+    ------------------+--------------+----------+------------------------------+--------------+-----------
+    dn_6001_6002_6003 | base/14365/1 |           4494 | page verification succeeded. |               |f
+
+●   gs_repair_page(path text, blocknum oid, is_segment bool, timeout int)
+    描述：修复本实例指定页面，仅支持有正常主备连接的主DN使用。页面修复成功
+    返回true，修复过程中出错会有报错信息提示。默认只有在主DN节点上，使用初
+    始化用户、具有sysadmin属性的用户以及在运维模式下具有运维管理员属性的用
+    户可以查看，其余用户需要赋权后才可以使用。
+    注意：当DN实例上存在页面损坏时，进行升主会校验出错，报PANIC退出无法升
+    主，为正常现象。
+    参数：
+    –     path
+          损坏页面的路径。根据local_bad_block_info中file_path一列设置，或者是
+          gs_verify_and_tryrepair_page函数中path一列设置。
+[[PDF_PAGE physical=936 printed=887]]
+         取值范围：字符串。
+    –    blocknum
+         损坏页面的页面号。根据local_bad_block_info中block_num一列设置，或者
+         是gs_verify_and_tryrepair_page函数中blocknum一列设置。
+         取值范围：Oid，0 - 4294967295。注意：输入负值等都会被强制转成非负
+         整数类型。
+    –    is_segment
+         是否是段页式表。根据local_bad_block_info中的bucket_node列值决定，如
+         果bucket_node为-1时，表示不是段页式表，将is_segment设置为false；
+         非-1的情况将is_segment设置为true。支持段页式存储。
+         取值范围：bool，true或者false。
+    –    timeout
+         等待备DN回放的时长。修复页面需要等待备DN回放到当前主DN对应的位
+         置，根据备DN回放所需时长设定。
+         取值范围：60s - 3600s。
+    返回值类型：Boolean
+    示例（请根据local_bad_block_info的输出传参，否则报错）：
+    页式存储：
+    gaussdb=# SELECT * FROM gs_repair_page('base/16552/24745',0,false,60);
+    result
+    --------
+    t
+    段页式存储：
+    gaussdb=# SELECT * FROM gs_repair_page('base/16552/1',4494,true,60);
+    result
+    --------
+    t
+
+●   gs_seg_verify_datafile(IN tablespace_name name, IN database_name name,
+    IN file_id integer, IN bucketnode integer, IN start_block_id bigint default 0, IN
+    end_block_id bigint default UINT32MAX)
+    描述：校验段页式1~5文件，main fork是否存在页面损坏，将校验结果记录到
+    local_bad_block_info()函数中。只有具有sysadmin属性的用户以及在运维模式下
+    具有运维管理员属性的用户可以执行。
+    参数：
+     名称                类型          描述
+
+     tablespace_       name        表空间名称。
+     name
+
+     database_na       name        数据库名称。
+     me
+
+     file_id           integer     文件名称，取值范围：[1,5]的int4值。
+[[PDF_PAGE physical=937 printed=888]]
+     名称                类型          描述
+
+     bucketnode        integer     表的bucketnode。
+                                   ● 0~1023表示hashbucket表的bucketnode。
+                                   ● 1024表示段页式普通表的bucketnode。
+                                   当前仅支持hashbucket表与段页式普通表（当前集中
+                                   式版本暂不支持hashbucket表）。
+
+     start_block_i     bigint      校验页面范围开始值，默认值：0。
+     d
+
+     end_block_i       bigint      校验页面范围结束值，默认值：4294967295。
+     d
+
+
+
+
+    返回值：无
+    示例：
+    gaussdb=# SELECT * FROM gs_seg_verify_datafile('seg_tblspc', 'postgres', 2, 1024);
+    WARNING: page verification failed, calculated checksum 60994 but expected 11565, the block num is
+    4157
+     gs_seg_verify_datafile
+    ------------------------
+
+    (1 row)
+
+●   gs_edit_page_bypath(path text, blocknum int64, offset int, data text, data_size
+    int, read_backup bool, storage_type text)
+    描述：传入目标表文件的路径、块号、偏移量、修改的目标数据以及长度，将目
+    标数据修改到页面对应字段中，其中，read_backup字段控制文件的读取方式，
+    storage_type字段表示文件的存储方式（例如段页式存储），并返回修改后落盘
+    的文件路径，为防止误修改操作，该函数不会直接对原页面而是对复制页面进行
+    修改，并将修改后的页面落盘到指定路径。只有系统管理员或者运维模式下的运
+    维管理员才能执行此函数，且仅适用于主节点。
+    返回值类型：text
+[[PDF_PAGE physical=938 printed=889]]
+表 1-254 gs_edit_page_bypath 参数说明
+参数类     参数名        类     描述
+型                  型
+
+输入参     path       tex   待修改文件的物理文件路径，结合read_backup字
+数                  t     段，既可以是数据库目录下文件的相对路径，也可
+                         以是备份等文件的绝对路径。若目标文件不存在或
+                         读取失败等，返回相应报错信息。
+                         ● read_backup为false：path路径格式为
+                           tablespace name/database oid/表的
+                           relfilenode(物理文件名)。例如：base/
+                           16603/16394。
+                         ● read_backup为true：path为合法路径，此时由
+                           于无法获取到输入文件的其他相关信息，所以需
+                           要用户保障输入数据的正确性。
+                         页式仅支持upage、ubtree数据页的编辑修改，段页
+                         式支持Astore数据页的编辑修改。不支持创建了表
+                         空间的表。由于无法获取到输入文件的其他相关信
+                         息，所以需要用户保障输入数据类型的正确性。
+
+输入参     blocknu    big   指定修复页面的块号。
+数       m          int   参数范围：0~MaxBlockNumber。
+                         结合read_backup字段，读取指定物理/逻辑块号对
+                         应的页面，当指定块号超出范围等，返回相应报错
+                         信息。
+
+输入参     offset     int   修改字段的页内偏移。
+数                        参数范围：0<=offset<BLCKSZ。
+                         当用户指定小于0或者大于等于BLCKSZ的值时，使
+                         用系统视图返回相应报错信息。
+
+输入参     data       tex   修改的目标值类型。
+数                  t     类型：
+                         ● '0x' : 表示十六进制。
+                         ● '0b' : 表示二进制。
+                         ● '0s' : 表示字符串。
+                         其他 : 当data参数不为上述类型时仅限数据为十进
+                         制数字字符串。
+
+输入参     data_siz   int   写入的数据长度，单位：字节。
+数       e                参数范围：1 ~ 8。
+                         当用户指定写入长度小于1或大于8字节，又或者
+                         offset+data_size > BLCKSZ时，使用系统视图返回
+                         相应报错信息。
+
+输入参     read_ba    bo    是否从备份目录中读取页面，当该字段为false时，
+数       ckup       ol    将通过逻辑块号读取目标页面，否则基于物理块号
+                         读取页面。
+[[PDF_PAGE physical=939 printed=890]]
+     参数类         参数名           类      描述
+     型                         型
+
+     输入参         storage_      tex    文件的存储方式，可选参数：
+     数           type          t      ● 'page'（页式）。
+                                      ● 'segment'（段页式）。
+
+     输出参         output_       tex    修改成功时，返回修改后文件落盘的绝对路径，修
+     数           msg           t      改后的文件存储于gs_log/dump目录下。若修改失
+                                      败，则返回失败相关信息。
+
+
+
+
+    使用示例时请按参数说明传参并使用实际存在的物理路径。
+    示例1：在base/15808/25075表的0号页面偏移16字节处覆盖写入值为0X1FFF的
+    数据。
+    gaussdb=# SELECT gs_edit_page_bypath('base/15808/25075',0,16,'0x1FFF', 2, false, 'page');
+                        gs_edit_page_bypath
+    ----------------------------------------------------------------------
+    /gs_log_dir/dump/1663_15808_25075_0.editpage
+
+    (1 rows)
+
+    示例2：当输入参数不符合规范时返回对应错误消息。
+    gaussdb=# SELECT gs_edit_page_bypath('base/15808/25075', 0,16,'@1231!', 8, false, 'page');
+              gs_edit_page_bypath
+    -------------------------------------------
+     Error: the parameter 'data' decode failed.
+    (1 row)
+
+    示例3：当需要写入的数据与原始值相同，返回告警信息。
+    gaussdb=# SELECT gs_edit_page_bypath('/gs_log_dir/dump/1663_15808_25075_0.editpage',
+    0,16,'0x1FFF', 2, true, 'page');
+                   gs_edit_page_bypath
+    ----------------------------------------------------------
+     Warning: source buffer is consistent with target buffer.
+    (1 row)
+
+●   gs_repair_page_bypath(src_path text, src_blkno int64, dest_path text,
+    dest_blkno int64, storage_type text)
+    描述：传入源文件路径以及页面号，将该页面覆盖写入到目标文件指定页面号
+    上，支持通过主机修复备机页面，也支持基于备机修复主机页面，此外，该视图
+    支持对坏块的初始化操作。
+    a.   对目标页面进行覆盖写并同步备机，页式修改对象支持Uheap、Ubtree页
+         面，后续支持Undo Record页面、Undo Slot页面、压缩表，以及Astore页
+         面，段页式修改对象支持Astore页面，支持hashbucket（当前集中式版本暂
+         不支持hashbucket表）。不支持系统表文件的修改，也不支持对数据区的修
+         改。
+    b.   功能支持将页面覆盖写到目标页面上。覆盖之前会将目标页面备份并落盘到
+         指定目录，支持将备份页面重写回目标页面，在主机对普通表的修改会生成
+         新的WAL日志并同步备机，在备机的修改不会记录WAL日志。
+    c.   修复视图仅适用于主节点，或者开启备机读场景下的备节点。用户需要系统
+         管理员或者运维模式下的运维管理员权限，所有修改均会记录数据库日志，
+         并且，建议使用前开启系统函数的审计日志，便于记录审计信息。
+    d.   在备机上调用修复视图时，仅支持从主机读取页面修复备机。
+[[PDF_PAGE physical=940 printed=891]]
+e.   修复时，源页面与目标页面的LSN必须一致，且页面CRC校验必须通过，否则
+     修复将失败。在此过程中，可能触发其他修复方式。
+f.   对目标页面进行校验。若目标页面为正确的页面，则不支持进行覆盖。当前
+     校验支持Uheap、Ubtree页面。
+返回值类型：text
+
+
+     注意
+
+调用本系统函数属于高危风险操作，请用户谨慎使用。
+
+
+ 参数类型     参数名         类型       描述
+
+ 输入参数     src_path    text     源文件的路径。支持的路径主要包含以
+                               下几类：
+                               ● 数据文件以及索引文件：gs_log/
+                                 dump/
+                                 1663_15808_25075_0.editpage。
+                               ● 在主机端指定src_path为'standby'，
+                                 即从备机端读取页面修复主机。
+                               ● 在备机端可以指定src_path为
+                                 'primary'，即从主机端读取页面修
+                                 复备机，备机上仅支持‘primary’
+                                 修复，并且使用前开启备机读。
+                               ● 在主机端指定src_path为
+                                 'init_block'，允许极端场景下跳过坏
+                                 块。
+
+ 输入参数     src_blkn    bigint   源页面的物理块号。
+          o                    参数范围：0~MaxBlockNumber。
+
+ 输入参数     dest_pat    text     目标文件的相对路径。例如：base/
+          h                    15808/25075。
+
+ 输入参数     dest_blk    bigint   目标页面的逻辑块号。
+          no                   参数范围：0~MaxBlockNumber。
+
+ 输入参数     storage_t   text     目标文件的存储方式，可选参数：
+          ype                  ● 'page'（页式）。
+                               ● 'segment'（段页式）。
+
+ 输出参数     output_     text     覆盖写成功时返回目标页面备份的路
+          msg                  径，失败时返回报错信息。落盘文件名
+                               格式为
+                               relfilepath_blocknum_timestamp.repa
+                               irpage。
+
+
+
+请根据实际情况按照上表传参并确认物理文件存在。传参有异常或修复失败时将
+报错。
+[[PDF_PAGE physical=941 printed=892]]
+    示例1：输入指定路径下的文件，覆盖写入到目标文件中。
+    gaussdb=# SELECT * FROM gs_repair_page_bypath('gs_log/dump/1663_15991_16767_0.editpage', 0,
+    'base/15991/16767', 0, 'page');
+                                      output_msg
+    ------------------------------------------------------------------------------------------------
+     /gs_log_dir/dump/1663_15991_16767_0_738039702421788.repairpage
+    (1 row)
+    示例2：从备机端读取页面修复主机。
+    gaussdb=# SELECT * FROM gs_repair_page_bypath('standby', 0, 'base/15990/16768', 0, 'page');
+                                      output_msg
+    -------------------------------------------------------------------------------------------------
+    /gs_log_dir/dump/1663_15990_16768_0_738040397197907.repairpage
+    (1 row)
+    示例3：从主机端读取页面修复备机。
+    gaussdb=# SELECT * FROM gs_repair_page_bypath('primary', 0, 'base/15990/16768', 0, 'page');
+                                      output_msg
+    -------------------------------------------------------------------------------------------------
+     /gs_log_dir/dump/1663_15990_16768_0_738040506157799.repairpage
+    (1 row)
+    示例4：初始化目标页面，支持坏块跳过。
+    gaussdb=# SELECT * FROM gs_repair_page_bypath('init_block', 0, 'base/15990/16768', 0, 'page');
+                                      output_msg
+    -------------------------------------------------------------------------------------------------
+    /gs_log/dump/1663_15990_16768_0_738040768010281.repairpage
+    (1 row)
+
+●   gs_edit_repair_page(path text, blocknum int64, area text, index int, name text,
+    value uint64)
+    描述：根据传入源文件路径及页面号，指定修改页面中的xid相关字段，并直接更
+    新数据库中的页面。调用该函数修改页面会生成对应的Xlog。修改前，原始页面
+    的源页面及解析页面将被dump至日志路径，同时函数返回dump文件的路径。
+    该函数有如下约束：
+    –    仅支持主DN调用。
+    –    不支持修复压缩页面。
+    –    不支持修复段页式页面。
+    –    仅支持初始用户、具有sysadmin属性的用户以及在运维模式下具有运维管理
+         员属性的用户调用。
+    –    仅支持修复CRC校验正常的页面。
+    返回值类型：text
+          说明
+
+         本系统函数作为应对xid损坏的兜底手段，属于高危风险操作，请用户谨慎使用，且不建议
+         频繁调用。
+
+
+    表 1-255 gs_edit_repair_page 参数说明
+
+     参数         参数         参数        描述
+     类型         名          类型
+
+     输入         path       text      源文件的路径。表文件的相对路径可通过
+     参数                              pg_relation_filepath(table_name text)查找；分区表
+                                     的路径可查询pg_partition系统表并调用
+                                     pg_partition_filepath(partition_oid)获得。例如：
+                                     base/16603/16394。
+[[PDF_PAGE physical=942 printed=893]]
+ 参数         参数         参数        描述
+ 类型         名          类型
+
+ 输入         block      bigin     源页面的物理块号，取值范围：0 ~
+ 参数         num        t         MaxBlockNumber。
+
+ 输入         area       text      页面的目标区域，支持以下取值：
+ 参数                              ● header：页面头。
+                                 ● td：uheap页面的td或ted部分。
+                                 ● tuple：页面元组。
+
+ 输入         index      integ     目标区域在同类区域中的下标，从0开始。其中header
+ 参数                    er        区域仅支持下标0。
+
+ 输入         name       text      需要修复的目标字段。
+ 参数                              ● header：pd_prune_xid、pd_xid_base、
+                                   pd_multi_base
+                                 ● td：xid
+                                 ● tuple(uheap)：xid
+                                 ● tuple(heap)：xmin、xmax
+                                 ● tuple(ubtree)：xmin、xmax
+
+ 输入         value      bigin     用于修复的目标值。
+ 参数                    t
+
+ 输出         outp       text      修复成功时返回dump文件路径；修复失败时返回错误
+ 参数         ut_m                 信息。
+            sg
+
+
+
+
+请根据上表传参并确认物理文件存在。若参数异常或修复失败，函数将报错。
+示例1：修改base/14816/16404文件第0个页面的header部分中的pd_prune_xid。
+gaussdb=# select * from gs_edit_repair_page('base/14816/16404', 0, 'header', 0, 'pd_prune_xid', 0);
+                    output_msg
+-------------------------------------------------------------------
+/gs_log_dir/dump/1663_14816_16404_0_824366317606633.originpage+
+/gs_log_dir/dump/1663_14816_16404_0.dump
+(1 row)
+示例2：修改base/14816/16404文件第3个页面的td部分中的第0个ted的xid。
+gaussdb=# select * from gs_edit_repair_page('base/14816/16404', 3, 'td', 0, 'xid', 196218);
+                    output_msg
+-------------------------------------------------------------------
+/gs_log_dir/dump/1663_14816_16404_3_824368882816559.originpage+
+/gs_log_dir/dump/1663_14816_16404_3.dump
+(1 row)
+示例3：修改base/14816/16387文件第5个页面的tuple部分中第16个tuple的
+xmax。
+gaussdb=# select * from gs_edit_repair_page('base/14816/16387', 5, 'tuple', 16, 'xmax', 0);
+                    output_msg
+-------------------------------------------------------------------
+/gs_log_dir/dump/1663_14816_16387_5_824368882816559.originpage+
+/gs_log_dir/dump/1663_14816_16387_5.dump
+(1 row)
+[[PDF_PAGE physical=943 printed=894]]
+●   gs_repair_undo_byzone(zone_id int)
+    描述：传入待修复Undo Zone的zone_id，对目标Undo Zone的元信息进行修复，
+    并返回修复结果的详细信息；如果没有进行修复则没有输出信息。
+    返回值类型：record
+    备注：当前函数仅支持在主节点进行调用，修复成功后会通过记录Xlog日志同步
+    到备机，且调用者必须是系统管理员或者运维模式下的运维管理员，建议使用前
+    开启系统函数的审计日志，便于记录审计信息。
+           说明
+
+         调用本系统函数属于高危风险操作，请用户谨慎使用。
+
+
+    表 1-256 gs_repair_undo_byzone 参数说明
+
+     参数类          参数名            类       描述
+     型                           型
+
+     输入参          zone_id        int     Undo Zone编号：
+     数                                   ● -1：修复所有Undo Zone的元信息。
+                                         ● 0~1048575：修复对应zone_id编号的Undo
+                                           Zone的元信息。
+
+     输出参          zone_id        int     Undo Zone编号。
+     数
+
+     输出参          repair_d       tex     对应zone_id的Undo Zone元信息的修复结果，修复
+     数            etail          t       成功显示"rebuild undo meta succeed."；修复失败
+                                         显示"rebuild undo meta failed."及其失败原因。
+
+
+
+
+    示例1：输入的zone_id对应的Undo Zone元信息没有损坏时，预期没有输出。
+    gaussdb=# SELECT * FROM gs_repair_undo_byzone(4);
+     zone_id | repair_detail
+    ---------+---------------
+    (0 rows)
+
+    示例2：输入的zone_id对应的Undo Zone元信息修复成功时，显示修复成功的信
+    息。
+    gaussdb=# SELECT * FROM gs_repair_undo_byzone(78);
+     zone_id | repair_detail
+    ---------+---------------
+         78 | rebuild undo meta succeed.
+    (1 row)
+
+    示例3：输入的zone_id对应的Undo Zone元信息修复失败时，显示修复失败的详
+    细信息。
+    gaussdb=# SELECT * FROM gs_repair_undo_byzone(0);
+     zone_id | repair_detail
+    ---------+---------------
+          0 | rebuild undo meta failed. try lock undo zone_id failed.
+    (1 row)
+
+           说明
+
+         如果待修复的Undo Zone已损坏且zone_id已经被其他活跃线程占用时，调用该修复函数
+         时，占用zone_id的活用线程会自动结束，强制修复已损坏的Undo Zone元信息。
+[[PDF_PAGE physical=944 printed=895]]
+●   gs_verify_urq(index_oid oid, partindex_oid oid, blocknum bigint, queue_type
+    text)
+    描述：校验索引回收队列（潜在队列/可用队列/单页面）的正确性。
+    参数：详见表1-257。
+    返回值类型：record
+
+    表 1-257 gs_verify_urq 参数说明
+     参数类型               参数名              类型                描述
+
+     输入参数               index_oid        oid               UBTree索引oid：
+                                                           ● 普通索引：索引oid。
+                                                           ● 全局索引：GPI oid。
+                                                           ● local索引：主索引oid。
+
+     输入参数               partindex_       oid               UBTree分区索引oid：
+                        oid                                ● 普通索引：0。
+                                                           ● 全局索引：0。
+                                                           ● local索引：分区索引oid（一级/
+                                                             二级）。
+
+     输入参数               blocknum         bigint            页面号：
+                                                           ● 队列类型为single page时，校
+                                                             验单个页面blocknum的所有元
+                                                             组正确性。取值范围为[0，队
+                                                             列文件大小/8192）。
+                                                           ● 队列类型为empty queue或free
+                                                             queue时，blocknum是一个无
+                                                             效值。
+
+     输入参数               queue_type       text              队列类型：
+                                                           ● empty queue：潜在队列。
+                                                           ● free queue：可用队列。
+                                                           ● single page：队列单页面。
+
+     输出参数               error_code       text              错误码。
+
+     输出参数               detail           text              具体报错及其他关键信息。
+
+
+
+    使用示例时请根据参数说明传参，使用实际存在的oid和blocknum，否则将报
+    错。
+    示例1：
+    gaussdb=# SELECT * FROM gs_verify_urq(16387, 0, 1, 'free queue');
+     error_code | detail
+    ------------+--------
+    (0 rows)
+    示例2：
+    gaussdb=# SELECT * FROM gs_verify_urq(16387, 0, 1, 'empty queue');
+       error_code    |
+[[PDF_PAGE physical=945 printed=896]]
+    detail
+    -----------------------
+    +---------------------------------------------------------------------------------------------------------------
+     VERIFY_URQ_PAGE_ERROR | invalid urq meta: oid 16387, blkno 1, head_blkno = 1, tail_blkno = 3,
+    nblocks_upper = 4294967295, nblocks_lower = 1; urq_blocks = 6, index_blocks = 12
+    (1 row)
+
+           说明
+
+         该接口当前仅支持USTORE索引表。如果索引回收队列校验正常，则该视图不输出错误码
+         和报错详细信息；否则输出错误码和报错详细信息，错误码包含
+         "VERIFY_URQ_PAGE_ERROR"、"VERIFY_URQ_LINK_ERROR"、
+         "VERIFY_URQ_HEAD_MISSED_ERROR"和"VERIFY_URQ_TAIL_MISSED_ERROR"，如出现
+         以上错误码，请联系华为工程师辅助定位。
+●   gs_urq_dump_stat(index_oid oid, partindex_oid oid)
+    描述：查询指定索引回收队列相关信息。
+    显示信息：recentGlobalDataXmin和globalFrozenXid是回收队列判断索引页面是
+    否可以被回收时使用的两个oldestxmin，next_xid为下一个最新的事务xid，
+    urq_blocks为回收队列总页面数，以及free queue（可用队列）、empty queue
+    （潜在队列）有效页面里的相关信息。对于PCR版本的索引，输出的
+    recentGlobalDataXmin会被替换成影响PCR索引页面回收的globalRecycleXid。
+    参数：详见表1-258。
+
+    表 1-258 gs_urq_dump_stat 参数说明
+     参数类型                   参数名                  类型                   描述
+
+     输入参数                   index_oid            oid                  UBTree索引oid：
+                                                                      ● 普通索引：索引oid。
+                                                                      ● 全局索引：GPI oid。
+                                                                      ● local索引：主索引oid。
+
+     输入参数                   partindex_           oid                  UBTree分区索引oid：
+                            oid                                       ● 普通索引：0。
+                                                                      ● 全局索引：0。
+                                                                      ● local索引：分区索引oid（一级/
+                                                                        二级）。
+
+     输出参数                   result               text                 索引回收队列的详细统计信息。
+
+
+
+    使用示例时请根据实际情况按参数说明传参，使用实际存在的oid，否则将报错。
+    示例（RCR）：
+    gaussdb=# SELECT * FROM gs_urq_dump_stat(16387, 0);
+                                                    result
+    -----------------------------------------------------------------------------------------------------------------------
+    ----------
+     urq stat info: recentGlobalDataXmin = 213156, globalFrozenXid = 213156, next_xid = 214157,
+    urq_blocks = 6,                   +
+      free queue: head page blkno = 0 min_xid = 211187 max_xid = 214157, tail page blkno = 0
+    min_xid = 211187 max_xid = 214157,+
+                 middle page min_xid = 1152921504606846975 max_xid = 0, valid_pages = 1, valid_items =
+    6, can_use_item = 3         +
+      empty queue: head page blkno = 1 min_xid = 212160 max_xid = 213160, tail page blkno = 3
+    min_xid = 213162 max_xid = 214156,+
+[[PDF_PAGE physical=946 printed=897]]
+              middle page min_xid = 1152921504606846975 max_xid = 0, valid_pages = 2, valid_items =
+    999, can_use_item = 498 +
+
+    (1 row)
+    示例（PCR）：
+    gaussdb=# SELECT gs_urq_dump_stat(17260,0);
+                                                       gs_urq_dump_stat
+    -----------------------------------------------------------------------------------------------------------------------
+    --------------------------
+     urq stat info: globalRecycleXid = 22113, globalFrozenXid = 22107, next_xid = 22116, urq_blocks =
+    6,                                   +
+       free queue: head page blkno = 0 min_xid = 1152921504606846975 max_xid = 0, tail page blkno
+    = 0 min_xid = 1152921504606846975 max_xid = 0,+
+                 middle page min_xid = 1152921504606846975 max_xid = 0, valid_pages = 1, valid_items =
+    0, can_use_item = 0                      +
+       empty queue: head page blkno = 1 min_xid = 1152921504606846975 max_xid = 0, tail page blkno
+    = 1 min_xid = 1152921504606846975 max_xid = 0,+
+                 middle page min_xid = 1152921504606846975 max_xid = 0, valid_pages = 1, valid_items =
+    0, can_use_item = 0                      +
+
+    (1 row)
+
+           说明
+
+         该接口当前仅支持USTORE索引表。
+●   gs_repair_urq(index_oid oid, partindex_oid oid)
+    描述：重建（有损）索引回收队列（潜在队列和可用队列）。删除当前索引的回
+    收队列文件，重新创建一个空的回收队列文件。重建成功显示reinitial the recycle
+    queue of index relation successfully。
+    参数：详见表1-259。
+    备注：当前函数仅支持在主节点进行调用。
+
+    表 1-259 gs_repair_urq 参数说明
+     参数类型                   参数名                  类型                   描述
+
+     输入参数                   index_oid            oid                  UBTree索引oid：
+                                                                      ● 普通索引：索引oid。
+                                                                      ● 全局索引：GPI oid。
+                                                                      ● local索引：主索引oid。
+
+     输入参数                   partindex_           oid                  UBTree分区索引oid：
+                            oid                                       ● 普通索引：0。
+                                                                      ● 全局索引：0。
+                                                                      ● local索引：分区索引oid（一级/
+                                                                        二级）。
+
+     输出参数                   result               text                 重建成功显示reinitial the recycle
+                                                                      queue of index relation
+                                                                      successfully，否则为失败。
+
+
+
+
+    使用示例时请根据实际情况按参数说明传参，使用实际存在的oid，否则将报错。
+    示例：
+[[PDF_PAGE physical=947 printed=898]]
+    gaussdb=# SELECT * FROM gs_repair_urq(16387, 0);
+                         result
+    ------------------------------------------------------------
+     reinitial the recycle queue of index relation successfully.
+    (1 row)
+
+           说明
+
+         该接口当前仅支持USTORE索引表。
+●   gs_check_table(table_oid oid, partition_oid oid, index_oid oid, partindex_oid
+    oid, start_blk bigint, end_blk bigint, duration text, need_repair bool, mode
+    text)
+    描述：校验堆表和索引的反向数据一致性。
+    约束：支持Astore、Ustore存储引擎，不支持MOT；支持备节点进行校验，不支
+    持logger节点；堆表支持普通行存表、ILM压缩表、透明加密表、Hashbucket表
+    （当前集中式版本暂不支持hashbucket表）的校验，不支持临时表、全局临时
+    表、unlogged表。索引支持B-tree、UB-tree索引的校验，兼容段页式存储。
+    参数：详见表1-260。
+    返回值类型：record
+
+    表 1-260 gs_check_table 参数说明
+     参数类型                 参数名                类型                    描述
+
+     输入参数                 table_oid          oid                   堆表oid：
+                                                                   ● 普通表：堆表 oid。
+                                                                   ● 分区表：主表 oid。
+
+     输入参数                 partition_oi       oid                   分区oid：
+                          d                                        ● 普通表：0。
+                                                                   ● 分区表：分区 oid。
+                                                                   ● 分区表扫描全分区：0。
+
+     输入参数                 index_oid          oid                   索引oid：
+                                                                   ● 普通索引：索引 oid。
+                                                                   ● 全局索引：GPI oid。
+                                                                   ● local索引：主索引oid。
+                                                                   ● 扫描全部索引：0。
+
+     输入参数                 partindex_         oid                   分区索引oid：
+                          oid                                      ● 普通索引：0。
+                                                                   ● 全局索引：0。
+                                                                   ● local索引：分区索引oid(一级/
+                                                                     二级)。
+                                                                   ● local索引扫描全部分区：0。
+[[PDF_PAGE physical=948 printed=899]]
+ 参数类型               参数名                类型                 描述
+
+ 输入参数               start_blk          bigint             校验开始页面号。和end_blk同时
+                                                          取值-1的场景下默认从头开始校
+                                                          验。分区表扫描全分区时，仅支持
+                                                          从头开始校验，start_blk和
+                                                          end_blk需同时取值为-1。
+
+ 输入参数               end_blk            bigint             校验结束页面号。
+
+ 输入参数               duration           text               校验时长，支持设置毫秒、秒、分
+                                                          钟、小时、天，例如“500ms”，
+                                                          “60s”，“10min”，“2h”，
+                                                          “1d”，最长可设置时长为24h，
+                                                          可能存在毫秒级、秒级误差或分钟
+                                                          级误差，设置为0则默认校验完成
+                                                          结束。校验时长为实际执行时间和
+                                                          设置时间的最小值，执行超过设置
+                                                          时间会中止并记录当前校验位置，
+                                                          下次扫描支持从当前位置断点续
+                                                          作。
+
+ 输入参数               need_repai         bool               是否需要自动修复不一致，即按照
+                    r                                     堆表来增加或删除索引元组，当前
+                                                          仅支持设置为false。预埋参数，本
+                                                          版本暂不支持自动修复能力。
+
+ 输入参数               mode               text               校验模式预埋参数，取值范围包含
+                                                          {”increment”，”full”}。支持
+                                                          断点续做、增量（”
+                                                          increment”）校验，全量（”
+                                                          full”）校验等能力。
+
+ 输出参数               error_code         int                错误码。
+
+ 输出参数               output_file        text               解析后落盘相对路径。路径为
+                    path                                  gs_log/dump目录下，落盘文件名
+                                                          为dbverify_错误码_堆表oid_时间
+                                                          戳.log，例如：
+                                                          /$GAUSSLOG/gs_log/dump/
+                                                          dbverify_0_16384_123456.log
+
+
+
+使用示例时请根据参数说明传参，使用实际存在且匹配的oid和blocknum，否则
+将报错。
+示例1：
+gaussdb=# select * from gs_check_table((select oid from pg_class where relname='t2'),0,0,0,-1,-1, '1h',
+false, 'full');
+ verify_code |                             output_filepath
+-------------+---------------------------------------------------------------------------------------
+         0 | /$GAUSSLOG/gs_log/dump/dbverify_0_17279_766073191583799.log
+(1 row)
+示例2：
+gaussdb=# select * from gs_check_table((select oid from pg_class where relname='t1'),0,(select oid
+from pg_class where relname='index_t1'),0,2,10, '2s', false, 'full');
+[[PDF_PAGE physical=949 printed=900]]
+     verify_code |                             output_filepath
+    -------------+---------------------------------------------------------------------------------------
+             0 | /$GAUSSLOG/gs_log/dump/dbverify_0_17168_766073338594117.log
+    (1 row)
+
+           说明
+
+         调用本系统函数属于高危风险操作，请用户谨慎使用。
+         该接口当前支持Astore、Ustore表和B-tree、UB-tree索引的一致性校验。如果校验完成后
+         未发现一致性问题，错误码为"0”；如出现非"0"错误码，请联系华为工程师辅助定位。
+         关于断点续做和增量校验：
+         断点续做和增量校验的相关信息不会进行持久化，数据库进程重启后之前的校验会丢失，
+         重新校验时会从头开始进行全量校验。
+         校验模式为“increment”且上一次对该表和索引的校验未完成时会触发断点续做，从上次
+         校验中断的位置开始校验。
+         校验模式为“increment”且上一次对该表和索引的校验已完成时会触发增量校验，校验增
+         量修改页面。
+         校验模式为“full”时，从头开始进行全量校验。
+         关于IO流控：
+         默认设置io_priority为低优先级进行IO流控。
+         关于使用权限：
+         执行校验系统函数需要有初始用户、系统管理员、运维管理员或监控管理员权限，只能校
+         验当前数据库的数据表或索引。
+         推荐使用场景：
+         校验推荐使用在业务低峰期，尽量保证校验期间大部分数据为静态数据，保证校验的完整
+         性和准确性。
+●   gs_check_index(index_oid oid, partindex_oid oid, duration text, need_repair
+    bool, mode text)
+    描述：校验堆表和索引的正向数据一致性。
+    约束：支持Astore、Ustore存储引擎，不支持MOT；支持备节点进行校验，不支
+    持logger节点；堆表支持普通行存表、ILM压缩表、透明加密表、Hashbucket表
+    （当前集中式版本暂不支持hashbucket表）的校验，不支持临时表、全局临时
+    表、unlogged表。索引支持B-tree、UB-tree索引的校验，兼容段页式存储。
+    参数：详见表1-261。
+    返回值类型：record
+
+    表 1-261 gs_check_index 参数说明
+     参数类型                  参数名                  类型                    描述
+
+     输入参数                  index_oid            oid                   索引oid：
+                                                                      ● 普通索引：索引 oid。
+                                                                      ● 全局索引：GPI oid。
+                                                                      ● local索引：主索引oid。
+[[PDF_PAGE physical=950 printed=901]]
+ 参数类型               参数名                类型                 描述
+
+ 输入参数               partindex_         oid                分区索引oid：
+                    oid                                   ● 普通索引：0。
+                                                          ● 全局索引：0。
+                                                          ● local索引：分区索引oid(一级/
+                                                            二级)。
+                                                          ● local索引扫描全部分区：0。
+
+ 输入参数               duration           text               校验时长，支持设置毫秒、秒、分
+                                                          钟、小时、天，例如“500ms”、
+                                                          “60s”，“10min”，“2h”，
+                                                          “1d”，最长可设置时长为24h，
+                                                          可能存在毫秒级、秒级误差或分钟
+                                                          级误差，设置为0则默认校验完成
+                                                          结束。校验时长为实际执行时间和
+                                                          设置时间的最小值，执行超过设置
+                                                          时间会中止并记录当前校验位置，
+                                                          下次扫描支持从当前位置断点续
+                                                          作。
+
+ 输入参数               need_repai         bool               是否需要自动修复不一致，即按照
+                    r                                     堆表来增加或删除索引元组，当前
+                                                          仅支持设置为false。预埋参数，本
+                                                          版本暂不支持自动修复能力。
+
+ 输入参数               mode               text               校验模式预埋参数，取值范围包含
+                                                          {”increment”，”full”}。支持
+                                                          断点续做、增量（”
+                                                          increment”）校验，全量（”
+                                                          full”）校验等能力。
+
+ 输出参数               error_code         int                错误码。
+
+ 输出参数               output_file        text               解析后落盘相对路径。路径为
+                    path                                  gs_log/dump目录下，落盘文件名
+                                                          为dbverify_错误码_堆表oid_时间
+                                                          戳.log，例如：
+                                                          /$GAUSSLOG/gs_log/dump/
+                                                          dbverify_0_16384_123456.log
+
+
+
+使用示例时请根据参数说明传参，使用实际存在且匹配的oid，否则将报错。
+示例1：
+gaussdb=# select * from gs_check_index((select oid from pg_class where relname='index_t1'),0, '1h',
+false, 'full');
+ verify_code |                             output_filepath
+-------------+---------------------------------------------------------------------------------------
+         0 | /$GAUSSLOG/gs_log/dump/dbverify_0_17302_766074761373434.log
+(1 row)
+示例2：
+gaussdb=# select * from gs_check_index((select oid from pg_class where relname='index_range_2'),
+(select oid from pg_partition where parentid=(select oid from pg_class where
+[[PDF_PAGE physical=951 printed=902]]
+    relname='index_range_2')and relname='p1_a_idx'), '10s', false, 'full');
+     verify_code |                             output_filepath
+    -------------+---------------------------------------------------------------------------------------
+             0 | /$GAUSSLOG/gs_log/dump/dbverify_0_17306_766074834795344.log
+    (1 row)
+
+           说明
+
+         调用本系统函数属于高危风险操作，请用户谨慎使用。
+         该接口当前支持Astore、Ustore表和B-tree、UB-tree索引的一致性校验。如果校验完成后
+         未发现一致性问题，错误码为"0”；如出现非"0"错误码，请联系华为工程师辅助定位。
+         关于断点续做和增量校验：
+         断点续做和增量校验的相关信息不会进行持久化，数据库进程重启后之前的校验会丢失，
+         重新校验时会从头开始进行全量校验。
+         校验模式为“increment”且上一次对该表和索引的校验未完成时会触发断点续做，从上次
+         校验中断的位置开始校验。
+         校验模式为“increment”且上一次对该表和索引的校验已完成时会触发增量校验，校验增
+         量修改页面。
+         校验模式为“full”时，从头开始进行全量校验。
+         关于IO流控：
+         默认设置io_priority为低优先级进行IO流控。
+         关于使用权限：
+         执行校验系统函数需要有初始用户、系统管理员、运维管理员或监控管理员权限，只能校
+         验当前数据库的数据表或索引。
+         推荐使用场景：
+         校验推荐使用在业务低峰期，尽量保证校验期间大部分数据为静态数据，保证校验的完整
+         性和准确性。
+●   gs_get_standby_bad_block_info()
+    描述：显示备机上已经检测到但是还未修复的页面。默认只有在备DN节点上，使
+    用初始用户、具有sysadmin权限的用户以及在运维模式下具有运维管理员权限的
+    用户、以及监控用户可以查看，其余用户需要赋权后才可以使用。返回值
+    invalid_type列共有4种类型：NOT_PRESENT（页面不存在）、
+    NOT_INITIALIZED（页面初始化失败）、 LSN_CHECK_ERROR（LSN校验失
+    败）、CRC_CHECK_ERROR（CRC校验失败）。
+    返回值类型：record
+    示例（若不存在已检测到但未修复的页面则输出0行）：
+    gaussdb=# SELECT * FROM gs_get_standby_bad_block_info();
+     spc_node | db_node | rel_node | bucket_node | fork_num | block_num | invalid_type |
+    master_page_lsn
+    ----------+---------+----------+-------------+----------+-----------+-----------------+-----------------
+      1663 | 16552 | 24745 |              -1 | 0        |   0     | CRC_CHECK_ERROR | 0/B2009E8
+    (1 rows)

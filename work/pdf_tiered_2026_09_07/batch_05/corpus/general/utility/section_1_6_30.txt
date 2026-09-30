@@ -1,0 +1,108 @@
+[[PDF_PAGE physical=900 printed=851]]
+1.6.30 触发器函数
+       ●   pg_get_triggerdef(oid)
+           描述：获取触发器的定义信息。
+           参数：待查触发器的OID。
+           返回值类型：text
+           示例:
+           --创建表tri_insert。
+           gaussdb=# CREATE TABLE tri_insert (a int, b int);
+           CREATE TABLE
+           --创建函数trigger_func。
+           gaussdb=# CREATE FUNCTION trigger_func() RETURNS trigger LANGUAGE plpgsql AS '
+           gaussdb'# BEGIN
+           gaussdb'# RAISE NOTICE ''trigger_func(%) called: action = %, when = %, level = %'', TG_ARGV[0],
+           TG_OP, TG_WHEN, TG_LEVEL;
+           gaussdb'# RETURN NULL;
+           gaussdb'# END;';
+           CREATE FUNCTION
+[[PDF_PAGE physical=901 printed=852]]
+    --创建触发器before_ins_stmt_trig。
+    gaussdb=# CREATE TRIGGER before_ins_stmt_trig BEFORE INSERT ON tri_insert
+    gaussdb-# FOR EACH STATEMENT EXECUTE PROCEDURE trigger_func('before_ins_stmt');
+    CREATE TRIGGER
+    --创建触发器after_ins_when_trig。
+    gaussdb=# CREATE TRIGGER after_ins_when_trig AFTER INSERT ON tri_insert
+    gaussdb-# FOR EACH ROW WHEN (new.a IS NOT NULL) EXECUTE PROCEDURE
+    trigger_func('after_ins_when');
+    CREATE TRIGGER
+    --查看表tri_insert的触发器定义信息。
+    gaussdb=# SELECT pg_get_triggerdef(oid) FROM pg_trigger WHERE tgrelid = 'tri_insert'::regclass;
+
+    pg_get_triggerdef
+    -----------------------------------------------------------------------------------------------------------------------
+    ---------------------------------
+     CREATE TRIGGER before_ins_stmt_trig BEFORE INSERT ON tri_insert FOR EACH STATEMENT
+    EXECUTE PROCEDURE trigger_func('before_ins_stmt')
+     CREATE TRIGGER after_ins_when_trig AFTER INSERT ON tri_insert FOR EACH ROW WHEN ((new.a IS
+    NOT NULL)) EXECUTE PROCEDURE trigger_func('after_ins_when')
+    (2 rows)
+
+●   pg_get_triggerdef(oid, boolean)
+    描述：获取触发器的定义信息。
+    参数：待查触发器的OID及是否以pretty方式展示。
+
+           说明
+
+         仅在创建trigger时指定WHEN条件的情况下，布尔类型参数才生效。
+    返回值类型：text
+    示例:
+    --查看表tri_insert的触发器定义信息，以非pretty形式。
+    gaussdb=# SELECT pg_get_triggerdef(oid, false) FROM pg_trigger WHERE tgrelid = 'tri_insert'::regclass;
+
+    pg_get_triggerdef
+    -----------------------------------------------------------------------------------------------------------------------
+    ---------------------------------
+     CREATE TRIGGER before_ins_stmt_trig BEFORE INSERT ON tri_insert FOR EACH STATEMENT
+    EXECUTE PROCEDURE trigger_func('before_ins_stmt')
+     CREATE TRIGGER after_ins_when_trig AFTER INSERT ON tri_insert FOR EACH ROW WHEN ((new.a IS
+    NOT NULL)) EXECUTE PROCEDURE trigger_func('after_ins_when')
+    (2 rows)
+
+    --查看表tri_insert的触发器定义信息，以pretty形式。
+    gaussdb=# SELECT pg_get_triggerdef(oid, true) FROM pg_trigger WHERE tgrelid = 'tri_insert'::regclass;
+
+    pg_get_triggerdef
+    -----------------------------------------------------------------------------------------------------------------------
+    -------------------------------
+     CREATE TRIGGER before_ins_stmt_trig BEFORE INSERT ON tri_insert FOR EACH STATEMENT
+    EXECUTE PROCEDURE trigger_func('before_ins_stmt')
+     CREATE TRIGGER after_ins_when_trig AFTER INSERT ON tri_insert FOR EACH ROW WHEN (new.a IS
+    NOT NULL) EXECUTE PROCEDURE trigger_func('after_ins_when')
+    (2 rows)
+    --清理表tri_insert。
+    gaussdb=# DROP TABLE tri_insert CASCADE;
+    DROP TABLE
+    --清理函数trigger_func。
+    gaussdb=# DROP FUNCTION trigger_func;
+    DROP FUNCTION
+
+●   suppress_redundant_updates_trigger()
+    描述：用于抑制无数据变化的更新操作。在更新数据操作前调用该函数，若更新
+    后的数据相对更新前没有产生变化，则该更新操作不生效。
+    返回值类型：触发器
+[[PDF_PAGE physical=902 printed=853]]
+     说明
+
+    该函数为内置的触发器执行函数，只能在触发器定义时调用，且仅在BEFORE UPDATE触
+    发器中生效。
+示例：
+-- 创建表tri_update。
+gaussdb=# CREATE TABLE tri_update (a int, b int);
+CREATE TABLE
+-- 插入数据(1,1)。
+gaussdb=# INSERT INTO tri_update VALUES(1,1);
+INSERT 0 1
+-- 创建BEFORE UPDATE触发器，触发器函数为suppress_redundant_updates_trigger。
+gaussdb=# CREATE TRIGGER before_update_trig BEFORE UPDATE ON tri_update FOR EACH ROW
+EXECUTE PROCEDURE suppress_redundant_updates_trigger();
+WARNING: Trigger function with non-plpgsql type is not recommended.
+DETAIL: Non-plpgsql trigger function are not shippable by default.
+HINT: Unshippable trigger may lead to bad performance.
+CREATE TRIGGER
+-- 更新表中数据不变，依旧为(1,1),不执行更新操作。
+gaussdb=# UPDATE tri_update SET a=1;
+UPDATE 0
+-- 清理表tri_update。
+gaussdb=# DROP TABLE tri_update CASCADE;
+DROP TABLE
