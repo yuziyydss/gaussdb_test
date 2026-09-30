@@ -1,0 +1,1139 @@
+[[PDF_PAGE physical=3109 printed=3060]]
+3.17 存储过程的字节码执行框架
+
+3.17.1 字节码简介
+       字节码和汇编指令类似，是为PL/SQL专门定义的一组用于实现PL/SQL语义的指令，通
+       过将PL/SQL语句转化为字节码完成用户的指令。一个字节码对应一个原子化的操作，
+       一条语句对应一个或多个字节码。通过逐条解析存储过程内的语句，将存储过程语句
+       的执行转化为顺序执行字节码组成的数组。
+       字节码通过将传统存储过程基于AST（Abstract Syntax Tree，抽象语法树）的解释执
+       行引擎转变为基于字节码的解释执行引擎，可以有效提升支持场景下存储过程的执行
+       性能。通过调整GUC参数plsql_code_type，可以验证字节码框架对存储过程的性能提
+       升。当GUC参数plsql_code_type设置为BYTECODE时，存储过程在支持字节码的场景
+       下执行路径为字节码框架，不支持字节码的场景下执行路径为传统AST框架；设置为
+       INTERPRETED时，存储过程执行路径为传统AST框架。
+
+3.17.2 字节码规格约束
+规格
+       ●   通过GUC参数plsql_code_type进行控制，设置为INTERPRETED时，通过传统AST
+           框架执行存储过程；设置为BYTECODE时，通过字节码框架执行存储过程，当存
+           储过程存在不支持字节码的场景，则存储过程以传统引擎框架进行执行；不支持
+           将GUC参数plsql_code_type设置为其他值。
+       ●   该特性仅在A兼容模式数据库中生效，当A兼容性参数behavior_compat_options
+           设置中包含compat_cursor、allow_procedure_compile_check、
+           proc_outparam_override、dynamic_sql_compat、
+           proc_outparam_transfer_length以及varray_compat参数选项时，支持执行字节
+           码。
+
+约束
+       ●   目前不支持的DFX功能：PLDEBUGGER（打开PLDEBUGGER时，函数或存储过程
+           将通过传统引擎执行），PG_STAT_USER_FUNCTIONS视图（仅统计通过传统引
+           擎执行存储过程或函数的时间）。
+       ●   不支持PACKAGE实例化。
+       ●   不支持匿名块。
+       ●   不支持TRIGGER。
+       ●   不支持返回集合的函数。
+       ●   不支持高级包以及系统函数。
+       ●   不支持带有出参的FUNCTION在表达式中嵌套调用。
+       ●   不支持RETURN复合类型的带有出参的FUNCTION。
+       ●   不支持PROCEDURE显式指定RETURN值（正常用法PROCEDURE无需RETURN
+           值）。
+       ●   不支持子程序。
+       ●   主事务不支持嵌套调用自治事务的表达式执行字节码（自治事务创建的新
+           SESSION执行存储过程可以通过字节码框架执行）。
+[[PDF_PAGE physical=3110 printed=3061]]
+           ●   不支持SUBTYPE类型。
+           ●   不支持游标循环语句SELECT返回的列数与语句中的游标变量列数不一致。
+           ●   不支持RECORD变量的读取和赋值列值（如：va record; va.c1 := 1;）。
+           ●   不支持PACKAGE中RECORD变量的读取和复制。
+           ●   不支持REFCURSOR类型的出入参转换为其他类型（例如：REFCURSOR转换为
+               VARCHAR2，或进行拼接运算操作等）。
+           ●   不支持伪类型（具体请参见伪类型）作为函数或存储过程出入参。
+           ●   不支持循环游标语句使用跨PACKAGE的CURSOR变量。
+           ●   不支持包含对入参进行赋值的存储过程或函数。
+           ●   不支持BULK COLLECT语句。
+           ●   不支持FORALL批量查询语句带有SAVE EXCEPTIONS。
+           ●   不支持函数或存储过程的参数默认值为PACKAGE变量。
+           ●   不支持存储过程或函数OUT出参具有多个列或带有数组下标的复杂变量（如：
+               type arrayInt is varray(16) of int; val arrayInt; val(1) = 1;）。
+           ●   对于存储过程或函数INOUT参数，仅不包含运算的单一参数类型变量支持字节码
+               框架。
+
+3.17.3 字节码支持的场景
+
+3.17.3.1 表达式
+               说明
+
+               ● 执行表达式之前，请分别设置以下GUC参数：
+                 SET plsql_code_type=BYTECODE;
+                 SET
+                 behavior_compat_options='compat_cursor,allow_procedure_compile_check,proc_outparam_override,
+                 dynamic_sql_compat,proc_outparam_transfer_length,varray_compat';
+               ● 该章节中的示例可根据字节码相关DFX章节介绍，判断存储过程是否通过字节码框架进行执
+                 行。
+
+           当前字节码支持的表达式场景如表3-528所示。
+
+           表 3-528 字节码支持的表达式场景
+
+           表达式                   说明
+
+           常量表达式                 用于常量访问的表达式。
+
+           变量表达式                 用于变量访问的表达式。
+
+           行构造器                  用于构造一个行结构类型的表达式。
+
+           布尔类型表达式               用于表示包含逻辑条件（AND、OR以及NOT）的表达式类型。
+
+           数组引用表达式               用于表示对数组元素的索引访问的表达式。
+
+           集合类型引用表               用于表示对集合类型的索引访问的表达式。
+           达式
+
+           集合类型构造器               用于构造一个集合类型的表达式。
+[[PDF_PAGE physical=3111 printed=3062]]
+         表达式                  说明
+
+         IS NULL/IS NOT       用于检测某个值为NULL或不为NULL的表达式。
+         NULL表达式
+
+         字段选择表达式              用于从复合数据类型（如行、结构体、对象或表）中选择特定
+                              字段的表达式。
+
+         操作符表达式               用于表示由运算符连接一个或多个操作数组成的表达式。
+
+         函数表达式                用于表示包含函数或存储过程调用的表达式。
+
+         条件表达式                用于实现条件逻辑分支的表达式。允许根据不同的条件返回不
+                              同的值。
+
+         复合类型构造器              用于构造一个复合类型的表达式。
+
+         空值条件表达式              一种特殊的条件表达式，用于在两个值相等时返回NULL，不等
+                              时返回第一个值的表达式。
+
+         布尔测试表达式              用于检测布尔值状态的特殊表达式，主要判断某个表达式或列
+                              的值是否为TRUE、FALSE或UNKNOWN（即NULL）。
+
+         数组类型构造器              用于构造一个数组类型的表达式。
+
+         XML表达式               用于构造或处理XML内容的表达式。
+
+         Coalesce表达式          用于返回一组数据中第一个非NULL值的表达式。
+
+         ScalarArrayOp        用于执行标量与数组之间的比较运算（如 = ANY(...)）的表达
+         表达式                  式。
+
+         CoerceViaIO表         用于通过文本输入/输出函数在不同类型之间进行转换的表达
+         达式                   式。
+
+         MinMax表达式            用于在多个值中计算最小值或最大值的表达式。
+
+
+
+
+常量表达式
+        用于常量访问的表达式。
+        gaussdb=# CREATE OR REPLACE PROCEDURE bc_const() AS
+        a int;
+        BEGIN
+        a:=1;
+        END;
+        /
+        CREATE PROCEDURE
+        gaussdb=# CALL bc_const();
+         bc_const
+        ----------
+
+        (1 row)
+        gaussdb=# DROP PROCEDURE bc_const;
+        DROP PROCEDURE
+
+
+变量表达式
+        用于变量访问的表达式。
+[[PDF_PAGE physical=3112 printed=3063]]
+       gaussdb=#CREATE OR REPLACE PROCEDURE bc_param() AS
+       a int;
+       b int := 1;
+       BEGIN
+       a:=b;
+       END;
+       /
+       CREATE PROCEDURE
+       gaussdb=#CALL bc_param();
+        bc_param
+       ----------
+
+       (1 row)
+       gaussdb=# DROP PROCEDURE bc_param;
+       DROP PROCEDURE
+
+
+
+行构造器
+       用于构造一个行结构类型的表达式。
+       gaussdb=# CREATE OR REPLACE PROCEDURE bc_rowexpr AS
+       type tr is record(a int, b varchar);
+       v tr;
+       BEGIN
+        v := tr(1,2);
+       END;
+       /
+       CREATE PROCEDURE
+       gaussdb=# CALL bc_rowexpr();
+        bc_rowexpr
+       ------------
+
+       (1 row)
+       gaussdb=# DROP PROCEDURE bc_rowexpr;
+       DROP PROCEDURE
+
+
+
+布尔类型表达式
+       用于表示包含逻辑条件（AND、OR以及NOT）的表达式类型。
+       gaussdb=# CREATE OR REPLACE FUNCTION bc_boolexpr() RETURN int
+       is
+       a int:= 1;
+       b int:= 2;
+       c boolean:=false;
+       BEGIN
+       IF a = 1 AND b = 2 THEN
+       NULL;
+       END IF;
+       IF a = 1 OR b = 2 THEN
+       NULL;
+       END IF;
+       IF NOT c THEN
+       RETURN 1;
+       END IF;
+       end;
+       /
+       CREATE FUNCTION
+       gaussdb=# SELECT bc_boolexpr();
+        bc_boolexpr
+       -------------
+                1
+       (1 row)
+       gaussdb=# DROP FUNCTION bc_boolexpr;
+       DROP FUNCTION
+[[PDF_PAGE physical=3113 printed=3064]]
+数组引用表达式
+      用于表示对数组元素的索引访问的表达式。
+      gaussdb=# CREATE OR REPLACE PROCEDURE bc_arrayref AS
+      type t_arr is varray(20) of int;
+      v t_arr := t_arr(1,2,3);
+      a int;
+      BEGIN
+        a := v(2);
+      END;
+      /
+      CREATE PROCEDURE
+      gaussdb=# CALL bc_arrayref();
+       bc_arrayref
+      -------------
+
+      (1 row)
+      gaussdb=# DROP PROCEDURE bc_arrayref;
+      DROP PROCEDURE
+
+
+集合类型引用表达式
+      对集合类型的索引访问。
+      gaussdb=# CREATE OR REPLACE PROCEDURE bc_tableofref AS
+       type t_tabn is table of int;
+       vn t_tabn := t_tabn(1,2,3);
+       type t_tabi is table of int index by varchar;
+       vi t_tabi := t_tabi('a'=>1,'b'=>2,'c'=>3);
+       a int;
+      BEGIN
+        a := vn(2);
+        a := vi('b');
+      END;
+      /
+      CREATE PROCEDURE
+      gaussdb=# CALL bc_tableofref();
+       bc_tableofref
+      ---------------
+
+      (1 row)
+      gaussdb=# DROP PROCEDURE bc_tableofref;
+      DROP PROCEDURE
+
+
+集合类型构造器
+      用于构造一个集合类型的表达式。
+      gaussdb=#CREATE OR REPLACE PROCEDURE bc_tableofexpr AS
+      type t_tabn is table of int;
+      vn t_tabn;
+      type t_tabi is table of int index by varchar;
+      vi t_tabi;
+      BEGIN
+        vn := t_tabn(1,2,3);
+        vi := t_tabi('a'=>1,'b'=>2,'c'=>3);
+      END;
+      /
+      CREATE PROCEDURE
+      gaussdb=#CALL bc_tableofexpr();
+       bc_tableofref
+      ---------------
+
+      (1 row)
+      gaussdb=# DROP PROCEDURE bc_tableofexpr;
+      DROP PROCEDURE
+[[PDF_PAGE physical=3114 printed=3065]]
+IS NULL/IS NOT NULL 表达式
+          用于检测某个值为NULL或不为NULL的表达式。
+          gaussdb=# CREATE OR REPLACE FUNCTION bc_nulltest() RETURN int
+          IS
+          b int:=1;
+          c int:=null;
+          BEGIN
+          IF c IS NULL THEN
+          NULL;
+          END IF;
+          -- is not null
+          IF c IS NOT NULL then
+          NULL;
+          END IF;
+          RETURN 1;
+          END;
+          /
+          CREATE FUNCTION
+          gaussdb=# SELECT bc_nulltest();
+           bc_nulltest
+          -------------
+                   1
+          (1 row)
+          gaussdb=# DROP FUNCTION bc_nulltest;
+          DROP FUNCTION
+
+
+字段选择表达式
+          用于从复合数据类型（如行、结构体、对象或表）中选择特定字段的表达式。
+          gaussdb=# CREATE OR REPLACE PROCEDURE bc_fieldselect AS
+           type t_rec is record(a varchar,b int);
+           type t_tab2 is table of t_rec;
+           v t_rec := t_rec('abc', 3);
+           v1 t_tab2 := t_tab2(v);
+           a int;
+           b varchar;
+          BEGIN
+            a := v1(1).b;--复合数据类型字段访问
+          END;
+          /
+          CREATE PROCEDURE
+          gaussdb=# CALL bc_fieldselect();
+           bc_fieldselect
+          ----------------
+
+          (1 row)
+          gaussdb=# DROP PROCEDURE bc_fieldselect;
+          DROP PROCEDURE
+
+
+操作符表达式
+          用于表示由运算符连接一个或多个操作数组成的表达式。
+          gaussdb=# CREATE OR REPLACE PROCEDURE bc_opexpr()
+          AS
+          DECLARE
+          a int;
+          BEGIN
+          a := 0;
+          a := a + 1;
+          END;
+          /
+          CREATE PROCEDURE
+          gaussdb=# CALL bc_opexpr();
+[[PDF_PAGE physical=3115 printed=3066]]
+         bc_opexpr
+        -----------
+
+        (1 row)
+        gaussdb=# DROP PROCEDURE bc_opexpr;
+        DROP PROCEDURE
+
+
+函数表达式
+        用于表示包含函数或存储过程调用的表达式。
+        gaussdb=# CREATE OR REPLACE PROCEDURE bc_funcexpr()
+        AS
+        DECLARE
+        a varchar2;
+        BEGIN
+        a := 'abc';
+        a := trim(a);
+        END;
+        /
+        CREATE PROCEDURE
+        gaussdb=# CALL bc_funcexpr();
+         bc_funcexpr
+        -------------
+
+        (1 row)
+        gaussdb=# DROP PROCEDURE bc_funcexpr;
+        DROP PROCEDURE
+
+
+条件表达式
+        用于实现条件逻辑分支的表达式。允许根据不同的条件返回不同的值。
+        gaussdb=# CREATE OR REPLACE FUNCTION bc_caseexpr(score INT)
+         RETURN VARCHAR2
+         AS
+          grade VARCHAR2(1);
+         BEGIN
+          grade := CASE
+          WHEN score >= 90 THEN 'A'
+          WHEN score >= 80 THEN 'B'
+          WHEN score >= 70 THEN 'C'
+          WHEN score >= 60 THEN 'D'
+          ELSE 'F'
+         END;
+         RETURN grade;
+         END;
+         /
+        CREATE FUNCTION
+        gaussdb=# SELECT bc_caseexpr(65);
+         bc_caseexpr
+        -------------
+         D
+        (1 row)
+        gaussdb=# DROP PROCEDURE bc_caseexpr;
+        DROP PROCEDURE
+
+
+复合类型构造器
+        用于构造一个复合类型的表达式。
+        gaussdb=# CREATE TYPE bc_complex_type AS (
+           r   double precision,
+           i   double precision
+        );
+        CREATE TYPE
+[[PDF_PAGE physical=3116 printed=3067]]
+      gaussdb=# CREATE OR REPLACE FUNCTION bc_complex_type_function()
+      RETURN bc_complex_type
+      AS
+         v2 NUMBER := 3;
+         v3 NUMBER := 4;
+         v1 bc_complex_type;
+      BEGIN
+         v1 := bc_complex_type(v2, v3);
+         DBE_OUTPUT.PUT_LINE('Complex Number: ' || v1.r || ' + ' || v1.i || 'i');
+         RETURN v1;
+      END;
+      /
+      CREATE FUNCTION
+      gaussdb=# SELECT bc_complex_type_function();
+       bc_complex_type_function
+      --------------------------
+       (3,4)
+      (1 row)
+      gaussdb=# DROP FUNCTION bc_complex_type_function;
+      DROP FUNCTION
+      gaussdb=# DROP TYPE bc_complex_type;
+      DROP TYPE
+
+
+空值条件表达式
+      一种特殊的条件表达式，用于在两个值相等时返回NULL，不等时返回第一个值的表达
+      式。
+      gaussdb=# CREATE OR REPLACE FUNCTION bc_nullif() RETURN int
+      IS
+      a text:= 'aaa123';
+      b text:= 'aaa123';
+      d text:= 'abb123';
+      BEGIN
+      dbe_output.print_line(NULLIF(a,b));
+      dbe_output.print_line(NULLIF(a,d));
+      RETURN 1;
+      END;
+      /
+      CREATE FUNCTION
+      gaussdb=# SELECT bc_nullif();
+      aaa123
+       bc_nullif
+      -----------
+             1
+      (1 row)
+      gaussdb=# DROP FUNCTION bc_nullif;
+      DROP FUNCTION
+
+
+布尔测试表达式
+      用于检测布尔值状态的特殊表达式，主要判断某个表达式或列值是否为TRUE、FALSE
+      或UNKNOWN（即NULL）。
+      gaussdb=# CREATE OR REPLACE FUNCTION bc_booleantest() RETURN int
+      IS
+      a boolean:= 'true';
+      BEGIN
+      dbe_output.print_line((a is true)::TEXT);
+      dbe_output.print_line((a is not true)::TEXT);
+      dbe_output.print_line((a is false)::TEXT);
+      dbe_output.print_line((a is not false)::TEXT);
+      dbe_output.print_line((a is UNKNOWN)::TEXT);
+      dbe_output.print_line((a is not UNKNOWN)::TEXT);
+      RETURN 1;
+      END;
+      /
+[[PDF_PAGE physical=3117 printed=3068]]
+          CREATE FUNCTION
+          gaussdb=# SELECT bc_booleantest();
+          true
+          false
+          false
+          true
+          false
+          true
+           bc_booleantest
+          ----------------
+                     1
+          (1 row)
+          gaussdb=# DROP FUNCTION bc_booleantest;
+          DROP FUNCTION
+
+
+数组类型构造器
+          用于构造一个数组类型的表达式。
+          gaussdb=#CREATE OR REPLACE PROCEDURE bc_arrayexpr AS
+          type t_arr is varray(20) of int;
+          v t_arr;
+          BEGIN
+           v := t_arr(1,2,3);
+          END;
+          /
+          CREATE PROCEDURE
+          gaussdb=#CALL bc_arrayexpr();
+           bc_arrayexpr
+          --------------
+
+          (1 row)
+          gaussdb=# DROP PROCEDURE bc_arrayexpr;
+          DROP PROCEDURE
+
+
+XML 表达式
+          用于构造或处理XML内容的表达式。
+          gaussdb=# CREATE OR REPLACE PROCEDURE bc_xmlexpr() AS
+          var xml;
+          var1 bool;
+          var2 varchar2;
+          BEGIN
+           var := xmlconcat('<data>Hello</data>', '<data>World</data>');
+           var := XMLPARSE(DOCUMENT '<emp><id>101</id><name>Alice</name></emp>');
+           var := XMLPI(NAME php, 'echo "Hello";');
+           var := XMLROOT('<?xml version="1.1"?><root><b>2</b></root>',VERSION '2.0');
+           var := XMLSERIALIZE(CONTENT 'good' AS CHAR(10));
+           var := XMLTYPE('<a>123</a>');
+           var1 := XMLPARSE(DOCUMENT '<root><x/></root>') IS DOCUMENT;
+           var2 := xmltype('<a>123<b>456</b></a>').getstringval();
+          END;
+          /
+          CREATE PROCEDURE
+          gaussdb=# CALL bc_xmlexpr();
+           bc_arrayexpr
+          --------------
+
+          (1 row)
+          gaussdb=# DROP PROCEDURE bc_xmlexpr;
+          DROP PROCEDURE
+
+
+Coalesce 表达式
+          用于返回一组数据中第一个非NULL值的表达式。
+[[PDF_PAGE physical=3118 printed=3069]]
+          gaussdb=# CREATE OR REPLACE PROCEDURE bc_coalesceexpr(va int, vb int, vc int) AS
+          var text;
+          BEGIN
+           var := coalesce(null, null, va*2, vb, vc);
+          END;
+          /
+          CREATE PROCEDURE
+          gaussdb=# CALL bc_coalesceexpr(null,null,1);
+           bc_arrayexpr
+          --------------
+
+          (1 row)
+          gaussdb=# DROP PROCEDURE bc_coalesceexpr;
+          DROP PROCEDURE
+
+
+ScalarArrayOp 表达式
+          用于执行标量与数组之间的比较运算（如 = ANY(...)）的表达式。
+          gaussdb=# CREATE OR REPLACE PROCEDURE bc_scalararrayopexpr() AS
+          arr _int4 := (null);
+          value1 int := 1;
+          var bool;
+          BEGIN
+           var := value1 = ANY(arr);
+          END;
+          /
+          CREATE PROCEDURE
+          gaussdb=# CALL bc_scalararrayopexpr();
+           bc_arrayexpr
+          --------------
+
+          (1 row)
+          gaussdb=# DROP PROCEDURE bc_scalararrayopexpr;
+          DROP PROCEDURE
+
+
+CoerceViaIO 表达式
+          用于通过文本输入/输出函数在不同类型之间进行转换的表达式。
+          gaussdb=# CREATE OR REPLACE PROCEDURE bc_coerceviaiopexpr() AS
+          text1 text;
+          BEGIN
+           text1 := ARRAY[1,2,3]::text;
+          END;
+          /
+          CREATE PROCEDURE
+          gaussdb=# CALL bc_coerceviaiopexpr();
+           bc_arrayexpr
+          --------------
+
+          (1 row)
+          gaussdb=# DROP PROCEDURE bc_coerceviaiopexpr;
+          DROP PROCEDURE
+
+
+MinMax 表达式
+          用于在多个值中计算最小值或最大值的表达式。
+          gaussdb=# CREATE OR REPLACE PROCEDURE bc_minmaxexpr() AS
+          var bool;
+          BEGIN
+           var := GREATEST(1, 3, 2);
+           var := LEAST(1, 3, 2);
+          END;
+          /
+          CREATE PROCEDURE
+[[PDF_PAGE physical=3119 printed=3070]]
+              gaussdb=# CALL bc_minmaxexpr();
+               bc_arrayexpr
+              --------------
+
+              (1 row)
+              gaussdb=# DROP PROCEDURE bc_minmaxexpr;
+              DROP PROCEDURE
+
+
+3.17.3.2 语句
+                   说明
+
+                  ● 执行语句之前，请分别设置以下GUC参数：
+                     SET plsql_code_type=BYTECODE;
+                     SET
+                     behavior_compat_options='compat_cursor,allow_procedure_compile_check,proc_outparam_override,
+                     dynamic_sql_compat,proc_outparam_transfer_length,varray_compat';
+                  ● 该章节中的示例可根据字节码相关DFX章节介绍，判断存储过程是否通过字节码框架进行执
+                    行。
+
+              当前字节码支持的语句场景如表3-529所示。
+
+              表 3-529 字节码支持的表语句场景
+               语句                         说明
+
+               块语句（BLOCK）                 用于组织一组原子性操作，可包含空语句或执行多个子语
+                                          句。
+
+               条件语句                       用于判断参数或者语句是否满足自定义的条件，根据判定结
+                                          果执行相应的操作的语句。
+
+               LOOP语句                     用于反复执行指定操作的语句。
+
+               WHILE语句                    用于在指定条件下，循环执行指定操作的语句。
+
+               FOR_LOOP（INT变              用于按照指定的次数执行循环，在循环内部可以执行重复的
+               量）语句                       查询操作的语句。
+
+               FOR_LOOP                   用于循环游标的执行结果的语句。
+               （CURSOR变量）语
+               句
+
+               FOR_LOOP                   用于循环SELECT语句的查询结果的语句。
+               （SELECT）语句
+
+               退出/继续语句                    用于控制调整循环执行流程的语句，EXIT表示立即终止当前
+               （EXIT/                     循环，CONTINUE表示继续执行下一次循环。
+               CONTINUE）
+
+               返回语句（仅                     用于将存储过程或函数返回结果赋值给调用者的语句。
+               RETURN，不支持
+               RETURN QUERY/
+               NEXT）
+
+               赋值语句                       用于为变量赋值的语句。
+[[PDF_PAGE physical=3120 printed=3071]]
+        语句                          说明
+
+        执行 SQL 语句（仅支                用于执行SQL操作的语句。
+        持简单表达式语句，
+        其他场景支持部分退
+        化为非字节码执行）
+
+        调用语句                        用于在存储过程中调用存储过程的语句。
+
+        分支语句                        用于允许程序根据特定条件执行不同的语句。
+
+        空语句                         用于说明“不用进行任何操作”的场景的语句，相当于一个
+                                    占位符。
+
+        FORALL批量查询语                 用于在数据集上执行并行操作的语句，是一种并行化的循环
+        句（不带SAVE                    操作。
+        EXCEPTIONS场景）
+
+        GET DIAGNOSTICS             用于获取最后一次SQL操作的状态信息、影响行数、错误信
+        语句                          息等诊断数据的语句。
+
+
+
+块语句（BLOCK）
+       用于组织一组原子性操作，可包含空语句或执行多个子语句。
+       gaussdb=# CREATE OR REPLACE PROCEDURE bc_block AS
+       BEGIN
+         NULL;
+         EXCEPTION WHEN others THEN
+          RAISE INFO '%', 'exception';
+       END;
+       /
+       CREATE PROCEDURE
+       gaussdb=# CALL bc_block();
+        bc_block
+       ----------
+
+       (1 row)
+
+       gaussdb=# DROP PROCEDURE bc_block();
+       DROP PROCEDURE
+
+
+条件语句
+       用于判断参数或者语句是否满足自定义的条件，根据判定结果执行相应的操作的语
+       句。
+       gaussdb=# CREATE OR REPLACE PROCEDURE bc_if(i int, j int) AS
+       BEGIN
+         IF i>j THEN
+            DBE_OUTPUT.PRINT_LINE('i is bigger');
+         ELSE
+            DBE_OUTPUT.PRINT_LINE('j is bigger');
+         END IF;
+       END;
+       /
+       CREATE PROCEDURE
+       gaussdb=# CALL bc_if(1,2);
+       j is bigger
+        bc_if
+       -------
+[[PDF_PAGE physical=3121 printed=3072]]
+           (1 row)
+
+           gaussdb=# DROP PROCEDURE bc_if();
+           DROP PROCEDURE
+
+
+LOOP 语句
+           用于反复执行指定操作的语句。
+           gaussdb=# CREATE OR REPLACE PROCEDURE bc_loop(i int, count int) AS
+           BEGIN
+             LOOP
+              IF count > i THEN
+                RAISE INFO 'count is %',count;
+                EXIT;
+              END IF;
+             END LOOP;
+           END;
+           /
+           CREATE PROCEDURE
+           gaussdb=# CALL bc_loop(1,2);
+           INFO: count is 2
+            bc_loop
+           ---------
+
+           (1 row)
+
+           gaussdb=# DROP PROCEDURE bc_loop();
+           DROP PROCEDURE
+
+
+WHILE 语句
+           用于在指定条件下，循环执行指定操作的语句。
+           gaussdb=# CREATE OR REPLACE PROCEDURE bc_while_loop(maxval integer)
+           AS
+             i int := 1;
+           BEGIN
+             WHILE i < maxval LOOP
+                RAISE INFO '%', i;
+                i := i + 1;
+             END LOOP;
+           END;
+           /
+           CREATE PROCEDURE
+           gaussdb=# CALL bc_while_loop(2);
+           INFO: 1
+            bc_while_loop
+           ---------------
+
+           (1 row)
+
+           gaussdb=# DROP PROCEDURE bc_while_loop();
+           DROP PROCEDURE
+
+
+FOR_LOOP（INT 变量）语句
+           用于按照指定的次数执行循环，在循环内部可以执行重复的查询操作的语句。
+           gaussdb=# CREATE OR REPLACE PROCEDURE bc_fori AS
+           BEGIN
+            FOR i in 0..2 LOOP
+             RAISE INFO '%', i;
+            END LOOP;
+           END;
+[[PDF_PAGE physical=3122 printed=3073]]
+         /
+         CREATE PROCEDURE
+         gaussdb=# CALL bc_fori();
+         INFO: 0
+         INFO: 1
+         INFO: 2
+          bc_fori
+         ---------
+
+         (1 row)
+
+         gaussdb=# DROP PROCEDURE bc_fori();
+         DROP PROCEDURE
+
+
+FOR_LOOP（CURSOR 变量）语句
+         用于循环游标的执行结果的语句。
+         gaussdb=# CREATE TABLE t1(a int);
+         CREATE TABLE
+         gaussdb=# INSERT INTO t1 VALUES(10);
+         INSERT 0 1
+         gaussdb=# CREATE OR REPLACE PROCEDURE bc_forc AS
+           CURSOR cur FOR select * from t1;
+         BEGIN
+           FOR i IN cur LOOP
+            RAISE INFO '%', i;
+           END LOOP;
+         END;
+         /
+         CREATE PROCEDURE
+         gaussdb=# CALL bc_forc();
+         INFO: (10)
+          bc_forc
+         ---------
+
+         (1 row)
+
+         gaussdb=# DROP TABLE t1;
+         DROP TABLE
+         gaussdb=# DROP PROCEDURE bc_forc();
+         DROP PROCEDURE
+
+
+FOR_LOOP（SELECT）语句
+         用于循环SELECT语句的查询结果的语句。
+         gaussdb=# CREATE TABLE t1(a int);
+         CREATE TABLE
+         gaussdb=# INSERT INTO t1 VALUES(1),(10);
+         INSERT 0 2
+         gaussdb=# CREATE OR REPLACE PROCEDURE bc_fors AS
+           record varchar(20);
+         BEGIN
+             FOR record IN SELECT a FROM t1 LOOP
+               RAISE INFO '%', record;
+             END LOOP;
+         END;
+         /
+         CREATE PROCEDURE
+         gaussdb=# CALL bc_fors();
+         INFO: 1
+         INFO: 10
+          bc_fors
+         ---------
+
+         (1 row)
+[[PDF_PAGE physical=3123 printed=3074]]
+         gaussdb=# DROP TABLE t1;
+         DROP TABLE
+         gaussdb=# DROP PROCEDURE bc_fors();
+         DROP PROCEDURE
+
+
+退出/继续语句（EXIT/CONTINUE）
+         用于控制调整循环执行流程的语句，EXIT表示立即终止当前循环，CONTINUE表示继
+         续执行下一次循环。
+         gaussdb=# CREATE OR REPLACE PROCEDURE bc_loop(i int) AS
+         DECLARE
+         count int := 1;
+         BEGIN
+          LOOP
+           IF count = i THEN
+
+              count := i + 1;
+              CONTINUE;
+            END IF;
+            IF count > i THEN
+              RAISE INFO 'count is %',count;
+              EXIT;
+            END IF;
+           END LOOP;
+         END;
+         /
+         CREATE PROCEDURE
+         gaussdb=# CALL bc_loop(1);
+         INFO: count is 2
+          bc_loop
+         ---------
+
+         (1 row)
+         gaussdb=# DROP PROCEDURE bc_loop();
+         DROP PROCEDURE
+
+
+返回语句（仅 RETURN，不支持 RETURN QUERY/NEXT）
+         用于将存储过程或函数返回结果赋值给调用者的语句。
+         gaussdb=# CREATE OR REPLACE FUNCTION bc_return() RETURN VOID
+         IS
+         BEGIN
+           NULL;
+         END;
+         /
+         CREATE FUNCTION
+         gaussdb=# SELECT bc_return();
+          bc_return
+         -----------
+
+         (1 row)
+
+         gaussdb=# DROP PROCEDURE bc_return();
+         DROP PROCEDURE
+
+
+赋值语句
+         用于为变量赋值的语句。
+         gaussdb=# CREATE OR REPLACE PROCEDURE bc_assign AS
+          a int;
+         BEGIN
+          a := 1;
+         END;
+[[PDF_PAGE physical=3124 printed=3075]]
+       /
+       CREATE PROCEDURE
+       gaussdb=# CALL bc_assign();
+        bc_assign
+       -----------
+
+       (1 row)
+
+       gaussdb=# DROP PROCEDURE bc_assign();
+       DROP PROCEDURE
+
+
+执行 SQL 语句（仅支持简单表达式语句，其他场景支持部分退化为非字节码执行）
+       用于执行SQL操作的语句。
+       gaussdb=# CREATE OR REPLACE PROCEDURE bc_execsql AS
+          b int;
+       BEGIN
+         select 1 into b;
+       END;
+       /
+       CREATE PROCEDURE
+       gaussdb=# CALL bc_execsql();
+        bc_execsql
+       ------------
+
+       (1 row)
+
+       gaussdb=# DROP PROCEDURE bc_execsql();
+       DROP PROCEDURE
+
+
+调用语句
+       用于在存储过程中调用存储过程的语句。
+       gaussdb=# CREATE OR REPLACE PROCEDURE bc_perform1 AS
+       BEGIN
+         NULL;
+       END;
+       /
+       CREATE PROCEDURE
+       gaussdb=# CREATE OR REPLACE PROCEDURE bc_perform2 AS
+       BEGIN
+         bc_perform1();
+       END;
+       /
+       gaussdb=# CALL bc_perform2();
+        bc_perform2
+       -------------
+
+       (1 row)
+
+       gaussdb=# DROP PROCEDURE bc_perform1();
+       DROP PROCEDURE
+       gaussdb=# DROP PROCEDURE bc_perform2();
+       DROP PROCEDURE
+
+
+分支语句
+       用于允许程序根据特定条件执行不同的语句。
+       gaussdb=# CREATE OR REPLACE PROCEDURE bc_case(pi_result int, pi_return out int) AS
+       BEGIN
+        CASE pi_result
+         WHEN 1 THEN
+          pi_return := 111;
+[[PDF_PAGE physical=3125 printed=3076]]
+             WHEN 2 THEN
+               pi_return := 222;
+             ELSE
+               pi_return := 999;
+            END CASE;
+            RAISE INFO '%', pi_return;
+          END;
+          /
+          CREATE PROCEDURE
+          gaussdb=# CALL bc_case(3,3);
+          INFO: 999
+           pi_return
+          -----------
+                999
+          (1 row)
+
+          gaussdb=# DROP PROCEDURE bc_case();
+          DROP PROCEDURE
+
+
+空语句
+          用于说明“不用进行任何操作”的场景的语句，相当于一个占位符。
+          gaussdb=# CREATE OR REPLACE PROCEDURE bc_null AS
+          BEGIN
+            NULL;
+          END;
+          /
+          CREATE PROCEDURE
+          gaussdb=# CALL bc_null();
+           bc_null
+          ---------
+
+          (1 row)
+
+          gaussdb=# DROP PROCEDURE bc_null();
+          DROP PROCEDURE
+
+
+FORALL 批量查询语句（不带 SAVE EXCEPTIONS 场景）
+          用于在数据集上执行并行操作的语句，是一种并行化的循环操作。
+          gaussdb=# CREATE TABLE t1(a int);
+          CREATE TABLE
+          gaussdb=# CREATE OR REPLACE PROCEDURE bc_forall AS
+          BEGIN
+            FORALL i IN 1..2
+             INSERT INTO t1 VALUES (1);
+          END;
+          /
+          CREATE PROCEDURE
+          gaussdb=# CALL bc_forall();
+           bc_forall
+          -----------
+
+          (1 row)
+
+          gaussdb=# DROP TABLE t1;
+          DROP TABLE
+          gaussdb=# DROP PROCEDURE bc_forall();
+          DROP PROCEDURE
+
+
+GET DIAGNOSTICS 语句
+          用于获取最后一次SQL操作的状态信息、影响行数、错误信息等诊断数据的语句。
+[[PDF_PAGE physical=3126 printed=3077]]
+        gaussdb=# CREATE TABLE diag_table(int_col int, str_col varchar2);
+        CREATE TABLE
+        gaussdb=# CREATE OR REPLACE PROCEDURE get_diag_proc() AS
+        DECLARE
+           nrows INT;
+           result_oid oid;
+           sql_state text;
+           message_text text;
+           pg_exception_detail text;
+           pg_exception_hint text;
+           pg_exception_context text;
+        BEGIN
+           UPDATE diag_table SET int_col = 'aaa';
+           exception when others then
+              get current diagnostics nrows = row_count;
+              get current diagnostics result_oid = result_oid;
+              get stacked diagnostics sql_state = returned_sqlstate;
+              get stacked diagnostics message_text = message_text;
+              get stacked diagnostics pg_exception_detail = pg_exception_detail;
+              get stacked diagnostics pg_exception_hint = pg_exception_hint;
+              get stacked diagnostics pg_exception_context = pg_exception_context;
+        END;
+        /
+        CREATE PROCEDURE
+        gaussdb=# CALL get_diag_proc();
+         get_diag_proc
+        ---------------
+
+        (1 row)
+        gaussdb=# DROP TABLE diag_table;
+        DROP TABLE
+        gaussdb=# DROP PROCEDURE get_diag_proc();
+        DROP PROCEDURE
+
+
+3.17.4 字节码相关 DFX
+        可以通过以下方式检查对应存储过程是否以字节码框架进行执行。
+        ●    设置logging_module = 'on(BYTECODE)'，打开字节码相关日志功能，在执行完
+             存储过程后，可以在日志中查找对应的执行记录。
+                    说明
+
+                  以下示例中需额外设置client_min_messages = log，用于回显展示执行过程中的日志信
+                  息。
+             –     存储过程符合字节码支持的场景：回显展示执行过程中会打印存储过程是否
+                   支持字节码、打印根据存过语句生成的字节码序列以及打印日志“Start
+                   ByteCode!”。
+                   gaussdb=# CREATE OR REPLACE PROCEDURE p_block
+                    AS
+                    DECLARE
+                    BEGIN
+                    NULL;
+                    END;
+                    /
+                   CREATE PROCEDURE
+                   gaussdb=# CALL p_block();
+                   LOG: [ByteCode] BC040 This function supports bytecode, func_oid: 1364363.
+                   LOG: [ByteCode] Function: p_block(), InterpreterBytecode:
+                   [0] exec_stmt_begin
+                   [21] exec_stmt_end
+                   [34] exec_stmt_begin
+                   [55] exec_stmt_end
+                   [68] return0 5
+
+                   LOG: Start ByteCode!
+                    p_block
+[[PDF_PAGE physical=3127 printed=3078]]
+        ---------
+
+        (1 row)
+    –   存储过程不符合字节码支持的场景：按照传统AST执行引擎，打印不支持字
+        节码的原因以及打印存储过程是否支持字节码。
+        gaussdb=# CREATE OR REPLACE FUNCTION fun_return_query(value in numeric, pre in int
+        default 0) RETURN SETOF numeric
+            IS
+           BEGIN
+               RETURN QUERY select round(value);
+            END;
+            /
+        CREATE FUNCTION
+        gaussdb=# CALL fun_return_query(125.6);
+        LOG: [ByteCode] BC004 bytecode doesn't support func which returns set.
+        LOG: [ByteCode] BC030 Stmt RETURN QUERY does not support with some error, lineno: 2.
+        LOG: [ByteCode] BC039 This function doesn't support bytecode, func_oid: 1364365.
+         fun_return_query
+        ------------------
+                   126
+        (1 row)
+
+●   执行存储过程后，通过系统函数pg_catalog.dump_plsql_bytecode(function_oid
+    Oid)查询存储过程对应的字节码序列是否生成，入参Oid表示对应存储过程的
+    Oid。具体信息请参见存储过程字节码特性函数章节。
