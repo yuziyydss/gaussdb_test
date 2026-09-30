@@ -1,0 +1,85 @@
+"""Tools Wave 8-8 extraction is source-bound."""
+import json, subprocess, sys, unittest
+from pathlib import Path
+import yaml
+
+ROOT = Path(__file__).resolve().parents[1]
+FACTS_PATH = ROOT / 'docs/compat_facts/core_tools_wave8_8_v1.yaml'
+MANIFEST_PATH = ROOT / 'generated/core_tools_wave8_8_v1/manifest.json'
+
+class CoreToolsWave88Tests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.facts_payload = yaml.safe_load(FACTS_PATH.read_text(encoding='utf-8'))
+        cls.manifest = json.loads(MANIFEST_PATH.read_text(encoding='utf-8'))
+        cls.facts = cls.facts_payload['facts']
+
+    def test_scope_covers_expand_shrink_tools(self):
+        self.assertEqual(self.manifest['kind'], 'core_tools_wave8_8_extraction_manifest')
+        self.assertEqual(self.manifest['scope']['chapter_count'], 1)
+        self.assertEqual(self.manifest['scope']['physical_page_count'], 17)
+        self.assertEqual(self.manifest['scope']['physical_page_start'], 3975)
+        self.assertEqual(self.manifest['scope']['physical_page_end_exclusive'], 3992)
+        self.assertEqual(self.manifest['scope']['sections'], ['5.8'])
+        self.assertEqual(self.manifest['summary']['fact_count'], len(self.facts))
+        self.assertEqual(self.manifest['summary']['fact_count'], 20)
+        self.assertEqual(self.manifest['summary']['open_question_count'], 1)
+        self.assertTrue(self.manifest['summary']['all_sources_resolved'])
+        self.assertTrue(self.manifest['summary']['all_facts_bound_to_scope'])
+
+    def test_facts_are_unique_confirmed_and_traceable(self):
+        ids = [item['id'] for item in self.facts]
+        self.assertEqual(len(ids), len(set(ids)))
+        for fact in self.facts:
+            with self.subTest(fact=fact['id']):
+                self.assertEqual(fact['status'], 'confirmed')
+                self.assertIn(fact['type'], {'syntax', 'constraint', 'environment', 'behavior_oracle'})
+                self.assertTrue(fact['source_refs'])
+                self.assertTrue(all(ref.startswith('w8_8_') for ref in fact['source_refs']))
+                self.assertTrue(fact['source_anchor'])
+
+    def test_expected_expand_shrink_families_are_covered(self):
+        ids = {item['id'] for item in self.facts}
+        expected = {
+            'tools_wave8_8_overview',
+            'tools_wave8_8_expand_scope',
+            'tools_wave8_8_expand_state',
+            'tools_wave8_8_expand_replica_limit',
+            'tools_wave8_8_expand_cascade_license',
+            'tools_wave8_8_expand_etcd_count',
+            'tools_wave8_8_expand_instance_counts',
+            'tools_wave8_8_expand_host_prereq',
+            'tools_wave8_8_expand_dn_pattern',
+            'tools_wave8_8_expand_perf_bottleneck',
+            'tools_wave8_8_expand_maintenance_window',
+            'tools_wave8_8_expand_commands',
+            'tools_wave8_8_resource_levels',
+            'tools_wave8_8_worker_dop',
+            'tools_wave8_8_lockwait_timeout',
+            'tools_wave8_8_lockwait_retry',
+            'tools_wave8_8_catchup_limits',
+            'tools_wave8_8_write_error_mode',
+            'tools_wave8_8_catchup_dop',
+            'tools_wave8_8_join_table_groups',
+        }
+        self.assertEqual(expected, ids)
+
+    def test_manifest_resolves_sources_and_page_slices(self):
+        self.assertEqual(len(self.manifest['sources']), 1)
+        for source in self.manifest['sources']:
+            with self.subTest(source=source['section_number']):
+                self.assertRegex(source['chapter_sha256'], r'[0-9a-f]{64}')
+                self.assertEqual(source['chapter_sha256'], source['resolved_sha256'])
+                self.assertGreater(source['page_line_count'], 0)
+
+    def test_written_manifest_is_current(self):
+        self.assertTrue(MANIFEST_PATH.is_file())
+        result = subprocess.run(
+            [sys.executable, str(ROOT / 'scripts/build_core_tools_wave8_8.py'), '--check'],
+            cwd=ROOT, text=True, capture_output=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(json.loads(MANIFEST_PATH.read_text(encoding='utf-8')), self.manifest)
+
+if __name__ == '__main__':
+    unittest.main()

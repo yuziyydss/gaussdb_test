@@ -1,0 +1,791 @@
+[[PDF_PAGE physical=3975 printed=3926]]
+5.8 数据库扩/缩容工具
+
+5.8.1 数据库扩/缩容工具概览
+         表 5-110 数据库扩/缩容工具概览
+
+         工具名称                     工具简介
+
+         gs_expand                对数据库节点进行扩容操作（扩分片及升副本）。详
+                                  细信息请参见gs_expand升副本。
+
+         gs_redis                 对扩容后的数据库执行数据重分布。详细信息请参见
+                                  gs_redis扩容后数据重分布。
+
+         gs_redis_bucket bucket   对扩容后的数据库中hashbucket、rangebucket表执
+                                  行数据重分布的工具。详细信息请参见
+                                  gs_redis_bucket bucket表执行数据重分布。
+
+         gs_shrink                对数据库节点进行缩容操作（缩分片及降副本）。详
+                                  细信息请参见gs_shrink缩容。
+
+
+
+
+5.8.2 gs_expand 升副本
+工具介绍
+         GaussDB提供了gs_expand工具，来帮助用户在部署数据库实例后，通过升副本的方式
+         增加系统可靠性。
+
+             说明
+
+             集中式仅支持升副本操作，且不支持单独调用。
+             集中式单节点不支持该工具。
+
+
+扩容（升副本）前提条件
+         ●   升副本操作要求在数据库实例normal状态下进行，degraded和unavailable状态不
+             支持升副本。
+[[PDF_PAGE physical=3976 printed=3927]]
+       ●   升副本支持一主多备数据库和单副本数据库。
+       ●   一主多备数据库升副本操作支持从2副本数据库最大扩展到5副本数据库；单副本
+           数据库无此限制。
+       ●   升副本如果是级联备，只支持集中式。
+       ●   具有License特性的数据库，升副本前需保证集群License处于激活或试用期状态。
+       ●   升副本（增加ETCD）操作中需要满足以下数据库配置ETCD的节点数。数据库中
+           配置ETCD的节点总个数因为多数派选主，应为单数。
+           –    2AZ部署：AZ1中ETCD个数>=2；AZ2中ETCD个数>=1；ETCD总个数=3或5或
+                7。
+           –    3AZ部署：AZ1中ETCD个数>=2；AZ2中ETCD个数>=2；AZ3中ETCD个数
+                >=1；ETCD总个数=5或7。
+           –    指定参数增加只读节点前，需要将当前数据库中的主备DN的
+                sync_config_strategy参数设置为only_sync_node。
+           –    单副本数据库升副本至一主多备数据库，配置节点时需要满足一主多备数据
+                库各实例配置的数量约束：
+                集中式：ETCD 数量（3-7 奇数）个；CMS（2-8）个；DN >=2 个。
+
+注意事项
+       ●   新增主机至少满足数据库实例的安装要求。
+       ●   新数据库实例整体性能取决于数据库实例中配置最低的机器。
+       ●   新增主机的locale、encoding等需要和原有主机上保持一致。
+       ●   新的主机上已经做了数据库实例安装路径和用户组规划。
+       ●   使用环境字符集不支持中文类型（zh_CN.UTF-8），可通过locale命令查看。
+       ●   升副本支持新增主机中只含DN，或者包含DN和ETCD，或者包含DN和CMS，或
+           者三者都含场景；不支持不包含DN实例的场景进行升副本操作。
+       ●   若新增主机硬件规格（内存、硬盘）低于现有数据库实例，需要逐步将性能较低
+           的服务器替换为性能更好的服务器以满足数据库实例的性能要求。
+       ●   升副本过程中，可能发生DN主备切换，请合理分配运维窗口期，避免对业务造成
+           影响。
+
+命令格式
+       ●   数据库实例扩容
+           gs_expand -t dilatation -X XMLFILE [-l LOGFILE] [--parallel-jobs=NUMBER] [--time-out=<SECS>] [--
+           dilatation-mode=MODE] {--nodegroup-name=LCGROUPNAME | --addto-elastic-group}
+
+       ●   数据重分布
+           gs_expand -t redistribute [--parallel-jobs=NUMBER] [--resource-level=f/h/m/l] [--failure-
+           limit=NUMBER]
+           [--build-redistb] [--redis-mode=MODE] [-l LOGFILE] [--priority-tables=FILE] [--exclude-tables=FILE]
+           [--time-out=<SECS>] [--max-worker] [--max-dop] [--join-tables=FILE]
+
+       ●   回滚
+           gs_expand -t crashclean -X XMLFILE [-l LOGFILE]
+
+       ●   重分布资源管控
+           gs_expand -t resourcectl --resource-level=f/h/m/l [--max-worker][--max-dop]
+
+       ●   扩容dilatation阶段扩容进度查询
+           gs_expand -t progress -X XMLFILE
+
+       ●   数据库实例升副本
+[[PDF_PAGE physical=3977 printed=3928]]
+                 说明
+
+                ● 集中式仅支持此功能，且不支持单独调用。
+                ● DCF模式下，升副本后在主DN节点执行如下命令查看dcf_replication_info中角色是否
+                  包含PASSIVE：
+                     gs_ctl query -D <<DATA_DIR>>
+                     上述命令中参数<DATA_DIR>是主DN的数据目录。
+                     若上述结果中包含PASSIVE，在主DN节点执行如下命令进行角色切换：
+                     cm_ctl changerole --role FOLLOWER -n <<NODE_ID>> -D <<DATA_DIR>>
+                     上述命令中参数<NODE_ID>是待切换角色的节点ID，<DATA_DIR>是待切换角色DN的
+                     数据目录。
+           gs_expand -t add_replication -X XMLFILE [--dn-guc] [--gsstor-client-ip IP_INFO_FILE]
+
+       ●   重分布参数设置
+           gs_expand -t parametercfg [--lockwait-timeout=MSEC] [--lockwait-interval=<SECS>] [--trylock-
+           threshold=NUMBER] [--enable-cancel=Boolean] [--last-catchup-threshold=MSEC] [--catchup-
+           times=NUMBER] [--write-error-mode=Boolean] [--catchup-query-dop=NUMBER] [--parallel-catchup-
+           threshold=NUMBER] [--parallel-reindex-jobs=NUMBER] [--redis-retry-times=NUMBER][--redis-retry-
+           interval=NUMBER]
+
+       ●   显示帮助信息
+           gs_expand -? | --help
+
+       ●   显示版本信息
+           gs_expand -V | --version
+
+
+参数说明
+       gs_expand参数可以分为如下几类：
+
+       ●   通用参数：
+           –    -t
+                gs_expand命令参数类型。
+                取值范围：dilatation，redistribute，crashclean，progress，resourcectl，
+                add_replication和parametercfg。
+                        说明
+
+                      集中式仅支持add_replication。
+           –    -X
+                安装配置文件路径。
+                        说明
+
+                      如果需要修改XML文件名称时，需要将修改后的XML文件分发到数据库实例的其他主
+                      机上。
+                取值范围：clusterconfig.xml的文件路径。
+                如果-t参数指定的是progress，-X参数传入的是扩容前原始数据库实例的XML
+                配置文件 。
+           –    -l
+                指定日志文件及存放路径。
+                默认值：$GAUSSLOG/om/gs_expand-YYYY-MM-DD_hhmmss.log
+           –    --time-out=<SECS>
+                超时等待时间。单位：s。
+[[PDF_PAGE physical=3978 printed=3929]]
+        取值范围：≥43200，正整型。
+        默认值：43200
+    –   -?, --help
+        显示帮助信息。
+    –   -V, --version
+        显示版本号信息。
+●   数据库实例扩容参数：
+    –   --parallel-jobs=NUMBER
+        指定数据库实例扩容过程重建实例的并发任务个数。
+        参考取值：正整数。
+        数据库实例扩容默认值为20。
+    –   --dilatation-mode=MODE
+        指定扩容执行模式。
+        取值范围：
+
+        ▪   read-only：只读模式。
+
+        ▪   insert：插入模式。
+        如果不指定，默认为read-only模式。
+    –   --nodegroup-name=LCGROUPNAME
+        逻辑数据库实例模式时指定要扩容的逻辑数据库实例名称，指定该参数必须
+        同时指定--dilatation-mode=insert参数。
+    –   --addto-elastic-group
+        逻辑数据库实例模式时指定是否给弹性数据库实例扩容，指定该参数必须同
+        时指定--dilatation-mode=insert参数。
+    –   --call-thread=
+        脚本执行调用链ID，可以为空。
+●   数据重分布参数：
+    –   --parallel-jobs=NUMBER
+        指定数据重分布过程的并发执行任务个数。
+        参考取值：正整数（1~8）。数据重分布推荐并发任务数为4。
+        如果不指定--parallel-jobs参数：数据重分布默认值为1，为非并发执行方
+        式。
+    –   --build-redistb
+        创建pgxc_redistb表，但不进行重分布，此表中记录了本次重分布所有需要进
+        行重分布的表。
+    –   --redis-mode=MODE
+        指定数据重分布的执行模式。
+        取值范围：
+
+        ▪   read-only：只读模式。
+
+        ▪   insert：插入模式，正在进行重分布的表支持并发插入（insert）以及导
+            入（Gds导入）。
+[[PDF_PAGE physical=3979 printed=3930]]
+    如果不指定，默认为read-only模式。
+–   --priority-tables=FILE
+    优先重分布模式，系统将优先执行用户在指定文件中所写表的重分布，默认
+    不选此参数。
+    取值范围：指定的文件路径，指定文件内容不能超过1000行。
+         说明
+
+        指定文件格式,每一行：database schema tablename
+        例如：
+        testdb public test
+        testdb "pubLic" test （schema为pubLic）
+        注意：不支持database、schema和tablename数据对象名称存在空格，schema和
+        tablename名称中存在大写字母或者特殊字符时需要加双引号进行转义。
+–   --exclude-tables=FILE
+    跳过重分布模式，系统将跳过用户在指定文件中所写表的重分布，默认不选
+    此参数。
+    与优先重分布模式同时使用时，不允许两个模式中指定的表有重叠。
+    取值范围：指定的文件路径，指定文件内容不能超过1000行。
+         说明
+
+        指定文件格式,每一行：database schema tablename
+        例如：
+        testdb public test
+        testdb "pubLic" test （schema为pubLic）
+        注意：不支持database、schema、tablename数据对象名称存在空格，schema和
+        tablename名称中存在大写字母或者特殊字符时需要加双引号进行转义。
+–   --translate-table=FILE
+    数据迁移模式，系统会将用户指定的文件中的表完成数据迁移，默认不选此
+    参数。
+    取值范围：指定的文件路径，指定文件内容不能超过1000行。
+    不支持从普通表或段页式表转换为hashbucket表，也不支持hashbucket表转
+    换为其他类型的表。
+         说明
+
+        指定文件格式,每一行：database schema tablename transfertype ，例如：
+        testdb public test t segment
+        注意：不支持database、schema、tablename数据对象名称存在空格，schema和
+        tablename名称中存在大写字母或者特殊字符时需要加双引号进行转义。
+–   --join-tables=FILE
+    多表扩容模式，输入为具有join关系的用户表配置文件。
+    取值范围：指定的文件路径，指定文件内容不能超过1000行。
+[[PDF_PAGE physical=3980 printed=3931]]
+                说明
+
+            指定文件格式。每一行格式为：database schema1 tablename1 schema2
+            tablename2 ...（每行的多张表构成一个分组）。例如：
+            testdb public test1 public test2
+            testdb public test3 public test4 public test5
+            注意：
+            ●     不支持database、schema、tablename数据对象名称存在空格，schema和
+                  tablename名称中存在大写字母或者特殊字符时需要加双引号进行转义。
+            ●     每一行schema tablename必须成对出现，唯一确定一张表。
+            ●     一张表不能出现在多个分组中，每组的表数量必须大于等于2，小于等于5。
+            ●     如果存在一个schema里的tablename为其他schema的名字时，会正常处理这张
+                  表不会报错。
+    –   --call-thread=
+        脚本执行调用链ID，可以为空。
+    –   --failure-limit=NUMBER
+        跳过重分布失败表模式，系统在未超过用户指定失败数量前不会中断重分
+        布，默认不选此参数。
+        取值范围：0 ~ 10
+
+                说明
+
+            指定此参数后，如果未达到失败表数量，重分布不会中断，并且在执行完成后报错，
+            打印出失败表的列表。
+    –   当资源管控级别设置为f时，支持表内并发度（--max-worker）和表内扫描
+        （--max-dop）可配置，通过调整以下参数进行：
+
+        ▪   --max-worker
+            表内并发度。
+            取值范围：[1,8]
+            默认值：8
+
+        ▪   --max-dop
+            单表query_dop参数值。
+            取值范围：[1,64]
+            默认值：4
+●   资源管控参数：
+    --resource-level=RESLEVEL
+    指定数据重分布的资源等级。
+    取值范围：
+    –   f：100%资源。
+    –   h：50%资源。
+    –   m：30%资源。
+    –   l：10%资源。
+    默认值：l
+[[PDF_PAGE physical=3981 printed=3932]]
+         说明
+
+        当资源管控参数设置为f时，进入快速扩容场景，会充分使用资源，通过并发操作提升数据
+        重分布的性能。此时，如果shared_buffers参数值设置过小（小于推荐值），会影响此场
+        景下的性能优化效果。
+●   当资源管控级别设置为f时，支持表内并发度（--max-worker）和表内扫描（--
+    max-dop）可配置，通过调整以下参数进行：
+    –   --max-worker
+        表内并发度。
+        取值范围：[1,8]
+        默认值：8
+    –   --max-dop
+        单表query_dop参数值。
+        取值范围：[1,64]
+        默认值：4
+●   调用链接口参数
+    --trace-id
+    每次om请求的唯一标识，可根据om操作日志中的trace-id识别调用链从而进行故
+    障定界。可选参数。
+    取值范围：1-128位的字符串，允许的字符为数字，字母和'-'。
+●   重分布参数设置接口参数：
+    –   --lockwait-timeout
+        锁超时时间。如果等锁线程在该时间内无法拿到锁，则报锁超时失败。
+        取值范围：[1,1200000]
+        单位：毫秒
+        默认值：8000
+    –   --lockwait-interval
+        等锁步长。即使用CANCEL后等锁失败的等锁时间间隔，如果此轮等锁超时，
+        间隔该参数指定的时长进行下一轮尝试。
+        取值范围：[0,300]
+        单位：秒
+        默认值：0
+    –   --trylock-threshold
+        等锁尝试次数上限。如果到达该上限还因为等锁超时无法成功获取到锁，则
+        此表此轮重分布失败。
+        取值范围：[1,INT_MAX], -1
+        单位：次
+        默认值：-1（表示无上限）
+    –   --enable-cancel
+        是否允许用户业务快速失败。即是否允许达到等锁尝试次数上限时，快速失
+        败用户业务从而保证重分布成功拿锁。
+        取值范围：[false,true]
+        默认值：false
+[[PDF_PAGE physical=3982 printed=3933]]
+–   --last-catchup-threshold
+    最后一轮追增时间上限。即最后一轮完成delete+insert追增耗时。
+    取值范围：[1000,60000]
+    单位：毫秒
+    默认值：5000
+–   --catchup-times
+    追增轮次上限。即追增轮次的上限。
+    取值范围：[1,INT_MAX], -1
+    单位：次
+    默认值：-1（表示无上限）
+–   --write-error-mode
+    写报错模式。true表示写报错模式。false表示采用全阻塞模式进行最后一轮
+    追增。
+    取值范围：[false,true]
+    默认值：true
+–   --catchup-query-dop
+    追增并行扫描度。
+    取值范围：[1,32]
+    单位：个
+    默认值：4
+
+
+       须知
+
+    该参数设置过小可能导致追增性能下降，设置过大占用资源较多。
+
+–   --parallel-catchup-threshold
+    多表重分布模式中开启并行追增所需的耗时阈值，一个分组中所有表追增耗
+    时小于该值时，开启并行追增。
+    取值范围：[1000,1800000]
+    单位：毫秒
+    默认值：300000
+–   --parallel-reindex-jobs
+    同时临时表创建索引时的并发度，即多少个索引同时创建。
+    取值范围：[1,64]
+    单位：个
+    默认值：2
+–   --redis-retry-times
+    自动拉起重分布进程的次数上限，触发重分布进程主动退出时使用，拉起次
+    数超出上限本轮重分布失败结束。
+    对应参数：redis_retry_times
+    取值范围：[0,100]
+    单位：次
+[[PDF_PAGE physical=3983 printed=3934]]
+                默认值：5
+            –   --redis-retry-interval
+                自动拉起重分布进程的时间间隔，触发重分布进程主动退出时使用。
+                对应参数：redis_retry_interval
+                取值范围：[0,36000]
+                单位：秒
+                默认值：600
+        ●   增加副本参数：
+            –   --dn-guc
+                增加只读副本时，可指定--dn-guc参数来设置只读副本的默认GUC参数。
+                使用方式：gs_expand -t add_replication -X /usr/local/tool/
+                clusterConfig_rep.xml --dn-guc max_process_memory=10485760 --dn-guc
+                wal_file_init_num=0
+            –   --gsstor-client-ip
+                GaussStor客户端IP信息文件。参数文件格式如下：
+                [{"ip": "xxx.xxx.xxx.xxx", "gsstorLocalClientIp": "xxx.xxx.xxx.xxx", "gsstorRemoteClientIp":
+                "xxx.xxx.xxx.xxx"}]
+
+                其中：
+
+                ▪     ip：新节点的管理IP。
+
+                ▪     gsstorLocalClientIp：GaussDB节点绑定本地GaussStor的客户端IP。
+
+                ▪     gsstorRemoteClientIp：GaussDB节点绑定远端GaussStor客户端IP。
+
+5.8.3 gs_redis 扩容后数据重分布
+            说明
+
+            集中式不支持该工具。
+
+
+工具介绍
+        gs_redis工具是GaussDB提供的用来对扩容后的数据库实例执行数据重分布的工具，主
+        要由OM脚本来调用完成数据重分布。
+        gs_redis工具可以实现表存储类型的转换，需要指定表及要转换的存储类型，使用时需
+        要指定-y参数。
+        数据库实例扩容后，对数据库中的数据执行重分布操作。重分布流程属于数据库实例
+        扩容的一部分，使用gs_redis工具时需要嵌入OM扩容流程中，不建议单独使用
+        gs_redis进行重分布操作。
+
+5.8.4 gs_redis_bucket bucket 表执行数据重分布
+工具介绍
+            说明
+
+            集中式不支持该工具。
+[[PDF_PAGE physical=3984 printed=3935]]
+          gs_redis_bucket工具是GaussDB提供的用来对扩容后的数据库中的hashbucket表执行
+          数据重分布的工具，主要由OM脚本来调用完成数据重分布。
+
+5.8.5 gs_shrink 缩容
+
+工具介绍
+          随着业务场景和数据量的变化，需要数据库实例节点具有可扩展性以及可收缩性。
+          GaussDB提供了gs_shrink工具来帮助完成对数据库实例节点进行降副本。
+
+              说明
+
+              集中式仅支持降副本操作，且不支持单独调用。
+              集中式单节点不支持该工具。
+
+
+前提条件
+          ●   降副本
+              –    数据库实例状态为Normal，重分布状态为No，balanced状态为Yes。如果缩
+                   容副本为级联备，实例状态支持Normal或Degraded，约束为除级联备外其
+                   他主备正常。
+              –    数据库业务压力较低且不能锁定。
+              –    QUORUM数据库实例：3副本及大于3副本的QUORUM数据库实例可执行降
+                   副本操作，降副本最大可将QUORUM数据库实例降为2副本数据库实例。
+              –    DCF数据库实例：3副本及大于3副本的DCF数据库实例执行降副本操作，降
+                   副本最大可将DCF数据库实例降为2副本数据库实例，一主一备一logger不支
+                   持降副本。
+              –    降副本（删除ETCD）操作中需要满足以下数据库配置ETCD的节点数。数据
+                   库中配置ETCD的节点总个数因多数派选主，应为单数。若降副本后ETCD数
+                   量不满足单数，直接删除ETCD会导致降副本失败。
+
+                   ▪     1AZ部署：ETCD个数=3。
+
+                   ▪     2AZ部署：AZ1中ETCD个数>=2；AZ2中ETCD个数>=1；ETCD总个数=3
+                         或5或7。
+
+                   ▪     3AZ部署：AZ1中ETCD个数>=2；AZ2中ETCD个数>=2；AZ3中ETCD个
+                         数>=1；ETCD总个数=5或7。
+
+注意事项
+          ●   降副本
+              –    指定IP进行降副本操作仅支持一个分片内减少副本数大于1的场景，等于1时
+                   默认降最后一个副本，指定IP为其他副本时不生效。
+              –    如因不可控因素导致降副本操作失败，请排除故障后再次执行降副本操作，
+                   直到降副本操作成功。
+
+命令格式
+          ●   物理数据库实例缩容
+              gs_shrink [-t contraction] {-h HOSTNAME | -f hostfile} [--parallel-jobs=NUMBER] [-l LOGFILE] [--
+              redis-mode=MODE] [--resource-level=LEVL] [--join-tables=FILE]
+[[PDF_PAGE physical=3985 printed=3936]]
+       ●   重分布资源管控
+           gs_shrink -t resourcectl --resource-level=f/h/m/l
+
+       ●   重分布参数设置
+           gs_shrink -t parametercfg [--lockwait-timeout=MSEC] [--lockwait-interval=<SECS>] [--trylock-
+           threshold=NUMBER] [--enable-cancel=Boolean] [--last-catchup-threshold=MSEC] [--catchup-
+           times=NUMBER] [--write-error-mode=Boolean] [--catchup-query-dop=NUMBER] [--parallel-catchup-
+           threshold=NUMBER] [--parallel-reindex-jobs=NUMBER][--redis-retry-times=NUMBER][--redis-retry-
+           interval=NUMBER]
+
+       ●   逻辑数据库实例缩容
+           gs_shrink {-h HOSTNAME | -f hostfile} [--parallel-jobs=NUMBER] [-l LOGFILE] [--nodegroup-
+           name=LCGROUPNAME] [--checkdisk]
+
+       ●   加速数据库实例缩容
+           gs_shrink {-h HOSTNAME | -f hostfile} [--parallel-jobs=NUMBER] [-l LOGFILE] [--nodegroup-
+           name=LCGROUPNAME]
+
+       ●   加速数据库实例回滚
+           gs_shrink {-h HOSTNAME | -f hostfile} [-l LOGFILE]
+
+       ●   数据库实例降副本
+           gs_shrink -t reduce --offline [--reduce-ips=IPS] [--reduce-times=1] [--reduce-other]
+
+       ●   显示帮助信息
+           gs_shrink -? | --help
+
+       ●   显示版本号信息
+           gs_shrink -V | --version
+
+       ●   接收数据库管理员密码
+           echo "password" | gs_shrink [-t [ reduce ]] {-h HOSTNAME | -f hostfile} [--parallel-jobs=NUMBER] [-l
+           LOGFILE]
+
+                  说明
+
+                云上环境中，对于未开启Peer认证方式的数据库系统，可以使用此方式传入数据库管理员
+                用户的密码，用于连接数据库进行运维操作。
+
+
+参数说明
+       ●   通用参数
+           –     -t
+                 gs_shrink命令参数类型。
+                 取值范围：reduce（降副本）、contraction（缩容）、resourcectl（资源管
+                 控）、parametercfg（重分布参数设置）。
+                        说明
+
+                      不传入-t参数时，默认执行缩容操作。
+           –     -l
+                 指定日志文件及存放路径。
+                 默认值：$GAUSSLOG/om/gs_shrink-YYYY-MM-DD_hhmmss.log
+           –     -?, --help
+                 显示帮助信息。
+           –     -V, --version
+                 显示版本号信息。
+       ●   调用链接口参数
+           --trace-id
+[[PDF_PAGE physical=3986 printed=3937]]
+    每次om请求的唯一标识，可根据om操作日志中的trace-id识别调用链从而进行故
+    障定界。可选参数。
+    取值范围：1-128位的字符串，允许的字符为数字、字母和'-'。
+●   缩容参数
+    –   -h HOSTNAME
+        指定需要缩容的DN环节点名称，中间用逗号分隔。
+    –   -f hostfile
+        指定需要缩容的DN环节点名称文件，文件每行为一个DN环节点名称，中间
+        用逗号分隔。
+                说明
+
+            文件内容如下：
+            host1,host2,host3
+            host4,host5,host6
+            -h参数和-f参数只能同时指定一个。
+    –   --parallel-jobs=NUMBER
+        指定数据重分布过程的并发执行任务个数。
+                说明
+
+            如果不指定--parallel-jobs参数，则数据重分布默认值为1，为非并发执行方式。
+        取值范围：[1,8]，推荐并发任务数为4。
+    –   --join-tables=FILE
+        多表切换模式，输入为具有join关系的用户表配置文件。
+        取值范围：指定的文件路径，指定文件内容不能超过1000行。
+                说明
+
+            指定文件格式。每一行格式为：database schema1 tablename1 schema2
+            tablename2 ...（每行的多张表构成一个分组（group））。例如：
+            testdb public test1 public test2
+            testdb public test3 public test4 public test5
+            注意：
+            ●     不支持database、schema、tablename数据对象名称存在空格，schema和
+                  tablename名称中存在大写字母或者特殊字符时需要加双引号进行转义。
+            ●     每一行schema tablename必须成对出现，唯一确定一张表。
+            ●     一张表不能出现在多个分组中，每组的表数量必须大于等于2，小于等于5。
+            ●     如果存在一个schema里的tablename为其他schema的名字时，会正常处理这张
+                  表不会报错。
+    –   --redis-mode=MODE
+        指定数据重分布的执行模式。
+        取值范围：
+
+        ▪    read-only：只读模式。
+
+        ▪    insert：插入模式，正在进行重分布的表支持并发插入（insert）以及导
+             入（Gds导入）。
+        如果不指定，默认为read-only模式。
+[[PDF_PAGE physical=3987 printed=3938]]
+             说明
+
+            和扩容一样，在缩容重分布过程中，为了保障数据库业务性能，也会为数据库创建名
+            为“redisuser”的数据库用户，此用户只在缩容重分布阶段存在，重分布完成后会被
+            删除。此用户会拥有所有管理员权限来执行重分布。
+●   资源管控参数
+    –   --resource-level=RESLEVEL
+        指定数据重分布的资源等级。
+        取值范围：
+
+        ▪   f：100%资源。
+
+        ▪   h：50%资源。
+
+        ▪   m：30%资源。
+
+        ▪   l：10%资源。
+        默认值：l
+             说明
+
+            当资源管控参数设置为f时，进入快速重分布场景，会充分使用资源，通过并发操作
+            提升数据重分布的性能。此时，如果shared_buffers参数值设置过小（小于推荐
+            值），会影响此场景下的性能优化效果。
+●   重分布参数设置接口参数
+    配置对应的全局系统表参数供重分布工具和缩容脚本查询使用，可以在重分布开
+    始前和重分布过程中使用，缩容成功后清除所有参数配置。不设置对应参数则保
+    留上次调用的结果，未设置过的参数重分布开始时写入默认值。
+    –   --lockwait-timeout
+        锁超时时间。如果等锁线程在该时间内无法拿到锁，则报锁超时失败。触发
+        CANCEL模式拿锁时，实际使用的锁超时时间为此参数设置的2倍。
+        对应参数：lockwait_timeout
+        取值范围：[1,1200000]
+        单位：毫秒
+        默认值：4000
+    –   --lockwait-interval
+        等锁步长。连续拿锁超时的场景，如果此轮等锁超时，间隔该参数指定的时
+        长进行下一轮尝试。
+        对应参数：lockwait_interval
+        取值范围：[0,300]
+        单位：秒
+        默认值：5
+    –   --trylock-threshold
+        等锁尝试次数上限。需和enable_cancel参数同时使用，如果到达该上限还因
+        为等锁超时无法成功获取到锁，则下次拿锁使用CANCEL模式。未开启
+        enable_cancel不生效。
+        对应参数：trylock_threshold
+        取值范围：[1,INT_MAX]，-1（无上限）
+[[PDF_PAGE physical=3988 printed=3939]]
+    单位：次
+    默认值：3
+–   --enable-cancel
+    是否允许用户业务快速失败。即是否允许达到等锁尝试次数上限或切表事务
+    获取用户表8级锁时，快速失败用户业务从而保证重分布成功拿锁。
+    对应参数：enable_cancel
+    取值范围：[false,true]
+    默认值：true
+         说明
+
+       ● 此模式默认开启，如果用户业务没有连接级重试机制，建议手动关闭此参数。
+       ● 触发CANCEL模式拿锁时，会发送FATAL级报错，用户业务不是在锁队列中等待而
+         是中断连接。
+–   --last-catchup-threshold
+    最后一轮追增时间上限。即最后一轮完成delete+insert追增耗时。
+    对应参数：last_catchup_threshold
+    取值范围：[1000,60000]
+    单位：毫秒
+    默认值：5000
+–   --catchup-times
+    追增轮次上限。超出上限后强制进行最后一轮追增。
+    对应参数：catchup_times
+    取值范围：[1,INT_MAX]，-1
+    单位：次
+    默认值：-1（表示无上限）
+–   --write-error-mode
+    写报错模式。true表示写报错模式。false表示采用全阻塞模式进行最后一轮
+    追增。
+    对应参数：write_error_mode
+    取值范围：[false,true]
+    默认值：true
+         说明
+
+       ● 此模式默认开启，如果用户业务没有会话级重试机制，建议手动关闭此参数。
+       ● 开启写报错模式后，用户写业务会有ERROR级报错，而不是在锁队列中等待。
+       ● 开启此模式后，为避免长时间处于写报错状态，可能触发重分布进程主动退出和
+         自动拉起特性，此时缩容时间会变长，具体请联系管理员处理。
+–   --catchup-query-dop
+    追增并行扫描数。
+    对应参数：catchup_query_dop
+    取值范围：[1,32]
+    单位：个
+    默认值：4
+[[PDF_PAGE physical=3989 printed=3940]]
+                  说明
+
+                 该参数设置过小可能导致追增性能下降，设置过大占用资源较多。
+         –   --parallel-catchup-threshold
+             多表重分布模式中开启并行追增所需的耗时阈值，一个分组中所有表追增耗
+             时小于该值时，开启并行追增。
+             对应参数：parallel_catchup_threshold
+             取值范围：[1000,1800000]
+             单位：毫秒
+             默认值：300000
+         –   --parallel-reindex-jobs
+             同时临时表创建索引时的并发数，即多少个索引同时创建。
+             对应参数：parallel_reindex_jobs
+             取值范围：[1,64]
+             单位：个
+             默认值：2
+         –   --redis-retry-times
+             自动拉起重分布进程的次数上限，触发重分布进程主动退出时使用，拉起次
+             数超出上限本轮重分布失败结束。
+             对应参数：redis_retry_times
+             取值范围：[0,100]
+             单位：次
+             默认值：5
+         –   --redis-retry-interval
+             自动拉起重分布进程的时间间隔，触发重分布进程主动退出时使用。
+             对应参数：redis_retry_interval
+             取值范围：[0,36000]
+             单位：秒
+             默认值：600
+     ●   降副本参数
+         –   --offline
+             降副本模式，表示离线降副本。
+         –   --reduce-ips=IPS
+             被降副本的节点ip范围，多个使用逗号分隔。
+         –   --reduce-times=1
+             降副本次数，默认降1个副本。
+         –   --reduce-other
+             支持删除节点上的ETCD/CMS。执行降副本命令行操作时，如果删除节点上
+             的ETCD组件后，不满足ETCD总数量为单数，会导致降副本操作失败。
+
+示例
+     ●   示例二：
+[[PDF_PAGE physical=3990 printed=3941]]
+数据库实例降副本操作。
+[Ruby@pekpomdev00063 script]$ gs_shrink -t reduce --offline
+{'action': 'reduce', 'online': False}
+Init global info successfully.
+Create step directory successfully.
+Cluster status is : Normal
+Cluster balanced is : Yes
+Cluster redistributing is : No
+Check reduce replica condition successfully.
+Successfully backup config file.
+Start getting all standby datanode.
+[<gspylib.common.DbClusterInfo.instanceInfo instance at 0x7fbae9872368>,
+<gspylib.common.DbClusterInfo.instanceInfo instance at 0x7fbae986cdd0>,
+<gspylib.common.DbClusterInfo.instanceInfo instance at 0x7fbae93f7320>]
+[['10.244.45.69'[['10.244.44.156']][['10.244.44.156', ][, , [['10.244.44.252''10.244.45.69']]]
+'10.244.44.252']
+]]
+Ready to perform sql: select group_members from pgxc_group;
+Ready to perform sql: select group_members from pgxc_group;
+ Ready to perform sql: select group_members from pgxc_group;
+Execute sql command output result is : 16384 16387 16390
+node_name in pgxc_node is: dn_6007_6008_6009
+Ready to perform sql: select oid from pgxc_node where node_name='dn_6007_6008_6009' and
+node_host='172.31.1.103' and node_type='S';
+Execute sql command output result is : 16384 16387 16390
+node_name in pgxc_node is: dn_6004_6005_6006
+Ready to perform sql: select oid from pgxc_node where node_name='dn_6004_6005_6006' and
+node_host='172.31.8.236' and node_type='S';
+Execute sql command output result is : 16384 16387 16390
+node_name in pgxc_node is: dn_6001_6002_6003
+Ready to perform sql: select oid from pgxc_node where node_name='dn_6001_6002_6003' and
+node_host='172.31.8.236' and node_type='S';
+Get node_name and listen_ip oid in pgxc_node, output result is [16389]
+Get instance [10.244.44.252] oid successfully. [16389]
+Clear async standby datanode.[10.244.44.252]
+Get node_name and listen_ip oid in pgxc_node, output result is [16386]
+Get instance [10.244.44.252] oid successfully. [16386]
+Clear async standby datanode.[10.244.44.252]
+Get node_name and listen_ip oid in pgxc_node, output result is [16392]
+Get instance [10.244.45.69] oid successfully. [16392]
+Clear async standby datanode.[10.244.45.69]
+Get reduce datanode successfully.
+ ['10.244.44.252', '10.244.45.69']
+Stop reduce instance [/var/lib/engine/data1/data/dn_5] success.
+Stop reduce instance [/var/lib/engine/data1/data/dn_3] success.
+Stop reduce instance [/var/lib/engine/data1/data/dn_9] success.
+Start generate new cluster_static_config.
+Distribute cluster static config file successfully.
+New cluster static config file distribute successfully.
+Start update gaussdb.conf in datanode instance.
+Update gaussdb.conf successfully.
+node_name: dn_6007_6008_6009
+listenips: ['172.31.1.103']
+ hasips:['10.244.45.69']
+Ready to perform sql: delete from pgxc_node where node_host='172.31.1.103' and
+node_name='dn_6007_6008_6009' and node_type='S';
+Clear node in pgxc_node table successfully.
+node_name: dn_6001_6002_6003
+listenips: ['172.31.8.236']
+ hasips:['10.244.44.252']
+Ready to perform sql: delete from pgxc_node where node_host='172.31.8.236' and
+node_name='dn_6001_6002_6003' and node_type='S';
+Clear node in pgxc_node table successfully.
+node_name: dn_6004_6005_6006
+listenips: ['172.31.8.236']
+ hasips:['10.244.44.252']
+Ready to perform sql: delete from pgxc_node where node_host='172.31.8.236' and
+node_name='dn_6004_6005_6006' and node_type='S';
+Clear node in pgxc_node table successfully.
+[[PDF_PAGE physical=3991 printed=3942]]
+          Update pgxc_node table successfully.
+          Start update gs_hba.conf .
+          Update gs_hba successfully.
+          Starting new cluster.
+          Clear dynamic config file in cluster successfully.
+          Kill cluster manager process successfully.
+          ...
+          Start cluster successfully. Cluster already normal.
+          Restart cluster finish.Reset dynamic config file successfully.
+          ============================
+          Reduce replica successfully.
+          ['10.244.44.252', '10.244.45.69']
+          ============================
+          Clean backup file successfully.
+
+
+相关命令
+       gs_expand升副本
