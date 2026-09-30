@@ -1,0 +1,198 @@
+[[PDF_PAGE physical=4136 printed=4087]]
+7.2 设置参数
+GUC 参数设置
+           GaussDB提供了七类GUC参数，以及多种修改GUC参数的方法，用户可以方便地针对
+           数据库、用户、会话进行设置，具体分类和设置方式请参考表7-1。
+
+           ●   参数名称不区分大小写。
+           ●   参数取值有整型、浮点型、字符串、布尔型和枚举类型五类。
+               –   布尔值可以是（on，off）、（true，false）、（yes，no）或者（1，0），
+                   GaussDB的布尔值推荐使用（on，off）。
+               –   枚举类型的取值是系统表pg_settings的enumvals字段取值定义的。
+               –   浮点（real）型的参数，必须加小数点，如 1.0e-3 是符合规范的，而1e-3是
+                   不符合规范的。
+               –   在IEEE 754 标准中定义，对于浮点数，存在+0、-0，在对数值型参数进行设
+                   置时，零带负号可以通过校验。
+               –   gs_guc工具对于浮点数范围检查具有精度阈值，具体阈值为1.0*e-9。
+           ●   对于有单位的参数，在设置时请指定单位，否则将使用默认的单位。
+               –   参数的默认单位是系统表pg_settings的unit字段定义的。
+               –   内存单位有：KB/kB（千字节）、MB/mB（兆字节）和GB/gB（吉字节）。
+               –   时间单位：ms（毫秒）、s（秒）、min（分钟）、h（小时）和d（天）。
+
+           具体参数说明请参见GUC参数说明。
+[[PDF_PAGE physical=4137 printed=4088]]
+表 7-1 GUC 参数分类
+参数      说明                       设置方式
+类型
+
+INTER   固定参数，在创建数据库的时候确          无
+NAL     定，用户无法修改，只能通过show
+        语法或者pg_settings视图进行查看。
+
+POST    数据库服务端参数，在数据库启动时         支持表7-2中的方式一。可在PDB级
+MAST    确定，可以通过配置文件指定。           别设置的参数支持使用方式四在
+ER                               PDB内设置。
+
+SIGH    数据库全局参数，可在数据库启动时         支持表7-2中的方式一、方式二。可
+UP      设置或者在数据库启动后，发送指令         在PDB级别设置的参数支持使用方
+        重新加载。                    式四在PDB内设置。
+
+BACK    会话连接参数。在创建会话连接时指         支持表7-2中的方式一、方式二。
+END     定，连接建立后无法修改。连接断掉         说明
+        后参数失效。内部使用参数，不推荐          设置该参数后，下一次建立会话连接时
+        用户设置。                     生效。
+
+SUSET   数据库管理员参数。可在数据库启动         支持表7-2中的方式一、方式二或由
+        时、数据库启动后或者数据库管理员         数据库管理员通过方式三设置。可
+        通过SQL进行设置。               在PDB级别设置的参数支持使用方
+                                 式四在PDB内设置。
+
+USER    普通用户参数。可被任何用户在任何         支持表7-2中的方式一、方式二或方
+SET     时刻设置。                    式三设置。可在PDB级别设置的参
+                                 数支持使用方式四在PDB内设置。
+
+PDB_S   多租场景PDB全局参数，可在数据库        支持表7-2中方式四设置。
+IGHU    启动时设置或者在数据库启动后，发
+P       送指令重新加载。
+
+
+
+
+   说明
+
+  设置PDB级别参数与设置数据库级别参数类似，是指参数生效范围是目标PDB，不影响其他
+  PDB。参数是否支持在PDB级别设置，请参见GUC参数说明中具体GUC参数的介绍。
+
+GaussDB提供了四种方式来修改GUC参数，具体操作请参考表7-2：
+[[PDF_PAGE physical=4138 printed=4089]]
+表 7-2 GUC 参数设置方式
+序号       设置方法
+
+方式一      1. 登录管理控制台。
+         2. 在“实例管理”页面，选择指定的实例，单击实例名称，进入实例
+            基本信息页面。
+         3. 在左侧导航栏单击“参数管理”，进入参数修改页面，在该页面修
+            改参数。
+            如果需要修改的参数在管理控制台无法修改，请提前评估风险后再
+            联系客服进行修改。
+         4. 重启数据库使参数生效。
+           说明
+            重启数据库集群操作会导致用户执行操作中断，请在操作之前规划好合适的
+            执行窗口。
+
+方式二      1. 登录管理控制台。
+         2. 在“实例管理”页面，选择指定的实例，单击实例名称，进入实例
+            基本信息页面。
+         3. 在左侧导航栏单击“参数管理”，进入参数修改页面，在该页面修
+            改参数。
+            如果需要修改的参数在管理控制台无法修改，请提前评估风险后再
+            联系客服进行修改。
+
+方式三      修改指定数据库、用户、会话级别的参数。
+         ● 设置数据库级别的参数：
+           gaussdb=# ALTER DATABASE dbname SET paraname TO value;
+           在下次会话中生效。
+         ● 设置用户级别的参数：
+           gaussdb=# ALTER USER username SET paraname TO value;
+           在下次会话中生效。
+         ● 设置会话级别的参数：
+           gaussdb=# SET paraname TO value;
+           修改本次会话中的取值。退出会话后，设置将失效。
+           说明
+            SET设置的会话级参数优先级最高，其次是ALTER设置的，其中ALTER
+            DATABASE设置的参数值优先级高于ALTER USER设置，这三种设置方式设
+            置的优先级都高于gs_guc设置方式。
+             ALTER DATABASE和ALTER USER设置的参数在当前会话都不会生效，需要
+             重启会话才能生效。
+[[PDF_PAGE physical=4139 printed=4090]]
+          序号     设置方法
+
+          方式四    修改指定PDB的参数：
+                 1. 使用以下命令在指定PDB中设置GUC参数：
+                   gs_guc set --pdbname pdbname -D datadir -c "paraname=value"
+                   说明
+                     ● PDB级别参数设置继承方式一的约束与说明。
+                     ● 使用以下命令在数据库节点上的指定PDB同时设置某个参数。
+                        gs_guc set --pdbname pdbname -Z datanode -N all -I all -c
+                        "paraname=value"
+                   SUSET和USERSET级别的参数在下次会话可生效；其余适配至PDB
+                   的参数在PDB重新开启后可生效。
+                 2. 连接至postgres库，使用以下函数可使得对应PDB的GUC参数配置
+                    文件立刻生效：
+                   gaussdb=# SELECT gs_reload_pdb_conf('pdbname');
+                   说明
+                     ● 在PDB中，PDB级别的设置方式优先级高于方式一与方式二。但是低于
+                       方式三的设置。方式三中数据库级别设置在PDB中禁用。
+                     ● 部分参数会在内核动态校验，若生效未成功，可查看gs_log日志进行排
+                       查。
+
+
+
+
+            说明
+
+           ● 使用方式一、方式二、方式四设置参数时，若所设参数不属于当前节点，数据库会提示参数
+             不在支持范围内的相关信息。
+           ● 使用方式一、方式二、方式四设置参数时，不支持以页面数量为参数单位进行设置。
+           ● 使用方式三设置参数时，若参数值为int整型，则会将整数前导零过滤掉，例如SET
+             paraname TO 008192与SET paraname TO 8192效果相同。
+
+
+CM 参数设置
+          GaussDB有两类CM参数，一类在设置后需要重启数据库才能生效，一类可以通过
+          reload动态加载生效，具体设置方式请参考表7-3。
+[[PDF_PAGE physical=4140 printed=4091]]
+表 7-3 CM 参数设置方式
+序号       设置方法
+
+方式一      1. 使用如下命令修改参数。
+          cm_ctl set --param {--agent | --server} [-n NODEID] -k "PARAMETER=value"
+          说明
+           参数说明
+            ● --agent：设置cm_agent参数。
+            ● --server：设置cm_server参数。
+            ● -n NODEID：设置指定节点的CM参数，NODEID为节点名称，可通过
+              cm_ctl query -Cv命令查询。不设置该参数时，默认设置所有节点。
+            ● -k "PARAMETER=value"：指定设置的参数和参数的值，只能设置已经
+              存在的参数，不支持增加或删减参数。
+            示例
+            ● 设置cm_agent参数incremental_build值为on：
+                cm_ctl set --param --agent -k "incremental_build=on"
+            ● 设置cm_server参数switch_rto值为600：
+                cm_ctl set --param --server -k "switch_rto=600"
+         2. 重启数据库使参数生效。
+          cm_ctl stop && cm_ctl start
+          说明
+           重启数据库操作会导致用户执行操作中断，请在操作之前规划好合适的执行
+           窗口。
+[[PDF_PAGE physical=4141 printed=4092]]
+序号    设置方法
+
+方式二   1. 使用如下命令修改参数。
+       cm_ctl set --param {--agent | --server} [-n NODEID] -k "PARAMETER=value"
+       说明
+        参数说明
+         ● --agent：设置cm_agent参数。
+         ● --server：设置cm_server参数。
+         ● -n NODEID：设置指定节点的CM参数，NODEID为节点名称，可通过
+           cm_ctl query -Cv命令查询。不设置该参数时，默认设置所有节点。
+         ● -k "PARAMETER=value"：指定设置的参数和参数的值，只能设置已经
+           存在的参数，不支持增加或删减参数。
+         示例
+         ● 设置cm_agent参数incremental_build值为on：
+             cm_ctl set --param --agent -k "incremental_build=on"
+         ● 设置cm_server参数switch_rto值为600：
+             cm_ctl set --param --server -k "switch_rto=600"
+      2. 动态加载CM参数。
+       cm_ctl reload --param {--agent | --server} [-n NODEID]
+       说明
+        参数说明
+         ● --agent：动态加载cm_agent参数。
+         ● --server：动态加载cm_server参数。
+         ● -n NODEID：动态加载指定节点的CM参数，NODEID为节点名称，可通
+           过cm_ctl query -Cv命令查询。
+         示例
+         ● 动态加载cm_agent参数：
+             cm_ctl reload --param --agent
+         ● 动态加载cm_server参数：
+             cm_ctl reload --param --server

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and verify the tools Wave 8-9 extraction manifest."""
+"""Build and verify the GUC Wave 8-10 extraction manifest."""
 from __future__ import annotations
 import argparse, hashlib, json, re, sys
 from pathlib import Path
@@ -8,11 +8,12 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path: sys.path.insert(0, str(ROOT))
 CATALOG_PATH = ROOT / 'generated/full_document_catalog/catalog.json'
-FACTS_PATH = ROOT / 'docs/compat_facts/core_tools_wave8_9_v1.yaml'
-OUTPUT_PATH = ROOT / 'generated/core_tools_wave8_9_v1/manifest.json'
+FACTS_PATH = ROOT / 'docs/compat_facts/core_guc_wave8_10_v1.yaml'
+OUTPUT_PATH = ROOT / 'generated/core_guc_wave8_10_v1/manifest.json'
 SOURCE_ROOTS = (ROOT/'work/pdf_tiered_2026_09_07', ROOT/'work/pdf_foundations_2026_09_07')
 SECTIONS = (
-    ('5.9', 3991, 4028),
+    ('7.1', 4135, 4137),
+    ('7.2', 4136, 4142),
 )
 
 def sha256(p): return hashlib.sha256(p.read_bytes()).hexdigest()
@@ -40,7 +41,7 @@ def build_manifest():
     catalog, selected=selected_chapters(); payload=yaml.safe_load(FACTS_PATH.read_text(encoding='utf-8'))
     facts=payload.get('facts',[]); ids=[x['id'] for x in facts]
     if len(ids)!=len(set(ids)): raise ValueError('duplicate fact ids')
-    allowed={f'w8_9_{section.replace(".","_")}' for section,_,_ in SECTIONS}
+    allowed={f'w8_10_{section.replace(".","_")}' for section,_,_ in SECTIONS}
     for fact in facts:
         refs=set(fact.get('source_refs',[]))
         if not refs or not refs.issubset(allowed): raise ValueError(f"bad refs {fact.get('id')}")
@@ -48,7 +49,7 @@ def build_manifest():
     for section,chapter,start,end in selected:
         path=resolved_source(chapter); lines=list(page_lines(path,start,end))
         sources.append({
-            'source_ref':f'w8_9_{section.replace(".","_")}',
+            'source_ref':f'w8_10_{section.replace(".","_")}',
             'section_number':section,
             'title':' > '.join(chapter['outline_path']),
             'physical_page_start':start,
@@ -64,10 +65,10 @@ def build_manifest():
     page_set={p for _,start,end in SECTIONS for p in range(start,end)}
     return {
         'schema_version':1,
-        'kind':'core_tools_wave8_9_extraction_manifest',
-        'id':'core_tools_wave8_9_v1',
-        'name':'Tools Wave 8-9 Extraction Manifest',
-        'description':'5.9数据库升级工具的结构化facts清单；不执行SQL。',
+        'kind':'core_guc_wave8_10_extraction_manifest',
+        'id':'core_guc_wave8_10_v1',
+        'name':'GUC Wave 8-10 Extraction Manifest',
+        'description':'7.1查看参数与7.2设置参数的结构化facts清单；不执行SQL。',
         'catalog':{
             'path':CATALOG_PATH.relative_to(ROOT).as_posix(),
             'sha256':sha256(CATALOG_PATH),
@@ -104,11 +105,11 @@ def main(argv=None):
     parser=argparse.ArgumentParser(); parser.add_argument('--check',action='store_true'); args=parser.parse_args(argv)
     current=build_manifest(); rendered=json.dumps(current,ensure_ascii=False,indent=2)+'\n'
     if args.check and OUTPUT_PATH.exists() and OUTPUT_PATH.read_text(encoding='utf-8')!=rendered:
-        print('Tools Wave 8-9 check failed: artifact drift'); return 1
+        print('GUC Wave 8-10 check failed: artifact drift'); return 1
     if not args.check or not OUTPUT_PATH.exists():
         OUTPUT_PATH.parent.mkdir(parents=True,exist_ok=True); OUTPUT_PATH.write_text(rendered,encoding='utf-8')
     summary=current['summary']
-    print(f"Tools Wave 8-9 manifest written: {OUTPUT_PATH} chapters={summary['source_chapter_count']} pages={current['scope']['physical_page_count']} facts={summary['fact_count']}")
+    print(f"GUC Wave 8-10 manifest written: {OUTPUT_PATH} chapters={summary['source_chapter_count']} pages={current['scope']['physical_page_count']} facts={summary['fact_count']}")
     return 0
 
 if __name__=='__main__': raise SystemExit(main())
