@@ -17,9 +17,9 @@ class CoreLogsWave811Tests(unittest.TestCase):
     def test_scope_covers_logs(self):
         self.assertEqual(self.manifest['kind'], 'core_logs_wave8_11_extraction_manifest')
         self.assertEqual(self.manifest['scope']['chapter_count'], 1)
-        self.assertEqual(self.manifest['scope']['physical_page_count'], 27)
+        self.assertEqual(self.manifest['scope']['physical_page_count'], 26)
         self.assertEqual(self.manifest['scope']['physical_page_start'], 4109)
-        self.assertEqual(self.manifest['scope']['physical_page_end_exclusive'], 4136)
+        self.assertEqual(self.manifest['scope']['physical_page_end_exclusive'], 4135)
         self.assertEqual(self.manifest['scope']['sections'], ['6'])
         self.assertEqual(self.manifest['summary']['fact_count'], len(self.facts))
         self.assertEqual(self.manifest['summary']['fact_count'], 26)

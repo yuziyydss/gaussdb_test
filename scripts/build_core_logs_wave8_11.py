@@ -12,7 +12,7 @@ FACTS_PATH = ROOT / 'docs/compat_facts/core_logs_wave8_11_v1.yaml'
 OUTPUT_PATH = ROOT / 'generated/core_logs_wave8_11_v1/manifest.json'
 SOURCE_ROOTS = (ROOT/'work/pdf_tiered_2026_09_07', ROOT/'work/pdf_foundations_2026_09_07')
 SECTIONS = (
-    ('6', 4109, 4136),
+    ('6', 4109, 4135),
 )
 
 def sha256(p): return hashlib.sha256(p.read_bytes()).hexdigest()
