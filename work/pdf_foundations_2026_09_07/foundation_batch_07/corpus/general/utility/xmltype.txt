@@ -1,0 +1,649 @@
+[[PDF_PAGE physical=969 printed=920]]
+1.6.44 XMLTYPE 类型函数
+            说明
+
+            xmltype类型函数支持的最大XML嵌套层数不能超过256层。
+        ●   createxml(varchar2 [,varchar2 ,numeric ,numeric])
+            描述：varchar2类型入参，静态方法创建xmltype类型。
+            参数：第一个参数要转换成xmltype的字符串（必传字段），第二个参数为用于使
+            输入符合给定架构的可选架构URL（可选字段，默认为空，暂不生效），第三个
+            参数为指示实例根据给定的XML架构有效的标志（可选字段，默认为0，暂不生
+            效），第四个参数为是否为良构的标识（可选字段，默认为0，暂不生效）。
+            返回值类型：xmltype
+            示例：
+[[PDF_PAGE physical=970 printed=921]]
+    gaussdb=# SELECT createxml('<a>123</a>');
+     createxml
+    --------------
+     <a>123</a>
+    (1 row)
+
+          说明
+
+        ● 与A数据库差异：在PL/SQL中，createxml允许入参为空串，并返回NULL。
+        ● 字符串encoding只支持UTF-8、GBK、ZHS16GBK、LATIN1~LATIN10，version字段只
+          支持1.x。
+        ● createxml支持以xmltype.createxml()语法方式调用。
+            示例：
+            gaussdb=# SELECT xmltype.createxml('<a>123</a>');
+             createxml
+            ------------
+             <a>123</a>
+            (1 row)
+        ● 本章内入参为xmltype的函数支持以xmltype().func()的方式调用，会将前一项返回的
+          xmltype类型当作入参传入后一项的函数内，该语法支持多层嵌套（用户自定义函数入
+          参为xmltype不支持该语法）。
+            示例：
+            gaussdb=# select xmltype('<a>123<b>456</b></a>').extract('/a/b').getstringval();
+             xmltypefunc
+            -------------
+             <b>456</b>
+            (1 row)
+            上述用例实际效果与函数嵌套一致：
+            gaussdb=# select getstringval(extractxml(xmltype('<a>123<b>456</b></a>'),'/a/b'));
+             getstringval
+            --------------
+             <b>456</b>
+            (1 row)
+        ● 存储过程内支持xmltype类型的变量以a.func()方式调用函数，该语法支持一层嵌套。
+            示例：
+            gaussdb=# declare
+                  a xmltype;
+                  b varchar2;
+            begin
+                  a:=xmltype('<a>123<b>456</b></a>');
+                  b:=a.getstringval();
+                  RAISE NOTICE 'xmltype_str is : %',b;
+            end;
+            /
+            NOTICE: xmltype_str is : <a>123<b>456</b></a>
+
+●   createxml(clob [,varchar2 ,numeric ,numeric])
+    描述：clob类型静态方法创建xmltype类型。
+    参数：第一个参数要转换成xmltype的clob对象（必传字段），第二个参数为用于
+    使输入符合给定架构的可选架构URL（可选字段，默认为空，暂不生效），第三
+    个参数为实例根据给定的XML架构有效的标志（可选字段，默认为0，暂不生
+    效），第四个参数为是否为良构的标识（可选字段，默认为0，暂不生效）。
+    返回值类型：xmltype
+    示例：
+    gaussdb=# declare
+     xmltype_clob clob;
+     xmltype_obj xmltype;
+     xmltype_str varchar2(1000);
+    begin
+     xmltype_clob := '<a>123</a>';
+     xmltype_obj := createxml(xmltype_clob);
+[[PDF_PAGE physical=971 printed=922]]
+     xmltype_str := xmltype_obj.getstringval();
+     RAISE NOTICE 'xmltype_str is : %',xmltype_str;
+    end;
+    /
+    NOTICE: xmltype_str is : <a>123</a>
+
+           说明
+
+         clob类型参数入参最大支持1GB-1。
+●   createxml(blob, numeric [,varchar2 ,numeric ,numeric])
+    描述：blob类型静态方法创建xmltype类型。
+    参数：第一个参数要转换成xmltype的blob对象（必传字段），第二个参数为输入
+    xml数据的字符集id（必传字段），第三个参数为用于使输入符合给定架构的可选
+    架构URL（可选字段，默认为空，暂不生效），第四个参数为实例根据给定的
+    XML架构有效的标志（可选字段，默认为0，暂不生效），第五个参数为是否为良
+    构的标识（可选字段，默认为0，暂不生效）。
+    返回值类型：xmltype
+    示例：
+    gaussdb=# declare
+     xmltype_blob blob;
+     xmltype_obj xmltype;
+     xmltype_str varchar2(1000);
+    begin
+     xmltype_blob := xmltype('<a>123</a>').getblobval(7);
+     xmltype_obj := createxml(xmltype_blob,7);
+     xmltype_str := xmltype_obj.getstringval();
+     RAISE NOTICE 'xmltype_str is : %',xmltype_str;
+    end;
+    /
+    NOTICE: xmltype_str is : <?xml version="1.0" encoding="UTF8"?>
+    <a>123</a>
+
+           说明
+
+         ● blob类型参数入参最大支持256MB-1。
+         ● 字符集id取值范围为1~43。
+●   getblobval(xmltype, numeric)
+    描述：将xmltype类型转化成blob类型，支持xmltype().func()方式调用。
+    参数：第一个参数为xmltype类型，第二个参数为要转换的目标字符集的字符集
+    id。
+    返回值类型：blob
+    示例：
+    gaussdb=# SELECT getblobval(xmltype('<asd/>'),7);
+                                    getblobval
+    ------------------------------------------------------------------------------------------
+
+    3C3F786D6C2076657273696F6E3D22312E302220656E636F64696E673D2255544638223F3E0A3C6173
+    642F3E
+    (1 row)
+
+    xmltype().func()方式：
+    gaussdb=# select xmltype('<asd/>').getblobVal(7);
+                                   xmltypefunc
+    ------------------------------------------------------------------------------------------
+
+    3C3F786D6C2076657273696F6E3D22312E302220656E636F64696E673D2255544638223F3E0A3C6173
+    642F3E
+    (1 row)
+[[PDF_PAGE physical=972 printed=923]]
+          说明
+
+        入参xmltype长度最大256MB-1。
+●   getclobval(xmltype)
+    描述：将xmltype类型转化成clob类型，支持xmltype().func()方式调用。
+    参数：xmltype类型。
+    返回值类型：clob
+    示例：
+    gaussdb=# SELECT getclobval(xmltype('<a>123</a>'));
+     getclobval
+    --------------
+     <a>123</a>
+    (1 row)
+    xmltype().func()方式：
+    gaussdb=# SELECT xmltype('<a>123</a>').getclobval();
+     xmltypefunc
+    --------------
+     <a>123</a>
+    (1 row)
+
+●   getnumberval(xmltype)
+    描述：将xmltype类型转化成numeric类型，支持xmltype().func()方式调用。
+    参数：入参为xmltype类型。
+    返回值类型：numeric
+    示例：
+    gaussdb=# SELECT getnumberval(xmltype('<a>123</a>').extract('/a/text()'));
+     getnumberval
+    --------------
+             123
+    (1 row)
+    xmltype().func()方式：
+    gaussdb=# SELECT xmltype('<a>123</a>').extract('/a/text()').getnumberval();
+     xmltypefunc
+    --------------
+             123
+    (1 row)
+
+●   isfragment(xmltype)
+    描述：返回该xmltype类型是片段（1）还是文档（0），支持xmltype().func()方
+    式调用。
+    参数：入参为xmltype类型。
+    返回值类型：numeric
+    示例：
+    gaussdb=# SELECT isfragment(xmltype('<a>123</a>'));
+     isfragment
+    --------------
+              0
+    (1 row)
+    xmltype().func()方式：
+    gaussdb=# SELECT xmltype('<a>123</a>').isfragment();
+     xmltypefunc
+    --------------
+              0
+    (1 row)
+
+●   xmltype(varchar2 [,varchar2,numeric ,numeric])
+    描述：varchar2 类型创建xmltype类型。
+[[PDF_PAGE physical=973 printed=924]]
+    参数：第一个参数要转换成xmltype的字符串（必传字段），第二个参数为用于使
+    输入符合给定架构的可选架构URL（可选字段，默认为空，暂不生效），第三个
+    参数为指示实例根据给定的XML架构有效的标志（可选字段，默认为0，暂不生
+    效），第四个参数为是否为良构的标识（可选字段，默认为0，暂不生效）。
+    返回值类型：xmltype
+    示例：
+    gaussdb=# SELECT xmltype('<a>123</a>');
+     xmltype
+    --------------
+     <a>123</a>
+    (1 row)
+
+          说明
+
+         ● 与A数据库差异：在PL/SQL中，xmltype允许入参为空串，并返回NULL。
+         ● 字符串encoding只支持UTF-8、GBK、ZHS16GBK、LATIN1~LATIN10，version字段只
+           支持1.x。
+●   xmltype(clob [,varchar2 ,numeric ,numeric])
+    描述：clob类型创建xmltype类型。
+    参数：第一个参数要转换成xmltype的clob对象（必传字段），第二个参数为用于
+    使输入符合给定架构的可选架构URL（可选字段，默认为空，暂不生效），第三
+    个参数为实例根据给定的XML架构有效的标志（可选字段，默认为0，暂不生
+    效），第四个参数为是否为良构的标识（可选字段，默认为0，暂不生效）。
+    返回值类型：xmltype
+    示例：
+    gaussdb=# declare
+     xmltype_clob clob;
+     xmltype_obj xmltype;
+     xmltype_str varchar2(1000);
+    begin
+     xmltype_clob := '<a>123</a>';
+     xmltype_obj := xmltype(xmltype_clob);
+     xmltype_str := xmltype_obj.getstringval();
+     RAISE NOTICE 'xmltype_str is : %',xmltype_str;
+    end;
+    /
+    NOTICE: xmltype_str is : <a>123</a>
+
+          说明
+
+         clob类型参数入参最大支持1GB-1。
+●   xmltype(blob, numeric [,varchar2 ,numeric ,numeric])
+    描述：blob类型创建xmltype类型。
+    参数：第一个参数要转换成xmltype的blob对象（必传字段），第二个参数为输入
+    xml数据的字符集id，第三个参数为用于使输入符合给定架构的可选架构URL（可
+    选字段，默认为空，暂不生效），第四个参数为实例根据给定的XML架构有效的
+    标志（可选字段，默认为0，暂不生效），第五个参数为是否为良构的标识（可选
+    字段，默认为0，暂不生效）。
+    返回值类型：xmltype
+    示例：
+    gaussdb=# declare
+     xmltype_blob blob;
+     xmltype_obj xmltype;
+     xmltype_str varchar2(1000);
+    begin
+     xmltype_blob := getblobval(createxml('<a>123</a>'),7);
+[[PDF_PAGE physical=974 printed=925]]
+     xmltype_obj := xmltype(xmltype_blob,7);
+     xmltype_str := xmltype_obj.getstringval();
+     RAISE NOTICE 'xmltype_str is : %',xmltype_str;
+    end;
+    /
+    NOTICE: xmltype_str is : <?xml version="1.0" encoding="UTF8"?>
+    <a>123</a>
+
+          说明
+
+        ● blob类型参数入参最大支持256MB-1。
+        ● 字符集id取值范围为1~42。
+●   getstringval(xmltype)
+    描述：此函数将xmltype转化为字符串。
+    参数：需要转换的xmltype。
+    返回值类型：varchar2
+    getstringval函数有两种调用方式。
+    示例1：
+    gaussdb=# SELECT getstringval('<a>123<b>456</b></a>');
+        getstringval
+    ----------------------
+     <a>123<b>456</b></a>
+    (1 row)
+
+    示例2：调用方式兼容Oracle的语法。
+    gaussdb=# SELECT xmltype('<a>123<b>456</b></a>').getstringval();
+        xmltypefunc
+    ----------------------
+     <a>123<b>456</b></a>
+    (1 row)
+
+●   getrootelement(xmltype)
+    描述：此函数获取xmltype的根元素。
+    参数：需要获取根元素的xmltype。
+    返回值类型：varchar2
+    getrootelement函数有两种调用方式。
+    示例1：
+    gaussdb=# SELECT getrootelement('<a>123<b>456</b></a>');
+     getrootelement
+    ----------------
+     a
+    (1 row)
+
+    示例2：调用方式兼容Oracle的语法。
+    gaussdb=# SELECT xmltype('<a>123<b>456</b></a>').getrootelement();
+     xmltypefunc
+    -------------
+     a
+    (1 row)
+
+●   getnamespace(xmltype)
+    描述：此函数获取xmltype顶层元素的命名空间。
+    参数：需要获取命名空间的xmltype。
+    返回值类型：varchar2
+    getnamespace函数有两种调用方式。
+    示例1：
+[[PDF_PAGE physical=975 printed=926]]
+    gaussdb=# SELECT getnamespace('<c:a xmlns:c="asd">123<d:b xmlns:d="qwe">456</d:b></c:a>');
+     getnamespace
+    --------------
+     asd
+    (1 row)
+    示例2：调用方式兼容Oracle的语法。
+    gaussdb=# SELECT xmltype('<c:a xmlns:c="asd">123<d:b xmlns:d="qwe">456</d:b></
+    c:a>').getnamespace();
+     xmltypefunc
+    -------------
+     asd
+    (1 row)
+
+●   existsnode(xmltype, varchar2[, varchar2])
+    描述：此函数根据xpath表达式判断在xmltype中是否存在该xml节点，如果存在
+    返回1，否则返回0。
+    参数：被查询的xmltype，查询的xpath节点路径，xpath路径的命名空间（在入参
+    有命名空间时，xpath和命名空间都需要定义别名，如示例3）。
+    返回值类型：numeric
+    existsnode函数有两种调用方式。
+    示例1：
+    gaussdb=# SELECT existsnode('<a>123<b>456</b></a>','/a/b');
+     existsnode
+    ------------
+            1
+    (1 row)
+    示例2：调用方式兼容Oracle的语法。
+    gaussdb=# SELECT xmltype('<a>123<b>456</b></a>').existsnode('/a/b');
+     xmltypefunc
+    -------------
+             1
+    (1 row)
+    示例3：
+    gaussdb=# SELECT existsnode('<a:b xmlns:a="asd">123<c>456</c></a:b>','/a:b/c','xmlns:a="asd"');
+     existsnode
+    ------------
+            1
+    (1 row)
+    示例4：调用方式兼容Oracle的语法。
+    gaussdb=# SELECT xmltype('<a:b xmlns:a="asd">123<c>456</c></a:b>').existsnode('/a:b/
+    c','xmlns:a="asd"');
+     xmltypefunc
+    -------------
+             1
+    (1 row)
+
+●   extractxml(xmltype, varchar2[, varchar2])
+    描述：此函数根据xpath表达式判断在xmltype中是否存在该xml节点，如果存在
+    返回包含该节点的xmltype，如果不存在返回NULL。可以将返回值插入xmltype
+    类型的表中。
+    参数：被查询的xmltype，查询的xpath节点路径，xpath路径的命名空间（在入参
+    有命名空间时，xpath和命名空间都需要定义别名，如示例3）。
+    返回值类型：xmltype
+    extractxml函数有两种调用方式。
+    示例1：
+    gaussdb=# SELECT extractxml('<a>123<b>456</b></a>','/a/b');
+     extractxml
+[[PDF_PAGE physical=976 printed=927]]
+    ------------
+     <b>456</b>
+    (1 row)
+
+    示例2：调用方式兼容Oracle的语法。
+    gaussdb=# SELECT xmltype('<a>123<b>456</b></a>').extract('/a/b');
+     xmltypefunc
+    -------------
+     <b>456</b>
+    (1 row)
+
+    gaussdb=# SELECT xmltype('<a>123<b>456</b></a>').extractxml('/a/b');
+     xmltypefunc
+    -------------
+     <b>456</b>
+    (1 row)
+
+    示例3：
+    gaussdb=# SELECT extractxml('<a:b xmlns:a="asd">123<c>456</c></a:b>','/a:b','xmlns:a="asd"');
+                extractxml
+    ----------------------------------------
+     <a:b xmlns:a="asd">123<c>456</c></a:b>
+    (1 row)
+
+    示例4：调用方式兼容Oracle的语法。
+    gaussdb=# SELECT xmltype('<a:b xmlns:a="asd">123<c>456</c></a:b>').extract('/a:b','xmlns:a="asd"');
+               xmltypefunc
+    ----------------------------------------
+     <a:b xmlns:a="asd">123<c>456</c></a:b>
+    (1 row)
+
+    gaussdb=# SELECT xmltype('<a:b xmlns:a="asd">123<c>456</c></a:b>').extractxml('/
+    a:b','xmlns:a="asd"');
+               xmltypefunc
+    ----------------------------------------
+     <a:b xmlns:a="asd">123<c>456</c></a:b>
+    (1 row)
+
+●   extractvalue(xmltype | xml, varchar2[, varchar2])
+    描述：此函数根据xpath表达式（仅支持xpath1.0版本）在xml文本中提取该xpath
+    表达式所对应的值。
+    参数：
+
+    表 1-262 extractvalue 参数说明
+
+     参数                 参数说明                                             备注说明
+
+     xmltype |          被查询的xml文本                                        xpath表达式的结果必
+     xml                                                                 须为单个节点，且为文
+                                                                         本节点、属性或元素。
+     varchar2           需要查询的xpath表达式（xpath节点
+                        路径）                                              ● 如果xpath表达式中
+                                                                           含有元素表达式，
+     [, varchar2]       xpath节点路径的命名空间（可选，当                                则元素必须有一个
+                        入参有命名空间含有别名时，xpath表                                文本节点作为子节
+                        达式和命名空间同时需要定义别名；                                   点，函数返回该文
+                        当入参为默认命名空间时，则不需要                                   本。
+                        进行定义，如示例3所示。）                                    ● 如果结果是属性，
+                                                                           函数返回的是属性
+                                                                           的值。
+[[PDF_PAGE physical=977 printed=928]]
+    返回值类型：varchar2
+    extractvalue函数有两种调用方式：输入不带命名空间和输入带有命名空间。
+    示例1：输入不带命名空间。
+    gaussdb=# set a_format_version='10c';
+    SET
+    gaussdb=# set a_format_dev_version='s5';
+    SET
+    gaussdb=# SELECT EXTRACTVALUE(xmltype('<book><title>Harry Potter</title><author>J.K. Rowling</
+    author></book>'), '/book/title') AS book_title;
+      book_title
+    --------------
+     Harry Potter
+    (1 row)
+
+    示例2：输入带有命名空间。
+    gaussdb=# SELECT EXTRACTVALUE(xmltype('<ns:book xmlns:ns="http://
+    www.example.com"><ns:title>Harry Potter</ns:title><ns:author>J.K. Rowling</ns:author></ns:book>'),
+    '/ns:book/ns:title', 'xmlns:ns="http://www.example.com"') AS book_title;
+      book_title
+    --------------
+     Harry Potter
+    (1 row)
+
+    示例3：输入带有多个命名空间。
+    gaussdb=# SELECT EXTRACTVALUE(xmltype('<ns:book xmlns:ns="http://www.example.com"
+    xmlns:ff="http://www.ff.com"><ff:title>Harry Potter</ff:title><ns:author>J.K. Rowling</ns:author></
+    ns:book>'), '/ns:book/ff:title', 'xmlns:ns="http://www.example.com" xmlns:ff="http://www.ff.com"') AS
+    book_title;
+      book_title
+    --------------
+     Harry Potter
+    (1 row)
+    gaussdb=# SELECT EXTRACTVALUE(xmltype('<store><book xmlns="abc"><root xmlns="abcd">mike</
+    root><root>mikeab</root></book><root xmlns="abcd">mikedwsa</root></store>'),
+    '//root', 'xmlns="abc" xmlns:ns2="abc1" xmlns="abcd"') FROM dual;
+     extractvalue
+    --------------
+     mikeab
+    (1 row)
+
+          说明
+
+         ● 当输入带有多个命名空间时，不同的命名空间之间可以用一个或多个空格（或换行符）
+           隔开，但命名空间表达方式必须满足以下条件，带别名命名空间满足“xmlns:名称="命
+           名空间"”，默认命名空间规则满足"xmlns='url'"。
+         ● 该函数保持兼容之前的xmltype表达式函数，但需要保证xmltype文本返回节点值唯
+           一。
+         ● xpath表达式仅支持xpath1.0版本。
+         ● 目前暂不支持xml文本中的命名空间url为空格，同时也不支持命名空间表达式中的命名
+           空间url为空格。
+         ● 在默认命名空间场景，在命名空间表达式中最先申明的默认命名空间就是当前xml文本
+           的默认命名空间。
+         ● 该函数仅在O模式下，且需要设置set a_format_version='10c'; set
+           a_format_dev_version='s5';后才能使用。
+●   xmlsequence(xmltype)
+    描述：此函数的功能是将一个 XMLTYPE类型的参数转换为一个 XMLTYPE类型的
+    数组，每个数组元素都是 XMLTYPE对象。这个函数的输入参数不能为空，也必须
+    是一个有效的XML文档。如果输入参数不符合要求，函数会返回空值或者抛出异
+    常。这个函数可以用于处理XML文档中的多个子节点，或者将 XML文档分割为多
+    个片段。
+[[PDF_PAGE physical=978 printed=929]]
+参数：xmltype类型。
+返回值类型：xmltype类型的数组。
+示例1：如果想要将这个文档转换为一个包含三个元素的数组，每个元素都是一个
+book节点，可以使用以下语句：
+gaussdb=# SELECT xmlsequence(xmltype('<books><book><title>The Catcher in the Rye</
+title><author>J.D. Salinger</author><year>1951</year></book><book><title>1984</
+title><author>George Orwell</author><year>1949</year></book><book><title>The Hitchhiker''s
+Guide to the Galaxy</title><author>Douglas Adams</author><year>1979</year></book></books>'));
+                   xmlsequence
+-----------------------------------------------------------
+ {"<books>                                         +
+     <book>                                       +
+      <title>The Catcher in the Rye</title>                +
+      <author>J.D. Salinger</author>                      +
+      <year>1951</year>                                +
+     </book>                                      +
+     <book>                                       +
+      <title>1984</title>                            +
+      <author>George Orwell</author>                         +
+      <year>1949</year>                                +
+     </book>                                      +
+     <book>                                       +
+      <title>The Hitchhiker's Guide to the Galaxy</title>+
+      <author>Douglas Adams</author>                          +
+      <year>1979</year>                                +
+     </book>                                      +
+   </books>"}
+(1 row)
+
+示例2：如果想要从这个数组中提取每本书的标题和作者，可以使用如下语句：
+gaussdb=# SELECT unnest(xmlsequence(xmltype('<books><book><title>The Catcher in the Rye</
+title><author>J.D. Salinger</author><year>1951</year></book><book><title>1984</
+title><author>George Orwell</author><year>1949</year></book><book><title>The Hitchhiker''s
+Guide to the Galaxy</title><author>Douglas Adams</author><year>1979</year></book></
+books>').extract('//title/text()'))) AS title
+ , unnest(xmlsequence(xmltype('<books><book><title>The Catcher in the Rye</title><author>J.D.
+Salinger</author><year>1951</year></book><book><title>1984</title><author>George Orwell</
+author><year>1949</year></book><book><title>The Hitchhiker''s Guide to the Galaxy</
+title><author>Douglas Adams</author><year>1979</year></book></books>').extract('//author/
+text()'))) AS author;
+                       title                       |             author
+----------------------------------------------------------------+-----------------------------------------
+ The Catcher in the Rye1984The Hitchhiker's Guide to the Galaxy | J.D. SalingerGeorge OrwellDouglas
+Adams
+(1 row)
+
+示例3：如果想要将这个数组转换为一个JSON格式的字符串，可以使用以下语
+句：
+gaussdb=# SELECT array_to_json(array_agg(row_to_json(t)))
+FROM (
+ SELECT unnest(xmlsequence(xmltype('<books><book><title>The Catcher in the Rye</
+title><author>J.D. Salinger</author><year>1951</year></book><book><title>1984</
+title><author>George Orwell</author><year>1949</year></book><book><title>The Hitchhiker''s
+Guide to the Galaxy</title><author>Douglas Adams</author><year>1979</year></book></
+books>').extract('//title/text()'))) AS title
+  , unnest(xmlsequence(xmltype('<books><book><title>The Catcher in the Rye</title><author>J.D.
+Salinger</author><year>1951</year></book><book><title>1984</title><author>George Orwell</
+author><year>1949</year></book><book><title>The Hitchhiker''s Guide to the Galaxy</
+title><author>Douglas Adams</author><year>1979</year></book></books>').extract('//author/
+text()'))) AS author
+) t;
+
+
+array_to_json
+---------------------------------------------------------------------------------------------------------
+ [{"title":"The Catcher in the Rye1984The Hitchhiker's Guide to the Galaxy","author":"J.D.
+SalingerGeorge OrwellDouglas Adams"}]
+(1 row)
+[[PDF_PAGE physical=979 printed=930]]
+          说明
+
+        当输入xmlsequence函数的参数XML文档中含有双引号，单独查看xmlsequence函数结果
+        时，结果中会包含双引号的转义符，使用xmlsequence函数结果时，不受影响。
+●   xmlcast( value_expression as datatype )
+    描述：对于XMLTYPE类型的输入数据，在提取文档中的文本内容后，将其转换为
+    指定的目标数据类型。
+    参数：value_expression，表示XMLTYPE类型的文档内容。
+    返回值类型：指定的目标数据类型。
+    示例：
+    -- XMLTYPE数据转为VARCHAR2类型。
+    gaussdb=# SELECT XMLCAST(XMLTYPE('<varchar2_value>Hello, GaussDB!</varchar2_value>') AS
+    VARCHAR2(50)) AS varchar2_value FROM dual;
+     varchar2_value
+    -----------------
+     Hello, GaussDB!
+    (1 row)
+
+          说明
+
+        ● 仅在A兼容模式下支持使用该函数。
+        ● 劣构XML文档仅支持value_expression表达式返回值为多根节点的XML。
+        ● 升级观察期不支持使用该函数。
+        ● 不支持转换的目标数据类型包括BYTEAWITHOUTORDERWITHEQUALCOL、
+          BYTEAWITHOUTORDERCOL、_BYTEAWITHOUTORDERWITHEQUALCOL、
+          _BYTEAWITHOUTORDERCOL以及部分伪类型。
+●   xmlquery(sequence_string RETURNING SEQUENCE )
+    描述：在SQL查询中联合使用XMLTABLE（即在SELECT查询中指定
+    xmltable_clause）时，将指定的sequence_string生成序列。
+    参数：sequence_string：形如“a to b”的字符串，表示生成从数字a到数字b的
+    序列。
+    返回值类型：XMLTYPE类型的数字序列。
+    示例：
+    -- 生成序列。
+    gaussdb=# SELECT * FROM XMLTABLE ( '/' PASSING XMLQUERY ( '1 to 10' RETURNING SEQUENCE )
+    COLUMNS N NUMBER PATH '.' );
+     n
+    ----
+      1
+      2
+      3
+      4
+      5
+      6
+      7
+      8
+      9
+     10
+    (10 rows)
+[[PDF_PAGE physical=980 printed=931]]
+          说明
+
+        ● 仅在A兼容模式下支持使用该函数。
+        ● 仅支持形如“a to b”的字符串输入，且该场景仅支持在XMLTABLE中使用，
+          XMLTABLE具体介绍请参见指定查询源from_item中xmltable_clause。
+        ● 生成序列的范围为[-9223372036854775808, 9223372036854775807]的int64数字，
+          且生成序列个数最大为2147483647。
+        ● 升级观察期不支持使用该函数。
+●   xmlquery(xpath_string PASSING document_expression RETURNING
+    CONTENT )
+    描述：通过解析XPath表达式，可在XMLTYPE类型的文档内容中定位并返回指定
+    的节点集合或原子值。
+    参数：
+     参数                                         描述
+
+     xpath_string                               用于搜索的XPath表达式。
+                                                ● 仅支持XPath 1.0语法，不支持形如
+                                                  “namespace::*”的XPath表达
+                                                  式。
+                                                ● 不支持XQuery表达式。
+
+     document_expression                        XMLTYPE类型的文档内容，目前仅支
+                                                持单根数据。
+                                                XMLQUERY固定XML文本为根节点上
+                                                下文空间开始寻找文本节点。
+
+
+
+    返回值类型：XMLTYPE类型的查询结果。
+    示例：
+    -- 计算XMLTYPE类型XPath表达式查询结果。
+    gaussdb=# SELECT XMLQUERY( '/' PASSING XMLTYPE( '<PDRecord> <PDName>Leo</PDName> </
+    PDRecord>') RETURNING CONTENT);
+                  xmlquery
+    ---------------------------------------------
+     <PDRecord> <PDName>Leo</PDName> </PDRecord>+
+
+    (1 row)
+
+          说明
+
+        ● 仅A兼容模式下支持。
+        ● 升级观察期不支持使用该函数。

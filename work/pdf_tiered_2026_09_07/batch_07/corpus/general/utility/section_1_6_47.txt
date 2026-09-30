@@ -1,0 +1,59 @@
+[[PDF_PAGE physical=989 printed=940]]
+1.6.47 数据透视函数
+       ●   tablefunc()
+           描述：扩展接口，用于处理表数据，包括数据透视函数。仅系统管理员可以安装
+           扩展。
+                 说明
+
+               需要安装扩展，默认安装到public schema，建议安装到用户schema，create extension
+               tablefunc [schema {user_schema}]。
+       ●   crosstab(source_sql text [, N int])
+           描述：以source_sql的结果为源数据，产生一个数据透视表。
+           返回值类型：setof record
+           示例：
+           gaussdb=# CREATE extension tablefunc;
+           CREATE EXTENSION
+[[PDF_PAGE physical=990 printed=941]]
+    gaussdb=# CREATE TABLE cross_test(group_id text, id int, var text);
+    CREATE TABLE
+    gaussdb=# SELECT * FROM cross_test;
+     group_id | id | var
+    ----------+----+-----
+    (0 rows)
+
+    gaussdb=# SELECT * FROM crosstab('SELECT group_id, var FROM cross_test order by 1, 2;') AS
+    c(group_ text, cat1 text, cat2 text, cat3 text);
+     group_ | cat1 | cat2 | cat3
+    --------+------+------+------
+    (0 rows)
+
+          说明
+
+         N是一个无效参数，不影响函数结果。
+●   crosstabN(source_sql text)
+    描述：以source_sql的结果为源数据，产生一个 "N+1" 列的数据透视表。
+    crosstabN是一组函数，包括crosstab2、crosstab3、crosstab4。
+    返回值类型：setof tablefunc_crosstab_N。tablefunc_crosstab_N包括
+    tablefunc_crosstab_2、tablefunc_crosstab_3、tablefunc_crosstab_4。
+    示例：
+    --crossbatN(source_sql text)中的N为2时，产生一个3列的数据透视表。
+    gaussdb=# SELECT * FROM crosstab2('SELECT group_id, var from cross_test ORDER BY 1, 2;');
+     row_name | category_1 | category_2
+    ----------+------------+------------
+    (0 rows)
+
+●   crosstab(source_sql text, category_sql text)
+    描述：以source_sql的结果为源数据，根据category_sql的结果分类，产生一个数
+    据透视表。
+    返回值类型：setof record
+    示例：
+    gaussdb=# SELECT * FROM crosstab('SELECT group_id, var FROM cross_test order by 1, 2;', 'SELECT
+    generate_series(1, 4)') AS c(group_ text, cat1 text, cat2 text, cat3 text, cat4 text);
+     group_ | cat1 | cat2 | cat3 | cat4
+    --------+------+------+------+------
+    (0 rows)
+
+    gaussdb=# DROP TABLE cross_test;
+    DROP TABLE
+    gaussdb=# DROP EXTENSION tablefunc;
+    DROP EXTENSION

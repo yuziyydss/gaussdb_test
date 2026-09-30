@@ -1,0 +1,430 @@
+[[PDF_PAGE physical=253 printed=204]]
+1.6.6 模式匹配操作符
+       数据库提供了三种独立的实现模式匹配的方法：SQL LIKE操作符、SIMILAR TO操作符
+       和POSIX-风格的正则表达式。除了这些基本的操作符外，还有一些函数可用于提取或
+       替换匹配子串并在匹配位置分离一个串。
+
+       ●   LIKE
+           描述：判断字符串是否能匹配上LIKE后的模式字符串。如果字符串与提供的模式
+           匹配，则LIKE表达式返回为真（NOT LIKE表达式返回假），否则返回为假（NOT
+           LIKE表达式返回真）。
+           匹配规则：
+           –      此操作符仅当模式匹配整个串时才能成功。若需匹配串内任意位置的字符序
+                  列，该模式必须以百分号开始和结束。
+           –      下划线（_）代表（匹配）任何单个字符； 百分号（%）代表任意串的通配
+                  符。
+           –      要匹配文本里的下划线或者百分号，在提供的模式里相应字符必须前导逃逸
+                  字符。逃逸字符的作用是禁用元字符的特殊含义，缺省的逃逸字符是反斜
+                  线，也可以用ESCAPE子句指定一个不同的逃逸字符。
+           –      要匹配逃逸字符本身，需要输入两个逃逸字符。例如要写一个包含反斜线的
+                  模式常量，需要在SQL语句中输入两个反斜线。
+                     说明
+
+                    ● 参数standard_conforming_strings设置为off时，在文串常量中写的任何反斜线都
+                      需要进行双写处理。因此，要在模式中匹配单个反斜线，SQL语句中需输入四个
+                      反斜线（可通过使用ESCAPE选择不同的逃逸字符来避免这种情况，此操作使反斜
+                      线不再是LIKE的特殊字符。但仍然是字符文本分析器的特殊字符，所以需要两个
+                      反斜线）。
+                    ● 在B模式下，可以通过写ESCAPE ''的方式不选择逃逸字符，此操作可以有效地禁
+                      用逃逸机制，但无法消除下划线和百分号在模式中的特殊含义。
+                    ● 在A模式下，参数standard_conforming_strings设置为on时，可以设置
+                      behavior_compat_options为ignore_like_default_escape，如果未显式指定
+                      ESCAPE '\'，则禁用反斜线'\'的特殊含义，匹配单个反斜线'\'字符。
+                      ●   该选项仅对关键字（LIKE、NOT LIKE、ILIKE、NOT ILIKE）生效，对操作符
+                          （~~、!~~、~~*、!~~*）不生效。
+                      ●   当模式串包含ANY、SOME 或 ALL子句时，此选项将不生效。
+           –      关键字ILIKE可以用于替换LIKE，区别是LIKE大小写敏感，ILIKE大小写不敏
+                  感。
+           –      操作符~~等效于LIKE，操作符~~*等效于ILIKE。
+           示例：
+[[PDF_PAGE physical=254 printed=205]]
+    gaussdb=# SELECT 'abc' LIKE 'abc' AS RESULT;
+     result
+    -----------
+     t
+    (1 row)
+    gaussdb=# SELECT 'abc' LIKE 'a%' AS RESULT;
+     result
+    -----------
+     t
+    (1 row)
+    gaussdb=# SELECT 'abc' LIKE '_b_' AS RESULT;
+     result
+    -----------
+     t
+    (1 row)
+    gaussdb=# SELECT 'abc' LIKE 'c' AS RESULT;
+     result
+    -----------
+     f
+    (1 row)
+●   SIMILAR TO
+    描述：SIMILAR TO操作符根据自己的模式是否匹配给定串而返回真或者假。该操
+    作符与LIKE语法相似，但采用SQL标准定义的正则表达式进行模式匹配。
+    匹配规则：
+    –    和LIKE相同，此操作符仅当模式匹配整个串时才能成功。若需匹配串中任何
+         位置的序列，模式需要以百分号（%）作为起始符和终止符。
+    –    下划线（_）代表（匹配）任何单个字符； 百分号（%）代表任意串的通配
+         符。
+    –    SIMILAR TO也支持以下从POSIX正则表达式借用的模式匹配元字符。
+           元字符                                     含义
+
+           |                                       表示选择（两个候选之一）。
+
+           *                                       表示重复前面的项零次或更多次。
+
+           +                                       表示重复前面的项一次或更多次。
+
+           ?                                       表示重复前面的项零次或一次。
+
+           {m}                                     表示重复前面的项刚好m次。
+
+           {m,}                                    表示重复前面的项m次或更多次。
+
+           {m,n}                                   表示重复前面的项至少m次并且不
+                                                   超过n次。
+
+           ()                                      把多个项组合成一个逻辑项。
+
+           [...]                                   与POSIX正则表达式相同，表示声明
+                                                   一个字符类。
+
+
+    –    前导逃逸字符可以禁止所有这些元字符的特殊含义。逃逸字符的使用规则和
+         LIKE相同。
+    正则表达式函数：
+    支持使用函数substring(string FROM pattern FOR escape)截取匹配SQL正则
+    表达式的子字符串。
+    示例：
+[[PDF_PAGE physical=255 printed=206]]
+    gaussdb=# SELECT 'abc' SIMILAR TO 'abc' AS RESULT;
+     result
+    -----------
+     t
+    (1 row)
+    gaussdb=# SELECT 'abc' SIMILAR TO 'a' AS RESULT;
+     result
+    -----------
+     f
+    (1 row)
+    gaussdb=# SELECT 'abc' SIMILAR TO '%(b|d)%' AS RESULT;
+     result
+    -----------
+     t
+    (1 row)
+    gaussdb=# SELECT 'abc' SIMILAR TO '(b|c)%' AS RESULT;
+     result
+    -----------
+     f
+    (1 row)
+
+●   POSIX正则表达式
+    描述：正则表达式是一个字符序列，定义一个串集合（一个正则集）的缩写。 如
+    果一个串是正则表达式描述的正则集中的一员时， 则说明这个串匹配该正则表达
+    式。 POSIX正则表达式提供了比LIKE和SIMILAR TO操作符更强大的含义。表1-47
+    列出了所有可用于POSIX正则表达式模式匹配的操作符。
+
+    表 1-47 正则表达式匹配操作符
+
+     操作符                            描述                       例子
+
+     ~                              匹配正则表达式，大小               'thomas' ~ '.*thomas.*'
+                                    写敏感。
+
+     ~*                             匹配正则表达式，大小               'thomas' ~* '.*Thomas.*'
+                                    写不敏感。
+
+     !~                             不匹配正则表达式，大               'thomas' !~ '.*Thomas.*'
+                                    小写敏感。
+
+     !~*                            不匹配正则表达式，大               'thomas' !~* '.*vadim.*'
+                                    小写不敏感。
+
+
+
+
+    匹配规则：
+    –      与LIKE不同，正则表达式允许匹配串里的任何位置，除非该正则表达式显式
+           地挂接在串的开头或者结尾。
+    –      除了上文提到的元字符外， POSIX正则表达式还支持下列模式匹配元字符。
+
+           元字符                                         含义
+
+           ^                                           表示串开头的匹配
+
+           $                                           表示串末尾的匹配
+
+           .                                           匹配任意单个字符
+
+
+    正则表达式函数：POSIX正则表达式支持以下函数。
+[[PDF_PAGE physical=256 printed=207]]
+–    substring(string FROM pattern)函数提供了抽取一个匹配POSIX正则表达
+     式模式的子串的方法。
+–    regexp_count(string text,pattern text [, position int [, flags text]])函
+     数提供了获取匹配POSIX正则表达式模式的子串数量的功能。
+–    regexp_instr(string text,pattern text [, position int [, occurrence int [,
+     return_opt int [, flags text]]]])函数提供了获取匹配POSIX正则表达式模式
+     子串位置的功能。
+–    regexp_substr(string text,pattern text [, position int [, occurrence int
+     [, flags text]]])函数提供了抽取一个匹配POSIX正则表达式模式的子串的方
+     法。
+–    regexp_replace(string, pattern, replacement [,flags ])函数提供了将匹
+     配POSIX正则表达式模式的子串替换为新文本的功能。
+–    regexp_match(string text,pattern text [, flags text])函数返回一个文本
+     数组，该数组由匹配一个POSIX正则表达式模式得到的所有被捕获子串构
+     成。
+–    regexp_split_to_table(string text, pattern text [, flags text])函数把一
+     个POSIX正则表达式模式当作一个定界符来分离一个串。
+–    regexp_split_to_array(string text,pattern text [, flags text ])和
+     regexp_split_to_table类似，是一个正则表达式分离函数，不过它的结果以一
+     个text数组的形式返回。
+            说明
+
+          正则表达式分离函数会忽略零长度的匹配，这种匹配发生在串的开头或结尾或者正好
+          发生在前一个匹配之后。这和正则表达式匹配的严格定义是相悖的，后者由
+          regexp_matches实现，但是通常前者是实际中最常用的行为。
+示例：
+gaussdb=# SELECT 'abc' ~ 'Abc' AS RESULT;
+result
+--------
+ f
+(1 row)
+gaussdb=# SELECT 'abc' ~* 'Abc' AS RESULT;
+ result
+--------
+ t
+(1 row)
+gaussdb=# SELECT 'abc' !~ 'Abc' AS RESULT;
+ result
+--------
+ t
+(1 row)
+gaussdb=# SELECT 'abc'!~* 'Abc' AS RESULT;
+ result
+--------
+ f
+(1 row)
+gaussdb=# SELECT 'abc' ~ '^a' AS RESULT;
+ result
+--------
+ t
+(1 row)
+gaussdb=# SELECT 'abc' ~ '(b|d)'AS RESULT;
+ result
+--------
+ t
+(1 row)
+gaussdb=# SELECT 'abc' ~ '^(b|c)'AS RESULT;
+ result
+[[PDF_PAGE physical=257 printed=208]]
+    --------
+     f
+    (1 row)
+
+    虽然大部分的正则表达式搜索都能很快地执行，但是仍可能被人为地处理成需要
+    任意长的时间和任意量的内存。不建议从非安全模式来源接受正则表达式搜索模
+    式，如果必须这样做，建议设置语句超时限制。使用SIMILAR TO模式的搜索具有
+    同样的安全性危险， 因为SIMILAR TO提供了很多和POSIX-风格正则表达式相同
+    的能力。LIKE搜索比其他两种选项简单得多，因此在接受非安全模式来源搜索时
+    要更安全些。
+●   [NOT] REGEXP/ [NOT] RLIKE
+    描述：REGEXP操作符用于正则表达式匹配，符合POSIX正则匹配规则。根据自己
+    的模式是否匹配给定字符串而返回真或者假。下表描述了正则表达式操作符：
+
+     操作符名称                 描述             语法说明
+
+     REGEXP                字符串是否与正则表达     expr REGEXP pat
+                           式匹配
+
+     RLIKE                 字符串是否与正则表达     expr RLIKE pat
+                           式匹配（同REGEXP）
+
+     NOT REGEXP            字符串是否与正则表达     expr NOT REGEXP pat
+                           式不匹配
+
+     NOT RLIKE             字符串是否与正则表达     expr NOT RLIKE pat
+                           式不匹配（同NOT
+                           REGEXP）
+
+
+
+
+    匹配规则：
+    –     正则表达式允许匹配串中的任何位置，除非该正则表达式显式地拼接在字符
+          串的起始位置或结尾位置。
+    –     REGEXP操作符支持的模式匹配元字符与POSIX正则表达式支持的模式匹配元
+          字符一致。
+    –     操作符支持的转义字符匹配包括：
+
+           转义      描述
+           字符
+
+           \b      退格键。
+
+           \f      换页符，如C语言。
+
+           \n      换行符，如C语言。
+
+           \r      回车符，如C语言。
+
+           \t      水平制表符，如C语言
+
+           \uwxy   （其中 wxyz 正好是四个十六进制数字）十六进制值为0xwxyz的
+           z       字符。
+
+           \xhhh   （其中 hhh 是十六进制数字的任何序列）十六进制值为0xhhh的
+                   字符。
+[[PDF_PAGE physical=258 printed=209]]
+     转义         描述
+     字符
+
+     \0         GaussDB报错：invalid byte sequence for encoding "UTF8":
+                0x00。
+
+     \xy        （其中 xy 正好是两个八进制数字）八进制值为0xy的字符。
+
+     \xyz       （其中 xyz 正好是三个八进制数字）八进制值为0xyz的字符。
+
+
+–   模式字符串pat范围匹配：[a-dX], [^a-dX]
+    [a-dX]表示匹配任何a、b、c、d或X的字符。[^a-dX]表示匹配不是a、b、c、
+    d或X的字符。
+    两个字符之间的“-”字符构成一个范围，表示范围内所有字符匹配。要想包
+    含文字字符“]”，它必须紧跟在开括号“[”之后。要想包含文字字符
+    “-”，它必须在开括号“[”之后或在开括号“]”之前。对于[]对内未定义
+    任何特殊含义的任何字符，与其本身匹配。
+    示例：
+    gaussdb=# SELECT 'abd' REGEXP 'a[bc]d' AS RESULT;
+     result
+    --------
+     t
+    (1 row)
+    gaussdb=# SELECT 'aed' REGEXP 'a[^bc]d' AS RESULT;
+     result
+    --------
+     t
+    (1 row)
+    gaussdb=# SELECT 'a-' REGEXP 'a[-b]' AS RESULT;
+     result
+    --------
+     t
+    (1 row)
+    gaussdb=# SELECT 'aX]bc' REGEXP '^[]a-dXYZ]*$' AS RESULT;
+     result
+    --------
+     t
+    (1 row)
+–   模式字符串pat中[.characters.]匹配元素的字符序列。在括号表达式中（使用
+    '['和']'），匹配用于校对元素的字符序列。字符为单个字符或诸如“space”
+    等字符名。在文件regex/regc_locale中，可找到字符名称的完整列表。
+    示例：
+    gaussdb=# SELECT ' ' REGEXP '[[.space.]]' AS RESULT;
+     result
+    --------
+     t
+    (1 row)
+–   模式字符串pat中[=character_class=]字符匹配的字符类。在方括号表达式中
+    编写，[=character_class=]代表等价类。它匹配具有相同排序校对值得所有
+    字符，包括其本身。例如，如果o和(+)是等同类的成员，那么[[=o=]]、
+    [[=(+)=]]和[o(+)]是同义词。等同类不得用作范围的端点。
+–   模式字符串pat中[:character_class:]字符匹配的字符类。在方括号表达式中编
+    写（使用[]），[:character_class:]表示匹配属于该类的所有字符的字符类。
+    特定区域可能会提供其他类名。字符类不得用作范围的端点。下表列出了标
+    准类名。当涉及\字符时，需按说明配置相应的参数。
+[[PDF_PAGE physical=259 printed=210]]
+     字符类名                  描述                          字符范围
+
+     alnum                 文字数字字符                      [0-9a-zA-Z]
+
+     alpha                 文字字符                        [a-zA-Z]
+
+     blank                 空白字符                        空白字符[\t]
+
+     cntrl                 控制字符                        [\x01-\x1F]
+
+     digit                 数字字符                        [0-9]
+
+     graph                 图形字符                        [^\x01-\x20]
+
+     lower                 小写文字字符                      [a-z]
+
+     print                 图形字符                        [^\x01-\x20]
+
+     punct                 标点字符                        [-!"#$%&'( )*+,./:;<=>?@[\
+                                                       \]^_`{|}~]
+
+     space                 空格、制表符、新                    [\n\r\t\x0B]
+                           行、和回车
+
+     upper                 大写文字字符                      [A-Z]
+
+     xdigit                十六进制数字字符                    [0-9a-fA-F]
+
+
+
+
+    示例：
+    gaussdb=# SELECT '\n' REGEXP '[[:space:]]' AS RESULT;
+     result
+    --------
+     t
+    (1 row)
+
+–   模式字符串pat中[[:<:]], [[:>:]]分别用于匹配字符串的开始和结束位置。
+    示例：
+    gaussdb=# SELECT 'a word a' REGEXP '[[:<:]]word[[:>:]]' AS RESULT;
+     result
+    --------
+     t
+    (1 row)
+
+–   匹配特殊字符的文字实例，需要在特殊字符前加入两个反斜杠包括(、)、"、
+    ^、+、? 特殊字符，特别地，对于单引号匹配，需要在源字符串写'\''，与模
+    式字符串中'\\\''匹配。当涉及\字符时，需按说明配置相应的参数。
+    示例：
+    gaussdb=# SELECT 'a+b' REGEXP 'a\\+b' AS RESULT;
+     result
+    --------
+     t
+    (1 row)
+    gaussdb=# SELECT '\'' REGEXP '\\\'' AS RESULT;
+     result
+    --------
+     t
+    (1 row)
+    gaussdb=# SELECT '\\' REGEXP '\\\\' AS RESULT;
+     result
+    --------
+[[PDF_PAGE physical=260 printed=211]]
+     t
+    (1 row)
+–   当设置了区分大小写的字符集字符序时，正则匹配也会区分大小写。
+    示例：
+    gaussdb=# SELECT 'abc' REGEXP 'ABC' COLLATE utf8mb4_bin AS RESULT;
+     result
+    --------
+     f
+    (1 row)
+–   入参Expr或pat为NULL时，返回NULL。
+    gaussdb=# SELECT NULL REGEXP '*' AS RESULT;
+     result
+    --------
+
+    (1 row)
+    gaussdb=# SELECT '-' REGEXP NULL AS RESULT;
+     result
+    --------
+
+    (1 row)
+
+     说明
+
+    ● 此操作符仅在B模式数据库下支持，仅在参数sql_compatibility='B'有效，设置参数
+      b_format_version='5.7'后，REGEXP操作符与~*操作符等效，NOT REGEXP操作符与!~*
+      操作符等效。
+    ● 当设置b_format_dev_version为s2时，默认开启standard_conforming_strings=off且
+      escape_string_warning=off，此时在文串常量中输入的任何反斜线都需要被双写。因
+      此，写一个匹配单个反斜线的模式，实际上要在语句中输入四个反斜线。
+    ● 此操作符仅支持字符串类型、文本类型、以及可以隐式转换成字符串类型和文本类型的
+      其他数据类型，不支持bytea类型。

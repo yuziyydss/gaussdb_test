@@ -1,0 +1,146 @@
+[[PDF_PAGE physical=1050 printed=1001]]
+1.6.56 DSL 规则管理函数
+        ●   dsl_add_rule()
+            描述：新增一条DSL规则，该函数仅限初始用户调用。
+            参数：参数说明如表1-294所示。
+            返回值类型：text
+            返回值说明：DSL规则NAME。
+
+            表 1-294 dsl_add_rule 函数参数说明
+
+             入参名称                  入参类       是否必   参数描述
+                                   型         选
+
+             rulename              name      Y     DSL规则名称。格式要求：字母开
+                                                   头，不支持中文；支持字母、数
+                                                   字、下划线、中划线组合；不支
+                                                   持其他特殊字符；长度不超过64
+                                                   个字节。
+
+             ruletext              text      Y     DSL规则文本内容。
+
+             priority              integer   Y     DSL规则优先级（取值范围：
+                                                   1-9999）,全局唯一， 数字越大优
+                                                   先级越低。
+
+             enabled               boolean   N     是否开启规则，默认值为：
+                                                   FALSE。
+
+             ruledesc              name      N     DSL规则描述，可以为空值，长度
+                                                   不超过64个字节。
+
+             ruledbcompatibility   text      N     DSL规则在数据库的兼容模式，
+                                                   支持类型：A、B、C、PG、M、
+                                                   ANY;
+                                                   分别表示兼容O、MY、TD、
+                                                   POSTGRES、M-Compatibility和
+                                                   全部兼容;
+                                                   支持设置多个兼容模式，兼容模
+                                                   式间用 | 隔开，比如A|PG表示同
+                                                   时支持O和PG兼容;
+                                                   默认值：ANY。
+[[PDF_PAGE physical=1051 printed=1002]]
+     入参名称                          入参类        是否必     参数描述
+                                   型          选
+
+     planmode                      text       N       规则支持的计划类型，可选：
+                                                      Stream/RemoteQuery/ANY 默认
+                                                      值：ANY。
+
+
+
+
+    示例：
+    gaussdb=# SELECT dsl_add_rule(
+    'compute_const',
+    'Filter<> {args: $expr: *}
+    =>
+    Filter<> {args: (expr_compute $expr)
+    }',
+    3,
+    true);
+     dsl_add_rule
+    ---------------
+     compute_const
+    (1 row)
+
+●   dsl_del_rule()
+    描述：删除一条DSL规则，该函数仅限系统管理员用户及初始用户调用。
+    参数：参数说明如表1-295所示。
+    返回值类型：integer
+    返回值说明：删除DSL规则的条数。
+
+    表 1-295 dsl_del_rule 函数参数说明
+     入参名称                            入参类型         入参描述
+
+     rulename                        name         DSL规则NAME。
+
+
+
+
+    示例：
+    gaussdb=# SELECT dsl_del_rule('compute_const');
+     dsl_del_rule
+    --------------
+              1
+    (1 row)
+
+●   dsl_set_rule()
+    描述：修改一条DSL规则（修改单个属性值），不允许修改规则本身的内容，仅系
+    统管理员用户和初始用户使用。
+    参数：参数说明如表1-296所示。
+    返回值类型：integer
+    返回值说明：修改DSL规则的条数。
+[[PDF_PAGE physical=1052 printed=1003]]
+    表 1-296 dsl_set_rule 函数参数说明
+     入参名称                              入参类型           入参描述
+
+     rulename                          name           DSL规则NAME。
+
+     attrname                          text           属性名称，目前支持的属性有：
+                                                      enabled，priority，ruledesc，
+                                                      dbcompatibility，planmode。
+
+     attrval                           text           属性值。
+
+
+
+
+    示例：
+    gaussdb=# SELECT dsl_set_rule('compute_const', 'priority', '8');
+     dsl_set_rule
+    --------------
+              1
+    (1 row)
+
+    gaussdb=# \x
+    Expanded display is on.
+    gaussdb=# SELECT * FROM GS_DSL_REWRITERULE WHERE rulename = 'compute_const';
+    -[ RECORD 1 ]---+-------------------------------------
+    enabled         |t
+    externalrule | t
+    costbased        |f
+    priority     | 8 --规则优先级被设置为8
+    dbcompatibility | 31
+    planmode           |3
+    createtime       | xxxx-xx-xx 16:43:18.766029+08
+    lastupdatetime | xxxx-xx-xx 16:44:55.785637+08
+    rulename          | compute_const
+    rulehash        | 8576886722021209825
+    ruletext      | Filter<> {args: $expr: *}
+               | =>
+               | Filter<> {args: (expr_compute $expr)
+               |}
+    ruledesc       |
+
+●   dsl_reload_rule()
+    描述：加载DSL规则到缓存。
+    参数：无
+    返回值类型：text
+    返回值说明：success表示加载成功，failed表示加载失败。
+    示例：
+    gaussdb=# SELECT dsl_reload_rule();
+     dsl_reload_rule
+    -----------------
+     success
+    (1 row)

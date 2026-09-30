@@ -1,0 +1,400 @@
+[[PDF_PAGE physical=173 printed=124]]
+1.3.25 ROWID 类型
+        ROWID数据类型用于标识表中的数据行，包含定位该行所需的关键信息，可实现对表
+        中数据行的快速定位。
+        ROWID数据类型由29个BASE64编码的字符组成，各个字符串的含义如表1-28所示：
+
+        表 1-28 ROWID 类型字段含义
+         字段          含义              字符长   取值范围（BASE64编码）
+                                     度
+
+         reserve_f   保留位。            6     当前版本0（AAAAAA）。
+         lag
+
+         node_slic   节点的分片编号。        3     0（AAA）。
+         e
+
+         bucket_i    hash bucket表的   3     65535（P//）。
+         d           bucket编号。
+
+         table_oid   表的oid。          6     最小值0（AAAAAA），最大值
+                                           4294967295（D/////）。
+
+         row_no      行的编号。           11    最小值0（AAAAAAAAAAA），最大值
+                                           9223372036854775807
+                                           （H//////////）。
+[[PDF_PAGE physical=174 printed=125]]
+            说明
+
+          ROWID类型不支持以下操作：
+          ● ROWID类型不支持作为表的分区键。
+          ● ROWID类型不支持HTAP。
+          ● ROWID类型仅支持A兼容性数据库。
+          ● ROWID类型不支持数据脱敏策略。
+          ● ROWID类型不可作为自定义范围类型的subtype。详细可见范围类型章节内容。
+          ● ROWID类型仅支持JDBC驱动。
+
+
+示例
+      -- 创建表
+      gaussdb=# CREATE TABLE rowid_test(id INT, rwd ROWID);
+      CREATE TABLE
+
+      -- 插入数据，值为NULL
+      gaussdb=# INSERT INTO rowid_test VALUES(1, NULL);
+      INSERT 0 1
+
+      -- 插入数据，满足ROWID格式
+      gaussdb=# INSERT INTO rowid_test VALUES(2, 'AAAAAAAAAP//BBBBBAAAAAAAAAAAC');
+      INSERT 0 1
+      gaussdb=# INSERT INTO rowid_test VALUES(3, 'AAAAAAAAAP//BBBd+AAAAAAAA901/');
+      INSERT 0 1
+      gaussdb=# INSERT INTO rowid_test VALUES(4, 'AAAAAAAAAP//A12i+AAAAAAAAItn/');
+      INSERT 0 1
+      gaussdb=# INSERT INTO rowid_test VALUES(5, 'AAAAAAAAAP//CC+uJAAAAAAGASIi9');
+      INSERT 0 1
+
+      -- 插入数据，不满足ROWID格式
+      gaussdb=# INSERT INTO rowid_test VALUES(6, 'AAAAAAAAAP//BBBd+AAAAAAAA@@@@');
+      ERROR: Invalid rowid.
+      LINE 1: INSERT INTO rowid_test VALUES(6, 'AAAAAAAAAP//BBBd+AAAAAAAA@...
+                                ^
+      CONTEXT: referenced column: rwd
+
+      -- 插入数据，不满足ROWID值范围
+      gaussdb=# INSERT INTO rowid_test VALUES(6, 'AAAAAAAAAP/////d+AAAAAAAA901/');
+      ERROR: Invalid rowid.
+      LINE 1: INSERT INTO rowid_test VALUES(6, 'AAAAAAAAAP/////d+AAAAAAAA9...
+                                ^
+      CONTEXT: referenced column: rwd
+
+      -- 查看数据
+      gaussdb=# SELECT * FROM rowid_test;
+       id |          rwd
+      ----+-------------------------------
+        1|
+        2 | AAAAAAAAAP//BBBBBAAAAAAAAAAAC
+        3 | AAAAAAAAAP//BBBd+AAAAAAAA901/
+        4 | AAAAAAAAAP//A12i+AAAAAAAAItn/
+        5 | AAAAAAAAAP//CC+uJAAAAAAGASIi9
+      (5 rows)
+
+      -- 删除表
+      gaussdb=# DROP TABLE IF EXISTS rowid_test;
+      DROP TABLE
+
+
+操作符
+      ROWID类型支持比较操作符（=、<>、<、>、<=、>=），当与不支持隐式转换成
+      ROWID的数据类型进行比较操作时，报错“Inconsistent datatypes”。关于比较操作
+      符详细可见比较操作符章节内容。
+[[PDF_PAGE physical=175 printed=126]]
+ROWID类型的比较规则是按照node_slice、table_oid、bucket_id、row_no字段数值
+依次进行比较。
+
+示例
+-- ROWID类型比较
+gaussdb=# CREATE OR REPLACE FUNCTION func1 RETURN ROWID AS
+gaussdb$# DECLARE
+gaussdb$#       a ROWID;
+gaussdb$#       b ROWID;
+gaussdb$# BEGIN
+gaussdb$#       a := 'AAAAAAAAAP//ABPH//AAAAAAAACAB';
+gaussdb$#       b := 'AAAAAAAAAP//ABPH//AAAAAAAACAA';
+gaussdb$#       DBE_OUTPUT.PRINT_LINE((a = b)::text);
+gaussdb$#       DBE_OUTPUT.PRINT_LINE((a <> b)::text);
+gaussdb$#       DBE_OUTPUT.PRINT_LINE((a > b)::text);
+gaussdb$#       DBE_OUTPUT.PRINT_LINE((a < b)::text);
+gaussdb$#       DBE_OUTPUT.PRINT_LINE((a <= b)::text);
+gaussdb$#       DBE_OUTPUT.PRINT_LINE((a >= b)::text);
+gaussdb$#       RETURN a;
+gaussdb$# END;
+gaussdb$# /
+CREATE FUNCTION
+gaussdb=# SELECT func1();
+false
+true
+true
+false
+false
+true
+          func1
+-------------------------------
+ AAAAAAAAAP//ABPH//AAAAAAAACAB
+(1 row)
+
+-- ROWID类型与其他可隐式转换类型的比较
+gaussdb=# CREATE OR REPLACE FUNCTION func1 RETURN ROWID AS
+gaussdb$# DECLARE
+gaussdb$#   a ROWID;
+gaussdb$#   b TEXT;
+gaussdb$#   c VARCHAR(30);
+gaussdb$#   d VARCHAR2;
+gaussdb$#   e CHAR(29);
+gaussdb$#   F NVARCHAR2;
+gaussdb$# BEGIN
+gaussdb$#   --数据准备
+gaussdb$#   a:='AAAAAAAAAP//ABPH//AAAAAAAACAB';
+gaussdb$#   b:='AAAAAAAAAP//ABPH//AAAAAAAACAA';
+gaussdb$#   c:='AAAAAAAAAP//ABPH//AAAAAAAACAA';
+gaussdb$#   d:='AAAAAAAAAP//ABPH//AAAAAAAACAA';
+gaussdb$#   e:='AAAAAAAAAP//ABPH//AAAAAAAACAA';
+gaussdb$#   F:='AAAAAAAAAP//ABPH//AAAAAAAACAA';
+gaussdb$#
+gaussdb$#   --与text比较
+gaussdb$#   DBE_OUTPUT.PRINT_LINE('text:');
+gaussdb$#   DBE_OUTPUT.PRINT_LINE((a = b)::text);
+gaussdb$#   DBE_OUTPUT.PRINT_LINE((a <> b)::text);
+gaussdb$#   DBE_OUTPUT.PRINT_LINE((a > b)::text);
+gaussdb$#   DBE_OUTPUT.PRINT_LINE((a < b)::text);
+gaussdb$#   DBE_OUTPUT.PRINT_LINE((a <= b)::text);
+gaussdb$#   DBE_OUTPUT.PRINT_LINE((a >= b)::text);
+gaussdb$#
+gaussdb$#   --与varchar比较
+gaussdb$#   DBE_OUTPUT.PRINT_LINE('varchar:');
+gaussdb$#   DBE_OUTPUT.PRINT_LINE((a = c)::text);
+gaussdb$#   DBE_OUTPUT.PRINT_LINE((a <> c)::text);
+gaussdb$#   DBE_OUTPUT.PRINT_LINE((a > c)::text);
+gaussdb$#   DBE_OUTPUT.PRINT_LINE((a < c)::text);
+gaussdb$#   DBE_OUTPUT.PRINT_LINE((a <= c)::text);
+[[PDF_PAGE physical=176 printed=127]]
+gaussdb$#     DBE_OUTPUT.PRINT_LINE((a >= c)::text);
+gaussdb$#
+gaussdb$#     --与varchar2比较
+gaussdb$#     DBE_OUTPUT.PRINT_LINE('varchar2:');
+gaussdb$#     DBE_OUTPUT.PRINT_LINE((a = d)::text);
+gaussdb$#     DBE_OUTPUT.PRINT_LINE((a <> d)::text);
+gaussdb$#     DBE_OUTPUT.PRINT_LINE((a > d)::text);
+gaussdb$#     DBE_OUTPUT.PRINT_LINE((a < d)::text);
+gaussdb$#     DBE_OUTPUT.PRINT_LINE((a <= d)::text);
+gaussdb$#     DBE_OUTPUT.PRINT_LINE((a >= d)::text);
+gaussdb$#     --与char比较
+gaussdb$#     DBE_OUTPUT.PRINT_LINE('char:');
+gaussdb$#     DBE_OUTPUT.PRINT_LINE((a = e)::text);
+gaussdb$#     DBE_OUTPUT.PRINT_LINE((a <> e)::text);
+gaussdb$#     DBE_OUTPUT.PRINT_LINE((a > e)::text);
+gaussdb$#     DBE_OUTPUT.PRINT_LINE((a < e)::text);
+gaussdb$#     DBE_OUTPUT.PRINT_LINE((a <= e)::text);
+gaussdb$#     DBE_OUTPUT.PRINT_LINE((a >= e)::text);
+gaussdb$#
+gaussdb$#     --与nvarchar2比较
+gaussdb$#     DBE_OUTPUT.PRINT_LINE('nvarchar2:');
+gaussdb$#     DBE_OUTPUT.PRINT_LINE((a = f)::text);
+gaussdb$#     DBE_OUTPUT.PRINT_LINE((a <> f)::text);
+gaussdb$#     DBE_OUTPUT.PRINT_LINE((a > f)::text);
+gaussdb$#     DBE_OUTPUT.PRINT_LINE((a < f)::text);
+gaussdb$#     DBE_OUTPUT.PRINT_LINE((a <= f)::text);
+gaussdb$#     DBE_OUTPUT.PRINT_LINE((a >= f)::text);
+gaussdb$#
+gaussdb$#     RETURN a;
+gaussdb$# END;
+gaussdb$# /
+CREATE FUNCTION
+gaussdb=# SELECT func1();
+text:
+false
+true
+true
+false
+false
+true
+varchar:
+false
+true
+true
+false
+false
+true
+varchar2:
+false
+true
+true
+false
+false
+true
+char:
+false
+true
+true
+false
+false
+true
+nvarchar2:
+false
+true
+true
+false
+false
+true
+         func1
+[[PDF_PAGE physical=177 printed=128]]
+     -------------------------------
+      AAAAAAAAAP//ABPH//AAAAAAAACAB
+     (1 row)
+
+     -- ROWID类型与其他不可隐式转换类型的比较
+     gaussdb=# CREATE OR REPLACE FUNCTION func1 RETURN ROWID AS
+     gaussdb$# DECLARE
+     gaussdb$#   a ROWID;
+     gaussdb$#   b INT;
+     gaussdb$# BEGIN
+     gaussdb$#   --数据准备
+     gaussdb$#   a := 'AAAAAAAAAP//ABPH//AAAAAAAACAB';
+     gaussdb$#   b := 1;
+     gaussdb$#
+     gaussdb$#   --与int比较
+     gaussdb$#   DBE_OUTPUT.PRINT_LINE((a = b)::text);
+     gaussdb$#   DBE_OUTPUT.PRINT_LINE((a <> b)::text);
+     gaussdb$#   DBE_OUTPUT.PRINT_LINE((a > b)::text);
+     gaussdb$#   DBE_OUTPUT.PRINT_LINE((a < b)::text);
+     gaussdb$#   DBE_OUTPUT.PRINT_LINE((a <= b)::text);
+     gaussdb$#   DBE_OUTPUT.PRINT_LINE((a >= b)::text);
+     gaussdb$#   RETURN a;
+     gaussdb$# END;
+     gaussdb$# /
+     CREATE FUNCTION
+
+     gaussdb=# SELECT func1();
+     ERROR: Inconsistent datatypes: expected rowid got integer
+     CONTEXT: SQL statement "CALL dbe_output.print_line((a = b)::text)"
+     PL/pgSQL function func1() line 11 at PERFORM
+     referenced column: func1
+
+     gaussdb=# DROP FUNCTION IF EXISTS func1();
+     DROP FUNCTION
+
+
+索引
+     ROWID类型普通列支持BTREE/UBTREE索引，详情请参见CREATE INDEX章节内容。
+     在使用ROWID类型普通列进行JOIN操作时，支持HASH JOIN算子，详情请参见连接查
+     询章节内容。
+     示例
+     gaussdb=# CREATE TABLE t1(b ROWID, c INT) WITH (storage_type=ustore);
+     CREATE TABLE
+     gaussdb=# CREATE TABLE t2(b ROWID, c INT) WITH (storage_type=astore);
+     CREATE TABLE
+     gaussdb=# INSERT INTO t1 VALUES('AAAAAAAAAP//BBBBBAAAAAAAAAAAC', generate_series(1,100));
+     INSERT 0 100
+     gaussdb=# INSERT INTO t2 VALUES('AAAAAAAAAP//BBBBBAAAAACdAAAAC', generate_series(1,100));
+     INSERT 0 100
+     gaussdb=# --BTREE索引
+     gaussdb=# CREATE INDEX t1_rowid_index ON t1 USING BTREE (b);
+     NOTICE: Index type btree is converted to index type ubtree.
+     CREATE INDEX
+     gaussdb=# CREATE INDEX t2_rowid_index ON t2 USING BTREE (b rowid_ops);
+     CREATE INDEX
+     gaussdb=# \d t1
+          Table "public.t1"
+      Column | Type | Modifiers
+     --------+---------+-----------
+      b     | rowid |
+      c     | integer |
+     Indexes:
+        "t1_rowid_index" ubtree (b) WITH (storage_type=USTORE) TABLESPACE pg_default
+
+     gaussdb=# \d t2
+        Table "public.t2"
+[[PDF_PAGE physical=178 printed=129]]
+        Column | Type | Modifiers
+       --------+---------+-----------
+        b     | rowid |
+        c     | integer |
+       Indexes:
+          "t2_rowid_index" btree (b) TABLESPACE pg_default
+
+       gaussdb=# DROP INDEX t1_rowid_index;
+       DROP INDEX
+       gaussdb=# DROP INDEX t2_rowid_index;
+       DROP INDEX
+       gaussdb=# CREATE INDEX t1_rowid_index ON t1 USING UBTREE (b);
+       CREATE INDEX
+       gaussdb=# CREATE INDEX t2_rowid_index on t2 USING UBTREE (b rowid_ops);
+       NOTICE: Index type ubtree is converted to index type btree.
+       CREATE INDEX
+       gaussdb=# \d t1
+            Table "public.t1"
+        Column | Type | Modifiers
+       --------+---------+-----------
+        b     | rowid |
+        c     | integer |
+       Indexes:
+          "t1_rowid_index" ubtree (b) WITH (storage_type=USTORE) TABLESPACE pg_default
+
+       gaussdb=# \d t2
+            Table "public.t2"
+        Column | Type | Modifiers
+       --------+---------+-----------
+        b     | rowid |
+        c     | integer |
+       Indexes:
+          "t2_rowid_index" btree (b) TABLESPACE pg_default
+
+       gaussdb=# DROP INDEX t1_rowid_index;
+       DROP INDEX
+       gaussdb=# DROP INDEX t2_rowid_index;
+       DROP INDEX
+       gaussdb=# ANALYZE t1;
+       ANALYZE
+       gaussdb=# ANALYZE t2;
+       ANALYZE
+       --HASH JOIN 算子
+       gaussdb=# EXPLAIN VERBOSE SELECT * FROM t1 JOIN t2 ON t1.b = t2.b;
+                                QUERY PLAN
+       ------------------------------------------------------------------------
+        [Parameterized]
+        Hash Join (cost=3.25..5.63 rows=1 distinct=[200, 1] width=56)
+         Output: t1.b, t1.c, t2.b, t2.c, (Expression Flatten Optimized)
+         Hash Cond: (t1.b = t2.b), (Expression Flatten Optimized)
+         -> Seq Scan on public.t1 (cost=0.00..2.00 rows=100 width=28)
+              Output: t1.b, t1.c
+         -> Hash (cost=2.00..2.00 rows=100 width=28)
+              Output: t2.b, t2.c
+              -> Seq Scan on public.t2 (cost=0.00..2.00 rows=100 width=28)
+                   Output: t2.b, t2.c
+       (10 rows)
+       gaussdb=# DROP TABLE IF EXISTS t1;
+       DROP TABLE
+       gaussdb=# DROP TABLE IF EXISTS t2;
+       DROP TABLE
+
+
+类型转换
+       ROWID类型和字符串类型允许进行隐式类型转换。
+       示例
+[[PDF_PAGE physical=179 printed=130]]
+gaussdb=# CREATE TABLE t1(a ROWID);
+CREATE TABLE
+gaussdb=# INSERT INTO t1 VALUES('AAAAAAAAAP//BBBBBAAAAAAAAAAAC'::BPCHAR(29));
+INSERT 0 1
+gaussdb=# INSERT INTO t1 VALUES('AAAAAAAAAP//BBBBBAAAAAAAAAAAC'::VARCHAR(29));
+INSERT 0 1
+gaussdb=# INSERT INTO t1 VALUES('AAAAAAAAAP//BBBBBAAAAAAAAAAAC'::NVARCHAR2(29));
+INSERT 0 1
+gaussdb=# INSERT INTO t1 VALUES('AAAAAAAAAP//BBBBBAAAAAAAAAAAC'::TEXT);
+INSERT 0 1
+gaussdb=# CREATE TABLE t2(a BPCHAR(29));
+CREATE TABLE
+gaussdb=# INSERT INTO t2 VALUES('AAAAAAAAAP//BBBBBAAAAAAAAAAAC'::ROWID);
+INSERT 0 1
+gaussdb=# CREATE TABLE t3(a VARCHAR(29));
+CREATE TABLE
+gaussdb=# INSERT INTO t3 VALUES('AAAAAAAAAP//BBBBBAAAAAAAAAAAC'::ROWID);
+INSERT 0 1
+gaussdb=# CREATE TABLE t4(a NVARCHAR2(29));
+CREATE TABLE
+gaussdb=# INSERT INTO t4 VALUES('AAAAAAAAAP//BBBBBAAAAAAAAAAAC'::ROWID);
+INSERT 0 1
+gaussdb=# CREATE TABLE t5(a TEXT);
+CREATE TABLE
+gaussdb=# INSERT INTO t5 VALUES('AAAAAAAAAP//BBBBBAAAAAAAAAAAC'::ROWID);
+INSERT 0 1
+gaussdb=# DROP TABLE IF EXISTS t1;
+DROP TABLE
+gaussdb=# DROP TABLE IF EXISTS t2;
+DROP TABLE
+gaussdb=# DROP TABLE IF EXISTS t3;
+DROP TABLE
+gaussdb=# DROP TABLE IF EXISTS t4;
+DROP TABLE
+gaussdb=# DROP TABLE IF EXISTS t5;
+DROP TABLE

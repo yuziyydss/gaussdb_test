@@ -1,0 +1,1109 @@
+[[PDF_PAGE physical=952 printed=903]]
+1.6.43 XML 类型函数
+        以下函数兼容Postgres 9.2。
+
+            说明
+
+            ● 以下所有xml类型函数中，当GUC参数xmloption为content时，xml声明中encoding值可以
+              取为ZHS16GBK；当GUC参数xmloption为document时，xml声明中encoding值不可以取为
+              ZHS16GBK，若设置encoding = ZHS16GBK，则会发生报错。
+            ● xml类型函数支持的最大XML嵌套层数不能超过256层。
+        ●   xmlparse ( { DOCUMENT | CONTENT } value [wellformed])
+            描述：使用函数xmlparse，从字符数据产生xml类型的值。
+            参数：数据类型为text。
+            返回值类型：xml
+            示例：
+            gaussdb=# SELECT XMLPARSE (DOCUMENT '<?xml version="1.0"?><book><title>Manual</
+            title><chapter>...</chapter></book>');
+                             xmlparse
+            ----------------------------------------------------------
+             <book><title>Manual</title><chapter>...</chapter></book>
+            (1 row)
+            gaussdb=# SELECT XMLPARSE (CONTENT 'abc<foo>bar</foo><bar>foo</bar>');
+                    xmlparse
+            ---------------------------------
+             abc<foo>bar</foo><bar>foo</bar>
+            (1 row)
+            gaussdb=# SELECT XMLPARSE (CONTENT 'abc<foo>bar</foo' wellformed);
+                 xmlparse
+            ------------------
+             abc<foo>bar</foo
+            (1 row)
+
+        ●   xmlserialize( { DOCUMENT | CONTENT } value AS type )
+            描述：使用函数xmlserialize，从xml产生一个字符串。
+            参数：数据类型为xml。
+[[PDF_PAGE physical=953 printed=904]]
+    返回值类型：类型可以是character，character varying或text（或其中某个的变
+    种）。
+    示例：
+    gaussdb=# SELECT XMLSERIALIZE(CONTENT 'good' AS CHAR(10));
+     xmlserialize
+    --------------
+     good
+    (1 row)
+    gaussdb=# SELECT xmlserialize(DOCUMENT '<head>bad</head>' as text);
+      xmlserialize
+    ------------------
+     <head>bad</head>
+    (1 row)
+
+          说明
+
+        当一个字符串值在没有通过xmlparse或xmlserialize的情况下，与xml类型进行转换时，具
+        体选择DOCUMENT或CONTENT由“XML OPTION”会话配置参数决定，这个配置参数可
+        以由标准命令来设置：
+        SET XML OPTION { DOCUMENT | CONTENT };
+        或使用类似的语法来设置：
+        SET xmloption TO { DOCUMENT | CONTENT };
+
+●   xmlcomment(text)
+    描述：创建一个XML值，并且它包含一个用指定文本作为内容的XML注释。该文
+    本不包含“--”字符且结尾不存在“-”字符、符合XML注释的格式要求。且当参
+    数为空时、结果也为空。
+    参数：数据类型为text。
+    返回值类型：xml
+    示例：
+    gaussdb=# SELECT xmlcomment('hello');
+      xmlcomment
+    --------------
+     <!--hello-->
+
+●   xmlconcat(xml[, ...])
+    描述：将由单个XML值组成的列表串接成一个单独的值，该值包含一个XML的内
+    容片段。其中空值会被忽略，并且只有当所有参数都为空时结果才为空。在兼容A
+    数据库模式下，设置a_format_version值为10c和a_format_dev_version值为s2，
+    增加了校验输入片段是否为非良构xml文本。
+    参数：数据类型为xml。
+    返回值类型：xml
+    示例1：
+    gaussdb=# set xmloption=content;
+    SET
+    gaussdb=# select XMLCONCAT(('<?xml version="1.0" encoding="GB2312" standalone="no"?
+    ><bar>foo</bar>'),('<?xml version="1.0" encoding="GB2312" standalone="no" ?><bar>foo</bar>')) ;
+                           xmlconcat
+    -------------------------------------------------------------------
+    <?xml version="1.0" standalone="no"?><bar>foo</bar><bar>foo</bar>
+    (1 row)
+    gaussdb=# select XMLCONCAT('abc>');
+     xmlconcat
+    -----------
+     abc>
+    (1 row)
+    示例2：兼容A数据库的语法示例。
+    gaussdb=# SET a_format_version='10c';
+    SET
+[[PDF_PAGE physical=954 printed=905]]
+    gaussdb=# SET a_format_dev_version=s2;
+    SET
+    gaussdb=# SET xmloption=content;
+    SET
+    gaussdb=# SELECT XMLCONCAT(('<?xml version="1.0" encoding="GB2312" standalone="no"?
+    ><bar>foo</bar>'),('<?xml version="1.0" encoding="GB2312" standalone="no" ?><bar>foo</bar>')) ;
+                           xmlconcat
+    -------------------------------------------------------------------
+    <?xml version="1.0" standalone="no"?><bar>foo</bar><bar>foo</bar>
+    (1 row)
+    gaussdb=# SELECT XMLCONCAT('abc>');
+    ERROR: invalid XML document
+    DETAIL: line 1: Start tag expected, '<' not found
+    abc>
+    ^
+    CONTEXT: referenced column: xmlconcat
+
+          说明
+
+        在兼容A数据库模式下，设置a_format_version值为10c和a_format_dev_version值为s2
+        时，若xml声明中encoding属性值为ZHS16GBK，则XMLCONCAT函数将会发生报错。
+●   xmlelement( [ ENTITYESCAPING | NOENTITYESCAPING ] { [ NAME ]
+    element_name | EVALNAME element_name } [ ,
+    xmlattributes( [ ENTITYESCAPING | NOENTITYESCAPING ] value [ [ AS ]
+    attname | AS EVALNAME attname ] [ , ... ] ) ] [ , content [ [ AS ] alias ]
+    [ , ... ] ] )
+    描述：使用给定的名称、属性和内容产生一个XML元素。
+    返回值类型：xml
+    示例：
+    gaussdb=# SELECT xmlelement(name foo);
+     xmlelement
+    ------------
+     <foo/>
+
+    在A兼容模式下：
+    gaussdb=# set a_format_version='10c';
+    SET
+    gaussdb=# set a_format_dev_version=s2;
+    SET
+    1.xmlelement中默认不设置或者设置ENTITYESCAPING关键字时，xmlelement的内容中的保留字符将会被
+    转义：
+    gaussdb=# SELECT xmlelement("entityescaping<>", 'a$><&"b');
+                        xmlelement
+    -------------------------------------------------------------
+     <entityescaping<>>a$&gt;&lt;&amp;&quot;b</entityescaping<>>
+    (1 row)
+
+    gaussdb=# SELECT xmlelement(entityescaping "entityescaping<>", 'a$><&"b');
+                        xmlelement
+    -------------------------------------------------------------
+     <entityescaping<>>a$&gt;&lt;&amp;&quot;b</entityescaping<>>
+    (1 row)
+
+    2.xmlelement中设置NOENTITYESCAPING关键字时，xmlelement的内容中的保留字符将不会被转义：
+    gaussdb=# SELECT xmlelement(noentityescaping "entityescaping<>", 'a$><&"b');
+                  xmlelement
+    ----------------------------------------------
+     <entityescaping<>>a$><&"b</entityescaping<>>
+    (1 row)
+
+    3.xmlelement中对内容使用[as] alias声明别名时，内容值类型必须为xml类型：
+    gaussdb=# SELECT xmlelement("entityescaping<>", '<abc/>' b);
+    ERROR: argument of XMLELEMENT must be type xml, not type unknown
+    LINE 1: SELECT xmlelement("entityescaping<>", '<abc/>' b);
+                                 ^
+[[PDF_PAGE physical=955 printed=906]]
+    CONTEXT: referenced column: xmlelement
+
+    gaussdb=# SELECT xmlelement("entityescaping<>", '<abc/>' as b);
+    ERROR: argument of XMLELEMENT must be type xml, not type unknown
+    LINE 1: SELECT xmlelement("entityescaping<>", '<abc/>' as b);
+                                 ^
+    CONTEXT: referenced column: xmlelement
+
+    gaussdb=# SELECT xmlelement("entityescaping<>", xml('<abc/>') b);
+                 xmlelement
+    ---------------------------------------------
+     <entityescaping<>><abc/></entityescaping<>>
+    (1 row)
+
+    gaussdb=# SELECT xmlelement("entityescaping<>", xml('<abc/>') as b);
+                 xmlelement
+    ---------------------------------------------
+     <entityescaping<>><abc/></entityescaping<>>
+    (1 row)
+
+    4.xmlattributes中默认不设置或者设置ENTITYESCAPING关键字时，xmlattributes的内容中的保留字符将会
+    被转义：
+    gaussdb=# SELECT xmlelement("entityescaping<>", xmlattributes('entityescaping<>'
+    "entityescaping<>"));
+                         xmlelement
+    ---------------------------------------------------------------
+     <entityescaping<> entityescaping<>="entityescaping&lt;&gt;"/>
+    (1 row)
+
+    gaussdb=# SELECT xmlelement(name "entityescaping<>", xmlattributes(entityescaping
+    'entityescaping<>' "entityescaping<>"));
+                         xmlelement
+    ---------------------------------------------------------------
+     <entityescaping<> entityescaping<>="entityescaping&lt;&gt;"/>
+    (1 row)
+
+    5.xmlattributes中设置NOENTITYESCAPING关键字时，xmlattributes的内容中的保留字符将不会被转义：
+    gaussdb=# SELECT xmlelement("entityescaping<>", xmlattributes(noentityescaping 'entityescaping<>'
+    "entityescaping<>"));
+                      xmlelement
+    ---------------------------------------------------------
+     <entityescaping<> entityescaping<>="entityescaping<>"/>
+    (1 row)
+
+          说明
+
+        ● xmlelement和xmlattributes的name字段赋NULL时，行为与A数据库不一致。
+          xmlelement的name字段赋NULL时，结果显示name信息为空，且不显示属性信息。
+          xmlattributes的name字段赋NULL时，不显示属性信息。
+        ● 设置如下两个参数后，xmlelement的内容转义规则为A兼容，未设置时xmlelement的
+          内容转义规则为PG兼容。
+            set a_format_version='10c';
+            set a_format_dev_version=s2;
+
+●   xmlforest(content [AS name] [, ...])
+    描述：使用给定名称和内容产生一个元素的XML序列。
+    返回值类型：xml
+    示例：
+    gaussdb=# SELECT xmlforest('abc' AS foo, 123 AS bar);
+            xmlforest
+    ------------------------------
+     <foo>abc</foo><bar>123</bar>
+
+●   xmlpi(name target [, content])
+    描述：创建一个XML处理指令。若内容不为空，则内容不能包含字符序列。
+    返回值类型：xml
+[[PDF_PAGE physical=956 printed=907]]
+    示例：
+    gaussdb=# SELECT xmlpi(name php, 'echo "hello world";');
+              xmlpi
+    -----------------------------
+     <?php echo "hello world";?>
+
+●   xmlroot(xml, version text | no value [, standalone yes|no|no value])
+    描述：修改一个XML值的根节点的属性。如果指定了一个版本，它会替换根节点
+    的版本声明中的值；如果指定了一个独立设置，它会替换根节点的独立声明中的
+    值。
+    示例：
+    gaussdb=# SELECT xmlroot('<?xml version="1.1"?><content>abc</content>',version '1.0', standalone
+    yes);
+                         xmlroot
+    --------------------------------------------------------------
+     <?xml version="1.0" standalone="yes"?><content>abc</content>
+    (1 row)
+
+●   xmlagg(xml [order_by_clause])
+    描述：该函数是一个聚集函数、它将聚集函数调用的输入值串接起来，且支持跨
+    行串接，order_by_clause详见SELECT。在兼容A数据库模式下，设置
+    a_format_version值为10c和a_format_dev_version值为s2，数据库xmloption参
+    数默认为content，当xmloption设置为document时，使用换行符串接多行xml。
+    若xml声明中encoding属性值不为默认编码UTF-8时，聚集结果有xml声明。
+    参数：xml
+    返回值类型：xml
+    示例1：
+    gaussdb=# CREATE TABLE xmltest (
+              id int,
+              data xml
+             );
+    gaussdb=# INSERT INTO xmltest VALUES (1, '<value>one</value>');
+    INSERT 0 1
+    gaussdb=# INSERT INTO xmltest VALUES (2, '<value>two</value>');
+    INSERT 0 1
+    gaussdb=# SELECT xmlagg(data) FROM xmltest;
+                 xmlagg
+    --------------------------------------
+     <value>one</value><value>two</value>
+    (1 row)
+    示例2：兼容A数据库的语法示例。
+    gaussdb=# set xmloption=document;
+    SET
+    gaussdb=# SELECT xmlagg(data) FROM xmltest;
+          xmlagg
+    --------------------
+     <value>one</value>+
+     <value>two</value>
+    (1 row)
+    gaussdb=# DELETE FROM XMLTEST;
+    DELETE 2
+    gaussdb=# INSERT INTO xmltest VALUES (1, '<?xml version="1.0" encoding="GBK"?><value>one</
+    value>');
+    INSERT 0 1
+    gaussdb=# INSERT INTO xmltest VALUES (2, '<?xml version="1.0" encoding="GBK"?><value>two</
+    value>');
+    INSERT 0 1
+    gaussdb=# SELECT xmlagg(data) FROM xmltest;
+                        xmlagg
+    --------------------------------------------------------
+     <?xml version="1.0" encoding="GBK"?><value>one</value>+
+     <value>two</value>
+    (1 row)
+[[PDF_PAGE physical=957 printed=908]]
+    gaussdb=# SELECT xmlagg(data order by id desc) FROM xmltest;
+                        xmlagg
+    --------------------------------------------------------
+     <?xml version="1.0" encoding="GBK"?><value>two</value>+
+     <value>one</value>
+    (1 row)
+
+    gaussdb=# DROP TABLE xmltest;
+
+●   xmlexists(text passing [BY REF] xml [BY REF])
+    描述：评价一个XPath 1.0表达式(第一个参数)，以传递的XML值作为其上下文
+    项。 如果评价的结果产生一个空节点集，该函数返回false，如果产生任何其他
+    值，则返回true。 如果任何参数为空，则函数返回null。 作为上下文项传递的非
+    空值必须是一个XML文档，而不是内容片段或任何非XML值。
+    参数：xml
+    返回值类型：bool
+    示例：
+    gaussdb=# SELECT xmlexists('//town[text() = ''Toronto'']' PASSING BY REF '<towns><town>Toronto</
+    town><town>Ottawa</town></towns>');
+     xmlexists
+    ------------
+     t
+    (1 row)
+
+●   xml_is_well_formed(text)
+    描述：检查text是不是正确的XML类型格式、返回值为布尔类型。
+    参数：text
+    返回值类型：bool
+    示例：
+    gaussdb=# SELECT xml_is_well_formed('<>');
+     xml_is_well_formed
+    --------------------
+     f
+    (1 row)
+
+●   xml_is_well_formed_document(text)
+    描述：检查text是否为良构的XML document类型格式，返回值为布尔类型。
+    参数：text
+    返回值类型：bool
+    示例：
+    gaussdb=# SELECT xml_is_well_formed_document('<pg:foo xmlns:pg="http://postgresql.org/
+    stuff">bar</pg:foo>');
+     xml_is_well_formed_document
+    -----------------------------
+     t
+    (1 row)
+
+●   xml_is_well_formed_content(text)
+    描述：检查text是否为良构的XML content类型格式，返回值为布尔类型。
+    参数：text
+    返回值类型：bool
+    示例：
+    gaussdb=# select xml_is_well_formed_content('k');
+     xml_is_well_formed_content
+    ----------------------------
+     t
+    (1 row)
+[[PDF_PAGE physical=958 printed=909]]
+●   xpath(xpath, xml [, nsarray])
+    描述：在XML类型的数据xml上，计算XPath 1.0表达式（如：xpath (a text
+    value)）。它返回一个XML值的数组，该数组对应于该XPath表达式产生的节点集
+    合。如果该XPath表达式返回一个标量值而不是一个节点集合，将会返回一个单一
+    元素的数组。
+    第二个参数必须是一个良构的XML文档。注意，它必须有一个单一根节点元素。
+    该函数可选的第三个参数是一个名字空间映射的数组。这个数组应该是一个二维
+    text数组，其第二轴长度等于2（即它应该是一个数组的数组，其中每一个都刚好
+    由2个元素组成）。每个数组项的第一个元素是名字空间的名称（别名），第二个
+    元素是名字空间的URI。并不要求在这个数组中提供的别名和在XML文档本身中使
+    用的那些名字空间相同（换句话说，在XML文档中和在xpath函数环境中，别名都
+    是本地的）。
+    返回值类型：xml[]
+    示例：
+    gaussdb=# SELECT xpath('/my:a/text()', '<my:a xmlns:my="http://example.com">test</
+    my:a>',ARRAY[ARRAY['my', 'http://example.com']]);
+     xpath
+    --------
+     {test}
+    (1 row)
+
+●   xpath_exists(xpath, xml [, nsarray])
+    描述：该函数是xpath函数的一种特殊形式。这个函数不是返回满足XPath 1.0表
+    达式的单一XML值，它返回一个布尔值表示查询是否被满足(具体来说，它是否产
+    生了空节点集以外的任何值)。这个函数等价于标准的XMLEXISTS谓词，不过它还
+    提供了对一个名字空间映射参数的支持。
+    返回值类型：bool
+    示例：
+    gaussdb=# SELECT xpath_exists('/my:a/text()', '<my:a xmlns:my="http://example.com">test</
+    my:a>',ARRAY[ARRAY['my', 'http://example.com']]);
+     xpath_exists
+    --------------
+     t
+    (1 row)
+
+          说明
+
+        以下XML类型函数示例中，需进行前置数据准备，如下所示：
+        gaussdb=# CREATE SCHEMA testxmlschema;
+        CREATE SCHEMA
+        gaussdb=# CREATE TABLE testxmlschema.test1 (a int, b text);
+        CREATE TABLE
+        gaussdb=# INSERT INTO testxmlschema.test1 VALUES (1, 'one'), (2, 'two'), (-1, null);
+        INSERT 0 3
+        gaussdb=# CREATE DATABASE test;
+        CREATE DATABASE
+
+        --示例执行结束后，可使用如下命令删除上述前置数据：
+        gaussdb=# DROP DATABASE test;
+        DROP DATABASE
+        gaussdb=# DROP TABLE testxmlschema.test1;
+        DROP TABLE
+        gaussdb=# DROP SCHEMA testxmlschema;
+        DROP SCHEMA
+
+●   query_to_xml(query text, nulls boolean, tableforest boolean, targetns text)
+    描述：该函数会将query查询的内容映射成XML模式文档。
+    返回值类型：xml
+[[PDF_PAGE physical=959 printed=910]]
+    示例：
+    gaussdb=# SELECT query_to_xml('SELECT * FROM testxmlschema.test1', false, false, '');
+                        query_to_xml
+    ---------------------------------------------------------------
+     <table xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">+
+                                                     +
+     <row>                                               +
+      <a>1</a>                                            +
+      <b>one</b>                                            +
+     </row>                                              +
+                                                     +
+     <row>                                               +
+      <a>2</a>                                            +
+      <b>two</b>                                            +
+     </row>                                              +
+                                                     +
+     <row>                                               +
+      <a>-1</a>                                            +
+     </row>                                              +
+                                                     +
+     </table>                                            +
+    (1 row)
+
+●   query_to_xmlschema(query text, nulls boolean, tableforest boolean, targetns
+    text)
+    描述：该函数会将query查询的内容映射成XML文档和XML模式文档，并把两个文
+    档连接在一起。
+    返回值类型：xml
+    示例：
+    gaussdb=# SELECT query_to_xmlschema('SELECT * FROM testxmlschema.test1', false, false, '');
+                                  query_to_xmlschema
+    ----------------------------------------------------------------------------------------------
+     <xsd:schema                                                                    +
+        xmlns:xsd="http://www.w3.org/2001/XMLSchema">                                                +
+                                                                              +
+     <xsd:simpleType name="INTEGER">                                                           +
+      <xsd:restriction base="xsd:int">                                                   +
+        <xsd:maxInclusive value="2147483647"/>                                                  +
+        <xsd:minInclusive value="-2147483648"/>                                                +
+      </xsd:restriction>                                                           +
+     </xsd:simpleType>                                                                +
+                                                                              +
+     <xsd:simpleType name="UDT.regression.pg_catalog.text">                                          +
+      <xsd:restriction base="xsd:string">                                                 +
+      </xsd:restriction>                                                           +
+     </xsd:simpleType>                                                                +
+                                                                              +
+     <xsd:complexType name="RowType">                                                            +
+      <xsd:sequence>                                                                 +
+        <xsd:element name="a" type="INTEGER" minOccurs="0"></xsd:element>                              +
+        <xsd:element name="b" type="UDT.regression.pg_catalog.text" minOccurs="0"></xsd:element>+
+      </xsd:sequence>                                                                +
+     </xsd:complexType>                                                                +
+                                                                              +
+     <xsd:complexType name="TableType">                                                         +
+      <xsd:sequence>                                                                 +
+        <xsd:element name="row" type="RowType" minOccurs="0" maxOccurs="unbounded"/>                     +
+      </xsd:sequence>                                                                +
+     </xsd:complexType>                                                                +
+                                                                              +
+     <xsd:element name="table" type="TableType"/>                                                  +
+                                                                              +
+     </xsd:schema>
+    (1 row)
+[[PDF_PAGE physical=960 printed=911]]
+●   query_to_xml_and_xmlschema(query text, nulls boolean, tableforest boolean,
+    targetns text)
+    描述：该函数会将query查询的内容映射成XML文档和XML模式文档，并把两个文
+    档连接在一起。
+    返回值类型：xml
+    示例：
+    gaussdb=# SELECT query_to_xml_and_xmlschema('SELECT * FROM testxmlschema.test1', true, true, '');
+                                query_to_xml_and_xmlschema
+    ------------------------------------------------------------------------------------------------
+     <xsd:schema                                                                     +
+        xmlns:xsd="http://www.w3.org/2001/XMLSchema">                                                  +
+                                                                               +
+     <xsd:simpleType name="INTEGER">                                                            +
+      <xsd:restriction base="xsd:int">                                                     +
+        <xsd:maxInclusive value="2147483647"/>                                                   +
+        <xsd:minInclusive value="-2147483648"/>                                                  +
+      </xsd:restriction>                                                             +
+     </xsd:simpleType>                                                                  +
+                                                                               +
+     <xsd:simpleType name="UDT.regression.pg_catalog.text">                                            +
+      <xsd:restriction base="xsd:string">                                                   +
+      </xsd:restriction>                                                             +
+     </xsd:simpleType>                                                                  +
+                                                                               +
+     <xsd:complexType name="RowType">                                                             +
+      <xsd:sequence>                                                                   +
+        <xsd:element name="a" type="INTEGER" nillable="true"></xsd:element>                                +
+        <xsd:element name="b" type="UDT.regression.pg_catalog.text" nillable="true"></xsd:element>+
+      </xsd:sequence>                                                                  +
+     </xsd:complexType>                                                                  +
+                                                                               +
+     <xsd:element name="row" type="RowType"/>                                                        +
+                                                                               +
+     </xsd:schema>                                                                    +
+                                                                               +
+     <row xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">                                         +
+                                                                               +
+      <a>1</a>                                                                      +
+      <b>one</b>                                                                      +
+     </row>                                                                        +
+                                                                               +
+     <row xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">                                         +
+                                                                               +
+      <a>2</a>                                                                      +
+      <b>two</b>                                                                      +
+     </row>                                                                        +
+                                                                               +
+     <row xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">                                         +
+                                                                               +
+      <a>-1</a>                                                                     +
+      <b xsi:nil="true"/>                                                            +
+     </row>                                                                        +
+                                                                               +
+    (1 row)
+
+●   cursor_to_xml(cursor refcursor, count int, nulls boolean,tableforest boolean,
+    targetns text)
+    描述：该函数会将游标查询的内容映射成XML文档。
+    返回值类型：xml
+    示例：
+    gaussdb=# CURSOR xc WITH HOLD FOR SELECT * FROM testxmlschema.test1 ORDER BY 1, 2;
+    DECLARE CURSOR
+    gaussdb=# SELECT cursor_to_xml('xc'::refcursor, 5, false, true, '');
+                  cursor_to_xml
+[[PDF_PAGE physical=961 printed=912]]
+    -------------------------------------------------------------
+     <row xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">+
+                                                    +
+      <a>-1</a>                                          +
+     </row>                                            +
+                                                    +
+     <row xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">+
+                                                    +
+      <a>1</a>                                          +
+      <b>one</b>                                          +
+     </row>                                            +
+                                                    +
+     <row xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">+
+                                                    +
+      <a>2</a>                                          +
+      <b>two</b>                                          +
+     </row>                                            +
+                                                    +
+
+    (1 row)
+
+●   cursor_to_xmlschema(cursor refcursor, nulls boolean, tableforest boolean,
+    targetns text)
+    描述：该函数会将游标查询的内容映射成XML模式文档。
+    返回值类型：xml
+    示例：
+    gaussdb=# SELECT cursor_to_xmlschema('xc'::refcursor, true, false, '');
+                                  cursor_to_xmlschema
+    ------------------------------------------------------------------------------------------------
+     <xsd:schema                                                                     +
+        xmlns:xsd="http://www.w3.org/2001/XMLSchema">                                                  +
+                                                                               +
+     <xsd:simpleType name="INTEGER">                                                            +
+      <xsd:restriction base="xsd:int">                                                     +
+        <xsd:maxInclusive value="2147483647"/>                                                   +
+        <xsd:minInclusive value="-2147483648"/>                                                  +
+      </xsd:restriction>                                                             +
+     </xsd:simpleType>                                                                 +
+                                                                               +
+     <xsd:simpleType name="UDT.regression.pg_catalog.text">                                            +
+      <xsd:restriction base="xsd:string">                                                   +
+      </xsd:restriction>                                                             +
+     </xsd:simpleType>                                                                 +
+                                                                               +
+     <xsd:complexType name="RowType">                                                             +
+      <xsd:sequence>                                                                  +
+        <xsd:element name="a" type="INTEGER" nillable="true"></xsd:element>                              +
+        <xsd:element name="b" type="UDT.regression.pg_catalog.text" nillable="true"></xsd:element>+
+      </xsd:sequence>                                                                  +
+     </xsd:complexType>                                                                  +
+                                                                               +
+     <xsd:complexType name="TableType">                                                          +
+      <xsd:sequence>                                                                  +
+        <xsd:element name="row" type="RowType" minOccurs="0" maxOccurs="unbounded"/>                       +
+      </xsd:sequence>                                                                  +
+     </xsd:complexType>                                                                  +
+                                                                               +
+     <xsd:element name="table" type="TableType"/>                                                    +
+                                                                               +
+     </xsd:schema>
+    (1 row)
+
+●   schema_to_xml(schema name, nulls boolean, tableforest boolean, targetns
+    text)
+    描述：该函数会将整个模式的内容映射成XML文档。
+    返回值类型：xml
+[[PDF_PAGE physical=962 printed=913]]
+    示例：
+    gaussdb=# SELECT schema_to_xml('testxmlschema', false, true, '');
+                           schema_to_xml
+    -----------------------------------------------------------------------
+     <testxmlschema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">+
+                                                            +
+     <test1>                                                   +
+                                                            +
+      <a>1</a>                                                   +
+      <b>one</b>                                                  +
+     </test1>                                                  +
+                                                            +
+     <test1>                                                   +
+                                                            +
+      <a>2</a>                                                   +
+      <b>two</b>                                                   +
+     </test1>                                                  +
+                                                            +
+     <test1>                                                   +
+                                                            +
+      <a>-1</a>                                                  +
+     </test1>                                                  +
+                                                            +
+                                                            +
+     </testxmlschema>                                                +
+    (1 row)
+
+●   schema_to_xmlschema(schema name, nulls boolean, tableforest boolean,
+    targetns text)
+    描述：该函数会将整个模式的内容映射成XML模式文档。
+    返回值类型：xml
+    示例：
+    gaussdb=# SELECT schema_to_xmlschema('testxmlschema', false, true, '');
+                                       schema_to_xmlschema
+    -----------------------------------------------------------------------------------------------------------
+     <xsd:schema                                                                              +
+        xmlns:xsd="http://www.w3.org/2001/XMLSchema">                                                           +
+                                                                                        +
+     <xsd:simpleType name="INTEGER">                                                                     +
+      <xsd:restriction base="xsd:int">                                                              +
+        <xsd:maxInclusive value="2147483647"/>                                                            +
+        <xsd:minInclusive value="-2147483648"/>                                                           +
+      </xsd:restriction>                                                                      +
+     </xsd:simpleType>                                                                          +
+                                                                                        +
+     <xsd:simpleType name="UDT.t1.pg_catalog.text">                                                          +
+      <xsd:restriction base="xsd:string">                                                            +
+      </xsd:restriction>                                                                      +
+     </xsd:simpleType>                                                                          +
+                                                                                        +
+     <xsd:complexType name="SchemaType.t1.testxmlschema">                                                         +
+      <xsd:sequence>                                                                           +
+        <xsd:element name="test1" type="RowType.t1.testxmlschema.test1" minOccurs="0"
+    maxOccurs="unbounded"/>+
+      </xsd:sequence>                                                                           +
+     </xsd:complexType>                                                                           +
+                                                                                        +
+     <xsd:element name="testxmlschema" type="SchemaType.t1.testxmlschema"/>
+    +
+                                                                                        +
+     </xsd:schema>
+    (1 row)
+
+●   schema_to_xml_and_xmlschema(schema name, nulls boolean, tableforest
+    boolean, targetns text)
+[[PDF_PAGE physical=963 printed=914]]
+    描述：该函数会将整个模式的内容映射成XML文档和XML模式文档，并把两个文
+    档连接在一起。
+    返回值类型：xml
+    示例：
+     gaussdb=# SELECT schema_to_xml_and_xmlschema('testxmlschema', true, true, 'foo');
+                                     schema_to_xml_and_xmlschema
+    --------------------------------------------------------------------------------------------------------------
+     <testxmlschema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="foo"
+    xsi:schemaLocation="foo #">+
+                                                                                           +
+                                                                       +
+     <xsd:schema                                                                                 +
+        xmlns:xsd="http://www.w3.org/2001/XMLSchema"                                                              +
+        targetNamespace="foo"                                                                          +
+        elementFormDefault="qualified">                                                                   +
+                                                                                           +
+     <xsd:simpleType name="INTEGER">                                                                        +
+      <xsd:restriction base="xsd:int">                                                                 +
+        <xsd:maxInclusive value="2147483647"/>                                                               +
+        <xsd:minInclusive value="-2147483648"/>                                                             +
+      </xsd:restriction>                                                                         +
+     </xsd:simpleType>                                                                             +
+                                                                                           +
+     <xsd:simpleType name="UDT.t1.pg_catalog.text">                                                            +
+      <xsd:restriction base="xsd:string">                                                               +
+      </xsd:restriction>                                                                         +
+     </xsd:simpleType>                                                                             +
+                                                                                           +
+     <xsd:complexType name="SchemaType.t1.testxmlschema">                                                           +
+      <xsd:sequence>                                                                              +
+        <xsd:element name="test1" type="RowType.t1.testxmlschema.test1" minOccurs="0"
+    maxOccurs="unbounded"/> +
+      </xsd:sequence>                                                                              +
+     </xsd:complexType>                                                                              +
+                                                                                           +
+     <xsd:element name="testxmlschema"
+    type="SchemaType.t1.testxmlschema"/>                                         +
+                                                                                           +
+     </xsd:schema>                                                                                +
+                                                                                           +
+     <test1>                                                                                  +
+                                                                                           +
+      <a>1</a>                                                                                  +
+      <b>one</b>                                                                                 +
+     </test1>                                                                                 +
+                                                                                           +
+     <test1>                                                                                  +
+                                                                                           +
+      <a>2</a>                                                                                  +
+      <b>two</b>                                                                                  +
+     </test1>                                                                                 +
+                                                                                           +
+     <test1>                                                                                  +
+                                                                                           +
+      <a>-1</a>                                                                                 +
+      <b xsi:nil="true"/>                                                                        +
+     </test1>                                                                                 +
+                                                                                           +
+                                                                                           +
+     </testxmlschema>                                                                                +
+
+    (1 row)
+
+●   database_to_xml(nulls boolean, tableforest boolean, targetns text)
+    描述：该函数会将整个数据库的内容映射成XML文档。
+    返回值类型：xml
+[[PDF_PAGE physical=964 printed=915]]
+    示例：
+    gaussdb=# SELECT database_to_xml(true, true, 'test');
+                            database_to_xml
+    ---------------------------------------------------------------------------
+     <test xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="test">+
+                                                               +
+     <dbe_x005F_xml>                                                   +
+                                                               +
+     </dbe_x005F_xml>                                                   +
+                                                               +
+     <dbe_x005F_xmldom>                                                   +
+                                                               +
+     </dbe_x005F_xmldom>                                                  +
+                                                               +
+     <dbe_x005F_xmlparser>                                                +
+                                                               +
+     </dbe_x005F_xmlparser>                                               +
+                                                               +
+     <public>                                                     +
+                                                               +
+     </public>                                                    +
+                                                               +
+     </test>                                                     +
+
+    (1 row)
+
+●   database_to_xmlschema(nulls boolean, tableforest boolean, targetns text)
+    描述：该函数会将整个数据库的内容映射成XML模式文档。
+    返回值类型：xml
+    示例：
+    gaussdb=# SELECT database_to_xmlschema(true, true, 'test');
+                               database_to_xmlschema
+    ------------------------------------------------------------------------------------------
+     <xsd:schema                                                                 +
+        xmlns:xsd="http://www.w3.org/2001/XMLSchema"                                              +
+        targetNamespace="test"                                                        +
+        elementFormDefault="qualified">                                                  +
+                                                                           +
+     <xsd:complexType name="CatalogType.test">                                                 +
+      <xsd:all>                                                               +
+        <xsd:element name="dbe_x005F_xml" type="SchemaType.test.dbe_x005F_xml"/>                      +
+        <xsd:element name="dbe_x005F_xmldom" type="SchemaType.test.dbe_x005F_xmldom"/>                  +
+        <xsd:element name="dbe_x005F_xmlparser" type="SchemaType.test.dbe_x005F_xmlparser"/>+
+        <xsd:element name="public" type="SchemaType.test.public"/>                                  +
+      </xsd:all>                                                              +
+     </xsd:complexType>                                                             +
+                                                                           +
+     <xsd:element name="test" type="CatalogType.test"/>                                          +
+                                                                           +
+     </xsd:schema>
+    (1 row)
+
+●   database_to_xml_and_xmlschema(nulls boolean, tableforest boolean, targetns
+    text)
+    描述：该函数会将整个模式的内容映射成XML文档和XML模式文档，并把两个文
+    档连接在一起。
+    返回值类型：xml
+    示例：
+    gaussdb=# SELECT database_to_xml_and_xmlschema(true, true, 'test');
+                                 database_to_xml_and_xmlschema
+    -------------------------------------------------------------------------------------------------------
+     <test xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="test"
+    xsi:schemaLocation="test #">+
+                                                                                     +
+[[PDF_PAGE physical=965 printed=916]]
+    <xsd:schema                                                                   +
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"                                                +
+      targetNamespace="test"                                                          +
+      elementFormDefault="qualified">                                                     +
+                                                                              +
+     <xsd:complexType name="CatalogType.test">                                                +
+      <xsd:all>                                                       +
+        <xsd:element name="dbe_x005F_xml" type="SchemaType.test.dbe_x005F_xml"/>                          +
+        <xsd:element name="dbe_x005F_xmldom"
+    type="SchemaType.test.dbe_x005F_xmldom"/>               +
+        <xsd:element name="dbe_x005F_xmlparser"
+    type="SchemaType.test.dbe_x005F_xmlparser"/>          +
+        <xsd:element name="public" type="SchemaType.test.public"/>                                    +
+      </xsd:all>                                                      +
+     </xsd:complexType>                                                    +
+                                                                   +
+     <xsd:element name="test" type="CatalogType.test"/>                                           +
+                                                                   +
+     </xsd:schema>                                                       +
+                                                                   +
+     <dbe_x005F_xml>                                                       +
+                                                                   +
+     </dbe_x005F_xml>                                                      +
+                                                                   +
+     <dbe_x005F_xmldom>                                                      +
+                                                                   +
+     </dbe_x005F_xmldom>                                                     +
+                                                                   +
+     <dbe_x005F_xmlparser>                                                   +
+                                                                   +
+     </dbe_x005F_xmlparser>                                                  +
+                                                                   +
+     <public>                                                         +
+                                                                   +
+     </public>                                                         +
+                                                                   +
+     </test>                                                         +
+
+    (1 row)
+
+●   table_to_xml(tbl regclass, nulls boolean, tableforest boolean, targetns text)
+    描述：该函数会将关系表的内容映射成XML文档。
+    返回值类型：xml
+    示例：
+    gaussdb=# SELECT table_to_xml('testxmlschema.test1', false, false, '');
+                        table_to_xml
+    ---------------------------------------------------------------
+     <test1 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">+
+                                                     +
+     <row>                                               +
+      <a>1</a>                                            +
+      <b>one</b>                                            +
+     </row>                                              +
+                                                     +
+     <row>                                               +
+      <a>2</a>                                            +
+      <b>two</b>                                            +
+     </row>                                              +
+                                                     +
+     <row>                                               +
+      <a>-1</a>                                            +
+     </row>                                              +
+                                                     +
+     </test1>                                           +
+
+    (1 row)
+[[PDF_PAGE physical=966 printed=917]]
+●   table_to_xmlschema(tbl regclass, nulls boolean, tableforest boolean, targetns
+    text)
+    描述：该函数会将关系表的内容映射成XML模式文档。
+    返回值类型：xml
+    示例：
+    gaussdb=# SELECT table_to_xmlschema('testxmlschema.test1', false, false, '');
+                                         table_to_xmlschema
+    -----------------------------------------------------------------------------------------------------------------
+     <xsd:schema                                                                                   +
+        xmlns:xsd="http://www.w3.org/2001/XMLSchema">                                                                +
+                                                                                             +
+     <xsd:simpleType name="INTEGER">                                                                          +
+      <xsd:restriction base="xsd:int">                                                                  +
+        <xsd:maxInclusive value="2147483647"/>                                                                 +
+        <xsd:minInclusive value="-2147483648"/>                                                               +
+      </xsd:restriction>                                                                          +
+     </xsd:simpleType>                                                                               +
+                                                                                             +
+     <xsd:simpleType name="UDT.regression.pg_catalog.text">                                                          +
+      <xsd:restriction base="xsd:string">                                                                +
+      </xsd:restriction>                                                                          +
+     </xsd:simpleType>                                                                               +
+                                                                                             +
+     <xsd:complexType name="RowType.regression.testxmlschema.test1">
+    +
+      <xsd:sequence>                                                                                +
+        <xsd:element name="a" type="INTEGER" minOccurs="0"></
+    xsd:element>                                     +
+        <xsd:element name="b" type="UDT.regression.pg_catalog.text" minOccurs="0"></
+    xsd:element>                  +
+      </xsd:sequence>                                                                               +
+     </xsd:complexType>                                                                               +
+                                                                                             +
+     <xsd:complexType name="TableType.regression.testxmlschema.test1">
+    +
+      <xsd:sequence>                                                                                +
+        <xsd:element name="row" type="RowType.regression.testxmlschema.test1" minOccurs="0"
+    maxOccurs="unbounded"/>+
+      </xsd:sequence>                                                                               +
+     </xsd:complexType>                                                                               +
+                                                                                             +
+     <xsd:element name="test1"
+    type="TableType.regression.testxmlschema.test1"/>                                       +
+                                                                                             +
+     </xsd:schema>
+    (1 row)
+
+●   table_to_xml_and_xmlschema(tbl regclass, nulls boolean, tableforest boolean,
+    targetns text)
+    描述：该函数会将关系表的内容映射成XML文档和XML模式文档，并把两个文档
+    连接在一起。
+    返回值类型：xml
+    示例：
+    gaussdb=# SELECT table_to_xml_and_xmlschema('testxmlschema.test1', false, false, '');
+                                      table_to_xml_and_xmlschema
+    -----------------------------------------------------------------------------------------------------------------
+     <test1 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="#">                        +
+                                                                                             +
+     <xsd:schema                                                                                   +
+        xmlns:xsd="http://www.w3.org/2001/XMLSchema">                                                                +
+                                                                                             +
+     <xsd:simpleType name="INTEGER">                                                                          +
+      <xsd:restriction base="xsd:int">                                                                  +
+[[PDF_PAGE physical=967 printed=918]]
+       <xsd:maxInclusive value="2147483647"/>                                              +
+       <xsd:minInclusive value="-2147483648"/>                                             +
+     </xsd:restriction>                                                        +
+    </xsd:simpleType>                                                              +
+                                                                          +
+    <xsd:simpleType name="UDT.regression.pg_catalog.text">                                     +
+     <xsd:restriction base="xsd:string">                                               +
+     </xsd:restriction>                                                        +
+    </xsd:simpleType>                                                              +
+                                                                          +
+     <xsd:complexType name="RowType.regression.testxmlschema.test1">
+    +
+      <xsd:sequence>                                                               +
+        <xsd:element name="a" type="INTEGER" minOccurs="0"></
+    xsd:element>                           +
+        <xsd:element name="b" type="UDT.regression.pg_catalog.text" minOccurs="0"></
+    xsd:element>             +
+      </xsd:sequence>                                                               +
+     </xsd:complexType>                                                               +
+                                                                            +
+     <xsd:complexType name="TableType.regression.testxmlschema.test1">
+    +
+      <xsd:sequence>                                                               +
+        <xsd:element name="row" type="RowType.regression.testxmlschema.test1" minOccurs="0"
+    maxOccurs="unbounded"/>+
+      </xsd:sequence>                                                               +
+     </xsd:complexType>                                                               +
+                                                                            +
+     <xsd:element name="test1"
+    type="TableType.regression.testxmlschema.test1"/>                      +
+                                                                            +
+     </xsd:schema>                                                                 +
+                                                                            +
+     <row>                                                                     +
+      <a>1</a>                                                                   +
+      <b>one</b>                                                                  +
+     </row>                                                                    +
+                                                                            +
+     <row>                                                                     +
+      <a>2</a>                                                                   +
+      <b>two</b>                                                                   +
+     </row>                                                                    +
+                                                                            +
+     <row>                                                                     +
+      <a>-1</a>                                                                  +
+     </row>                                                                    +
+                                                                            +
+     </test1>                                                                  +
+
+    (1 row)
+
+          说明
+
+        ● xpath相关函数仅支持 xpath() 和 xpath_exists()，由于其使用xpath语言查询XML文
+          档，而这些函数都依赖于libxml2 库，且这个库仅在Xpath1.0提供，所以对XPath的限
+          制为1.0。
+        ● 不支持xquery、xml extension、xslt功能。
+●   getclobval(xml)
+    描述：将XML类型转化成CLOB类型。该函数在参数a_format_version值为10c和
+    a_format_dev_version值为s4的情况下有效。
+    参数：入参为XML类型。
+    返回值类型：CLOB
+    示例：
+    gaussdb=# SET a_format_version='10c';
+    SET
+[[PDF_PAGE physical=968 printed=919]]
+    gaussdb=# SET a_format_dev_version='s4';
+    SET
+    gaussdb=# DECLARE
+     xmldata xml;
+     result clob;
+    BEGIN
+     xmldata := '<a>123</a>';
+     result := getclobval(xmldata);
+     RAISE NOTICE 'result is : %',result;
+    END;
+    /
+    NOTICE: result is : <a>123</a>
+    gaussdb=# SELECT getclobval(xmlparse(document '<a>123</a>'));
+     getclobval
+    ------------
+     <a>123</a>
+    (1 row)
+
+●   getstringval(xml)
+    描述：此函数将XML类型转化为字符串。该函数在参数a_format_version值为10c
+    和a_format_dev_version值为s4的情况下有效。
+    参数：入参为XML类型。
+    返回值类型：VARCHAR2
+    示例：
+    gaussdb=# SET a_format_version='10c';
+    SET
+    gaussdb=# SET a_format_dev_version='s4';
+    SET
+    gaussdb=# DECLARE
+     xmldata xml;
+     result varchar2;
+    BEGIN
+     xmldata := '<a>123<b>456</b></a>';
+     result := getstringval(xmldata);
+     RAISE NOTICE 'result is : %',result;
+    END;
+    /
+    NOTICE: result is : <a>123<b>456</b></a>
+    gaussdb=# SELECT getstringval(xmlparse(document '<a>123<b>456</b></a>'));
+        getstringval
+    ----------------------
+     <a>123<b>456</b></a>
+    (1 row)
+
+●   xmlsequence(xml)
+    描述：此函数的功能是将一个 XML类型的参数转换为一个 XMLTYPE类型的数
+    组，每个数组元素都是 XMLTYPE对象。这个函数的输入参数不能为空，也必须是
+    一个有效的 XML 文档。如果输入参数不符合要求，函数会返回空值或者抛出异
+    常。这个函数可以用于处理 XML文档中的多个子节点，或者将 XML文档分割为多
+    个片段。
+    参数：xml类型。
+    返回值类型：xmltype类型的数组。
+    示例：如果想要将这个文档转换为一个包含三个元素的数组，每个元素都是一个
+    book 节点，可以使用以下语句：
+    gaussdb=# SELECT xmlsequence(xml('<books><book><title>The Catcher in the Rye</
+    title><author>J.D. Salinger</author><year>1951</year></book><book><title>1984</
+    title><author>George Orwell</author><year>1949</year></book><book><title>The Hitchhiker''s
+    Guide to the Galaxy</title><author>Douglas Adams</author><year>1979</year></book></books>'));
+                       xmlsequence
+    -----------------------------------------------------------
+     {"<books>                                         +
+         <book>                                       +
+[[PDF_PAGE physical=969 printed=920]]
+         <title>The Catcher in the Rye</title>         +
+         <author>J.D. Salinger</author>                +
+         <year>1951</year>                          +
+        </book>                                +
+        <book>                                 +
+         <title>1984</title>                      +
+         <author>George Orwell</author>                   +
+         <year>1949</year>                          +
+        </book>                                +
+        <book>                                 +
+         <title>The Hitchhiker's Guide to the Galaxy</title>+
+         <author>Douglas Adams</author>                    +
+         <year>1979</year>                          +
+        </book>                                +
+      </books>"}
+    (1 row)
+
+          说明
+
+         当输入xmlsequence函数的参数XML文档中含有双引号，单独查看xmlsequence函数结果
+         时，会包含双引号的转义符；使用xmlsequence函数结果时，不受影响。
+●   xmlcast( value_expression as datatype )
+    描述：对于XML类型的输入数据，在提取文档中的文本内容后，将其转换为指定
+    的目标数据类型。
+    参数：value_expression，表示XML类型的文档内容。
+    返回值类型：指定的目标数据类型。
+    示例：
+    -- XML类型数据转NUMBER类型。
+    gaussdb=# SELECT XMLCAST(XML('<number_value>123.45</number_value>') AS NUMBER) AS
+    number_value FROM dual;
+     number_value
+    --------------
+          123.45
+    (1 row)
+
+          说明
+
+         ● 仅在A兼容模式下支持使用该函数。
+         ● 劣构XML文档仅支持value_expression表达式返回值为多根节点的XML。
+         ● 升级观察期不支持使用该函数。
+         ● 不支持转换的目标数据类型包括BYTEAWITHOUTORDERWITHEQUALCOL、
+           BYTEAWITHOUTORDERCOL、_BYTEAWITHOUTORDERWITHEQUALCOL、
+           _BYTEAWITHOUTORDERCOL以及部分伪类型。

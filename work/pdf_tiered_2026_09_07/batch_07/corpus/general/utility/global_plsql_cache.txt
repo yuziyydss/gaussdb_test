@@ -1,0 +1,438 @@
+[[PDF_PAGE physical=980 printed=931]]
+1.6.45 Global Plsql Cache 特性函数
+         ●   invalidate_plsql_object()，invalidate_plsql_object(schema, objname, objtype);
+             描述：失效Global Plsql Cache全局缓存中的对象，仅在
+             enable_global_plsqlcache = on时可用。调用该函数的用户需要具有SYSADMIN
+             权限。
+             参数：该函数为重载函数。当无入参时，将所有DATABASE内的所有全局缓存对
+             象失效。
+[[PDF_PAGE physical=981 printed=932]]
+当指定schema、objname、objtype三个参数时可将当前DATABASE内的指定全局
+缓存对象失效。其中：schema为对象所属的schema名称；objname为对象名
+称；objtype为对象类型，对象为package类型时值为“package”，对象为函数
+或存储过程时值为“function”。
+示例：
+该函数不返回失效结果，可通过gs_glc_memory_detail视图查询，对象未被失效
+时可在视图中查找到对应的valid状态的行，失效后则没有对应的valid状态行。
+invalidate_plsql_object所属的Schema为pg_catalog，但不指定Schema也可调用
+该函数。
+--创建一个包pkg1和函数f2，查询视图缓存信息，状态为valid。
+gaussdb=# CREATE SCHEMA testInvalidate;
+CREATE SCHEMA
+gaussdb=# SET CURRENT_SCHEMA TO testInvalidate;
+SET
+gaussdb=# CREATE OR REPLACE PACKAGE pkg1 AS
+gaussdb$#        var1 VARCHAR;
+gaussdb$# FUNCTION f1() RETURN VARCHAR;
+gaussdb$# END pkg1;
+gaussdb$# /
+CREATE PACKAGE
+gaussdb=# CREATE OR REPLACE PACKAGE BODY pkg1 AS
+gaussdb$# FUNCTION f1() RETURN VARCHAR
+gaussdb$# IS
+gaussdb$# BEGIN
+gaussdb$#        var1 := '2';
+gaussdb$# RETURN var1;
+gaussdb$# END;
+gaussdb$# END pkg1;
+gaussdb$# /
+CREATE PACKAGE BODY
+gaussdb=# CREATE OR REPLACE FUNCTION f2() RETURN VARCHAR
+gaussdb-# IS
+gaussdb$# DECLARE
+gaussdb$# var2 VARCHAR := 'li2';
+gaussdb$# BEGIN
+gaussdb$# var2='22';
+gaussdb$# RETURN var2;
+gaussdb$# END
+gaussdb$# /
+CREATE FUNCTION
+gaussdb=# CALL pkg1.f1();
+ f1
+----
+ 2
+(1 row)
+gaussdb=# CALL f2();
+ f2
+----
+ 22
+(1 row)
+gaussdb=# SELECT * FROM gs_glc_memory_detail WHERE schema = 'testinvalidate';
+ contextname | database |         schema      | type | status |     location      | env | usedsize | usecount |
+oid | isspec |         searchpath          | invalidreason
+--------------+----------+----------------+------+--------+----------------------+-----+----------+----------
++-------+--------+--------------------------------+---------------
+ GLC_PKG_pkg1 | postgres | testinvalidate | pkg | valid | in_global_hash_table | 0 | 19856 |                  1|
+16755 | f      | addUser: false, schemas: 16754 | valid
+ GLC_FUNC_f1 | postgres | testinvalidate | func | valid | in_global_hash_table | 0 | 10840 |                  1|
+16756 |        | addUser: false, schemas: 16754 | valid
+ GLC_FUNC_f2 | postgres | testinvalidate | func | valid | in_global_hash_table | 0 | 12072 |                  1|
+16757 |        | addUser: false, schemas: 16754 | valid
+(3 rows)
+--调用函数，指定schema、函数名、类型即可将pkg1失效，再次查询视图，则没有pkg1对应的valid状态行
+gaussdb=# SELECT invalidate_plsql_object('testinvalidate','pkg1','package');
+ invalidate_plsql_object
+[[PDF_PAGE physical=982 printed=933]]
+    -------------------------
+    (1 row)
+    --如果要失效function，参数如下所示
+    gaussdb=# SELECT invalidate_plsql_object('testinvalidate','f2','function');
+     invalidate_plsql_object
+    -------------------------
+    (1 row)
+    --调用时没有入参，则将失效所有缓存对象
+    gaussdb=# SELECT invalidate_plsql_object();
+     invalidate_plsql_object
+    -------------------------
+    (1 row)
+
+●   gs_plsql_memory_object_detail(db_oid, obj_oid, obj_type)
+    描述：获取存储过程创建的package、function的主要有效内存占用情况。
+    enable_global_plsqlcache = off时该函数显示当前session中的存储过程内存情
+    况，跨session查询暂不支持。调用该函数的用户需要有SYSADMIN权限。
+    参数：该函数需传入db_oid、obj_oid、obj_type三个参数，如传入参数不匹配，
+    返回空行。具体参数说明见表1-263。其中db_oid、obj_oid传入0为默认查找
+    cache中所有package、function的有效内存使用情况。
+    返回值类型：Tuple
+
+    表 1-263 gs_plsql_memory_object_detail 参数说明
+     参数列           类型            描述                                   取值范围
+     表
+
+     db_oid        uint32        查询数据库oid为db_oid                      0 - 2^32-1。
+                                 内存储的存储过程的主要
+                                 有效内存占用情况。0默
+                                 认为当前缓存中全部数据
+                                 库实例。
+
+     obj_oid       uint32        查询object的oid。0默认                     0 - 2 ^32-1。
+                                 为当前缓存中全部pkg与
+                                 function。
+
+     obj_typ       text          查询object的类型，用于                       ● all：默认全部查询。
+     e                           标识查询目标object为
+                                                                      ● pkg：查询满足条件的
+                                 package或function。
+                                                                        package有效内存占用。
+                                                                      ● func：查询满足条件的
+                                                                        function有效内存占用。
+                                                                      ● func_in_pkg：查询满足条
+                                                                        件的package中的function
+                                                                        的 有效内存占用。
+
+
+
+
+    gs_plsql_memory_object_detail函数显示数据库内满足查询条件的有效内存占用
+    情况说明如表1-264所示。
+[[PDF_PAGE physical=983 printed=934]]
+表 1-264 gs_plsql_memory_object_detail 返回值
+ 名称                      类型                        描述
+
+ object_oid              uint32                    查询内存对象的oid。
+
+ context_nam             text                      内存对象名称。
+ e
+
+ item                    text                      查询内存对象项目名。
+
+ searchpath              text                      内存对象访问编译产物的Schema及其他环
+                                                   境变量。
+
+ guc                     uint64                    创建对象时的环境参数，即
+                                                   behavior_compat_flags的值。
+
+ file                    text                      内存对象创建所在文件。
+
+ line                    uint32                    内存对象创建所在文件行数。
+
+ size                    uint32                    内存对象大小。
+
+ db_oid                  uint32                    查询内存对象所在数据库oid。
+
+
+
+示例：
+--如下用例构造当enable_global_plsqlcache = on时，创建package和function，调用
+gs_plsql_memory_object_detail获取内存使用占用的情况。
+
+gaussdb=# CREATE OR REPLACE PACKAGE my_package AS
+gaussdb$# PROCEDURE public_proc(a int, b int);
+gaussdb$# END my_package;
+gaussdb$# /
+CREATE PACKAGE
+gaussdb=# CREATE OR REPLACE PACKAGE BODY my_package AS
+gaussdb$# PROCEDURE public_proc(a int, b int) AS
+gaussdb$# BEGIN
+gaussdb$#       RAISE NOTICE 'a + b = %', a + b;
+gaussdb$# END;
+gaussdb$# END my_package;
+gaussdb$# /
+CREATE PACKAGE BODY
+gaussdb=# BEGIN
+gaussdb$# my_package.public_proc(2, 3);
+gaussdb$# END;
+gaussdb$# /
+NOTICE: a + b = 5
+CONTEXT: SQL statement "CALL my_package.public_proc(2,3)"
+PL/pgSQL function inline_code_block line 2 at PERFORM
+ANONYMOUS BLOCK EXECUTE
+gaussdb=# SELECT * FROM gs_plsql_memory_object_detail(0,16716,'pkg');
+ object_oid | context_name | item               |        searchpath           |     guc      |    file     | line |
+size | db_oid
+------------+--------------------+-------------+-------------------------------+-----------------+----------------
++------+------+--------
+      16716 | GLC_PKG_my_package | pkg              | addUser: false, schemas: 2200 | 303465209266176 |
+pl_package.cpp | 1143 | 1096 | 14584
+      16716 | GLC_PKG_my_package | invalItems | addUser: false, schemas: 2200 | 303465209266176 |
+NA            | 0 | 0 | 14584
+      16716 | GLC_PKG_my_package | proc_list | addUser: false, schemas: 2200 | 303465209266176 |
+list.cpp     | 110 | 3168 | 14584
+      16716 | GLC_PKG_my_package | ndatums             | addUser: false, schemas: 2200 | 303465209266176 |
+pl_package.cpp | 1342 | 8 | 14584
+[[PDF_PAGE physical=984 printed=935]]
+          16716 | GLC_PKG_my_package | GSPLSQLType | addUser: false, schemas: 2200 | 303465209266176
+    | NA           | 0 | 0 | 14584
+          16716 | GLC_PKG_my_package | namespace | addUser: false, schemas: 2200 | 303465209266176 |
+    pl_funcs.cpp | 229 | 240 | 14584
+    (6 rows)
+    gaussdb=# SELECT * FROM gs_plsql_memory_object_detail(0,16717,'func');
+     object_oid |    context_name        | item |            searchpath            |     guc      |    file   | line |
+    size | db_oid
+    ------------+----------------------+------------+-------------------------------+-----------------+--------------
+    +------+------+--------
+          16717 | GLC_FUNC_public_proc | function | addUser: false, schemas: 2200 | 303465209266176 |
+    pl_comp.cpp | 1538 | 1800 | 14584
+          16717 | GLC_FUNC_public_proc | ndatums | addUser: false, schemas: 2200 | 303465209266176 |
+    pl_comp.cpp | 2362 | 6072 | 14584
+          16717 | GLC_FUNC_public_proc | invalItems | addUser: false, schemas: 2200 | 303465209266176 |
+    NA           | 0 | 0 | 14584
+          16717 | GLC_FUNC_public_proc | exprlist | addUser: false, schemas: 2200 | 303465209266176 |
+    list.cpp    | 110 | 320 | 14584
+          16717 | GLC_FUNC_public_proc | StmtBlock | addUser: false, schemas: 2200 | 303465209266176 |
+    pl_gram.cpp | 696 | 176 | 14584
+          16717 | GLC_FUNC_public_proc | namespace | addUser: false, schemas: 2200 | 303465209266176 |
+    pl_funcs.cpp | 229 | 1152 | 14584
+    (6 rows)
+
+●   dump_plsql_compiled_object(object_id, object_type)
+    描述：打印存储过程的PACKAGE、FUNCTION编译产物信息。GUC参数
+    enable_global_plsqlcache设置为off时，该函数只能查找当前session内的编译产
+    物信息。暂不支持跨session、跨database查询。调用该函数需要有SYSADMIN权
+    限。
+    参数：该函数需要传入object_oid和object_type两个参数，如果传入参数的数量
+    或者类型不匹配，返回报错。具体参数说明如表1-265所示。
+    返回值类型：text
+
+    表 1-265 dump_plsql_compiled_object 参数说明
+     参数列             类型            描述                          取值范围
+     表
+
+     object_o        uint32        查询object的                   0~2^32-1。
+     id                            oid。
+
+     object_t        text          查询object的类型                 ● "package"：查询object类型为
+     ype                           （不区分大小                        package。
+                                   写）。
+                                                               ● "function"：查询object类型为
+                                                                 function（查询效果与procedure
+                                                                 等价）。
+                                                               ● "procedure"：查询object类型为
+                                                                 procedure（查询效果与function
+                                                                 等价）。
+
+
+
+    示例：
+    -- 如下用例构造当GUC参数enable_global_plsqlcache设置为on时，创建存储过程，调用
+    dump_plsql_compiled_object打印存储过程编译产物信息的情况。
+    gaussdb=# CREATE OR REPLACE PROCEDURE test_proc(a out int, b out int) AS
+    gaussdb$# BEGIN
+    gaussdb$# a := 1;
+    gaussdb$# b := 1;
+    gaussdb$# END;
+[[PDF_PAGE physical=985 printed=936]]
+gaussdb$# /
+CREATE PROCEDURE
+gaussdb=# SELECT test_proc();
+ test_proc
+-----------
+ (1,1)
+(1 row)
+
+gaussdb=# SELECT oid FROM pg_proc WHERE proname = 'test_proc';
+  oid
+-------
+ 17879
+(1 row)
+
+gaussdb=# SELECT * FROM dump_plsql_compiled_object(17879, 'function');
+
+                 dump_plsql_compiled_object
+
+-----------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------
+------------------------------------------------
+ PL/pgSQL compiled function info:
+
+          +
+fn_oid: 17879
+
+             +
+pkg_oid: 0
+
+        +
+namespace_oid: 2200
+
+          +
+fn_owner: 10
+
+          +
+fn_input_collation: 0
+
+          +
+fn_xmin: 198373
+
+          +
+fn_signature: test_proc()
+
+          +
+fn_searchpath:{ 2200 , addCatalog: true, addTemp: true, addUser: false}
+
+          +
+fn_rettype: 2249
+
+           +
+fn_rettyplen: 0
+
+           +
+fn_rettypioparam: 0
+
+           +
+glc_func_life: 2
+
+          +
+fn_retbyval: false
+
+           +
+fn_retistuple: true
+
+           +
+fn_retset: false
+[[PDF_PAGE physical=986 printed=937]]
+         +
+fn_readonly: false
+
+            +
+is_private: false
+
+           +
+fn_is_trigger: false
+
+          +
+pre_parse_trig: false
+
+         +
+is_autonomous: false
+
+           +
+is_inline_handler: false
+
+           +
+is_plpgsql_func_with_outparam: false
+
+         +
+need_skip_process_autonm_pkg: false
+
+        +
+remembered_by_resowner: false
+
+         +
+out_param_varno: 2
+
+         +
+found_varno: 3
+
+          +
+fn_nallargs: 2
+
+          +
+sql_cursor_found_varno: 4
+
+          +
+sql_notfound_varno: 5
+
+          +
+sql_isopen_varno: 6
+
+         +
+sql_rowcount_varno: 7
+
+          +
+sql_bulk_exceptions_varno: 11
+
+          +
+sqlcode_varno: 8
+
+          +
+sqlstate_varno: 9
+
+          +
+sqlerrm_varno: 10
+
+           +
+retvarno: 0
+
+           +
+guc_stat: 22821463346118656
+
+           +
+ref_count: 0
+[[PDF_PAGE physical=987 printed=938]]
+           +
+ resolve_option: 2
+
+          +
+ ndatums: 12
+
+              +
+ datums:{
+
+            +
+ type: GSPLSQL_DTYPE_VAR, dno: 0 ispkg: false refname: $1 isImplicit: false addNamespace: false
+pkg_oid: 0 varname: a isconst: 0,notnull: 0, isnull: true freeval: false is_place_holder: false isbind: fals
+e is_cursor_var: false is_cursor_open: false is_diff_pkg_cursor: false tableOfIndexType: 0
+isIndexByTblOf: false                                        +
+ GSPLSQLType: typname: int4, typoid: 23, ttype: 0, typlen: 4, typrelid: 0, typioparam: 23, collation: 0,
+typinput_oid: 42, atttypmod: -1, typbyval: true, typtype: b, typnamespace: pg_catalog, collectionTy
+pe: 0, tableofOid: 0, tableOfIndexType: 0, arrayTypOid: 0, cursorCompositeOid: 0, subtypOid: 0,
+is_subtype: false, notnull: false, temptypmod: -1                  +
+ default_val: cursor_explicit_expr:
+
+...
+ }
+
+           +
+ datum_need_free:{ 0: true 1: true 2: true 3: true 4: true 5: true 6: true 7: true 8: true 9: true 10: true
+11: true }
+
+         +
+ namespace_name: public
+
+           +
+glc_status:{m_type: GLC_FUNCTION_OBJ, m_location: in_global_hash_table, m_glc_object_state: valid,
+m_refcount: 1}
+
+           +
+ fn_nargs: 0
+
+         +
+ dump count: 1
+
+              +
+ **************************************************************************
+
+              +
+
+(1 row)

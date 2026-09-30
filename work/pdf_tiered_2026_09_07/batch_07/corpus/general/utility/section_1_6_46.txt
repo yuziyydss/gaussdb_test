@@ -1,0 +1,129 @@
+[[PDF_PAGE physical=987 printed=938]]
+1.6.46 存储过程字节码特性函数
+      ●   dump_plsql_bytecode(function_id oid)
+          描述：返回存储过程字节码相关信息。
+          参数：OID类型。表示用户需要查询字节码信息的存储过程OID。
+              说明
+
+             ● 仅限用户管理员查询。
+             ● 当打开enable_global_plsqlcache参数进行调用该函数时，pid、sessionid和
+               global_sessionid将显示为NULL。
+             ● 当GUC参数enable_global_plsqlcache设置为on时，存储过程编译产物全局共享，查询
+               结果不区分会话；当GUC参数enable_global_plsqlcache设置为off时，编译产物为每个
+               会话独有，查询时会编译查询所有会话。
+          返回值类型：setof record
+          函数返回字段说明：
+[[PDF_PAGE physical=988 printed=939]]
+ 名称                     类型             描述
+
+ pid                    bigint         后台线程id。
+
+ sessionid              bigint         会话id。
+
+ global_sessioni        text           全局会话id。
+ d
+
+ databaseid             oid            数据库id。
+
+ pkg_id                 oid            存储过程所属PACKAGE id，如果不属于
+                                       PACKAGE则为0。
+
+ func_id                oid            存储过程id。
+
+ func_signature         text           存储过程名称（存储过程名称 + 存储过程函数
+                                       内字符集排序 + 存储过程搜索路径）。
+
+ bytecode               text           存储过程生成字节码序列（不支持会显示Not
+                                       supported，尚未创建的存储过程会显示To be
+                                       created）。
+
+
+
+示例：
+gaussdb=# SET plsql_code_type=bytecode;
+SET
+gaussdb=# SET behavior_compat_options
+='compat_cursor,allow_procedure_compile_check,proc_outparam_override,dynamic_sql_compat,proc_ou
+tparam_transfer_length,varray_compat'
+SET
+gaussdb=# CREATE OR REPLACE PROCEDURE proc_assign AS
+   a int := 0;
+BEGIN
+   a = a + 1;
+   RAISE INFO '%', a;
+END;
+/
+gaussdb=# CALL proc_assign();
+INFO: 1
+ proc_assign
+-------------
+
+(1 row)
+
+gaussdb=# \x
+Expanded display is on.
+gaussdb=# SELECT * FROM pg_catalog.dump_plsql_bytecode((select oid from pg_proc where proname
+= 'proc_assign'));
+-[ RECORD 1 ]----+---------------------------------------------------------------------------------
+pid           |
+sessionid        |
+global_sessionid |
+databaseid          | 13147
+pkg_id          |0
+func_id         | 827412
+func_signature | name: proc_assign(), fn_collation: 0, search_path: addUser: false, schemas: 2200
+bytecode           | [0] iconst0
+            | [1] storen 9
+            | [6] exec_stmt_begin
+            | [27] loadn 9
+            | [32] iconst1
+            | [33] function func: int4pl
+[[PDF_PAGE physical=989 printed=940]]
+           | [46] storen 9
+           | [51] exec_stmt_end
+           | [64] exec_stmt_treebased
+           | [77] exec_stmt_begin
+           | [98] exec_stmt_end
+           | [111] return0 5
+           |
+
+gaussdb=# \x
+Expanded display is off.
+gaussdb=# CREATE TABLE t1(id int);
+CREATE TABLE
+gaussdb=# CREATE OR REPLACE PROCEDURE proc_forall()
+AS
+BEGIN
+    FORALL i IN 1..2 SAVE EXCEPTIONS
+    INSERT INTO t1 VALUES (1);
+END;
+/
+CREATE PROCEDURE
+gaussdb=# CALL proc_forall();
+ proc_forall
+-------------
+
+(1 row)
+
+gaussdb=# \x
+Expanded display is on.
+gaussdb=# SELECT * FROM pg_catalog.dump_plsql_bytecode((select oid from pg_proc where proname
+= 'proc_forall'));
+-[ RECORD 1 ]----+---------------------------------------------------------------------------------
+pid           | 2062546688
+sessionid        | 140700896196352
+global_sessionid | 0:0#0
+databaseid         | 13147
+pkg_id          |0
+func_id         | 827419
+func_signature | name: proc_forall(), fn_collation: 0, search_path: addUser: false, schemas: 2200
+bytecode          | Not supported
+
+gaussdb=# \x
+Expanded display is off.
+gaussdb=# DROP TABLE t1;
+DROP TABLE
+gaussdb=# DROP PROCEDURE proc_forall();
+DROP PROCEDURE
+gaussdb=# DROP PROCEDURE proc_assign();
+DROP PROCEDURE

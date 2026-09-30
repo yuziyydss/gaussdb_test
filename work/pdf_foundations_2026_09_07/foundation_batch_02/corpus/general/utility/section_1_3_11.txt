@@ -1,0 +1,152 @@
+[[PDF_PAGE physical=138 printed=89]]
+1.3.11 文本检索类型
+           GaussDB提供了两种数据类型用于支持全文检索。tsvector类型是一种被全文检索优化
+           后的文档数据类型，tsquery类型表示文本查询类型。
+
+tsvector
+           tsvector类型表示一个检索单元，通常是一个数据库表中一行的文本字段或者这些字段
+           的组合，tsvector类型的值是一个标准词位的有序列表，标准词位就是把同一个词的变
+           型体都标准化，在输入的同时会自动排序和去重，如下所示。
+           gaussdb=# SELECT 'a fat cat sat on a mat and ate a fat rat'::tsvector;
+                              tsvector
+           ----------------------------------------------------
+            'a' 'and' 'ate' 'cat' 'fat' 'mat' 'on' 'rat' 'sat'
+           (1 row)
+
+           如果词条中需要包含空格或标点符号，可以用引号标记：
+           gaussdb=# SELECT $$the lexeme ' ' contains spaces$$::tsvector;
+                        tsvector
+           -------------------------------------------
+            ' ' 'contains' 'lexeme' 'spaces' 'the'
+           (1 row)
+
+           如果在词条中需要使用引号，可以使用双$$符号作为标记：
+           gaussdb=# SELECT $$the lexeme 'Joe''s' contains a quote$$::tsvector;
+                            tsvector
+           ------------------------------------------------
+            'Joe''s' 'a' 'contains' 'lexeme' 'quote' 'the'
+           (1 row)
+
+           词条位置常量也可以放到词汇中：
+           gaussdb=# SELECT 'a:1 fat:2 cat:3 sat:4 on:5 a:6 mat:7 and:8 ate:9 a:10 fat:11 rat:12'::tsvector;
+                                       tsvector
+           -------------------------------------------------------------------------------
+            'a':1,6,10 'and':8 'ate':9 'cat':3 'fat':2,11 'mat':7 'on':5 'rat':12 'sat':4
+           (1 row)
+
+           位置常量通常表示文档中源字的位置。位置信息可以用于排名。位置常量的范围是1到
+           16383；更大的数字会被自动设置为16383。相同词的重复位置会被忽略掉。
+
+           拥有位置的词条可以进一步用一个权重来标记，可以是A、B、C或D。默认值是D，在
+           输出中不显示：
+           gaussdb=# SELECT 'a:1A fat:2B,4C cat:5D'::tsvector;
+                   tsvector
+           ----------------------------
+            'a':1A 'cat':5 'fat':2B,4C
+           (1 row)
+
+           权重可以用来反映文档结构，如：标记标题与主体文字的权重区别。全文检索排序函
+           数可以为不同的权重标记分配不同的优先级。
+
+           tsvector类型本身不执行任何单词规范化，它假设给定的单词已经适当地进行了规范
+           化。下面的示例是tsvector类型标准用法。如：
+           gaussdb=# SELECT 'The Fat Rats'::tsvector;
+                tsvector
+           --------------------
+            'Fat' 'Rats' 'The'
+           (1 row)
+[[PDF_PAGE physical=139 printed=90]]
+          对于大多数英文文本搜索应用程序来说，上述单词被认为是非规范化的，但tsvector不
+          会进行规范化处理，所以需要通过to_tsvector函数对这些单词进行规范化处理：
+          gaussdb=# SELECT to_tsvector('english', 'The Fat Rats');
+             to_tsvector
+          -----------------
+           'fat':2 'rat':3
+          (1 row)
+
+          上述示例中的“The”是停用词。一些词会被识别为“停用词”，因为它们出现得太频
+          繁导致在搜索中起不到作用，所以搜索时停用词会被忽略，to_tsvector函数做规范化
+          处理时会将停用词去除。但是，停用词会影响tsvector中单词的位置，进而会影响排
+          名，上述示例中缺失的位置1就是因为停用词。
+
+tsquery
+          tsquery类型表示一个检索条件，存储用于检索的词汇，并且支持使用如下操作符：
+          ●     布尔操作符：&（AND），|（OR）和!（NOT）。
+          ●     词组操作符（PHRASE）：<->或<n>，<n>表示两个词在文档中的距离为n（允许
+                前导零），<->等价于<1>。解析词组操作符需要GUC参数
+                system_function_version包含parse_phrase_fix选项。
+          圆括号可以被用来强制对操作符分组。如果没有圆括号，则!（NOT）的优先级最高，
+          其次是<->/<n>（PHRASE），然后是&（AND），最后是|（OR）。
+          gaussdb=# SELECT 'fat & rat'::tsquery;
+              tsquery
+          ---------------
+           'fat' & 'rat'
+          (1 row)
+
+          gaussdb=# SELECT 'fat & (rat | cat)'::tsquery;
+                  tsquery
+          ---------------------------
+           'fat' & ( 'rat' | 'cat' )
+          (1 row)
+
+          gaussdb=# SELECT 'fat & rat & ! cat'::tsquery;
+                 tsquery
+          ------------------------
+           'fat' & 'rat' & !'cat'
+          (1 row)
+
+          gaussdb=# SELECT 'fat <-> cat'::tsquery;
+              tsquery
+          -----------------
+           'fat' <-> 'cat'
+          (1 row)
+
+          tsquery中的词汇可以用一个或多个权重字母标记，这将限制它们只能和具有那些权重
+          之一的tsvector词位匹配；如果tsvector的对应词位没有位置信息，则tsquery中的权重
+          限制将被忽略：
+          gaussdb=# SELECT 'fat:ab & cat'::tsquery;
+              tsquery
+          ------------------
+           'fat':AB & 'cat'
+          (1 row)
+          gaussdb=# SELECT 'fat:1C'::tsvector @@ 'fat:ab'::tsquery AS RESULT;
+           result
+          --------
+           f
+          (1 row)
+[[PDF_PAGE physical=140 printed=91]]
+gaussdb=# SELECT 'fat'::tsvector @@ 'fat:ab'::tsquery AS RESULT;
+ result
+--------
+ t
+(1 row)
+
+另外，tsquery中的词汇可以用*标记指定前缀匹配：
+gaussdb=# SELECT 'super:*'::tsquery;
+  tsquery
+-----------
+ 'super':*
+(1 row)
+
+这个查询可以匹配tsvector中以“super”开始的任意单词。
+请注意，to_tsquery也会使用与其他函数相同的方式进行规范化，以下示例结果为真：
+gaussdb=# SELECT to_tsvector( 'seriousness' ) @@ to_tsquery( 'series:*' ) AS RESULT;
+  result
+----------
+ t
+(1 row)
+
+因为series经过处理后得到seri，这样就能匹配seriousness了：
+gaussdb=# SELECT to_tsquery('series:*');
+ to_tsquery
+------------
+ 'seri':*
+(1 row)
+
+需要注意的是，tsquery类型本身不执行任何单词规范化，所以在转换为tsquery类型之
+前，需要对单词进行规范化。函数to_tsquery用于执行这种规范化：
+gaussdb=# SELECT to_tsquery('Fat:ab & Cats');
+    to_tsquery
+------------------
+ 'fat':AB & 'cat'
+(1 row)

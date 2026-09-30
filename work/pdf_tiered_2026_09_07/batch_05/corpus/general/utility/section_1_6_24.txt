@@ -1,0 +1,199 @@
+[[PDF_PAGE physical=550 printed=501]]
+1.6.24 重载查询函数
+       ●   gs_search_function_with_name_and_arg(funcname_and_argtypes cstring)
+           描述：通过函数名和函数入参类型，返回实际调用的具体的重载函数信息。
+           返回值类型：text
+               说明
+
+              ● 此函数仅在A兼容模式下支持。
+              ● 如需查询入参包含NULL的函数的重载信息，须使用UNKNOWN替代NULL。
+              ● 当函数入参为窗口函数时，须在最后加上over()。
+              ● 部分函数通过语法关键字实现，无法通过该函数进行查询，如需了解对应关系，请直接
+                参见表1-97。
+              ● 如果要查找的函数发生变更或者函数选择逻辑发生变更，该函数的结果可能发生变化。
+                函数选择逻辑详见函数。
+
+
+           表 1-97 语法函数内部函数调用关系
+            语法函数                      内部调用函数
+
+            CURRENT_CATALOG           current_database()
+[[PDF_PAGE physical=551 printed=502]]
+语法函数                  内部调用函数
+
+CURRENT_DATE          优先级从上往下匹配：
+                      ● 当a_format_date_timestamp=on、
+                        mapping_date_to_datea=off时，对应
+                        pg_systimestamp()::timestamp(0)。
+                      ● 当mapping_date_to_datea=on时，对应
+                        pg_systimestamp()::datea。
+                      ● 当a_format_version='10c'、
+                        a_format_dev_version='s2'以上时，对应
+                        'now'::text::timestamp(0)。
+                      ● 其他场景对应text_date('now'::text)。
+
+CURRENT_ROLE          current_user()
+
+CURRENT_SCHEMA        current_schema()
+
+CURRENT_TIME[(n)]     'now'::text::timetz[(n)]
+
+CURRENT_TIMESTAMP     ● CURRENT_TIMESTAMP，对应
+                        pg_systimestamp()。
+                      ● CURRENT_TIMESTAMP(int)
+                         – 当a_format_date_timestamp=on时，对应
+                           pg_systimestamp()::timestamptz(int)。
+                         – 当a_format_date_timestamp=off时，对应
+                           'now'::text::timestamptz(int)。
+                      ● CURRENT_TIMESTAMP(float)，仅
+                        a_format_version='10c'、
+                        a_format_dev_version='s2'以上时支持，对应
+                        current_timestamp(numeric)。
+
+CURRENT_USER          current_user()
+
+DBTIMEZONE            仅a_format_version='10c'、
+                      a_format_dev_version='s2'以上时支持，对应
+                      dbtimezone()。
+
+DECODE                ● 参数个数等于2时，DECODE(A, B)对应
+                        decode(A, B)。
+                      ● 参数个数大于2时，构造成case，请参见
+                        UNION，CASE和相关构造。
+
+EXTRACT (field FROM   date_part(field, source)
+source)
+
+GROUP_CONCAT(arg1[,   group_concat(s, arg1[, …])
+…] SEPARATOR s)
+
+LOCALTIME[(n)]        'now'::text::time[(n)]
+[[PDF_PAGE physical=552 printed=503]]
+语法函数                内部调用函数
+
+LOCALTIMESTAMP      ● LOCALTIMESTAMP
+                       – 当a_format_date_timestamp=on时，对应
+                         pg_systimestamp()::timestamp。
+                       – 当a_format_date_timestamp=off时，对应
+                         'now'::text::timestamp。
+                    ● LOCALTIMESTAMP(int)
+                       – 当a_format_date_timestamp=on时，对应
+                         pg_systimestamp()::timestamp(int)。
+                       – 当a_format_date_timestamp=off时，对应
+                         'now'::text::timestamp(int)。
+                    ● LOCALTIMESTAMP(float)，仅
+                      a_format_version='10c'、
+                      a_format_dev_version='s2'以上时支持。
+                       – 当a_format_date_timestamp=on时，对应
+                         current_timestamp(numeric)::timestamp
+                         。
+                       – 当a_format_date_timestamp=off时，无对
+                         应关系。
+
+NOW()               now()
+
+OVERLAY             ● OVERLAY(A PLACING B FROM C FOR D)，
+                      对应overlay(A, B, C, D)。
+                    ● OVERLAY(A PLACING B FROM C)，对应
+                      overlay(A, B, C)。
+
+POSITION (A IN B)   position(B, A)
+
+SESSION_USER        session_user()
+
+SESSIONTIMEZONE     session_time_zone()
+
+SUBSTR              ● SUBSTR(str, pos)，对应substr(str, pos)。
+                    ● SUBSTR(str FROM pos)，对应substr(str,
+                      pos)。
+                    ● SUBSTR(str, pos, len)，对应substr(str, pos,
+                      len)。
+                    ● SUBSTR(str FROM pos FOR len)，对应
+                      substr(str, pos, len)。
+                    ● SUBSTR(str FOR len FROM pos)，对应
+                      substr(str, pos, len)。
+                    ● SUBSTR(str FOR len)，对应substr(str,
+                      1::int4, len::int4)。
+[[PDF_PAGE physical=553 printed=504]]
+     语法函数                                     内部调用函数
+
+     SUBSTRING                                ● SUBSTRING(str, pos)，对应substring(str,
+                                                pos)。
+                                              ● SUBSTRING(str FROM pos)，对应
+                                                substring(str, pos)。
+                                              ● SUBSTRING(str, pos, len)，对应substring(str,
+                                                pos, len)。
+                                              ● SUBSTRING(str FROM pos FOR len)，对应
+                                                substring(str, pos, len)。
+                                              ● SUBSTRING(str FOR len FROM pos)，对应
+                                                substring(str, pos, len)。
+                                              ● SUBSTRING(str FOR len)，对应substring(str,
+                                                1::int4, len::int4)。
+
+     SYSDATE                                  ● 当mapping_date_to_datea=off时，对应
+                                                current_sysdate()。
+                                              ● 当mapping_date_to_datea=on时，对应
+                                                sysdate_a()。
+
+     TRIM(BOTH [A | A                         btrim(B[, A])
+     [FROM]] B)
+
+     TRIM(LEADING [A | A                      ltrim(B[, A])
+     [FROM]] B)
+
+     TRIM(TRAILING [A | A                     rtrim(B[, A])
+     [FROM]] B)
+
+     USER                                     current_user()
+
+     XMLEXISTS(A PASSING                      xmlexists(A, B)
+     [BY REF] B [BY REF])
+
+
+
+    --基本用法。
+    gaussdb=# SELECT gs_search_function_with_name_and_arg('abs(int)');
+         gs_search_function_with_name_and_arg
+    -------------------------------------------------
+     pg_catalog.int4 pg_catalog.abs(pg_catalog.int4)
+    (1 row)
+
+    gaussdb=# SELECT gs_search_function_with_name_and_arg('pg_catalog.avg(int16)');
+          gs_search_function_with_name_and_arg
+    -----------------------------------------------------
+     pg_catalog.float8 pg_catalog.avg(pg_catalog.float8)
+    (1 row)
+
+    gaussdb=# SELECT gs_search_function_with_name_and_arg('lag(datea, int, unknown) over()');
+                             gs_search_function_with_name_and_arg
+    -----------------------------------------------------------------------------------------------------
+     pg_catalog.anyelement pg_catalog.lag(pg_catalog.anyelement, pg_catalog.int4,
+    pg_catalog.anyelement)
+    (1 row)
+
+●   gs_search_operator_with_name_and_arg(ltype cstring, opname cstring, rtype
+    cstring)
+[[PDF_PAGE physical=554 printed=505]]
+描述：通过操作符的名称和左右操作数的数据类型，返回实际调用的具体的重载
+操作符信息。
+返回值类型：text
+      说明
+
+     ● 此函数仅在A兼容模式下支持。
+     ● 仅支持查找二元操作符。
+     ● 如需查询入参包含NULL的操作符的重载信息，须使用UNKNOWN替代NULL。
+     ● 如需查询!=或^=操作符的重载信息，须使用<>进行替代。
+     ● 如果要查找的操作符发生变更或者操作符选择逻辑发生变更，该函数的结果可能发生变
+       化。操作符选择逻辑详见操作符。
+--基本用法。
+gaussdb=# SELECT gs_search_operator_with_name_and_arg('int', '+', 'int');
+           gs_search_operator_with_name_and_arg
+----------------------------------------------------------------
+ pg_catalog.int4 (pg_catalog.int4 pg_catalog.+ pg_catalog.int4)
+(1 row)
+
+gaussdb=# SELECT gs_search_operator_with_name_and_arg('int', '+', 'float4');
+             gs_search_operator_with_name_and_arg
+----------------------------------------------------------------------
+ pg_catalog.float8 (pg_catalog.float8 pg_catalog.+ pg_catalog.float4)
+(1 row)

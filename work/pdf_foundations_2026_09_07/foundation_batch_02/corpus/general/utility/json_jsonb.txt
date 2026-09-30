@@ -1,0 +1,244 @@
+[[PDF_PAGE physical=140 printed=91]]
+1.3.12 JSON/JSONB 类型
+         JSON（JavaScript Object Notation）数据，可以是一个单独的标量，也可以是数组或
+         键值对象，其中数组和对象可以统称为容器（container）：
+
+         ●   标量（scalar）：单一的数字、布尔值、字符串和null都可以称作标量。
+         ●   数组（array）：[]结构，里面存放的元素可以是任意类型的JSON，并且不要求数
+             组内所有元素都是同一类型。
+         ●   对象（object）：{}结构，存储key:value的键值对，键必须是用双引号""包裹起来
+             的字符串，值可以是任意类型的JSON，键重复时，以最后一个键值为准。
+         GaussDB提供JSON和JSONB两种数据类型存储JSON数据。其中：
+
+         ●   JSON类型存储输入文本的完整副本，使用时再去解析，所以它会保留输入的空
+             格、重复键以及顺序等。
+         ●   JSONB类型以二进制格式存储，解析时会删除与语义无关的细节和重复键，对键
+             值进行重新排序，使用时无需再次解析。
+         两种数据类型其实都是JSON，接受相同的字符串作为输入，主要差别在于效率。
+         JSON数据类型存储输入文本的完整副本，处理函数必须在每个执行上重新解析；而
+         JSONB数据以解析的二进制格式存储，由于添加了解析机制，因此在输入上稍微慢
+         些，但是在处理上明显更快，因为其不需要重新解析。同时由于JSONB类型存在解析
+[[PDF_PAGE physical=141 printed=92]]
+       后的格式归一化等操作，同等的语义下只会有一种格式，因此可以更好地支持很多其
+       他额外的操作，比如按照一定的规则进行大小比较等。此外，JSONB也支持索引，这
+       也是一个显著优势。
+
+输入格式
+       输入必须是一个符合JSON数据格式的字符串，此字符串用单引号''声明。
+       null（null-json）：仅null，全小写。
+       gaussdb=# SELECT 'null'::json; -- suc
+        json
+       ------
+        null
+       (1 row)
+
+       gaussdb=# SELECT 'NULL'::jsonb; -- err
+       ERROR: invalid input syntax for type json
+
+       数字（num-json）：正负整数、小数、0，支持科学计数法。
+       gaussdb=# SELECT '1'::json;
+        json
+       ------
+        1
+       (1 row)
+
+       gaussdb=# SELECT '-1.5'::json;
+        json
+       ------
+        -1.5
+       (1 row)
+
+       gaussdb=# SELECT '-1.5e-5'::jsonb, '-1.5e+2'::jsonb;
+         jsonb | jsonb
+       -----------+-------
+        -0.000015 | -150
+       (1 row)
+
+       gaussdb=# SELECT '001'::json, '+15'::json, 'NaN'::json; -- 不支持多余的前导0，正数的+号，以及NaN和
+       infinity。
+       ERROR: invalid input syntax for type json
+
+       布尔（bool-json）：仅true、false，全小写。
+       gaussdb=# SELECT 'true'::json;
+        json
+       ------
+        true
+       (1 row)
+
+       gaussdb=# SELECT 'false'::jsonb;
+        jsonb
+       -------
+        false
+       (1 row)
+
+       字符串（str-json）：必须是加双引号的字符串。
+       gaussdb=# SELECT '"a"'::json;
+        json
+       ------
+        "a"
+       (1 row)
+
+       gaussdb=# SELECT '"abc"'::jsonb;
+        jsonb
+       -------
+[[PDF_PAGE physical=142 printed=93]]
+         "abc"
+        (1 row)
+
+        数组（array-json）：使用中括号[]包裹，满足数组书写条件。数组内元素类型可以是
+        任意合法的JSON，且不要求类型一致。
+        gaussdb=# SELECT '[1, 2, "foo", null]'::json;
+              json
+        ---------------------
+         [1, 2, "foo", null]
+        (1 row)
+
+        gaussdb=# SELECT '[]'::json;
+         json
+        ------
+         []
+        (1 row)
+
+        gaussdb=# SELECT '[1, 2, "foo", null, [[]], {}]'::jsonb;
+                   jsonb
+        -------------------------------
+         [1, 2, "foo", null, [[]], {}]
+        (1 row)
+
+        对象（object-json）：使用大括号{}包裹，键必须是满足JSON字符串规则的字符串，
+        值可以是任意合法的JSON。
+        gaussdb=# SELECT '{}'::json;
+         json
+        ------
+         {}
+        (1 row)
+
+        gaussdb=# SELECT '{"a": 1, "b": {"a": 2, "b": null}}'::json;
+                     json
+        -------------------------------------
+         {"a": 1, "b": {"a": 2, "b": null}}
+        (1 row)
+
+        gaussdb=# SELECT '{"foo": [true, "bar"], "tags": {"a": 1, "b": null}}'::jsonb;
+                           jsonb
+        -----------------------------------------------------
+         {"foo": [true, "bar"], "tags": {"a": 1, "b": null}}
+        (1 row)
+
+
+
+             须知
+
+        ● 区分 'null'::json 和 null::json 是两个不同的概念，类似于字符串 str="null" 和
+          str=null。
+        ● 对于数字，当使用科学计数法时，JSONB类型会将其展开，而JSON会精确复制输
+          入。
+
+
+JSONB 高级特性
+        ●     注意事项
+              –     不支持作为分区键。
+              –     不支持外表。
+        JSON和JSONB的主要差异在于存储方式上的不同，JSONB存储的是解析后的二进制格
+        式，能够体现JSON的层次结构，更方便直接访问等，因此JSONB相较于JSON具有更
+        多高级特性。
+[[PDF_PAGE physical=143 printed=94]]
+●   格式归一化
+    –    对于输入的object-json字符串，解析为jsonb二进制格式后，会自动去除与语
+         义上无关紧要的细节，如空格等：
+         gaussdb=# SELECT ' [1, " a ", {"a" :1       }] '::jsonb;
+                jsonb
+         ----------------------
+          [1, " a ", {"a": 1}]
+         (1 row)
+
+    –    对于object-json，会删除重复的键值，只保留最后一个出现的，如：
+         gaussdb=# SELECT '{"a" : 1, "a" : 2}'::jsonb;
+           jsonb
+         ----------
+          {"a": 2}
+         (1 row)
+
+    –    对于object-json，键值会重新进行排序，排序规则为：长度长的在后、长度
+         相等则ascii码大的在后，如：
+         gaussdb=# SELECT '{"aa" : 1, "b" : 2, "a" : 3}'::jsonb;
+                  jsonb
+         ---------------------------
+         {"a": 3, "b": 2, "aa": 1}
+         (1 row)
+
+●   大小比较
+    由于经过了格式归一化，保证了同一种语义下的JSONB只会有一种存在形式，因
+    此按照制定的规则，可以比较大小。
+    –    首先比较类型：object-jsonb > array-jsonb > bool-jsonb > num-jsonb > str-
+         jsonb > null-jsonb
+    –    同类型则比较内容：
+
+         ▪     str-jsonb类型：依据text比较的方法，使用数据库默认排序规则进行比
+               较，返回值正数代表大于，负数代表小于，0表示相等。
+
+         ▪     num-jsonb类型：数值比较。
+
+         ▪     bool-jsonb类型：true > false。
+
+         ▪     array-jsonb类型：长度长的 > 长度短的，长度相等则依次比较每个元
+               素。
+
+         ▪     object-jsonb类型：长度长的 > 长度短的，长度相等则依次比较每个键
+               值对，先比较键，然后比较值。
+                说明
+
+               object-jsonb类型比较时，使用的是格式整理后的最终结果进行比较，因此相对于直
+               接的输入未必会很直观。
+●   创建索引、主键、外键
+    –    BTREE索引
+         JSONB类型支持创建btree索引，支持创建主键、外键。
+●   包含存在
+    查询一个JSON之中是否包含某些元素，或者某些元素是否存在于某个JSON中是
+    JSONB的一个重要能力。
+    -- 简单的标量/原始值只包含相同的值。
+    gaussdb=# SELECT '"foo"'::jsonb @> '"foo"'::jsonb;
+     ?column?
+    ----------
+[[PDF_PAGE physical=144 printed=95]]
+     t
+    (1 row)
+
+    -- 左侧数组包含了右侧字符串。
+    gaussdb=# SELECT '[1, "aa", 3]'::jsonb ? 'aa';
+     ?column?
+    ----------
+     t
+    (1 row)
+
+    -- 左侧数组包含了右侧的数组所有元素，顺序、重复不重要。
+    gaussdb=# SELECT '[1, 2, 3]'::jsonb @> '[1, 3, 1]'::jsonb;
+     ?column?
+    ----------
+     t
+    (1 row)
+
+    -- 左侧object-json包含了右侧object-json的所有键值对。
+    gaussdb=# SELECT '{"product": "PostgreSQL", "version": 9.4, "jsonb":true}'::jsonb @>
+    '{"version":9.4}'::jsonb;
+     ?column?
+    ----------
+     t
+    (1 row)
+
+    -- 左侧数组并没有包含右侧的数组所有元素，因为左侧数组的三个元素为1、2、[1,3]，右侧的为1、3。
+    gaussdb=# SELECT '[1, 2, [1, 3]]'::jsonb @> '[1, 3]'::jsonb;
+     ?column?
+    ----------
+     f
+    (1 row)
+
+    gaussdb=# SELECT '{"foo": {"bar": "baz"}}'::jsonb @> '{"bar": "baz"}'::jsonb;
+     ?column?
+    ----------
+     f
+    (1 row)
+
+    相关的操作符请参见JSON/JSONB函数和操作符。
+●   函数和操作符
+    JSON/JSONB类型相关支持的函数和操作符请参见JSON/JSONB函数和操作符。

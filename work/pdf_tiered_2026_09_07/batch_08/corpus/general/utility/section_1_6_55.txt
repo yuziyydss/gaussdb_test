@@ -1,0 +1,118 @@
+[[PDF_PAGE physical=1048 printed=999]]
+1.6.55 自治事务特性函数
+       ●   gs_autonomous_transaction_detail()
+           描述：查看当前用户所属的自治事务会话及其父子事务关系。具备MONADMIN
+           权限或者SYSADMIN权限的用户，可以查看所有自治事务会话及其父子事务关
+           系。
+           参数：无。
+           返回值类型：setof record
+           返回值说明：如表1-291所示。
+
+           表 1-291 gs_autonomous_transaction_detail 函数返回值说明
+            名称                                       类型          描述
+
+            autonomous_transaction                   bigint      自治事务会话ID。
+            _session_id
+
+            autonomous_transaction                   bigint      自治事务线程ID。
+            _thread_id
+
+            parent_autonomous_tran                   bigint      自治事务父会话ID。
+            saction_session_id
+
+
+
+
+           示例：
+           gaussdb=#
+           CREATE OR REPLACE PROCEDURE proc_test() AS
+           DECLARE
+           PRAGMA AUTONOMOUS_TRANSACTION;
+           BEGIN
+           pg_sleep(60);
+           END;
+           /
+           gaussdb=# CALL proc_test();
+
+           -- 需要新建一个会话进行查询 --
+           gaussdb=# SELECT * FROM pg_catalog.gs_autonomous_transaction_detail() AS
+           gaussdb-#       (autonomous_transaction_session_id bigint, autonomous_transaction_thread_id bigint,
+           parent_autonomous_transaction_session_id bigint);
+            autonomous_transaction_session_id | autonomous_transaction_thread_id |
+           parent_autonomous_transaction_session_id
+           -----------------------------------+----------------------------------+------------------------------------------
+                          139778155607808 |                    139778155607808 |                          139777830549248
+           (1 row)
+
+       ●   gs_get_autonomous_transaction_count()
+           描述：查询当前自治事务计数。
+[[PDF_PAGE physical=1049 printed=1000]]
+    参数：无。
+    返回值类型：integer
+    返回值说明：如表1-292所示。
+
+    表 1-292 gs_get_autonomous_transaction_count 函数返回值说明
+     名称                            类型           描述
+
+     gs_get_autonomous_tr          integer      当前自治事务计数。
+     ansaction_count
+
+
+
+    示例：
+    gaussdb=#
+    CREATE OR REPLACE PROCEDURE proc_test() AS
+    DECLARE
+    PRAGMA AUTONOMOUS_TRANSACTION;
+    BEGIN
+    pg_sleep(60);
+    END;
+    /
+    gaussdb=# CALL proc_test();
+
+    -- 需要新建一个会话进行查询 --
+    gaussdb=# SELECT gs_get_autonomous_transaction_count();
+     gs_get_autonomous_transaction_count
+    -------------------------------------
+                                1
+    (1 row)
+
+●   gs_reset_autonomous_transaction_count()
+    描述：将当前自治事务计数恢复至正确值，并返回当前正确的自治事务计数值。
+    调用该函数必须有MONADMIN权限或者SYSADMIN权限。
+    参数：无。
+    返回值类型：integer
+    返回值说明：如表1-293所示。
+
+    表 1-293 gs_reset_autonomous_transaction_count 函数返回值说明
+     名称                             类型          描述
+
+     gs_reset_autonomous_t          integer     恢复后正确的自治事务计数值。
+     ransaction_count
+
+
+
+    示例：
+    gaussdb=# SELECT gs_reset_autonomous_transaction_count();
+     gs_reset_autonomous_transaction_count
+    ---------------------------------------
+                                 0
+    (1 row)
+
+    gaussdb=#
+    CREATE OR REPLACE PROCEDURE proc_test() AS
+    DECLARE
+    PRAGMA AUTONOMOUS_TRANSACTION;
+[[PDF_PAGE physical=1050 printed=1001]]
+BEGIN
+pg_sleep(60);
+END;
+/
+gaussdb=# CALL proc_test();
+
+-- 需要新建一个会话进行查询 --
+gaussdb=# SELECT gs_reset_autonomous_transaction_count();
+ gs_reset_autonomous_transaction_count
+---------------------------------------
+                             1
+(1 row)

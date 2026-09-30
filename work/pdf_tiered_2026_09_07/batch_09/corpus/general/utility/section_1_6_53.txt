@@ -1,0 +1,251 @@
+[[PDF_PAGE physical=1039 printed=990]]
+1.6.53 DATABASE LINK 函数
+         ●   close_database_link(dblink_name name)
+             描述：通过DBLink名称主动关闭当前session下该DBLink的连接，不允许关闭存在
+             活跃事务的dblink。
+
+             表 1-282 close_database_link(dblink_name name)参数说明
+              名称                       类型       输入/输出          描述
+
+              dblink_name              nam      输入             DBLink的名称。
+                                       e
+
+              close_database_li        bool     输出             关闭DATABASE LINK结果（t: 成功，
+              nk                       ean                     f: 失败）。
+
+
+
+             示例：
+             gaussdb=# SELECT close_database_link('xxx');
+              close_database_link
+             ---------------------
+              t
+             (1 row)
+
+             gaussdb=# BEGIN;
+             BEGIN
+             gaussdb=# SELECT * FROM t1@dblink;
+             c1 | c2 | c3
+             ----+----+----
+             1||
+             (1 row)
+             gaussdb=# INSERT INTO t1@dblink VALUES (2,0,0);
+             INSERT 0 1
+             gaussdb=# SELECT * FROM t1@dblink;
+             c1 | c2 | c3
+             ----+----+----
+             1||
+             2|0|0
+             (2 rows)
+             gaussdb=# SELECT close_database_link('dblink');
+             ERROR: Dblink dblink is in use.
+             CONTEXT: referenced column: close_database_link
+             gaussdb=# END;
+             ROLLBACK
+
+         ●   gs_ora_diag(dblink_name name DEFAULT NULL::name)
+             描述：该函数只能获取连接Oracle库的DBLink对应的信息。通过DBLink名称获取
+             gs_ora_fdw版本、GaussDB版本、Oracle数据库客户端版本以及Oracle数据库服
+[[PDF_PAGE physical=1040 printed=991]]
+    务端版本信息。当参数为NULL时，如果查询用户是管理员用户还会返回
+    ORACLE_HOME、ORACLE_SID、TNS_ADMIN、TWO_TASK、 LDAP_ADMIN等
+    信息，非管理员用户不显示。
+
+    表 1-283 gs_ora_diag(dblink_name name DEFAULT NULL::name)参数说明
+     名称                            类型         输入/输出               描述
+
+     dblink_name                   nam        输入                  DBLink的名称。
+                                   e
+
+     gs_ora_diag                   text       输出                  该DBLink的diag信息。
+
+
+
+    示例：
+    --管理员用户。
+    gaussdb=# SELECT gs_ora_diag('xxx');
+                                 gs_ora_diag
+    --------------------------------------------------------------------------------------
+     gs_ora_fdw 1.0.0, GaussDB 9.2.4, Oracle client 19.24.0.0.0, Oracle server 19.0.0.0.0
+    (1 row)
+    gaussdb=# SELECT gs_ora_diag();
+
+    gs_ora_diag
+    -----------------------------------------------------------------------------------------------------------------------
+    -----------------------------
+     gs_ora_fdw 1.0.0, GaussDB 9.2.4, Oracle client 19.24.0.0.0, ORACLE_HOME=/xxx/instantclient_19_24,
+    TNS_ADMIN=/xxx/instantclient_19_24/network/admin
+    (1 row)
+
+    --普通用户。
+    gaussdb=# SELECT gs_ora_diag('xxx');
+                                 gs_ora_diag
+    --------------------------------------------------------------------------------------
+     gs_ora_fdw 1.0.0, GaussDB 9.2.4, Oracle client 19.24.0.0.0, Oracle server 19.0.0.0.0
+    (1 row)
+
+    gaussdb=# SELECT gs_ora_diag();
+                       gs_ora_diag
+    ------------------------------------------------------------
+     gs_ora_fdw 1.0.0, GaussDB 9.2.4, Oracle client 19.24.0.0.0
+    (1 row)
+
+●   gs_ora_get_handle_alloc(dblink_oid oid)
+    描述：通过DBLink的OID，获取该DBLink通过OCI使用的内存大小，单位为字
+    节。
+
+    表 1-284 gs_ora_get_handle_alloc(dblink_oid oid)参数说明
+     名称                             类型         输入/输出                描述
+
+     dblink_oid                     oid        输入                   DBLink的OID。
+
+     gs_ora_get_handl               num        输出                   DBLink通过OCI使用的内存大小，单
+     e_alloc                        eric                            位为字节。
+
+
+
+    示例：
+    gaussdb=# SELECT gs_ora_get_handle_alloc(xxx);
+     gs_ora_get_handle_alloc
+[[PDF_PAGE physical=1041 printed=992]]
+    --------------------------
+                   151224
+    (1 row)
+
+●   gs_ora_get_handle_alloc_all()
+    描述：获取每个节点的环境句柄，所有DBLink通过OCI使用的内存大小计算总
+    和，单位为字节。
+
+
+    表 1-285 gs_ora_get_handle_alloc_all()参数说明
+
+     名称                          类型     输入/输出         描述
+
+     gs_ora_get_handl            num    输出            所有DBLink通过OCI使用的内存大小
+     e_alloc_all                 eric                 计算总和，单位为字节。
+
+
+
+
+    示例：
+    gaussdb=# SELECT gs_ora_get_handle_alloc_all();
+      gs_ora_get_handle_alloc_all
+    ------------------------------
+                      429000
+    (1 row)
+
+●   gs_ora_connection_status(dblink_oid oid)
+    描述：通过DBLink的OID，获取该DBLink在当前session下的连接状态。
+
+
+    表 1-286 gs_ora_connection_status(dblink_oid oid)参数说明
+
+     名称                          类型     输入/输出         描述
+
+     dblink_oid                  oid    输入            DBLink的OID。
+
+     gs_ora_connectio            text   输出            该DBLink在当前session下的连接状
+     n_status                                         态（CONNECTED： 连接， LOST:
+                                                      未连接）。
+
+
+
+
+    示例：
+    gaussdb=# SELECT gs_ora_connection_status(xxx);
+      gs_ora_connection_status
+    -----------------------------
+      CONNECTED
+    (1 row)
+
+●   gs_ora_fdw_handler()
+    描述：外部数据封装器oracle_fdw的处理函数，函数功能为返回一个fdw_handler
+    结构体，其中包含指向回调函数的指针。
+    入参：无
+    返回值类型：fdw_handler
+●   gs_ora_fdw_validator(option text[], dblink_oid oid)
+    描述：外部数据封装器gs_ora_fdw的检查函数，用来检查提供给gs_ora_fdw的通
+    用选项。如果选项或选项值无效或缺失，则报错。
+[[PDF_PAGE physical=1042 printed=993]]
+    表 1-287 gs_ora_fdw_validator(option text[], dblink_oid oid)参数说明
+     名称                        类型       输入/输出       描述
+
+     dblink_oid                oid      输入          DBLink的OID。
+
+     option                    text[    输入          DBLink的OPTION选项。
+                               ]
+
+
+
+
+    返回值类型：void
+●   is_dblink_in_use(dblink_oid oid)
+    描述：通过DBLink的OID，获取该DBLink是否被使用。
+
+    表 1-288 is_dblink_in_use(dblink_oid oid)参数说明
+     名称                       类型                   输入/输出          描述
+
+     dblink_oid               oid                  输入             指定的DBLink的
+                                                                  OID。
+
+     is_dblink_in_use         bool                 输出             该DBLink的使用
+                                                                  状态。
+
+
+
+
+    示例：
+    gaussdb=# SELECT is_dblink_in_use(xxx);
+      is_dblink_in_use
+    -----------------------------
+      f
+    (1 row)
+
+●   dblink_has_updatasent (dblink_oid oid)
+    描述：判断当前事务中是否已使用OID对应的DATABASE LINK发送了DML语句且
+    未提交。
+
+    表 1-289 dblink_has_updatasent (dblink_oid oid)参数说明
+     名称                       类型                   输入/输出          描述
+
+     dblink_oid               oid                  输入             指定的DBLink的
+                                                                  OID。
+
+     dblink_has_upda          bool                 输出             该DBLink是否已
+     tasent                                                       发送DML语句且
+                                                                  处于未提交阶
+                                                                  段。
+
+
+
+
+    示例：
+    gaussdb=# SELECT dblink_has_updatasent(xxx);
+      dblink_has_updatasent
+    -----------------------------
+[[PDF_PAGE physical=1043 printed=994]]
+     f
+    (1 row)
+
+●   is_dblink_in_transaction(dblink_oid oid)
+    描述：通过DBLink的OID，获取该DBLink是否正在事务中。
+
+    表 1-290 is_dblink_in_transaction(dblink_oid oid)参数说明
+
+     名称                       类型                      输入/输出   描述
+
+     dblink_oid               oid                     输入      指定的DBLink的
+                                                              OID。
+
+     dblink_has_upda          bool                    输出      该DBLink是否在
+     tasent                                                   事务中。
+
+
+
+
+    示例：
+    gaussdb=# SELECT is_dblink_in_transaction(xxx);
+      is_dblink_in_transaction
+    -----------------------------
+      f
+    (1 row)

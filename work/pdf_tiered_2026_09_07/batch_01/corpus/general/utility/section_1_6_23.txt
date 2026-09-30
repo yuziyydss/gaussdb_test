@@ -1,0 +1,149 @@
+[[PDF_PAGE physical=548 printed=499]]
+1.6.23 返回集合的函数
+             说明
+
+           ● 对于任意函数的输入参数为返回集合的函数（set return function，简称srf函数）时，会对
+             任意函数入参列表的各个表达式进行校验，当出现多个srf函数时会报错。
+               例如：SELECT div(srf(n,1),srf(m,2));。
+           ● 在SELECT语句中的target list中存在srf函数时，会返回多行数据。
+           ● 在SELECT语句中的target list中，当存在多层嵌套场景时，srf(n, srf(m, 1))会返回n*m行的
+             结果。即使存在strict的非srf函数也不会对strict函数进行优化。
+               例如：SELECT srf(n, div(srf(m, 1), NULL));div为strict函数，当其输入参数不包含srf函数
+               时，div函数在输入参数包含NULL的情况下，会返回NULL；而当其输入参数包含srf函数
+               时，不会对strict函数进行优化，返回m行NULL。
+           ● 当srf函数的输入参数包含返回值为NULL的表达式时，对于strict的srf函数，会返回0行，而
+             非strict的srf函数，则会返回指定行数的NULL。
+               例如：srf(10, 'a')表示返回10行'a'。如果传入srf(10, NULL)，strict的srf函数将返回0行，非
+               strict的srf函数将返回10行NULL。
+
+
+序列号生成函数
+       ●    generate_series(start, stop)
+            描述：生成一个数值序列，从start到stop，步长为1。
+            参数类型：int、bigint、numeric
+            返回值类型：setof int、setof bigint、setof numeric（与参数类型相同）
+       ●    generate_series(start, stop, step)
+            描述：生成一个数值序列，从start到stop，步长为step。
+            参数类型：int、bigint、numeric
+            返回值类型：setof int、setof bigint、setof numeric（与参数类型相同）
+       ●    generate_series(start, stop, step interval)
+            描述：生成一个数值序列，从start到stop，步长为step。
+            参数类型：timestamp或timestamp with time zone
+            返回值类型：setof timestamp或setof timestamp with time zone（与参数类型
+            相同）
+       如果step是正数且start大于stop，则返回零行。相反，如果step是负数且start小于
+       stop，则也返回零行。如果输入是NULL，同样产生零行。如果step为零则是一个错
+       误。
+       示例：
+       gaussdb=# SELECT * FROM generate_series(2,4);
+        generate_series
+       -----------------
+                   2
+                   3
+                   4
+       (3 rows)
+
+       gaussdb=# SELECT * FROM generate_series(5,1,-2);
+        generate_series
+       -----------------
+                   5
+                   3
+                   1
+[[PDF_PAGE physical=549 printed=500]]
+         (3 rows)
+
+         gaussdb=# SELECT * FROM generate_series(4,3);
+          generate_series
+         -----------------
+         (0 rows)
+
+         --这个示例应用于date-plus-integer操作符。
+         gaussdb=# SELECT current_date + s.a AS dates FROM generate_series(0,14,7) AS s(a);
+           dates
+         ------------
+          2017-06-02
+          2017-06-09
+          2017-06-16
+         (3 rows)
+
+         gaussdb=# SELECT * FROM generate_series('2008-03-01 00:00'::timestamp, '2008-03-04 12:00', '10 hours');
+           generate_series
+         ---------------------
+          2008-03-01 00:00:00
+          2008-03-01 10:00:00
+          2008-03-01 20:00:00
+          2008-03-02 06:00:00
+          2008-03-02 16:00:00
+          2008-03-03 02:00:00
+          2008-03-03 12:00:00
+          2008-03-03 22:00:00
+          2008-03-04 08:00:00
+         (9 rows)
+
+         ●    gs_search_function_with_name(funcname)
+              描述：获取函数名为funcname的函数OID。
+              参数类型：cstring
+              返回值类型：setof oid
+              --基本用法。
+              CREATE OR REPLACE FUNCTION proc_plpgsql(a int,b int, c int)
+              RETURNS int AS $BODY$
+              DECLARE
+              BEGIN
+              RETURN $1 + $2;
+              END;
+              $BODY$ language plpgsql;
+              CREATE OR REPLACE FUNCTION proc_plpgsql(int,int)
+              RETURNS int AS $BODY$
+              DECLARE
+              BEGIN
+              RETURN $1 + $2;
+              END;
+              $BODY$ language plpgsql;
+              gaussdb=# SELECT gs_search_function_with_name('proc_plpgsql');
+               gs_search_function_with_name
+              ------------------------------
+                                 16776
+                                 24576
+              (2 rows)
+
+
+下标生成函数
+         ●    generate_subscripts(array anyarray, dim int)
+              描述：生成一系列包括给定数组的下标。
+              返回值类型：setof int
+         ●    generate_subscripts(array anyarray, dim int, reverse boolean)
+              描述：生成一系列包括给定数组的下标。当reverse为真时，该系列则以相反的顺
+              序返回。
+[[PDF_PAGE physical=550 printed=501]]
+     返回值类型：setof int
+generate_subscripts是一个为给定数组中的指定维度生成有效下标集的函数。如果数
+组中没有所请求的维度或者NULL数组，返回零行（但是会给数组元素为空的返回有效
+下标）。示例：
+--基本用法。
+gaussdb=# SELECT generate_subscripts('{NULL,1,NULL,2}'::int[], 1) AS s;
+ s
+---
+ 1
+ 2
+ 3
+ 4
+(4 rows)
+--unnest一个2D数组。
+gaussdb=# CREATE OR REPLACE FUNCTION unnest2(anyarray)
+RETURNS SETOF anyelement AS $$
+SELECT $1[i][j]
+   FROM generate_subscripts($1,1) g1(i),
+      generate_subscripts($1,2) g2(j);
+$$ LANGUAGE sql IMMUTABLE;
+
+gaussdb=# SELECT * FROM unnest2(ARRAY[[1,2],[3,4]]);
+ unnest2
+---------
+      1
+      2
+      3
+      4
+(4 rows)
+
+--删除函数。
+gaussdb=# DROP FUNCTION unnest2;

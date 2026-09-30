@@ -1,0 +1,159 @@
+[[PDF_PAGE physical=1052 printed=1003]]
+1.6.57 消息队列函数
+       在使用消息队列时，发布者通过调用“发送”的系统函数，生成数据并存放至内部队
+       列；订阅者通过调用“查询”的系统函数，从内部队列中获取对应数据。
+[[PDF_PAGE physical=1053 printed=1004]]
+    说明
+
+    ● 消息队列仅支持在主节点使用。
+    ● 在数据库实例异常时，消息队列会丢失全部数据。
+    ● 消息发布后需要发送者提交事务或主动调用COMMIT来提交消息。在事务回滚时，系统会自
+      动调用内部ROLLBACK函数清除未主动COMMIT的信息。（请求订阅同理）
+    ● 在相同会话下，同一个group, topic只能有一个订阅。
+    ● 消息队列的系统函数操作内部模块时需具有SYSADMIN权限。当前内部模块包括：
+      dbe_alert。
+
+
+表 1-297 消息队列函数参数说明
+参数       类型       描述                                 取值范围
+
+messa    text     消息队列中的基本传输单元，指                     作为系统函数入参时，最大长
+ge                发送者向接收者传递的通信数                      度为4096字节。
+                  据，该数据以字符串形式存储。
+
+group    text     为每个特性所使用的消息队列分                     作为系统函数入参时，最大长
+                  配独立的模块名，用于区分不同                     度为127字节。
+                  的特性队列以防止干扰。例如：
+                  对于客户特性A使用"groupA"
+                  组，特性B使用“groupB”组，
+                  确保两个组的“topic”严格隔
+                  离。
+
+topic    text     订阅的主题。每条消息都有与之                     作为系统函数入参时，最大长
+                  关联的主题，主题所发挥的作用                     度为127字节。
+                  类似于发送者和接收者之间的中
+                  间渠道，负责维护对该主题相关
+                  消息感兴趣的接收者名单。
+
+reques   uint8    订阅、消息的id。                          -
+t_id
+
+
+
+●   mq_register_pull(group text, request_id uint8, topic text)
+    描述：订阅对应的topic。全局最多支持32个group，每个group最多支持32个
+    topic。当消息队列内存在的group或topic数量达到上限时，订阅操作失败并返回
+    false。在同一个会话中，不能重复订阅group与topic均相同的请求。
+    参数：参数介绍请参见表1-297。
+    返回值类型：boolean
+●   mq_unregister(group text, request_id uint8, topic text)
+    描述：取消订阅对应的topic。
+    参数：参数介绍请参见表1-297。
+    返回值类型：boolean
+●   mq_send_message(group text, topic text, request_id uint8, message text)
+    描述：发送消息至所有订阅该topic的订阅者。
+    参数：参数介绍请参见表1-297。
+    返回值类型：boolean
+[[PDF_PAGE physical=1054 printed=1005]]
+                 说明
+
+                消息队列最大长度为499。在队列已满时不允许生产者继续生产消息，需要消费者将现存
+                消息消费后才可继续生产。
+     ●    mq_query(group text, topic text)
+          描述：获取指定topic下的一条消息。如果当前会话未注册该group和topic，或注
+          册后没有生产者发送消息，或已接收到全部生产者发送的消息时，则返回空值。
+          参数：参数介绍请参见表1-297。
+          返回值类型：text
+                 说明
+
+                该函数不受事务回滚与否的影响，一旦成功获取消息，即视为已消费该消息。
+     ●    mq_transaction_processing(id uint8, is_message boolean, is_commit boolean)
+          描述：手动对消息或订阅进行提交或回滚操作。
+          参数：
+          –     第一个参数为订阅、消息的id。
+          –     第二个参数用于指定处理类型，true表示处理消息，false表示处理订阅。
+          –     第三个参数用于指定事务操作，true表示提交，false表示回滚。
+          返回值类型：boolean
+     ●    mq_get_queue()
+          描述：获取所有队列信息。执行该函数需要具有SYSADMIN权限。
+          返回值类型：text
+     ●    mq_clear()
+          描述：清除所有队列信息。执行该函数需要具有SYSADMIN权限。
+          返回值类型：boolean
+     ●    mq_sync_ccn()
+          描述：分布式消息队列同步。
+          返回值类型：boolean
+                 说明
+
+                该函数当前版本不可用。
+     ●    mq_sync(message_queue text)
+          描述：分布式各节点消息队列同步。
+          参数：序列化的消息队列。
+          返回值类型：boolean
+                 说明
+
+                该函数当前版本不可用。
+
+
+示例
+     -- 示例1
+     -- Session 1
+     gaussdb=# SELECT mq_register_pull('group', txid_current(), 'topic');
+      mq_register_pull
+     ------------------
+[[PDF_PAGE physical=1055 printed=1006]]
+ t
+(1 row)
+
+-- Session 2
+gaussdb=# SELECT mq_send_message('group', 'topic', txid_current(), 'message');
+ mq_send_message
+-----------------
+ t
+(1 row)
+
+-- Session 1
+gaussdb=# SELECT mq_query('group', 'topic');
+ mq_query
+----------
+ message
+(1 row)
+
+gaussdb=# SELECT mq_unregister('group', txid_current(), 'topic');
+ mq_unregister
+---------------
+ t
+(1 row)
+
+gaussdb=# SELECT mq_get_queue();
+             mq_get_queue
+--------------------------------------------
+ {                                +
+       "message_queue":            {       +
+       },                         +
+       "prepare_queue":          {        +
+       },                         +
+       "prepare_request_queue":             {+
+       },                         +
+       "used_transaction_id_list":       []+
+ }
+(1 row)
+
+-- 示例2
+gaussdb=# SELECT mq_register_pull('group', 1, 'topic');
+ mq_register_pull
+------------------
+ t
+(1 row)
+
+gaussdb=# SELECT mq_transaction_processing(1, false, true);
+ mq_transaction_processing
+---------------------------
+ t
+(1 row)
+
+gaussdb=# SELECT mq_clear();
+ mq_clear
+----------
+ t
+(1 row)

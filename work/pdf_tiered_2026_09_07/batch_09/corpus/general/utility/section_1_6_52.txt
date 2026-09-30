@@ -1,0 +1,612 @@
+[[PDF_PAGE physical=1029 printed=980]]
+1.6.52 多租数据库函数
+       ●   gs_reload_pdb_conf(name pdbname)
+           描述：使得指定PDB的配置文件立刻生效。PDB内部仅能指定本PDB。入参可为
+           空。当为空时，仅能在PDB内部调用并生效此PDB的配置文件。
+           返回值类型：boolean
+           备注：如果成功，函数返回true，否则返回false。仅限sysadmin及以上权限的用
+           户可以执行。
+       ●   gs_resplan_cgroup_info()
+           描述：功能等同于gs_cgroup -p，返回多租CGroup的架构与份额明细。CDB查看
+           所有数据，PDB只能看本PDB范围内的数据。该返回在主机返回CGroup框架的
+           CGroup（DefaultClass、DefaultBackend、Vacuum等）与PDB的Class_xxx控制
+           组，函数备机执行会报错。
+           返回值类型：setof record
+            名称                        类型              描述
+
+            cgroup_name               text            控制组的名称。
+
+            shares                    bigint          控制组分配的CPU资源配额。
+
+            quota                     bigint          控制组可以使用CPU资源的最大值。
+
+            cpuset                    text            CPU限额分配。
+
+            cpu_usage                 real            控制组CPU使用总时间。
+
+            relpath                   text            控制组的相对路径。
+
+            task_num                  bigint          控制组的线程数。
+
+            group_id                  bigint          线程组ID。
+
+            is_disable                boolean         控制组是否不可用。
+
+
+
+           示例：
+           gaussdb=# select * FROM GS_RESPLAN_CGROUP_INFO();
+                cgroup_name          | shares | quota | cpuset | cpu_usage |           relpath            | task_num |
+           group_id | is_disable
+           ------------------------+--------+-------+--------+-----------+--------------------------------+----------
+           +----------+------------
+[[PDF_PAGE physical=1030 printed=981]]
+      Default_Class      | 2048 | -1 | 0-15 |     0 | CDB:omm/Default_Class     |   17 |     0|f
+      Backend           | 12288 | -1 | 0-15 | 4.90895 | CDB:omm/Backend           |   0|     0|f
+      Backend/DefaultBackend | 81920 | -1 | 0-15 | 4.91018 | CDB:omm/Backend/DefaultBackend
+    |     44 |      0|f
+      Backend/Vacuum        | 20480 | -1 | 0-15 |     0 | CDB:omm/Backend/Vacuum      |    0
+    |      0|f
+    (4 rows)
+
+
+●   gs_resplan_stat_info(view_type integer)
+    描述：返回当前CDB下资源计划的实时数据的统计结果，包含CPU、内存、I/O指
+    标。可以获取包含实时数据、最近一分钟的统计数据以及每分钟的统计数据历史
+    明细（最长一小时）。
+    CDB可查看所有数据，而PDB只能看本PDB范围内的数据。函数备机执行会报错。
+    当发生资源变更的时候，会存在used_shared_memory统计的共享缓存从0开始重
+    新计数。随着业务运行，业务申请新的共享缓存used_shared_memory增加，统
+    计恢复正常，期间对性能无影响。
+    入参说明：
+     名称               类型           输    取      描述
+                                   入/   值
+                                   输    范
+                                   出    围
+
+     view_type        integer      输    [0,    0：返回实时统计数据。
+                                   入    1,2    1：返回最近一次的统计数据。
+                                        ]
+                                               2：返回最近1小时的统计数据历史。
+
+
+
+
+    返回值类型：setof record
+     名称                  类型             描述
+
+     plan_name           text           end_time时刻正在生效的资源计划的名称。
+
+     pdb_name            name           如果是CDB显示"cdb"，如果是PDB显示PDB的
+                                        name。
+
+     begin_time          timesta        采集开始时间，实时统计时，返回空。
+                         mp with
+                         time
+                         zone
+
+     end_time            timesta        采集结束时间，实时统计时，返回now。
+                         mp with
+                         time
+                         zone
+
+     interval_msec       integer        此条统计的间隔时间，单位是ms（毫秒）。
+
+     cpu_consumed        bigint         此段时间内的CPU使用时间，多个核的使用时间
+     _time                              累加，单位是ms（毫秒）。
+[[PDF_PAGE physical=1031 printed=982]]
+ 名称                        类型               描述
+
+ avg_cpu_utiliza           double           CPU使用率，计算公式为：
+ tion                      precision        cpu_consumed_time / interval_msec / CDB的
+                                            CPU核数。
+
+ iops                      double           此段时间内的iops，实时统计时返回上一秒的
+                           precision        iops，周期统计时返回周期内的iops。
+
+ used_dynamic_             integer          end_time时刻使用的动态内存，单位kB。
+ memory
+
+ used_shared_              integer          end_time时刻使用的共享缓存，单位kB。
+ memory
+
+ used_connecti             integer          当前时刻使用的连接数。
+ ons
+
+ logical_decode            integer          end_time时刻逻辑解码任务使用的动态内存，单
+ r_used_memor                               位kB。
+ y
+
+
+
+示例：
+gaussdb=# SELECT * FROM GS_RESPLAN_STAT_INFO(0);
+      plan_name         | pdb_name | begin_time |            end_time           | interval_msec |
+cpu_consumed_time | avg_cpu_utilization | iops | used_dynamic_memory | used_shared_memory |
+used_connections | logical_decoder_used_memory
+-----------------------+----------+------------+------------------------------+---------------+-------------------
++---------------------+------+---------------------+--------------------+------------------
++-----------------------------
+  default_resource_plan | cdb       |         | 2024-11-11 18:03:05.37086+08 |                  |         50632
+|                | 0|               8192 |            7368 |              1|                      0
+(1 row)
+
+gaussdb=# SELECT * FROM gs_resplan_stat_info(1);
+      plan_name         | pdb_name |          begin_time           |        end_time            | interval_msec |
+cpu_consumed_time | avg_cpu_utilization | iops | used_dynamic_memory | used_shared_memory |
+used_connections | logical_d
+ecoder_used_memory
+-----------------------+----------+-------------------------------+-------------------------------+---------------
++-------------------+---------------------+------+---------------------+--------------------+------------------
++----------
+-------------------
+  default_resource_plan | cdb       | 2024-11-11 18:02:50.335556+08 | 2024-11-11 18:03:00.339938+08
+|       10005 |             421 | .262993503248376 | 0 |                      7168 |             7368 |
+1|
+             0
+(1 row)
+
+gaussdb=# SELECT * FROM gs_resplan_stat_info(2);
+      plan_name         | pdb_name |          begin_time           |        end_time            | interval_msec |
+cpu_consumed_time | avg_cpu_utilization | iops | used_dynamic_memory | used_shared_memory |
+used_connections | logical_d
+ecoder_used_memory
+-----------------------+----------+-------------------------------+-------------------------------+---------------
++-------------------+---------------------+------+---------------------+--------------------+------------------
++----------
+-------------------
+  default_resource_plan | cdb       | 2024-11-11 17:53:00.138608+08 | 2024-11-11 17:53:10.141111+08
+|       10003 |             428 |    .26741977406778 | 0 |                   5120 |             7368 |
+1|
+             0
+[[PDF_PAGE physical=1032 printed=983]]
+  default_resource_plan | cdb     | 2024-11-11 17:53:10.141111+08 | 2024-11-11 17:53:20.144848+08
+|       10004 |           448 |   .279888044782087 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:53:20.144848+08 | 2024-11-11 17:53:30.147538+08
+|       10003 |           519 |   .324277716684994 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:53:30.147538+08 | 2024-11-11 17:53:40.150645+08
+|       10004 |           435 |   .271766293482607 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:53:40.150645+08 | 2024-11-11 17:53:50.152916+08
+|       10003 |           458 |   .286164150754774 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:53:50.152916+08 | 2024-11-11 17:54:00.155912+08
+|       10003 |           420 |   .262421273617915 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:54:00.155912+08 | 2024-11-11 17:54:10.159175+08
+|       10004 |           419 |   .261770291883247 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:54:10.159175+08 | 2024-11-11 17:54:20.16135+08
+|       10003 |           458 |   .286164150754774 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:54:20.16135+08 | 2024-11-11 17:54:30.163531+08
+|       10003 |           520 |   .324902529241228 | 0 |            5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:54:30.163531+08 | 2024-11-11 17:54:40.165763+08
+|       10003 |           563 |   .351769469159252 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:54:40.165763+08 | 2024-11-11 17:54:50.168769+08
+|       10004 |           421 |   .263019792083167 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:54:50.168769+08 | 2024-11-11 17:55:00.171637+08
+|       10003 |           458 |   .286164150754774 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:55:00.171637+08 | 2024-11-11 17:55:10.174908+08
+|       10004 |           425 |   .265518792483007 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:55:10.174908+08 | 2024-11-11 17:55:20.179252+08
+|       10005 |           428 |   .267366316841579 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:55:20.179252+08 | 2024-11-11 17:55:30.183558+08
+|       10005 |           545 |   .340454772613693 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:55:30.183558+08 | 2024-11-11 17:55:40.18557+08
+|       10003 |           436 |   .272418274517645 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:55:40.18557+08 | 2024-11-11 17:55:50.189828+08
+|       10005 |           412 |   .257371314342829 | 0 |            5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:55:50.189828+08 | 2024-11-11 17:56:00.193059+08
+|       10004 |           432 |   .269892043182727 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:56:00.193059+08 | 2024-11-11 17:56:10.195868+08
+[[PDF_PAGE physical=1033 printed=984]]
+|      10003 |           504 |    .314905528341498 |   0|          5120 |          7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:56:10.195868+08 | 2024-11-11 17:56:20.199766+08
+|       10004 |           434 |   .271141543382647 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:56:20.199766+08 | 2024-11-11 17:56:30.203198+08
+|       10004 |           514 |   .321121551379448 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:56:30.203198+08 | 2024-11-11 17:56:40.205889+08
+|       10003 |           486 |   .303658902329301 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:56:40.205889+08 | 2024-11-11 17:56:50.207217+08
+|       10002 |           425 |   .265571885622875 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:56:50.207217+08 | 2024-11-11 17:57:00.210596+08
+|       10004 |           417 |   .260520791683327 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:57:00.210596+08 | 2024-11-11 17:57:10.215004+08
+|       10005 |           446 |   .278610694652674 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:57:10.215004+08 | 2024-11-11 17:57:20.219176+08
+|       10005 |           418 |    .26111944027986 | 0 |            5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:57:20.219176+08 | 2024-11-11 17:57:30.222697+08
+|       10004 |           499 |   .311750299880048 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:57:30.222697+08 | 2024-11-11 17:57:40.226854+08
+|       10005 |           439 |    .27423788105947 | 0 |            5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:57:40.226854+08 | 2024-11-11 17:57:50.2311+08
+|       10005 |           452 |   .282358820589705 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:57:50.2311+08 | 2024-11-11 17:58:00.235139+08
+|       10005 |           417 |   .260494752623688 | 0 |            5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:58:00.235139+08 | 2024-11-11 17:58:10.235896+08
+|       10001 |           424 |   .264973502649735 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:58:10.235896+08 | 2024-11-11 17:58:20.239277+08
+|       10004 |           458 |   .286135545781687 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:58:20.239277+08 | 2024-11-11 17:58:30.242792+08
+|       10004 |           510 |   .318622550979608 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:58:30.242792+08 | 2024-11-11 17:58:40.246556+08
+|       10004 |           434 |   .271141543382647 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:58:40.246556+08 | 2024-11-11 17:58:50.249977+08
+|       10004 |           449 |   .280512794882047 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:58:50.249977+08 | 2024-11-11 17:59:00.253508+08
+|       10004 |           430 |   .268642542982807 | 0 |             5120 |         7368 |
+[[PDF_PAGE physical=1034 printed=985]]
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:59:00.253508+08 | 2024-11-11 17:59:10.257666+08
+|       10005 |           415 |   .259245377311344 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:59:10.257666+08 | 2024-11-11 17:59:20.261004+08
+|       10004 |           424 |   .264894042383047 | 0 |             5120 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:59:20.261004+08 | 2024-11-11 17:59:30.265189+08
+|       10005 |          1267 |    .791479260369815 | 0 |            7168 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:59:30.265189+08 | 2024-11-11 17:59:40.26769+08
+|       10003 |          2676 |    1.67199840047986 | 0 |            7168 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:59:40.26769+08 | 2024-11-11 17:59:50.270465+08
+|       10003 |           441 |    .27554233729881 | 0 |            7168 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 17:59:50.270465+08 | 2024-11-11 18:00:00.274369+08
+|       10004 |           469 |   .293007796881248 | 0 |             7168 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 18:00:00.274369+08 | 2024-11-11 18:00:10.277781+08
+|       10004 |           437 |   .273015793682527 | 0 |             7168 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 18:00:10.277781+08 | 2024-11-11 18:00:20.28173+08
+|       10004 |           432 |   .269892043182727 | 0 |             7168 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 18:00:20.28173+08 | 2024-11-11 18:00:30.286008+08
+|       10005 |           521 |   .325462268865567 | 0 |            7168 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 18:00:30.286008+08 | 2024-11-11 18:00:40.287632+08
+|       10002 |           465 |   .290566886622675 | 0 |             7168 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 18:00:40.287632+08 | 2024-11-11 18:00:50.292495+08
+|       10005 |           409 |   .255497251374313 | 0 |             7168 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 18:00:50.292495+08 | 2024-11-11 18:01:00.294311+08
+|       10002 |           419 |   .261822635472905 | 0 |             7168 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 18:01:00.294311+08 | 2024-11-11 18:01:10.298553+08
+|       10005 |           467 |   .291729135432284 | 0 |             7168 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 18:01:10.298553+08 | 2024-11-11 18:01:20.301856+08
+|       10004 |           434 |   .271141543382647 | 0 |             7168 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 18:01:20.301856+08 | 2024-11-11 18:01:30.306115+08
+|       10005 |           531 |   .331709145427286 | 0 |             7168 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 18:01:30.306115+08 | 2024-11-11 18:01:40.3094+08
+|       10004 |           478 |   .298630547780888 | 0 |             7168 |         7368 |
+1|
+             0
+  default_resource_plan | cdb     | 2024-11-11 18:01:40.3094+08 | 2024-11-11 18:01:50.313554+08
+|       10005 |           422 |   .263618190904548 | 0 |            7168 |         7368 |
+1|
+[[PDF_PAGE physical=1035 printed=986]]
+                 0
+      default_resource_plan | cdb     | 2024-11-11 18:01:50.313554+08 | 2024-11-11 18:02:00.316731+08
+    |       10004 |           415 |   .259271291483407 | 0 |             7168 |         7368 |
+    1|
+                 0
+      default_resource_plan | cdb     | 2024-11-11 18:02:00.316731+08 | 2024-11-11 18:02:10.320966+08
+    |       10005 |           414 |   .258620689655172 | 0 |             7168 |         7368 |
+    1|
+                 0
+      default_resource_plan | cdb     | 2024-11-11 18:02:10.320966+08 | 2024-11-11 18:02:20.325226+08
+    |       10005 |           449 |   .280484757621189 | 0 |             7168 |         7368 |
+    1|
+                 0
+      default_resource_plan | cdb     | 2024-11-11 18:02:20.325226+08 | 2024-11-11 18:02:30.328873+08
+    |       10004 |           503 |   .314249300279888 | 0 |             7168 |         7368 |
+    1|
+                 0
+      default_resource_plan | cdb     | 2024-11-11 18:02:30.328873+08 | 2024-11-11 18:02:40.332684+08
+    |       10004 |           445 |   .278013794482207 | 0 |             7168 |         7368 |
+    1|
+                 0
+      default_resource_plan | cdb     | 2024-11-11 18:02:40.332684+08 | 2024-11-11 18:02:50.335556+08
+    |       10003 |           479 |   .299285214435669 | 0 |             7168 |         7368 |
+    1|
+                 0
+      default_resource_plan | cdb     | 2024-11-11 18:02:50.335556+08 | 2024-11-11 18:03:00.339938+08
+    |       10005 |           421 |   .262993503248376 | 0 |             7168 |         7368 |
+    1|
+                 0
+    (60 rows)
+
+●   gs_get_pdb_tablespace_location(pdb_id oid in, tablespace_oid oid in)
+    描述：给定pdbid和表空间oid，返回对应的表空间路径。
+    入参说明：
+     名称                   类      输入/输         取值范围                   描述
+                          型      出
+
+     pdb_id               oi     输入           [1, 4095]              PDB的id
+                          d
+
+     tablespace_          oi     输入           [0, 4294967295]        表空间的oid
+     oid                  d
+
+
+
+
+    返回值类型：text
+           说明
+
+         该函数现阶段不建议客户使用，仅供内核功能实现使用。当pdb_id入参不在范围内，会返
+         回NULL；如果传入的pdb_id参数是其他PDB的pdbid，返回空字符串；当执行用户不是
+         SYSADMIN权限用户，返回空字符串；若查询的PDB下没有对应的表空间，则会报错。
+●   get_mtd_user()
+    描述：按照DB和User维度显示所有用户信息；多租场景下，non-PDB调用该函数
+    时返回全部信息，PDB调用该函数时仅返回该PDB相关信息。SYSADMIN以及有
+    MONADMIN权限的用户查询时返回全部数据，其他普通用户查询只返回自己用
+    户数据。
+    返回值类型：setof record
+[[PDF_PAGE physical=1036 printed=987]]
+名称           类型          描述
+
+dbid         oid         数据库标识。
+
+usename      name        用户名。
+
+usesysid     oid         用户的ID。
+
+usecreate    boolean     用户是否可以创建数据库。
+db                       ● t（true）：表示是。
+                         ● f（false）：表示否。
+
+usesuper     boolean     用户是否是拥有最高权限的初始系统管理员。
+                         ● t（true）：表示是。
+                         ● f（false）：表示否。
+
+usecatup     boolean     用户是否可以直接更新系统表。只有usesysid=10
+d                        的初始系统管理员拥有此权限。其他用户无法获得
+                         此权限。
+                         ● t（true）：表示是。
+                         ● f（false）：表示否。
+
+userepl      boolean     用户是否可以复制数据流。
+                         ● t（true）：表示是。
+                         ● f（false）：表示否。
+
+passwd       text        密文存储后的用户密码，始终为********。
+
+valbegin     timestamp   账户的有效开始时间；如果没有设置有效开始时
+             with time   间，则为NULL。
+             zone
+
+valuntil     timestamp   账户的有效结束时间；如果没有设置有效结束时
+             with time   间，则为NULL。
+             zone
+
+respool      name        用户所在的资源池。
+
+parent       oid         父用户OID。
+
+spacelimi    text        永久表存储空间限额，单位KB。
+t
+
+useconfig    text        运行时配置项的默认值。参考
+                         PG_DB_ROLE_SETTING.setconfig。
+
+nodegrou     name        用户关联的逻辑数据库名称，如果该用户没有管理
+p                        逻辑数据库，则该字段为空。
+
+tempspac     text        临时表存储空间限额，单位KB。
+elimit
+
+spillspace   text        算子落盘空间限额，单位KB。
+limit
+[[PDF_PAGE physical=1037 printed=988]]
+     名称              类型                   描述
+
+     usemonit        boolean              用户是否是监控管理员。
+     oradmin                              ● t（true）：表示是。
+                                          ● f（false）：表示否。
+
+     useoperat       boolean              用户是否是运维管理员。
+     oradmin                              ● t（true）：表示是。
+                                          ● f（false）：表示否。
+
+     usepolicy       boolean              用户是否是安全策略管理员。
+     admin                                ● t（true）：表示是。
+                                          ● f（false）：表示否。
+
+
+●   get_instr_sql_count_info()
+    描述：按照DB和User维度提供当前节点中用户执行的SELECT、UPDATE、
+    INSERT、DELETE、MERGE INTO语句的计数结果。DDL语句包括
+    “TRUNCATE”、“CLUSTER”、“VACUUM”、“ANALYZE”、“CREATE”
+    （不包括“CREATE ROLE”和“CREATE USER”）、“DROP”（不包括
+    “DROP ROLE”和“DROP USER”）、“ALTER”（不包括“ALTER ROLE”、
+    “ALTER USER”、“ALTER DEFAULT PRIVILEGES”和“ALTER SESSION”）、
+    “REINDEX”、“COMMENT”、“SECURITY LABEL ON”、“PURGE”、
+    “TIMECAPSULE”、“REFRESH”、“IMPDP”和“EXPDP”语句。DML语句
+    包括“SELECT”、“UPDATE”、“INSERT”、“DELETE”、“MERGE”、
+    “PREPARE”、“EXPLAIN”、“LOCK”、“COPY”、“ANONYMOUS”、
+    “DELTA”、“EXECUTE”、“MOVE”、“FETCH”、“CLOSE”、
+    “DEALLOCATE”、“DECLARE”、“CURSOR”和“LOAD”语句。DCL语句包
+    括“SHOW”、“CREATE ROLE”、“CREATE USER”、“DROP ROLE”、
+    “DROP USER”、“ALTER ROLE”、“ALTER USER”、“ALTER DEFAULT
+    PRIVILEGES”、“GRANT”、“REVOKE”、“REASSIGN”、“SET”、
+    “RESET”和“ALTER SESSION”语句。多租场景下，non-PDB调用该函数时返
+    回全部信息，PDB调用该函数时仅返回该PDB相关信息。
+    返回值类型：record
+●   get_instr_db_rt_percentile()
+    描述：按照DB维度显示SQL响应时间P80、P95分布信息。如果在PDB中执行该函
+    数，仅返回当前PDB的SQL响应时间P80、P95分布信息。
+    返回值类型：record
+    示例：
+    -- 在CDB中查询
+    gaussdb=# select * from get_instr_db_rt_percentile();
+       DBID | P80 | P95
+    ------------+------+------
+         14539 | 7375 | 7547
+     1255163054 | 3909 | 6558
+    (2 rows)
+
+    -- 在PDB中查询
+    gaussdb=# \c pdb1
+    pdb1=# select * from get_instr_db_rt_percentile();
+       DBID | P80 | P95
+    ------------+------+------
+[[PDF_PAGE physical=1038 printed=989]]
+     1255163054 | 6220 | 7358
+    (1 row)
+
+●   get_instr_user_login_info()
+    描述：按照DB和User维度显示当前节点的用户登录、登出次数信息，查询该函数
+    必须具有SYSADMIN或者MONADMIN权限。如果在PDB中执行该函数，仅返回当
+    前PDB的登录、登出信息。
+    返回值类型：record
+    示例：
+    -- 在CDB中查询
+    gaussdb=# select * from get_instr_user_login_info();
+     node_name | dbid | user_id | login_counter | logout_counter
+    -----------+------------+---------+---------------+----------------
+     datanode |       14539 |      10 |       82183 |         82182
+     datanode | 1255163054 |          10 |       39932 |         39932
+    (2 rows)
+
+    -- 在PDB中查询
+    gaussdb=# \c pdb1
+    pdb1=# select * from get_instr_user_login_info();
+     node_name | dbid | user_id | login_counter | logout_counter
+    -----------+------------+---------+---------------+----------------
+     datanode | 1255163054 |          10 |       39933 |         39932
+    (1 row)
+
+●   gs_resplan_shared_memory_info()
+    描述：显示所有可用资源池共享缓存的详细信息。此系统函数在GUC参数
+    “enable_mtd”为“on”时才有效，且仅支持在主机的CDB内用系统管理员查
+    看。
+    返回值类型：setof record
+     名称                             类        描述
+                                    型
+
+     respool_oid                    oid      资源池OID。
+
+     allocated_shared_m             bigi     已经分配的共享内存大小，单位KB。
+     emory                          nt
+
+     respool_group_shar             bigi     各个资源池在共享内存实际占用的内存大小，单
+     ed_memory                      nt       位KB。
+
+     avaliable_shared_m             bigi     各个资源池剩余可使用的共享内存大小，单位
+     emory                          nt       KB。
+
+     real_used_shared_m             bigi     各个资源池实际使用的共享内存大小，单位KB。
+     emory                          nt
+
+     shared_memory_hit              bigi     从共享内存中找到buffer的命中率。
+     s_per                          nt
+
+
+
+    示例：
+    gaussdb=# select * from gs_resplan_shared_memory_info();
+     respool_oid | allocated_shared_memory | respool_group_shared_memory | avaliable_shared_memory |
+    real_used_shared_memory | shared_memory_hits_per
+    -------------+-------------------------+-----------------------------+-------------------------
+    +-------------------------+------------------------
+[[PDF_PAGE physical=1039 printed=990]]
+      10 |              8640 |                 8640 |             1048568 |                -1
+|             100
+(1 row)
+
+-- 创建pdb1后，联查gs_pdb和gs_resplan_shared_memory_info，获取PDB的资源池信息
+gaussdb=# select b.name,a.* from gs_resplan_shared_memory_info() as a LEFT JOIN gs_pdb as b on
+a.respool_oid=b.grp_respool_oid where name = 'pdb1';
+ name | respool_oid | allocated_shared_memory | respool_group_shared_memory |
+avaliable_shared_memory | real_used_shared_memory | shared_memory_hits_per
+------+-------------+-------------------------+-----------------------------+-------------------------
++-------------------------+------------------------
+ pdb1 |     155648 |               1048576 |                   1048576 |                459400 |
+589176 |                 100
+(1 row)

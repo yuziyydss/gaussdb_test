@@ -1,0 +1,309 @@
+[[PDF_PAGE physical=161 printed=112]]
+1.3.22 数组类型
+        数组类型可以用来存储具有相同类型的若干元素。数组类型使用和相关函数请参见数
+        组。
+[[PDF_PAGE physical=162 printed=113]]
+数组类型的定义
+        数组类型一般通过在数组元素的数据类型名称后面加上方括号“[]”进行定义。
+        示例一，创建一个名为sal_emp的表，拥有一个表示雇员姓名类型为text的列
+        （name），一个表示雇员季度工资的数组且元素类型为integer的列
+        （pay_by_quarter），一个表示雇员手机号码的数组且元素类型为varchar(11)的列
+        （phone_numbers）：
+        gaussdb=# CREATE TABLE sal_emp (
+          name        text,
+          pay_by_quarter integer[],
+          phone_numbers varchar(11)[]
+        );
+        gaussdb=# DROP TABLE sal_emp;
+
+        示例二，以其他方式定义一个数组类型，具体定义方法和定义行为参考示例中的注
+        释：
+        gaussdb=# CREATE TABLE sal_emp (
+          name         text,
+          pay_by_quarter1 integer[][],   -- int类型的二维数组。
+          pay_by_quarter2 integer[3],    -- int类型的一维数组，尺寸大小为3。
+          pay_by_quarter3 integer[3][3], -- int类型的二维数组，每一维尺寸大小为3。
+          pay_by_quarter4 integer ARRAY, -- int类型的一维数组。
+          pay_by_quarter5 integer ARRAY[3] -- int类型的一维数组，尺寸大小为3。
+        );
+        gaussdb=# DROP TABLE sal_emp;
+
+              说明
+
+             ● 数组的维数定义功能并不生效（不影响运行时的行为），建议采用示例一的方式定义数组类
+               型，不建议使用多维数组数据。
+             ● 数组的尺寸定义功能并不生效（不影响运行时的行为），建议采用示例一的方式定义数组类
+               型。
+             ● 允许的数组数据维数最大为6。
+             ● 数组元素个数限制如下：
+                 ●     元素个数最大为134217727个。
+                 ●     所有元素加起来最大存储空间不超过1GB - 1字节，即1073741823字节。
+
+
+数组构造器
+        数组构造器是用于构建数组值的表达式。简单的数组构造器由关键词ARRAY、“[”、
+        数组元素值的表达式列表（用逗号分隔）以及最后的“]”组成。示例如下：
+        gaussdb=# SELECT ARRAY[1, 2, 3 + 4];
+          array
+        ---------
+         {1,2,7}
+        (1 row)
+
+        默认情况下，数组的元素类型是成员表达式的公共类型，遵循与UNION或CASE结构
+        （详情请参见UNION，CASE和相关构造）相同的类型推导规则。可以通过显式类型
+        转换将数组构造为所需的数据类型，示例如下：
+        gaussdb=# SELECT ARRAY[1, 2, 3]::varchar[];
+          array
+        ---------
+         {1,2,3}
+        (1 row)
+
+        gaussdb=# SELECT ARRAY['a', 'b', 'c'];
+[[PDF_PAGE physical=163 printed=114]]
+  array
+---------
+ {a,b,c}
+(1 row)
+
+gaussdb=# SELECT ARRAY['a', 'b', 'c']::int[];
+ERROR: invalid input syntax for integer: "a"
+LINE 1: SELECT ARRAY['a', 'b', 'c']::int[];
+              ^
+CONTEXT: referenced column: array
+
+gaussdb=# SELECT ARRAY[1::int, 'b', 'c'];
+ERROR: invalid input syntax for integer: "b"
+LINE 1: SELECT ARRAY[1::int, 'b', 'c'];
+                   ^
+CONTEXT: referenced column: array
+
+除预置的基础类型外，record类型和表类型也可以定义其数组类型，示例：
+gaussdb=# CREATE TYPE rec IS (c1 int, c2 int);
+gaussdb=# SELECT ARRAY[(1, 1), (2, 2)]::rec[];
+      array
+-------------------
+ {"(1,1)","(2,2)"}
+(1 row)
+
+gaussdb=# SELECT ARRAY[rec(1, 1), rec(2, 2)];
+      array
+-------------------
+ {"(1,1)","(2,2)"}
+(1 row)
+
+gaussdb=# CREATE TABLE tab (c1 int, c2 int);
+gaussdb=# SELECT ARRAY[(1, 1), (2, 2)]::tab[];
+      array
+-------------------
+ {"(1,1)","(2,2)"}
+(1 row)
+
+gaussdb=# DROP TYPE rec;
+gaussdb=# DROP TABLE tab;
+
+由于数组必须具有明确的类型，因此在构造空数组时，必须明确指定所需类型，示
+例：
+gaussdb=# SELECT ARRAY[]::int[];
+ array
+-------
+ {}
+(1 row)
+
+也可以从子查询的结果中构造一个数组。此时，数组构造器由关键字ARRAY后拼接用
+圆括号包裹的子查询构成，子查询必须只返回一个单独的字段。生成的一维数组将为
+子查询里每行结果生成一个元素，元素类型匹配子查询的输出字段。示例：
+gaussdb=# SELECT ARRAY(SELECT generate_series(1, 6));
+    array
+---------------
+ {1,2,3,4,5,6}
+(1 row)
+
+多维数组值可以通过嵌套数组构造器的方法创建。内层构造器中的ARRAY关键字可以
+省略。比如，以下两个示例将产生相同结果：
+gaussdb=# SELECT ARRAY[ARRAY[1,2], ARRAY[3,4]];
+    array
+---------------
+ {{1,2},{3,4}}
+(1 row)
+[[PDF_PAGE physical=164 printed=115]]
+      gaussdb=# SELECT ARRAY[[1,2], [3,4]];
+          array
+      ---------------
+       {{1,2},{3,4}}
+      (1 row)
+
+             说明
+
+           ● 同层的内层构造器必须生成同维的子数组。
+           ● 任何应用于外层ARRAY构造器的类型转换将自动应用到所有内层构造器。
+
+
+数组类型的字符串输入
+      要把一个数组值写成一个文字常数（常量输入），将元素值用花括号括起并用逗号分
+      隔。因此，一个数组常量的一般格式如下：
+      '{ val1 delim val2 delim ... }'
+
+      上述格式中的delim是元素类型的分隔符，记录在pg_type表的typdelim列中。每个val
+      可以是数组元素类型的一个常量，也可以是一个子数组。示例如下：
+      gaussdb=# SELECT '{1, 2, 3}'::int[] AS RESULT;
+       result
+      ---------
+       {1,2,3}
+      (1 row)
+
+      gaussdb=# SELECT '{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}'::int[] AS RESULT;
+              result
+      ---------------------------
+       {{1,2,3},{4,5,6},{7,8,9}}
+      (1 row)
+
+      在任意元素值周围可以使用双引号，并且在元素值包含逗号或花括号等一些特殊字符
+      时必须使用双引号。
+      如下示例表示有一个varchar类型的数组，且一共有7个varchar元素，元素依次为：
+
+      ●     包含一个空格的字符串。
+      ●     值为“NULL”的字符串。
+      ●     值为NULL的字符串。
+      ●     包含一个\字符的字符串。
+      ●     包含一个{字符的字符串。
+      ●     包含一个}字符的字符串。
+      ●     包含一个,字符的字符串。
+      gaussdb=# SELECT '{" ", "NULL", null, "\\", "{", "}", ","}'::varchar[] AS RESULT;
+                  result
+      ------------------------------------
+       {" ","NULL",NULL,"\\","{","}",","}
+      (1 row)
+[[PDF_PAGE physical=165 printed=116]]
+             说明
+
+           ● 对于数组字符串常量输入，如果数组元素值是空字符串或者包含花括号、分隔符、双引号、
+             反斜杠、空白或者匹配关键字NULL，则这些元素需要使用双引号包裹，在元素值中包含的
+             双引号和反斜杠时，需要额外添加一个反斜杠。
+           ● 关键字NULL不区分大小写。
+           ● 输入会自动跳过没有使用双引号的空白。
+           ● 通常不建议使用字符串常量的方式创建数组，推荐使用ARRAY构造器。
+
+
+数组类型的字符串输出
+      一个数组值的输出表现形式由该数组元素类型的输出再加上一些标明该数组结构的修
+      饰组成。这些修饰由围绕在数组值周围的花括号（“{”和“}”）加上相邻项之间的
+      分隔字符组成。在多维数组里， 每个维都有自己级别的花括号，并且在同级相邻的花
+      括号项之间包含分隔符。
+      数组类型数据包含特殊字符（下述说明中的字符），字符串输出示例：
+      gaussdb=# SELECT ARRAY['{', '}', 'hello, world', '"', '\', ' ', NULL] AS RESULT;
+                      array
+      ----------------------------------------------
+       {"{","}","hello, world","\"","\\"," ",NULL}
+      (1 row)
+
+
+             说明
+
+           对于数组字符串常量输出，当数组元素值是空字符串，或者包含花括号、分隔符、双引号、反斜
+           杠、空白，或者元素为NULL时，这些元素输出时会自动包裹在双引号中，双引号和反斜杠则会
+           通过反斜杠转义并额外输出一个反斜杠。与字符串常量输入相对应。
+
+
+数组类型的使用
+      数组类型的使用示例如下：
+      -- 创建有数组类型列的表,并插入一些数据。
+      gaussdb=# CREATE TABLE orders (
+        name varchar,
+        items varchar[]
+      );
+      gaussdb=# INSERT INTO orders VALUES('a', ARRAY['苹果', '橘子', '梨']);
+      gaussdb=# INSERT INTO orders VALUES('b', ARRAY['矿泉水', '可乐', '雪碧']);
+      gaussdb=# INSERT INTO orders VALUES('c', ARRAY['鼠标', '键盘', '耳机']);
+      gaussdb=# INSERT INTO orders VALUES('d', '{白菜, 土豆, 茄子}');
+
+      -- 查询数据。
+      gaussdb=# SELECT * FROM orders ORDER BY name;
+       name |       items
+      ------+--------------------
+       a | {苹果,橘子,梨}
+       b | {矿泉水,可乐,雪碧}
+       c | {鼠标,键盘,耳机}
+       d | {白菜,土豆,茄子}
+      (4 rows)
+
+      -- 访问数组元素。
+      gaussdb=# SELECT items[1] FROM orders ORDER BY name;
+       items
+      --------
+       苹果
+       矿泉水
+       鼠标
+       白菜
+[[PDF_PAGE physical=166 printed=117]]
+(4 rows)
+
+-- 访问元素超过范围或者访问下标为NULL时会返回NULL。
+gaussdb=# SELECT items[4] FROM orders ORDER BY name;
+ items
+-------
+
+
+
+
+(4 rows)
+
+gaussdb=# SELECT items[null] FROM orders ORDER BY name;
+ items
+-------
+
+
+
+
+(4 rows)
+
+-- 访问子数组。
+gaussdb=# SELECT items[1:2] FROM orders ORDER BY name;
+    items
+---------------
+ {苹果,橘子}
+ {矿泉水,可乐}
+ {鼠标,键盘}
+ {白菜,土豆}
+(4 rows)
+
+-- 更新整个数组。
+gaussdb=# UPDATE orders SET items = ARRAY['香蕉', '西瓜', '草莓'] WHERE name = 'a';
+gaussdb=# SELECT items FROM orders WHERE name = 'a';
+     items
+------------------
+ {香蕉,西瓜,草莓}
+(1 row)
+
+-- 更新数组的元素。
+gaussdb=# UPDATE orders SET items[1] = '芒果' WHERE name = 'a';
+gaussdb=# SELECT items FROM orders WHERE name = 'a';
+     items
+------------------
+ {芒果,西瓜,草莓}
+(1 row)
+
+-- 更新数组的元素片段。
+gaussdb=# UPDATE orders SET items[1:2] = ARRAY['电脑', '手机'] WHERE name = 'c';
+gaussdb=# SELECT items FROM orders WHERE name = 'c';
+     items
+------------------
+ {电脑,手机,耳机}
+(1 row)
+
+-- 添加数组元素，所有位于原数组最后一个元素和这个新元素之间的未赋值元素都将设置为NULL。
+gaussdb=# UPDATE orders SET items[4] = '显示器' WHERE name = 'c';
+gaussdb=# SELECT items FROM orders WHERE name = 'c';
+        items
+-------------------------
+ {电脑,手机,耳机,显示器}
+(1 row)
+
+gaussdb=# UPDATE orders SET items[6] = '显示器2' WHERE name = 'c';
+gaussdb=# SELECT items FROM orders WHERE name = 'c';
+             items
+--------------------------------------
+ {电脑,手机,耳机,显示器,NULL,显示器2}
+(1 row)
+[[PDF_PAGE physical=167 printed=118]]
+-- 删除表。
+gaussdb=# DROP TABLE orders;

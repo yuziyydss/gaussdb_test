@@ -1,0 +1,139 @@
+[[PDF_PAGE physical=1056 printed=1007]]
+1.6.59 失效重编译函数
+       ●   transform_view_dep_source()
+           描述：刷新系统表GS_DEP_SOURCE的source字段。即将视图定义语句中SELECT
+           *的星号扩展；将视图创建时对象使用的schema补充写入；刷新视图依赖关系。
+           该函数仅支持管理员用户调用。
+           参数：无
+           返回值类型：void
+       ●   gs_compile_schema(schema_name in varchar2 default null, compile_all in
+           boolean default false, retry_times in int default 10)
+           描述：重编译指定命名空间中的包、函数、存储过程和视图。
+           参数：参数说明如表1-298所示。
+           返回值类型：boolean，true表示重编译成功，false表示重编译失败。
+
+           表 1-298 gs_compile_schema 参数说明
+            参数            类型      入      是否可     描述
+                                  参/     以为空
+                                  出参
+
+            schema_nam    VARC    IN     是       命名空间名称。
+            e             HAR2
+
+            compile_all   BOO     IN     是       是否对全部对象进行重编译，包括当
+                          LEAN                   前处于有效状态的包、函数、存储过
+                                                 程和视图。
+                                                 ● false：编译PG_OBJECT表中失效
+                                                   状态的包、函数、存储过程和视
+                                                   图。
+                                                 ● true：编译PG_OBJECT表中所有的
+                                                   包、函数、存储过程和视图。
+
+            retry_times   INT     IN     是       重编译失败后重试次数。
+
+
+
+
+           示例：
+[[PDF_PAGE physical=1057 printed=1008]]
+-- 开启失效重编译参数。
+gaussdb=# SET ddl_invalid_mode='invalid';
+gaussdb=# SET enable_view_invalidation='on';
+
+-- 创建schema、表，函数依赖表，视图依赖函数。
+gaussdb=# DROP SCHEMA IF EXISTS tesch CASCADE;
+gaussdb=# CREATE SCHEMA tesch;
+gaussdb=# SET current_schema='tesch';
+gaussdb=# DROP TABLE IF EXISTS tesch.tetab1 CASCADE;
+gaussdb=# DROP FUNCTION IF EXISTS tesch.tefunc1;
+gaussdb=# DROP VIEW IF EXISTS tesch.teview1;
+gaussdb=# CREATE TABLE tesch.tetab1(a int,b int);
+gaussdb=# CREATE OR REPLACE FUNCTION tesch.tefunc1(param1 tesch.tetab1.a%type) RETURN
+INTEGER
+AS
+var1 tesch.tetab1%rowtype;
+BEGIN
+RETURN 1;
+END;
+/
+NOTICE: type reference tesch.tetab1.a%TYPE converted to integer
+CREATE FUNCTION
+gaussdb=# CREATE OR REPLACE VIEW tesch.teview1 AS SELECT tesch.tefunc1(10) FROM dual;
+
+-- 变更表删除字段。
+gaussdb=# ALTER TABLE tesch.tetab1 DROP COLUMN a;
+
+-- 查询对象有效性。
+gaussdb=# SELECT c.relname, o.valid FROM pg_catalog.pg_object o JOIN pg_catalog.pg_class c ON
+c.oid = o.object_oid WHERE c.relname = 'teview1';
+ relname | valid
+---------+-------
+ teview1 | f
+(1 row)
+
+gaussdb=# SELECT proname,valid FROM pg_catalog.pg_object obj JOIN pg_catalog.pg_proc proc ON
+obj.object_oid = proc.oid AND proname = 'tefunc1';
+ proname | valid
+---------+-------
+ tefunc1 | f
+(1 row)
+
+-- 恢复表删除字段。
+gaussdb=# ALTER TABLE tesch.tetab1 ADD COLUMN a INT;
+-- 重编译tesch命名空间中的函数和视图对象。
+gaussdb=# CALL pg_catalog.gs_compile_schema('tesch', true, 1);
+NOTICE: type reference tesch.tetab1.a%TYPE converted to integer
+CONTEXT: SQL statement "alter function tesch.tefunc1 compile;"
+PL/pgSQL function pkg_util.gs_compile_schema(character varying,boolean,integer) line 80 at
+EXECUTE statement
+referenced column: gs_compile_schema
+SQL statement "select pkg_util.gs_compile_schema(:schema_name, :compile_all, :retry_times);"
+PL/pgSQL function gs_compile_schema(character varying,boolean,integer) line 24 at EXECUTE
+statement
+INFO: The number of executions is 1
+CONTEXT: referenced column: gs_compile_schema
+SQL statement "select pkg_util.gs_compile_schema(:schema_name, :compile_all, :retry_times);"
+PL/pgSQL function gs_compile_schema(character varying,boolean,integer) line 24 at EXECUTE
+statement
+INFO: failed
+CONTEXT: referenced column: gs_compile_schema
+SQL statement "select pkg_util.gs_compile_schema(:schema_name, :compile_all, :retry_times);"
+PL/pgSQL function gs_compile_schema(character varying,boolean,integer) line 24 at EXECUTE
+statement
+INFO: The number of executions is 1
+INFO: successful
+ gs_compile_schema
+-------------------
+ t
+[[PDF_PAGE physical=1058 printed=1009]]
+(1 row)
+
+-- 再次查询对象有效性。
+gaussdb=# SELECT c.relname, o.valid FROM pg_catalog.pg_object o JOIN pg_catalog.pg_class c ON
+c.oid = o.object_oid WHERE c.relname = 'teview1';
+ relname | valid
+---------+-------
+ teview1 | t
+(1 row)
+
+gaussdb=# SELECT proname,valid FROM pg_catalog.pg_object obj JOIN pg_catalog.pg_proc proc ON
+obj.object_oid = proc.oid AND proname = 'tefunc1';
+ proname | valid
+---------+-------
+ tefunc1 | t
+(1 row)
+
+-- 删除视图。
+gaussdb=# DROP VIEW tesch.teview1;
+-- 删除函数。
+gaussdb=# DROP FUNCTION tesch.tefunc1;
+-- 删除表。
+gaussdb=# DROP TABLE tesch.tetab1;
+gaussdb=# RESET current_schema;
+-- 删除schema。
+gaussdb=# DROP SCHEMA tesch CASCADE;
+
+      说明
+
+    该系统函数支持所有兼容模式，推荐使用该新增系统函数替代
+    PKG_UTIL.GS_COMPILE_SCHEMA函数。
