@@ -41,6 +41,7 @@
 | [Core GUC Wave 8-10](CORE_GUC_WAVE8_10_V1.md) | 7.1查看参数/7.2设置参数抽取：6页、23个facts |
 | [Core Logs Wave 8-11](CORE_LOGS_WAVE8_11_V1.md) | 6日志参考抽取：27页、26个facts |
 | [Core Tools Wave 8-12](CORE_TOOLS_WAVE8_12_V1.md) | 5.3数据库连接工具抽取：52页、20个facts |
+| [Core Tools Wave 8-13](CORE_TOOLS_WAVE8_13_V1.md) | 5.5性能监控工具抽取：41页、20个facts |
 | [Core System Management Wave 2B-1](CORE_SYSTEM_ADMIN_WAVE2B1_V1.md) | 1.6.27配置/文件/信号函数细抽取：5页、20个facts |
 | [Core System Management Wave 2B-2](CORE_SYSTEM_ADMIN_WAVE2B2_V1.md) | 1.6.27备份/恢复/容灾控制函数细抽取：21页、30个facts |
 | [Core System Management Wave 2B-3](CORE_SYSTEM_ADMIN_WAVE2B3_V1.md) | 1.6.27容灾查询/快照/对象函数细抽取：12页、20个facts |
@@ -104,16 +105,16 @@
 | [Core Multi-tenant Database Wave 7-3](CORE_MULTITENANT_WAVE7_3_V1.md) | 1.6.52多租数据库配置/资源计划/用户/SQL统计抽取：11页、19个facts |
 | [Core Other System PostgreSQL-compatible List Wave 7-9](CORE_OTHER_SYSTEM_PG_COMPAT_WAVE7_9_V1.md) | 1.6.60其他系统函数第一阶段：兼容PostgreSQL清单抽取：18页、13个facts |
 | [Core Other System Functions Wave 7 Summary](CORE_OTHER_SYSTEM_WAVE7_SUMMARY_V1.md) | 1.6.60其他系统函数Wave 7汇总：57页全覆盖、2个批次、51个facts、4个open questions |
-| [Core Function Extraction Master Summary](CORE_FUNCTION_EXTRACTION_MASTER_SUMMARY_V1.md) | 全函数抽取顶层总账：65个manifest、1716个facts、122个open questions |
-| [Core Function Extraction Master Summary](CORE_FUNCTION_EXTRACTION_MASTER_SUMMARY_V1.md) | 全函数抽取顶层总账：65个manifest、1716个facts、122个open questions |
+| [Core Function Extraction Master Summary](CORE_FUNCTION_EXTRACTION_MASTER_SUMMARY_V1.md) | 全函数抽取顶层总账：66个manifest、1736个facts、123个open questions |
+| [Core Function Extraction Master Summary](CORE_FUNCTION_EXTRACTION_MASTER_SUMMARY_V1.md) | 全函数抽取顶层总账：66个manifest、1736个facts、123个open questions |
 | [Core Other System Internal Functions Wave 7-10](CORE_OTHER_SYSTEM_INTERNAL_WAVE7_10_V1.md) | 1.6.60其他系统函数第二阶段：实现内部功能函数抽取：39页、38个facts |
 | [Core Boundary Page Closure Wave 7-11](CORE_BOUNDARY_WAVE7_11_V1.md) | 边界页补齐：位串/UUID/ROWID/字符集/字符序/系统操作：13页、12个facts |
 | [Core Vector Database Wave 7-2](CORE_VECTOR_WAVE7_2_V1.md) | 1.6.51向量数据库函数/操作符/BM25检索抽取：24页、30个facts |
 | [Core Multi-tenant Database Wave 7-3](CORE_MULTITENANT_WAVE7_3_V1.md) | 1.6.52多租数据库配置/资源计划/用户/SQL统计抽取：11页、19个facts |
 | [Core Other System PostgreSQL-compatible List Wave 7-9](CORE_OTHER_SYSTEM_PG_COMPAT_WAVE7_9_V1.md) | 1.6.60其他系统函数第一阶段：兼容PostgreSQL清单抽取：18页、13个facts |
 | [Core Other System Functions Wave 7 Summary](CORE_OTHER_SYSTEM_WAVE7_SUMMARY_V1.md) | 1.6.60其他系统函数Wave 7汇总：57页全覆盖、2个批次、51个facts、4个open questions |
-| [Core Function Extraction Master Summary](CORE_FUNCTION_EXTRACTION_MASTER_SUMMARY_V1.md) | 全函数抽取顶层总账：65个manifest、1716个facts、122个open questions |
-| [Core Function Extraction Master Summary](CORE_FUNCTION_EXTRACTION_MASTER_SUMMARY_V1.md) | 全函数抽取顶层总账：65个manifest、1716个facts、122个open questions |
+| [Core Function Extraction Master Summary](CORE_FUNCTION_EXTRACTION_MASTER_SUMMARY_V1.md) | 全函数抽取顶层总账：66个manifest、1736个facts、123个open questions |
+| [Core Function Extraction Master Summary](CORE_FUNCTION_EXTRACTION_MASTER_SUMMARY_V1.md) | 全函数抽取顶层总账：66个manifest、1736个facts、123个open questions |
 | [Core Other System Internal Functions Wave 7-10](CORE_OTHER_SYSTEM_INTERNAL_WAVE7_10_V1.md) | 1.6.60其他系统函数第二阶段：实现内部功能函数抽取：39页、38个facts |
 | [Core Boundary Page Closure Wave 7-11](CORE_BOUNDARY_WAVE7_11_V1.md) | 边界页补齐：位串/UUID/ROWID/字符集/字符序/系统操作：13页、12个facts |
 | [Core Expression Candidate Chain V1](CORE_EXPRESSION_CANDIDATE_CHAIN_V1.md) | Wave 1A/1B/2A事实→fixture→静态SQL候选：246个facts、171个candidates |
