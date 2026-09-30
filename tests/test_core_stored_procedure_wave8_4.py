@@ -17,7 +17,7 @@ class CoreStoredProcedureWave84Tests(unittest.TestCase):
     def test_scope_covers_invalid_recompile(self):
         self.assertEqual(self.manifest['kind'], 'core_stored_procedure_wave8_4_extraction_manifest')
         self.assertEqual(self.manifest['scope']['chapter_count'], 1)
-        self.assertEqual(self.manifest['scope']['physical_page_count'], 18)
+        self.assertEqual(self.manifest['scope']['physical_page_count'], 19)
         self.assertEqual(self.manifest['scope']['physical_page_start'], 3090)
         self.assertEqual(self.manifest['scope']['physical_page_end_exclusive'], 3109)
         self.assertEqual(self.manifest['scope']['sections'], ['3.16'])
