@@ -1,0 +1,1978 @@
+[[PDF_PAGE physical=3991 printed=3942]]
+5.9 数据库升级工具
+
+5.9.1 数据库升级工具概览
+        表 5-111 数据库升级工具概览
+
+         工具名称            工具简介
+
+         gs_hotpatch     gs_hotpatch是一个用于给节点内所有DN或者GTM实例应用热
+                         补丁的工具。详细信息请参见gs_hotpatch应用热补丁。
+
+         gs_upgradectl   用于数据库升级。详细信息请参见gs_upgradectl升级工具。
+
+         omRollback.py   omRollback.py是在底层服务使用agent模式（区别于SSH模式
+                         安装数据库的方式）部署数据库时，升级过程中回滚代码的工
+                         具。详细信息请参见omRollback.py回滚代码。
+
+
+
+
+5.9.2 gs_hotpatch 应用热补丁
+            说明
+
+            集中式单节点不支持该工具。
+
+
+工具介绍
+        gs_hotpatch是一个用于给节点内所有DN实例应用热补丁的工具。
+
+
+前提条件
+        ●   数据库实例已经安装完成。
+        ●   数据库实例环境变量设置正确。
+        ●   gs_ctl工具已正确安装。
+[[PDF_PAGE physical=3992 printed=3943]]
+命令格式
+         gs_hotpatch -t [load|unload|active|deactive|info|list|recover|cleanLock|setLock] -n PATCH_NAME [-X
+         XMLFILE] [-S SOURCE_IP]
+
+
+参数说明
+         ●    -t TYPE_OF_PATCH_COMMAND
+              需要执行的热补丁命令。支持的热补丁命令如下：
+              –     load：加载补丁，将补丁加载到实例的内存中。
+              –     unload：卸载补丁，将补丁从实例的内存中卸载。
+              –     active：激活补丁，将加载到实例内存中的补丁激活。
+              –     deactive：去激活补丁，将激活的补丁去激活。
+              –     info：查看补丁信息。
+              –     list：查看补丁列表。
+              –     recover：恢复因gs_install操作被损坏的补丁，仅OM热补丁使用。
+              –     cleanLock：清除补丁操作中的锁文件，仅OM热补丁使用。
+              –     setLock：设置补丁锁，仅OM热补丁使用。
+         ●    -n PATCH_NAME
+              热补丁名称，需要热补丁文件所在的绝对路径加上热补丁的名称。
+         ●    -X XMLFILE
+              xml配置文件，仅OM热补丁使用。
+         ●    -S SOURCE_IP
+              发送热补丁命令的节点ip，仅OM热补丁使用。
+         ●    -V, --version
+              显示版本信息。
+         ●    -? | --help
+              打印帮助信息。
+
+
+             须知
+
+         gs_hotpatch命令仅操作单个节点上实例，除特殊情况，不建议用户直接使用，操作热
+         补丁建议使用gs_om -t hotpatch命令。
+
+
+5.9.3 gs_upgradectl 升级工具
+工具介绍
+         用户会根据GaussDB提供的新特性，确定是否对现有系统进行升级。
+         升级分为就地升级、灰度升级和滚动升级。升级方式的策略又分为大版本升级和小版
+         本升级。用户挑选升级方式后，系统会自动判断并选择合适的升级策略。
+
+         ●    就地升级：就地升级需要停止业务，会一次性升级数据库实例中所有节点。
+         ●    灰度升级：灰度升级支持全业务操作，可以先选择部分节点进行升级，进入灰度
+              观察期观察新版本是否运行正常，然后再升级剩余节点，完成全部升级操作。
+[[PDF_PAGE physical=3993 printed=3944]]
+       ●   滚动升级：滚动升级支持全业务操作，采用滚动升级DN分片的方式对数据库实例
+           进行升级。用户可以指定部分DN分片先升级，观察升级后的分片是否运行正常，
+           然后再升级剩余分片，完成全部升级操作，也可以一次升级所有分片。
+
+注意事项
+       ●   就地升级需要停止业务，灰度升级支持全业务操作。
+       ●   数据库实例运行正常且主DN的数据完全同步到备DN。
+       ●   升级操作不能和节点替换同时执行。不支持虚拟IP。升级过程中不允许打开
+           kerberos开关。
+       ●   选择灰度升级方式进行升级时，升级过程中不支持节点替换、修改IP和
+           hotpatch，部分节点升级成功后不建议执行节点修复。
+       ●   roach备份与升级的交互：
+           –   就地升级中不支持roach备份。
+           –   灰度升级观察期间支持roach备份。
+           –   灰度升级部分节点时，参与备份的节点大版本要求一致，否则会导致备份失
+               败。DISK备份会校验所有节点。OBS、NAS、XBSA备份会校验参与备份的节
+               点，关于备份节点的选取规则为：
+
+               ▪   备份下发节点。
+
+               ▪   CMS：主CMS。
+
+               ▪   DN：主机备份为每个分片的主机，备机备份为每个分片上正常的回放速
+                   度最快的备DN。
+       ●   请不要修改安装包中解压出来的version.cfg文件。
+       ●   升级成功后，原归档日志文件将失效。
+       ●   升级成功后，原来的二进制目录将会被删除，请不要在二进制目录中存放个人数
+           据文件。
+       ●   如果就地升级过程中出现异常导致升级失败，并且自动回滚失败时，需要用户自
+           动执行回滚命令进行手动回滚。如果灰度升级过程中出现异常导致升级失败，需
+           用户手动回滚，并且必须回滚成功后才能进行下一次升级。两种升级方式回滚成
+           功后，升级过程中设置的GUC参数将失效。
+       ●   升级过程中，不允许对wal_level、max_connections、
+           max_prepared_transactions和max_locks_per_transaction这四个GUC参数的值进
+           行修改。
+       ●   DN磁盘使用率低于85%时才可以执行升级操作。
+       ●   在业务压力大的情况下进行灰度升级，建议开启流控。
+       ●   滚动升级注意事项：
+           –   滚动升级要求数据库实例是独立部署的，每个实例都部署在单独的节点上。
+           –   滚动升级中，每次升级一个分片都会产生不超过10s的业务中断。
+       ●   升级支持以下故障场景：
+           –   少数派VM故障。
+           –   少数派进程故障。
+           –   多数派VM故障或者多数派进程故障，支持回滚操作。回滚成功后，不保证数
+               据库实例可用。
+[[PDF_PAGE physical=3994 printed=3945]]
+           –    因“安装目录\bin”下的gaussdb二进制文件损坏导致的多数派进程故障，支
+                持小版本强制升级（内核版本号不变的升级方式为小版本升级，否则就是大
+                版本升级。内核版本号在升级文件压缩包中的version.cfg的第二行查看）。
+       ●   少数派VM故障或少数派进程故障升级约束：
+           –    下发升级命令之前，需保证数据库实例状态至少为degraded。
+           –    需要下发增加“--ignoreVMFaults”参数的升级命令。
+           –    升级过程中，若正在进行升级主流程的VM节点故障，升级报错为正常报错，
+                重新将升级命令下发至正常节点即可。
+           –    通过增加“--ignoreVMFaults”参数，被隔离的节点不会被升级。升级完成
+                后，需要通过节点替换完成数据库实例修复。被隔离的进程会忽略掉无法启
+                动的错误。
+       ●   多数派进程故障升级约束：
+           –    只支持小版本升级，不支持大版本升级。
+           –    升级不带有修复功能，升级后不保证数据库实例一定可用。
+           –    强制升级未提交或回滚前，即使数据库实例恢复正常，也无法进行正常的升
+                级操作。
+           –    由于“安装目录\bin”下的gaussdb二进制文件损坏导致数据库实例
+                unavailable时支持升级，由于VM级故障导致数据库实例unavailable时不支
+                持升级。
+
+
+命令格式
+       ●   显示帮助信息。
+           gs_upgradectl -? | --help
+
+       ●   显示版本号信息。
+           gs_upgradectl -V | --version
+
+       ●   选择升级策略。
+           gs_upgradectl -t chose-strategy [-l LOGFILE]
+
+                 说明
+
+                当前支持就地升级、灰度升级和滚动升级。
+       ●   升级数据库实例。
+           gs_upgradectl -t auto-upgrade -X XMLFILE {-g NODENUMBER | -h HOSTNAME | --continue | --
+           inplace} [-l LOGFILE] [--rolling]
+           [--grey] [--begin=ShardStartNumber] [--end=ShardEndNumber] [--force] [--
+           ignoreVMFaults=HOSTNAME/instance][--intercluster-rollingupgrade][--auto_script]
+
+       ●   回滚升级。
+           gs_upgradectl -t auto-rollback -X XMLFILE [-l LOGFILE] [--force] [--hadr_force] [--
+           ignoreVMFaults=HOSTNAME/instance][--intercluster-rollingupgrade][--auto_script]
+
+       ●   升级提交。
+           gs_upgradectl -t commit-upgrade -X XMLFILE [-l LOGFILE] [--force_commit] [--skip_rebalance_set][--
+           intercluster-rollingupgrade]
+
+                 说明
+
+                ● 升级提交操作只适用于华为GaussDB数据库的就地升级、灰度升级和滚动升级。
+                ● 一旦提交操作完成，则不能再执行回滚操作。
+       ●   组件升级。
+           gs_upgradectl -t component-upgrade -X XMLFILE --component-type=component_type --component-
+           version=component_version [-l LOGFILE]
+[[PDF_PAGE physical=3995 printed=3946]]
+       ●   组件回滚。
+           gs_upgradectl component-rollback -X XMLFILE --component-type=component_type [-l LOGFILE]
+
+       ●   接收数据库管理员密码。
+           echo "password" | gs_upgradectl -t [chose-strategy|auto-upgrade|auto-rollback|commit-upgrade|
+           component-upgrade|component-rollback]
+
+                 说明
+
+                云上环境中，对于未开启Peer认证方式的数据库系统，可以使用此方式传入数据库管理员
+                用户的密码，用于连接数据库进行运维操作。
+
+
+参数说明
+       ●   -t
+           gs_upgradectl命令的类型。
+           取值范围：chose-strategy、auto-upgrade、auto-rollback、component-
+           upgrade、component-rollback和commit-upgrade。
+       ●   -l
+           用于记录升级或回滚过程中的日志信息。
+           取值范围：任意存在的可访问的绝对路径。
+           默认值：$GAUSSLOG/om/gs_upgradectl-YYYY-MM-DD_hhmmss.log。
+       ●   -?, --help
+           显示帮助信息。
+       ●   -V, --version
+           显示版本号信息。
+       ●   -X
+           指定数据库实例配置文件。
+           取值范围：XML文件的存储路径。
+       ●   -g
+           指定灰度升级先升级的部分节点个数。
+           取值范围：选择先灰度升级数据库实例中部分节点时，-g指定节点个数不能超过
+           5；选择灰度升级数据库实例中全部节点时，-g后面指定数据库实例全部节点个
+           数。例如：数据库实例中有7个节点，当选择先灰度升级数据库实例中部分节点
+           时，-g [1-5]；当选择灰度升级数据库实例中全部7个节点时，-g 7。
+       ●   -h
+           指定灰度升级先升级的部分节点的主机名称。
+           取值范围：数据库实例中节点的主机名称，当选择多个节点升级时，用逗号分隔
+           开来。例如：数据库实例中有4个节点，4个节点的主机名称分别为linux1、
+           linux2、linux3和linux4，当选择先灰度升级数据库实例中部分节点linux1和linux2
+           时，-h linux1,linux2。
+       ●   --inplace
+           使用就地升级方式来进行升级操作。
+       ●   --continue
+           使用灰度升级来进行升级操作，在升级完部分节点后，使用该参数升级全部剩余
+           节点。
+       ●   --force
+[[PDF_PAGE physical=3996 printed=3947]]
+    当数据库实例状态不正常，无法支持正常回滚时，用此参数进行强制回滚操作。
+    当存在因gaussdb二进制文件损坏导致的多数派进程故障时，用此参数进行小版本
+    强制升级。
+●   --begin
+    分片升级时，指定本次升级从第几个分片开始。
+●   --end
+    分片升级时，指定本次升级到第几个分片结束。
+●   --rolling
+    采用AZ升级的方式对数据库实例进行滚动升级。
+●   --grey
+    分片或者AZ升级时，使用灰度升级方式来进行升级操作。
+●   --force_commit
+    同城双中心容灾，两地三中心跨Region容灾或同城双中心高可用支持基于流式复
+    制的异地容灾，使用强制提交方式来提交主数据库实例操作。
+●   --hadr_force
+    容灾数据库实例回滚的一种逃生方式，因容灾关系断连故障时使用。用于同城双
+    中心容灾，两地三中心跨Region容灾和同城双中心高可用支持基于流式复制的异
+    地容灾，当主备数据库实例容灾关系断连，使用容灾强制回滚方式来回滚主数据
+    库实例操作，使其主数据库实例跳过从灾备数据库实例build升级
+    upgrade_phase_info文件的操作。
+●   --skip_rebalance_set
+    升级提交时是否执行重平衡（cm_ctl switchover -a）。默认执行重平衡（不支持
+    cm_ctl switchover -a命令的场景不执行重平衡）。如果指定该参数则不执行重平
+    衡。
+●   --ignoreVMFaults=nodeName1,nodeName2,.../
+    instancename1,instancename2,...
+    少数派VM或少数派进程存在故障时进行升级，使用该参数提供数据库实例中需要
+    忽略的故障的节点名列表或有进程故障的节点名列表，或者故障的实例名列表。
+●   --intercluster-rollingupgrade
+    容灾数据库间滚动升级标识。该参数仅支持在容灾场景下的逻辑复制关系中使
+    用。
+●   --component-type
+    组件升级/回滚时指定待升级的组件类型，当前仅有logical_decoding类型。
+●   --component-version
+    组件升级的目标版本号。
+●   --auto_script
+    指定该参数会自动生成系统对象的升级回滚脚本。
+[[PDF_PAGE physical=3997 printed=3948]]
+                 说明
+
+               ● 当前版本不建议用户使用该参数。
+               ● 升级未指定该参数则回滚时无法指定该参数。
+               ● 就地升级的回滚指定该参数不生效，因为就地升级为物理回滚。
+               ● 灰度或滚动升级部分节点时指定该参数不生效，升级到最后一个节点时指定该参数生
+                 效。
+               ● 小版本强制升级时指定该参数不生效。
+
+
+示例
+     示例一
+     就地升级、灰度升级和滚动升级前使用新包进行前置操作。
+     ./gs_preinstall -U roach -G users -X /data/xml/3node_3c3d_1m2s_etcd.xml --alarm-type=5
+     Parsing the configuration file.
+     Successfully parsed the configuration file.
+     Installing the tools on the local node.
+     Successfully installed the tools on the local node.
+     Setting pssh path Successfully set core path.
+     Distributing package.
+     Begin to distribute package to tool path.
+     Successfully distribute package to tool path.
+     Begin to distribute package to package path.
+     Successfully distribute package to package path.
+     Successfully distributed package.
+     Installing the tools in the cluster.
+     Successfully installed the tools in the cluster.
+     Checking hostname mapping.
+     Successfully checked hostname mapping.
+     Checking OS version.
+     Successfully checked OS version.
+     Creating cluster's path.
+     Successfully created cluster's path.
+     Setting SCTP service.
+     Successfully set SCTP service.
+     Set and check OS parameter.
+     Setting OS parameters.
+     Successfully set OS parameters.
+     Set and check OS parameter completed.
+     Preparing CRON service.
+     Successfully prepared CRON service.
+     Preparing SSH service.
+     Successfully prepared SSH service.
+     Setting user environmental variables.
+     Successfully set user environmental variables.
+     Configuring alarms on the cluster nodes.
+     Successfully configured alarms on the cluster nodes.
+     Setting the dynamic link library.
+     Successfully set the dynamic link library.
+     Setting pssh path Successfully set pssh path.
+     Setting Cgroup. Successfully set Cgroup.
+     Set ARM Optimization.
+     Successfully set ARM Optimization.
+     Setting finish flag.
+     Successfully set finish flag.
+     Preinstallation succeeded.
+
+     示例二
+     使用gs_upgradectl脚本执行灰度升级，选择数据库实例中任意一个节点先升级。
+     gs_upgradectl -t auto-upgrade -X /data/xml/3node_3c3d_1m2s_etcd.xml -g 1
+     Static configuration matched with old static configuration files.
+[[PDF_PAGE physical=3998 printed=3949]]
+Update the cluster with new product version 'GaussDB300'.
+Old cluster app path is /data/gauss/app_e67b8bcd
+Distributing xml configure file.
+Successfully distributed xml configure file.
+Checking upgrade environment.
+Successfully checked upgrade environment.
+Starting cluster.
+Waiting for the cluster status to become normal.
+The cluster status is normal.
+Start to do health check.
+Successfully checked cluster status.
+Upgrade nodes ['hghproach00003'].
+Performing grey rollback.
+Successfully Cleaned new install path.
+Rollback succeeded.
+The directory /data/gauss/app_e67b8bcd will be deleted after commit-upgrade, please make sure there is
+no personal data.
+Installing new binary.
+Updating catalog.
+Successfully updated catalog.
+Sync cluster configuration.
+Successfully synced cluster configuration.
+Switch symbolic link to new binary directory.
+Successfully switch symbolic link to new binary directory.
+Create checkpoint before switching.
+Time to create checkpoint: 3s
+Switching all db processes.
+Time to switch all process version: 1m33s
+The nodes ['hghproach00003'] have been successfully upgraded to new version. Then do health check.
+Start to do health check.
+Successfully checked cluster status.
+Successfully upgrade nodes.
+
+示例三
+
+使用gs_upgradectl脚本执行灰度升级，选择数据库实例中指定的一个节点先升级。
+gs_upgradectl -t auto-upgrade -X /data/xml/3node_3c3d_1m2s_etcd.xml -h hghproach00003
+Static configuration matched with old static configuration files.
+Update the cluster with new product version 'GaussDB300'.
+Old cluster app path is /data/gauss/app_e67b8bcd
+Distributing xml configure file.
+Successfully distributed xml configure file.
+Checking upgrade environment.
+Successfully checked upgrade environment.
+Starting cluster.
+Waiting for the cluster status to become normal.
+The cluster status is normal.
+Start to do health check.
+Successfully checked cluster status.
+Upgrade nodes ['hghproach00003'].
+Performing grey rollback.
+Successfully Cleaned new install path.
+Rollback succeeded.
+The directory /data/gauss/app_e67b8bcd will be deleted after commit-upgrade, please make sure there is
+no personal data.
+Installing new binary.
+Updating catalog.
+Successfully updated catalog.
+Sync cluster configuration.
+Successfully synced cluster configuration.
+Switch symbolic link to new binary directory.
+Successfully switch symbolic link to new binary directory.
+Create checkpoint before switching.
+Time to create checkpoint: 3s
+Switching all db processes.
+Time to switch all process version: 1m33s
+The nodes ['hghproach00003'] have been successfully upgraded to new version. Then do health check.
+Start to do health check.
+[[PDF_PAGE physical=3999 printed=3950]]
+Successfully checked cluster status.
+Successfully upgrade nodes.
+
+示例四
+使用gs_upgradectl脚本执行灰度升级，先选择数据库实例中一个节点先升级，升级成
+功后使用--continue参数升级数据库实例所有剩余节点。
+gs_upgradectl -t auto-upgrade -X /data/xml/3node_3c3d_1m2s_etcd.xml --continue
+Static configuration matched with old static configuration files.
+Update the cluster with new product version 'GaussDB300'.
+Old cluster app path is /data/gauss/app_e67b8bcd
+Distributing xml configure file.
+Successfully distributed xml configure file.
+Checking upgrade environment.
+Successfully checked upgrade environment.
+Starting cluster.
+Waiting for the cluster status to become normal.
+The cluster status is normal.
+Start to do health check.
+Successfully checked cluster status.
+From this step, you can use -h to upgrade again if failed.
+Sync cluster configuration.
+Successfully synced cluster configuration.
+Successfully backup hotpatch config file.
+Switch symbolic link to new binary directory.
+Successfully switch symbolic link to new binary directory.
+Create checkpoint before switching.
+Time to create checkpoint: 4s
+Switching all db processes.
+Time to switch all process version: 2m9s
+The nodes ['hghproach00001', 'hghproach00002'] have been successfully upgraded to new version. Then do
+health check.
+Start to do health check.
+Successfully checked cluster status.
+Upgrade main process has been finished, user can do some check now.
+Once the check done, please execute following command to commit upgrade:
+
+  gs_upgradectl -t commit-upgrade -X /data/xml/3node_3c3d_1m2s_etcd.xml
+
+Successfully upgrade nodes.
+
+示例五
+使用gs_upgradectl脚本执行灰度升级自动回滚，撤销已经成功/失败的升级操作（灰度
+升级回滚）。
+gs_upgradectl -t auto-rollback -X /data/xml/3node_3c3d_1m2s_etcd.xml
+Static configuration matched with old static configuration files.
+Old cluster app path is /data/gauss/app_e67b8bcd
+Performing inplace rollback.
+Distributing xml configure file.
+Successfully distributed xml configure file.
+Checking static configuration files.
+Successfully checked static configuration files.
+Switch symbolic link to old binary directory.
+Successfully switch symbolic link to old binary directory.
+Rollbacking catalog.
+Stopping node.
+Successfully stopped node.
+Starting cluster.
+Waiting for the cluster status to become normal.
+The cluster status is normal.
+Stopping node.
+Successfully stopped node.
+Successfully Rollbacked catalog.
+Deleting om_monitor.
+Successfully deleted om_monitor.
+Restoring application and configurations.
+[[PDF_PAGE physical=4000 printed=3951]]
+Successfully restored application and configuration.
+Restoring cluster configuration.
+Successfully restored cluster configuration.
+Starting the om_monitor process.
+Successfully started om_monitor process.
+Clean up backup catalog files.
+Starting cluster.
+Waiting for the cluster status to become normal.
+The cluster status is normal.
+Successfully Cleaned new install path.
+Rollback succeeded.
+
+示例六
+使用gs_upgradectl脚本执行灰度升级提交（灰度升级提交）。
+gs_upgradectl -t commit-upgrade -X /data/xml/3node_3c3d_1m2s_etcd.xml
+Old cluster app path is /data/gauss/app_e67b8bcd
+Successfully Cleaned old install path.
+Commit binary upgrade succeeded.
+
+示例七
+使用gs_upgradectl脚本执行就地升级。
+gs_upgradectl -t auto-upgrade -X /data/xml/3node_3c3d_1m2s_etcd.xml --inplace
+Static configuration matched with old static configuration files.
+Update the cluster with new product version 'GaussDB300'.
+Old cluster app path is /data/gauss/app_e67b8bcd
+Static configuration matched with old static configuration files.
+Distributing xml configure file.
+Successfully distributed xml configure file.
+Performing inplace rollback.
+Distributing xml configure file.
+Successfully distributed xml configure file.
+Rollback succeeded.
+Checking upgrade environment.
+Successfully checked upgrade environment.
+Starting cluster.
+Waiting for the cluster status to become normal.
+The cluster status is normal.
+Start to do health check.
+Successfully checked cluster status.
+Backing up current application and configurations.
+Successfully backed up current application and configurations.
+Stopping old clusters.
+Successfully stopped old clusters.
+Backing up cluster configuration.
+Successfully backed up cluster configuration.
+Installing new binary.
+Restoring cluster configuration.
+Successfully restored cluster configuration.
+Modifying the socket path.
+Successfully modified socket path.
+Starting cluster.
+Waiting for the cluster status to become normal.
+The cluster status is normal.
+Updating catalog.
+Successfully updated catalog.
+Stopping node.
+Successfully stopped node.
+Switch symbolic link to new binary directory.
+Successfully switch symbolic link to new binary directory.
+Starting cluster.
+Waiting for the cluster status to become normal.
+The cluster status is normal.
+Start to do health check.
+Successfully checked cluster status.
+Upgrade main process has been finished, user can do some check now.
+Once the check done, please execute following command to commit upgrade:
+[[PDF_PAGE physical=4001 printed=3952]]
+  gs_upgradectl -t commit-upgrade -X /data/xml/3node_3c3d_1m2s_etcd.xml
+
+示例八
+使用gs_upgradectl脚本执行自动回滚，撤销已经成功/失败的升级操作（就地升级回
+滚）。
+gs_upgradectl -t auto-rollback -X /data/xml/3node_3c3d_1m2s_etcd.xml
+Static configuration matched with old static configuration files.
+Old cluster app path is /data/gauss/app_e67b8bcd
+Performing inplace rollback.
+Distributing xml configure file.
+Successfully distributed xml configure file.
+Checking static configuration files.
+Successfully checked static configuration files.
+Switch symbolic link to old binary directory.
+Successfully switch symbolic link to old binary directory.
+Rollbacking catalog.
+Stopping node.
+Successfully stopped node.
+Starting cluster.
+Waiting for the cluster status to become normal.
+The cluster status is normal.
+Stopping node.
+Successfully stopped node.
+Successfully Rollbacked catalog.
+Deleting om_monitor.
+Successfully deleted om_monitor.
+Restoring application and configurations.
+Successfully restored application and configuration.
+Restoring cluster configuration.
+Successfully restored cluster configuration.
+Starting the om_monitor process.
+Successfully started om_monitor process.
+Clean up backup catalog files.
+Starting cluster.
+Waiting for the cluster status to become normal.
+The cluster status is normal.
+Successfully Cleaned new install path.
+Rollback succeeded.
+
+示例九
+使用gs_upgradectl脚本执行就地升级后提交（就地升级提交）。
+gs_upgradectl -t commit-upgrade -X /data/xml/3node_3c3d_1m2s_etcd.xml
+Old cluster app path is /data/gauss/app_e67b8bcd
+Successfully Cleaned old install path.
+Commit binary upgrade succeeded.
+
+示例十
+组件升级。
+echo "pwd" | gs_upgradectl -t component-upgrade -X /usr/local/tool/clusterConfig.xml --component-type
+logical_decoding --component-version 1.95999
+Init global infos in the command parsing phase
+Successfully init global infos in the command parsing phase
+NOTICE: the clusterType is dual-standby-dorado
+Start to upgrade the component.
+Successfully to do component-upgrade.
+
+示例十一
+使用gs_upgradectl脚本执行灰度升级全部3个节点时，指定auto_script参数。
+gs_upgradectl -t auto-upgrade -X /data/xml/3node_3c3d_1m2s_etcd.xml -g 3 --auto_script
+...
+Start to switch process.
+[[PDF_PAGE physical=4002 printed=3953]]
+         Switch process succeeded.
+         Start to update catalog post.
+         Start generating the script to attempt bypassing the upgrade.
+         Update catalog post succeeded.
+         ...
+         NOTICE: Upgrade main process has been finished, user can do some check now.
+               Once the check done, please execute following command to commit upgrade:
+
+           gs_upgradectl -t commit-upgrade -X /data/xml/3node_3c3d_1m2s_etcd.xml
+
+         NOTICE:Successfully upgrade nodes.
+
+         示例十二
+
+         使用gs_upgradectl脚本执行灰度升级自动回滚时，指定auto_script参数，撤销已经成
+         功/失败的升级操作（灰度升级回滚）。
+         gs_upgradectl -t auto-rollback -X /data/xml/3node_3c3d_1m2s_etcd.xml --auto_script
+         ...
+         Start to restore conf and switch old bin.
+         [GNS OPTION] -> old_cluster_enable_gns : False; new_cluster_enable_gns : False
+         Restore conf and switch old bin succeeded.
+         Start to rollback catalog.
+         Start generating the script to attempt bypassing the upgrade.
+         Rollback catalog succeeded.
+         Start to do clean temp files.
+         Clean temp files succeeded.
+         NOTICE: Rollback succeeded.
+
+         示例十三
+
+         使用gs_upgradectl脚本执行就地升级时，指定auto_script参数。
+         gs_upgradectl -t auto-upgrade -X /data/xml/3node_3c3d_1m2s_etcd.xml --inplace --auto_script
+         ...
+         The cluster status is normal.
+         Stopping node.
+         Successfully stopped node.
+         Starting cluster.
+         Waiting for the cluster status to become normal.
+         .
+         The cluster status is normal.
+         Start generating the script to attempt bypassing the upgrade.
+         Update catalog and start cluster with new bin succeeded.
+         Successfully checked cluster status.
+         NOTICE: Upgrade main process has been finished, user can do some check now.
+               Once the check done, please execute following command to commit upgrade:
+
+           gs_upgradectl -t commit-upgrade -X /data/xml/3node_3c3d_1m2s_etcd.xml
+
+         NOTICE: Inplace upgrade succeeded
+
+
+5.9.4 omRollback.py 回滚代码
+               说明
+
+             系统内部工具，不支持单独调用。
+
+
+工具介绍
+         omRollback.py是在底层服务使用agent模式（区别于SSH模式安装数据库的方式）部
+         署数据库时，升级过程中回滚代码的工具。
+[[PDF_PAGE physical=4003 printed=3954]]
+前提条件
+        ●    数据库已经进入升级过程且升级未完成。
+        ●    数据库中不存在故障节点。
+        ●    数据库安装了python且依赖包齐全。
+
+命令格式
+        ●    Peer认证方式下，回滚代码。
+             source /home/user_name/gauss_env_file && unset PYTHONPATH && export
+             PYTHONPATH=path_name/lib && export LD_LIBRARY_PATH=path_name/clib && python3 path_name/
+             common/omRollback.py cluster_mode
+
+        ●    未开启Peer认证方式时，接收数据库管理员密码，回滚代码。
+             source /home/user_name/gauss_env_file && unset PYTHONPATH && export
+             PYTHONPATH=path_name/lib && export LD_LIBRARY_PATH=path_name/clib && echo password |
+             python3 path_name/common/omRollback.py cluster_mode
+
+                   说明
+
+                  云上环境中，对于未开启Peer认证方式的数据库系统，可以使用此方式传入数据库管理员
+                  用户的密码，连接数据库进行运维操作。
+
+
+参数说明
+        ●    user_name
+             当前用户。
+        ●    path_name
+             om_agent.conf文件中agent_tool_path的配置。
+        ●    cluster_mode
+             数据库部署方式。取值为centralized，表示集中式。
+
+示例
+        --回滚代码。（请根据实际需要替换各参数值。）
+        source /home/Ruby/gauss_env_file && unset PYTHONPATH && export PYTHONPATH=/dbs/om-agent/
+        agent_67b5b8dc/lib && export LD_LIBRARY_PATH=/dbs/om-agent/agent_67b5b8dc/clib && echo '********' |
+        python3 /dbs/om-agent/agent_67b5b8dc/common/omRollback.py centralized
+
+
+5.9.5 gs_compatible_check.py 升级前兼容性检查
+
+5.9.5.1 升级前兼容性检查工具
+
+背景信息
+        gs_compatible_check.py是GaussDB提供的升级前兼容性检查工具。环境存在该工具
+        且数据库用户可访问时，即可独立执行。该工具通过解析内置的兼容性检查JSON文
+        件，判断当前环境是否满足升级兼容性要求。
+
+        该工具采用规范化的不兼容变更排查方法，以待升级实例状态、运行日志、客户程序
+        中静态SQL语句等作为输入，对升级实例执行兼容性检查，识别实例已使用的不兼容
+        项，从而降低升级风险。升级前，升级实施人员需要使用gs_compatible_check.py工
+        具，排查不兼容变更项，进行升级风险评估。默认会进行通用检查项的检查，具体请
+        参见通用检查项。
+[[PDF_PAGE physical=4004 printed=3955]]
+注意事项
+        ●      只支持在数据库节点执行。
+        ●      只支持在Python3环境运行。
+        ●      该工具目前支持自动检查GUC参数、系统视图、系统函数、语法类型的变更。
+        ●      基于检查方式的扩展性，该工具依赖数据库实例环境，即该工具支持在GaussDB
+               数据库实例为Degraded或Normal状态运行。
+        ●      不支持升级过程中使用该工具。
+        ●      建议在主DN所在节点使用该工具，减少远程跨节点执行的耗时，提升检查效率。
+        ●      不支持数据库实例无主DN场景使用该工具。
+        ●      该工具查询SQL语句使用的视图dbe_perf.statement是实例级存储，所以无法精准
+               查询到业务语句属于哪个库，如果一个库查询到业务语句，则检查结果中其他库
+               也会查询到。
+        ●      未持久化的语句可能无法检测到。
+        ●      未在版本兼容性说明中承载的不兼容项无法被检测到。
+        ●      业务逻辑要触发到兼容性检查项中的相关语句或关键字才能被检测到。
+        ●      未在主DN触发的业务语句，无法被检测到。
+        ●      该工具容许存在误报，工具识别到不是业务SQL的均是误报SQL，可能存在的误报
+               场景：升级脚本中的SQL、定位问题查询的SQL、内核巡检相关的SQL等。
+        ●      工具输出结果采用滚动归档策略，仅保留最新的三份文件。生成新结果时，若已
+               存在三份历史文件，将自动清理最早的输出后再写入新文件。
+
+命令格式
+        ●      显示帮助信息：
+               [python3] gs_compatible_check.py -? | --help
+
+        ●      显示版本号信息：
+               [python3] gs_compatible_check.py -V | --version
+
+        ●      查看兼容性检查项：
+               [python3] gs_compatible_check.py –target_version=[INT] --list
+
+        ●      指定检查项进行检查：
+               [python3] gs_compatible_check.py –target_version=[INT] –items=item_name1,item_name2
+
+        ●      兼容性检查：
+               [python3] gs_compatible_check.py [--target_version=[INT] | --target_version_str=STR] [--
+               extdir=EXTDIR] [--item_timeout=INT] [--timeout=INT] [--items=item_name1,item_name2] [--list] [--
+               output-log]
+
+                说明
+
+              对于未开启Peer认证方式的数据库系统，可以通过交互式传入数据库管理员用户的密码，用于连
+              接数据库进行兼容性检查操作。
+
+
+检查项 JSON 示例
+        {
+            "item_name": "ITEM_505.1_diable_enable_vectordb",
+            "item_version": "94133",
+            "item_description": "Disable high-level feature of vectordb.",
+            "cluster_type": "all",
+            "item_type": "GUC",
+            "check_method": [{
+               "method_name": "lookup",
+[[PDF_PAGE physical=4005 printed=3956]]
+         "method_content": "enable_vectordb"
+    }]
+}
+
+
+表 5-112 检查项 json 各个字段说明
+    名称                  含义
+
+    item_name           检查项名称，该名称要求全局唯一，用于检索《GaussDB Kernel兼
+                        容性说明.xlsx》。
+
+    item_version        引入不兼容项的版本号，必选，用于搜索对应版本区间的检查项
+                        （当前数据库的版本<=item_version<=target_version，满足这个条
+                        件则会检查该项）。
+
+    feature_versi       新增特性的版本号，可选，用于搜索对应版本区间的检查项
+    on                  （feature_version<=当前数据库的版本，满足这个条件则会检查该
+                        项）。
+
+    item_descript       检查项描述，必选，用于描述检查项。
+    ion
+
+    cluster_type        可选，数据库类型，取值大小写敏感，表示检查项生效类型，默认
+                        值为all。取值如下：
+                        ● centralized：表示只支持集中式。
+                        ● distributed：表示只支持分布式。
+                        ● all：表示集中式和分布式都支持检查。
+
+    item_type           用于指示检查项类型，应和《GaussDB Kernel兼容性说明.xlsx》中
+                        “接口类型”列相同，常见取值：function，grammar，
+                        permission，privilege，guc，procedure等。
+
+    check_metho         检查方法，取值为JSON数组，每个数组项为一种检查方法，至少应
+    d                   包含一个检查方法。
+
+
+
+
+表 5-113 check_method 检查方法格式
+    名称                   含义
+
+    method_name          检查方法类型，取值为lookup或者sql。
+                         ● lookup：表示搜索类，包含如下类型的搜索（search_in参数配
+                           置）：
+                             – log/pg_log：搜索$GAUSSLOG关键字，指定为log表示搜索
+                               $GAUSSLOG，也可指定子目录，例如log/bin/gs_guc表示搜
+                               索$GAUSSLOG/bin/gs_guc。
+                             – ext：表示外部文件目录，指定为ext并配置--extdir参数，表
+                               示搜索--extdir指定目录下的文件。
+                             – sql：表示查询pg_stat_activity，statement等。
+                             – all：表示所有的搜索类都执行。
+                         ● sql：表示完整的SQL语句类，配置搜索的SQL语句。
+[[PDF_PAGE physical=4006 printed=3957]]
+       名称                  含义
+
+       method_conte        检查语句。method_name取值不同，含义不同：
+       nt                  ● method_name为sql：SQL语句，输出结果为空值则表示未使用
+                             到该不兼容项，非空值则表示使用到该不兼容项。
+                           ● method_name为lookup：关键字匹配搜索，输出结果为空值则
+                             表示未使用到该不兼容项，非空值则表示使用到该不兼容项。
+
+       search_in           检查支持的类型。method_name为lookup时有意义，在主DN搜
+                           索，默认值为all，取值范围：
+                           ● sql：表示通过sql语句查询匹配method_content配置的关键
+                             字。
+                           ● log/pg_log：表示搜索$GAUSSLOG/pg_log。
+                           ● ext：表示外部文件目录，指定ext并配置--extdir参数，则搜
+                             索--extdir指定目录下的文件匹配method_content配置的关键
+                             字。
+                           ● all：表示sql，ext默认都检查。
+
+       limit               可选字段，表示输出的语句行数，method_name为lookup时默认
+                           为10，method_name为sql时默认为50，该参数设置为all表示输
+                           出所有行。
+
+       datcompatibili      可选字段，表示执行巡检方法的业务库，不区分大小写。取值范
+       ty                  围：
+                           ● ALL：表示在所有业务库上执行。
+                           ● ANY：表示在任意库上执行即可，实际会选择postgres库执
+                             行，通常用于GUC参数类巡检。
+                           ● M：表示在pg_database.datcompatibility='M'的业务库上执
+                             行。
+                           ● non-M：表示在pg_database.datcompatibility!='M'的业务库上
+                             执行。
+                           默认值：ALL
+
+
+
+
+参数说明
+       ●   -?, --help
+           显示帮助信息。
+       ●   -V, --version
+           显示工具版本号信息。
+       ●   --target_version
+           可选参数。该参数表示需要检查的目标版本号，用于搜索版本区间（[当前数据库
+           版本号, target_version指定的目标版本号]）的检查项。与--target_version_str参
+           数互斥，同时必须指定一个。
+           举例说明：比如要升级的目标版本是GaussDB Kernel 507.0.0.B015，则
+           target_version指定的目标号来源于GaussDB-
+           Kernel_507.0.0.B015_Server_X86_Distributed.tar.gz包中GaussDB-
+[[PDF_PAGE physical=4007 printed=3958]]
+            Kernel_507.0.0.B015_Euler_64bit.tar.gz包里面的version.cfg文件中的第二行数字
+            乘以1000，其他版本获取target_version版本号信息同理。
+       ●    --target_version_str
+            可选参数。用于指定文本版本号，可指定GaussDB Kernel V500R002C10到最新
+            发布版本，可通过--help获取支持的文本版本号列表。例如“GaussDB Kernel
+            505.2.1.SPC0800.B010”，与--target_version参数互斥，同时必须指定一个。
+       ●    --output-log
+            可选参数，取值为绝对路径文件名，文件名以.tar.gz格式结尾。将输出目录打包为
+            指定路径。如果文件目录没有访问权限，则报错。
+       ●    --extdir
+            可选参数。method_name检查类型为lookup并且search_in配置为all或者ext或者
+            未配置search_in时，表示会搜--extdir指定目录下的文件。
+       ●    --item_timeout
+            可选参数。执行检查项语句的超时时间，sql检查项执行时间使用
+            statement_timeout参数，zgrep执行时间使用timeout命令限制。默认值为60s，
+            取值范围为[60, 600]。
+       ●    --timeout
+            可选参数。执行工具脚本检查项的超时时间。默认值为10800s，取值范围为
+            [10800, 259200]。
+       ●    --items
+            逗号分隔的检查项列表(item_name)，指定该参数时，表示只执行该参数指定的
+            检查项，可选参数。未指定该参数时，表示当前数据库版本到target_version版本
+            的不兼容项，默认不指定。若指定，则取值范围为[1,5000]。
+       ●    --list
+            可选参数。列出检查项列表，不执行实际检查动作。默认不指定该选项，表示执
+            行实际检查。
+
+
+输出报告
+       输出结果保存到目录：$GAUSSLOG/om/report_compatible_check_results_<时间戳
+       >_<pid>。
+
+       目录结构说明：
+       $GAUSSLOG/om/report_compatible_check_results-2025-12-05_154953_21376
+         report_gs_compatible_check_2025-12-04_154953_21376.csv
+
+       ●    $GAUSSLOG/om/report_compatible_check_results-<时间戳>_<pid>：检查工具
+            输出结果保存的目录位置。
+       ●    report_gs_compatible_check_<时间戳>_<pid>.csv：检查工具的结果输出文件。
+
+
+       表 5-114 检查项输出报告各个字段举例说明
+
+        输出报告           样例                                              含义
+        标题
+
+        检查项名           ITEM_505.1_diable_enable_vectordb               表5-112中item_name含
+        称                                                              义。
+[[PDF_PAGE physical=4008 printed=3959]]
+输出报告    样例                                           含义
+标题
+
+接口类型    GUC                                          表5-112中item_type含
+                                                     义。
+
+检查类型    lookup                                       表5-113中method_name
+                                                     含义。
+
+检查内容    max_query_retry_time                         表5-113中
+                                                     method_content含义。
+
+SQL排查   start transaction read only;set local        sql方式搜索是否使用到了
+方法      statement_timeout=60000;with                 该不兼容项，搜索“检查
+        vvv_sqls(query) as (select query from        内容”字段的关键字
+        (select query from                           max_query_retry_time。
+        pg_catalog.pg_stat_activity where query
+        is not null and datname !=
+        current_database() and sessionid !=
+        pg_current_sessid() union all select
+        query from dbe_perf.statement where
+        query is not null union all select
+        unique_query as query from
+        pg_catalog.gs_asp where unique_query
+        is not null and databaseid = (select oid
+        from pg_catalog.pg_database where
+        datname = current_database()) union
+        all select prosrc as query from
+        pg_catalog.pg_proc where oid >= 16384
+        and prolang in (select oid from
+        pg_catalog.pg_language where lanname
+        in ('sql', 'plpgsql'))) where query not
+        ilike '%vvv_sqls%') select query from
+        vvv_sqls where regexp_like(query,
+        'enable_vectordb', 'i') limit 5; rollback;
+
+LOG排查   source /home/Ruby/gauss_env_file; echo       日志搜索$GAUSSLOG目
+方法      "echo                                        录下是否使用到了“检查
+        'ZmluZCAvdmFyL2Nocm9vdC92YXIvbG9             内容”字段的关键字
+        nL1J1YnkgLW5hbWUgJyoubG9nKicgISAt            max_query_retry_time。
+        bmFtZSAiZ3NfY29tcGF0aWJsZV9jaGVjay
+        5sb2cqIiAtdHlwZSBmIC1leGVjIHNoIC1jI
+        Cd0aW1lb3V0IDYwIHpncmVwIC1pbkUgI
+        mVuYWJsZV92ZWN0b3JkYiIgIiRAIicgc2g
+        ge30gKyB8IHpncmVwIC12IHZ2dl9zcWxz
+        IHwgd2MgLWw=' | base64 -d | sh | pssh
+        -t 60 -H xxx.xxx.xxx.xxx
+[[PDF_PAGE physical=4009 printed=3960]]
+      输出报告            样例                                            含义
+      标题
+
+      UGO排查           -                                             检查类型为lookup，指定
+      方法                                                            了ext并配置--extdir参
+                                                                    数，则搜索--extdir指定目
+                                                                    录下的文件匹配'检查内容'
+                                                                    字段的关键字
+                                                                    max_query_retry_time。
+                                                                    未配置配置--extdir参数则
+                                                                    不进行搜索。
+
+      SQL结果           {'instanceId:[6001]:db_name:[postgres]':      SQL排查方法搜索的结
+                      ''}                                           果，空表示未进行搜索，
+                                                                    key表示实例id和数据库名
+                                                                    称，value为空字符串表示
+                                                                    未搜索到不兼容内容，非
+                                                                    空表示搜索到的不兼容内
+                                                                    容。
+
+      LOG结果           {'node_ip:[xxx.xxx.xxx.xxx]:instanceId:       LOG排查方法搜索的结
+                      [6001]': '0'}                                 果，空表示未进行搜索，
+                                                                    key表示实例ip和实例id，
+                                                                    value为0表示未搜索到不
+                                                                    兼容内容，非0表示搜索到
+                                                                    的不兼容内容数量。
+
+      UGO结果           -                                             UGO排查方法搜索的结
+                                                                    果。空表示未进行搜索，0
+                                                                    表示未搜索到不兼容内
+                                                                    容，非0表示搜索到的不兼
+                                                                    容内容数量。
+
+      检查结果            PASS                                          表示检查通过，未出现不
+                                                                    兼容。
+
+                      FAILED                                        表示检查未通过，出现不
+                                                                    兼容，但需进一步排查确
+                                                                    认。
+
+                      ERROR                                         表示检查出错，需进一步
+                                                                    排查确认出错原因。
+
+                      IGNORE                                        表示该兼容项无需检查。
+
+
+
+
+示例
+     示例一：查看本次检查的兼容性检查项。
+     python3 gs_compatible_check.py --target_version=94997 --list
+     NOTICE: Start the basic check.
+     NOTICE: The cluster type is centralized
+     Basic check succeeded.
+     Init global infos
+     NOTICE: The baseline version of the database is: 93372;
+[[PDF_PAGE physical=4010 printed=3961]]
+      The target version of the database is: 94997.
+NOTICE: List of names of all items to be checked in the [93372, 94997] version is:
+['ITEM_503.1_Alter_object_set_schema', 'ITEM_503.1_create_index_using_gist',
+'ITEM_503.1_reindex_index_concurrently', 'ITEM_503.1_regexp_substr', 'ITEM_503.1_adm_arguments',
+'ITEM_505.2_pg_extension_data_source', 'ITEM_505.2_create_data_source', 'ITEM_505.2_drop_data_source',
+'ITEM_505.2_alter_data_source', 'ITEM_505.2_revoke_data_source', 'ITEM_505.2_grant_data_source',
+'ITEM_505.2_gs_wlm_ec_operator_history', 'ITEM_505.2_pgxc_wlm_ec_operator_statistics',
+'ITEM_505.2_global_operator_ec_runtime', 'ITEM_505.2_get_global_operator_ec_runtime',
+'ITEM_505.2_operator_ec_runtime', 'ITEM_505.2_global_operator_ec_history',
+'ITEM_505.2_get_global_operator_ec_history', 'ITEM_505.2_operator_ec_history',
+'ITEM_505.2_global_operator_ec_history_table', 'ITEM_505.2_get_global_operator_ec_history_table',
+'ITEM_505.2_operator_ec_history_table', 'ITEM_505.2_gs_wlm_ec_operator_statistics',
+'ITEM_505.2_pgxc_get_wlm_ec_operator_statistics', 'ITEM_505.2_pgxc_wlm_ec_operator_info',
+'ITEM_505.2_pgxc_get_wlm_ec_operator_info', 'ITEM_505.2_gs_wlm_ec_operator_info',
+'ITEM_505.2_add_pg_extension_data_source', 'ITEM_505.2_pgxc_wlm_ec_operator_history',
+'ITEM_505.2_pgxc_get_wlm_ec_operator_history', 'ITEM_505.0_identity_new_keywords',
+'ITEM_enable_use_ora_timestamptz', 'ITEM_505.2_delete_enable_streaming',
+'ITEM_505.2_delete_max_query_retry_times', 'ITEM_505.0_ilm_new_keywords',
+'ITEM_505.1_prvt_ilm_constrain', 'ITEM_505.0_gs_seg_dump_page_function_input',
+'ITEM_505.0_gs_parse_page_bypath_function_input',
+'ITEM_505.0_gs_xlogdump_parsepage_tablepath_function_input',
+'ITEM_505.1_gs_seg_free_spc_remain_extent_function_input',
+'ITEM_505.1_gs_seg_free_spc_remain_segment_function_input', 'ITEM_503.2_logical_decode_private_user',
+'ITEM_503.2_decode_status_errmsg', 'ITEM_505.0_create_index_using_gist',
+'ITEM_505.0_reindex_index_concurrently', 'ITEM_505.0_create_index_using_gin',
+'ITEM_505.1_create_index_using_gist', 'ITEM_505.1_create_index_using_gin',
+'ITEM_505.1_create_concurrently_index_using_gist', 'ITEM_505.1_reindex_index_concurrently',
+'ITEM_505.1_online_create_index_using_gin', 'ITEM_505.1_disable_plsql_keyword_options',
+'ITEM_503.2_time_constexpr_compact', 'ITEM_503.2_length_function_use', 'ITEM_505.0_invisible_index',
+'ITEM_505.0_gs_guc_lcname', 'ITEM_505.0_pg_index_indisvisible', 'ITEM_505.2_drop_extension',
+'ITEM_505.1_delete_allow_f_message',
+'ITEM_505.2_delete_acceleration_with_compute_pool_and_show_acce_estimate_detail',
+'ITEM_505.2_delete_enable_agg_pushdown_for_ca', 'ITEM_505.2_delete_enable_acceleration_cluster_wlm',
+'ITEM_505.2_delete_pv_compute_pool_workload', 'ITEM_505.1_create_or_alter_aggregate_schema',
+'ITEM_505.1_gs_errors_id_index', 'ITEM_503.1_instr_unique_sql_track_type_default_all',
+'ITEM_503.2_slowsql_procedure_add_column_parent_unique_sql_id',
+'ITEM_503.1_incremental_materialized_view_union_all', 'ITEM_505.2_materialized_view_ustore',
+'ITEM_505.2_online_offline_keyword', 'ITEM_503.2_pg_rel_advisory_lock_and_unlock',
+'ITEM_505.2_enable_online_ddl', 'ITEM_restore_command_error_code', 'ITEM_R_check_local_archive',
+'ITEM_check_roach_unsupported_features', 'ITEM_505.1_audit_internal_event',
+'ITEM_505.1_disable_alter_user_with_vcadmin', 'ITEM_505.1_disable_create_user_with_vcadmin',
+'ITEM_505.1_disable_create_group_with_special_character', 'ITEM_505.2_disable_vacuumfullcompact',
+'ITEM_505.2_templatem_errcode', 'ITEM_505.2_errcode_02559', 'ITEM_503.1_alter_table_inherit',
+'ITEM_505.1_alter_table_inherit', 'ITEM_503.2_alter_object_set_schema',
+'ITEM_505.0_alter_object_set_schema', 'ITEM_503.2_lpad_and_rpad',
+'ITEM_505.1_sum_avg_bitor_bitand_bitxor', 'ITEM_505.2_sum_avg_bitor_bitand_bitxor',
+'ITEM_505.2_delete_gs_cgroup_n', 'ITEM_505.2_delete_create_resource_pool_nodegroup_is_foreign',
+'ITEM_505.2_delete_guc_max_active_statements', 'ITEM_505.1.RC1_update_global_pooler_status',
+'ITEM_505.0_new_keywords_for_system_function', 'ITEM_505.2_m_compatiblity_create_table_like',
+'ITEM_503.1_dbe_scheduler', 'ITEM_505.1.1_dbe_scheduler', 'ITEM_505.2_delete_enable_dngather',
+'ITEM_505.2_delete_dngather_min_rows', 'ITEM_505.0.0_keyword_datatime_table_name',
+'ITEM_505.0.0_keyword_datatime_column_name', 'ITEM_505.0.0_keyword_datatime_func_name',
+'ITEM_505.0.0_keyword_datatime_type_name', 'ITEM_505.0.0_keyword_datatime_role_name',
+'ITEM_505.0.0_keyword_datatime_schema_name', 'ITEM_505.0.0_keyword_datatime_db_name',
+'ITEM_505.0.0_keyword_datatime_job_name', 'ITEM_505.0.0_keyword_mediumint_table_name',
+'ITEM_505.0.0_keyword_mediumint_column_name', 'ITEM_505.0.0_keyword_mediumint_func_name',
+'ITEM_505.0.0_keyword_mediumint_type_name', 'ITEM_505.0.0_keyword_mediumint_role_name',
+'ITEM_505.0.0_keyword_mediumint_schema_name', 'ITEM_505.0.0_keyword_mediumint_db_name',
+'ITEM_505.0.0_keyword_mediumint_job_name', 'ITEM_505.1.R_index_column_collate',
+'ITEM_505.2.R_pg_get_tabledef', 'ITEM_505.2.R_transaction_isolation', 'ITEM_505.2.R_pg_typeof_longblob',
+'ITEM_505.2.R_dbcompatibility_M_character', 'ITEM_505.2.R_copy_load_data', 'ITEM_505.2.0_isnull',
+'ITEM_505.2.0_force_match_table_name', 'ITEM_505.2.0_force_match_column_name',
+'ITEM_505.2.0_force_match_func_name', 'ITEM_505.2.0_force_match_db_name',
+'ITEM_505.2.1_null_collate_binary', 'ITEM_505.2.1_gs_dump_restore', 'ITEM_505.2.1_distinct_withrollup',
+'ITEM_505.1_diable_enable_vectordb', 'ITEM_text_search_dictionary_command_error_code',
+'ITEM_505.2_gs_bm25_inspect', 'ITEM_505.2_unsupport_autonomous_rebuild_view_across_different_schema',
+'ITEM_503.2_multi_insert_min_rows', 'ITEM_505.1.1_uppercase_attribute_name',
+'ITEM_505.2.1_uppercase_attribute_name', 'ITEM_505.1_information_schema_columns',
+'ITEM_505.1_information_schema_engines', 'ITEM_505.1_information_schema_views',
+[[PDF_PAGE physical=4011 printed=3962]]
+'ITEM_505.1_information_schema_profiling', 'ITEM_505.1_information_schema_processlist',
+'ITEM_505.1_information_schema_referential_constraints',
+'ITEM_505.1_information_schema_table_constraints', 'ITEM_505.1_information_schema_table_privileges',
+'ITEM_505.1_information_schema_triggers', 'ITEM_505.1_information_schema_tables',
+'ITEM_505.1_information_schema_statistics', 'ITEM_505.1_information_schema_session_variables',
+'ITEM_505.1_information_schema_tab_partitions', 'ITEM_505.1_information_schema_tab_subpartitions',
+'ITEM_505.1_information_schema_partitions', 'ITEM_505.1_m_schema_columns_priv',
+'ITEM_505.1_m_schema_tables_priv', 'ITEM_505.1_m_schema_procs_priv', 'ITEM_505.1_m_schema_proc',
+'ITEM_505.1_m_schema_func', 'ITEM_505.1_pg_stats_and_gs_stats', 'ITEM_505.1_gs_stat_activity',
+'ITEM_505.1_gs_seg_spc_segments_and_gs_seg_spc_extents',
+'ITEM_505.1_information_schema_user_privileges',
+'ITEM_505.1_information_schema_table_privileges_grantee', 'ITEM_505.1_information_schema_some_views',
+'ITEM_505.1_information_schema_views_is_updatable', 'ITEM_505.1_gs_seg_datafiles',
+'ITEM_505.1_gs_seg_segments_and_gs_seg_extents', 'ITEM_505.2_information_schema_columns',
+'ITEM_505.2_information_schema_partitions', 'ITEM_505.2_information_schema_statistics',
+'ITEM_505.2_information_schema_table_constraints', 'ITEM_505.2_information_schema_global_variables',
+'ITEM_505.2_information_schema_character_sets', 'ITEM_505.2_information_schema_collations',
+'ITEM_505.2_information_schema_collation_character_set_applicability',
+'ITEM_505.2_adm_objects_and_db_objects', 'ITEM_505.1.1_create_operator', 'ITEM_505.2_create_operator',
+'ITEM_505.2_rank_respect_nulls', 'ITEM_503.2_package_varray_type', 'ITEM_503.1_gs_source_drop_user',
+'ITEM_505.2_get_cursor_tuple_desc', 'ITEM_505.2_gs_source_drop_object', 'ITEM_505.2_char_coerce_compat',
+'ITEM_505.0_lc_gs_check_logic_cluster_consistency', 'ITEM_505.0_lc_gs_cgroup_map_ng_conf',
+'ITEM_505.0_lc_pgxc_cgroup_map_ng_conf', 'ITEM_505.0_lc_alter_node_group',
+'ITEM_505.0_lc_create_node_group', 'ITEM_505.0_lc_drop_node_group', 'ITEM_505.0_lc_alter_table_int16',
+'ITEM_503.1_disallow_remove_schema_dbe_pldeveloper',
+'ITEM_505.1_disallow_remove_schema_dbe_pldeveloper', 'ITEM_503.2_enable_dynamic_sql_compat',
+'ITEM_505.0_enable_dynamic_sql_compat', 'ITEM_505.0_add_new_unreserved_keywords_for_xmltable',
+'ITEM_505.1_solve_information_schema', 'ITEM_R2C10_503.1_040_rep_iud_check',
+'ITEM_503.2_forbid_max_query_retry_times']
+
+示例二：指定检查项进行检查（交互式输入rdsAdmin密码）。
+python3 gs_compatible_check.py --target_version=94997 --items=ITEM_503.1_Alter_object_set_schema
+NOTICE: Start the basic check.
+NOTICE: The cluster type is centralized
+Basic check succeeded.
+Init global infos
+NOTICE: The baseline version of the database is: 93372;
+      The target version of the database is: 94997.
+Please enter password for [rdsAdmin]:
+Please repeat enter for password for [rdsAdmin]:
+Successfully init global infos
+Start to check compatibility before upgrade.
+Waiting for check..., checking incompatible item, please get more details from current node path
+$GAUSSLOG/om/gs_compatible_check.log
+[2026-05-13 07:02:15:531] Check item <ITEM_503.1_Alter_object_set_schema> completed, 0.004 s elapsed.
+NOTICE: The compatibility check report is stored in </var/lib/log/cl/om/
+report_compatible_check_results-2026-03-05_193618_3088930/
+report_gs_compatible_check_2026-03-05_193618_3088930.csv>
+Successfully to write all data into csv.
+NOTICE: For details about the check items to be analyzed, see the Upgrade Compatibility Check Guide.
+
+示例三：指定目标版本进行检查（交互式输入rdsAdmin密码）。
+python3 gs_compatible_check.py --target_version=94997
+NOTICE: Start the basic check.
+NOTICE: The cluster type is centralized
+Basic check succeeded.
+Init global infos
+NOTICE: The baseline version of the database is: 93372;
+      The target version of the database is: 94997.
+Please enter password for [rdsAdmin]:
+Please repeat enter for password for [rdsAdmin]:
+Successfully init global infos
+Start to check compatibility before upgrade.
+Waiting for check..., checking incompatible item, please get more details from current node path
+$GAUSSLOG/om/gs_compatible_check.log
+[2026-05-13 07:02:15:531] Check item <ITEM_503.1_Alter_object_set_schema> completed, 0.014 s elapsed.
+[2026-05-13 07:02:16:131] Check item <ITEM_503.1_create_index_using_gist> completed, 0.014 s elapsed.
+[2026-05-13 07:02:17:731] Check item <ITEM_503.1_reindex_index_concurrently> completed, 0.014 s
+[[PDF_PAGE physical=4012 printed=3963]]
+           elapsed.
+           [2026-05-13 07:02:18:331] Check item <ITEM_503.1_regexp_substr> completed, 0.014 s elapsed.
+           [2026-05-13 07:02:19:231] Check item <ITEM_503.1_adm_arguments> completed, 0.014 s elapsed.
+           [2026-05-13 07:02:20:031] Check item <ITEM_505.2_pg_extension_data_source> completed, 0.014 s elapsed.
+           [2026-05-13 07:02:21:531] Check item <ITEM_505.2_create_data_source> completed, 0.014 s elapsed.
+           [2026-05-13 07:02:22:531] Check item <ITEM_505.2_drop_data_source> completed, 0.014 s elapsed.
+           ......
+           [2026-05-13 07:02:49:031] Check item <ITEM_505.0_lc_alter_table_int16> completed, 0.014 s elapsed.
+           [2026-05-13 07:02:50:431] Check item <ITEM_503.1_disallow_remove_schema_dbe_pldeveloper>
+           completed, 0.014 s elapsed.
+           [2026-05-13 07:02:51:571] Check item <ITEM_505.1_disallow_remove_schema_dbe_pldeveloper>
+           completed, 0.014 s elapsed.
+           [2026-05-13 07:02:52:531] Check item <ITEM_503.2_enable_dynamic_sql_compat> completed, 0.014 s
+           elapsed.
+           [2026-05-13 07:02:53:431] Check item <ITEM_505.0_enable_dynamic_sql_compat> completed, 0.014 s
+           elapsed.
+           [2026-05-13 07:02:54:531] Check item <ITEM_505.0_add_new_unreserved_keywords_for_xmltable>
+           completed, 0.014 s elapsed.
+           [2026-05-13 07:02:55:501] Check item <ITEM_505.1_solve_information_schema> completed, 0.014 s elapsed.
+           [2026-05-13 07:02:56:511] Check item <ITEM_R2C10_503.1_040_rep_iud_check> completed, 0.014 s elapsed.
+           [2026-05-13 07:02:57:431] Check item <ITEM_503.2_forbid_max_query_retry_times> completed, 0.014 s
+           elapsed.
+           NOTICE: The compatibility check report is stored in </var/lib/log/om/
+           report_compatible_check_results-2026-03-05_193618_3088930/
+           report_gs_compatible_check_2026-03-05_193618_3088930.csv>
+           Successfully to write all data into csv.
+           NOTICE: For details about the check items to be analyzed, see the Upgrade Compatibility Check Guide.
+
+
+
+5.9.5.2 通用检查项
+
+5.9.5.2.1 通用检查项（ITEM_COMMON_system_object_depend_check）
+
+背景信息
+           升级过程中，部分系统视图或系统函数会发生升级重建，如果存在用户视图依赖这些
+           被重建的系统对象，升级流程不会中断且会级联删除依赖重建系统对象的用户视图。
+           新增通用检查项（ITEM_COMMON_system_object_depend_check），主要提供集成
+           在gs_compatible_check.py升级前兼容性检查工具的检查方法，在升级前提前识别依
+           赖系统对象的用户视图，以便于确认因升级删除用户视图带来的风险，用户可根据该
+           检查项结果查看受影响的用户视图列表，且在升级前进行备份，升级或回滚后手动快
+           速恢复。该检查项支持单项检查。
+
+
+注意事项
+           ●    该检查项需满足gs_compatible_check.py工具的约束条件，具体请参见注意事
+                项。
+           ●    只支持导出依赖系统对象的用户视图定义，不支持导出其他依赖对象的定义。如
+                果存在除视图、函数之外的依赖对象，可能会导致升级失败，升级前需人工解除
+                依赖关系。
+           ●    通用检查项会导出依赖系统对象的全量用户视图定义，不支持仅导出升级过程中
+                被删除的用户视图定义。
+           ●    仅支持导出模式名或视图名不包含特殊字符（即名称仅由[a-z][A-Z][0-9][_-]组
+                成）的视图定义。若模式名或视图名包含特殊字符，用户在升级前需使用
+                gs_dump工具对名称进行转义后，再手动导出其定义。
+           ●    若通用检查项检查结果非PASS，升级或回滚完成后，用户需进行视图恢复，具体
+                操作请参见升级或回滚后视图恢复。
+[[PDF_PAGE physical=4013 printed=3964]]
+输出报告
+       输出结果保存到目录：$GAUSSLOG/om/report_compatible_check_results_<时间戳
+       >_<pid>。
+       目录结构说明：
+       $GAUSSLOG/om/report_compatible_check_results-2025-12-05_154953_21376
+         report_gs_compatible_check_2025-12-04_154953_21376.csv
+         ITEM_COMMON_system_object_depend_check
+              summary.txt
+              dbname1
+          dependent_object_result_<dbname1>.txt
+               view_definition_<dbname1>_<schemaname.viewname>.sql
+          view_definition_<dbname1>_<schemaname.viewname>.sql
+          ...
+              dbname2
+                  dependent_object_result_<dbname2>.txt
+          view_definition_<dbname2>_<schemaname.viewname>.sql
+          view_definition_<dbname2>_<schemaname.viewname>.sql
+              ...
+
+       ●    $GAUSSLOG/om/report_compatible_check_results-<时间戳>_<pid>：检查工具
+            输出结果保存的目录位置。
+       ●    report_gs_compatible_check_<时间戳>_<pid>.csv：检查工具的结果输出文件。
+       ●    ITEM_COMMON_system_object_depend_check：通用检查项输出目录。
+       ●    ITEM_COMMON_system_object_depend_check/summary.txt：通用检查项输出
+            的汇总信息，描述数据库包含依赖对象，以及备份视图信息。
+       ●    ITEM_COMMON_system_object_depend_check/
+            dependent_object_result_<dbname>.txt：通用检查项用户对象依赖结果文件，
+            文件命名以“dependent_object_result”为前缀，以“<db_name>.txt”为后
+            缀。
+       ●    ITEM_COMMON_system_object_depend_check/
+            view_definition_<dbname>_<schemaname.viewname>.sql：通用检查项用户视
+            图备份文件，文件命名以“view_definition”为前缀，以
+            “<dbname>_<schemaname.viewname>.sql”为后缀。
+
+       表 5-115 通用检查项输出报告字段说明
+
+        输出报告标           样例                                       含义
+        题
+
+        检查项名称           ITEM_COMMON_system_object_               表5-112中item_name含义。
+                        depend_check
+
+        接口类型            system_object                            表5-112中item_type含义。
+
+        检查类型            sql                                      表5-113中method_name含
+                                                                 义。
+
+        检查内容            -                                        表5-113中method_content含
+                                                                 义。
+
+        SQL排查方          NA                                       -
+        法
+
+        LOG排查方          -                                        -
+        法
+[[PDF_PAGE physical=4014 printed=3965]]
+       输出报告标                样例                                                 含义
+       题
+
+       UGO排查方               -                                                  -
+       法
+
+       SQL结果                {'详细信息请参考':                                        SQL排查方法搜索的结果。
+                            '$GAUSSLOG/om/                                     ● {}：表示未搜索到依赖系统对
+                            report_compatible_check_results                      象的用户视图。
+                            -<时间戳>_<pid>/
+                            ITEM_COMMON_system_object_                         ● key：表示实例id和数据库名
+                            depend_check目录的输出。',                                 称。
+                            '6001: db_name: [m_db]': '视图                       ● value：表示搜索到的依赖系
+                            依赖;','6001: db_name: [test]': '视                     统对象的用户对象或者巡检
+                            图依赖;函数依赖;其他对象依赖;'}                                   失败。
+
+       LOG结果                -                                                  -
+
+       UGO结果                -                                                  -
+
+       检查结果                 PASS                                               表示检查通过，不涉及依赖系统
+                                                                               对象的用户对象。
+
+                            FAILED                                             表示检查未通过，可能存在检查
+                                                                               依赖关系失败或者导出视图定义
+                                                                               失败的情况，需进一步根据SQL
+                                                                               结果列排查确认。
+
+
+
+用户对象依赖结果文件说明
+      用户对象依赖结果文件内容为SQL巡检方法的gsql执行结果。
+      文件内容示例如下：
+      objid |    object_      | objtype |          root_refobject             |                             root_refpath
+      -------+------------------+----------+---------------------------------------
+      +-----------------------------------------------------------------------------------------------
+      18227 | pg_attrdef.18227 | attrdef | pg_proc.pg_catalog.abstime_text                 | /pg_proc.pg_catalog.abstime_text/
+      pg_attrdef.18227
+      18281 | public.f2         | function | pg_type.pg_catalog.statement_history | /
+      pg_type.pg_catalog.statement_history/pg_proc.public.f2
+      18279 | public.i1         | index | pg_extension.pg_catalog.pkg_dbe_raw +| /
+      pg_extension.pg_catalog.pkg_dbe_raw/pg_proc.dbe_raw.bit_or/pg_class.public.i1                        +
+      |             |        | pg_proc.dbe_raw.bit_or                 | /pg_proc.dbe_raw.bit_or/pg_class.public.i1
+      18254 | public.t2         | table | pg_type.pg_catalog.statement_history | /
+      pg_type.pg_catalog.statement_history/pg_class.public.t2
+      18259 | public.t3         | table | pg_extension.pg_catalog.pkg_dbe_xml +| /
+      pg_extension.pg_catalog.pkg_dbe_xml/pg_type.dbe_xmldom.domattr/pg_class.public.t3                         +
+      |             |        | pg_type.dbe_xmldom.domattr                  | /pg_type.dbe_xmldom.domattr/
+      pg_class.public.t3
+      18230 | public.v1          | view   | pg_class.information_schema.columns +| /
+      pg_class.information_schema.columns/pg_class.public.v1                                         +
+      |             |        | pg_class.information_schema.tables +| /pg_class.information_schema.tables/
+      pg_class.public.v1                                 +
+      |             |        | pg_proc.pg_catalog.abstime_text            | /pg_proc.pg_catalog.abstime_text/
+      pg_class.public.v1
+      18235 | public.v2          | view   | pg_class.information_schema.columns +| /
+      pg_class.information_schema.columns/pg_class.public.v2                                         +
+      |             |        | pg_class.information_schema.tables +| /pg_class.information_schema.tables/
+      pg_class.public.v2                                 +
+[[PDF_PAGE physical=4015 printed=3966]]
+|            |       | pg_proc.pg_catalog.abstime_text          | /pg_proc.pg_catalog.abstime_text/
+pg_class.public.v2
+18240 | public.v3       | view    | pg_class.information_schema.columns +| /
+pg_class.information_schema.columns/pg_class.public.v1/pg_class.public.v3                      +
+|            |       | pg_class.information_schema.tables +| /pg_class.information_schema.columns/
+pg_class.public.v2/pg_class.public.v3                +
+|            |       | pg_proc.pg_catalog.abstime_text          | /pg_class.information_schema.columns/
+pg_class.public.v3                             +
+|            |       |                             | /pg_class.information_schema.tables/pg_class.public.v1/
+pg_class.public.v3                +
+|            |       |                             | /pg_class.information_schema.tables/pg_class.public.v2/
+pg_class.public.v3                +
+|            |       |                             | /pg_class.information_schema.tables/
+pg_class.public.v3                              +
+|            |       |                             | /pg_proc.pg_catalog.abstime_text/pg_class.public.v1/
+pg_class.public.v3                  +
+|            |       |                             | /pg_proc.pg_catalog.abstime_text/pg_class.public.v2/
+pg_class.public.v3                  +
+|            |       |                             | /pg_proc.pg_catalog.abstime_text/pg_class.public.v3
+18245 | public.v4       | view    | pg_class.information_schema.columns +| /
+pg_class.information_schema.columns/pg_class.public.v1/pg_class.public.v3/pg_class.public.v4+
+|            |       | pg_class.information_schema.tables +| /pg_class.information_schema.columns/
+pg_class.public.v1/pg_class.public.v4                +
+|            |       | pg_proc.pg_catalog.abstime_text          | /pg_class.information_schema.columns/
+pg_class.public.v2/pg_class.public.v3/pg_class.public.v4+
+|            |       |                             | /pg_class.information_schema.columns/pg_class.public.v2/
+pg_class.public.v4               +
+|            |       |                             | /pg_class.information_schema.columns/pg_class.public.v3/
+pg_class.public.v4               +
+|            |       |                             | /pg_class.information_schema.tables/pg_class.public.v1/
+pg_class.public.v3/pg_class.public.v4 +
+|            |       |                             | /pg_class.information_schema.tables/pg_class.public.v1/
+pg_class.public.v4                +
+|            |       |                             | /pg_class.information_schema.tables/pg_class.public.v2/
+pg_class.public.v3/pg_class.public.v4 +
+|            |       |                             | /pg_class.information_schema.tables/pg_class.public.v2/
+pg_class.public.v4                +
+|            |       |                             | /pg_class.information_schema.tables/pg_class.public.v3/
+pg_class.public.v4                +
+|            |       |                             | /pg_proc.pg_catalog.abstime_text/pg_class.public.v1/
+pg_class.public.v3/pg_class.public.v4 +
+|            |       |                             | /pg_proc.pg_catalog.abstime_text/pg_class.public.v1/
+pg_class.public.v4                  +
+|            |       |                             | /pg_proc.pg_catalog.abstime_text/pg_class.public.v2/
+pg_class.public.v3/pg_class.public.v4 +
+|            |       |                             | /pg_proc.pg_catalog.abstime_text/pg_class.public.v2/
+pg_class.public.v4                  +
+|            |       |                             | /pg_proc.pg_catalog.abstime_text/pg_class.public.v3/
+pg_class.public.v4
+18249 | public.v5       | view    | pg_proc.pg_catalog.abstime_text          | /pg_proc.pg_catalog.abstime_text/
+pg_class.public.v5
+18264 | public.v6       | view    | pg_extension.pg_catalog.pkg_dbe_raw +| /
+pg_extension.pg_catalog.pkg_dbe_raw/pg_proc.dbe_raw.bit_or/pg_class.public.v6                    +
+|            |       | pg_proc.dbe_raw.bit_or              | /pg_proc.dbe_raw.bit_or/pg_class.public.v6
+18269 | public.v7       | view    | pg_class.pg_catalog.statement_history | /
+pg_class.pg_catalog.statement_history/pg_class.public.v7
+
+具体内容信息介绍如下：
+●     objid：用户对象OID。
+●     object_：用户对象名称。
+      –     objtype为“view\function\table\composite_type\index”时，取值为“模式
+            名.对象名”。
+      –     object为“-”时，取值为“系统表名.对象OID”。
+●     objtype：用户对象类型，取值为“function\view\table\composite_type\index
+      \-”。当取值为“-”时，表示未知，需要用户根据对象所在的系统表判断。
+[[PDF_PAGE physical=4016 printed=3967]]
+      ●   root_refobject：用户对象依赖的系统视图、系统函数列表，以数组形式输出。
+      ●   root_refpath：用户对象依赖系统视图、系统函数的完整依赖路径，以换行符分
+          隔，对象名前缀为对象所在的系统表名，方便确定对象类型。如果用户视图间有
+          依赖关系，可根据依赖路径确定其依赖顺序。
+
+用户视图备份文件说明
+      用户视图备份文件内容为所有依赖系统对象的用户视图创建语句，是gs_dump -t
+      viewname的导出结果。文件中仅包含CREATE VIEW、ALTER VIEW、SET、BEGIN、
+      COMMIT、注释语句，不包含删除对象（如：DROP TABLE）、创建其他对象（如：
+      CREATE TABLE）、插入数据（如：INSERT INTO、COPY）等语句。
+      ●   gs_dump导出视图定义命令示例如下：
+          gs_dump --schema-only --pipeline -p 14267 postgres -t public.v1 -f postgres_public.v1.sql
+
+      ●   文件内容示例如下：
+          --
+          -- GaussDB database dump
+          --
+
+          SET statement_timeout = 0;
+          SET xmloption = content;
+          SET client_encoding = 'SQL_ASCII';
+          SET standard_conforming_strings = on;
+          SET check_function_bodies = false;
+          SET session_replication_role = replica;
+          SET enable_extension = on;
+          SET client_min_messages = warning;
+
+          SET search_path = public;
+
+          --
+          -- Name: v2; Type: VIEW; Schema: public; Owner: omm
+          --
+
+          CREATE VIEW v2(cl) AS
+          SELECT 1 AS cl FROM information_schema.tables, information_schema.columns,
+          abstime_text('2025-05-06 12:00:01+08'::abstime) abstime_text(abstime_text);
+
+
+          ALTER VIEW public.v2 OWNER TO omm;
+
+          --
+          -- GaussDB database dump complete
+          --
+
+
+升级或回滚后视图恢复
+      升级或回滚完成后，用户需要在升级日志中，搜索“Sorry that we have to drop
+      view”字符串，确定升级过程中被删除的用户视图名称，然后从备份文件中，找到视
+      图定义（包含CREATE VIEW\GRANT语句），使用数据库管理员连接目标库，执行语
+      句恢复视图定义。如果用户视图间存在依赖关系，可根据巡检结果或视图定义确定依
+      赖顺序，按序进行视图恢复。
+
+其他依赖对象的处理
+      ●   若存在除视图和函数外的其他依赖对象，可能会导致升级失败，用户需先手动解
+          除用户表对系统对象的依赖，然后再次升级。
+      ●   现网无用户函数被级联删除的场景，gs_dump未提供用户函数独立导出接口，因
+          此该检查项不备份用户函数；如确实有存在用户函数依赖情况，可在升级前使用
+          gs_dump导出所有对象，并筛选用户函数进行备份，升级或回滚后进行恢复。
+[[PDF_PAGE physical=4017 printed=3968]]
+示例
+            指定通用检查项进行检查（开启Peer认证方式）。
+            python3 gs_compatible_check.py --target_version=94998 --
+            items=ITEM_COMMON_system_object_depend_check
+            NOTICE: Start the basic check.
+            NOTICE: The cluster type is centralized
+            Basic check succeeded.
+            NOTICE: Init global infos
+            NOTICE: The baseline version of the database is: 94997;
+                  The target version of the database is: 94998.
+            NOTICE: Successfully init global infos
+            NOTICE: Start to check compatibility before upgrade.
+            Waiting for check..., checking incompatible item, please get more details from current node path
+            $GAUSSLOG/om/gs_compatible_check.log
+            WARNING:Illegal view name [public.a.b] on line 8 for db test.
+            WARNING:Illegal view name [public.xxa—a_b] on line 58 for db test.
+            [2026-05-13 06:58:28:125] Check item <ITEM_COMMON_system_object_depend_check> completed, 2.697 s
+            elapsed.
+            NOTICE: The compatibility check report is stored in </data2/omm/var/log/gaussdb/omm/om/
+            report_compatible_check_results-2025-12-06_155728_26207/
+            report_gs_compatible_check_2025-12-06_155728_26207.csv>
+            Successfully to write all data into csv.
+            NOTICE: For details about the check items to be analyzed, see the Upgrade Compatibility Check Guide
+
+
+5.9.5.2.2 通用检查项（ITEM_COMMON_sysname_conflict_cent_system_function）
+            由于历史版本中新增系统函数未新增同名函数的巡检项，故新增通用检查项
+            （ITEM_COMMON_sysname_conflict_cent_system_function），提供
+            V500R001C10SPC001版本到507.0版本期间新增的系统函数的同名巡检，防止用户自
+            定义函数与新增系统函数同名导致的冲突，若发现冲突，升级前用户需对同名函数进
+            行适配修改。受限于csv文件单元格的显示字符长度，该检查项限制了只显示50条检查
+            的结果的显示，若发现显示了50条结果，需先修复已显示的50条结果后再继续进行巡
+            检。
+
+
+            表 5-116 输出报告字段说明
+
+             输出报告标            样例                                         含义
+             题
+
+             检查项名称            ITEM_COMMON_sysname_confli                 表5-112中item_name含义。
+                              ct_cent_system_function
+
+             接口类型             system_function                            表5-112中item_type含义。
+                                                                         用于系统函数的同名检查。
+
+             检查类型             sql                                        表5-113中method_name含
+                                                                         义。
+
+             检查内容             SELECT concat('function: proname=',        表5-113中method_content含
+                              n.nspname::text, '.', p.proname::text,',
+                              oid=', p.oid::text) as context FROM
+                                                                         义。
+                              pg_catalog.pg_proc p, pg_namespace n
+                              where p.oid >= 16384 AND
+                              p.pronamespace = n.oid AND p.proname
+                              in(function_list);
+                              function_list为实际新增函数名列
+                              表，如：
+                              'function1','function2',....。
+[[PDF_PAGE physical=4018 printed=3969]]
+输出报告标    样例                                           含义
+题
+
+SQL排查方   start transaction read only;set local        检查升级前是否存在用户自定义
+         statement_timeout=60000;set
+法        behavior_compat_options =
+                                                      的函数与升级后新增的系统函数
+         'forbid_package_function_with_prefix,        同名的情况。
+         enable_bpcharlikebpchar_compare,
+         enable_crosstype_integer_operator,
+         forbid_skip_tableof_empty_str_elem,
+         forbid_update_multi_same_tables,
+         enable_ora_joinop_in_updatestmt';with
+         vvv_sqls(query) as (SELECT query FROM
+         (SELECT query FROM
+         pg_catalog.pg_stat_activity WHERE query
+         is not null and datname !=
+         current_database() and sessionid !=
+         pg_current_sessid() union all SELECT
+         query FROM dbe_perf.statement WHERE
+         query is not null union all SELECT
+         unique_query as query FROM
+         pg_catalog.gs_asp WHERE unique_query
+         is not null and databaseid = (SELECT oid
+         FROM pg_catalog.pg_database WHERE
+         datname = current_database()) union all
+         SELECT prosrc as query FROM
+         pg_catalog.pg_proc WHERE oid >= 16384
+         and prolang in (SELECT oid FROM
+         pg_catalog.pg_language WHERE lanname
+         in ('sql', 'plpgsql'))) WHERE lower(query)
+         not like lower('%vvv_sqls%')) SELECT *
+         FROM (SELECT concat('function:
+         proname=', n.nspname::text, '.',
+         p.proname::text,', oid=', p.oid::text) as
+         context FROM pg_catalog.pg_proc p,
+         pg_namespace n WHERE p.oid >= 16384
+         AND p.pronamespace = n.oid AND
+         p.proname in(function_list)) limit 50;
+         rollback;
+
+LOG排查方   -                                            -
+法
+
+UGO排查方   -                                            -
+法
+
+SQL结果    function:                                    SQL排查方法搜索的结果。显示
+         proname=dbe_pldebugger.function_name,
+         oid=xxx
+                                                      与新增系统函数存在同名冲突的
+                                                      Schema和函数。
+
+LOG结果    -                                            -
+
+UGO结果    -                                            -
+
+检查结果     PASS                                         表示检查通过，不存在用户自定
+                                                      义函数与新增系统系统函数同名
+                                                      问题。
+
+         FAILED                                       表示检查未通过，存在用户自定
+                                                      义函数与新增系统函数同名问
+                                                      题，根据SQL结果列对自定义的
+                                                      函数进行改名或删除操作。
+[[PDF_PAGE physical=4019 printed=3970]]
+5.9.5.2.3 通用检查项（ITEM_COMMON_sysname_conflict_cent_system_view）
+           由于历史版本中新增系统视图未新增同名视图的巡检项，故新增通用检查项
+           （ITEM_COMMON_sysname_conflict_cent_system_view），提供
+           V500R001C10SPC001版本到507.0版本期间新增的系统视图的同名巡检，防止用户自
+           定义视图与新增系统视图同名导致的冲突，若发现冲突，升级前用户需对同名视图进
+           行适配修改。受限于csv文件单元格的显示字符长度，该检查项限制了只显示50条检查
+           的结果的显示，若发现显示了50条结果，需先修复已显示的50条结果后再继续进行巡
+           检。
+
+           表 5-117 输出报告字段说明
+            输出报告标     样例                                                含义
+            题
+
+            检查项名称     ITEM_COMMON_sysname_confli                        表5-112中item_name含义。
+                      ct_cent_system_view
+
+            接口类型      system_view                                       表5-112中item_type含义。
+                                                                        用于系统视图的同名检查。
+
+            检查类型      sql                                               表5-113中method_name含
+                                                                        义。
+
+            检查内容      SELECT concat('relation: proname=',               表5-113中method_content含
+                      n.nspname::text, '.', p.relname::text,', oid=',
+                      p.oid::text, ', relkind=v') as context FROM
+                                                                        义。
+                      pg_catalog.pg_class p, pg_namespace n
+                      where p.oid >= 16384 AND
+                      p.relnamespace = n.oid AND p.relkind = 'v'
+                      AND p.relname in (view_list);
+                      view_list为实际新增系统视图名列
+                      表，如：'view1','view2',...
+[[PDF_PAGE physical=4020 printed=3971]]
+输出报告标    样例                                           含义
+题
+
+SQL排查方   start transaction read only;set local        检查升级前是否存在用户自定义
+         statement_timeout=60000;set
+法        behavior_compat_options =
+                                                      的视图与升级后新增的系统视图
+         'forbid_package_function_with_prefix,        同名的情况。
+         enable_bpcharlikebpchar_compare,
+         enable_crosstype_integer_operator,
+         forbid_skip_tableof_empty_str_elem,
+         forbid_update_multi_same_tables,
+         enable_ora_joinop_in_updatestmt';with
+         vvv_sqls(query) as (SELECT query FROM
+         (SELECT query FROM
+         pg_catalog.pg_stat_activity WHERE query
+         is not null and datname !=
+         current_database() and sessionid !=
+         pg_current_sessid() union all SELECT
+         query FROM dbe_perf.statement WHERE
+         query is not null union all SELECT
+         unique_query as query FROM
+         pg_catalog.gs_asp WHERE unique_query
+         is not null and databaseid = (SELECT oid
+         FROM pg_catalog.pg_database WHERE
+         datname = current_database()) union all
+         SELECT prosrc as query FROM
+         pg_catalog.pg_proc WHERE oid >= 16384
+         and prolang in (SELECT oid FROM
+         pg_catalog.pg_language WHERE lanname
+         in ('sql', 'plpgsql'))) WHERE lower(query)
+         not like lower('%vvv_sqls%')) SELECT *
+         FROM (SELECT concat('relation:
+         proname=', n.nspname::text, '.',
+         p.relname::text,', oid=', p.oid::text, ',
+         relkind=v') as context FROM
+         pg_catalog.pg_class p, pg_namespace n
+         where p.oid >= 16384 AND
+         p.relnamespace = n.oid AND p.relkind = 'v'
+         AND p.relname in (view_list)) limit 50;
+         rollback;
+
+LOG排查方   -                                            -
+法
+
+UGO排查方   -                                            -
+法
+
+SQL结果    relation: relname=pg_catalog.view_name,      SQL排查方法搜索的结果。显示
+         oid=xxx, relkind=v
+                                                      与新增系统函数存在同名冲突的
+                                                      Schema和函数。
+
+LOG结果    -                                            -
+
+UGO结果    -                                            -
+
+检查结果     PASS                                         表示检查通过，不存在用户自定
+                                                      义视图与新增系统系统视图同名
+                                                      问题。
+
+         FAILED                                       表示检查未通过，存在用户自定
+                                                      义视图与新增系统视图同名问
+                                                      题，根据SQL结果列对自定义的
+                                                      视图进行改名或删除操作。
+[[PDF_PAGE physical=4021 printed=3972]]
+5.9.5.2.4 通用检查项（ITEM_COMMON_sysname_conflict_cent_system_table）
+            由于历史版本中新增系统表未新增同名表的巡检项，故新增通用检查项
+            （ITEM_COMMON_sysname_conflict_cent_system_table），提供
+            V500R001C10SPC001版本到507.0版本期间新增的系统表的同名巡检，防止用户自定
+            义表与新增系统表同名导致的冲突，若发现冲突，升级前用户需对同名表进行适配修
+            改。受限于csv文件单元格的显示字符长度，该检查项限制了只显示50条检查的结果的
+            显示，若发现显示了50条结果，需先修复已显示的50条结果后再继续进行巡检。
+
+            表 5-118 输出报告字段说明
+            输出报告标     样例                                                含义
+            题
+
+            检查项名称     ITEM_COMMON_sysname_confli                        表5-112中item_name含义。
+                      ct_cent_system_table
+
+            接口类型      system_table                                      表5-112中item_type含义。
+                                                                        用于系统表的同名检查。
+
+            检查类型      sql                                               表5-113中method_name含
+                                                                        义。
+
+            检查内容      SELECT concat('relation: proname=',               表5-113中method_content含
+                      n.nspname::text, '.', p.relname::text,', oid=',
+                      p.oid::text, ', relkind=r') as context FROM
+                                                                        义。
+                      pg_catalog.pg_class p, pg_namespace n
+                      where p.oid >= 16384 AND
+                      p.relnamespace = n.oid AND p.relkind = 'r'
+                      AND p.relname in (table_list)
+                      table_list为实际新增系统表列
+                      表，如：'table1','table2',...
+[[PDF_PAGE physical=4022 printed=3973]]
+输出报告标    样例                                           含义
+题
+
+SQL排查方   start transaction read only;set local        检查升级前是否存在用户自定义
+         statement_timeout=60000;set
+法        behavior_compat_options =
+                                                      的表与升级后新增的系统表同名
+         'forbid_package_function_with_prefix,        的情况。
+         enable_bpcharlikebpchar_compare,
+         enable_crosstype_integer_operator,
+         forbid_skip_tableof_empty_str_elem,
+         forbid_update_multi_same_tables,
+         enable_ora_joinop_in_updatestmt';with
+         vvv_sqls(query) as (SELECT query FROM
+         (SELECT query FROM
+         pg_catalog.pg_stat_activity WHERE query
+         is not null and datname !=
+         current_database() and sessionid !=
+         pg_current_sessid() union all SELECT
+         query FROM dbe_perf.statement WHERE
+         query is not null union all SELECT
+         unique_query as query FROM
+         pg_catalog.gs_asp WHERE unique_query
+         is not null and databaseid = (SELECT oid
+         FROM pg_catalog.pg_database WHERE
+         datname = current_database()) union all
+         SELECT prosrc as query FROM
+         pg_catalog.pg_proc WHERE oid >= 16384
+         and prolang in (SELECT oid FROM
+         pg_catalog.pg_language WHERE lanname
+         in ('sql', 'plpgsql'))) WHERE lower(query)
+         not like lower('%vvv_sqls%')) SELECT *
+         FROM (SELECT concat('relation:
+         proname=', n.nspname::text, '.',
+         p.relname::text,', oid=', p.oid::text, ',
+         relkind=r') as context FROM
+         pg_catalog.pg_class p, pg_namespace n
+         where p.oid >= 16384 AND
+         p.relnamespace = n.oid AND p.relkind = 'r'
+         AND p.relname in (table_list)) limit 50;
+         rollback;
+
+LOG排查方   -                                            -
+法
+
+UGO排查方   -                                            -
+法
+
+SQL结果    relation: relname=pg_catalog.table_name,     SQL排查方法搜索的结果。显示
+         oid=xxx, relkind=r
+                                                      与新增系统函数存在同名冲突的
+                                                      Schema和函数。
+
+LOG结果    -                                            -
+
+UGO结果    -                                            -
+
+检查结果     PASS                                         表示检查通过，不存在用户自定
+                                                      义表与新增系统系统表同名问
+                                                      题。
+
+         FAILED                                       表示检查未通过，存在用户自定
+                                                      义表与新增系统表同名问题，根
+                                                      据SQL结果列对自定义的表进行
+                                                      改名或删除操作。
+[[PDF_PAGE physical=4023 printed=3974]]
+5.9.5.2.5 通用检查项（ITEM_COMMON_sysname_conflict_cent_system_schema）
+           由于历史版本中新增系统Schema未新增同名Schema的巡检项，故新增通用检查项
+           （ITEM_COMMON_sysname_conflict_cent_system_schema），提供
+           V500R001C10SPC001版本到507.0版本期间新增的系统schema的同名巡检，防止用户
+           自定义schema与新增系统schema同名导致的冲突，若发现冲突，升级前用户需对同
+           名schema进行适配修改。受限于csv文件单元格的显示字符长度，该检查项限制了只
+           显示50条检查的结果的显示，若发现显示了50条结果，需先修复已显示的50条结果后
+           再继续进行巡检。
+
+           表 5-119 输出报告字段说明
+            输出报告标     样例                                           含义
+            题
+
+            检查项名称     ITEM_COMMON_sysname_confli                   表5-112中item_name含义。
+                      ct_cent_system_schema
+
+            接口类型      system_object                                表5-112中item_type含义。
+                                                                   用于系统Schema的同名检查。
+
+            检查类型      sql                                          表5-113中method_name含
+                                                                   义。
+
+            检查内容      SELECT concat('schema: nspname=',            表5-113中method_content含
+                      n.nspname::text, ', oid=', n.oid::text) as
+                      context FROM pg_catalog.pg_namespace
+                                                                   义。
+                      n WHERE oid >= 16384 AND nspname in
+                      (schema_list)
+                      schema_list为实际新增系统
+                      Schema列表，如：
+                      'schema1','schema2',...。
+[[PDF_PAGE physical=4024 printed=3975]]
+输出报告标    样例                                           含义
+题
+
+SQL排查方   start transaction read only;set local        检查升级前是否存在用户自定义
+         statement_timeout=60000;set
+法        behavior_compat_options =
+                                                      的Schema与升级后新增的系统
+         'forbid_package_function_with_prefix,        Schema同名的情况。
+         enable_bpcharlikebpchar_compare,
+         enable_crosstype_integer_operator,
+         forbid_skip_tableof_empty_str_elem,
+         forbid_update_multi_same_tables,
+         enable_ora_joinop_in_updatestmt';with
+         vvv_sqls(query) as (SELECT query FROM
+         (SELECT query FROM
+         pg_catalog.pg_stat_activity WHERE query
+         is not null and datname !=
+         current_database() and sessionid !=
+         pg_current_sessid() union all SELECT
+         query FROM dbe_perf.statement WHERE
+         query is not null union all SELECT
+         unique_query as query FROM
+         pg_catalog.gs_asp WHERE unique_query
+         is not null and databaseid = (SELECT oid
+         FROM pg_catalog.pg_database WHERE
+         datname = current_database()) union all
+         SELECT prosrc as query FROM
+         pg_catalog.pg_proc WHERE oid >= 16384
+         and prolang in (SELECT oid FROM
+         pg_catalog.pg_language WHERE lanname
+         in ('sql', 'plpgsql'))) WHERE lower(query)
+         not like lower('%vvv_sqls%')) SELECT *
+         FROM (
+         SELECT concat('schema: nspname=',
+         n.nspname::text, ', oid=', n.oid::text) as
+         context FROM pg_catalog.pg_namespace
+         n WHERE oid >= 16384 AND nspname in
+         (schema_list)
+         ) limit 50; rollback;
+
+LOG排查方   -                                            -
+法
+
+UGO排查方   -                                            -
+法
+
+SQL结果    schema: nspname=public, oid=2200             SQL排查方法搜索的结果。显示
+                                                      与新增系统函数存在同名冲突的
+                                                      Schema和函数。
+
+LOG结果    -                                            -
+
+UGO结果    -                                            -
+
+检查结果     PASS                                         表示检查通过，不存在用户自定
+                                                      义Schema与新增系统系统
+                                                      Schema同名问题。
+
+         FAILED                                       表示检查未通过，存在用户自定
+                                                      义Schema与新增系统Schema同
+                                                      名问题，根据SQL结果列对自定
+                                                      义的Schema进行改名或删除操
+                                                      作。
+[[PDF_PAGE physical=4025 printed=3976]]
+5.9.5.2.6 通用检查项（ITEM_COMMON_sysname_conflict_cent_system_operator）
+            由于历史版本中新增系统操作符未新增同名操作符的巡检项，故新增通用检查项
+            （ITEM_COMMON_sysname_conflict_cent_system_operator），提供
+            V500R001C10SPC001版本到507.0版本期间新增的系统操作符的同名巡检，防止用户
+            自定义操作符与新增系统操作符同名导致的冲突，若发现冲突，升级前用户需对同名
+            操作符进行适配修改。受限于csv文件单元格的显示字符长度，该检查项限制了只显示
+            50条检查的结果的显示，若发现显示了50条结果，需先修复已显示的50条结果后再继
+            续进行巡检。
+
+            表 5-120 输出报告字段说明
+            输出报告标     样例                                         含义
+            题
+
+            检查项名称     ITEM_COMMON_sysname_confli                 表5-112中item_name含义。
+                      ct_cent_system_operator
+
+            接口类型      system_object                              表5-112中item_type含义。
+                                                                 用于操作符的同名检查。
+
+            检查类型      sql                                        表5-113中method_name含
+                                                                 义。
+
+            检查内容      SELECT concat('operator: oprname=',        表5-113中method_content含
+                      n.nspname::text, '.', p.oprname::text,',
+                      oid=', p.oid::text) as context FROM
+                                                                 义。
+                      pg_catalog.pg_operator p, pg_namespace
+                      n WHERE p.oid >= 16384 AND
+                      p.oprnamespace = n.oid AND ((oprname
+                      = '=' AND oprkind = 'b' AND oprleft =
+                      '1042' AND oprright='25' AND
+                      oprresult='16') OR ...)
+[[PDF_PAGE physical=4026 printed=3977]]
+输出报告标    样例                                           含义
+题
+
+SQL排查方   start transaction read only;set local        检查升级前是否存在用户自定义
+         statement_timeout=60000;set
+法        behavior_compat_options =
+                                                      的操作符与升级后新增的系统操
+         'forbid_package_function_with_prefix,        作符同名的情况。
+         enable_bpcharlikebpchar_compare,
+         enable_crosstype_integer_operator,
+         forbid_skip_tableof_empty_str_elem,
+         forbid_update_multi_same_tables,
+         enable_ora_joinop_in_updatestmt';with
+         vvv_sqls(query) as (SELECT query FROM
+         (SELECT query FROM
+         pg_catalog.pg_stat_activity WHERE query
+         is not null and datname !=
+         current_database() and sessionid !=
+         pg_current_sessid() union all SELECT
+         query FROM dbe_perf.statement WHERE
+         query is not null union all SELECT
+         unique_query as query FROM
+         pg_catalog.gs_asp WHERE unique_query
+         is not null and databaseid = (SELECT oid
+         FROM pg_catalog.pg_database WHERE
+         datname = current_database()) union all
+         SELECT prosrc as query FROM
+         pg_catalog.pg_proc WHERE oid >= 16384
+         and prolang in (SELECT oid FROM
+         pg_catalog.pg_language WHERE lanname
+         in ('sql', 'plpgsql'))) WHERE lower(query)
+         not like lower('%vvv_sqls%')) SELECT *
+         FROM (
+         SELECT concat('operator: oprname=',
+         n.nspname::text, '.', p.oprname::text,',
+         oid=', p.oid::text) as context FROM
+         pg_catalog.pg_operator p, pg_namespace
+         n WHERE p.oid >= 16384 AND
+         p.oprnamespace = n.oid AND ((oprname
+         = '=' AND oprkind = 'b' AND oprleft =
+         '1042' AND oprright='25' AND
+         oprresult='16') OR ...)
+         ) limit 50; rollback;
+
+LOG排查方   -                                            -
+法
+
+UGO排查方   -                                            -
+法
+
+SQL结果    operator: oprname=pg_catalog.=, oid=15       SQL排查方法搜索的结果。显示
+                                                      与新增系统函数存在同名冲突的
+                                                      Schema和函数。
+
+LOG结果    -                                            -
+
+UGO结果    -                                            -
+
+检查结果     PASS                                         表示检查通过，不存在用户自定
+                                                      义操作符与新增系统系统操作符
+                                                      同名问题。
+[[PDF_PAGE physical=4027 printed=3978]]
+输出报告标   样例       含义
+题
+
+        FAILED   表示检查未通过，存在用户自定
+                 义操作符与新增系统操作符同名
+                 问题，根据SQL结果列对自定义
+                 的操作符进行改名或删除操作。
