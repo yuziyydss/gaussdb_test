@@ -17,7 +17,7 @@ class CoreToolsWave89Tests(unittest.TestCase):
     def test_scope_covers_upgrade_tools(self):
         self.assertEqual(self.manifest['kind'], 'core_tools_wave8_9_extraction_manifest')
         self.assertEqual(self.manifest['scope']['chapter_count'], 1)
-        self.assertEqual(self.manifest['scope']['physical_page_count'], 36)
+        self.assertEqual(self.manifest['scope']['physical_page_count'], 37)
         self.assertEqual(self.manifest['scope']['physical_page_start'], 3991)
         self.assertEqual(self.manifest['scope']['physical_page_end_exclusive'], 4028)
         self.assertEqual(self.manifest['scope']['sections'], ['5.9'])
