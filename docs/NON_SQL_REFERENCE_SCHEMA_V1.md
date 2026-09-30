@@ -8,9 +8,9 @@
 
 | 指标 | 当前值 |
 |---|---:|
-| YAML 文件 | 130 |
-| facts | 2687 |
-| confirmed | 2684 |
+| YAML 文件 | 131 |
+| facts | 2713 |
+| confirmed | 2710 |
 | needs_verification | 3 |
 | 裸 ID 重名 | 8 |
 | 全局身份格式 | `file::fact_id` |
@@ -47,18 +47,18 @@
 | system_catalog | 6 | 53 |
 | tool_reference | 3 | 21 |
 | schema | 2 | 30 |
-| log_reference | 1 | 6 |
+| log_reference | 2 | 32 |
 | report | 1 | 6 |
 
 ## fact 类型分布
 
 | 类型 | 数量 |
 |---|---:|
-| behavior_oracle | 464 |
-| environment | 332 |
-| syntax | 1216 |
+| behavior_oracle | 467 |
+| environment | 337 |
+| syntax | 1231 |
 | metadata_oracle | 103 |
-| constraint | 570 |
+| constraint | 573 |
 | lifecycle | 2 |
 
 ## 未决事实
