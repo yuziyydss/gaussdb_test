@@ -12,7 +12,7 @@ FACTS_PATH = ROOT / 'docs/compat_facts/core_stored_procedure_wave8_5_v1.yaml'
 OUTPUT_PATH = ROOT / 'generated/core_stored_procedure_wave8_5_v1/manifest.json'
 SOURCE_ROOTS = (ROOT/'work/pdf_tiered_2026_09_07', ROOT/'work/pdf_foundations_2026_09_07')
 SECTIONS = (
-    ('3.17', 3109, 3133),
+    ('3.17', 3109, 3128),
     ('3.18', 3127, 3133),
 )
 
