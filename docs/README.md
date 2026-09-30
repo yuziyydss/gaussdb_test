@@ -43,6 +43,7 @@
 | [Core Tools Wave 8-12](CORE_TOOLS_WAVE8_12_V1.md) | 5.3数据库连接工具抽取：52页、20个facts |
 | [Core Tools Wave 8-13](CORE_TOOLS_WAVE8_13_V1.md) | 5.5性能监控工具抽取：41页、20个facts |
 | [Core Tools Wave 8-14](CORE_TOOLS_WAVE8_14_V1.md) | 5.7数据导入导出工具抽取：55页、20个facts |
+| [Core Tools Wave 8-15](CORE_TOOLS_WAVE8_15_V1.md) | 5.6备份/恢复工具抽取：97页、20个facts |
 | [Core System Management Wave 2B-1](CORE_SYSTEM_ADMIN_WAVE2B1_V1.md) | 1.6.27配置/文件/信号函数细抽取：5页、20个facts |
 | [Core System Management Wave 2B-2](CORE_SYSTEM_ADMIN_WAVE2B2_V1.md) | 1.6.27备份/恢复/容灾控制函数细抽取：21页、30个facts |
 | [Core System Management Wave 2B-3](CORE_SYSTEM_ADMIN_WAVE2B3_V1.md) | 1.6.27容灾查询/快照/对象函数细抽取：12页、20个facts |
