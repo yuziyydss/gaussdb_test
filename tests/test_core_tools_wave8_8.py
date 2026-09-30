@@ -59,8 +59,8 @@ class CoreToolsWave88Tests(unittest.TestCase):
             'tools_wave8_8_lockwait_retry',
             'tools_wave8_8_catchup_limits',
             'tools_wave8_8_write_error_mode',
-            'tools_wave8_8_redis_bucket',
-            'tools_wave8_8_shrink',
+            'tools_wave8_8_catchup_dop',
+            'tools_wave8_8_join_table_groups',
         }
         self.assertEqual(expected, ids)
 

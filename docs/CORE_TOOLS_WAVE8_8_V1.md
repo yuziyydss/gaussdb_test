@@ -29,7 +29,7 @@
 - 主机 locale/encoding 与依赖对象锁
 - `gs_expand` 扩容、重分布、回滚、资源管控
 - 重分布失败/追增阈值和锁等待边界
-- `gs_redis`、`gs_redis_bucket`、`gs_shrink` 的工具职责
+- 重分布并行度、锁等待、追增与多表join配置
 
 ## Open questions
 
