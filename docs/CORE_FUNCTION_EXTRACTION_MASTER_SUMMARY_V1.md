@@ -9,24 +9,24 @@
 | 指标 | 当前值 |
 |---|---:|
 | Manifest artifacts | 62 |
-| Sources | 162 |
-| Source page slices | 1392 |
-| Unique pages | 1210 |
-| Sections | 115 |
-| Full coverage sections | 65 |
+| Sources | 163 |
+| Source page slices | 1363 |
+| Unique pages | 1182 |
+| Sections | 116 |
+| Full coverage sections | 66 |
 | Partial coverage sections | 50 |
-| 结构化 facts | 1647 |
+| 结构化 facts | 1650 |
 | Open questions | 119 |
 
 ## Fact分布
 
 | 类型 | 数量 |
 |---|---:|
-| syntax | 885 |
+| syntax | 886 |
 | constraint | 450 |
-| behavior_oracle | 184 |
+| behavior_oracle | 186 |
 | environment | 128 |
-| 总计 | 1647 |
+| 总计 | 1650 |
 
 所有facts全局ID唯一，状态均为`confirmed`；所有open questions全局ID唯一，状态均为`open`。
 
@@ -36,10 +36,10 @@
 
 当前：
 
-- 已覆盖unique页：1210
-- 已纳入artifact所在章节 required 页：1210
+- 已覆盖unique页：1182
+- 已纳入artifact所在章节 required 页：1182
 - 缺失页：无
-- 完整覆盖小节：65
+- 完整覆盖小节：66
 - 部分覆盖小节：50
 
 部分覆盖小节表示对应大章节的manifest只按目标事实或目标函数族选择页面，不代表整章所有页都纳入。
