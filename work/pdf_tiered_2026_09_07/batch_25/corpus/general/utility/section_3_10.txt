@@ -1,0 +1,259 @@
+[[PDF_PAGE physical=2627 printed=2578]]
+3.10 其他语句
+3.10.1 锁操作
+        GaussDB提供了多种锁模式用于控制对表中数据的并发访问。
+        GaussDB提供的多种锁模式可以用在MVCC（多版本并发控制）无法给出期望行为的
+        场合。
+        大多数GaussDB命令自动施加恰当的锁，以保证被引用的表在命令的执行过程中不会
+        以一种不兼容的方式被删除或者修改。比如，在存在其他并发操作的时候，ALTER
+        TABLE是不能在同一个表上执行的。
+        存储过程在执行过程中会获取读锁。当事务提交或会话处于IDLE、IDLE IN
+        TRANSACTION、IDLE IN TRANSACTION(ABORTED)状态时，会释放当前session持
+        有的读锁。如果当前事务包含存储过程写锁，不会释放锁。
+        完整的锁操作请参见LOCK。
+
+
+             须知
+
+        ● 为减少存储过程DDL对并发访问存储过程的阻塞，GaussDB在存储过程变更前使用
+          并发写锁控制并发修改同一对象，在事务提交时使用对象锁阻塞存储过程访问。
+        ● 在高并发DDL场景下可能会偶现死锁报错，用户需要手动重试DDL语句。强烈不推
+          荐在单个事务内执行多条DDL语句。
+        ● 存储过程DDL在事务结束时对存储过程对象加写锁，存储过程错误捕获语句无法捕
+          获DDL死锁。
+        ● 执行存储过程时会对类型依赖的PACKAGE加读锁，存储过程DDL变更因依赖该
+          PACKAGE，会被读锁阻塞。
+[[PDF_PAGE physical=2628 printed=2579]]
+示例1：
+
+在开启失效重编译参数时，变更表test_tb，会触发级联失效（对依赖对象变更通过锁
+保护）；同时并发访问依赖当前表的对象，触发死锁报错。
+
+时刻1：变更表test_tb，表加写锁。
+
+时刻2：访问pkg1.func，给pkg1加读锁，访问到表test_tb，需要给表test_tb加读锁，
+触发等待（sess1）。
+
+时刻3：sess1事务提交，需要级联失效依赖对象，需要给pkg1加写锁，触发等待
+（sess2），死锁报错。
+-- 前置数据。
+gaussdb=# SET DDL_INVALID_MODE='INVALID';
+SET
+gaussdb=# SET ENABLE_FORCE_CREATE_OBJ=ON;
+SET
+gaussdb=# SET BEHAVIOR_COMPAT_OPTIONS='allow_procedure_compile_check';
+SET
+gaussdb=# DROP TABLE IF EXISTS test_tb;
+NOTICE: table "test_tb" does not exist, skipping
+DROP TABLE
+gaussdb=# CREATE TABLE test_tb (c1 VARCHAR(2), c2 NUMBER(2));
+CREATE TABLE
+gaussdb=# INSERT INTO test_tb VALUES (1,2);
+INSERT 0 1
+gaussdb=# CREATE OR REPLACE PACKAGE pkg1 IS
+   CURSOR cur IS SELECT c1,c2 FROM test_tb;
+   FUNCTION func RETURN TEST_TB.C2%TYPE;
+END pkg1;
+CREATE OR REPLACE PACKAGE BODY pkg1 IS
+   FUNCTION func RETURN test_tb.c2%TYPE IS
+   TYPE ty_tb IS TABLE OF cur%ROWTYPE;
+   v2 ty_tb;
+   BEGIN
+   LOOP
+   FETCH cur BULK COLLECT INTO v2 LIMIT 10;
+   EXIT WHEN cur%NOTFOUND;
+   END LOOP;
+      CLOSE cur;
+      RETURN '1';
+   EXCEPTION WHEN OTHERS THEN
+      RETURN '0';
+   END;
+END pkg1;
+/
+NOTICE: type reference test_tb.c2%TYPE converted to numeric
+NOTICE: type reference test_tb.c2%TYPE converted to numeric
+NOTICE: type reference test_tb.c2%TYPE converted to numeric
+CREATE PACKAGE BODY
+-- SESSION1 时刻1。
+gaussdb=# BEGIN;
+BEGIN
+gaussdb=# ALTER TABLE test_tb MODIFY c1 VARCHAR(12);
+ALTER TABLE
+-- SESSION2 时刻2。
+gaussdb=# SET BEHAVIOR_COMPAT_OPTIONS='allow_procedure_compile_check';
+SET
+gaussdb=# BEGIN;
+BEGIN
+gaussdb=# CALL pkg1.func();
+-- SESSION1 时刻3。
+gaussdb=# END; --死锁报错。
+ERROR: deadlock detected
+
+示例2：
+[[PDF_PAGE physical=2629 printed=2580]]
+在开启失效重编译参数时，变更表tb_base，会触发级联失效（对依赖对象变更通过锁
+保护）；同时并发访问依赖当前表的对象，触发死锁报错。
+时刻1：变更表tb_base，表加写锁。
+时刻2：访问proc1，给proc1加读锁，访问到表tb_base，需要给表tb_base加读锁，触
+发等待（sess1）。
+时刻3：sess1事务提交，需要级联失效依赖对象，需要给proc1加写锁，触发等待
+（sess2），死锁报错。
+-- 前置数据。
+gaussdb=# SET DDL_INVALID_MODE='INVALID';
+SET
+gaussdb=# SET ENABLE_FORCE_CREATE_OBJ=ON;
+SET
+gaussdb=# DROP TABLE IF EXISTS tb_base;
+NOTICE: table "tb_base" does not exist, skipping
+DROP TABLE
+gaussdb=# CREATE TABLE tb_base (c1 VARCHAR(2), c2 NUMBER(2));
+CREATE TABLE
+gaussdb=# INSERT INTO tb_base VALUES (1,2);
+INSERT 0 1
+gaussdb=# CREATE OR REPLACE PROCEDURE proc1(p1 tb_base.c1%TYPE, p2 OUT SYS_REFCURSOR) IS
+BEGIN
+   OPEN p2 FOR SELECT c1, c2 FROM tb_base WHERE c1 = p1;
+   SELECT PG_SLEEP(500);
+END;
+/
+NOTICE: type reference tb_base.c1%TYPE converted to character varying
+CREATE PROCEDURE
+-- SESSION1 时刻1。
+gaussdb=# BEGIN;
+BEGIN
+gaussdb=# ALTER TABLE tb_base MODIFY c1 VARCHAR(2);
+ALTER TABLE
+-- SESSION2 时刻2。
+gaussdb=# BEGIN;
+BEGIN
+gaussdb=# DECLARE
+cur SYS_REFCURSOR;
+v RECORD;
+BEGIN
+proc1(1, cur);
+FETCH cur INTO v;
+CLOSE cur;
+RAISE INFO '%', v;
+END;
+/
+-- SESSION1 时刻3。
+gaussdb=# END; --死锁报错。
+ERROR: deadlock detected
+
+示例3：
+在开启失效重编译参数时，变更失效对象触发的级联失效与访问失效对象触发的失效
+重编死锁冲突。
+时刻1：变更包ref_pkg1，包加写锁。
+时刻2：重编译dep_pkg2，处理默认值时访问ref_pkg1.func()，给ref_pkg1加读锁，
+发现ref_pkg1包体失效，触发嵌套编译需要给ref_pkg1加写锁，触发等待（sess1）。
+时刻3：sess1事务提交，需要级联失效依赖对象，需要给lock_pkg_depend024加写
+锁，触发等待（sess2），死锁报错。
+gaussdb=# SET DDL_INVALID_MODE='INVALID';
+SET
+[[PDF_PAGE physical=2630 printed=2581]]
+gaussdb=# SET ENABLE_FORCE_CREATE_OBJ=ON;
+SET
+gaussdb=# CREATE OR REPLACE PACKAGE ref_pkg1 AS
+FUNCTION func RETURN INTEGER;
+END ref_pkg1;
+/
+CREATE PACKAGE
+gaussdb=# CREATE OR REPLACE PACKAGE BODY ref_pkg1 AS
+FUNCTION func RETURN INTEGER
+AS
+BEGIN
+RETURN 1;
+END;
+END ref_pkg1;
+/
+CREATE PACKAGE BODY
+gaussdb=# CREATE OR REPLACE PACKAGE dep_pkg2 AS
+var1 INTEGER := ref_pkg1.func();
+END dep_pkg2;
+/
+CREATE PACKAGE
+gaussdb=# CREATE OR REPLACE PACKAGE BODY dep_pkg2 AS
+END dep_pkg2;
+/
+CREATE PACKAGE BODY
+-- 构造ref_pkg1D 包体的失效状态。
+gaussdb=# CREATE OR REPLACE PACKAGE ref_pkg1 AS
+FUNCTION func RETURN INTEGER;
+END ref_pkg1;
+/
+-- SESSION1 时刻1。
+gaussdb=# BEGIN;
+BEGIN
+gaussdb=# CREATE OR REPLACE PACKAGE ref_pkg1 AS
+FUNCTION func RETURN INTEGER;
+END ref_pkg1;
+/
+CREATE PACKAGE
+-- SESSION2 时刻2。
+gaussdb=# ALTER PACKAGE dep_pkg2 COMPILE;
+-- SESSION1 时刻3。
+gaussdb=# END; --死锁报错。
+ERROR: deadlock detected
+
+示例4：
+
+在开启失效重编译参数时，执行存储过程会对类型依赖的PACKAGE加读锁，此时变更
+当前存储过程依赖的包会被读锁阻塞。
+
+时刻1：执行依赖PACKAGE中定义类型的存储过程，PACKAGE加读锁。
+
+时刻2：变更该PACKAGE，PACKAGE变更阻塞，等待存储过程执行完放锁。
+gaussdb=# SET DDL_INVALID_MODE='INVALID';
+SET
+gaussdb=# SET ENABLE_FORCE_CREATE_OBJ=ON;
+SET
+gaussdb=# CREATE OR REPLACE PACKAGE pkg_record AS
+a INT;
+TYPE rec_type IS RECORD(a INT, b INT);
+END pkg_record;
+/
+CREATE PACKAGE
+gaussdb=# CREATE OR REPLACE PROCEDURE proc_record AS
+DECLARE
+rec_var pkg_record.rec_type;
+tup RECORD;
+objectname VARCHAR2 := 'unknow';
+type_text TEXT;
+[[PDF_PAGE physical=2631 printed=2582]]
+        BEGIN
+        FOR cur IN (SELECT locktype, database, classid, objid, sessionid, mode FROM pg_locks WHERE locktype =
+        'object' ORDER BY objid) LOOP
+        objectname := 'unknow';
+        IF cur.classid = 7815 THEN
+        SELECT pkgname INTO objectname FROM gs_package WHERE oid = cur.objid;
+        ELSIF cur.classid = 1255 THEN
+        SELECT proname INTO objectname FROM pg_proc WHERE oid = cur.objid;
+        END IF;
+        RAISE INFO '%, %, %', cur.locktype, objectname, cur.mode;
+        END LOOP;
+        SELECT pg_sleep(10) INTO type_text;
+        END;
+        /
+        CREATE PROCEDURE
+        -- SESSION1 时刻1。
+        gaussdb=# CALL proc_record();
+        INFO: object, pkg_record, AccessShareLock
+        INFO: object, proc_record, AccessShareLock
+        -- SESSION2 时刻2。
+        gaussdb=# CREATE OR REPLACE PACKAGE pkg_record AS
+        TYPE rec_type IS RECORD(a INT, b INT);
+        test VARCHAR2;
+        END pkg_record;
+        / -- 阻塞至proc_record执行结束，才完成变更。
+        gaussdb=# DROP PACKAGE pkg_record;
+        DROP PACKAGE
+        gaussdb=# DROP PROCEDURE proc_record;
+        DROP PROCEDURE
+
+
+3.10.2 游标操作
+        GaussDB中游标（cursor）是系统为用户开设的一个数据缓冲区，存放着SQL语句的执
+        行结果。每个游标区都有一个名称。用户可以用SQL语句逐一从游标中获取记录，并
+        赋给主变量，交由主语言进一步处理。
+        游标的操作主要有游标的定义、打开、获取和关闭。
+        完整的游标操作示例请参见显式游标。
