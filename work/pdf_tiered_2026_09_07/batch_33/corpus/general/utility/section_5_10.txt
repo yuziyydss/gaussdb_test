@@ -1,0 +1,119 @@
+[[PDF_PAGE physical=4027 printed=3978]]
+5.10 安全工具
+
+5.10.1 gs_encrypt 加密明文字符串
+              说明
+
+            集中式单节点不支持该工具。
+
+
+工具介绍
+        GaussDB提供了gs_encrypt工具可以对输入的明文字符串进行加密操作。
+
+注意事项
+        出于安全考虑，用户在使用gs_encrypt工具前，建议将Linux环境变量HISTCONTROL
+        设置为ignorespace，然后在输入gs_encrypt命令前加空格再执行。这样，历史记录中
+        将不会包括此次执行的命令。
+
+命令格式
+        gs_encrypt [OPTION]... PLAINTEXT
+
+
+参数说明
+        ●    OPTION可选项：
+             –    -?,--help
+                  显示帮助信息。
+             –    -V,--version
+                  显示版本号信息。
+             –    -k PASSWORD,--key=PASSWORD
+                  用户输入的密码，用于派生加密操作使用的密钥。密码长度的有效范围为
+                  8~128个字符，并且至少包含大写字母、小写字母、数字和特殊字符中的三
+                  种字符。
+             –    -v VectorValue,--vector=VectorValue
+                  用户输入的盐值，计算密码单向哈希时用于对密码进行加扰。字符串长度必
+                  须等于16。
+             –    -f FilePrefix,--file-prefix=FilePrefix
+                  加密时使用的cipher和rand文件前缀字符串。cipher和rand文件必须存放在
+                  $GAUSSHOME/bin目录下。
+[[PDF_PAGE physical=4028 printed=3979]]
+            –    -B Value,--key-base64=Value
+                 加密时使用的明文密钥，以base64编码。
+            –    -D Value,--vector-base64=Value
+                 加密时使用的随机数，以base64编码。base64编码前的字符串长度必须为
+                 16。
+       ●    PLAINTEXT
+            需要加密的明文字符串。前面不需要加短选项或长选项。单次加密的明文字符串
+            最大长度为335字节。如果不传入时则会进入交互式输入。为了系统安全，推荐使
+            用交互式输入方式。
+
+
+示例
+       示例一
+
+       输入key和vector明文值，对明文字符串进行加密操作。由于每次加密时使用的IV值是
+       随机生成的，因此使用同样的key和vector以及明文字符串加密后对应的密文串不相
+       同。对test_encrypt进行加密。
+       gs_encrypt -k ******** -v 1234567890123456 test_encrypt
+       G0R7Y2oROfuiEjWtUBx9+eHP3I21A1wMOJ2onVQIiAsxMjM0NTY3ODkwMTIzNDU2
+
+       示例二
+
+       指定cipher和rand文件前缀，对明文字符串进行加密操作。
+
+       1.   指定$GAUSSHOME/bin下，生成test.key.cipher和test.key.rand文件。
+            gs_guc generate -S ******** -D $GAUSSHOME/bin -o test
+            The gs_guc run with the following arguments: [gs_guc -S ******** -D /data/core/huawei/gaussdb/bin -o
+            test generate ].
+
+       2.   指定使用test前缀的cipher和rand文件，对test_encrypt进行加密操作。
+            gs_encrypt -f test test_encrypt
+            tSWpR8aFyF4GHVIVO7QNXhEMNlTcqRMrk172nAf2hLgSQwhcFWyP7X0QVS0SONon
+
+       示例三
+
+       输入base64转码后的key和vector密文，对明文字符串进行加密操作。
+
+       1.   获得base64转码后的key。
+            python
+            >>> import base64
+            >>> print base64.b64encode("********");
+            R2F1c3NAMTIz
+
+       2.   获得base64转码后vector值。
+            >>> print base64.b64encode("1234567890abcdef");
+            MTIzNDU2Nzg5MGFiY2RlZg==
+
+       3.   输入base64转码后的key和vector值，对test_encrypt执行加密操作。
+            gs_encrypt -B R2F1c3NAMTIz -D MTIzNDU2Nzg5MGFiY2RlZg== test_encrypt
+            okEaIInmVjWyWqP/ABOaMW66C2TnPGC0AwD/aR85fVIxMjM0NTY3ODkwYWJjZGVm
+
+
+
+相关工具
+       gs_om维护数据库
+[[PDF_PAGE physical=4029 printed=3980]]
+5.10.2 gs_sdf_checker 校验 sdf_kms 的动态库
+工具介绍
+         gs_sdf_checker是一款用于快速检测GaussDB密钥管理使用基于鲲鹏TEE内生密钥管理
+         加密库或加密机（sdf_kms）时，动态库是否满足内核要求的工具。
+
+注意事项
+         用户在使用gs_sdf_checker工具前，需要准备好加载的动态库，将其放置在可加载路径
+         下，如GAUSSHOME/lib。
+
+命令格式
+         gs_sdf_checker [OPTIONS]
+
+
+参数说明
+         ●    OPTION可选项：
+              –    -h
+                   显示帮助信息。
+              –    -i <kek_id>
+                   密钥加密密钥的ID。
+              –    -g <GUC_PARAM>
+                   检测的GUC参数tde_key_info的值。
+                   例：KeyType=sdf_kms,library_path=./
+                   libxxxx.so,mac_algo=SGD_SM4_MAC,dkey_algo=SGD_SM4_CBC
+              –    -k <KMS>
+                   本次检测使用的kms。目前仅支持sdf_kms。
