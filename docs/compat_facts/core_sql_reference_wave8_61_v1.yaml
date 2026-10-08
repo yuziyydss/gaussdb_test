@@ -1,0 +1,143 @@
+document: 集中式版参考 / 1.13.16.1 MARK BUCKETS、1.13.16.2 MERGE INTO 与 1.13.16.3 MOVE（Wave 8-61）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-07'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.16.1 MARK BUCKETS
+  - 1.13.16.2 MERGE INTO
+  - 1.13.16.3 MOVE
+  physical_page_start: 1769
+  physical_page_end: 1774
+  physical_page_count: 6
+  excludes: []
+facts:
+- id: mark_buckets_wave8_61_purpose
+  type: syntax
+  statement: "MARK BUCKETS用于扩容工具通知内核哪些bucket已经完成搬迁。"
+  source_anchor: "1.13.16.1 功能描述 页1769"
+  source_refs: &refmark
+  - w8_61_1_13_16_1
+  status: confirmed
+- id: mark_buckets_wave8_61_not_supported
+  type: constraint
+  statement: "MARK BUCKETS当前形态暂不支持该语法。"
+  source_anchor: "1.13.16.1 注意事项 页1769"
+  source_refs: *refmark
+  status: confirmed
+- id: merge_wave8_61_purpose
+  type: syntax
+  statement: "MERGE INTO将目标表和源表数据针对关联条件进行匹配，匹配时对目标表执行UPDATE，无法匹配时对目标表执行INSERT，可合并执行UPDATE和INSERT避免多次执行。"
+  source_anchor: "1.13.16.2 功能描述 页1769"
+  source_refs: &refmerge
+  - w8_61_1_13_16_2
+  status: confirmed
+- id: merge_wave8_61_privileges
+  type: constraint
+  statement: "进行MERGE INTO操作的用户需要同时拥有目标表的UPDATE和INSERT权限，以及源表的SELECT权限。"
+  source_anchor: "1.13.16.2 注意事项 页1769"
+  source_refs: *refmerge
+  status: confirmed
+- id: merge_wave8_61_triggers
+  type: constraint
+  statement: "MERGE INTO仅支持触发行级（ROW）触发器，不支持触发语句级（STATEMENT）触发器。"
+  source_anchor: "1.13.16.2 注意事项 页1769"
+  source_refs: *refmerge
+  status: confirmed
+- id: merge_wave8_61_syntax
+  type: syntax
+  statement: "语法为MERGE [/*+ plan_hint */] INTO table_name [partition_clause] [[AS] alias] USING {table_name | view_name | subquery} [[AS] alias] ON (condition) [WHEN MATCHED THEN UPDATE SET {...} [WHERE condition]] [WHEN NOT MATCHED THEN INSERT {DEFAULT VALUES | [(column_name[, ...])] VALUES (...) [, ...] [WHERE condition]}]；UPDATE SET支持column_name={expression|subquery|DEFAULT}和(column_name[, ...])=({expression|subquery|DEFAULT}[, ...])两种形式。"
+  source_anchor: "1.13.16.2 语法格式 页1769-1770"
+  source_refs: *refmerge
+  status: confirmed
+- id: merge_wave8_61_plan_hint
+  type: constraint
+  statement: "plan_hint以/*+ */形式写在MERGE关键字后，用于对MERGE对应语句块生成的计划进行hint调优；每条语句中只有第一个/*+ plan_hint */注释块会作为hint生效，里面可以写多条hint。"
+  source_anchor: "1.13.16.2 参数说明 plan_hint 页1770"
+  source_refs: *refmerge
+  status: confirmed
+- id: merge_wave8_61_using_source
+  type: syntax
+  statement: "USING子句指定源表，源表可以为表、视图或子查询；目标表和源表均可通过[AS] alias指定别名，别名需符合标识符命名规范。"
+  source_anchor: "1.13.16.2 参数说明 USING/alias 页1770-1771"
+  source_refs: *refmerge
+  status: confirmed
+- id: merge_wave8_61_partition
+  type: constraint
+  statement: "partition_clause支持PARTITION {(partition_name) | FOR (partition_value[, ...])}和SUBPARTITION {(subpartition_name) | FOR (subpartition_value[, ...])}指定分区MERGE操作；如果value子句的值和指定分区不一致，会抛出异常。"
+  source_anchor: "1.13.16.2 参数说明 partition_clause 页1770"
+  source_refs: *refmerge
+  status: confirmed
+- id: merge_wave8_61_on_condition
+  type: constraint
+  statement: "ON子句指定目标表和源表的关联条件，不支持更新关联条件中的字段。"
+  source_anchor: "1.13.16.2 参数说明 ON子句 页1771"
+  source_refs: *refmerge
+  status: confirmed
+- id: merge_wave8_61_when_matched
+  type: constraint
+  statement: "WHEN MATCHED子句在源表和目标表数据按关联条件匹配上时执行UPDATE操作，不支持更新系统表、系统列。"
+  source_anchor: "1.13.16.2 参数说明 WHEN MATCHED 页1771"
+  source_refs: *refmerge
+  status: confirmed
+- id: merge_wave8_61_when_not_matched
+  type: constraint
+  statement: "WHEN NOT MATCHED子句在源表和目标表数据无法匹配时执行INSERT操作，不支持INSERT子句中包含多个VALUES。"
+  source_anchor: "1.13.16.2 参数说明 WHEN NOT MATCHED 页1771"
+  source_refs: *refmerge
+  status: confirmed
+- id: merge_wave8_61_clause_order
+  type: constraint
+  statement: "WHEN MATCHED和WHEN NOT MATCHED子句顺序可以交换，可以缺省其中一个，但不能同时缺省，不支持同时指定两个WHEN MATCHED或两个WHEN NOT MATCHED子句。"
+  source_anchor: "1.13.16.2 参数说明 WHEN子句顺序 页1771"
+  source_refs: *refmerge
+  status: confirmed
+- id: merge_wave8_61_default_values
+  type: syntax
+  statement: "UPDATE SET和INSERT VALUES中的DEFAULT用对应字段的缺省值填充该字段，如果没有缺省值则为NULL。"
+  source_anchor: "1.13.16.2 参数说明 DEFAULT 页1771"
+  source_refs: *refmerge
+  status: confirmed
+- id: merge_wave8_61_where_condition
+  type: constraint
+  statement: "UPDATE子句和INSERT子句的WHERE condition在条件满足时才执行更新/插入操作，可缺省；不支持WHERE条件中引用系统列；不建议使用int等数值类型作为condition，因为数值类型可隐式转换为bool（非0为true，0为false），可能导致非预期结果。"
+  source_anchor: "1.13.16.2 参数说明 WHERE condition 页1771"
+  source_refs: *refmerge
+  status: confirmed
+- id: merge_wave8_61_example
+  type: behavior_oracle
+  statement: "示例中MERGE INTO products p USING newproducts np ON (p.product_id = np.product_id)对匹配行UPDATE（WHERE p.product_name != 'play gym'排除一行）并对不匹配行INSERT（WHERE np.category = 'books'），返回MERGE 4，products最终6行：1502/1666被更新为源表值，1700被插入，1600的play gym行保持不变。"
+  source_anchor: "1.13.16.2 示例 页1771-1772"
+  source_refs: *refmerge
+  status: confirmed
+- id: move_wave8_61_purpose
+  type: syntax
+  statement: "MOVE在不检索数据的情况下重新定位一个游标；作用类似FETCH命令，区别是MOVE只重定位游标而不返回行。"
+  source_anchor: "1.13.16.3 功能描述 页1772"
+  source_refs: &refmove
+  - w8_61_1_13_16_3
+  status: confirmed
+- id: move_wave8_61_syntax
+  type: syntax
+  statement: "语法为MOVE [direction [FROM | IN]] cursor_name；direction可选NEXT、PRIOR、FIRST、LAST、ABSOLUTE count、RELATIVE count、count、ALL、FORWARD、FORWARD count、FORWARD ALL、BACKWARD、BACKWARD count、BACKWARD ALL；MOVE命令的参数与FETCH相同（相关链接CLOSE、FETCH）。"
+  source_anchor: "1.13.16.3 语法格式/参数说明 页1772-1773"
+  source_refs: *refmove
+  status: confirmed
+- id: move_wave8_61_result_tag
+  type: constraint
+  statement: "MOVE成功完成时返回一个MOVE count标签，count是使用相同参数的FETCH命令会返回的行数（可能为零）。"
+  source_anchor: "1.13.16.3 参数说明 页1773"
+  source_refs: *refmove
+  status: confirmed
+- id: move_wave8_61_example
+  type: behavior_oracle
+  statement: "示例中CURSOR cursor1 FOR SELECT * FROM tbl_test ORDER BY 1建游标后，MOVE FORWARD 5 FROM cursor1返回MOVE 5且不返回数据，随后FETCH FORWARD 2 FROM cursor1返回c1为6、7的两行，验证MOVE只前移游标位置，后续FETCH从新位置继续取行。"
+  source_anchor: "1.13.16.3 示例 页1773-1774"
+  source_refs: *refmove
+  status: confirmed
+open_questions:
+- id: mark_buckets_wave8_61_oq_runtime
+  statement: "MARK BUCKETS在扩容工具与内核联动的真实环境中的行为需授权环境实机验证。"
+  status: open
