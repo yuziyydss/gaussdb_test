@@ -1,0 +1,139 @@
+document: 集中式版参考 / 2.4.2.8.16 M兼容CREATE TABLE（Wave 8-111）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 2.4.2.8.16 CREATE TABLE
+  physical_page_start: 2117
+  physical_page_end: 2137
+  physical_page_count: 20
+  excludes: []
+facts:
+- id: m_create_table_wave8_111_overview
+  type: syntax
+  statement: "M兼容CREATE TABLE在当前数据库中创建一个新的空白表（该表由命令执行者所有）；语法为CREATE [ [LOCAL | GLOBAL] TEMPORARY | UNLOGGED ] TABLE [ IF NOT EXISTS ] table_name {({ column_name data_type [ {CHARACTER SET | CHAR SET | CHARSET} charset_name ] [ COLLATE collation_name][AUTO_INCREMENT][COMMENT [=] 'string'] [ column_constraint [ ... ] ] | table_constraint | {INDEX | KEY} [ [schema_name.] index_name ] [ USING method ] ({column_name [(length)] | (expr) [ASC | DESC]}[,...]) [[COMMENT 'string' | USING method][...]] | LIKE source_table } [, ... ])} [ table_option ][[,...]|[...]] [ WITH ( {storage_parameter = value} [, ... ] ) ] [ ON COMMIT { PRESERVE ROWS | DELETE ROWS } ] [ TABLESPACE tablespace_name ]；第二种形式CREATE [ [LOCAL | GLOBAL] TEMPORARY ] TABLE [IF NOT EXISTS] table_name LIKE source_table；table_option含AUTO_INCREMENT [=] value、[DEFAULT]{CHARACTER SET|CHAR SET|CHARSET} [=] charset_name、[DEFAULT]COLLATE [=] collation_name、COMMENT [=] 'string'、ENGINE [=] engine_name、ROW_FORMAT [=] {DEFAULT | DYNAMIC | FIXED | COMPRESSED | REDUNDANT | COMPACT}。"
+  source_anchor: "2.4.2.8.16 功能描述/语法格式 页2117-2118"
+  source_refs: &refmct
+  - w8_111_2_4_2_8_16
+  status: confirmed
+- id: m_create_table_wave8_111_notes
+  type: constraint
+  statement: "M兼容CREATE TABLE注意事项：建表过程中数据库系统发生故障，系统恢复后可能无法自动清除之前已创建的大小为0的磁盘文件（此种情况出现概率小，不影响数据库系统的正常运行）；使用JDBC时支持通过PrepareStatement对DEFAULT值进行参数化设置；被授予CREATE ANY TABLE权限的用户可以在PUBLIC模式和用户模式下创建表；主键不支持前缀索引。"
+  source_anchor: "2.4.2.8.16 注意事项 页2118"
+  source_refs: *refmct
+  status: confirmed
+- id: m_create_table_wave8_111_table_option
+  type: constraint
+  statement: "table_option规则：同一个地方多次设置COMMENT时仅最后一个生效；多次设置AUTO_INCREMENT时仅最后一个生效；多次设置COLLATE时仅最后一个生效；多次设置CHARSET时仅最后一个生效；ENGINE、ROW_FORMAT使用时语法不报错也没有提示但实际不生效；不支持WITH (ORIENTATION = column)。"
+  source_anchor: "2.4.2.8.16 table_option 说明 页2118"
+  source_refs: *refmct
+  status: confirmed
+- id: m_create_table_wave8_111_temporary
+  type: constraint
+  statement: "临时表：指定TEMPORARY关键字创建的表为临时表（分全局临时表和本地临时表，创建时指定GLOBAL则为全局否则为本地）；全局临时表元数据对所有会话可见（会话结束后元数据继续存在），会话与会话间用户数据、索引和统计信息相互隔离（每个会话只能看到和更改自己提交的数据）；两种模式：会话级ON COMMIT PRESERVE ROWS（会话结束自动清空用户数据，建表未指定ON COMMIT时缺省为会话级）和事务级ON COMMIT DELETE ROWS（执行commit或rollback时自动清空）；全局临时表建表时可指定非pg_temp_开头的schema；本地临时表只在当前会话可见（本会话结束后自动删除；在除当前会话连接的数据库节点故障时仍可在当前会话上创建和使用临时表；涉及临时表操作的DDL语句会产生DDL失败的报错，建议DDL语句不对临时表操作）。"
+  source_anchor: "2.4.2.8.16 参数说明 TEMPORARY 页2119"
+  source_refs: *refmct
+  status: confirmed
+- id: m_create_table_wave8_111_temporary_notes
+  type: constraint
+  statement: "临时表须知：本地临时表通过每个会话独立的以pg_temp开头的schema保证只对当前会话可见（不建议手动删除pg_temp、pg_toast_temp开头的schema）；建表不指定TEMPORARY但指定表的schema为当前会话pg_temp_开头的schema则此表创建为临时表；其他会话正在使用全局临时表和索引时禁止进行ALTER/DROP操作；全局临时表的DDL只影响当前会话的用户数据和索引（TRUNCATE、REINDEX、ANALYZE只对当前会话有效）；GUC参数max_active_global_temporary_table=0时关闭全局临时表功能；临时表不支持与\\parallel on并行执行一起使用；临时表不支持主备切换；全局临时表不响应自动清理（长连接场景尽量使用on commit delete rows或定期手动执行vacuum，否则可能导致clog日志不回收）。"
+  source_anchor: "2.4.2.8.16 须知 页2119-2120"
+  source_refs: *refmct
+  status: confirmed
+- id: m_create_table_wave8_111_gtt_limits
+  type: constraint
+  statement: "全局临时表不支持的场景：不支持创建全局临时Sequence（各个会话的全局临时表使用共享的Sequence，只能保证唯一性不保证连续性）；不支持创建全局临时视图；不支持创建分区表；不支持创建Hash bucket表；不支持扩展统计信息。"
+  source_anchor: "2.4.2.8.16 须知 页2120"
+  source_refs: *refmct
+  status: confirmed
+- id: m_create_table_wave8_111_unlogged
+  type: constraint
+  statement: "UNLOGGED非日志表：插入的数据不会被记录到预写日志（WAL）中，发生操作系统重启、数据库重启、主备切换、电源断电或异常关机等操作时非日志表上的写入操作会被全部清空（存在数据丢失风险）；非日志表中的内容不会被复制到备服务器，在非日志表中创建的索引也不会被自动记录；在备服务器上不包含任何数据的非日志表中进行查询操作时会发生报错；使用场景为无法确保数据安全性的情况（使用前请确认数据已妥善备份）；故障处理：异常关机等导致非日志表上索引数据丢失时应对受影响的索引进行重建；IF NOT EXISTS已存在相同名称表时不报错而发出通知。"
+  source_anchor: "2.4.2.8.16 参数说明 UNLOGGED/IF NOT EXISTS 页2120"
+  source_refs: *refmct
+  status: confirmed
+- id: m_create_table_wave8_111_constraint_naming
+  type: constraint
+  statement: "M兼容约束命名：对于外键约束constraint_name和index_name同时指定时索引名为constraint_name；对于唯一键约束两者同时指定时索引名为index_name；USING method目前只支持索引方法为btree，但不支持ustore表创建btree索引；ASC表示指定按升序排序（默认）DESC按降序；expression创建基于该表一个或多个字段的表达式索引约束必须写在圆括弧中。"
+  source_anchor: "2.4.2.8.16 参数说明 页2121"
+  source_refs: *refmct
+  status: confirmed
+- id: m_create_table_wave8_111_charset
+  type: constraint
+  statement: "M兼容字段字符集与字符序：仅字符类型支持指定字符集，指定为BINARY字符集或字符序实际是将字符类型转化为对应的二进制类型（若类型映射不存在则报错，当前仅有TEXT类型转化为BLOB的映射）；字段字符集或字符序未显式指定时若指定了表的默认字符集或字符序则从表上继承；除SQL_ASCII库外其他字符集的数据库支持多字符集混用；COLLATE指定列的排序规则（该列必须是可排列的数据类型，未指定则使用默认排序规则，可select * from pg_collation查询，默认为default开始的行），支持字符序参见表级字符集和字符序。"
+  source_anchor: "2.4.2.8.16 参数说明 页2121"
+  source_refs: *refmct
+  status: confirmed
+- id: m_create_table_wave8_111_like
+  type: syntax
+  statement: "LIKE source_table新表从源表继承：字段名及其数据类型；非空约束、check约束、主键、唯一键、索引、默认值、ON UPDATE属性；表、字段、索引、约束上的注释；分区信息；表、字段的存储参数；新表与源表之间在创建动作完毕之后完全无关（源表任何修改不传播到新表，扫描源表时不可能包含新表数据）；被复制的列和约束并不使用相同的名称进行融合（明确指定相同名称或在另一个LIKE子句中会报错）；建表语句包括LIKE子句和WITH子句、PARTITION BY子句时建表使用SQL中指定的WITH信息和分区信息（CHARSET、COMMENT等信息同时指定时使用源表的信息）。"
+  source_anchor: "2.4.2.8.16 参数说明 LIKE 页2122"
+  source_refs: *refmct
+  status: confirmed
+- id: m_create_table_wave8_111_auto_increment
+  type: constraint
+  statement: "AUTO_INCREMENT [ = ] value为自动增长列指定初始值（value必须为正数且不得超过2^127-1）；当GUC参数lower_case_table_names为0时，如果AUTO_INCREMENT自动创建的序列名称包含大写字母（如businessscenario_SN_ID_seq），在对该序列进行GRANT操作、REVOKE操作以及查看等操作时需使用反引号（`）将序列包裹。"
+  source_anchor: "2.4.2.8.16 参数说明 AUTO_INCREMENT 页2122"
+  source_refs: *refmct
+  status: confirmed
+- id: m_create_table_wave8_111_comment
+  type: constraint
+  statement: "COMMENT [=] 'string'：表级COMMENT子句表示给表添加注释；column_constraint中的COMMENT 'string'表示给列添加注释；table_constraint中的COMMENT 'string'表示给主键和唯一键对应的索引添加注释；表级注释支持的最大字符串长度为2048字符，列级和索引级注释支持的最大长度为1024字符；table_constraint中的COMMENT仅支持主键和唯一键（其他约束不支持）。"
+  source_anchor: "2.4.2.8.16 参数说明 COMMENT 页2122"
+  source_refs: *refmct
+  status: confirmed
+- id: m_create_table_wave8_111_storage_params
+  type: constraint
+  statement: "WITH存储参数：FILLFACTOR表填充因子（10~100，Ustore引擎默认92，Astore默认100完全填充，频繁更新的表选较小填充因子更合适）；ORIENTATION指定表数据存储方式（设置成功后不再支持修改，M-Compatibility仅支持行存ROW，适合OLTP业务点查询或增删操作较多场景，普通表空间默认ROW）；STORAGE_TYPE存储引擎类型（设置后不再支持修改：USTORE支持Inplace-Update存储引擎——必须开启track_counts和track_activities参数否则引起空间膨胀；ASTORE支持Append-Only存储引擎；不指定ORIENTATION和STORAGE_TYPE时默认USTORE）；INIT_TD创建Ustore表初始化TD个数（可alter table修改，取值2~128默认4，MAX_TUPLE_SIZE = BLCKSZ - INIT_TD * TD_SIZE）；COMPRESSION行存表不支持压缩（默认NO）；COMPRESSLEVEL 0~3默认0；segment段页式存储（仅行存表，on/off默认off）；enable_tde指定加密表（仅行存表、段页式表、临时表和unlogged表，需先通过enable_tde开启透明加密并通过tde_key_info设置密钥服务信息）。"
+  source_anchor: "2.4.2.8.16 参数说明 WITH 页2122-2125"
+  source_refs: *refmct
+  status: confirmed
+- id: m_create_table_wave8_111_check
+  type: constraint
+  statement: "CHECK ( expression )每次将要插入的新行或更新的行必须使表达式结果为真才能成功（否则抛出异常不修改数据库），目前CHECK表达式不能包含子查询；精度基线：M兼容下CREATE TABLE mm1(a float(10,4), b float(5,3), CHECK(a/b=1.7142858) STORED)插入(1.2, 0.7)报ERROR: New row in relation \"mm1\" violates check constraint \"mm1_check\"，SET m_format_behavior_compat_options='enable_precision_decimal'后INSERT 0 1成功。"
+  source_anchor: "2.4.2.8.16 参数说明 CHECK/示例 页2124,2131"
+  source_refs: *refmct
+  status: confirmed
+- id: m_create_table_wave8_111_default_onupdate
+  type: constraint
+  statement: "DEFAULT default_expr与ON UPDATE：default_expr未嵌套括号格式支持常量、带正负号的数值常量、update_expr；嵌套括号(default_expr)格式另支持CURRENT_TIME/CURTIME函数、CURRENT_DATE/CURDATE函数（支持不带括号调用）；仅TIMESTAMP以及DATETIME类型字段可指定update_expr作为默认值且字段精度与update_expr精度须保持一致（支持使用::进行数据类型转换）；update_expr为CURRENT_TIMESTAMP | LOCALTIMESTAMP | LOCALTIME | NOW()（precision_num可选取值[0, 6]，不带括号或空括号时精度为0，NOW关键字不支持不带括号）；ON UPDATE属性约束：UPDATE时若更新字段新值与表中旧值不同，该元组上具有该属性且不在更新字段内的字段值自动更新为当前时间戳（相同则保持原有值，属性字段在更新字段内则按指定值更新）。"
+  source_anchor: "2.4.2.8.16 参数说明 页2124-2128"
+  source_refs: *refmct
+  status: confirmed
+- id: m_create_table_wave8_111_generated
+  type: constraint
+  statement: "生成列[GENERATED ALWAYS] AS ( generation_expr ) [STORED | VIRTUAL]：STORED创建存储生成列（列值需要存储，插入或更新元组时由表达式计算），VIRTUAL创建虚拟生成列（列值不需要存储，查询涉及时由表达式计算），关键字可省略缺省STORED（m_format_dev_version为s2条件下缺省VIRTUAL）；生成表达式不能引用当前行以外的其他数据，支持引用早定义于当前生成列的其他生成列，不能引用系统列、系统变量、用户自定义变量、存储过程中的变量，不支持引用自增列且生成列不支持定义自增列属性，不能返回结果集、不能使用子查询、聚集函数、窗口函数和自定义函数（只能是IMMUTABLE不可变函数）；不支持为生成列指定默认值；存储生成列支持作为分区键一部分（此时不支持ALTER TABLE修改存储生成列），虚拟生成列不支持作分区键、不支持被外键约束引用、不支持在虚拟生成列上创建索引；存储生成列不能和ON UPDATE约束的CASCADE/SET NULL/SET DEFAULT动作同时指定，也不能和ON DELETE约束的SET NULL/SET DEFAULT动作同时指定（s2时存储生成列的基列同样不能与这些动作同设）；生成列不能被直接写入（INSERT/UPDATE中不能为生成列指定值但可指定关键字DEFAULT）；删除生成列依赖的基列时生成列自动删除（s2条件下需先删除对应生成列）；不开启精度传递开关创建的带生成列表与开启后创建的存在差异。"
+  source_anchor: "2.4.2.8.16 参数说明 生成列 页2127-2129"
+  source_refs: *refmct
+  status: confirmed
+- id: m_create_table_wave8_111_unique_pk_fk
+  type: constraint
+  statement: "M兼容约束定义：列级唯一约束UNIQUE [KEY] index_parameters；表级唯一约束UNIQUE [INDEX | KEY][ index_name ][ USING method ]；列级主键约束[PRIMARY] KEY index_parameters；外键约束REFERENCES reftable [ ( refcolumn ) ] [ MATCH FULL | MATCH SIMPLE ] [ ON DELETE action ] [ ON UPDATE action ]；UNIQUE或PRIMARY KEY约束相关索引可通过USING INDEX TABLESPACE tablespace_name声明表空间（缺省在default_tablespace中创建，为空则用数据库缺省表空间）；该属性在M-compatibility模式兼容版本控制开关为s1（m_format_dev_version = 's1'）时不支持。"
+  source_anchor: "2.4.2.8.16 语法格式/参数说明 页2119,2124-2125"
+  source_refs: *refmct
+  status: confirmed
+- id: m_create_table_wave8_111_fk
+  type: constraint
+  statement: "M兼容外键约束：当两个表包含一个或多个公共列时可通过外键约束强制关联两个表；FOREIGN KEY指定该表中和被引用的表有关系的字段，REFERENCES指定被引用的表和原表有关系的字段；特点：定义为外键约束的字段中只能包含相应的其他表中引用字段的值或NULL；可以为一个字段或多个字段定义外键约束；定义了外键约束的字段和相应的引用字段可以存在同一个表中（称为自引用）；对同一个字段可以同时定义外键和非空约束；主表中被引用的列必须有主键约束或唯一约束。"
+  source_anchor: "2.4.2.8.16 参数说明 外键约束 页2135-2136"
+  source_refs: *refmct
+  status: confirmed
+- id: m_create_table_wave8_111_examples_ddl
+  type: behavior_oracle
+  statement: "示例基线（m_db）：临时表CREATE TEMPORARY TABLE test_t1插入数据后另一会话查询0行，事务中创建的ON COMMIT DELETE ROWS临时表test_t2在COMMIT后查询0行；重复建表报ERROR: Relation \"test_t3\" already exists in schema \"public\"（DETAIL: creating new table with existing name in the same schema），IF NOT EXISTS报NOTICE: relation \"test_t3\" already exists, skipping；自增列CREATE TABLE test_autoinc(col int AUTO_INCREMENT, col1 int) AUTO_INCREMENT = 10：NULL触发自增值10、100不触发自增但自增计数更新为100、0触发自增值101（查询结果10|1、100|2、101|3，且建议自增列作为索引首列创建索引）；LIKE建表CREATE TABLE t2(LIKE t1)；生成列CREATE TABLE triangle(a DOUBLE, b DOUBLE, c DOUBLE AS (SQRT(a*a+b*b)) VIRTUAL)插入(3,4)后查询得3|4|5。"
+  source_anchor: "2.4.2.8.16 示例 页2131-2134"
+  source_refs: *refmct
+  status: confirmed
+- id: m_create_table_wave8_111_fk_example
+  type: behavior_oracle
+  statement: "外键示例（m_db）：CREATE TABLE dept(deptno INT PRIMARY KEY, loc VARCHAR(200))与CREATE TABLE emp(..., CONSTRAINT fk_emp FOREIGN KEY (deptno) REFERENCES dept(deptno))；插入emp的deptno=10与NULL成功（NULL允许），deptno=999报ERROR: insert or update on table \"emp\" violates foreign key constraint \"fk_emp\"（DETAIL: Key (deptno)=(999) is not present in table \"dept\"），查询显示1|Bob|10与2|Scott|NULL两行。"
+  source_anchor: "2.4.2.8.16 示例 外键约束 页2135-2136"
+  source_refs: *refmct
+  status: confirmed
+open_questions:
+- id: m_create_table_wave8_111_oq_runtime
+  statement: "全局临时表在长连接场景clog不回收的实际风险、多字符集混用转码边界、生成列精度传递开关前后差异、USTORE下INIT_TD调整对现有数据页的影响需授权环境实机验证。"
+  status: open
