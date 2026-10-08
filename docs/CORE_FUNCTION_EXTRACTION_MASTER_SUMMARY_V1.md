@@ -8,31 +8,31 @@
 
 | 指标 | 当前值 |
 |---|---:|
-| Manifest artifacts | 203 |
-| Sources | 543 |
-| Source page slices | 3752 |
+| Manifest artifacts | 204 |
+| Sources | 544 |
+| Source page slices | 3758 |
 | Unique pages | 3218 |
 | Sections | 487 |
 | Full coverage sections | 435 |
 | Partial coverage sections | 52 |
-| 结构化 facts | 4478 |
-| Open questions | 260 |
+| 结构化 facts | 4498 |
+| Open questions | 261 |
 
 ## Fact分布
 
 | 类型 | 数量 |
 |---|---:|
-| syntax | 2016 |
-| constraint | 1783 |
-| behavior_oracle | 519 |
+| syntax | 2022 |
+| constraint | 1795 |
+| behavior_oracle | 521 |
 | environment | 160 |
-| 总计 | 4478 |
+| 总计 | 4498 |
 
 所有facts全局ID唯一，状态均为`confirmed`；所有open questions全局ID唯一，状态均为`open`。
 
 ## 覆盖口径
 
-覆盖模式为`included_extraction_artifacts`，表示只统计已纳入203个manifest的source切片；3.12高级包为446页大节，正按切片分批覆盖。
+覆盖模式为`included_extraction_artifacts`，表示只统计已纳入204个manifest的source切片；3.12高级包为446页大节，正按切片分批覆盖。
 
 当前：
 
@@ -61,6 +61,6 @@ python -m pytest -q tests/test_core_function_extraction_master_summary.py
 ## 边界
 
 - 本总账只聚合静态抽取facts，不判定每个函数都有可执行SQL。
-- 260个open questions仍需授权环境和实机验证。
+- 261个open questions仍需授权环境和实机验证。
 - `confirmed`表示原文事实确认，不表示runtime verified。
 - 不连接数据库、不执行系统函数。
