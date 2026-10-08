@@ -15937,6 +15937,280 @@
       "fact_count": 20
     },
     {
+      "path": "docs/compat_facts/core_sql_reference_wave8_131_v1.yaml",
+      "document": "集中式版参考 / 2.7-2.9 M兼容类型转换/表达式/注释（Wave 8-131）",
+      "version": "V2.0-10.0.0",
+      "parent_pdf_sha256": "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe",
+      "extraction_date": "2026-10-08",
+      "extraction_method": "pdftotext章节源文逐章精读 + 结构化manifest哈希对账",
+      "verification_status": "confirmed",
+      "sha256": "57fe231a6acfce46df972babf047a3e97dc577fd9abd823cbd2ae5dda7a17102",
+      "category": "compatibility",
+      "facts": [
+        {
+          "id": "m_conv_wave8_131_overview",
+          "type": "constraint",
+          "statement": "M兼容2.7类型转换：SQL中有四种基本的SQL结构需要独立的类型转换规则——函数调用（SQL允许函数重载，分析器根据函数提供的参数类型选择正确的函数）、操作符（一元/二元操作符也可重载，选择取决于参数类型）、值存储（INSERT和UPDATE语句中表达式类型必须和目标字段类型一致或可转换为一致）、UNION/EXCEPT/CASE和相关构造（每个SELECT子句元素类型必须相互匹配并转换成统一类型，CASE构造的结果表达式必须转换成统一的输出类型）；四种SQL结构分为三种场景：隐式类型转换、显式类型转换、UNION/EXCEPT/CASE和相关构造；M兼容数据类型的基本类型分类包括INTEGER、DECIMAL、STRING、BITSTRING、FLOAT和TEMPORAL，每种基本类型之间都存在隐式转换。",
+          "status": "confirmed",
+          "source_anchor": "2.7 背景信息 页2515-2516",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_7"
+            ]
+          }
+        },
+        {
+          "id": "m_conv_implicit_wave8_131_overview",
+          "type": "constraint",
+          "statement": "M兼容隐式类型转换主要适用于函数调用、操作符和值存储场景；值存储数据类型解析三步：1.查找与目标字段准确的匹配；2.尝试将表达式直接转换成目标类型（如果已知两种类型之间存在已注册的转换函数则直接调用；如果表达式是未知类型文本，文本字符串内容将交给目标类型的输入转换过程）；3.检查目标类型是否有长度转换（长度转换是从某类型到自身的转换，在存储到目标字段之前先在表达式上应用；转换函数总是接受额外的integer类型参数接收目标字段的atttypmod值，可能接受BOOL类型第三参数表示显式或隐式转换；转换函数负责赋予长度相关语义如长度检查或截断）；示例CHAR(20)目标列存储'abcdef'。",
+          "status": "confirmed",
+          "source_anchor": "2.7.1 隐式类型转换 页2516-2517",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_7"
+            ]
+          }
+        },
+        {
+          "id": "m_conv_explicit_wave8_131_syntax",
+          "type": "syntax",
+          "statement": "M兼容显式类型转换语法为SELECT CAST(expression AS data_type)（type支持BINARY[(N)]、CHAR[(N)]、DATE、TIME、DATETIME、DECIMAL、FLOAT、DOUBLE、JSON、SIGNED[INTEGER]→BIGINT、UNSIGNED[INTEGER]→BIGINT UNSIGNED等，见表2-86）；显式类型转换还可使用双冒号语法如SELECT 1::INT（此方法不建议用户使用）；边界示例：SELECT CAST(9223372036854775808 AS SIGNED)返回-9223372036854775808，SELECT CAST(9223372036854775808.0 AS SIGNED)告警The DECIMAL value is incorrect并返回9223372036854775807，SELECT CAST(123 AS CHAR(3))返回123。",
+          "status": "confirmed",
+          "source_anchor": "2.7.2 显式类型转换 页2517-2518",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_7"
+            ]
+          }
+        },
+        {
+          "id": "m_conv_json_wave8_131_rules",
+          "type": "constraint",
+          "statement": "M兼容JSON类型显式转换行为（表2-87）：TEXT/TINYTEXT/MEDIUMTEXT/LONGTEXT/VARCHAR/CHAR/字符串常量作为输入文本解析成JSON格式（包括NULL、BOOLEAN、INTEGER、UNSIGNED INTEGER、DOUBLE、STRING、ARRAY、OBJECT类型），不符合JSON语法会产生ERROR；INT/TINYINT/SMALLINT/MEDIUMINT/BIGINT转换为INTEGER类型的JSON数字标量；各UNSIGNED类型转换为UNSIGNED INTEGER数字标量；FLOAT4/FLOAT8转换为DOUBLE数字标量；NUMERIC转换为DECIMAL数字标量；BLOB/TINYBLOB/MEDIUMBLOB/LONGBLOB/BINARY/VARBINARY转换为BLOB字符串标量；BIT转换为BIT字符串标量；YEAR转换为OPAQUE字符串标量；TIME/DATE/转换为TIME/DATE类型的JSON字符串标量。",
+          "status": "confirmed",
+          "source_anchor": "2.7.2 表2-87 页2518-2519",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_7"
+            ]
+          }
+        },
+        {
+          "id": "m_conv_union_wave8_131_rules",
+          "type": "constraint",
+          "statement": "M兼容2.7.3 UNION/EXCEPT/CASE和相关构造：联合SELECT语句的所有查询结果必须在一列里显示，每个SELECT子句中的元素类型必须相互匹配并转换成统一类型；EXCEPT构造对不相同的类型使用和UNION相同的解析算法；UNION/EXCEPT/CASE将两种类型的表达式转换为统一的目标类型并通过隐式类型转换实现聚合；UNION分为UNION和UNION ALL（UNION将数据聚合并进行去重处理，UNION ALL只聚合数据不做去重处理）；示例INT列与CHAR(5)列UNION去重返回1行、UNION ALL返回2行。",
+          "status": "confirmed",
+          "source_anchor": "2.7.3 UNION/EXCEPT/CASE和相关构造 页2519-2520",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_7"
+            ]
+          }
+        },
+        {
+          "id": "m_expr_simple_wave8_131_syntax",
+          "type": "syntax",
+          "statement": "M兼容2.8.1简单表达式：逻辑表达式的操作符和运算规则参见逻辑操作符；常用的比较操作符参见比较函数和比较操作符；此外还可以使用BETWEEN操作符：a BETWEEN x AND y一般情况下等效于a >= x AND a <= y，a NOT BETWEEN x AND y一般情况下等效于a < x OR a > y；示例SELECT 2 BETWEEN 1 AND 3返回t、SELECT 2 >= 1 AND 2 <= 3返回t、SELECT 2 NOT BETWEEN 1 AND 3返回f。",
+          "status": "confirmed",
+          "source_anchor": "2.8.1 简单表达式/BETWEEN 页2523-2524",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_8"
+            ]
+          }
+        },
+        {
+          "id": "m_expr_between_wave8_131_notes",
+          "type": "constraint",
+          "statement": "M兼容BETWEEN注意事项：BETWEEN操作符在进行转换时，会先判断a和x的比较类型，根据a和x的比较类型和y判断最终的比较类型（复杂类型场景下会和a >= x AND a <= y的结果不相等）；a BETWEEN x AND y中x和y不允许使用表达式（例如1 < 1）；不一致基线：SELECT '2' between 'a' AND 3.0产生WARNING: The double value 'a' is incorrect返回t，而SELECT '2' >= 'a' AND '2' <= 3.0返回f。",
+          "status": "confirmed",
+          "source_anchor": "2.8.1 BETWEEN 说明/示例 页2524",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_8"
+            ]
+          }
+        },
+        {
+          "id": "m_expr_case_wave8_131_syntax",
+          "type": "syntax",
+          "statement": "M兼容2.8.2条件表达式主要包括CASE、DECODE、COALESCE、NULLIF、GREATEST（最大值）/LEAST（最小值）等；CASE表达式是条件表达式（类似于其他编程语言中的CASE语句），condition是一个返回BOOLEAN数据类型的表达式：如果结果为真，CASE表达式的结果就是符合该条件所对应的result。",
+          "status": "confirmed",
+          "source_anchor": "2.8.2 条件表达式 页2524-2525",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_8"
+            ]
+          }
+        },
+        {
+          "id": "m_expr_exists_wave8_131_syntax",
+          "type": "syntax",
+          "statement": "M兼容2.8.3子查询表达式EXISTS/NOT EXISTS：EXISTS的参数是一个任意的SELECT语句或子查询；系统对子查询进行运算以判断它是否返回行（至少返回一行则EXISTS结果为真，没有返回任何行则为假）；这个子查询通常只运行到能判断它是否可以生成至少一行为止，而不是等到全部执行完；示例WHERE EXISTS (SELECT ...)。",
+          "status": "confirmed",
+          "source_anchor": "2.8.3 EXISTS/NOT EXISTS 页2525",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_8"
+            ]
+          }
+        },
+        {
+          "id": "m_expr_in_wave8_131_syntax",
+          "type": "syntax",
+          "statement": "M兼容IN/NOT IN：右侧为一个圆括号括起来的子查询（只返回一个字段）；左侧表达式对子查询结果的每一行进行一次计算和比较；如果语句中含有任何相等的子查询行则IN结果为真；表达式或子查询行里的NULL遵照SQL处理布尔值和NULL组合时的规则；GUC参数m_format_dev_version控制行为保持前向兼容；当IN/NOT IN右侧为VALUE或VALUES子句时rowexpr中的列必须为常量或参数。",
+          "status": "confirmed",
+          "source_anchor": "2.8.3 IN/NOT IN 页2525-2526",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_8"
+            ]
+          }
+        },
+        {
+          "id": "m_expr_row_wave8_131_syntax",
+          "type": "syntax",
+          "statement": "M兼容2.8.4行表达式。",
+          "status": "confirmed",
+          "source_anchor": "2.8.4 行表达式 页2526",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_8"
+            ]
+          }
+        },
+        {
+          "id": "m_expr_interval_wave8_131_syntax",
+          "type": "syntax",
+          "statement": "M兼容2.8.5时间间隔表达式语法为INTERVAL EXPR UNIT（interval_expr表示一个时间间隔，INTERVAL为关键字）；时间间隔表达式中UNIT的取值范围如表2-88；在做减法运算时不可以将interval_expr放在左侧（一个时间间隔减去一个时间不符合语义）。",
+          "status": "confirmed",
+          "source_anchor": "2.8.5 时间间隔表达式 页2526-2527",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_8"
+            ]
+          }
+        },
+        {
+          "id": "m_expr_odbc_wave8_131_syntax",
+          "type": "syntax",
+          "statement": "M兼容2.8.6 ODBC转义表达式：支持ODBC风格转义语法（如{d '2000-01-01'}日期转义，转换成功返回datetime类型结果）；无效的日期转换不成功时等同于直接使用expr（如SELECT {d'2000-1-00'}返回2000-1-00且pg_typeof为unknown）。",
+          "status": "confirmed",
+          "source_anchor": "2.8.6 ODBC转义表达式 页2527",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_8"
+            ]
+          }
+        },
+        {
+          "id": "m_comment_line_wave8_131_syntax",
+          "type": "syntax",
+          "statement": "M兼容2.9注释：GUC参数m_format_behavior_compat_options不包含forbid_none_space_comment选项时，数据库中\"--\"后的内容被视作单行注释内容不进行语法解析；包含forbid_none_space_comment选项时，\"--\"后面必须添加一个空格，空格后的内容才会被视为单行注释。",
+          "status": "confirmed",
+          "source_anchor": "2.9.1 单行注释 页2537-2538",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_9"
+            ]
+          }
+        },
+        {
+          "id": "m_comment_priority_wave8_131_syntax",
+          "type": "constraint",
+          "statement": "M兼容注释优先级低于引号优先级：SELECT '-- abc'返回字符串-- abc（引号内的--不作为注释）；特殊场景SELECT 'a'--;正常返回a。",
+          "status": "confirmed",
+          "source_anchor": "2.9.1 示例 页2537-2538",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_9"
+            ]
+          }
+        },
+        {
+          "id": "m_conv_union_example_wave8_131",
+          "type": "behavior_oracle",
+          "statement": "UNION示例基线（m_db）：CREATE TABLE test_union1 (union_col1 INT)与test_union2 (union_col2 CHAR(5))各插入123后SELECT union_col1 FROM test_union1 UNION SELECT union_col2 FROM test_union2去重返回1行；UNION ALL返回2行（123、123）；非列值UNION应用SELECT '234' FROM test_union1 UNION SELECT '234'。",
+          "status": "confirmed",
+          "source_anchor": "2.7.3 示例 页2519-2520",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_7"
+            ]
+          }
+        },
+        {
+          "id": "m_expr_case_when_wave8_131_example",
+          "type": "behavior_oracle",
+          "statement": "条件表达式CASE子句可以用于合法的表达式中（condition是返回BOOLEAN数据类型的表达式，结果为真时CASE表达式结果为符合该条件所对应的result；CASE表达式的语法图如图2-1 case::=）。",
+          "status": "confirmed",
+          "source_anchor": "2.8.2 CASE 页2524-2525",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_8"
+            ]
+          }
+        },
+        {
+          "id": "m_expr_cond_funcs_wave8_131_detail",
+          "type": "syntax",
+          "statement": "M兼容条件表达式函数清单：DECODE、COALESCE、NULLIF、GREATEST（最大值）、LEAST（最小值）（各函数的详细语义参见对应函数章节与条件表达式章节）。",
+          "status": "confirmed",
+          "source_anchor": "2.8.2 条件表达式 页2525",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_8"
+            ]
+          }
+        },
+        {
+          "id": "m_expr_exists_example_wave8_131",
+          "type": "behavior_oracle",
+          "statement": "EXISTS示例基线：SELECT sr_reason_sk,sr_customer_sk FROM tpcds.store_returns WHERE EXISTS (SELECT d_domain FROM tpcds.date_dim ...)——子查询至少返回一行则EXISTS结果为真。",
+          "status": "confirmed",
+          "source_anchor": "2.8.3 EXISTS 示例 页2525",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_8"
+            ]
+          }
+        },
+        {
+          "id": "m_expr_row_wave8_131_detail",
+          "type": "syntax",
+          "statement": "M兼容2.8.4行表达式：行表达式支持使用row构造器进行行与行的比较（与比较操作符章节中行比较规则一致）。",
+          "status": "confirmed",
+          "source_anchor": "2.8.4 行表达式 页2526",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_131_2_8"
+            ]
+          }
+        }
+      ],
+      "fact_count": 20
+    },
+    {
       "path": "docs/compat_facts/core_sql_reference_wave8_19_v1.yaml",
       "document": "集中式版参考 / 1.13.19.3 SELECT（Wave 8-19）",
       "version": "V2.0-10.0.0",
@@ -65886,22 +66160,22 @@
     }
   ],
   "summary": {
-    "source_file_count": 250,
-    "fact_count": 5095,
+    "source_file_count": 251,
+    "fact_count": 5115,
     "fact_status_counts": {
-      "confirmed": 5092,
+      "confirmed": 5112,
       "needs_verification": 3
     },
     "fact_type_counts": {
-      "behavior_oracle": 747,
-      "constraint": 1762,
+      "behavior_oracle": 750,
+      "constraint": 1768,
       "environment": 363,
       "lifecycle": 2,
       "metadata_oracle": 103,
-      "syntax": 2118
+      "syntax": 2129
     },
     "category_counts": {
-      "compatibility": 208,
+      "compatibility": 209,
       "log_reference": 2,
       "report": 1,
       "runtime_parameters": 12,
@@ -65911,7 +66185,7 @@
       "tool_reference": 3
     },
     "category_fact_counts": {
-      "compatibility": 4427,
+      "compatibility": 4447,
       "log_reference": 32,
       "report": 6,
       "runtime_parameters": 174,
