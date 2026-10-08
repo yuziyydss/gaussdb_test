@@ -1,0 +1,145 @@
+document: 集中式版参考 / 3.8 控制语句（Wave 8-141）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 3.8.1 返回语句
+  - 3.8.2 条件语句
+  - 3.8.3 循环语句
+  - 3.8.4 分支语句
+  - 3.8.5 空语句
+  - 3.8.6 错误捕获语句
+  - 3.8.7 GOTO语句
+  physical_page_start: 2602
+  physical_page_end: 2620
+  physical_page_count: 18
+  excludes: []
+facts:
+- id: sp_wave8_141_return_overview
+  type: syntax
+  statement: "返回语句：GaussDB提供两种方式返回数据——RETURN或RETURN NEXT及RETURN QUERY；其中RETURN NEXT和RETURN QUERY只适用于函数，不适用存储过程；RETURN用于将存储过程或函数返回结果赋值给调用者。"
+  source_anchor: "3.8.1 返回语句/3.8.1.1 RETURN 页2602"
+  source_refs: &refc8
+  - w8_141_3_8
+  status: confirmed
+- id: sp_wave8_141_return_next_query
+  type: syntax
+  statement: "RETURN NEXT及RETURN QUERY：创建函数时需要指定返回值SETOF datatype；需要函数返回集合时使用RETURN NEXT或RETURN QUERY向结果集追加结果，然后继续执行函数的下一条语句，随着后续命令执行结果集中会有多个结果，函数执行完成后一起返回所有结果；RETURN NEXT可用于标量和复合数据类型；RETURN QUERY有一种变体RETURN QUERY EXECUTE，后面还可以增加动态查询，通过USING向查询插入参数。"
+  source_anchor: "3.8.1.2 RETURN NEXT及RETURN QUERY 页2602-2603"
+  source_refs: *refc8
+  status: confirmed
+- id: sp_wave8_141_return_examples
+  type: behavior_oracle
+  statement: "返回语句示例基线：fun_for_return_next() RETURNS SETOF t1在FOR r IN select * from t1循环中RETURN NEXT r后RETURN，call输出a列1/10两行；fun_for_return_query()以RETURN QUERY select * from t1返回，call输出a列1/10两行。"
+  source_anchor: "3.8.1.2 示例 页2603-2604"
+  source_refs: *refc8
+  status: confirmed
+- id: sp_wave8_141_if_forms
+  type: syntax
+  statement: "条件语句五种IF形式：IF_THEN为最简单形式（条件为真执行statements否则忽略使IF_THEN语句执行结束）；IF_THEN_ELSE增加ELSE分支声明条件为假时执行的语句；IF_THEN_ELSE IF为嵌套形式（在IF的ELSE部分嵌套另一个IF，每个嵌套IF需要一个END IF，另外还需一个END IF结束父IF-ELSE，多个选项可用IF_THEN_ELSIF_ELSE形式）；IF_THEN_ELSIF_ELSE多分支判断；IF_THEN_ELSEIF_ELSE中ELSEIF是ELSIF的别名。"
+  source_anchor: "3.8.2 条件语句 页2604-2605"
+  source_refs: *refc8
+  status: confirmed
+- id: sp_wave8_141_if_examples
+  type: behavior_oracle
+  statement: "条件语句示例基线：v_user_id=1时IF v_user_id <> 0输出INFO v_user_id is NOT 0；嵌套IF在v_user_id=1时走ELSE输出v_user_id > 0；ELSIF链在v_user_id为NULL时输出v_user_id is NULL；存储过程proc_control_structure(3)输出INFO i:3 is greater than 0.并以RETURN结束。"
+  source_anchor: "3.8.2 示例/综合示例 页2604-2606"
+  source_refs: *refc8
+  status: confirmed
+- id: sp_wave8_141_loop_simple
+  type: syntax
+  statement: "简单LOOP语句：LOOP…END LOOP构成无条件循环（可带label）；该循环必须结合EXIT使用，否则将陷入死循环；示例基线：proc_loop(10,5)中LOOP内IF count > i THEN raise并EXIT ELSE count:=count+1，输出INFO count is 11.且出参count=11。"
+  source_anchor: "3.8.3 简单LOOP语句 页2606-2607"
+  source_refs: *refc8
+  status: confirmed
+- id: sp_wave8_141_while_loop
+  type: syntax
+  statement: "WHILE_LOOP语句：只要条件表达式为真，WHILE语句就会不停地在一系列语句上进行循环，在每次进入循环体的时候进行条件判断；示例基线：proc_while_loop(10)在WHILE i < maxval循环中INSERT 1..9后i自增。"
+  source_anchor: "3.8.3 WHILE_LOOP语句 页2607-2608"
+  source_refs: *refc8
+  status: confirmed
+- id: sp_wave8_141_for_integer
+  type: syntax
+  statement: "FOR_LOOP（integer变量）语句：变量name会自动定义为integer类型并且只在此循环里存在，name取值介于lower_bound和upper_bound之间；当使用REVERSE关键字时lower_bound必须大于等于upper_bound，否则循环体不会被执行；示例基线：proc_for_loop()对FOR I IN 0..5输出It is 0..5 time共6行。"
+  source_anchor: "3.8.3 FOR_LOOP（integer变量）语句 页2608-2609"
+  source_refs: *refc8
+  status: confirmed
+- id: sp_wave8_141_for_query
+  type: syntax
+  statement: "FOR_LOOP查询语句：变量target会自动定义，类型和query的查询结果类型一致，并且只在此循环中有效，target的取值就是query的查询结果；query可以使用EXECUTE增加动态查询，通过USING向查询插入参数；示例基线：FOR record IN SELECT spcname FROM pg_tablespace输出pg_default/pg_global，FOR item IN EXECUTE 'SELECT * FROM t1 WHERE id = :1' USING a输出(1)。"
+  source_anchor: "3.8.3 FOR_LOOP查询语句 页2609-2610"
+  source_refs: *refc8
+  status: confirmed
+- id: sp_wave8_141_forall_rules
+  type: constraint
+  statement: "FORALL批量查询语句规则：变量index会自动定义为integer类型并且只在此循环里存在，取值介于low_bound和upper_bound之间；如果声明了SAVE EXCEPTIONS，会将循环体DML执行过程中每次遇到的异常保存在SQL%BULK_EXCEPTIONS中并在执行结束后统一抛出一个异常，循环过程中没有异常执行的结果在当前子事务内不会回滚；使用FORALL + BULK COLLECT INTO时INTO的变量仅返回单条DML语句执行结果；FORALL循环体中只能包含DML语句。"
+  source_anchor: "3.8.3 FORALL批量查询语句说明 页2610-2611"
+  source_refs: *refc8
+  status: confirmed
+- id: sp_wave8_141_forall_example
+  type: behavior_oracle
+  statement: "FORALL示例基线：proc_forall()执行FORALL i IN 100..120 update hdfs_t1 set title = title + 100*i后，原title=8的行更新为231008（8+100*120累计执行效果）。"
+  source_anchor: "3.8.3 FORALL示例 页2610-2611"
+  source_refs: *refc8
+  status: confirmed
+- id: sp_wave8_141_case_branch
+  type: syntax
+  statement: "分支语句：CASE case_expression WHEN when_expression THEN statement ... [ELSE statement] END CASE；case_expression为变量或表达式，when_expression为常量或者条件表达式，statement为执行语句；示例基线：proc_case_branch(3,0)匹配WHEN 3输出pi_return : 333，未匹配走ELSE赋999。"
+  source_anchor: "3.8.4 分支语句 页2611-2612"
+  source_refs: *refc8
+  status: confirmed
+- id: sp_wave8_141_null_statement
+  type: syntax
+  statement: "空语句：在PL/SQL程序中可以用NULL语句说明不用做任何事情，相当于一个占位符，可以使某些语句变得有意义，提高程序的可读性；示例基线：IF v_num IS NOT NULL THEN raise ELSE NULL（不需要处理任何数据），执行输出ANONYMOUS BLOCK EXECUTE。"
+  source_anchor: "3.8.5 空语句 页2612-2613"
+  source_refs: *refc8
+  status: confirmed
+- id: sp_wave8_141_exception_basics
+  type: constraint
+  statement: "错误捕获语义：缺省时PL/SQL函数执行过程中发生错误退出函数执行且周围事务回滚；用带EXCEPTION子句的BEGIN块捕获错误并恢复（WHEN condition [OR condition ...] THEN handler_statements可多分支）；执行语句内部发生错误时该语句回滚并转到EXCEPTION列表寻找匹配错误的第一个条件，找到则执行对应handler_statements后转到END之后下一语句，无匹配则向事务外层报告错误（和没有EXCEPTION子句一样，无包围块则退出函数）；错误码可以捕获同一类的其他错误码；condition名称可以是SQL标准错误码编号说明的任意值，特殊条件名OTHERS匹配除QUERY_CANCELED之外的所有错误类型；handler_statements里发生的新错误不能被本EXCEPTION子句捕获，由外层EXCEPTION捕获；错误被捕获后局部变量保持错误发生时的原值，但该块中所有想写入数据库中的状态都回滚。"
+  source_anchor: "3.8.6 错误捕获语句 页2613-2614"
+  source_refs: *refc8
+  status: confirmed
+- id: sp_wave8_141_exception_limits
+  type: constraint
+  statement: "EXCEPTION开销与不可捕获场景：进入和退出包含EXCEPTION子句的块比不包含的块开销大得多，不必要时不要使用EXCEPTION；下列场景无法捕获处理异常、整个存储过程回滚：节点故障；网络故障引起的存储过程参与节点线程退出以及COPY FROM操作中源数据与目标表结构不一致造成的异常；EXCEPTION清理子事务时的异常（含EXCEPTION语句的存储过程执行时会开启隐式子事务，正常执行完毕statements时自动清理，清理过程中可能因内存管控发生异常）。"
+  source_anchor: "3.8.6 说明 页2614"
+  source_refs: *refc8
+  status: confirmed
+- id: sp_wave8_141_exception_examples
+  type: behavior_oracle
+  statement: "异常示例基线：fun_exp中y := x / 0触发division_by_zero被EXCEPTION捕获输出caught division_by_zero并RETURN x=1，且UPDATE mytab SET firstname='Joe'被回滚（查询仍为Tom）；merge_db以LOOP+UPDATE+IF found RETURN，插入时捕获unique_violation后循环重试实现UPDATE/INSERT，merge_db(1,'david')与merge_db(1,'dennis')均成功。"
+  source_anchor: "3.8.6 示例/UPDATE-INSERT异常示例 页2614-2616"
+  source_refs: *refc8
+  status: confirmed
+- id: sp_wave8_141_get_stacked_diagnostics
+  type: syntax
+  statement: "GET STACKED DIAGNOSTICS语法：GET STACKED DIAGNOSTICS {{variable { = | := } item }[ , ... ]};用于查询当前PL/SQL函数执行过程中的异常信息；可用诊断项包括PG_EXCEPTION_DETAIL（详细错误信息）、PG_EXCEPTION_HINT（错误提示）、PG_EXCEPTION_CONTEXT（异常的调用栈信息）、MESSAGE_TEXT（主要错误信息）、RETURNED_SQLSTATE（异常的SQLSTATE错误代码）；示例基线get_diag_proc中UPDATE diag_table set int_col='aaa'触发others后输出sql_state: 22P02, message_text: invalid input syntax for integer: \"aaa\"。"
+  source_anchor: "3.8.6.1 获取有关错误的信息 页2615-2616"
+  source_refs: *refc8
+  status: confirmed
+- id: sp_wave8_141_get_current_diagnostics
+  type: syntax
+  statement: "GET [CURRENT] DIAGNOSTICS语法：GET [ CURRENT ] DIAGNOSTICS {{variable { = | := } item }[ , ... ]};用于查询当前PL/SQL函数执行过程中的状态信息；可用诊断项包括ROW_COUNT（上一个SQL语句处理的行数量）、RESULT_OID（上一个插入语句的Oid）；示例基线get_diag_proc中INSERT后GET CURRENT DIAGNOSTICS输出row_count: 1, result_oid: 0。"
+  source_anchor: "3.8.6.2 获取当前的执行信息 页2616-2617"
+  source_refs: *refc8
+  status: confirmed
+- id: sp_wave8_141_goto_basics
+  type: syntax
+  statement: "GOTO语句：实现从GOTO位置到目标语句的无条件跳转；GOTO会改变原执行逻辑，应慎重使用，或使用EXCEPTION处理特殊场景；执行GOTO语句时目标Label必须是唯一的；示例基线：GOTO_test中LOOP循环EXIT WHEN v1 > 100、v1 > 25时GOTO pos1，<<pos1>>后v1 := v1 + 10，call输出INFO v1 is 36.。"
+  source_anchor: "3.8.7 GOTO语句 页2617-2618"
+  source_refs: *refc8
+  status: confirmed
+- id: sp_wave8_141_goto_limits
+  type: constraint
+  statement: "GOTO限制场景：不支持有多个相同的GOTO labels目标场景（无论是否在同一个block中）；不支持GOTO跳转到IF语句、CASE语句、LOOP语句中；不支持GOTO语句从一个IF子句跳转到另一个IF子句，或从一个CASE语句的WHEN子句跳转到另一个WHEN子句；不支持从外部块跳转到内部的BEGIN-END块；不支持从异常处理部分跳转到当前的BEGIN-END块，但可以跳转到上层BEGIN-END块；如果从GOTO到一个不包含执行语句的位置，需要添加NULL语句。"
+  source_anchor: "3.8.7 GOTO限制场景 页2618-2619"
+  source_refs: *refc8
+  status: confirmed
+open_questions:
+- id: sp_ctrl_wave8_141_oq_runtime
+  content: "SAVE EXCEPTIONS场景SQL%BULK_EXCEPTIONS的异常集合顺序与子事务回滚边界、EXCEPTION隐式子事务在内存管控异常下的回滚范围、GOTO跳转与EXIT WHEN组合在多层嵌套循环下的行为需授权环境实机验证。"
+  status: open
