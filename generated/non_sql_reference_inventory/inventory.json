@@ -12075,6 +12075,280 @@
       "fact_count": 20
     },
     {
+      "path": "docs/compat_facts/core_sql_reference_wave8_117_v1.yaml",
+      "document": "集中式版参考 / 2.4.2.14-15 M兼容PREPARE/PURGE/REINDEX（Wave 8-117）",
+      "version": "V2.0-10.0.0",
+      "parent_pdf_sha256": "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe",
+      "extraction_date": "2026-10-08",
+      "extraction_method": "pdftotext章节源文逐章精读 + 结构化manifest哈希对账",
+      "verification_status": "confirmed",
+      "sha256": "7a5bb34a9ac08de3930966d6a3f999371236836f10bbae9f1eded8f160e9226b",
+      "category": "compatibility",
+      "facts": [
+        {
+          "id": "m_prepare_wave8_117_overview",
+          "type": "syntax",
+          "statement": "M兼容PREPARE创建一个预备语句（预备语句是服务端的对象，可用于优化性能：执行PREPARE时指定查询被解析、分析、重写，随后发出EXECUTE时预备语句被规划和执行，避免重复解析、分析工作）；PREPARE语句创建后在整个数据库会话期间一直存在（即便在事务块中创建，事务回滚PREPARE也不会删除），只能通过显式调用DEALLOCATE删除，会话结束时自动删除；不支持创建同名的PREPARE语句。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.14.1 功能描述/注意事项 页2232-2233",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_14_1"
+            ]
+          }
+        },
+        {
+          "id": "m_prepare_wave8_117_supported_statements",
+          "type": "constraint",
+          "statement": "M兼容PREPARE的string为预备SQL语句（不支持使用用户变量@var_name），支持以下语句：SELECT、INSERT、UPDATE、DELETE、ALTER [SCHEMA|DATABASE]（支持修改数据库字符集字符序，不支持修改数据库所有者）、ALTER [TABLE|VIEW|INDEX]、ALTER USER、CREATE TABLE、CREATE USER、CREATE [SCHEMA|DATABASE]、DROP [TABLE|VIEW|INDEX|SCHEMA|DATABASE]、DROP USER、[GRANT|REVOKE]、CREATE INDEX、COMMIT、TRUNCATE TABLE、SET、CREATE VIEW、ANALYZE。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.14.1 参数说明 string 页2233",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_14_1"
+            ]
+          }
+        },
+        {
+          "id": "m_prepare_wave8_117_example",
+          "type": "behavior_oracle",
+          "statement": "示例（m_db）：PREPARE p1 FROM 'SELECT 10 < 52'返回PREPARE，EXECUTE p1返回?column?=t。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.14.1 示例 页2233",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_14_1"
+            ]
+          }
+        },
+        {
+          "id": "m_purge_wave8_117_overview",
+          "type": "syntax",
+          "statement": "M兼容PURGE可实现：从回收站中清理表或索引并释放对象相关的全部空间、清理回收站；支持表（PURGE TABLE）、索引（PURGE INDEX）、回收站（PURGE RECYCLEBIN）；语法为PURGE { TABLE [schema_name.]table_name | INDEX index_name | RECYCLEBIN }。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.14.2 功能描述/语法格式 页2234",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_14_2"
+            ]
+          }
+        },
+        {
+          "id": "m_purge_wave8_117_permission",
+          "type": "constraint",
+          "statement": "M兼容PURGE权限：PURGE TABLE用户必须是表的所有者且拥有表所在模式的USAGE权限（三权分立关闭时系统管理员默认拥有）；PURGE INDEX用户必须是索引的所有者且拥有索引所在模式的USAGE权限；PURGE RECYCLEBIN普通用户只能清理回收站中当前用户拥有的对象（须拥有对象所在模式的USAGE权限），三权分立关闭时系统管理员默认可以清理回收站所有对象。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.14.2 注意事项 页2234",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_14_2"
+            ]
+          }
+        },
+        {
+          "id": "m_purge_wave8_117_prereq_example",
+          "type": "behavior_oracle",
+          "statement": "前提条件：开启enable_recyclebin参数启用回收站；recyclebin_retention_time参数设置回收站对象保留时间（超时自动清理）。示例（m_db）：DROP两张表后SELECT rcyname,rcyoriginname,rcytablespace FROM pg_catalog.gs_recyclebin显示4行（BIN$...$0命名）；PURGE TABLE tpcds.reason_t2清除表、PURGE INDEX tpcds.index_t1清除索引后剩2行；PURGE recyclebin回收所有对象后查询0行。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.14.2 前提条件/示例 页2234-2235",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_14_2"
+            ]
+          }
+        },
+        {
+          "id": "m_reindex_wave8_117_overview",
+          "type": "constraint",
+          "statement": "M兼容REINDEX为表中的数据重建索引，以下几种情况需要使用：索引崩溃并且不再包含有效的数据；索引变得\"臃肿\"包含大量的空页或接近空页；为索引更改了存储参数（例如填充因子）并且希望这个更改完全生效。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.15.1 功能描述 页2235-2236",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_15_1"
+            ]
+          }
+        },
+        {
+          "id": "m_reindex_wave8_117_syntax",
+          "type": "syntax",
+          "statement": "M兼容REINDEX语法：重建普通索引REINDEX { INDEX | [INTERNAL] TABLE | DATABASE | SYSTEM } [CONCURRENTLY] name [ FORCE ]或REINDEX SYSTEM name [FORCE]；重建索引分区REINDEX { INDEX | [INTERNAL] TABLE } [CONCURRENTLY] name PARTITION partition_name [ FORCE ]。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.15.1 语法格式 页2236",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_15_1"
+            ]
+          }
+        },
+        {
+          "id": "m_reindex_wave8_117_types",
+          "type": "constraint",
+          "statement": "REINDEX类型语义：INDEX重新建立指定的索引；TABLE重建指定表的所有索引（表有从属TOAST表则一并重建索引；表上有索引已被alter unusable失效则该索引无法被重新创建；指定CONCURRENTLY时暂不支持重建从属TOAST表上的索引）；DATABASE重建当前数据库里的所有索引（指定CONCURRENTLY时暂不支持重建数据库中表的从属TOAST表上的索引）；SYSTEM在当前数据库上重建所有系统表上的索引（不处理用户表上的索引）。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.15.1 参数说明 页2236",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_15_1"
+            ]
+          }
+        },
+        {
+          "id": "m_reindex_wave8_117_transaction",
+          "type": "constraint",
+          "statement": "REINDEX DATABASE和SYSTEM这种形式的重建索引不能在事务块中执行；REINDEX DATABASE和SYSTEM只能重建当前数据库的索引，所以name必须和当前数据库名称相同；FORCE仅为语法兼容并无实际含义。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.15.1 注意事项/参数说明 页2236,2238",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_15_1"
+            ]
+          }
+        },
+        {
+          "id": "m_reindex_wave8_117_concurrently",
+          "type": "constraint",
+          "statement": "CONCURRENTLY以不阻塞DML的方式重建索引（加ShareUpdateExclusiveLock锁）；不支持在线重建系统表上的索引；不支持REINDEX INTERNAL TABLE CONCURRENTLY、REINDEX SYSTEM CONCURRENTLY、REINDEX INVALID INDEX CONCURRENTLY；REINDEX DATABASE CONCURRENTLY在线重建当前数据库中用户表上的所有索引（不处理系统表）；REINDEX CONCURRENTLY不可以在事务内执行；在线重建索引只支持B-tree索引和UB-tree索引，只支持普通索引、GLOBAL索引、LOCAL索引，不支持在线索引字段增删改、PCR ubtree索引、二级分区与GSI；在线并行重建索引只支持Astore及Ustore的普通索引、GLOBAL索引、LOCAL索引（其他继承当前版本在线重建索引规格约束）。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.15.1 参数说明 CONCURRENTLY 页2236-2237",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_15_1"
+            ]
+          }
+        },
+        {
+          "id": "m_reindex_wave8_117_concurrently_failure",
+          "type": "constraint",
+          "statement": "M兼容REINDEX CONCURRENTLY失败处理：在线重建索引失败时，对于用户手动取消、唯一索引键值重复、资源不足、启动线程失败、锁超时等场景，为避免占用资源系统会自动清理新索引；系统无法自动清理失败新索引的情况下（如数据库宕机、FATAL、PANIC）需尽快手动清除（使用DROP INDEX语句删除非法新索引及DROP TABLE语句删除临时表）；一般来说非法的新索引后缀名为_ccnew；REINDEX INDEX CONCURRENTLY对表加4级会话锁，其前几个阶段与CREATE INDEX CONCURRENTLY相似因此也可能产生卡住或死锁问题（如两个会话同时对同一个索引或表进行REINDEX CONCURRENTLY操作会引发死锁）。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.15.1 参数说明 CONCURRENTLY 页2237",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_15_1"
+            ]
+          }
+        },
+        {
+          "id": "m_reindex_wave8_117_implementation",
+          "type": "constraint",
+          "statement": "M兼容REINDEX CONCURRENTLY实现机制：重建索引指定此关键字时，Astore需要执行先后两次对全表的扫描完成build（第一次扫描创建新索引不阻塞读写操作，第二次扫描合并更新第一次扫描到目前为止发生的变更）；Ustore需完成一次全表扫描（扫描过程中并发DML产生的数据会被插入到以index_oid_cctmp命名的临时表中，扫描结束后合并临时表到以_ccnew{n}为后缀名的新索引中并删除临时表，交换新旧索引，旧索引标记为死亡，启用新索引，重建索引完成）。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.15.1 参数说明 CONCURRENTLY 说明 页2237-2238",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_15_1"
+            ]
+          }
+        },
+        {
+          "id": "m_reindex_wave8_117_lpi",
+          "type": "constraint",
+          "statement": "M兼容REINDEX并行限制：若索引带有lpi_parallel_method选项，取值为PARTITION且表的parallel_workers选项大于0时，不支持对该索引并行重建；无该选项或选项取值为AUTO时，并行重建时会默认走页面级并行重建索引（具体参见CREATE INDEX章节中的LPI_PARALLEL_METHOD）。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.15.1 注意事项 页2236",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_15_1"
+            ]
+          }
+        },
+        {
+          "id": "m_reindex_wave8_117_partition_form",
+          "type": "syntax",
+          "statement": "M兼容重建索引分区形式：REINDEX { INDEX | [INTERNAL] TABLE } [CONCURRENTLY] name PARTITION partition_name [ FORCE ]；partition_name需要重建索引的索引名称或表名称：如果前面是REINDEX INDEX则这里应指定索引的名称，如果前面是REINDEX TABLE则这里应指定表的名称。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.15.1 语法格式/参数说明 partition_name 页2236,2238",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_15_1"
+            ]
+          }
+        },
+        {
+          "id": "m_reindex_wave8_117_example",
+          "type": "behavior_oracle",
+          "statement": "示例（m_db）：创建tpcds.customer与tpcds.customer_t1（行存表，在c_customer_sk字段创建索引tpcds_customer_index1）后REINDEX INDEX tpcds.tpcds_customer_index1、REINDEX TABLE tpcds.customer_t1；提示不能在事务中REINDEX DATABASE、不能在事务中REINDEX系统表。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.15.1 示例 页2238-2239",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_15_1"
+            ]
+          }
+        },
+        {
+          "id": "m_rename_table_wave8_117_syntax",
+          "type": "syntax",
+          "statement": "M兼容RENAME TABLE修改单个表或多个表的名称（对名称的修改不会影响所存储的数据）；语法为RENAME { TABLE | TABLES } table_name TO new_table_name [, table_name2 TO new_table_name2, ...]，TABLE和TABLES可互相替换使用（与语句中操作表的个数无关），TO为连接词无实际含义。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.15.3 功能描述/语法格式/参数说明 页2239",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_15_3"
+            ]
+          }
+        },
+        {
+          "id": "m_rename_table_wave8_117_example",
+          "type": "behavior_oracle",
+          "statement": "示例：单表RENAME TABLE aa TO test_alt1；多表RENAME TABLE aa TO test_alt1, bb TO test_alt2；相关链接ALTER TABLE。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.15.3 示例 页2239-2240",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_15_3"
+            ]
+          }
+        },
+        {
+          "id": "m_reset_wave8_117_syntax",
+          "type": "syntax",
+          "statement": "M兼容RESET将指定的运行时参数恢复为缺省值（缺省值指gaussdb.conf配置文件中描述的参数缺省值）；当前版本不支持RESET configuration_parameter，只支持RESET ALL；语法为RESET ALL（ALL为所有运行时参数）。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.15.5 功能描述/语法格式/参数说明 页2243-2244",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_15_5"
+            ]
+          }
+        },
+        {
+          "id": "m_reset_wave8_117_notes",
+          "type": "constraint",
+          "statement": "M兼容RESET注意事项：RESET ALL的事务性行为和SET相同，它的影响将会被事务回滚撤销；RESET ALL不能对role和session authorization恢复为缺省值；相关链接SET、SHOW。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.15.5 注意事项 页2244",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_117_2_4_2_15_5"
+            ]
+          }
+        }
+      ],
+      "fact_count": 20
+    },
+    {
       "path": "docs/compat_facts/core_sql_reference_wave8_19_v1.yaml",
       "document": "集中式版参考 / 1.13.19.3 SELECT（Wave 8-19）",
       "version": "V2.0-10.0.0",
@@ -62024,22 +62298,22 @@
     }
   ],
   "summary": {
-    "source_file_count": 236,
-    "fact_count": 4813,
+    "source_file_count": 237,
+    "fact_count": 4833,
     "fact_status_counts": {
-      "confirmed": 4810,
+      "confirmed": 4830,
       "needs_verification": 3
     },
     "fact_type_counts": {
-      "behavior_oracle": 715,
-      "constraint": 1617,
+      "behavior_oracle": 719,
+      "constraint": 1627,
       "environment": 363,
       "lifecycle": 2,
       "metadata_oracle": 103,
-      "syntax": 2013
+      "syntax": 2019
     },
     "category_counts": {
-      "compatibility": 194,
+      "compatibility": 195,
       "log_reference": 2,
       "report": 1,
       "runtime_parameters": 12,
@@ -62049,7 +62323,7 @@
       "tool_reference": 3
     },
     "category_fact_counts": {
-      "compatibility": 4145,
+      "compatibility": 4165,
       "log_reference": 32,
       "report": 6,
       "runtime_parameters": 174,
