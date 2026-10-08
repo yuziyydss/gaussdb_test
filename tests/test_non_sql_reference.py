@@ -19,24 +19,24 @@ class NonSqlReferenceTests(unittest.TestCase):
     def test_all_existing_reference_files_are_typed_and_hash_bound(self):
         summary = self.inventory.summary
         self.assertEqual(self.inventory.kind, "non_sql_reference_inventory")
-        self.assertEqual(summary.source_file_count, 225)
-        self.assertEqual(summary.fact_count, 4593)
-        self.assertEqual(summary.fact_status_counts, {"confirmed": 4590, "needs_verification": 3})
+        self.assertEqual(summary.source_file_count, 226)
+        self.assertEqual(summary.fact_count, 4613)
+        self.assertEqual(summary.fact_status_counts, {"confirmed": 4610, "needs_verification": 3})
         self.assertEqual(
             summary.fact_type_counts,
             {
-                "behavior_oracle": 677,
-                "constraint": 1494,
+                "behavior_oracle": 679,
+                "constraint": 1504,
                 "environment": 361,
                 "lifecycle": 2,
                 "metadata_oracle": 103,
-                "syntax": 1956,
+                "syntax": 1964,
             },
         )
         self.assertEqual(
             summary.category_counts,
             {
-                "compatibility": 183,
+                "compatibility": 184,
                 "log_reference": 2,
                 "report": 1,
                 "runtime_parameters": 12,
@@ -49,7 +49,7 @@ class NonSqlReferenceTests(unittest.TestCase):
         self.assertEqual(
             summary.category_fact_counts,
             {
-                "compatibility": 3925,
+                "compatibility": 3945,
                 "log_reference": 32,
                 "report": 6,
                 "runtime_parameters": 174,

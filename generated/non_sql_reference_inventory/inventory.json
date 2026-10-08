@@ -9061,6 +9061,280 @@
       "fact_count": 20
     },
     {
+      "path": "docs/compat_facts/core_sql_reference_wave8_106_v1.yaml",
+      "document": "集中式版参考 / 2.4.2.6.13-16 M兼容ALTER TABLE PARTITION/SUBPARTITION/USER/VIEW（Wave 8-106）",
+      "version": "V2.0-10.0.0",
+      "parent_pdf_sha256": "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe",
+      "extraction_date": "2026-10-08",
+      "extraction_method": "pdftotext章节源文逐章精读 + 结构化manifest哈希对账",
+      "verification_status": "confirmed",
+      "sha256": "d5a3495c55e8e8d939a2ec45e369742d4f1bf2dc195a5594c243294985ebacfe",
+      "category": "compatibility",
+      "facts": [
+        {
+          "id": "m_atp_wave8_106_overview",
+          "type": "syntax",
+          "statement": "M兼容ALTER TABLE PARTITION修改表分区，包括增加/删除分区、切割/合并分区、清空分区、移动分区表空间、交换分区、重命名分区、收集分区、开启/关闭分区自动扩展功能及修改分区属性等；主语法为ALTER TABLE [ IF EXISTS ] { table_name [*] | ONLY table_name | ONLY ( table_name ) } action [, ... ]；当存在多个分区维护子句时保证了分区的连续性，无论子句排序如何M-Compatibility总先执行DROP PARTITION再执行ADD PARTITION操作，最后顺序执行其它分区维护操作。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.13 功能描述/语法格式 页2048-2049",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_13"
+            ]
+          }
+        },
+        {
+          "id": "m_atp_wave8_106_limits",
+          "type": "constraint",
+          "statement": "M兼容分区维护限制：只有分区表的所有者或被授予分区表ALTER权限的用户可执行（三权分立关闭时系统管理员默认拥有）；添加分区的表空间不能是pg_global；分区名不能与已有分区相同；分区键值类型须与分区键一致；RANGE分区键值要大于最后一个范围分区上边界；LIST分区键值不能与现有重复；不支持添加哈希分区；已有分区数达最大值1048575不能继续添加；只有一个分区时不能删除该分区；PARTITION FOR()指定值个数须与定义分区列个数相同一一对应；哈希分区表不支持切割、合并、添加/删除分区。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.13 注意事项 页2048",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_13"
+            ]
+          }
+        },
+        {
+          "id": "m_atp_wave8_106_gindex",
+          "type": "constraint",
+          "statement": "删除、切割、合并、清空、交换分区的操作会使GLOBAL索引失效，可以申明UPDATE GLOBAL INDEX子句同步更新索引；如果不申明，并发的DML业务有可能因为索引不可用而报错；若设置GUC参数enable_gpi_auto_update为on或设置m_format_dev_version为s4，即使不申明UPDATE GLOBAL INDEX子句也会自动更新GLOBAL索引。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.13 注意事项 页2048",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_13"
+            ]
+          }
+        },
+        {
+          "id": "m_atp_wave8_106_move_exchange",
+          "type": "syntax",
+          "statement": "move_clause移动分区到新表空间：MOVE PARTITION { partition_name | FOR ( partition_value [, ...] ) } TABLESPACE tablespacename；exchange_clause把普通表数据迁移到指定分区：EXCHANGE PARTITION {...} WITH TABLE {[ ONLY ] ordinary_table_name | ...} [ { WITH | WITHOUT } VALIDATION ] [ UPDATE GLOBAL INDEX ]；交换条件：普通表和分区列数相同且对应列信息严格一致（列名、数据类型、列约束、Collation、存储参数、压缩信息）、表压缩信息严格一致、索引个数与信息一致、约束个数与信息一致；普通表不可以是临时表，分区表只能是范围/列表/哈希分区表。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.13 语法格式 页2049",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_13"
+            ]
+          }
+        },
+        {
+          "id": "m_atp_wave8_106_exchange_notes",
+          "type": "constraint",
+          "statement": "交换分区须知：完成后普通表和分区的数据及表空间信息被置换，统计信息变得不可靠需重新执行analyze；非分区键不能建立本地唯一索引只能建全局唯一索引，普通表含唯一索引时可能导致无法交换数据（可通过中间表方式：先插入中间表、truncate分区、普通表数据插入分区表、drop普通表、重命名中间表）；普通表/分区表DROP COLUMN后被删列依然物理存在，需保证被删列严格对齐才能交换成功；partition_name为一级分区名时交换一级分区和普通表、为二级分区时交换二级分区和普通表，不支持在二级分区表中交换一级分区和普通表；分区交换后自增列不会被重置。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.13 须知 页2049",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_13"
+            ]
+          }
+        },
+        {
+          "id": "m_atp_wave8_106_merge_split",
+          "type": "syntax",
+          "statement": "merge_clause把多个分区合并成一个（一个命令中合并的源分区上限为300）：MERGE PARTITIONS { partition_name } [, ...] INTO PARTITION partition_name [ TABLESPACE tablespacename ] [ UPDATE GLOBAL INDEX ]；范围分区要求源分区范围连续递增且合并后分区名可与最后一个源分区名相同，列表分区源分区无顺序要求；USTORE存储引擎表不支持在事务块/存储过程中执行ALTER TABLE MERGE PARTITIONS；split_clause把一个分区切割成多个：SPLIT PARTITION {...} { split_point_clause | no_split_point_clause } [ UPDATE GLOBAL INDEX ]，SPLIT后分区名可与源分区名相同但视为不同的分区；未打开enable_ilm时分区分割成多个分区后新分区不继承ilm policy。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.13 语法格式/须知 页2049-2050",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_13"
+            ]
+          }
+        },
+        {
+          "id": "m_atp_wave8_106_split_details",
+          "type": "syntax",
+          "statement": "切割细节：范围分区指定切割点AT ( partition_value ) INTO ( PARTITION ..., PARTITION ... )，切割点要位于被切割分区的分区键范围内，只能切成两个新分区；不指定切割点INTO {( partition_less_than_item [, ...] ) | ( partition_start_end_item [, ...] )}，第一个新分区键要大于前一分区键、最后一个分区键要等于被切割分区的分区键；partition_less_than_item最多支持16个分区键、partition_start_end_item仅支持1个，同一语句中两者不可同时使用；最后一个分区可不写VALUES LESS THAN（默认继承源分区上界），RANGE分区支持MAXVALUE不带括号（不支持二级子分区、不支持多列分区键场景）；列表分区切割点必须是源分区的非空真子集；不指定切割点时每个新分区都必须是源分区的非空真子集且互不交叉。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.13 语法格式/须知 页2050-2051",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_13"
+            ]
+          }
+        },
+        {
+          "id": "m_atp_wave8_106_add_drop_truncate",
+          "type": "syntax",
+          "statement": "add_clause：ADD PARTITION({partition_less_than_item | partition_start_end_item | partition_list_item}[, ...])，partition_list_item支持最多16个分区键，间隔/哈希分区表不支持添加分区，IN不支持在二级分区的子分区中使用；drop_clause：DROP PARTITION partition_name（哈希分区表不支持删除分区）；truncate_clause：TRUNCATE PARTITION { { ALL | partition_name [, ...] } | FOR ( partition_value [, ...] ) } [ UPDATE GLOBAL INDEX ]；analyze_clause：ANALYZE PARTITION { { ALL | partition_name [, ...] } }收集指定分区统计信息；修改分区名：RENAME PARTITION { partition_name | FOR (...) } TO partition_new_name。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.13 语法格式 页2051-2052",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_13"
+            ]
+          }
+        },
+        {
+          "id": "m_atp_wave8_106_example",
+          "type": "behavior_oracle",
+          "statement": "示例（m_db）：RENAME PARTITION p3 TO pmax后pg_partition查询boundaries显示{NULL}；EXCHANGE PARTITION p1 WITH TABLE test_ep1（9行数据）后SELECT COUNT(*) FROM test_p1 PARTITION (p1)返回9；MERGE PARTITIONS p2,pmax INTO PARTITION pmax后分区变为2个；SPLIT PARTITION pmax AT (20) INTO (PARTITION p2, PARTITION pmax)与不指定切割点SPLIT后pg_partition显示p1/p2/p3/pmax四个分区。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.13 示例 页2053-2055",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_13"
+            ]
+          }
+        },
+        {
+          "id": "m_atp_wave8_106_params",
+          "type": "constraint",
+          "statement": "参数：tablespace_name指定分区要移动到的表空间（需在非M-Compatibility数据库中创建或删除tablespace）；WITH VALIDATION检查普通表数据是否满足分区键范围（不满足报错），WITHOUT不检查（默认WITH，数据量大时检查耗时，保证数据满足范围时可加WITHOUT提速）；UPDATE GLOBAL INDEX更新分区表上所有全局索引，不使用该参数则所有全局索引失效。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.13 参数说明 页2053",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_13"
+            ]
+          }
+        },
+        {
+          "id": "m_asub_wave8_106_limits",
+          "type": "constraint",
+          "statement": "M兼容ALTER TABLE SUBPARTITION修改二级分区表分区；限制：添加分区表空间不能是pg_global；分区名不能与一级和二级分区名相同；分区键值类型须一致；分区数达1048575不能添加；只有一个一级或二级分区时不能删除；SUBPARTITION FOR()值个数与定义列个数相同一一对应；M-Compatibility下SUBPARTITION只支持HASH/KEY分区但不支持添加HASH/KEY分区（唯一例外：二级分区方式为HASH且一级分区方式非HASH时支持新增一级分区并创建对应二级分区），不支持删除和切割合并HASH/KEY分区；删除、切割、清空、交换分区会使GLOBAL索引失效（可申明UPDATE GLOBAL INDEX）。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.14 注意事项 页2057-2058",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_14"
+            ]
+          }
+        },
+        {
+          "id": "m_asub_wave8_106_forms",
+          "type": "syntax",
+          "statement": "M兼容二级分区四种维护子语法：move_clause移动分区到新表空间（MOVE SUBPARTITION {...} TABLESPACE tablespacename）；exchange_clause交换普通表数据（普通表不能是临时表，分区表只能是二级分区表，交换后需重新analyze，被删列需严格对齐）；truncate_clause可作用在一级分区（TRUNCATE PARTITION）或二级分区（TRUNCATE SUBPARTITION）；set_partitioning_clause；多子句时先执行DROP PARTITION再ADD PARTITION最后顺序执行其它；RENAME PARTITION/Rename SUBPARTITION可分别修改一级/二级分区名。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.14 语法格式 页2058-2059",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_14"
+            ]
+          }
+        },
+        {
+          "id": "m_asub_wave8_106_exchange_conditions",
+          "type": "constraint",
+          "statement": "二级分区交换条件：普通表和分区的列数目相同且对应列信息严格一致（列名、数据类型、列约束、Collation信息、存储参数、压缩信息）；表压缩信息严格一致；普通表索引和分区Local索引个数相同且信息严格一致；表约束个数相同且信息严格一致；普通表和分区的被删除列需严格对齐才能交换成功。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.14 语法格式 页2058-2059",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_14"
+            ]
+          }
+        },
+        {
+          "id": "m_alter_user_wave8_106_syntax",
+          "type": "syntax",
+          "statement": "M兼容ALTER USER修改数据库用户的属性；修改的会话参数只针对指定的用户且在下一次会话中有效；不支持在PDB内修改初始用户密码；形式：ALTER USER user_name [ [ WITH ] option [ ... ] ]（权限，option子句为CREATEDB/CREATEROLE/AUDITADMIN/SYSADMIN/MONADMIN/OPRADMIN/POLADMIN/USEFT/INHERIT/LOGIN/PERSISTENCE各开关、CONNECTION LIMIT、VALID BEGIN/UNTIL、USER GROUP、NODE GROUP、ACCOUNT LOCK/UNLOCK）、[ IN DATABASE database_name ] SET configuration_parameter、[ IN DATABASE database_name ] RESET ALL。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.15 功能描述/注意事项/语法格式 页2061",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_15"
+            ]
+          }
+        },
+        {
+          "id": "m_alter_user_wave8_106_password",
+          "type": "constraint",
+          "statement": "M兼容new_password密码规则：不能与当前密码相同；密码默认不少于8个字符；不能与用户名及用户名倒序相同；至少包含大写字母（A-Z）、小写字母（a-z）、数字（0-9）、非字母数字字符（限定为~!@#$%^&*()-_=+\\|[{}];:,<.>/?）四类字符中的三类；应当使用单引号或双引号包裹；ACCOUNT LOCK锁定账户禁止登录、UNLOCK解锁允许登录；PGUSER当前版本不允许修改。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.15 参数说明 页2062",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_15"
+            ]
+          }
+        },
+        {
+          "id": "m_alter_user_wave8_106_related",
+          "type": "constraint",
+          "statement": "user_name为已存在的用户名（用户名要求参见CREATE USER章节）；old_password为旧密码；其他参数请参见CREATE ROLE和ALTER ROLE的参数说明；相关链接CREATE ROLE、CREATE USER、DROP USER。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.15 参数说明 页2062",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_15"
+            ]
+          }
+        },
+        {
+          "id": "m_alter_view_wave8_106_syntax",
+          "type": "syntax",
+          "statement": "M兼容ALTER VIEW更改视图的各种辅助属性或重编译视图；七种形式（除AS query外均带[ IF EXISTS ]）：ALTER [ COLUMN ] column_name SET DEFAULT expression（设置视图列默认值）、ALTER [ COLUMN ] column_name DROP DEFAULT、OWNER TO new_owner（修改所有者）、RENAME TO new_name（重命名）、SET SCHEMA new_schema（设置所属模式）、view_name [ ( column_name [, ...] ) ] AS query [WITH [CASCADED | LOCAL] CHECK OPTION]（设置视图定义，实际使用的是CREATE OR REPLACE VIEW，两者功能相同）、COMPILE（重编译视图）。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.16 语法格式 页2062-2063",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_16"
+            ]
+          }
+        },
+        {
+          "id": "m_alter_view_wave8_106_permission",
+          "type": "constraint",
+          "statement": "只有视图的所有者或被授予了视图ALTER权限的用户才可以执行ALTER VIEW（三权分立开关关闭时系统管理员默认拥有该权限）；修改视图的模式时当前用户必须是视图所有者或系统管理员且要有新模式的CREATE权限（三权分立打开时系统管理员不能修改视图模式）；修改视图所有者时当前用户必须是视图所有者或系统管理员、该用户必须是新所有者角色的成员且此角色必须有视图所在模式的CREATE权限（三权分立打开时系统管理员不能修改视图的所有者）。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.16 注意事项 页2062-2063",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_16"
+            ]
+          }
+        },
+        {
+          "id": "m_alter_view_wave8_106_check_option",
+          "type": "constraint",
+          "statement": "WITH [ CASCADED | LOCAL ] CHECK OPTION设置控制更新视图的行为：CASCADED检查该视图和所有底层视图定义的条件（仅声明CHECK OPTION未声明LOCAL和CASCADED时默认是CASCADED）；LOCAL只检查视图本身直接定义的条件，除非底层视图也定义了CHECK OPTION否则底层视图定义的条件都不检查；SET/DROP DEFAULT设置或删除列的缺省值，该参数暂无实际意义。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.16 参数说明 页2063-2064",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_16"
+            ]
+          }
+        },
+        {
+          "id": "m_alter_view_wave8_106_example",
+          "type": "behavior_oracle",
+          "statement": "示例（m_db）：ALTER VIEW IF EXISTS abc RENAME TO test_v1（\\dv验证）；OWNER TO role_test（\\dv显示Owner=role_test）；SET SCHEMA tcpds（\\dv tcpds.test_v1验证）；重编译：SET enable_view_invalidation=on后DROP TABLE使视图失效（pg_object.valid=f），重建表后ALTER VIEW test_v1 COMPILE使valid恢复为t；相关链接CREATE VIEW、DROP VIEW。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.6.16 示例 页2064-2065",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_106_2_4_2_6_16"
+            ]
+          }
+        }
+      ],
+      "fact_count": 20
+    },
+    {
       "path": "docs/compat_facts/core_sql_reference_wave8_19_v1.yaml",
       "document": "集中式版参考 / 1.13.19.3 SELECT（Wave 8-19）",
       "version": "V2.0-10.0.0",
@@ -59010,22 +59284,22 @@
     }
   ],
   "summary": {
-    "source_file_count": 225,
-    "fact_count": 4593,
+    "source_file_count": 226,
+    "fact_count": 4613,
     "fact_status_counts": {
-      "confirmed": 4590,
+      "confirmed": 4610,
       "needs_verification": 3
     },
     "fact_type_counts": {
-      "behavior_oracle": 677,
-      "constraint": 1494,
+      "behavior_oracle": 679,
+      "constraint": 1504,
       "environment": 361,
       "lifecycle": 2,
       "metadata_oracle": 103,
-      "syntax": 1956
+      "syntax": 1964
     },
     "category_counts": {
-      "compatibility": 183,
+      "compatibility": 184,
       "log_reference": 2,
       "report": 1,
       "runtime_parameters": 12,
@@ -59035,7 +59309,7 @@
       "tool_reference": 3
     },
     "category_fact_counts": {
-      "compatibility": 3925,
+      "compatibility": 3945,
       "log_reference": 32,
       "report": 6,
       "runtime_parameters": 174,
