@@ -1,0 +1,145 @@
+document: 集中式版参考 / 2.4.2.16-17 M兼容START TRANSACTION/TABLE/TIMECAPSULE TABLE/TRUNCATE（Wave 8-119）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 2.4.2.16.9 START TRANSACTION
+  - 2.4.2.17.1 TABLE
+  - 2.4.2.17.2 TIMECAPSULE TABLE
+  - 2.4.2.17.3 TRUNCATE
+  physical_page_start: 2288
+  physical_page_end: 2300
+  physical_page_count: 12
+  excludes: []
+facts:
+- id: m_start_transaction_wave8_119_syntax
+  type: syntax
+  statement: "M兼容START TRANSACTION通过启动事务（声明了隔离级别、读写模式则新事务使用这些特性，类似执行SET TRANSACTION）；两种格式：格式一START TRANSACTION支持WITH CONSISTENT SNAPSHOT，格式二BEGIN不支持；隔离级别四种：READ COMMITTED（缺省，只读已提交数据）、READ UNCOMMITTED（行为和READ COMMITTED一致）、REPEATABLE READ（仅看到事务开始之前提交的数据）、SERIALIZABLE（M-Compatibility目前功能上不支持，设置时等价于REPEATABLE READ）；在事务中第一个数据修改语句（SELECT, INSERT, DELETE, UPDATE, COPY）执行之后事务隔离级别不能再次设置；READ WRITE | READ ONLY指定事务访问模式（读/写或只读）。"
+  source_anchor: "2.4.2.16.9 功能描述/语法格式/参数说明 页2288-2289"
+  source_refs: &refmst
+  - w8_119_2_4_2_16_9
+  status: confirmed
+- id: m_start_transaction_wave8_119_snapshot
+  type: constraint
+  statement: "M兼容WITH CONSISTENT SNAPSHOT仅在可重复读隔离级别下生效（开启事务时即生成快照，其余隔离级别不生效并产生告警）；如果关闭此参数，在可重复读隔离级别下，事务中第一个数据修改语句（DML、DDL或DCL）执行之后才会建立事务的一致性读快照；支持多次设置此参数。"
+  source_anchor: "2.4.2.16.9 参数说明 页2289"
+  source_refs: *refmst
+  status: confirmed
+- id: m_start_transaction_wave8_119_examples
+  type: behavior_oracle
+  statement: "示例（m_db）：默认方式START TRANSACTION与BEGIN；START TRANSACTION ISOLATION LEVEL READ COMMITTED READ WRITE；START TRANSACTION WITH CONSISTENT SNAPSHOT ISOLATION LEVEL REPEATABLE READ开启事务即生成快照；非可重复读隔离级别带WITH CONSISTENT SNAPSHOT时报WARNING: WITH CONSISTENT SNAPSHOT was ignored because this phrase can only be used with REPEATABLE READ isolation level.；相关链接COMMIT、ROLLBACK、SET TRANSACTION。"
+  source_anchor: "2.4.2.16.9 示例 页2290"
+  source_refs: *refmst
+  status: confirmed
+- id: m_table_wave8_119_syntax
+  type: syntax
+  statement: "M兼容TABLE从表或视图中查询数据（TABLE语法主要为简化SELECT从表或视图查询数据的操作，TABLE table_name与SELECT * FROM table_name实现功能一致）；权限：仅表或视图的所有者、拥有表或视图SELECT权限的用户或拥有SELECT ANY TABLE权限的用户可以执行TABLE命令（三权分立关闭时系统管理员默认拥有）；当前用户必须拥有TABLE中使用字段的SELECT权限；进行FOR UPDATE或FOR SHARE操作时当前用户必须拥有字段的UPDATE权限。"
+  source_anchor: "2.4.2.17.1 功能描述/注意事项 页2290-2291"
+  source_refs: &refmtable
+  - w8_119_2_4_2_17_1
+  status: confirmed
+- id: m_table_wave8_119_subquery_limit
+  type: constraint
+  statement: "M兼容TABLE子查询限制：M-Compatibility模式数据库不支持子查询结果包含多列（包含多列时执行会报错），所以TABLE语句仅能在表中只含有一列时使用；示例：number1、number2各一列，SELECT * FROM number2 WHERE n IN (TABLE number1)返回2、3。"
+  source_anchor: "2.4.2.17.1 子查询说明/示例 页2293"
+  source_refs: *refmtable
+  status: confirmed
+- id: m_table_wave8_119_paging
+  type: behavior_oracle
+  statement: "M兼容TABLE分页查询基线：建表插入100条数据后TABLE test1 ORDER BY 1 LIMIT 5查询前5条（1-5）；TABLE test1 ORDER BY 1 LIMIT 20,4从第20条向后查询4条（21-24）；TABLE test1 ORDER BY 1 LIMIT 96,ALL从第96条向后查询出所有数据（97-100）。"
+  source_anchor: "2.4.2.17.1 示例 分页查询 页2292-2293"
+  source_refs: *refmtable
+  status: confirmed
+- id: m_table_wave8_119_composite
+  type: constraint
+  statement: "M兼容TABLE复合查询：包含复合运算符的查询即复合查询，所有复合查询都具有相同的优先级，参加集合操作的各查询结果的列数、表达式的数量都必须一致，类型必须兼容。"
+  source_anchor: "2.4.2.17.1 复合查询 页2293"
+  source_refs: *refmtable
+  status: confirmed
+- id: m_timecapsule_wave8_119_overview
+  type: syntax
+  statement: "M兼容TIMECAPSULE TABLE在人为操作或应用程序错误时将表恢复到指定的早期状态；主要用法：闪回旧版本数据（通过TO TIMESTAMP或TO CSN闪回到过去某个版本，当前仅支持Ustore存储引擎）和从回收站中闪回（回收站记录DROP和TRUNCATE的对象数据，通过TO BEFORE DROP和TO BEFORE TRUNCATE闪回，当前支持Ustore及Astore存储引擎）；语法为TIMECAPSULE TABLE [schema.]table_name TO { CSN expr | TIMESTAMP expr | BEFORE { DROP [RENAME TO table_name] | TRUNCATE } }。"
+  source_anchor: "2.4.2.17.2 功能描述/语法格式 页2293-2294"
+  source_refs: &refmtc
+  - w8_119_2_4_2_17_2
+  status: confirmed
+- id: m_timecapsule_wave8_119_unsupported
+  type: constraint
+  statement: "M兼容闪回限制：不支持闪回的对象类型包括系统表、DFS表、全局临时表、本地临时表、UNLOGGED表、序列表、hashbucket表以及密态表；开启闪回后回收站里的表可以进行表级备份但无法进行表级恢复；闪回点和当前点之间如果执行过修改表结构或影响物理存储的语句（TRUNCATE、DDL、DCL或VACUUM FULL）则闪回操作失败；表可以闪回到过去的时间点依赖于系统中保存的旧版本数据，数据库无法恢复到通过DDL操作改变了表结构的早期状态。"
+  source_anchor: "2.4.2.17.2 注意事项 页2294"
+  source_refs: *refmtc
+  status: confirmed
+- id: m_timecapsule_wave8_119_permission
+  type: constraint
+  statement: "M兼容闪回权限：执行闪回DROP操作，当前用户必须具有闪回对象所在Schema的CREATE和USAGE权限，并且必须是Schema的所有者或闪回对象的所有者；执行闪回TRUNCATE操作除上述要求外，用户必须具有闪回对象的TRUNCATE权限。"
+  source_anchor: "2.4.2.17.2 注意事项 页2294"
+  source_refs: *refmtc
+  status: confirmed
+- id: m_timecapsule_wave8_119_drop_scenes
+  type: constraint
+  statement: "不适用闪回DROP或闪回TRUNCATE的场景或表：回收站关闭场景（enable_recyclebin = off）；系统处于维护状态（xc_maintenance_mode = on）或从不支持的基线版本升级到支持版本的升级场景；多对象删除场景（DROP TABLE或TRUNCATE TABLE同时指定多个对象）；系统表、DFS表、全局临时表、本地临时表、UNLOGGED表、序列表、hashbucket表以及密态表；回收站对象被清理后无法闪回（recyclebin_retention_time参数设置保留时间）；回收站对象禁止DML、DCL以及DDL等写操作，当前版本不支持DQL查询操作；TRUNCATE表和闪回TRUNCATE操作之间执行过修改表结构或影响物理文件的语句（DDL、DCL、VACUUM FULL或增加/删除/切割/合成等分区操作）则闪回失败；整表删除或截断时分区随整表放入回收站（单个删除的分区不支持放入回收站）；表依赖的对象为外部对象（如表列为复合类型等）时采用物理删除不放入回收站。"
+  source_anchor: "2.4.2.17.2 注意事项 页2294-2295"
+  source_refs: *refmtc
+  status: confirmed
+- id: m_timecapsule_wave8_119_drop_rules
+  type: constraint
+  statement: "M兼容DROP闪回约束：可以指定原始用户指定的表的名称或对象删除时数据库分配的系统生成名称（回收站中系统生成的对象名称唯一，SELECT * FROM gs_recyclebin查看内容；指定用户名称且回收站中包含多个该名称对象时检索最近移动的对象，需要更早版本须指定系统生成名称或执行TIMECAPSULE TABLE ... TO BEFORE DROP直至匹配）；恢复DROP表时只恢复基表名（其他子对象名保持回收站对象名，可DDL手工调整）；表缺省值引用序列和自定义函数时闪回DROP成功但不恢复缺省值；表存在视图引用且DROP表时级联删除视图，闪回DROP表成功但不恢复视图。"
+  source_anchor: "2.4.2.17.2 注意事项 DROP闪回约束 页2294-2295"
+  source_refs: *refmtc
+  status: confirmed
+- id: m_timecapsule_wave8_119_truncate_rules
+  type: constraint
+  statement: "M兼容TRUNCATE闪回约束：TRUNCATE闪回后统计信息无变化仍显示为0（可在业务低峰期手动执行ANALYZE修正统计信息）；RENAME TO仅支持DROP闪回操作为检索表指定新名称（不支持TRUNCATE闪回）；TRUNCATE闪回不能跨越影响表结构或物理存储的语句（闪回点和当前点之间执行过DDL、DCL、VACUUM FULL以及增加/删除/切割/合成等分区操作则闪回失败）。"
+  source_anchor: "2.4.2.17.2 注意事项 TRUNCATE闪回约束 页2295"
+  source_refs: *refmtc
+  status: confirmed
+- id: m_timecapsule_wave8_119_time_deviation
+  type: constraint
+  statement: "M兼容闪回时间点：TO CSN指定要返回表的时间点对应的事务提交序列号；TO TIMESTAMP指定时间戳（使用pg_catalog.timestamptz函数将字符串转换为时间类型）；闪回点过旧时（指定过去时间的时间戳可能无效），因闪回版本被回收等导致无法获取旧版本会报\"Restore point too old\"；通过时间方式指定闪回点，闪回数据和实际时间点数据可能存在偏差（大约偏差为3秒）。"
+  source_anchor: "2.4.2.17.2 参数说明 页2295-2296"
+  source_refs: *refmtc
+  status: confirmed
+- id: m_truncate_wave8_119_overview
+  type: constraint
+  statement: "M兼容TRUNCATE快速删除表中所有行；TRUNCATE TABLE比DELETE速度快且使用系统和事务日志资源少（DELETE每次删除一行并在事务日志中为每行记录一项，TRUNCATE通过释放存储表数据所用数据页删除数据且只在事务日志中记录页的释放）；TRUNCATE、DELETE、DROP三者差异：TRUNCATE TABLE删除内容释放空间但不删除定义，DELETE TABLE删除内容不删除定义不释放空间，DROP TABLE删除内容和定义释放空间。"
+  source_anchor: "2.4.2.17.3 功能描述/注意事项 页2297-2298"
+  source_refs: &refmtrunc
+  - w8_119_2_4_2_17_3
+  status: confirmed
+- id: m_truncate_wave8_119_syntax
+  type: syntax
+  statement: "M兼容TRUNCATE语法：清理表数据TRUNCATE [ TABLE ] [ONLY] {table_name [ * ]} [, ... ] [CASCADE | RESTRICT][ PURGE ]；清理表分区的数据ALTER TABLE { [ ONLY ] table_name | table_name * | ONLY ( table_name ) } TRUNCATE PARTITION { { ALL | partition_name [, ...] } | FOR ( partition_value [, ...] ) } [ UPDATE GLOBAL INDEX ]；ONLY和*目前保留语法但功能不支持；{ALL | partition_name[,...]}的ALL清除所有分区数据（partition_name支持一级和二级分区名）；PARTITION FOR子句指定的这组值可唯一确定一个分区（使用PARTITION FOR时partition_value所在的整个分区会被清空）。"
+  source_anchor: "2.4.2.17.3 语法格式/参数说明 页2298"
+  source_refs: *refmtrunc
+  status: confirmed
+- id: m_truncate_wave8_119_cascade_purge
+  type: constraint
+  statement: "M兼容TRUNCATE的CASCADE级联删除依赖此视图的对象（比如其他视图）、RESTRICT有依赖对象存在则拒绝删除（缺省值）——该属性在M-compatibility兼容版本控制开关s1及以上版本时不支持（m_format_dev_version = 's1'）；PURGE默认将表数据放入回收站中，PURGE直接清理；如果是其他表的外表使用truncate清空数据时会失败并报错；UPDATE GLOBAL INDEX更新分区表上的所有全局索引以确保查询正确（不使用则所有全局索引失效）。"
+  source_anchor: "2.4.2.17.3 参数说明 页2298"
+  source_refs: *refmtrunc
+  status: confirmed
+- id: m_truncate_wave8_119_example
+  type: behavior_oracle
+  statement: "示例（m_db）：TRUNCATE TABLE tpcds.reason_t1清空表；分区表tpcds.reason_p（RANGE五分区）插入7行后ALTER TABLE tpcds.reason_p TRUNCATE PARTITION p_05_before清空分区、TRUNCATE PARTITION for (15)清空p_15、TRUNCATE TABLE tpcds.reason_p清空分区表。"
+  source_anchor: "2.4.2.17.3 示例 页2298-2299"
+  source_refs: *refmtrunc
+  status: confirmed
+- id: m_start_transaction_wave8_119_work
+  type: constraint
+  statement: "M兼容START TRANSACTION的WORK | TRANSACTION为BEGIN格式中的可选关键字（没有实际作用）；READ WRITE | READ ONLY指定事务访问模式（读/写或者只读）。"
+  source_anchor: "2.4.2.16.9 参数说明 页2289"
+  source_refs: *refmst
+  status: confirmed
+- id: m_truncate_wave8_119_fk_example
+  type: behavior_oracle
+  statement: "M兼容TRUNCATE示例补充：TRUNCATE TABLE tpcds.reason_t1清空LIKE建表（CREATE TABLE tpcds.reason_t1 LIKE tpcds.reason）后的表；分区表reason_p为CREATE TABLE tpcds.reason_p(...) PARTITION BY RANGE (r_reason_sk)（p_05_before/p_15/p_25/p_35/p_45_after五分区）并INSERT INTO tpcds.reason_p SELECT * FROM tpcds.reason填充7行数据。"
+  source_anchor: "2.4.2.17.3 示例 页2298-2299"
+  source_refs: *refmtrunc
+  status: confirmed
+open_questions:
+- id: m_stt_wave8_119_oq_runtime
+  statement: "TIMECAPSULE闪回3秒时间偏差在实际负载下的影响、回收站对象禁止DQL的替代查询方式、TRUNCATE PARTITION与GLOBAL索引失效组合需授权环境实机验证。"
+  status: open
