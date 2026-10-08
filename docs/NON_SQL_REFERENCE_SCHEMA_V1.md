@@ -8,7 +8,7 @@
 
 | 指标 | 当前值 |
 |---|---:|
-| YAML 文件 | 243 |
+| YAML 文件 | 244 |
 | facts | 4893 |
 | confirmed | 4890 |
 | needs_verification | 3 |
