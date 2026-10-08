@@ -1,0 +1,147 @@
+document: 集中式版参考 / 1.13.9.30-34 CREATE MASKING POLICY/MATERIALIZED VIEW/MODEL/OPERATOR/OPERATOR CLASS（Wave 8-89）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.9.30 CREATE MASKING POLICY
+  - 1.13.9.31 CREATE MATERIALIZED VIEW
+  - 1.13.9.32 CREATE MODEL
+  - 1.13.9.33 CREATE OPERATOR
+  - 1.13.9.34 CREATE OPERATOR CLASS
+  physical_page_start: 1474
+  physical_page_end: 1490
+  physical_page_count: 16
+  excludes: []
+facts:
+- id: create_masking_policy_wave8_89_purpose
+  type: syntax
+  statement: "CREATE MASKING POLICY创建脱敏策略；语法为CREATE MASKING POLICY policy_name masking_clause[, ...] [policy_filter_clause] [ENABLE | DISABLE]，其中masking_clause为masking_function ON LABEL(label_name[, ...])。"
+  source_anchor: "1.13.9.30 功能描述/语法格式 页1474"
+  source_refs: &refmask
+  - w8_89_1_13_9_30
+  status: confirmed
+- id: create_masking_policy_wave8_89_functions
+  type: constraint
+  statement: "预置脱敏方式为{maskall | randommasking | creditcardmasking | basicemailmasking | fullemailmasking | shufflemasking | alldigitsmasking | regexpmasking}；maskall不是预置函数，不支持\\df展示；masking_function支持通过schema.function方式指定脱敏函数。"
+  source_anchor: "1.13.9.30 语法格式 masking_function 页1474"
+  source_refs: *refmask
+  status: confirmed
+- id: create_masking_policy_wave8_89_permission
+  type: environment
+  statement: "仅POLADMIN、SYSADMIN及初始用户可以执行CREATE MASKING POLICY；需要开启安全策略开关（GUC参数enable_security_policy设置为on），脱敏策略才可以生效。"
+  source_anchor: "1.13.9.30 注意事项 页1474"
+  source_refs: *refmask
+  status: confirmed
+- id: create_masking_policy_wave8_89_filter
+  type: syntax
+  statement: "policy_filter_clause为FILTER ON {FILTER_TYPE (filter_value[, ...])}[, ...]，FILTER_TYPE包括APP、ROLES、IP三种，filter_value为具体过滤内容（具体IP、具体APP名称、具体用户名）；脱敏策略生效的用户标识policy_filter若为空表示对所有用户生效；若不指定ENABLE或DISABLE，默认为ENABLE。"
+  source_anchor: "1.13.9.30 语法格式/参数说明 页1474-1475"
+  source_refs: *refmask
+  status: confirmed
+- id: create_masking_policy_wave8_89_name_rules
+  type: constraint
+  statement: "policy_name需符合唯一约束，字符串符合标识符命名规范且最大长度不超过63个字符：超过63字符时数据库截断并保留前63字符；包含大写字母时自动转换为小写字母，需要大写须用双引号包裹；名称仅允许小写字母（a~z）、大写字母（A~Z）、下划线（_）、数字（0~9）或美元符号（$），且必须以字母或下划线开头。"
+  source_anchor: "1.13.9.30 参数说明 policy_name 页1475"
+  source_refs: *refmask
+  status: confirmed
+- id: create_masking_policy_wave8_89_masking_oracles
+  type: behavior_oracle
+  statement: "脱敏函数输出行为基线：maskall将字符串类型所有值脱敏为x（其他类型显示默认值）；randommasking将字符串值脱敏为随机数字且每次访问结果随机；basicemailmasking将邮箱@符号之前内容设为x；fullemailmasking仅保留@符号和邮箱dot结尾其余设为x；creditcardmasking保留连接符-和末尾4位数字；shufflemasking交换字符串值位置；regexpmasking按正则表达式脱敏（示例regexpmasking('[\\d+]','*',2, 9)）。"
+  source_anchor: "1.13.9.30 示例 页1475-1478"
+  source_refs: *refmask
+  status: confirmed
+- id: create_materialized_view_wave8_89_syntax
+  type: syntax
+  statement: "CREATE MATERIALIZED VIEW创建一个全量物化视图，可使用REFRESH MATERIALIZED VIEW（全量刷新）刷新数据；语句与CREATE TABLE AS功能相似，但会持久化存储初始化查询语句从而支持后续刷新；语法为CREATE MATERIALIZED VIEW mv_name [(column_name[, ...])] [WITH ({storage_parameter = value}[, ...])] [TABLESPACE tablespace_name] AS query [WITH DATA]。"
+  source_anchor: "1.13.9.31 功能描述/语法格式 页1478-1479"
+  source_refs: &refcmv
+  - w8_89_1_13_9_31
+  status: confirmed
+- id: create_materialized_view_wave8_89_limits
+  type: constraint
+  statement: "全量物化视图限制：不支持在临时表或全局临时表上创建；创建后基表中的部分DDL操作不再支持；不支持对全量物化视图进行IUD操作；基表数据变化后需使用REFRESH命令保持同步；USTORE存储引擎不支持物化视图的创建和使用；段页式不支持物化视图的创建和使用；不支持创建临时类型的物化视图。"
+  source_anchor: "1.13.9.31 注意事项 页1478"
+  source_refs: *refcmv
+  status: confirmed
+- id: create_materialized_view_wave8_89_params
+  type: constraint
+  statement: "参数：mv_name为物化视图名称，可模式具体指定，符合标识符命名规范；column_name指定列需与查询语句结果列数量一致，未提供则从查询输出列名获取；WITH存储参数具体参见CREATE TABLE；TABLESPACE可选指定所属表空间，未指定使用默认表空间；AS query为一个SELECT、TABLE或者VALUES命令，在安全受限操作中运行。"
+  source_anchor: "1.13.9.31 参数说明 页1479"
+  source_refs: *refcmv
+  status: confirmed
+- id: create_model_wave8_89_syntax
+  type: syntax
+  statement: "CREATE MODEL用于训练机器学习模型并保存模型；语法为CREATE MODEL model_name USING architecture_name FEATURES attribute_list[,...] [TARGET attribute_name[,...]] FROM {[schema.]table_name | (subquery)} [WITH {hyper_parameter_name = {hp_value | DEFAULT}}[,...]]；architecture_name当前支持logistic_regression、linear_regression、svm_classification以及kmeans。"
+  source_anchor: "1.13.9.32 功能描述/语法格式/参数说明 architecture_name 页1480-1481"
+  source_refs: &refmodel
+  - w8_89_1_13_9_32
+  status: confirmed
+- id: create_model_wave8_89_timeout
+  type: environment
+  statement: "AI训练时长波动较大，部分情况下训练运行时间较长，如果设置的GUC参数statement_timeout时长过短会导致训练中断；建议将statement_timeout设置为0，对语句执行时长不做限制。"
+  source_anchor: "1.13.9.32 注意事项 页1480"
+  source_refs: *refmodel
+  status: confirmed
+- id: create_model_wave8_89_hyperparams
+  type: constraint
+  statement: "超参DEFAULT无需设置且不区分大小写，超参未设置具体数值时数据库采用默认值训练；表1-377给出默认值与取值范围：GD系（logistic_regression/linear_regression/svm_classification/pca）optimizer=gd、verbose=false、max_iterations=100(0,10000]、max_seconds=0、batch_size=1000、learning_rate=0.8、decay=0.95、tolerance=0.0005、seed=0，linear/SVM另有kernel=\"linear\"、components=MAX(2*features,128)、gamma=0.5、degree=2、coef0=1.0，SVM另有lambda=0.01；Kmeans max_iterations=10、num_centroids=10、tolerance=0.00001、batch_size=10、distance_function=\"L2_Squared\"、seeding_function=\"Random++\"等；xgboost系n_iter=10、batch_size=10000、booster=\"gbtree\"、tree_method=\"auto\"（gpu_hist需要GPU版库，否则DB4AI平台不支持）、eval_metric=\"rmse\"、eta=0.3等；MAX_MEMORY_LIMIT为最大内存加载的元组数量，GS_MAX_COLS为数据库单表最大属性数量。"
+  source_anchor: "1.13.9.32 参数说明 hp_value/DEFAULT 表1-377 页1482-1484"
+  source_refs: *refmodel
+  status: confirmed
+- id: create_model_wave8_89_example
+  type: behavior_oracle
+  statement: "示例训练模型：CREATE MODEL price_model USING logistic_regression FEATURES size, lot TARGET mark FROM HOUSES WITH learning_rate=0.88, max_iterations=default；随后DROP MODEL price_model与DROP TABLE houses清理；相关链接为DROP MODEL、PREDICT BY。"
+  source_anchor: "1.13.9.32 示例 页1485"
+  source_refs: *refmodel
+  status: confirmed
+- id: create_operator_wave8_89_syntax
+  type: syntax
+  statement: "CREATE OPERATOR创建一个新操作符；语法为CREATE OPERATOR name (PROCEDURE = function_name [, LEFTARG = left_type] [, RIGHTARG = right_type] [, COMMUTATOR = com_op] [, NEGATOR = neg_op] [, RESTRICT = res_proc] [, JOIN = join_proc] [, HASHES] [, MERGES])。"
+  source_anchor: "1.13.9.33 功能描述/语法格式 页1485"
+  source_refs: &refop
+  - w8_89_1_13_9_33
+  status: confirmed
+- id: create_operator_wave8_89_permissions
+  type: constraint
+  statement: "创建操作符的用户将成为其所有者；操作符!=在输入时会被映射成<>，因此!=和<>为等价操作符；双目操作符需同时定义LEFTARG和RIGHTARG，右目操作符仅需要定义LEFTARG，左目操作符仅需要定义RIGHTARG；仅拥有参数类型及返回类型USAGE权限的用户可以创建新操作符，且必须拥有其底层函数的EXECUTE权限，指定交换操作符或负操作符时当前用户还必须拥有这些操作符的USAGE权限。"
+  source_anchor: "1.13.9.33 注意事项 页1485-1486"
+  source_refs: *refop
+  status: confirmed
+- id: create_operator_wave8_89_naming
+  type: constraint
+  statement: "操作符命名规范：名称由字符+、-、*、/、<、>、=、~、!、@、#、%、^、&、|、`或?组成；--和/*不能在操作符名的任何地方出现（会被作为注释开始）；多字符操作符不能以+或-结尾，除非名称中至少还包含~、!、@、#、%、^、&、|、`或?之一；=>作为操作符名的方式已不再使用；同一模式中两个操作符可以重名，但需操作不同的数据类型。"
+  source_anchor: "1.13.9.33 参数说明 name 页1486"
+  source_refs: *refop
+  status: confirmed
+- id: create_operator_wave8_89_example
+  type: behavior_oracle
+  statement: "示例为box数据类型定义面积相等新操作符：CREATE OPERATOR === (LEFTARG=box, RIGHTARG=box, PROCEDURE=area_equal_procedure, COMMUTATOR====, NEGATOR=!==, HASHES, MERGES)，SELECT box '(1.0,1.0), (2.0,2.0)' === box'(3,3),(4,4)'返回t；可在其他Schema下定义（CREATE OPERATOR pg_temp.===），并以OPERATOR(pg_temp.===)限定调用；清理使用DROP OPERATOR与DROP FUNCTION。"
+  source_anchor: "1.13.9.33 示例 页1486-1487"
+  source_refs: *refop
+  status: confirmed
+- id: create_operator_class_wave8_89_syntax
+  type: syntax
+  statement: "CREATE OPERATOR CLASS创建新的操作符类，定义一种特定数据类型如何与一种索引一起使用并声明特定操作符为该数据类型和索引方法提供的角色或操作策略，索引列选择该操作符类时还声明索引方法使用的支持函数，所有使用的函数和操作符都必须在创建之前定义；语法为CREATE OPERATOR CLASS name [DEFAULT] FOR TYPE data_type USING index_method [FAMILY family_name] AS {OPERATOR strategy_number operator_name [(op_type, op_type)] [FOR SEARCH | FOR ORDER BY sort_family_name] | FUNCTION support_number [(op_type[, op_type])] function_name (argument_type[, ...]) | STORAGE storage_type}[, ...]。"
+  source_anchor: "1.13.9.34 功能描述/语法格式 页1487-1488"
+  source_refs: &refopc
+  - w8_89_1_13_9_34
+  status: confirmed
+- id: create_operator_class_wave8_89_constraints
+  type: constraint
+  statement: "操作符类约束：该功能为内部使用功能，不建议用户直接使用；同一个模式中两个操作符类可以重名，但必须用于不同的索引方法；定义操作符类的用户成为其所有者，当前具有系统管理员权限的用户可以创建；CREATE OPERATOR CLASS既不检查类定义是否包含索引方法所需的全部操作符及函数，也不检查这些操作符和函数是否形成自包含集合。"
+  source_anchor: "1.13.9.34 注意事项 页1488"
+  source_refs: *refopc
+  status: confirmed
+- id: create_operator_class_wave8_89_family_default
+  type: constraint
+  statement: "DEFAULT可选，表示该操作符类成为其操作数据类型的默认操作符类，对某个数据类型和访问方式而言最多存在一个默认操作符类；指定FAMILY时新操作符类添加到已存在操作符族，未指定时放入与其同名的操作符族（不存在则自动创建）；sort_family_name未指定时默认为FOR SEARCH；STORAGE storage_type为实际存储在索引里的数据类型，仅在索引方法允许使用不同类型时可指定，其他情况下无法指定STORAGE子句。"
+  source_anchor: "1.13.9.34 参数说明 页1488-1489"
+  source_refs: *refopc
+  status: confirmed
+open_questions:
+- id: create_masking_model_operator_wave8_89_oq_runtime
+  statement: "脱敏策略八类脱敏函数的真实输出、全量物化视图刷新行为、DB4AI四类算法训练收敛、自定义操作符与操作符类在真实索引场景下的完整行为与错误矩阵需授权环境实机验证。"
+  status: open
