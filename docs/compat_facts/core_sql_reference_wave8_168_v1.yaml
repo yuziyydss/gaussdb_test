@@ -1,0 +1,140 @@
+document: 集中式版参考 / 3.12.2.21 DBE_TASK（Wave 8-168）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 3.12.2.21 DBE_TASK（3.12高级包第二十一批切片）
+  physical_page_start: 2971
+  physical_page_end: 2982
+  physical_page_count: 11
+  excludes:
+  - 3.12.2.22 DBE_UTILITY及后续小节（后续波次按切片覆盖）
+facts:
+- id: dbetask_wave8_168_overview
+  type: syntax
+  statement: "DBE_TASK接口总账：SUBMIT（提交定时任务，作业号系统自动生成）、JOB_SUBMIT（等同于SUBMIT但提供语法兼容参数）、ID_SUBMIT（提交定时任务，作业号用户指定）、CANCEL（通过作业号删除定时任务）、RUN（运行定时任务）、FINISH（禁用或启用定时任务）、UPDATE（修改任务内容/下次执行时间/执行间隔）、CHANGE（等同于UPDATE但提供语法兼容参数）、CONTENT（修改任务内容属性）、NEXT_TIME（修改下次执行时间属性）、INTERVAL（修改执行间隔属性）。"
+  source_anchor: "3.12.2.21 DBE_TASK 表3-427 页2971-2972"
+  source_refs: &reftk
+  - w8_168_3_12
+  status: confirmed
+- id: dbetask_wave8_168_submit
+  type: syntax
+  statement: "SUBMIT原型：DBE_TASK.SUBMIT(what IN TEXT, next_time IN TIMESTAMP DEFAULT sysdate, interval_time IN TEXT DEFAULT 'null', id OUT INTEGER) RETURN INTEGER；what为要执行的SQL语句（支持一个或多个DDL（不支持DB相关操作）、DML、匿名块、调用存储过程的语句或四种类型混合场景）；next_time默认sysdate、过去时间表示立即执行；interval_time为时间表达式（interval表达式或sysdate加numeric值），为空或字符串null表示只执行一次、执行后JOB状态STATUS变成'd'不再执行；id为作业号、范围1～3000000。"
+  source_anchor: "3.12.2.21 SUBMIT 页2972-2973"
+  source_refs: *reftk
+  status: confirmed
+- id: dbetask_wave8_168_submit_notes
+  type: constraint
+  statement: "SUBMIT使用说明：创建定时任务时系统默认将当前数据库和用户名与任务绑定；该接口可通过CALL或SELECT语句调用（CALL需填出参、SELECT可不填出参），存储过程中需通过PERFORM语句调用；提交的SQL语句任务使用到非PUBLIC的schema时应指定表或函数的schema，或先执行SET current_schema = xxx;语句；当在TASK的参数what中创建用户时日志会记录密码的明文，因此不建议在TASK任务中创建用户。"
+  source_anchor: "3.12.2.21 SUBMIT说明 页2972-2973"
+  source_refs: *reftk
+  status: confirmed
+- id: dbetask_wave8_168_submit_examples
+  type: behavior_oracle
+  statement: "SUBMIT示例基线：SELECT DBE_TASK.SUBMIT('call pro_xxx();', to_date('20180101','yyyymmdd'),'sysdate+1')输出作业号31031；间隔'sysdate+1.0/24'输出512；DECLARE块中PERFORM DBE_TASK.SUBMIT(..., jobid)形式执行成功。"
+  source_anchor: "3.12.2.21 SUBMIT示例 页2973"
+  source_refs: *reftk
+  status: confirmed
+- id: dbetask_wave8_168_job_submit
+  type: syntax
+  statement: "JOB_SUBMIT原型：DBE_TASK.JOB_SUBMIT(job OUT INTEGER, what IN TEXT, next_date IN TIMESTAMP, job_interval IN TEXT, no_parse IN BOOL DEFAULT false, instance IN INTEGER DEFAULT 0, force IN BOOL DEFAULT false) RETURN INTEGER；提交系统提供的定时任务并提供额外的兼容性参数（no_parse/instance/force仅用于语法上的兼容）；示例what=>'insert into t1 values (1, 2)'、job_interval=>'sysdate + 1'（daily）。"
+  source_anchor: "3.12.2.21 JOB_SUBMIT 页2973-2974"
+  source_refs: *reftk
+  status: confirmed
+- id: dbetask_wave8_168_id_submit
+  type: syntax
+  statement: "ID_SUBMIT原型：DBE_TASK.ID_SUBMIT(id IN BIGINT, what IN TEXT, next_time IN TIMESTAMP DEFAULT sysdate, interval_time IN TEXT DEFAULT 'null')；与DBE_TASK.SUBMIT语法功能相同，但其第一个参数是入参（指定的作业号），SUBMIT最后一个参数是出参（系统自动生成的作业号）；示例CALL dbe_task.id_submit(101, 'insert_msg_statistic1;', sysdate, 'sysdate+3.0/24')。"
+  source_anchor: "3.12.2.21 ID_SUBMIT 页2975"
+  source_refs: *reftk
+  status: confirmed
+- id: dbetask_wave8_168_cancel_run
+  type: syntax
+  statement: "CANCEL与RUN：CANCEL(id IN INTEGER)删除指定的定时任务；RUN(job IN BIGINT, force IN BOOLEAN DEFAULT false)运行定时任务（force仅用于语法上的兼容）；示例基线ID_SUBMIT(12345, 'insert_msg_statistic1;', sysdate, 'sysdate+3.0/24')后RUN(12345)。"
+  source_anchor: "3.12.2.21 CANCEL/RUN 页2975-2976"
+  source_refs: *reftk
+  status: confirmed
+- id: dbetask_wave8_168_finish
+  type: syntax
+  statement: "FINISH原型：DBE_TASK.FINISH(id IN INTEGER, broken IN BOOLEAN, next_time IN TIMESTAMP DEFAULT sysdate)；禁用或者启用定时任务；broken为状态标志位（true代表禁用、false代表启用，为空则不改变原有JOB状态）；broken为true时更新next_time为'4000-1-1'；broken为false且next_time不为空值时更新指定job的next_time值、next_time为空值时不更新；示例CALL dbe_task.finish(101, true)。"
+  source_anchor: "3.12.2.21 FINISH 页2976-2977"
+  source_refs: *reftk
+  status: confirmed
+- id: dbetask_wave8_168_update
+  type: syntax
+  statement: "UPDATE原型：DBE_TASK.UPDATE(id IN INTEGER, content IN TEXT, next_time IN TIMESTAMP, interval_time IN TEXT)；修改定时任务的属性（任务内容、下次执行时间和执行间隔）；content/next_time/interval_time为空值时均不更新对应值；interval_time不为空值时校验是否为有效的时间类型或interval类型，为字符串null表示只执行一次后STATUS变成'd'；示例update(101, 'call userproc();', sysdate, 'sysdate + 1.0/1440')。"
+  source_anchor: "3.12.2.21 UPDATE 页2977-2978"
+  source_refs: *reftk
+  status: confirmed
+- id: dbetask_wave8_168_change
+  type: syntax
+  statement: "CHANGE原型：DBE_TASK.CHANGE(job IN INTEGER, what IN TEXT DEFAULT NULL, next_date IN TIMESTAMP DEFAULT NULL, job_interval IN TEXT DEFAULT NULL, instance IN INTEGER DEFAULT NULL, force IN BOOLEAN DEFAULT false)；功能等同于UPDATE但提供语法兼容参数（instance/force仅用于语法兼容）；what为空值时不更新指定JOB的what值；示例CHANGE(job=>101, what=>'insert into t2 values (2);')。"
+  source_anchor: "3.12.2.21 CHANGE 页2978-2979"
+  source_refs: *reftk
+  status: confirmed
+- id: dbetask_wave8_168_content
+  type: constraint
+  statement: "CONTENT(id IN INTEGER, content IN TEXT)修改定时任务的任务内容属性；当content参数是一个或多个可以执行成功的SQL语句、程序块或调用存储过程时该接口函数才能执行成功，否则执行失败；若content参数为一个简单的INSERT、UPDATE等语句需要在表前加模式名；示例CALL dbe_task.content(101, 'call userproc();')与content(101, 'insert into tbl_a values(sysdate);')。"
+  source_anchor: "3.12.2.21 CONTENT 页2979-2980"
+  source_refs: *reftk
+  status: confirmed
+- id: dbetask_wave8_168_next_time_interval
+  type: syntax
+  statement: "NEXT_TIME与INTERVAL：NEXT_TIME(id IN BIGINT, next_time IN TEXT)修改定时任务的下次执行时间属性（如果输入的next_time值小于当前日期值该JOB会立即执行一次）；INTERVAL(id IN INTEGER, interval_time IN TEXT)修改执行间隔属性（作业间隔需为有效的时间类型或interval类型，空值或字符串null表示只执行一次后STATUS变成'd'）；示例interval(101, 'sysdate + 1.0/1440')后cancel(101)。"
+  source_anchor: "3.12.2.21 NEXT_TIME/INTERVAL 页2980"
+  source_refs: *reftk
+  status: confirmed
+- id: dbetask_wave8_168_running_lock
+  type: constraint
+  statement: "运行中任务锁定：对于指定JOB正在运行状态（即job_status为'r'）时，不允许通过CANCEL、UPDATE、NEXT_TIME、CONTENT、INTERVAL等接口删除或修改job的参数信息。"
+  source_anchor: "3.12.2.21 INTERVAL说明 页2980-2981"
+  source_refs: *reftk
+  status: confirmed
+- id: dbetask_wave8_168_dml_constraint
+  type: constraint
+  statement: "JOB管理途径约束：JOB只能通过DBE_TASK高级包提供的接口进行创建、更新和删除操作（高级包接口会考虑所有数据库主节点间JOB信息的同步以及PG_JOB与PG_JOB_PROC表主键的关联操作）；如果通过DML语句对PG_JOB表进行增删改会导致JOB信息在数据库主节点间不一致以及系统表无法关联变更，严重影响JOB内部管理。"
+  source_anchor: "3.12.2.21 约束说明 页2981"
+  source_refs: *reftk
+  status: confirmed
+- id: dbetask_wave8_168_node_failover
+  type: constraint
+  statement: "主节点故障影响：用户创建的每个任务和数据库主节点绑定；任务运行过程中该数据库主节点发生故障则任务状态无法实时刷新仍为'r'状态，需等主节点启动正常后才能刷新为's'状态；任务未执行时主节点发生故障则该节点上的任务得不到正常调度和执行，需人为干预让主节点恢复正常或进行节点删除/替换后JOB才能正常调度和执行。"
+  source_anchor: "3.12.2.21 约束说明 页2981"
+  source_refs: *reftk
+  status: confirmed
+- id: dbetask_wave8_168_sync_overhead
+  type: constraint
+  statement: "JOB信息同步机制：JOB定时执行过程中需在所属主节点上实时更新运行状态、最近执行开始/结束时间、下次开始时间和失败次数等参数到PG_JOB系统表并同步到其他主节点；其他主节点故障时JOB所属主节点会同步超时重发导致JOB执行时间变长，但同步超时失败后原主节点上PG_JOB表中JOB信息仍能正常更新且JOB能正常执行成功；故障主节点恢复后可能出现JOB参数不一致，需要原主节点再次执行该JOB后才能保证信息同步。"
+  source_anchor: "3.12.2.21 约束说明 页2981"
+  source_refs: *reftk
+  status: confirmed
+- id: dbetask_wave8_168_concurrency_delay
+  type: constraint
+  statement: "并发JOB启动延迟：对于并发同时有多个JOB到达执行时间的场景，由于会为每个JOB创建一个线程来执行且系统内部启动每个线程的时间会有延迟，会导致同时并发执行的JOB的开始时间有延迟（每个JOB的延迟时间在0.1ms左右）。"
+  source_anchor: "3.12.2.21 约束说明 页2981"
+  source_refs: *reftk
+  status: confirmed
+- id: dbetask_wave8_168_call_forms
+  type: behavior_oracle
+  statement: "调用形式示例基线：SELECT DBE_TASK.SUBMIT(...)（返回31031/512）、DECLARE块PERFORM形式（jobid出参）、CALL dbe_task.id_submit(101,…)、CALL dbe_task.cancel(101)（ID_SUBMIT(12345,…)+RUN(12345)匿名块形式）。"
+  source_anchor: "3.12.2.21 各接口示例 页2973-2980"
+  source_refs: *reftk
+  status: confirmed
+- id: dbetask_wave8_168_finish_next_time
+  type: constraint
+  statement: "FINISH的next_time规则补充：next_time下次运行时间默认为当前系统时间且该参数可以省略（为默认值）；broken状态为true时更新该参数为'4000-1-1'；broken为false且next_time不为空值时更新指定job的next_time值。"
+  source_anchor: "3.12.2.21 FINISH参数说明 页2976-2977"
+  source_refs: *reftk
+  status: confirmed
+- id: dbetask_wave8_168_what_types
+  type: syntax
+  statement: "what参数类型口径：DBE_TASK的what/内容参数支持一个或多个DDL（不支持DB相关操作）、DML、匿名块、调用存储过程的语句或这四种类型混合的场景。"
+  source_anchor: "3.12.2.21 SUBMIT/JOB_SUBMIT参数说明 页2972-2974"
+  source_refs: *reftk
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_168_oq_runtime
+  content: "JOB与主节点绑定在故障切换后的调度恢复时序、job_status='r'卡死任务的解锁手段、并发JOB 0.1ms启动延迟在高并发场景的累积影响需授权环境实机验证。"
+  status: open
