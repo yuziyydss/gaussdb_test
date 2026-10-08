@@ -1,0 +1,147 @@
+document: 集中式版参考 / 2.4.2.6.1-5 M兼容ALTER AUDIT POLICY/DATABASE/DEFAULT PRIVILEGES/EXTENSION/GROUP（Wave 8-103）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 2.4.2.6.1 ALTER AUDIT POLICY
+  - 2.4.2.6.2 ALTER DATABASE
+  - 2.4.2.6.3 ALTER DEFAULT PRIVILEGES
+  - 2.4.2.6.4 ALTER EXTENSION
+  - 2.4.2.6.5 ALTER GROUP
+  physical_page_start: 2012
+  physical_page_end: 2022
+  physical_page_count: 10
+  excludes: []
+facts:
+- id: m_alter_audit_policy_wave8_103_syntax
+  type: syntax
+  statement: "M兼容ALTER AUDIT POLICY修改统一审计策略，五种形式（均带[ IF EXISTS ]）：{ ADD | REMOVE } { [ privilege_audit_clause ] [ access_audit_clause ] }（添加或删除操作类型）、MODIFY ( filter_group_clause )（修改过滤条件）、DROP FILTER（删除过滤条件）、COMMENTS policy_comments（修改描述）、{ ENABLE | DISABLE }（打开或关闭策略）；privilege_audit_clause为PRIVILEGES ({ PRIVILEGES | ALL } [ ON LABEL ( resource_label_name [, ... ] ) ])，access_audit_clause为ACCESS ({ ACCESS | ALL } [ ON LABEL ( resource_label_name [, ... ] ) ])。"
+  source_anchor: "2.4.2.6.1 语法格式 页2012-2013"
+  source_refs: &refmaap
+  - w8_103_2_4_2_6_1
+  status: confirmed
+- id: m_alter_audit_policy_wave8_103_operations
+  type: constraint
+  statement: "PRIVILEGES表示针对数据库执行DDL操作时进行审计，具体包括ALTER、ANALYZE、COMMENT、CREATE、DROP、GRANT、REVOKE、SET、SHOW；ACCESS表示针对数据库执行DML操作时进行审计，具体包括COPY、DEALLOCATE、DELETE、EXECUTE、REINDEX、INSERT、PREPARE、SELECT、TRUNCATE、UPDATE；privilege_audit_clause与access_audit_clause均可通过ON LABEL ( resource_label_name [, ... ] )指定目标资源标签。"
+  source_anchor: "2.4.2.6.1 语法格式 页2012"
+  source_refs: *refmaap
+  status: confirmed
+- id: m_alter_audit_policy_wave8_103_permission
+  type: environment
+  statement: "M兼容审计策略维护存在权限限制，仅POLADMIN、SYSADMIN或初始用户可以执行ALTER AUDIT POLICY命令；仅在打开enable_security_policy开关后统一审计策略才可生效；policy_name必须确保唯一性不可重复；filter_type过滤类型包括IP、ROLES以及APP。"
+  source_anchor: "2.4.2.6.1 注意事项/参数说明 页2012-2013"
+  source_refs: *refmaap
+  status: confirmed
+- id: m_alter_audit_policy_wave8_103_all_semantics
+  type: constraint
+  statement: "{ PRIVILEGES | ALL }的ALL指所有PRIVILEGES操作，{ ACCESS | ALL }的ALL指所有ACCESS操作；policy_comments用于记录策略相关的描述信息；ENABLE | DISABLE打开或关闭统一审计策略。"
+  source_anchor: "2.4.2.6.1 参数说明 页2013"
+  source_refs: *refmaap
+  status: confirmed
+- id: m_alter_audit_policy_wave8_103_example
+  type: behavior_oracle
+  statement: "示例（m_db）：CREATE AUDIT POLICY adt1 PRIVILEGES CREATE后ALTER AUDIT POLICY adt1 ADD PRIVILEGES (DROP)添加、REMOVE PRIVILEGES (DROP)删除；COMMENTS 'adt1_comments'修改注释；CREATE USER bob_audit后MODIFY (FILTER ON (ROLES(bob_audit)))修改过滤用户；DROP FILTER删除过滤条件；DISABLE关闭策略。"
+  source_anchor: "2.4.2.6.1 示例 页2014"
+  source_refs: *refmaap
+  status: confirmed
+- id: m_alter_database_wave8_103_syntax
+  type: syntax
+  statement: "M-Compatibility中DATABASE和SCHEMA是同义词，该语法允许修改数据库或模式的字符集、字符序和所有者；两种形式：ALTER DATABASE database_name OWNER TO new_owner（修改所有者）；ALTER {DATABASE | SCHEMA} database_name [create_option] ...（修改字符集字符序），create_option为[DEFAULT] { CHARACTER SET [=] default_charset | CHAR SET [=] default_charset | CHARSET [=] default_charset | COLLATE [=] default_collation }。"
+  source_anchor: "2.4.2.6.2 功能描述/语法格式 页2014-2015"
+  source_refs: &refmadb
+  - w8_103_2_4_2_6_2
+  status: confirmed
+- id: m_alter_database_wave8_103_permission
+  type: constraint
+  statement: "只有模式的所有者或被授予了模式ALTER权限的用户可以执行ALTER DATABASE命令（三权分立开关关闭时系统管理员默认拥有此权限），修改模式所有者时当前用户必须是该模式所有者或系统管理员且是新所有者角色的成员；对于除public以外的系统模式（如pg_catalog、sys等）只允许初始用户修改模式的所有者；修改系统自带模式的名称可能导致部分功能不可用甚至影响数据库正常运行，默认不允许修改，仅当系统在启动或升级过程中或参数allow_system_table_mods为on时允许；除初始用户外其他用户无法将schema的所有者修改为运维管理员。"
+  source_anchor: "2.4.2.6.2 注意事项 页2014-2015"
+  source_refs: *refmadb
+  status: confirmed
+- id: m_alter_database_wave8_103_params
+  type: constraint
+  statement: "COLLATE [=] default_collation可选指定数据库（模式）使用的字符集（影响字符串排序顺序如ORDER BY以及文本列上索引的顺序，默认使用模板数据库的字符集）；{CHAR SET | CHARSET | CHARACTER SET} [=] default_charset可选指定数据库（模式）使用的字符分类（影响大写、小写和数字分类，默认使用模板数据库的字符分类）；取值范围均参见库级字符集和字符序。"
+  source_anchor: "2.4.2.6.2 参数说明 页2015"
+  source_refs: *refmadb
+  status: confirmed
+- id: m_alter_database_wave8_103_example
+  type: behavior_oracle
+  statement: "示例：CREATE DATABASE test_db1后ALTER DATABASE test_db1 CHARSET utf8（改字符集）、ALTER DATABASE test_db1 COLLATE utf8mb4_bin（改字符序）；CREATE USER scott后ALTER DATABASE test_db1 OWNER TO scott（改所有者）。"
+  source_anchor: "2.4.2.6.2 示例 页2015"
+  source_refs: *refmadb
+  status: confirmed
+- id: m_alter_default_privileges_wave8_103_syntax
+  type: syntax
+  statement: "M兼容ALTER DEFAULT PRIVILEGES修改数据库中用户在特定对象上默认拥有的权限，此操作不会影响已分配给现有对象的权限；目前只支持表（包括视图）以及序列的权限变更；语法为ALTER DEFAULT PRIVILEGES [ FOR { ROLE | USER } target_role [, ...] ] [ IN SCHEMA schema_name [, ...] ] abbreviated_grant_or_revoke，abbreviated_grant_or_revoke仅含grant_on_tables_clause、grant_on_sequences_clause、revoke_on_tables_clause、revoke_on_sequences_clause四个子句。"
+  source_anchor: "2.4.2.6.3 功能描述/注意事项/语法格式 页2016"
+  source_refs: &refmadp
+  - w8_103_2_4_2_6_3
+  status: confirmed
+- id: m_alter_default_privileges_wave8_103_clauses
+  type: constraint
+  statement: "grant_on_tables_clause为GRANT { { SELECT | INSERT | UPDATE | DELETE | TRUNCATE | REFERENCES | ALTER | DROP | COMMENT | INDEX | VACUUM } [, ...] | ALL [ PRIVILEGES ] } ON TABLES TO { [ GROUP ] role_name | PUBLIC } [, ...] [ WITH GRANT OPTION ]；grant_on_sequences_clause权限为SELECT/UPDATE/USAGE/ALTER/DROP/COMMENT；revoke子句带[ GRANT OPTION FOR ]与[ CASCADE | RESTRICT | CASCADE CONSTRAINTS ]，权限集合与grant对应；target_role未指定FOR { ROLE | USER }时默认为当前角色/用户，target_role必须拥有schema_name的CREATE权限。"
+  source_anchor: "2.4.2.6.3 语法格式/参数说明 页2016-2017"
+  source_refs: *refmadp
+  status: confirmed
+- id: m_alter_default_privileges_wave8_103_example
+  type: behavior_oracle
+  statement: "示例（m_db）：ALTER DEFAULT PRIVILEGES IN SCHEMA tpcds GRANT SELECT ON TABLES TO PUBLIC；GRANT USAGE,CREATE ON SCHEMA tpcds TO jack后ALTER DEFAULT PRIVILEGES FOR ROLE jack IN SCHEMA tpcds GRANT INSERT ON TABLES TO jack；REVOKE SELECT ON TABLES FROM PUBLIC与REVOKE INSERT ON TABLES FROM jack撤销；删除被赋予默认权限的角色前需恢复已更改的默认权限或使用DROP OWNED BY清理默认权限记录；相关链接GRANT、REVOKE。"
+  source_anchor: "2.4.2.6.3 须知/示例 页2017"
+  source_refs: *refmadp
+  status: confirmed
+- id: m_alter_extension_wave8_103_unsupported
+  type: constraint
+  statement: "M兼容ALTER EXTENSION修改插件扩展，当前不支持用户使用此语法；该特性为内部使用，只允许修改数据库内部的高级包或扩展；要使用该接口需要设置support_extended_features为true。"
+  source_anchor: "2.4.2.6.4 功能描述/注意事项 页2017"
+  source_refs: &refmext
+  - w8_103_2_4_2_6_4
+  status: confirmed
+- id: m_alter_extension_wave8_103_forms
+  type: syntax
+  statement: "M兼容ALTER EXTENSION三种方式：UPDATE [ TO new_version ]（更新到新版本，扩展必须满足适用的更新脚本或一系列脚本，未指定新版本时更新到扩展控制文件中显示的默认版本）；SET SCHEMA new_schema（移动扩展对象到另一个模式，扩展必须relocatable才能成功）；{ ADD | DROP } member_object（ADD添加已存在对象到扩展主要在扩展更新脚本上有用，该对象只能通过取消扩展来取消；DROP从扩展上移除成员对象，对象没有被取消只是从扩展里分开）；必须拥有扩展才能使用ALTER EXTENSION，ADD/DROP方式要求添加/删除对象的所有权。"
+  source_anchor: "2.4.2.6.4 注意事项/语法格式 页2017-2018"
+  source_refs: *refmext
+  status: confirmed
+- id: m_alter_extension_wave8_103_member_objects
+  type: constraint
+  statement: "M兼容ALTER EXTENSION的成员对象member_object仅支持七类写法：COLLATION object_name、FOREIGN DATA WRAPPER object_name、SCHEMA object_name、SEQUENCE object_name、SERVER object_name、TABLE object_name、VIEW object_name（少于A模式支持的类型集合）。"
+  source_anchor: "2.4.2.6.4 语法格式 页2018"
+  source_refs: *refmext
+  status: confirmed
+- id: m_alter_extension_wave8_103_params_example
+  type: constraint
+  statement: "参数：argmode为IN、OUT、INOUT或VARIADIC（省略默认IN），ALTER EXTENSION不关心OUT参数（确认函数一致性只需要输入参数，列出IN、INOUT和VARIADIC即可）；不关心参数名称（一致性只需要参数数据类型）；引用零参数聚合函数写*代替输入数据类型列表；操作符为前缀或后缀运算符时丢失参数写NONE；示例：ALTER EXTENSION plpgsql UPDATE TO '2.0'、ALTER EXTENSION plpgsql SET SCHEMA utils。"
+  source_anchor: "2.4.2.6.4 参数说明/示例 页2018-2019"
+  source_refs: *refmext
+  status: confirmed
+- id: m_alter_group_wave8_103_syntax
+  type: syntax
+  statement: "M兼容ALTER GROUP更改角色名称或者成员关系，为非SQL标准语法不推荐使用；形式：ALTER GROUP group_name ADD USER user_name [, ... ]（向用户组添加用户）、DROP USER user_name [, ... ]（从用户组删除用户）、RENAME TO new_name（修改用户组名称）。"
+  source_anchor: "2.4.2.6.5 功能描述/注意事项/语法格式 页2019-2020"
+  source_refs: &refmagrp
+  - w8_103_2_4_2_6_5
+  status: confirmed
+- id: m_alter_group_wave8_103_equivalence
+  type: constraint
+  statement: "ADD USER、DROP USER两个子句用于向用户组增加或删除用户（任何用户都可以是\"用户\"或者\"用户组\"），这两个子句等效于授予或者回收成员关系，因此建议使用GRANT或者REVOKE语句；RENAME TO子句修改用户组名称，等效于ALTER USER命名角色。"
+  source_anchor: "2.4.2.6.5 注意事项 页2019-2020"
+  source_refs: *refmagrp
+  status: confirmed
+- id: m_alter_group_wave8_103_params
+  type: constraint
+  statement: "user_name为现有角色名（角色名要求参见CREATE ROLE章节中的role_name）；group_name为现有用户组名（取值范围为已存在的角色名）；new_name为新角色名称（字符串符合标识符说明，角色名要求参见CREATE ROLE章节中的role_name）。"
+  source_anchor: "2.4.2.6.5 参数说明 页2020"
+  source_refs: *refmagrp
+  status: confirmed
+- id: m_alter_group_wave8_103_example
+  type: behavior_oracle
+  statement: "示例（m_db）：CREATE GROUP test后ALTER GROUP test RENAME TO tu_a1；CREATE ROLE tu_a2、tu_a3后ALTER GROUP tu_a1 ADD USER tu_a2（等效GRANT语句如GRANT tu_a1 TO tu_a3）；SELECT groname, grolist FROM pg_group WHERE groname = 'tu_a1'显示{25590,25593}；SELECT rolname, oid FROM pg_roles WHERE oid IN (25590,25593)显示tu_a2、tu_a3。"
+  source_anchor: "2.4.2.6.5 示例 页2020-2021"
+  source_refs: *refmagrp
+  status: confirmed
+open_questions:
+- id: m_alter_wave8_103_oq_runtime
+  statement: "M兼容审计策略过滤与脱敏策略联动、ALTER DATABASE字符集切换后存量表对象行为、系统模式名称修改在allow_system_table_mods下的风险边界需授权环境实机验证。"
+  status: open
