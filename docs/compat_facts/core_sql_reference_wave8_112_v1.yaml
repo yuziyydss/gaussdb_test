@@ -1,0 +1,139 @@
+document: 集中式版参考 / 2.4.2.8.17 M兼容CREATE TABLE PARTITION（Wave 8-112）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 2.4.2.8.17 CREATE TABLE PARTITION
+  physical_page_start: 2136
+  physical_page_end: 2151
+  physical_page_count: 15
+  excludes: []
+facts:
+- id: m_ctp_wave8_112_overview
+  type: syntax
+  statement: "M兼容CREATE TABLE PARTITION创建分区表：分区表是把逻辑上的一张表根据某种方案分成几张物理块进行存储（逻辑表称为分区表，物理块称为分区；分区表是一张逻辑表不存储数据，数据实际存储在分区上）；常见分区方案有范围分区（Range）、哈希分区（Hash/Key）、列表分区（List）、列分区（Range/List Columns）等，目前行存表支持范围分区、哈希分区、列表分区；语法提供PARTITION BY { RANGE [COLUMNS] | LIST [COLUMNS] | HASH | KEY } (partition_key)四种形式（RANGE两种分区项，均可指定PARTITIONS integer），并支持table_option、WITH存储参数、TABLESPACE。"
+  source_anchor: "2.4.2.8.17 功能描述/语法格式 页2136-2138"
+  source_refs: &refmctp
+  - w8_112_2_4_2_8_17
+  status: confirmed
+- id: m_ctp_wave8_112_range
+  type: constraint
+  statement: "范围分区（Range Partitioning）根据表的一列或多列将要插入的记录分为若干个范围（范围在不同分区里没有重叠），为每个范围创建一个分区存储相应数据；范围分区策略目前仅支持范围分区策略：根据分区键值将记录映射到已创建的某个分区上，可以映射则插入对应分区，否则返回报错和提示信息。"
+  source_anchor: "2.4.2.8.17 范围分区 页2137"
+  source_refs: *refmctp
+  status: confirmed
+- id: m_ctp_wave8_112_hash_list
+  type: constraint
+  statement: "哈希分区（Hash/Key Partitioning）根据表的一列为每个分区指定模数和余数，每个分区所持有的行都需满足：分区键的值除以为其指定的模数将产生为其指定的余数；列表分区（List Partitioning）根据表的一列，通过每一个分区中出现的键值划分记录（键值在不同分区里没有重叠）；两者分区策略均为根据分区键值映射到已创建的某个分区，可以映射则插入对应分区否则报错。"
+  source_anchor: "2.4.2.8.17 哈希分区/列表分区 页2137"
+  source_refs: *refmctp
+  status: confirmed
+- id: m_ctp_wave8_112_advantages
+  type: constraint
+  statement: "分区优势：某些类型的查询性能可以得到极大提升（特别是表中访问率较高的行位于一个单独分区或少数几个分区上时，分区可减少数据搜索空间提高访问效率）；查询或更新一个分区的大部分记录时，连续扫描该分区而不是访问整个表可获得巨大性能提升；需要大量加载或删除的记录位于单独分区上时，可直接读取或删除该分区获得巨大性能提升，同时避免大量DELETE导致的VACUUM超载（哈希分区不支持删除分区）。"
+  source_anchor: "2.4.2.8.17 分区优势 页2137"
+  source_refs: *refmctp
+  status: confirmed
+- id: m_ctp_wave8_112_limits
+  type: constraint
+  statement: "M兼容分区限制：哈希分区仅支持单列构建分区键（暂不支持多列）；PARTITION FOR (values)语法values只能是常量，需要数据类型转换时建议使用强制类型转换以防隐式转换结果与预期不符；单个表最大分区数为1048575（默认配置下建议单个表分区数不超过400个）；分区数太多导致内存不足时会间接导致性能急剧下降；指定分区语句目前不能走全局索引扫描；BLOB、TINYBLOB、MEDIUMBLOB、LONGBLOB、TEXT、TINYTEXT、MEDIUMTEXT、LONGTEXT、BIT不支持作为分区键、二级分区键。"
+  source_anchor: "2.4.2.8.17 注意事项 页2137-2138"
+  source_refs: *refmctp
+  status: confirmed
+- id: m_ctp_wave8_112_concurrent
+  type: constraint
+  statement: "分区表并发UPDATE/DELETE可能引发错误：UPDATE和DELETE对旧数据都是标记为已删除，更新分区键导致跨分区操作时旧分区旧数据标记删除同时新分区新增一条数据，可能导致后续操作无法正确关联旧数据与新数据——UPDATE和UPDATE/DELETE并发时第一个UPDATE完成后第二个无法定位最新数据导致失败报错；DELETE和UPDATE/DELETE并发时第二个检测到数据已删除且无法判断删除操作是UPDATE还是DELETE的行为，系统只能报错处理；优化建议：尽量使用串行执行避免数据关联问题、查询时根据分区键过滤避免全表扫描、避免超大事务将大量数据的UPDATE/DELETE分批执行。"
+  source_anchor: "2.4.2.8.17 注意事项 页2138"
+  source_refs: *refmctp
+  status: confirmed
+- id: m_ctp_wave8_112_params_constraints
+  type: constraint
+  statement: "M兼容分区表参数：IF NOT EXISTS时已存在相同名称的表不抛出错误而发出通知；partition_table_name/column_name/data_type均需符合标识符说明；CONSTRAINT constraint_name定义约束有两种方法：列约束（作为列定义的一部分仅影响该列）和表约束（不和某个列绑定，可作用于多个列）；NOT NULL/NULL/CHECK (condition)/DEFAULT default_expr/ON UPDATE update_expr/[GENERATED ALWAYS] AS ( generation_expr ) [STORED | VIRTUAL]均为列约束形式。"
+  source_anchor: "2.4.2.8.17 参数说明 页2139-2140"
+  source_refs: *refmctp
+  status: confirmed
+- id: m_ctp_wave8_112_unique_local_global
+  type: constraint
+  statement: "当为分布表添加唯一约束或主键约束时，如果约束的约束键包含所有分区键，将为约束创建LOCAL索引，否则创建GLOBAL索引。"
+  source_anchor: "2.4.2.8.17 注意事项 页2137"
+  source_refs: *refmctp
+  status: confirmed
+- id: m_ctp_wave8_112_table_option
+  type: constraint
+  statement: "table_option规则与CREATE TABLE一致：COMMENT/AUTO_INCREMENT/COLLATE/CHARSET在同一地方多次设置时仅最后一个生效；ENGINE、ROW_FORMAT语法不报错也没有提示但实际不生效；constraint_name与index_name命名优先级为外键约束取constraint_name、唯一键约束取index_name；USING method目前只支持索引方法为btree；AUTO_INCREMENT [=] value必须为正整数且不得超过2^127-1；LIKE子句新表自动继承源表所有字段名及数据类型和非空约束（与INHERITS不同，创建完毕后两表完全无关）。"
+  source_anchor: "2.4.2.8.17 语法格式/参数说明 页2138-2140"
+  source_refs: *refmctp
+  status: confirmed
+- id: m_ctp_wave8_112_collate
+  type: constraint
+  statement: "M兼容分区表COLLATE支持的字符序：utf8mb4_bin、utf8mb4_general_ci、utf8mb4_unicode_ci、binary、gbk_chinese_ci、gbk_bin、gb18030_chinese_ci、gb18030_bin、gb18030_2022_chinese_ci、gb18030_2022_bin；仅字符类型支持指定字符集（BINARY转二进制类型当前仅有TEXT类型转化为BLOB的映射）；字段字符集或字符序未显式指定时若指定了表的默认字符集或字符序则从表上继承；除BINARY字符集、字符序外当前仅支持指定与数据库编码相同的字符集。"
+  source_anchor: "2.4.2.8.17 参数说明 COLLATE 页2141"
+  source_refs: *refmctp
+  status: confirmed
+- id: m_ctp_wave8_112_storage_tde
+  type: constraint
+  statement: "WITH存储参数支持透明加密相关存储参数：enable_tde、encrypt_algo、dek_cipher、key_type、cmk_id（详细说明参见CREATE TABLE章节）；FILLFACTOR填充因子10~100（Ustore默认92，Astore默认100）。"
+  source_anchor: "2.4.2.8.17 参数说明 WITH 页2141"
+  source_refs: *refmctp
+  status: confirmed
+- id: m_ctp_wave8_112_range_items
+  type: syntax
+  statement: "分区项语法：partition_less_than_item为PARTITION partition_name VALUES LESS THAN {( { partition_value | MAXVALUE } [,...] ) | MAXVALUE } [TABLESPACE [=] tablespace_name]；partition_start_end_item为PARTITION partition_name { {START(partition_value) END ({partition_value | MAXVALUE})} | {START(partition_value)} | {END({partition_value | MAXVALUE})} } [TABLESPACE [=] tablespace_name]；partition_options为ENGINE [=] 'string' | STORAGE ENGINE [=] 'string'（当前仅语法上不报错，此语法无实际作用）；update_expr为{ CURRENT_TIMESTAMP | LOCALTIMESTAMP | NOW() }。"
+  source_anchor: "2.4.2.8.17 语法格式 页2139"
+  source_refs: *refmctp
+  status: confirmed
+- id: m_ctp_wave8_112_start_end
+  type: constraint
+  statement: "START END语法规则：若第一个分区定义含START值，则范围（MINVALUE, START）自动作为第一个实际分区，名称为p1_0（如定义PARTITION p1 START(1), PARTITION p2 START(2)则生成分区(MINVALUE,1)、[1,2)和[2,MAXVALUE)，名称依次为p1_0、p1_1和p2）；每个partition_start_end_item的START值必须小于其END值；相邻两个partition_start_end_item第一个的END值必须等于第二个的START值；创建分区表时START END与LESS THAN语法不可混合使用；即使使用START END语法，备份（gs_dump）出的SQL语句也是LESS THAN形式；对于从句是START END的语法格式，范围分区策略的分区键仅支持1列。"
+  source_anchor: "2.4.2.8.17 语法格式/须知 页2140"
+  source_refs: *refmctp
+  status: confirmed
+- id: m_ctp_wave8_112_less_than_maxvalue
+  type: constraint
+  statement: "VALUES LESS THAN中MAXVALUE表示分区的上边界（取值依赖于partition_key的类型）；不在括号内的MAXVALUE只能有一个分区键。"
+  source_anchor: "2.4.2.8.17 语法格式 页2140"
+  source_refs: *refmctp
+  status: confirmed
+- id: m_ctp_wave8_112_list_hash
+  type: constraint
+  statement: "PARTITION BY LIST [COLUMNS] (partition_key)：不指定二级分区时分区键为普通列，列表分区策略的分区键最多支持16列，每个分区的键值数量不超过64个；PARTITION BY HASH(partition_key)创建哈希分区（分区键仅支持1列）；PARTITION BY KEY(partition_key)同哈希分区；PARTITIONS integer当在HASH和KEY分区后指定此子句时，若不列出各个分区定义将自动生成分区。"
+  source_anchor: "2.4.2.8.17 语法格式 页2140"
+  source_refs: *refmctp
+  status: confirmed
+- id: m_ctp_wave8_112_generated
+  type: constraint
+  statement: "M兼容分区表生成列限制与CREATE TABLE一致：STORED/VIRTUAL缺省规则（s2时缺省VIRTUAL）、生成表达式限制（只能IMMUTABLE函数、不能子查询/聚集/窗口函数等）；存储生成列支持作为分区键一部分（此时不支持ALTER TABLE修改存储生成列），虚拟生成列不支持作为分区键一部分、不支持被外键约束引用、不支持创建索引；精度差异基线：SET m_format_behavior_compat_options=''时CREATE TABLE mm1(..., c boolean AS ((a/b)=1.7142858) STORED)插入(1.2,0.7)后c=0；开启enable_precision_decimal后CREATE TABLE mm2同样定义插入后c=0，而mm1再查询显示两行c分别为0和1（精度开关前后数据不一致）。"
+  source_anchor: "2.4.2.8.17 参数说明 生成列/示例 页2147-2148"
+  source_refs: *refmctp
+  status: confirmed
+- id: m_ctp_wave8_112_unique
+  type: constraint
+  statement: "M兼容分区表唯一约束：列级UNIQUE [KEY] index_parameters与表级UNIQUE [INDEX | KEY][ index_name ][ USING method ]表示一个字段或多个字段的组合必须在全表范围内唯一（UNIQUE KEY与UNIQUE语义相同）；对于唯一约束，NULL被认为是互不相等的；column_name(length)是前缀键（具体参见CREATE INDEX章节）；UNIQUE或PRIMARY KEY约束相关索引可用USING INDEX TABLESPACE声明表空间（s1时不支持）。"
+  source_anchor: "2.4.2.8.17 参数说明 页2148-2149"
+  source_refs: *refmctp
+  status: confirmed
+- id: m_ctp_wave8_112_examples_range
+  type: behavior_oracle
+  statement: "范围分区示例（m_db）：CREATE TABLE test_range2(col1 INT, col2 INT) PARTITION BY RANGE (col1)定义分区后插入数据；查询pg_partition的relname与boundaries显示p1、p2、p3、pmax四个分区（boundaries分别为{1}、{10}、{20}、{NULL}）。"
+  source_anchor: "2.4.2.8.17 示例 范围分区 页2149-2150"
+  source_refs: *refmctp
+  status: confirmed
+- id: m_ctp_wave8_112_examples_list
+  type: behavior_oracle
+  statement: "列表分区示例（m_db）：CREATE TABLE test_list ( NAME VARCHAR(50), area VARCHAR(50) ) PARTITION BY LIST (area) (PARTITION p1 VALUES ('Beijing'), p2 VALUES ('Shanghai'), p3 VALUES ('Guangzhou'), p4 VALUES ('Shenzhen'), PARTITION pdefault VALUES (DEFAULT))；插入('bob','Shanghai')与('scott','Sichuan')后SELECT * FROM test_list PARTITION (p2)返回bob|Shanghai，PARTITION (pdefault)返回scott|Sichuan。"
+  source_anchor: "2.4.2.8.17 示例 列表分区 页2149-2150"
+  source_refs: *refmctp
+  status: confirmed
+- id: m_ctp_wave8_112_examples_hash
+  type: behavior_oracle
+  statement: "哈希分区示例（m_db）：CREATE TABLE test_hash1(c1 int) PARTITION BY HASH(c1) PARTITIONS 3指定分区数创建哈希分区表。"
+  source_anchor: "2.4.2.8.17 示例 哈希分区 页2150"
+  source_refs: *refmctp
+  status: confirmed
+open_questions:
+- id: m_ctp_wave8_112_oq_runtime
+  statement: "分区表并发UPDATE/DELETE报错的具体触发概率与错误码、指定分区语句不走全局索引扫描的执行计划表现、START END与LESS THAN混用禁令的解析器行为需授权环境实机验证。"
+  status: open
