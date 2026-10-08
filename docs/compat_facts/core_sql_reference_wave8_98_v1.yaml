@@ -1,0 +1,149 @@
+document: 集中式版参考 / 1.13.7.25-35 ALTER RESOURCE LABEL/ROLE/RLS POLICY/SESSION/KILL SESSION/SYSTEM SET（Wave 8-98）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.7.25 ALTER RESOURCE LABEL
+  - 1.13.7.27 ALTER ROLE
+  - 1.13.7.28 ALTER ROW LEVEL SECURITY POLICY
+  - 1.13.7.32 ALTER SESSION
+  - 1.13.7.34 ALTER SYSTEM KILL SESSION
+  - 1.13.7.35 ALTER SYSTEM SET
+  physical_page_start: 1248
+  physical_page_end: 1273
+  physical_page_count: 16
+  excludes: []
+facts:
+- id: alter_resource_label_wave8_98_syntax
+  type: syntax
+  statement: "ALTER RESOURCE LABEL修改资源标签属性；语法为ALTER RESOURCE LABEL label_name {ADD|REMOVE} label_item_list[, ...]，label_item_list为resource_type(resource_path[, ...])，resource_type为TABLE | COLUMN | SCHEMA | VIEW | FUNCTION；只有poladmin、sysadmin或初始用户才能执行该命令。"
+  source_anchor: "1.13.7.25 功能描述/注意事项/语法格式 页1248-1249"
+  source_refs: &refarl
+  - w8_98_1_13_7_25
+  status: confirmed
+- id: alter_resource_label_wave8_98_example
+  type: behavior_oracle
+  statement: "示例：CREATE RESOURCE LABEL table_label ADD COLUMN(table_for_label.col1)后ALTER RESOURCE LABEL table_label ADD COLUMN(table_for_label.col2)将col2添加至标签；ALTER RESOURCE LABEL table_label REMOVE COLUMN(table_for_label.col1)将col1项移除。"
+  source_anchor: "1.13.7.25 示例 页1249"
+  source_refs: *refarl
+  status: confirmed
+- id: alter_role_wave8_98_syntax
+  type: syntax
+  statement: "ALTER ROLE修改角色属性（包括名称、锁定/解锁以及权限等）；五种形式：ALTER ROLE role_name [ [ WITH ] option [ ... ] ]（修改权限）、RENAME TO new_name（修改名称）、ACCOUNT { LOCK | UNLOCK }（锁定或解锁）、[ IN DATABASE database_name ] SET configuration_parameter {{ TO | = } { value | DEFAULT } | FROM CURRENT}（设置配置参数）、[ IN DATABASE database_name ] RESET {configuration_parameter|ALL}（重置配置参数）。"
+  source_anchor: "1.13.7.27 语法格式 页1252-1255"
+  source_refs: &refarole
+  - w8_98_1_13_7_27
+  status: confirmed
+- id: alter_role_wave8_98_options
+  type: constraint
+  statement: "option子句权限全集：{CREATEDB|NOCREATEDB}、{CREATEROLE|NOCREATEROLE}、{INHERIT|NOINHERIT}、{AUDITADMIN|NOAUDITADMIN}、{SYSADMIN|NOSYSADMIN}、{MONADMIN|NOMONADMIN}、{OPRADMIN|NOOPRADMIN}、{POLADMIN|NOPOLADMIN}、{USEFT|NOUSEFT}、{LOGIN|NOLOGIN}、{REPLICATION|NOREPLICATION}、{PERSISTENCE|NOPERSISTENCE}、CONNECTION LIMIT connlimit、[ ENCRYPTED | UNENCRYPTED ] PASSWORD { 'password' [EXPIRED] | DISABLE | EXPIRED }、IDENTIFIED BY { 'password' [ REPLACE 'old_password' | EXPIRED ] | DISABLE }、VALID BEGIN/UNTIL 'timestamp'、RESOURCE POOL、USER GROUP、PERM/TEMP/SPILL SPACE、NODE GROUP、ACCOUNT {LOCK|UNLOCK}、PGUSER、PASSWORD EXPIRE INTERVAL 'time' DAY。"
+  source_anchor: "1.13.7.27 语法格式 option子句 页1253"
+  source_refs: *refarole
+  status: confirmed
+- id: alter_role_wave8_98_pdb_redis
+  type: constraint
+  statement: "不支持在PDB内执行ALTER ROLE IN DATABASE命令；不支持在PDB内修改初始用户密码；当前不支持对内部保留对象redisuser进行重命名（RENAME TO）操作，也不支持将其他角色的名称重命名（RENAME TO）为redisuser。"
+  source_anchor: "1.13.7.27 注意事项/参数说明 须知 页1252,1255"
+  source_refs: *refarole
+  status: confirmed
+- id: alter_role_wave8_98_session_params
+  type: constraint
+  statement: "IN DATABASE database_name修改角色在指定数据库上的参数；SET修改的配置参数只针对指定的角色，且在下一次该角色启动的会话中有效；DEFAULT清除configuration_parameter参数的值（继承本角色新产生会话的默认值）；FROM CURRENT取当前会话中的值设置为参数值；RESET与SET configuration_parameter TO DEFAULT效果相同，ALL表示清除所有参数的值。"
+  source_anchor: "1.13.7.27 参数说明 页1255-1256"
+  source_refs: *refarole
+  status: confirmed
+- id: alter_role_wave8_98_password
+  type: constraint
+  statement: "ACCOUNT LOCK锁定角色禁止角色通过密码认证登录数据库，ACCOUNT UNLOCK解锁允许登录；当前版本不允许修改角色的PGUSER属性；密码修改规则：除初始用户外其他管理员或普通用户修改自己的密码均需输入正确的旧密码；只有初始用户、三权分立关闭时的系统管理员（sysadmin）或拥有创建用户（CREATEROLE）权限的用户才可以重置普通用户密码无需输入旧密码；初始用户可以重置系统管理员的密码，系统管理员不允许重置其他系统管理员的密码；应使用单引号或双引号将用户密码包裹。"
+  source_anchor: "1.13.7.27 参数说明 页1256"
+  source_refs: *refarole
+  status: confirmed
+- id: alter_role_wave8_98_expired
+  type: constraint
+  statement: "EXPIRED设置密码失效：只有初始用户、系统管理员（sysadmin）或拥有创建用户（CREATEROLE）权限的用户才可以设置，系统管理员只有在三权分立关闭时才可以设置自己或其他系统管理员密码失效；不允许设置初始用户密码失效；密码失效的用户可以登录数据库但不能执行查询操作，只有修改密码或由管理员重置密码后才可以恢复正常查询操作。"
+  source_anchor: "1.13.7.27 参数说明 EXPIRED 页1256"
+  source_refs: *refarole
+  status: confirmed
+- id: alter_rls_policy_wave8_98_syntax
+  type: syntax
+  statement: "ALTER ROW LEVEL SECURITY POLICY对已存在的行访问控制策略（名称、指定用户、策略表达式）进行修改；表的所有者或管理员用户才能执行；两种形式：ALTER [ ROW LEVEL SECURITY ] POLICY policy_name ON table_name RENAME TO new_policy_name（改名）、[ TO { role_name | PUBLIC } [, ...] ] [ USING ( using_expression ) ]（修改指定用户与策略表达式）。"
+  source_anchor: "1.13.7.28 功能描述/注意事项/语法格式 页1257"
+  source_refs: &refarls
+  - w8_98_1_13_7_28
+  status: confirmed
+- id: alter_rls_policy_wave8_98_params
+  type: constraint
+  statement: "role_name为行访问控制策略应用的数据库用户，可以指定多个用户，PUBLIC表示应用到所有用户；using_expression为行访问控制策略表达式，形式与WHERE子句中的布尔型表达式类似。"
+  source_anchor: "1.13.7.28 参数说明 页1257"
+  source_refs: *refarls
+  status: confirmed
+- id: alter_rls_policy_wave8_98_example
+  type: behavior_oracle
+  statement: "示例：all_data_rls创建后\\d+显示POLICY \"all_data_rls\" FOR ALL TO public USING (((role)::name = \"current_user\"()))；RENAME TO all_data_new_rls改名；TO alice, bob后\\d+显示TO alice,bob；USING (id > 100 AND role = current_user)后\\d+显示USING (((id > 100) AND ((role)::name = \"current_user\"())))。"
+  source_anchor: "1.13.7.28 示例 页1257-1258"
+  source_refs: *refarls
+  status: confirmed
+- id: alter_session_wave8_98_syntax
+  type: syntax
+  statement: "ALTER SESSION定义或修改对当前会话有影响的条件或参数，修改后的会话参数会一直保持直到断开当前会话；两种形式：SET [ SESSION CHARACTERISTICS AS ] TRANSACTION { ISOLATION LEVEL { READ COMMITTED | READ UNCOMMITTED } | { READ ONLY | READ WRITE } } [, ...]；SET {{config_parameter { { TO | = } { value | DEFAULT } | FROM CURRENT }} | CURRENT_SCHEMA { TO | = } { schema | DEFAULT } | TIME ZONE time_zone | SCHEMA 'schema' | NAMES encoding_name | ROLE role_name PASSWORD 'password' | SESSION AUTHORIZATION { role_name PASSWORD 'password' | DEFAULT } | XML OPTION { DOCUMENT | CONTENT }}。"
+  source_anchor: "1.13.7.32 语法格式 页1267"
+  source_refs: &refasess
+  - w8_98_1_13_7_32
+  status: confirmed
+- id: alter_session_wave8_98_notes
+  type: constraint
+  statement: "如果执行SET TRANSACTION之前没有执行START TRANSACTION，则事务立即结束，命令无法显示效果；可以用START TRANSACTION里面声明所需要的transaction_mode(s)的方法避免使用SET TRANSACTION。"
+  source_anchor: "1.13.7.32 注意事项 页1266"
+  source_refs: *refasess
+  status: confirmed
+- id: alter_session_wave8_98_params
+  type: constraint
+  statement: "参数语义：config_parameter可用SHOW ALL查看，DEFAULT/OFF/RESET使用系统缺省设置、用户指定值需满足取值限制、FROM CURRENT取当前会话值；TIME ZONE指定当前会话本地时区（运行时参数TimeZone，DEFAULT缺省PRC）；CURRENT_SCHEMA指定当前模式，模式名不存在会导致CURRENT_SCHEMA值为空；SCHEMA同CURRENT_SCHEMA（字符串形式）；NAMES设置客户端字符编码（等价set client_encoding，默认UTF8）；XML OPTION取值CONTENT（默认）、DOCUMENT；ISOLATION LEVEL中READ COMMITTED为默认读已提交，READ UNCOMMITTED指定后的行为和READ COMMITTED行为一致。"
+  source_anchor: "1.13.7.32 参数说明 页1267-1268"
+  source_refs: *refasess
+  status: confirmed
+- id: alter_session_wave8_98_example
+  type: behavior_oracle
+  statement: "示例（ALTER SESSION关键字可省略）：START TRANSACTION后ALTER SESSION SET TRANSACTION READ ONLY再END；SET SEARCH_PATH TO ds, public与SET DATESTYLE TO postgres, dmy；ALTER SESSION SET NAMES 'UTF8'设置字符编码；SET TIME ZONE 'PST8PDT'与'Europe/Rome'设置时区；ALTER SESSION SET CURRENT_SCHEMA TO tpcds设置当前模式；ALTER SESSION SET XML OPTION DOCUMENT。"
+  source_anchor: "1.13.7.32 示例 页1268-1269"
+  source_refs: *refasess
+  status: confirmed
+- id: alter_system_kill_session_wave8_98_syntax
+  type: syntax
+  statement: "ALTER SYSTEM KILL SESSION命令用于结束一个会话；语法为ALTER SYSTEM KILL SESSION 'session_sid, serial' [ IMMEDIATE ]；session_sid, serial为会话的SID和SERIAL，通过系统表dv_sessions可查看所有会话的SID和SERIAL，可通过pg_stat_activity系统表配合查询当前活跃线程但执行命令时线程可能已结束；IMMEDIATE表明会话将在命令执行后立即结束。"
+  source_anchor: "1.13.7.34 功能描述/语法格式/参数说明 页1270-1271"
+  source_refs: &refaskill
+  - w8_98_1_13_7_34
+  status: confirmed
+- id: alter_system_kill_session_wave8_98_example
+  type: behavior_oracle
+  statement: "示例：会话1 BEGIN后INSERT开启事务（第二个会话查询pg_stat_activity与dv_sessions关联，state为idle in transaction表示事务等待提交）；ALTER SYSTEM KILL SESSION '139802072635136,0'返回pg_terminate_backend=t，不带IMMEDIATE也强制结束会话及其中事务；重新连接查询tbl_test数据为0行（事务强制结束后数据回滚）。"
+  source_anchor: "1.13.7.34 示例 页1271"
+  source_refs: *refaskill
+  status: confirmed
+- id: alter_system_set_wave8_98_syntax
+  type: syntax
+  statement: "ALTER SYSTEM SET在多租数据库特性开启时，在Non-PDB（如postgres库）中使用该命令可完成资源计划的切换；语法为ALTER SYSTEM SET resource_manager_plan TO plan_name，plan_name为资源计划的名称。"
+  source_anchor: "1.13.7.35 功能描述/语法格式/参数说明 页1271-1272"
+  source_refs: &refaset
+  - w8_98_1_13_7_35
+  status: confirmed
+- id: alter_system_set_wave8_98_permission
+  type: constraint
+  statement: "此命令仅限初始用户和拥有sysadmin权限的用户才可使用；不支持在PDB内部执行该命令；不支持在M兼容数据库中执行该命令。"
+  source_anchor: "1.13.7.35 注意事项 页1272"
+  source_refs: *refaset
+  status: confirmed
+- id: alter_system_set_wave8_98_example
+  type: behavior_oracle
+  statement: "示例：连接至postgres库后ALTER SYSTEM SET RESOURCE_MANAGER_PLAN TO 'default_resource_plan'返回ALTER SYSTEM SET，设置当前生效的资源计划为default_resource_plan且新的资源计划实时生效。"
+  source_anchor: "1.13.7.35 示例 页1272"
+  source_refs: *refaset
+  status: confirmed
+open_questions:
+- id: alter_arl_role_sess_sys_wave8_98_oq_runtime
+  statement: "角色密码失效后的查询阻断行为矩阵、IN DATABASE会话参数跨库生效、KILL SESSION对长事务回滚的实际耗时、资源计划切换对运行中PDB负载的影响在授权环境下的完整行为与错误矩阵需实机验证。"
+  status: open
