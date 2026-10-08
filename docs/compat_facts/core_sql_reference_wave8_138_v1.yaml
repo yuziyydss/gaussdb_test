@@ -1,0 +1,147 @@
+document: 集中式版参考 / 3 存储过程基础与声明语法（Wave 8-138）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 3.1 存储过程
+  - 3.2 数据类型
+  - 3.3 数据类型转换
+  - 3.5 声明语法
+  physical_page_start: 2539
+  physical_page_end: 2586
+  physical_page_count: 13
+  excludes:
+  - 3.4 数组、集合和record（后续波次单批覆盖）
+  - 3.6 基本语句 / 3.7 动态语句 / 3.8 控制语句（后续波次）
+facts:
+- id: sp_wave8_138_overview
+  type: syntax
+  statement: "存储过程是SQL和PL/SQL的组合：商业规则和业务逻辑可以通过程序存储在GaussDB中，通过存储过程执行商业规则的代码可从应用程序层迁移至数据库层实现代码复用（代码只需存储一次即可被多个程序调用）；存储过程的创建及调用方法参见CREATE PROCEDURE；《开发指南》中用户自定义函数PL/SQL语言函数与存储过程的应用方法相同，除非特别声明，下面各节内容均适用于存储过程和PL/SQL语言函数。"
+  source_anchor: "3.1 存储过程 页2539"
+  source_refs: &refsp1
+  - w8_138_3_1
+  status: confirmed
+- id: sp_wave8_138_datatype_xml
+  type: constraint
+  statement: "存储过程数据类型载体：数据类型是一组值的集合及定义在值集上的一组操作，表中每一列都属于一种数据类型，GaussDB根据数据类型提供对应函数操作；XML类型数据支持作为存储过程的入参、出参、自定义变量和返回值；支持自治事务的存储过程。"
+  source_anchor: "3.2 数据类型 页2539"
+  source_refs: &refsp2
+  - w8_138_3_2
+  status: confirmed
+- id: sp_wave8_138_subtype_overview
+  type: syntax
+  statement: "PL/SQL中使用SUBTYPE可以创建自己的子类型，基类型可以是任何基础类型或用户自定义类型；子类型可以提供数据类型的兼容性、显示该类型数据项的预期用途、检测超出范围的值；支持使用SUBTYPE类型作为存储过程出入参类型；支持SUBTYPE类型变量使用%type和%rowtype（%type支持所有基类型，%rowtype支持表、不支持集合类型）；支持嵌套SUBTYPE类型和创建SUBTYPE类型变量时更新约束情况；SUBTYPE支持使用基类型的类型构造器。"
+  source_anchor: "3.2.1 用户自定义子类型 页2539-2540"
+  source_refs: *refsp2
+  status: confirmed
+- id: sp_wave8_138_subtype_limits
+  type: constraint
+  statement: "SUBTYPE使用限制：仅A兼容模式下支持使用；不支持指定字符集；数据库从不支持SUBTYPE的版本升级到支持SUBTYPE的版本时，在升级未提交状态不支持使用SUBTYPE。"
+  source_anchor: "3.2.1 用户自定义子类型说明 页2540"
+  source_refs: *refsp2
+  status: confirmed
+- id: sp_wave8_138_subtype_syntax
+  type: syntax
+  statement: "SUBTYPE基础定义语法：SUBTYPE subtype_name IS base_type [ { ( precision [, scale ] ) | RANGE low_value .. high_value } ] [ NOT NULL ]；subtype_name为子类型名；base_type为基类型，支持基础类型、自定义数据类型以及SUBTYPE类型。"
+  source_anchor: "3.2.1 语法格式/参数说明 页2540"
+  source_refs: *refsp2
+  status: confirmed
+- id: sp_wave8_138_subtype_constraints
+  type: constraint
+  statement: "SUBTYPE约束：指定typmod约束（precision[,scale]）时对SUBTYPE变量赋值会校验该值是否符合typmod约束，是否支持指定typmod与基类型保持一致；RANGE约束仅int类型支持指定（TINYINT/SMALLINT/MEDIUMINT/INTEGER/BINARY_INTEGER/BIGINT/INT），赋值时校验值是否在指定范围内，RANGE上下限不能超过INT64，暂不支持创建变量时使用RANGE约束；指定NOT NULL时使用SUBTYPE类型定义变量必须初始化且不能赋NULL值（未初始化报错variables declared as NOT NULL must have a default value）。"
+  source_anchor: "3.2.1 参数说明/示例 页2540-2541"
+  source_refs: *refsp2
+  status: confirmed
+- id: sp_wave8_138_subtype_examples
+  type: behavior_oracle
+  statement: "SUBTYPE示例基线：无约束子类型sint IS INT赋值2147483647回显；typmod约束sdec IS DECIMAL(3,2) NOT NULL赋值1.1回显1.10、变量级再约束b sdec(5,2)赋322.1回显322.10；仅支持基类型的类型构造器（a sarrint := sarrint(1,2,3,4)报错，a sarrint := arrint(1,2,3,4)成功输出1/2/3/4）；嵌套SUBTYPE更新约束ssint IS sint RANGE 0..9、sentence IS word(50)及变量级c sentence(8)；自定义类型TYPE tabint IS TABLE OF sint嵌套SUBTYPE并EXTEND后赋值成功。"
+  source_anchor: "3.2.1 示例 页2541-2542"
+  source_refs: *refsp2
+  status: confirmed
+- id: sp_wave8_138_typecast_overview
+  type: constraint
+  statement: "数据类型转换总则：部分数据类型支持隐式类型转换（例如赋值、函数调用的参数等），部分数据类型禁止隐式数据类型转换（例如INT和复合类型），可尝试使用GaussDB提供的类型转换函数进行强转；GaussDB支持的DATE效限范围是公元前4713年到公元294276年。"
+  source_anchor: "3.3 数据类型转换 页2542"
+  source_refs: &refsp3
+  - w8_138_3_3
+  status: confirmed
+- id: sp_wave8_138_typecast_char_family
+  type: constraint
+  statement: "字符族隐式类型转换：CHAR可转换为VARCHAR2/NUMBER/DATE/RAW/CLOB（转NUMBER要求原数据必须由数字组成，转DATE要求原数据不能超出合法日期范围）；VARCHAR2可转换为CHAR/NUMBER/DATE/CLOB（转NUMBER要求原数据由数字组成，转DATE要求不能超出合法日期范围）。"
+  source_anchor: "3.3 表3-1隐式类型转换表 页2543"
+  source_refs: *refsp3
+  status: confirmed
+- id: sp_wave8_138_typecast_num_raw_clob
+  type: constraint
+  statement: "数值/二进制/大对象与布尔隐式转换：NUMBER可转换为CHAR/VARCHAR2；DATE可转换为CHAR/VARCHAR2；RAW可转换为CHAR/VARCHAR2；CLOB可转换为CHAR/VARCHAR2/NUMBER（转NUMBER要求原数据必须由数字组成）；INT4可转换为CHAR/BOOLEAN，BOOLEAN可转换为INT4。"
+  source_anchor: "3.3 表3-1隐式类型转换表 页2543"
+  source_refs: *refsp3
+  status: confirmed
+- id: sp_wave8_138_typecast_datea
+  type: constraint
+  statement: "DATEA隐式转换：DATEA可转换为TEXT/VARCHAR/CHAR/CLOB/NVARCHAR2/TIMESTAMP WITH TIME ZONE/TIMESTAMP WITHOUT TIME ZONE；TEXT/VARCHAR/CHAR/CLOB/NVARCHAR2转换为DATEA均要求原数据不能超出合法日期范围且符合nls_date_format格式。"
+  source_anchor: "3.3 表3-1隐式类型转换表 页2543-2544"
+  source_refs: *refsp3
+  status: confirmed
+- id: sp_wave8_138_block_structure
+  type: syntax
+  statement: "PL/SQL块结构：声明部分DECLARE声明变量、类型、游标及局部存储过程和函数（不涉及变量声明时声明部分可以没有：匿名块无变量声明可省去DECLARE关键字；存储过程不使用DECLARE关键字时AS等同于DECLARE，即使没有显式变量声明AS关键字也必须保留在语法结构中）；执行部分BEGIN为过程及SQL语句必选；异常部分EXCEPTION错误处理可选；END结束必选；PL/SQL块可包含子块且子块可位于PL/SQL中任何部分；禁止在PL/SQL块中使用连续Tab（连续Tab可能造成gsql工具带-r参数执行PL/SQL块时异常）。"
+  source_anchor: "3.5.1 基本结构 页2579-2580"
+  source_refs: &refsp5
+  - w8_138_3_5
+  status: confirmed
+- id: sp_wave8_138_block_categories_anonymous
+  type: syntax
+  statement: "PL/SQL块分类与匿名块：块分为匿名块（动态构造，只能执行一次）和子程序（存储在数据库中的存储过程、函数、操作符和高级包等，创建完成后可在其他程序中调用）；匿名块一般用于不频繁执行的脚本或不重复进行的活动，在一个会话中执行并不被存储；语法[ DECLARE [ declaration_statements ] ] BEGIN execution_statements END ; /，以BEGIN开始END结束、分号结尾、输入/按回车执行且最后的结束符/必须独占一行不能直接跟在END后面；最简单的匿名块不执行任何命令但任意实施块里至少要有一个语句（甚至NULL语句）；声明部分包括变量定义、类型、游标定义等。"
+  source_anchor: "3.5.1 分类/3.5.2 匿名块 页2580"
+  source_refs: *refsp5
+  status: confirmed
+- id: sp_wave8_138_anonymous_memory
+  type: constraint
+  statement: "匿名块执行DDL内存说明：匿名块中执行存储过程DDL语句（如创建存储过程、重编译存储过程、实例化包等）时，匿名块事务提交前会有部分临时内存申请在顶层SessionTempMemoryContext（如PL/pgSQL function context、PL/pgSQL package init context等）和顶层ExecutorTopMemoryContext（如ResourceOwnerCxt等），申请的临时内存在匿名块事务提交后释放；内存不足场景请调整max_dynamic_memory至合适值后重试。"
+  source_anchor: "3.5.2 匿名块 页2581"
+  source_refs: *refsp5
+  status: confirmed
+- id: sp_wave8_138_anonymous_jdbc
+  type: constraint
+  statement: "匿名块JDBC绑定参数限制：仅支持A兼容性数据库且仅支持Oracle风格的匿名块；全密态加密场景JDBC连接配置enable_ce=3时支持匿名块绑定参数、enable_ce=1时不支持；匿名块内定义的变量（包括显示定义的变量或类型）与绑定参数变量（$1、$2...）命名冲突时报错；声明为自治事务的匿名块不支持绑定参数；绑定参数个数上限32767、绑定出参个数上限1664；步骤为Connection.prepareCall创建调用语句、setInt设置入参、registerOutParameter注册出参、execute执行、getInt获取出参、close关闭。"
+  source_anchor: "3.5.2 匿名块使用JDBC驱动绑定参数 页2581-2582"
+  source_refs: *refsp5
+  status: confirmed
+- id: sp_wave8_138_jdbc_version
+  type: constraint
+  statement: "匿名块JDBC版本兼容矩阵：507.0.0版本的JDBC连接历史版本的数据库（503.1.0及之后版本）不支持匿名块使用JDBC驱动绑定参数；历史版本的JDBC（503.1.0及之后版本）连接507.0.0版本的数据库支持匿名块绑定入参、不支持绑定出参；从507.0.0之前版本升级到507.0.0及更高版本时在升级观察期期间，使用升级后的JDBC连接数据库支持匿名块绑定参数，使用升级前的JDBC（503.1.0及之后版本）连接507.0.0版本数据库支持绑定入参、不支持绑定出参。"
+  source_anchor: "3.5.2 匿名块使用JDBC驱动绑定参数说明 页2582"
+  source_refs: *refsp5
+  status: confirmed
+- id: sp_wave8_138_subprogram_kinds
+  type: syntax
+  statement: "子程序三类：独立子程序为在Schema内创建的存储过程、函数和包等（详细使用参见CREATE PACKAGE、CREATE FUNCTION和CREATE PROCEDURE）；包内子程序为在包体内创建、包内声明创建的存储过程及函数（参见CREATE PACKAGE）；嵌套子程序为在PL/SQL块内创建，支持在匿名块、存储过程、函数和包内的存储过程及函数中声明并创建子存储过程或子函数。"
+  source_anchor: "3.5.3 子程序/3.5.3.1-3.5.3.3 页2582"
+  source_refs: *refsp5
+  status: confirmed
+- id: sp_wave8_138_nested_limits
+  type: constraint
+  statement: "嵌套子程序限制：仅A兼容性数据库下使用；最大嵌套层数由GUC参数max_subpro_nested_layers控制（默认值3，取值范围0~100；若嵌套子程序中含匿名块，匿名块不计入层数但匿名块内嵌套子程序计入总层数）；不支持重载、不支持使用SETOF；不支持定义为自治事务但可调用含有自治事务的存储过程或函数；子函数（FUNCTION）不支持直接调用且必须包含返回值，子存储过程（PROCEDURE）不支持在表达式中调用；不支持PERFORM调用、动态语句中不能包含嵌套子程序；修饰符仅支持{IMMUTABLE|STABLE|VOLATILE}与{CALLED ON NULL INPUT|RETURNS NULL ON NULL INPUT|STRICT}，其余修饰符暂不支持；仅支持一个限定符引用嵌套子程序或其变量；子函数返回值类型为函数自定义record类型时无法通过subfunc().col方式访问返回值列属性（执行时报错）；嵌套子程序的声明必须位于声明部分的最后；只能在声明的函数或存储过程内部调用，外部不可使用；不支持debugger打断点但支持step单步调试。"
+  source_anchor: "3.5.3.3 嵌套的子程序注意事项 页2582-2583"
+  source_refs: *refsp5
+  status: confirmed
+- id: sp_wave8_138_nested_syntax
+  type: syntax
+  statement: "嵌套子程序语法：子存储过程PROCEDURE procedure_name [ (parameters) ] [ {IMMUTABLE|STABLE|VOLATILE} | {CALLED ON NULL INPUT|RETURNS NULL ON NULL INPUT|STRICT} ] { IS | AS } [ declarations ] BEGIN plsql_body END;；子函数FUNCTION function_name [ (parameters) ] RETURN rettype [ {IMMUTABLE|STABLE|VOLATILE} | {CALLED ON NULL INPUT|RETURNS NULL ON NULL INPUT|STRICT} ] { IS | AS } [ declarations ] BEGIN plsql_body END;；declarations部分可再定义下层的嵌套子程序；嵌套子程序不可重复声明、不可重复定义，标识符不得与变量名、关键字同名；支持先声明后定义，所有先声明的子程序必须在后续声明块中找到其定义。"
+  source_anchor: "3.5.3.3 嵌套的子程序语法格式/声明定义规则 页2583"
+  source_refs: *refsp5
+  status: confirmed
+- id: sp_wave8_138_nested_calls_vars
+  type: constraint
+  statement: "嵌套子程序调用与变量规则：可调用自身实现递归调用；可调用上层作用域声明的子程序；可调用本地声明的下层子程序但不可访问下层子程序内部的嵌套子程序；可调用相同作用域中先于自身声明的子程序。嵌套子程序变量类型包括基础类型、record类型、table of类型、cursor类型和varray类型等其它PL/SQL支持的变量类型；可访问自身声明的变量和上层子程序声明的变量；变量不带限定符时首先在本程序内查找、不存在则向上层查找以此类推，带限定符时在限定符区域查找，目前仅支持一个限定符的使用。"
+  source_anchor: "3.5.3.3 嵌套子程序调用规则/变量 页2583-2585"
+  source_refs: *refsp5
+  status: confirmed
+open_questions:
+- id: sp_decl_wave8_138_oq_runtime
+  content: "SUBTYPE RANGE约束与typmod变量级再约束的赋值校验边界、嵌套子程序max_subpro_nested_layers层数计算（匿名块嵌套子程序计入）在深层嵌套下的行为、匿名块JDBC绑定参数在自治事务与全密态enable_ce组合场景需授权环境实机验证。"
+  status: open
