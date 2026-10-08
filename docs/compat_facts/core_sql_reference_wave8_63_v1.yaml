@@ -1,0 +1,145 @@
+document: 集中式版参考 / 1.13.17.1 PREDICT BY、1.13.17.2 PREPARE、1.13.17.3 PREPARE TRANSACTION 与 1.13.17.4 PURGE（Wave 8-63）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-07'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.17.1 PREDICT BY
+  - 1.13.17.2 PREPARE
+  - 1.13.17.3 PREPARE TRANSACTION
+  - 1.13.17.4 PURGE
+  physical_page_start: 1774
+  physical_page_end: 1780
+  physical_page_count: 7
+  excludes: []
+facts:
+- id: predict_by_wave8_63_purpose
+  type: syntax
+  statement: "PREDICT BY利用完成训练的模型进行推测任务；调用的模型名称在系统表gs_model_warehouse中可查看到。"
+  source_anchor: "1.13.17.1 功能描述/注意事项 页1774"
+  source_refs: &refpredict
+  - w8_63_1_13_17_1
+  status: confirmed
+- id: predict_by_wave8_63_syntax
+  type: syntax
+  statement: "语法为PREDICT BY model_name (FEATURES attribute[, attribute]...)；model_name为推测任务的模型名称，attribute为推测任务的输入特征列名，两者取值均为字符串且需符合标识符命名规范。"
+  source_anchor: "1.13.17.1 语法格式/参数说明 页1774"
+  source_refs: *refpredict
+  status: confirmed
+- id: predict_by_wave8_63_example
+  type: behavior_oracle
+  statement: "示例中CREATE MODEL price_model USING logistic_regression FEATURES size, lot TARGET mark FROM HOUSES训练模型后，SELECT id, PREDICT BY price_model (FEATURES size,lot) FROM houses对每行预测，最后DROP MODEL删除模型（相关链接CREATE MODEL、DROP MODEL）。"
+  source_anchor: "1.13.17.1 示例 页1775"
+  source_refs: *refpredict
+  status: confirmed
+- id: prepare_wave8_63_purpose
+  type: syntax
+  statement: "PREPARE创建一个预备语句；预备语句是服务端对象，可用于优化性能：执行PREPARE时指定查询被解析、分析、重写，随后发出EXECUTE语句时预备语句被规划和执行，避免重复解析、分析工作。"
+  source_anchor: "1.13.17.2 功能描述 页1775"
+  source_refs: &refprepare
+  - w8_63_1_13_17_2
+  status: confirmed
+- id: prepare_wave8_63_lifecycle
+  type: constraint
+  statement: "PREPARE语句创建后在整个数据库会话期间一直存在；一旦创建成功，即便在事务块中创建、事务回滚，PREPARE也不会删除；只能通过显式调用DEALLOCATE删除；会话结束时PREPARE自动删除。"
+  source_anchor: "1.13.17.2 功能描述 页1775"
+  source_refs: *refprepare
+  status: confirmed
+- id: prepare_wave8_63_syntax
+  type: syntax
+  statement: "语法为PREPARE name [(data_type[, ...])] AS statement；name为预备语句名称且必须在该会话中唯一；data_type为参数的数据类型；statement为SELECT、INSERT、UPDATE、DELETE、MERGE INTO或VALUES语句之一（相关链接DEALLOCATE、EXECUTE）。"
+  source_anchor: "1.13.17.2 语法格式/参数说明 页1776"
+  source_refs: *refprepare
+  status: confirmed
+- id: prepare_wave8_63_unknown_params
+  type: constraint
+  statement: "PREPARE语句解析过程中，所有参数默认均被解析为unknown数据类型；若解析涉及操作符或函数的选择，遵循操作符和函数中对unknown类型参数的处理规范。"
+  source_anchor: "1.13.17.2 参数说明 页1776"
+  source_refs: *refprepare
+  status: confirmed
+- id: prepare_tx_wave8_63_purpose
+  type: syntax
+  statement: "PREPARE TRANSACTION为当前事务做两阶段提交的准备；命令之后事务不再和当前会话关联，状态完全保存在磁盘上，即使请求提交之前数据库发生崩溃，其被提交成功的可能性也非常高。"
+  source_anchor: "1.13.17.3 功能描述 页1776"
+  source_refs: &refptx
+  - w8_63_1_13_17_3
+  status: confirmed
+- id: prepare_tx_wave8_63_commit_rollback
+  type: constraint
+  statement: "事务准备好后，可在稍后用COMMIT PREPARED或ROLLBACK PREPARED命令分别提交或回滚；这些命令可以从任何会话中发出，而不光是最初执行事务的会话。"
+  source_anchor: "1.13.17.3 功能描述 页1776"
+  source_refs: *refptx
+  status: confirmed
+- id: prepare_tx_wave8_63_vs_rollback
+  type: constraint
+  statement: "从发出命令的会话角度看，PREPARE TRANSACTION不同于ROLLBACK：执行后不再有活跃的当前事务，且预备事务的效果无法见到（事务提交时其效果再次可见）；如果PREPARE TRANSACTION因某些原因失败，则变成一个ROLLBACK，当前事务被取消。"
+  source_anchor: "1.13.17.3 功能描述 页1776"
+  source_refs: *refptx
+  status: confirmed
+- id: prepare_tx_wave8_63_config
+  type: constraint
+  statement: "事务功能由数据库自动维护，不应显式使用事务功能；运行PREPARE TRANSACTION时必须在gaussdb.conf配置文件中增大max_prepared_transactions的数值，建议至少将其设置为等于max_connections，使每个会话都可以有一个等待中的预备事务。"
+  source_anchor: "1.13.17.3 注意事项 页1776-1777"
+  source_refs: *refptx
+  status: confirmed
+- id: prepare_tx_wave8_63_syntax
+  type: syntax
+  statement: "语法为PREPARE TRANSACTION transaction_id；transaction_id是待提交事务的标识符，用于之后COMMIT PREPARED或ROLLBACK PREPARED时标识该事务，不能和任何当前预备事务已使用的标识符同名；取值必须以字符串文本方式书写且必须小于200字节长。"
+  source_anchor: "1.13.17.3 语法格式/参数说明 页1777"
+  source_refs: *refptx
+  status: confirmed
+- id: prepare_tx_wave8_63_example
+  type: behavior_oracle
+  statement: "示例中BEGIN开启事务后PREPARE TRANSACTION 'trans_test'准备事务，随后ROLLBACK PREPARED 'trans_test'取消该事务（相关链接COMMIT PREPARED、ROLLBACK PREPARED）。"
+  source_anchor: "1.13.17.3 示例 页1777"
+  source_refs: *refptx
+  status: confirmed
+- id: purge_wave8_63_purpose
+  type: syntax
+  statement: "PURGE可从回收站中清理表、索引或数据库对象并释放对象相关的全部空间，也可清理表回收站或库回收站。"
+  source_anchor: "1.13.17.4 功能描述 页1777"
+  source_refs: &refpurge
+  - w8_63_1_13_17_4
+  status: confirmed
+- id: purge_wave8_63_forms
+  type: syntax
+  statement: "PURGE支持五种形式：PURGE TABLE [schema_name.]table_name清空表级回收站中指定表（可用模式名修饰）、PURGE INDEX index_name清空表级回收站中指定索引、PURGE RECYCLEBIN清空表级回收站所有对象、PURGE DATABASE database_name清除库级回收站中指定数据库对象、PURGE DATABASE RECYCLEBIN清空库级回收站中归属当前用户的所有数据库对象。"
+  source_anchor: "1.13.17.4 注意事项/语法格式/参数说明 页1777-1779"
+  source_refs: *refpurge
+  status: confirmed
+- id: purge_wave8_63_privileges_table_index
+  type: constraint
+  statement: "PURGE TABLE要求用户是表所有者且拥有表所在模式的USAGE权限；PURGE INDEX要求用户是索引所有者且拥有索引所在模式的USAGE权限；当三权分立开关关闭时，系统管理员默认拥有此权限。"
+  source_anchor: "1.13.17.4 注意事项 页1777-1778"
+  source_refs: *refpurge
+  status: confirmed
+- id: purge_wave8_63_privileges_recyclebin_db
+  type: constraint
+  statement: "PURGE RECYCLEBIN需superuser或sysdba权限，普通用户无此权限，只能清理回收站中当前用户拥有的对象且需拥有对象所在模式USAGE权限；PURGE DATABASE要求用户是数据库所有者且拥有数据库DROP权限；PURGE DATABASE RECYCLEBIN需系统管理员或sysdba权限，普通用户只能清理回收站对象中当前用户拥有DROP权限的数据库对象；三权分立开关关闭时系统管理员默认可清理回收站（库级回收站）所有对象。"
+  source_anchor: "1.13.17.4 注意事项 页1778"
+  source_refs: *refpurge
+  status: confirmed
+- id: purge_wave8_63_txblock_constraints
+  type: constraint
+  statement: "PURGE DATABASE和PURGE DATABASE RECYCLEBIN不支持在事务块内运行；并发删除多个库时可能提示回收站容量不足导致并发操作失败（实际回收站能满足部分库的空间要求，可重试规避）；PURGE DATABASE和PURGE DATABASE RECYCLEBIN继承DROP DATABASE的文件残留约束。"
+  source_anchor: "1.13.17.4 注意事项 页1778"
+  source_refs: *refpurge
+  status: confirmed
+- id: purge_wave8_63_prerequisites
+  type: constraint
+  statement: "前提参数：enable_recyclebin启用表回收站；enable_db_recyclebin启用库回收站；recyclebin_retention_time设置回收站对象保留时间，超过该时间的回收站对象将被自动清理；dbrecyclebin_retention_time设置库回收站对象保留时间；dbrecyclebin_maxsize设置回收站最大容量（参数使用请联系管理员）。"
+  source_anchor: "1.13.17.4 前提条件 页1778"
+  source_refs: *refpurge
+  status: confirmed
+- id: purge_wave8_63_example
+  type: behavior_oracle
+  statement: "表级示例：DROP TABLE后GS_RECYCLEBIN可见BIN$系统命名对象，PURGE TABLE reason_t1、PURGE INDEX idx_t2逐个清理，PURGE recyclebin清空全部；库级示例：DROP DATABASE后gs_db_recyclebin可见记录，可用系统生成名（purge database \"BIN$...\")或数据库原名（purge database dbflashback）清理，purge database recyclebin批量清理库级回收站对象。"
+  source_anchor: "1.13.17.4 示例 页1779-1780"
+  source_refs: *refpurge
+  status: confirmed
+open_questions:
+- id: purge_wave8_63_oq_runtime
+  statement: "PREDICT BY模型推理、PREPARE/EXECUTE生命周期、PREPARE TRANSACTION两阶段提交和PURGE回收站清理在真实参数、权限、并发与崩溃恢复路径下的完整行为与错误矩阵需授权环境实机验证。"
+  status: open
