@@ -1,0 +1,140 @@
+document: 集中式版参考 / 3.12.2.10 DBE_LOB第二切片（临时/拼接/BFILE装载/转换族，Wave 8-154）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 3.12.2.10 DBE_LOB（临时/拼接/BFILE装载/转换族切片，3.12高级包第十三批切片）
+  physical_page_start: 2781
+  physical_page_end: 2792
+  physical_page_count: 11
+  excludes:
+  - 3.12.2.11 DBE_MATCH及后续小节（后续波次按切片覆盖）
+facts:
+- id: dbelob_wave8_154_create_temporary
+  type: syntax
+  statement: "CREATE_TEMPORARY原型：DBE_LOB.CREATE_TEMPORARY(lob_loc INOUT BLOB, cache IN BOOLEAN, dur IN INTEGER DEFAULT 10)与CLOB版；创建一个临时的BLOB或CLOB类型对象；CREATE_TEMPORARY仅用于语法上的兼容并无实际意义（cache与dur均仅用于兼容）。"
+  source_anchor: "3.12.2.10 CREATE_TEMPORARY 页2781"
+  source_refs: &reflt
+  - w8_154_3_12
+  status: confirmed
+- id: dbelob_wave8_154_freetemporary
+  type: syntax
+  statement: "FREETEMPORARY原型：DBE_LOB.FREETEMPORARY(blob INOUT BLOB)与DBE_LOB.FREETEMPORARY(clob INOUT CLOB)；用于释放由CREATE_TEMPORARY创建的LOB类型对象。"
+  source_anchor: "3.12.2.10 FREETEMPORARY 页2782"
+  source_refs: *reflt
+  status: confirmed
+- id: dbelob_wave8_154_append_pair
+  type: syntax
+  statement: "拼接函数对：APPEND(blob_obj INOUT BLOB, source_obj IN BLOB)与CLOB版、LOB_APPEND（同签名）均将source_obj拼接在目标LOB类型对象之后。"
+  source_anchor: "3.12.2.10 APPEND/LOB_APPEND 页2781-2782"
+  source_refs: *reflt
+  status: confirmed
+- id: dbelob_wave8_154_bfile_type
+  type: syntax
+  statement: "BFILE类型定义：DBE_LOB.BFILE(directory TEXT, filename TEXT, fd INTEGER)；该类型包含文件路径（directory）、文件名（filename）与文件描述符（fd）。"
+  source_anchor: "3.12.2.10 FILEOPEN 页2782-2783"
+  source_refs: *reflt
+  status: confirmed
+- id: dbelob_wave8_154_fileopen
+  type: constraint
+  statement: "FILEOPEN：DBE_LOB.FILEOPEN(bfile IN DBE_LOB.BFILE, open_mode IN TEXT) RETURN INTEGER打开数据库外部BFILE文件并返回文件描述符fd；一个会话最多支持打开10个BFILE文件；open_mode只支持read模式（r）、其他模式报错；bfile中的目录需在PG_DIRECTORY注册（不匹配报路径不存在）、safe_data_path开启时仅能操作白名单路径；文件名包含扩展不含路径名（含路径被忽略，Unix系统不能以/.结尾）。"
+  source_anchor: "3.12.2.10 FILEOPEN 页2782-2783"
+  source_refs: *reflt
+  status: confirmed
+- id: dbelob_wave8_154_fileclose_bfileopen
+  type: syntax
+  statement: "BFILE开关对：DBE_LOB.FILECLOSE(file IN INTEGER)关闭由FILEOPEN返回的fd对应的外部BFILE文件；DBE_LOB.BFILEOPEN(bfile INOUT DBE_LOB.BFILE, open_mode IN TEXT DEFAULT 'R')打开外部BFILE（一个会话最多10个）；DBE_LOB.BFILECLOSE(bfile INOUT DBE_LOB.BFILE)关闭由BFILEOPEN打开的BFILE。"
+  source_anchor: "3.12.2.10 FILECLOSE/BFILEOPEN/BFILECLOSE 页2783-2784"
+  source_refs: *reflt
+  status: confirmed
+- id: dbelob_wave8_154_bfileopen_example
+  type: behavior_oracle
+  statement: "BFILE读取示例基线：bfile = DBE_LOB.BFILENAME(dir_name, file_name)后BFILEOPEN(bfile,'r')，DBE_LOB.lob_substr(bfile, 1, 1)对内容为ABCD的文件输出NOTICE res:41，最后BFILECLOSE关闭。"
+  source_anchor: "3.12.2.10 BFILEOPEN示例 页2784"
+  source_refs: *reflt
+  status: confirmed
+- id: dbelob_wave8_154_loadfromfile
+  type: constraint
+  statement: "LOADFROMFILE：DBE_LOB.LOADFROMFILE(dest_lob IN BLOB, src_file IN INTEGER, amount IN INTEGER, dest_offset IN INTEGER, src_offset IN INTEGER) RETURN RAW将BFILE外部文件读取到BLOB指定偏移；amount小于1或大于32767报错；dest_offset/src_offset小于1或大于LOBMAXSIZE报错；amount+src_offset大于src_bfile长度+1则报错。"
+  source_anchor: "3.12.2.10 LOADFROMFILE 页2784-2785"
+  source_refs: *reflt
+  status: confirmed
+- id: dbelob_wave8_154_loadfrombfile
+  type: syntax
+  statement: "LOADFROMBFILE原型（双原型）：DBE_LOB.LOADFROMBFILE(dest_lob INOUT BLOB, src_file IN DBE_LOB.BFILE, amount IN BIGINT, dest_offset IN BIGINT DEFAULT 1, src_offset IN BIGINT DEFAULT 1) RETURN BLOB与CLOB版 RETURN CLOB；将BFILE读取到LOB类型对象（支持超过1GB最大32TB）；amount小于1或大于LOBMAXSIZE报错。"
+  source_anchor: "3.12.2.10 LOADFROMBFILE 页2785-2786"
+  source_refs: *reflt
+  status: confirmed
+- id: dbelob_wave8_154_loadblobfromfile_pair
+  type: constraint
+  statement: "BLOB装载对：LOADBLOBFROMFILE(dest_lob IN BLOB, src_file IN INTEGER, amount IN INTEGER, dest_offset IN INTEGER, src_offset IN INTEGER)为INTEGER版（接口表标注不支持大于1GB）；LOADBLOBFROMBFILE(dest_lob INOUT BLOB, src_file IN DBE_LOB.BFILE, amount IN BIGINT, dest_offset/src_offset INOUT BIGINT)为BIGINT版（大小支持超过1GB最大32TB，src_file必须先BFILEOPEN）；amount为BLOB长度阈值、长度小于1或大于LOBMAXSIZE报错。"
+  source_anchor: "3.12.2.10 LOADBLOBFROMFILE/LOADBLOBFROMBFILE 页2786-2787"
+  source_refs: *reflt
+  status: confirmed
+- id: dbelob_wave8_154_loadclobfromfile_pair
+  type: syntax
+  statement: "CLOB装载对：LOADCLOBFROMFILE(dest_lob IN CLOB, src_file IN INTEGER, amount IN INTEGER, dest_offset IN INTEGER, src_offset IN INTEGER) RETURN RAW（说明称以RAW类型返回该对象）；LOADCLOBFROMBFILE(dest_lob INOUT CLOB, src_file IN DBE_LOB.BFILE, amount IN BIGINT, dest_offset/src_offset INOUT BIGINT)为支持超过1GB的BIGINT版；amount为CLOB长度阈值。"
+  source_anchor: "3.12.2.10 LOADCLOBFROMFILE/LOADCLOBFROMBFILE 页2787-2788"
+  source_refs: *reflt
+  status: confirmed
+- id: dbelob_wave8_154_load_offset_rule
+  type: constraint
+  statement: "LOAD族共同偏移规则：dest_offset与src_offset小于1或大于LOBMAXSIZE则报错；amount + src_offset大于src_bfile的长度+1则报错。"
+  source_anchor: "3.12.2.10 LOAD族参数说明 页2785-2788"
+  source_refs: *reflt
+  status: confirmed
+- id: dbelob_wave8_154_converttoblob_pair
+  type: syntax
+  statement: "CLOB转BLOB函数对：CONVERTTOBLOB(dest_blob IN BLOB, src_clob IN CLOB, amount IN INTEGER DEFAULT 32767, dest_offset/src_offset IN INTEGER DEFAULT 1) RETURN RAW不支持大于1GB场景；LOB_CONVERTTOBLOB(dest_blob INOUT BLOB, src_clob IN CLOB, amount IN BIGINT, dest_offset/src_offset INOUT BIGINT)支持大于1GB；amount（CLOB长度阈值）小于1或大于LOBMAXSIZE报错，dest_offset=1从起始位置载入。"
+  source_anchor: "3.12.2.10 CONVERTTOBLOB/LOB_CONVERTTOBLOB 页2788-2789"
+  source_refs: *reflt
+  status: confirmed
+- id: dbelob_wave8_154_converttoclob_pair
+  type: syntax
+  statement: "BLOB转CLOB函数对：CONVERTTOCLOB(dest_clob IN CLOB, src_blob IN BLOB, amount IN INTEGER DEFAULT 32767, dest_offset/src_offset IN INTEGER DEFAULT 1) RETURN text不支持大于1GB场景；LOB_CONVERTTOCLOB(dest_clob INOUT CLOB, src_blob IN BLOB, amount IN BIGINT, dest_offset/src_offset INOUT BIGINT)支持大于1GB；amount为BLOB长度阈值，offset=1从起始位置开始。"
+  source_anchor: "3.12.2.10 CONVERTTOCLOB/LOB_CONVERTTOCLOB 页2789-2790"
+  source_refs: *reflt
+  status: confirmed
+- id: dbelob_wave8_154_getchunksize
+  type: syntax
+  statement: "GETCHUNKSIZE原型：DBE_LOB.GETCHUNKSIZE(lob_loc IN CLOB) RETURN INTEGER与DBE_LOB.GETCHUNKSIZE(lob_loc IN BLOB) RETURN INTEGER；数据库存储LOB类型对象时内部使用toast存储，本函数返回TOAST_MAX_CHUNK_SIZE。"
+  source_anchor: "3.12.2.10 GETCHUNKSIZE 页2790-2791"
+  source_refs: *reflt
+  status: confirmed
+- id: dbelob_wave8_154_lob_write
+  type: syntax
+  statement: "LOB_WRITE原型：DBE_LOB.LOB_WRITE(clob_obj INOUT CLOB, amount IN INTEGER, off_set IN BIGINT, source IN VARCHAR2) RETURN CLOB与BLOB版（source IN RAW）RETURN BLOB；将源对象从起始位置读取指定长度内容写入目标LOB指定偏移位置、覆盖该位置已有内容并返回目标LOB；amount BLOB以字节、CLOB以字符为单位。"
+  source_anchor: "3.12.2.10 LOB_WRITE 页2791-2792"
+  source_refs: *reflt
+  status: confirmed
+- id: dbelob_wave8_154_bfilename
+  type: constraint
+  statement: "BFILENAME：DBE_LOB.BFILENAME(directory IN TEXT, filename IN TEXT) RETURN DBE_LOB.BFILE根据目录和文件名构造BFILE文件；目录需在PG_DIRECTORY注册（不匹配报路径不存在）、safe_data_path开启时仅能操作白名单路径；文件名包含扩展不含路径名（含路径被忽略，Unix系统不能以/.结尾）。"
+  source_anchor: "3.12.2.10 BFILENAME 页2792"
+  source_refs: *reflt
+  status: confirmed
+- id: dbelob_wave8_154_example_getlength_read
+  type: behavior_oracle
+  statement: "基础示例基线：SELECT DBE_LOB.GET_LENGTH('12345678')返回8；READ('123456789012345', amount=2, buffer=1, myraw)后dbe_output输出0123。"
+  source_anchor: "3.12.2.10 示例 页2792"
+  source_refs: *reflt
+  status: confirmed
+- id: dbelob_wave8_154_example_lob_ops
+  type: behavior_oracle
+  statement: "多接口示例基线：blob_Table/blob_Table_bak以for update选出dest/copyto后，WRITE(dest, amount, 1, source)、WRITE_APPEND(dest, amount, source)、ERASE(dest, a, 1)输出a=1、COPY(copyto, dest, amount, 10, 1)、CLOSE(dest)，随后删除两张表。"
+  source_anchor: "3.12.2.10 示例 页2792-2793"
+  source_refs: *reflt
+  status: confirmed
+- id: dbelob_wave8_154_plain_vs_lob_load
+  type: constraint
+  statement: "装载/转换族版本差异：INTEGER版（LOADFROMFILE/LOADBLOBFROMFILE/LOADCLOBFROMFILE/CONVERTTOBLOB/CONVERTTOCLOB）参数与返回均为INTEGER/RAW/text，不支持大于1GB场景；BFILE版（LOADFROMBFILE/LOADBLOBFROMBFILE/LOADCLOBFROMBFILE/LOB_CONVERTTOBLOB/LOB_CONVERTTOCLOB）为BIGINT与INOUT偏移，支持超过1GB最大32TB。"
+  source_anchor: "3.12.2.10 装载/转换族对比 页2784-2790"
+  source_refs: *reflt
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_154_oq_runtime
+  content: "会话级10个BFILE上限的计数与回收时机、LOADCLOBFROMFILE以RAW返回与CLOB目标的实际语义一致性、CONVERTTO族在多字节CLOB上的字节/字符换算边界需授权环境实机验证。"
+  status: open
