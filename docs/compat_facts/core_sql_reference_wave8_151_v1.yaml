@@ -1,0 +1,142 @@
+document: 集中式版参考 / 3.12.2.6 DBE_HEAT_MAP与3.12.2.7 DBE_ILM（Wave 8-151）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 3.12.2.6 DBE_HEAT_MAP
+  - 3.12.2.7 DBE_ILM
+  physical_page_start: 2755
+  physical_page_end: 2761
+  physical_page_count: 6
+  excludes:
+  - 3.12.2.8 DBE_ILM_ADMIN及后续小节（后续波次按切片覆盖）
+facts:
+- id: heatmap_wave8_151_overview
+  type: constraint
+  statement: "DBE_HEAT_MAP功能与限制：根据输入的参数返回目标数据块中行的最后修改时间等信息，用于直观浏览每一行被判定为冷、热行的依据；该接口属于运维类接口、不做可见性判断，传入的ctid为已删除的行时依然返回当前行在页面上最新的状态；跨页透明压缩不支持此高级包，跨页透明压缩表查询结果中行的最后修改时间为空。"
+  source_anchor: "3.12.2.6 DBE_HEAT_MAP 页2755"
+  source_refs: &refhm
+  - w8_151_3_12
+  status: confirmed
+- id: heatmap_wave8_151_row_heat_map
+  type: syntax
+  statement: "ROW_HEAT_MAP原型：DBE_HEAT_MAP.ROW_HEAT_MAP(OWNER IN VARCHAR2, SEGMENT_NAME IN VARCHAR2, PARTITION_NAME IN VARCHAR2 DEFAULT NULL, CTID IN TEXT, V_DEBUG IN BOOL DEFAULT FALSE)；根据对象所属Schema、数据对象名称、数据对象分区名及ctid获取行的最后修改时间等信息；PARTITION_NAME为可选参数默认NULL，CTID为目标行的ctid（即block_id或row_id），V_DEBUG为debug调试增加日志打印。"
+  source_anchor: "3.12.2.6 ROW_HEAT_MAP 页2755-2756"
+  source_refs: *refhm
+  status: confirmed
+- id: heatmap_wave8_151_output_params
+  type: syntax
+  statement: "ROW_HEAT_MAP输出参数：OWNER（数据对象所有者）、SEGMENT_NAME（数据对象名称）、PARTITION_NAME（分区名称，可选）、TABLESPACE_NAME（数据所属表空间名称）、FILE_ID（行所属绝对文件id）、RELATIVE_FNO（行所属相对文件id，GaussDB中无此逻辑因此取值同FILE_ID）、CTID（行的ctid）、WRITETIME（行的最后修改时间）。"
+  source_anchor: "3.12.2.6 表3-187 页2756"
+  source_refs: *refhm
+  status: confirmed
+- id: heatmap_wave8_151_example
+  type: behavior_oracle
+  statement: "ROW_HEAT_MAP示例基线：ALTER DATABASE set ilm=on后建schema HEAT_MAP_DATA与表空间example1，heat_map_table插入1行，SELECT * FROM DBE_HEAT_MAP.ROW_HEAT_MAP(owner=>'heat_map_data', segment_name=>'heat_map_table', partition_name=>NULL, ctid=>'(0,1)')输出一行：owner=heat_map_data、tablespace_name=example1、file_id=17291、relative_fno=17291、ctid=(0,1)。"
+  source_anchor: "3.12.2.6 示例 页2756-2757"
+  source_refs: *refhm
+  status: confirmed
+- id: ilm_wave8_151_overview
+  type: syntax
+  statement: "DBE_ILM功能：服务于ILM策略实施，实现ILM策略的评估以及压缩Job的停用；接口包括EXECUTE_ILM（根据参数执行对指定数据和ILM策略进行评估，评估通过则生成对应的压缩Job）与STOP_ILM（根据参数停止正在执行的压缩Job/ILM策略）。"
+  source_anchor: "3.12.2.7 DBE_ILM 表3-188 页2757"
+  source_refs: &refil
+  - w8_151_3_12
+  status: confirmed
+- id: ilm_wave8_151_execute_proto
+  type: syntax
+  statement: "EXECUTE_ILM原型：DBE_ILM.EXECUTE_ILM(OWNER IN VARCHAR2, OBJECT_NAME IN VARCHAR2, TASK_ID OUT NUMBER, SUBOBJECT_NAME IN VARCHAR2 DEFAULT NULL, POLICY_NAME IN VARCHAR2 DEFAULT 'ALL POLICIES', EXECUTION_MODE IN NUMBER DEFAULT 2, TURBO_FORCE IN BOOLEAN DEFAULT FALSE, TURBO_BLKSTART IN INTEGER DEFAULT -1, TURBO_BLKEND IN INTEGER DEFAULT -1)；OWNER为对象所属Schema，OBJECT_NAME为对象名称，TASK_ID输出生成ADO task的描述符id，SUBOBJECT_NAME为数据子对象名称。"
+  source_anchor: "3.12.2.7 EXECUTE_ILM 页2757-2758"
+  source_refs: *refil
+  status: confirmed
+- id: ilm_wave8_151_policy_name
+  type: constraint
+  statement: "POLICY_NAME规则：策略名称通过查询GS_ADM_ILMOBJECTS视图可知；默认DBE_ILM.ILM_ALL_POLICIES代表该对象上所有策略，DBE_ILM.ILM_ALL_POLICIES默认值为'ALL POLICIES'，不支持小写。"
+  source_anchor: "3.12.2.7 EXECUTE_ILM参数说明 页2758"
+  source_refs: *refil
+  status: confirmed
+- id: ilm_wave8_151_execution_mode
+  type: constraint
+  statement: "EXECUTION_MODE为执行模式，暂不涉及在线模式（ILM_EXECUTION_ONLINE）或离线模式（ILM_EXECUTION_OFFLINE）。"
+  source_anchor: "3.12.2.7 EXECUTE_ILM参数说明 页2758"
+  source_refs: *refil
+  status: confirmed
+- id: ilm_wave8_151_turbo_params
+  type: syntax
+  statement: "跨页透明压缩参数：TURBO_FORCE为是否开启忽略冷热管理的强制压缩（仅对跨页透明压缩生效，TRUE开启、FALSE关闭，默认FALSE）；TURBO_BLKSTART为强制压缩开始的block number；TURBO_BLKEND为强制压缩结束的block number（均仅对跨页透明压缩生效，默认-1）。"
+  source_anchor: "3.12.2.7 EXECUTE_ILM参数说明 页2758-2759"
+  source_refs: *refil
+  status: confirmed
+- id: ilm_wave8_151_jobname
+  type: constraint
+  statement: "JOBNAME命名规则：DBE_ILM.EXECUTE_ILM依据当前数据库名及表名生成类似数据库名_表名_分区名_数字格式的JOBNAME命名规则，然后通过DBE_SCHEDULER.Create_job创建对应名称的任务；当表名包含特殊字符时调用该接口将报错Invalid program name。"
+  source_anchor: "3.12.2.7 EXECUTE_ILM说明 页2759"
+  source_refs: *refil
+  status: confirmed
+- id: ilm_wave8_151_concurrency
+  type: constraint
+  statement: "EXECUTE_ILM与STOP_ILM并发限制：两者并发时有较低概率导致任务FAILED，gs_adm_ilmresults视图comments字段显示tuple concurrently updated。"
+  source_anchor: "3.12.2.7 EXECUTE_ILM说明 页2759"
+  source_refs: *refil
+  status: confirmed
+- id: ilm_wave8_151_ddl_warn
+  type: constraint
+  statement: "压缩期间DDL警告：业务进行压缩操作时（无论自动调度还是手动调度）应尽可能避免对压缩中的相关表进行DDL操作，特别是在一段长事务中执行DDL可能引发死锁或锁等待问题；确有必要时建议使用DBE_ILM.STOP_ILM接口将相关表的压缩任务停止、确认停止后再进行DDL操作。"
+  source_anchor: "3.12.2.7 EXECUTE_ILM说明 页2759"
+  source_refs: *refil
+  status: confirmed
+- id: ilm_wave8_151_privilege
+  type: constraint
+  statement: "EXECUTE_ILM权限要求：执行需要拥有PUBLIC权限及CREATE JOB权限（可通过dbe_scheduler.grant_user_authorization进行赋权），非SYSADMIN用户执行需要表的owner权限。"
+  source_anchor: "3.12.2.7 EXECUTE_ILM说明 页2759"
+  source_refs: *refil
+  status: confirmed
+- id: ilm_wave8_151_subpartition
+  type: constraint
+  statement: "二级分区压缩规则：若要压缩二级分区，SUBOBJECT_NAME字段不可传入其一级分区名称，需传入具体的二级分区名称（或者传入NULL，即压缩所有子二级分区）。"
+  source_anchor: "3.12.2.7 EXECUTE_ILM说明 页2759"
+  source_refs: *refil
+  status: confirmed
+- id: ilm_wave8_151_transaction
+  type: constraint
+  statement: "EXECUTE_ILM事务语义：事务内调用此接口需要等待事务结束或COMMIT后压缩动作才能生效；多个不同事务内调用EXECUTE_ILM接口时，先执行的事务若一直不提交，后执行的事务可能存在锁超时风险。"
+  source_anchor: "3.12.2.7 EXECUTE_ILM说明 页2759"
+  source_refs: *refil
+  status: confirmed
+- id: ilm_wave8_151_turboforce_view
+  type: constraint
+  statement: "TURBO_FORCE对gs_adm_ilmresults视图statistics字段的影响：指定为FALSE时（statistics统计内容对跨页透明压缩无意义）跨页透明压缩对象在该字段显示为默认值；指定为TRUE时当前压缩任务独立于ILM原有任务划分机制运行、不对该对象进行statistics统计，该字段显示为空。"
+  source_anchor: "3.12.2.7 EXECUTE_ILM说明 页2759"
+  source_refs: *refil
+  status: confirmed
+- id: ilm_wave8_151_stop_proto
+  type: syntax
+  statement: "STOP_ILM原型：DBE_ILM.STOP_ILM(TASK_ID IN NUMBER DEFAULT -1, P_DROP_RUNNING_JOBS IN BOOLEAN DEFAULT FALSE, P_JOBNAME IN VARCHAR2 DEFAULT NULL)；TASK_ID指定待停止ADO task的描述符id；P_DROP_RUNNING_JOBS为是否停止正在执行中的任务（true强制停止、false不停止）；P_JOBNAME标识待停止的特定JobName（通过GS_MY_ILMEVALUATIONDETAILS视图可以查询）。"
+  source_anchor: "3.12.2.7 STOP_ILM 页2758-2759"
+  source_refs: *refil
+  status: confirmed
+- id: ilm_wave8_151_stop_busy
+  type: constraint
+  statement: "STOP_ILM资源繁忙提示：当并发量较大时执行DBE_ILM.STOP_ILM可能会提示资源繁忙（Resources are busy, please try again later），稍后重试即可。"
+  source_anchor: "3.12.2.7 STOP_ILM说明 页2759"
+  source_refs: *refil
+  status: confirmed
+- id: ilm_wave8_151_example
+  type: behavior_oracle
+  statement: "ILM示例基线：set ilm=on后DBE_ILM_ADMIN.DISABLE_ILM/CUSTOMIZE_ILM(1,15)(2,30)(11,1)(12,10)(13,1024)(14,240)/ENABLE_ILM初始化；建ADVANCED策略表ORDER_TABLE（WITH (STORAGE_TYPE=ASTORE)）插入5行；EXECUTE_ILM(OWNER=>'ilm_data', OBJECT_NAME=>'order_table', POLICY_NAME=>'ALL POLICIES', EXECUTION_MODE=>2)输出Task ID is:1；压缩后GET_COMPRESSION_TYPE仍为1；CALL DBE_ILM.STOP_ILM(-1, true, NULL)执行成功。"
+  source_anchor: "3.12.2.7 示例 页2759-2760"
+  source_refs: *refil
+  status: confirmed
+- id: heatmap_wave8_151_ilm_combo
+  type: constraint
+  statement: "HEAT_MAP/COMPRESSION/ILM联动：示例中以ROW_HEAT_MAP查看每行ctid与writetime（writetime为空显示）、以GET_COMPRESSION_TYPE确认压缩状态、以EXECUTE_ILM生成压缩Job；跨页透明压缩表的ROW_HEAT_MAP查询结果中行的最后修改时间为空。"
+  source_anchor: "3.12.2.6/3.12.2.7 页2755与页2759-2760"
+  source_refs: *refhm
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_151_oq_runtime
+  content: "EXECUTE_ILM生成Job的调度时延与TURBO_BLKSTART/BLKEND范围校验、STOP_ILM强制停止后压缩数据的一致性、并发EXECUTE_ILM锁超时的触发概率需授权环境实机验证。"
+  status: open
