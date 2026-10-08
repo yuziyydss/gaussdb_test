@@ -1,0 +1,139 @@
+document: 集中式版参考 / 1.13.7.38 ALTER TABLE SUBPARTITION（Wave 8-30）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-07'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.7.38 ALTER TABLE SUBPARTITION
+  physical_page_start: 1318
+  physical_page_end: 1328
+  physical_page_count: 11
+  excludes: []
+facts:
+- id: subaltp_wave8_30_purpose_actions
+  type: syntax
+  statement: "ALTER TABLE SUBPARTITION修改二级分区表分区，支持增加、删除、清空、切割、合并、移动表空间、交换、重命名分区，设置行迁移、分区索引可用性、ILM策略、自动扩展和二级分区模板等维护子句。"
+  source_anchor: "1.13.7.38 页1318与1319-1323"
+  source_refs: &refb1
+  - w8_30_1_13_7_38
+  status: confirmed
+- id: subaltp_wave8_30_permissions
+  type: constraint
+  statement: "只有分区表所有者或被授予分区表ALTER权限的用户可执行ALTER TABLE PARTITION命令，系统管理员默认拥有该权限。"
+  source_anchor: "1.13.7.38 注意事项 页1318"
+  source_refs: *refb1
+  status: confirmed
+- id: subaltp_wave8_30_add_rules
+  type: constraint
+  statement: "添加分区表空间不能是PG_GLOBAL；分区名不能与已有一级或二级分区重复；键值类型必须一致。RANGE新分区上边界须大于最后一个范围分区上边界，LIST键值不能重复；HASH一级分区不支持ADD新增，除非二级分区为HASH且一级分区非HASH的例外场景。"
+  source_anchor: "1.13.7.38 注意事项 页1318"
+  source_refs: *refb1
+  status: confirmed
+- id: subaltp_wave8_30_delete_rules
+  type: constraint
+  statement: "目标分区表已达到最大分区数1048575后不能继续添加；只有一个一级分区或二级分区时不能删除该分区；HASH一级分区和HASH二级分区不支持删除，且不支持删除唯一子分区。"
+  source_anchor: "1.13.7.38 注意事项 页1318与1321"
+  source_refs: *refb1
+  status: confirmed
+- id: subaltp_wave8_30_partition_for_and_maintenance
+  type: constraint
+  statement: "PARTITION FOR()或SUBPARTITION FOR()中值的个数必须与分区键列数一一对应；切割只能作用于叶子级二级分区且仅支持RANGE/LIST，不支持HASH；合并只能作用于叶子级二级分区，且源分区必须属于同一一级分区。"
+  source_anchor: "1.13.7.38 注意事项 页1318"
+  source_refs: *refb1
+  status: confirmed
+- id: subaltp_wave8_30_global_index
+  type: constraint
+  statement: "删除、切割、清空、交换二级分区会使GLOBAL索引失效，可声明UPDATE GLOBAL INDEX同步更新；未声明时并发DML可能因索引不可用报错；enable_gpi_auto_update=on时即使不声明也会自动更新GLOBAL索引。"
+  source_anchor: "1.13.7.38 注意事项 页1319"
+  source_refs: *refb1
+  status: confirmed
+- id: subaltp_wave8_30_action_ordering
+  type: syntax
+  statement: "一条ALTER TABLE SUBPARTITION可包含多个分区维护子句；为保证分区连续性，无论子句顺序如何，系统总是先执行DROP PARTITION再执行ADD PARTITION，最后顺序执行其它分区维护操作。"
+  source_anchor: "1.13.7.38 语法格式 页1319"
+  source_refs: *refb1
+  status: confirmed
+- id: subaltp_wave8_30_move_clause
+  type: syntax
+  statement: "MOVE SUBPARTITION {subpartition_name | FOR (subpartition_value[, ...])} TABLESPACE tablespacename将指定二级分区移动到新表空间。"
+  source_anchor: "1.13.7.38 move_clause 页1319"
+  source_refs: *refb1
+  status: confirmed
+- id: subaltp_wave8_30_exchange_conditions
+  type: syntax
+  statement: "EXCHANGE SUBPARTITION可将普通表数据迁移到指定二级分区；普通表和分区必须列数相同且列名、类型、约束、Collation、存储参数、压缩信息、Local索引和表约束严格一致；普通表不能是临时表，目标必须是二级分区表，且双方不能有动态脱敏或行访问控制。"
+  source_anchor: "1.13.7.38 exchange_clause 页1319-1320"
+  source_refs: *refb1
+  status: confirmed
+- id: subaltp_wave8_30_exchange_caveats
+  type: constraint
+  statement: "交换后普通表和分区的数据及表空间信息被置换，统计信息不可靠，需重新ANALYZE；普通表唯一索引可能导致无法交换；已DROP COLUMN的物理列也须严格对齐；包含rowid列且处于压缩状态时交换后数据会自动解压。"
+  source_anchor: "1.13.7.38 exchange须知 页1320"
+  source_refs: *refb1
+  status: confirmed
+- id: subaltp_wave8_30_row_movement
+  type: syntax
+  statement: "{ENABLE|DISABLE} ROW MOVEMENT设置二级分区表行迁移开关；UPDATE分区键导致分区变化时，ENABLE执行跨分区转移，DISABLE报错，缺省为ENABLE。"
+  source_anchor: "1.13.7.38 row_clause/参数说明 页1319与1324"
+  source_refs: *refb1
+  status: confirmed
+- id: subaltp_wave8_30_merge_clause
+  type: syntax
+  statement: "MERGE SUBPARTITIONS将多个二级分区合并为一个，单条命令源分区上限300；RANGE要求范围连续递增，LIST无顺序要求，可指定ILM策略、表空间和UPDATE GLOBAL INDEX。未开启enable_ilm时新分区不继承ILM策略。"
+  source_anchor: "1.13.7.38 merge_clause 页1320"
+  source_refs: *refb1
+  status: confirmed
+- id: subaltp_wave8_30_modify_clause
+  type: syntax
+  statement: "MODIFY SUBPARTITION可设置二级分区上所有LOCAL索引不可用、重建不可用LOCAL索引，或通过COLVIEW/NOCOLVIEW设置IMCV分区属性。"
+  source_anchor: "1.13.7.38 modify_clause 页1320-1321"
+  source_refs: *refb1
+  status: confirmed
+- id: subaltp_wave8_30_add_clause
+  type: syntax
+  statement: "ADD可在一级分区层添加partition_less_than_item或partition_list_item并可携带二级分区定义；MODIFY PARTITION partition_name ADD subpartition_definition可在指定一级分区中添加二级分区。二级分区为HASH时不支持以MODIFY方式新增二级分区。"
+  source_anchor: "1.13.7.38 add_clause 页1321"
+  source_refs: *refb1
+  status: confirmed
+- id: subaltp_wave8_30_drop_clause
+  type: syntax
+  statement: "DROP PARTITION可按分区名或FOR一级分区键值删除一级分区；DROP SUBPARTITION可按二级分区名或FOR(一级键值,二级键值)删除二级分区，均可声明UPDATE GLOBAL INDEX。"
+  source_anchor: "1.13.7.38 drop_clause 页1321"
+  source_refs: *refb1
+  status: confirmed
+- id: subaltp_wave8_30_split_clause
+  type: syntax
+  statement: "SPLIT SUBPARTITION把一个二级分区分割为多个分区，可按二级分区名或FOR分区键值定位源分区，可声明UPDATE GLOBAL INDEX；切割后的分区名可与源分区名相同但视为不同分区。"
+  source_anchor: "1.13.7.38 split_clause 页1321-1322"
+  source_refs: *refb1
+  status: confirmed
+- id: subaltp_wave8_30_split_range
+  type: syntax
+  statement: "RANGE二级分区可用AT(split_point) INTO两个新分区，切割点必须位于源分区分区键范围内；也可用INTO多个VALUES LESS THAN分区项。第一个新分区须大于前一分区范围，最后一个分区默认继承源分区上界，且新分区范围必须递增。"
+  source_anchor: "1.13.7.38 RANGE split 页1322"
+  source_refs: *refb1
+  status: confirmed
+- id: subaltp_wave8_30_split_list
+  type: syntax
+  statement: "LIST二级分区可用VALUES(subpartition_value_list) INTO两个新分区，切割点必须是源分区的非空真子集；不指定切割点时最后一个分区不能写范围定义，其范围为源分区扣除其他子分区后的剩余集合。"
+  source_anchor: "1.13.7.38 LIST split 页1322-1323"
+  source_refs: *refb1
+  status: confirmed
+- id: subaltp_wave8_30_truncate_ilm_set
+  type: syntax
+  statement: "TRUNCATE PARTITION/SUBPARTITION可清空一级或二级分区；MODIFY PARTITION/SUBPARTITION ILM ADD POLICY可为对应层级添加ADVANCED压缩策略；SET PARTITIONING/SUBPARTITIONING AUTOMATIC/MANUAL控制自动扩展，SET INTERVAL实现范围与间隔分区互转。"
+  source_anchor: "1.13.7.38 truncate/ilm/set_partitioning 页1323"
+  source_refs: *refb1
+  status: confirmed
+- id: subaltp_wave8_30_template_rename_reset
+  type: syntax
+  statement: "SET SUBPARTITION TEMPLATE可新增、修改或删除二级分区模板，模板可定义VALUES LESS THAN、VALUES和表空间；RENAME PARTITION/SUBPARTITION可按名称或FOR键值重命名一级/二级分区；RESET PARTITION重置分区ID。"
+  source_anchor: "1.13.7.38 template/rename/reset 页1323-1324"
+  source_refs: *refb1
+  status: confirmed
+open_questions:
+- id: subaltp_wave8_30_oq_runtime
+  statement: "ALTER TABLE SUBPARTITION在真实分区规模、并发DML、GLOBAL索引、交换校验、模板和自动扩展组合下的结果、锁等待、残留对象与性能矩阵需授权环境实机验证。"
+  status: open
