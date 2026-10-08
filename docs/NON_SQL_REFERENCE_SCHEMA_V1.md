@@ -8,9 +8,9 @@
 
 | 指标 | 当前值 |
 |---|---:|
-| YAML 文件 | 287 |
-| facts | 5835 |
-| confirmed | 5832 |
+| YAML 文件 | 288 |
+| facts | 5855 |
+| confirmed | 5852 |
 | needs_verification | 3 |
 | 裸 ID 重名 | 8 |
 | 全局身份格式 | `file::fact_id` |
