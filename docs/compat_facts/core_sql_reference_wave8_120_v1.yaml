@@ -1,0 +1,143 @@
+document: 集中式版参考 / 2.4.2.18-19 M兼容UPDATE/USE/VACUUM（2.4.2语句章收官）（Wave 8-120）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 2.4.2.18.1 UPDATE
+  - 2.4.2.18.2 USE
+  - 2.4.2.19.1 VACUUM
+  physical_page_start: 2300
+  physical_page_end: 2311
+  physical_page_count: 11
+  excludes: []
+facts:
+- id: m_update_wave8_120_overview
+  type: syntax
+  statement: "M兼容UPDATE更新表中的数据（对满足条件的所有行中指定字段值进行修改；WHERE子句声明条件，SET子句中指定的字段将被修改，未出现的字段保持原值）；单表语法：[ WITH [ RECURSIVE ] with_query [, ...] ] UPDATE [/*+ plan_hint */] [IGNORE] [ ONLY ] {table_name [ partition_clause ] | subquery | view_name} [ * ] [ [ AS ] alias ] [index_hint_list] SET {column_name = { expression | DEFAULT }}[, ...] [ WHERE condition ] [ORDER BY {col_name | expression | position} [ASC | DESC][ NULLS { FIRST | LAST } ], ...] [ LIMIT { count } ]；index_hint具体形式为USE {INDEX | KEY} ([index_list])或{IGNORE | FORCE} {INDEX | KEY} (index_list)。"
+  source_anchor: "2.4.2.18.1 功能描述/语法格式 页2300"
+  source_refs: &refmupd
+  - w8_120_2_4_2_18_1
+  status: confirmed
+- id: m_update_wave8_120_multi
+  type: syntax
+  statement: "M兼容UPDATE多表更新语法：[ WITH [ RECURSIVE ] with_query [, ...] ] UPDATE [/*+ plan_hint */] [IGNORE] table_list SET {column_name = { expression | DEFAULT }}[, ...] [ WHERE condition ]。"
+  source_anchor: "2.4.2.18.1 语法格式 页2300"
+  source_refs: *refmupd
+  status: confirmed
+- id: m_update_wave8_120_permission
+  type: constraint
+  statement: "M兼容UPDATE权限与限制：表的所有者、拥有表UPDATE权限的用户、拥有UPDATE ANY TABLE权限的用户皆有权限更新（三权分立开关关闭时系统管理员默认拥有）；对expression或condition条件里涉及到的任何表需要有SELECT权限；生成列不能被直接写入（UPDATE命令中不能为生成列指定值但可指定关键字DEFAULT）；对于多表更新语法暂时不支持对视图进行多表更新；对于子查询是STREAM计划的UPDATE语句不支持并发更新同一行。"
+  source_anchor: "2.4.2.18.1 注意事项 页2300"
+  source_refs: *refmupd
+  status: confirmed
+- id: m_update_wave8_120_dedup_sys
+  type: constraint
+  statement: "M兼容UPDATE其他限制：不支持用户通过UPDATE系统表的方式对数据库字符编码进行修改（该操作会导致存在存量数据或其他部分操作异常，如需更改数据库字符集编码应当遵循切库流程进行数据迁移）；默认情况下执行UPDATE语句时数量统计不会去重，若要去重则m_format_behavior_compat_options内需包含enable_update_tuple_count参数。"
+  source_anchor: "2.4.2.18.1 注意事项 页2300"
+  source_refs: *refmupd
+  status: confirmed
+- id: m_update_wave8_120_cte_hint
+  type: constraint
+  statement: "M兼容UPDATE的CTE与hint：WITH [RECURSIVE] with_query声明CTE结构（执行计划中将存在CTE SCAN；RECURSIVE只能出现在WITH后面且多个CTE只在第一个处声明；使用RECURSIVE时UNION/EXCEPT两侧子查询结果数据类型必须cast转换成相同类型且精度和字符序一致）；plan_hint以/*+ */形式在UPDATE关键字后进行hint调优（每条语句只有第一个注释块生效）。"
+  source_anchor: "2.4.2.18.1 参数说明 页2300-2301"
+  source_refs: *refmupd
+  status: confirmed
+- id: m_update_wave8_120_ignore
+  type: constraint
+  statement: "M兼容UPDATE的IGNORE关键字将部分ERROR级别错误降级为WARNING级别并根据错误场景将无效值调整为最接近的值；支持错误降级的场景：破坏NOT NULL约束、唯一键冲突、插入的值没有找到对应的分区、指定分区插入时数据与指定分区不匹配、子查询返回多行、sql_mode为宽松模式的场景；升级观察期不支持IGNORE。"
+  source_anchor: "2.4.2.18.1 参数说明 IGNORE 页2301"
+  source_refs: *refmupd
+  status: confirmed
+- id: m_update_wave8_120_partition
+  type: syntax
+  statement: "M兼容UPDATE分区更新：partition_clause为PARTITION { ( { partition_name | subpartition_name } [, ...] ) | FOR ( partition_value [, ...] ) } | SUBPARTITION { ( subpartition_name ) | FOR ( subpartition_value [, ...] ) }指定分区更新操作；PARTITION指定多个分区名时一级分区名和二级分区名可同时存在且可以存在相同的分区名，最终分区范围取其并集。"
+  source_anchor: "2.4.2.18.1 参数说明 partition_clause 页2301-2302"
+  source_refs: *refmupd
+  status: confirmed
+- id: m_update_wave8_120_subquery
+  type: syntax
+  statement: "M兼容UPDATE子查询：subquery要更新的子查询（对子查询更新时将其当成一个临时视图）；子查询SELECT支持into_option：INTO { [[[LOCAL | GLOBAL] TEMPORARY] [TABLE] table_name] | OUTFILE file_name [CHARACTER SET encoding_name] [FIELDS fields_items] [LINES lines_items] | DUMPFILE file_name }；from_item支持[ ONLY ] table_name/view_name [*] [partition_clause] [ [ AS ] alias [ ( column_alias [, ...] ) ] ] [index_hint_list]、( select ) [AS] alias、with_query_name、joined_table；joined_table支持[INNER | CROSS] JOIN、{LEFT|RIGHT} [OUTER] JOIN、NATURAL [{LEFT|RIGHT} [OUTER]] JOIN。"
+  source_anchor: "2.4.2.18.1 参数说明 subquery 页2302"
+  source_refs: *refmupd
+  status: confirmed
+- id: m_update_wave8_120_only_order
+  type: constraint
+  statement: "M兼容UPDATE的ONLY与排序：table_name前指定ONLY则只会更新表中匹配的行，未指定则任何从该表继承得到的表中匹配行也会被更新（目前ONLY和*选项保留语法功能不支持）；ORDER BY {col_name | expression | position} [ASC | DESC] [NULLS { FIRST | LAST }]与LIMIT { count }的具体信息参见SELECT。"
+  source_anchor: "2.4.2.18.1 参数说明 页2301"
+  source_refs: *refmupd
+  status: confirmed
+- id: m_update_wave8_120_examples
+  type: behavior_oracle
+  statement: "示例基线（m_db）：更新子查询UPDATE (SELECT * FROM t1) SET y1 = 13 where y1 = 3、UPDATE (SELECT * FROM t1 WHERE y1 < 2) SET y1 = 12 WHERE y1 = 2、UPDATE (SELECT * FROM t1, t2 WHERE x1 = x2) SET y1 = 11 WHERE y2 = 1；更新视图CREATE VIEW v_upd1 AS SELECT * FROM t1与CREATE VIEW vv_upd AS SELECT * FROM t1, t2 WHERE x1 = x2；修改数据并返回修改后的数据。"
+  source_anchor: "2.4.2.18.1 示例 页2306"
+  source_refs: *refmupd
+  status: confirmed
+- id: m_use_wave8_120_syntax
+  type: syntax
+  statement: "M兼容USE用于指定当前的模式，使数据库使用指定的模式作为默认（当前）模式；语法为USE schema_name（schema_name取值范围为已存在的模式名称）。"
+  source_anchor: "2.4.2.18.2 功能描述/语法格式 页2306"
+  source_refs: &refmuse
+  - w8_120_2_4_2_18_2
+  status: confirmed
+- id: m_use_wave8_120_permission
+  type: constraint
+  statement: "使用USE指定模式时需要拥有模式的USAGE权限；当前用户可通过执行SHOW databases;命令查看其拥有USAGE权限的模式；当用户没有对应模式的USAGE权限且进行指定模式操作时，会将当前模式置为空且不会产生错误信息提示；用户可通过调用database函数查看模式指定是否实际生效（未生效时SELECT database()报ERROR: function returned NULL）。"
+  source_anchor: "2.4.2.18.2 注意事项 页2306"
+  source_refs: *refmuse
+  status: confirmed
+- id: m_use_wave8_120_example
+  type: behavior_oracle
+  statement: "示例（m_db）：SELECT database()返回public；SHOW DATABASES列出information_schema、blockchain、db4ai、dbe_perf、m_schema、pg_catalog、public、sys等16个模式；USE m_schema返回SET，SELECT database()返回m_schema。"
+  source_anchor: "2.4.2.18.2 示例 页2306-2307"
+  source_refs: *refmuse
+  status: confirmed
+- id: m_vacuum_wave8_120_overview
+  type: syntax
+  statement: "M兼容VACUUM语法：VACUUM [ ( { FULL | FREEZE | VERBOSE | {ANALYZE }} [,...] ) ]、VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] [ table_name ... ]、VACUUM [ FULL ] [ FREEZE ] [ VERBOSE ] { ANALYZE } [ VERBOSE ] [ table_name [( column_name [, ...] ) ]]；在增删了大量记录之后对受影响的表执行VACUUM ANALYZE命令是很好的做法；简单的VACUUM（不带FULL）只回收空间并令其可再次使用；VACUUM FULL执行更广泛的处理包括跨块移动行把表压缩到最少磁盘占用。"
+  source_anchor: "2.4.2.19.1 功能描述/语法格式 页2307-2308"
+  source_refs: &refmvac
+  - w8_120_2_4_2_19_1
+  status: confirmed
+- id: m_vacuum_wave8_120_full
+  type: constraint
+  statement: "M兼容VACUUM FULL：通过重建表的方式将表内空闲空间归还给表空间（重建过程需要额外申请表中有效数据相当的存储空间）；对于非段页式表执行结束后原表所占物理空间会被操作系统回收；对于段页式表原表所占物理空间会被复用；FULL通常比单纯VACUUM收缩更多表尺寸但FULL选项并不清理索引；不建议日常使用FULL选项（特殊情况使用）；同时执行多个VACUUM FULL可能出现死锁；VACUUM FULL期间会对表加排他锁，不建议在业务高峰期运行。"
+  source_anchor: "2.4.2.19.1 注意事项 页2307-2308"
+  source_refs: *refmvac
+  status: confirmed
+- id: m_vacuum_wave8_120_notes
+  type: constraint
+  statement: "M兼容VACUUM注意事项：VACUUM不能在事务块内执行；建议生产数据库经常清理（至少每晚一次）以保证不断删除失效的行；VACUUM和VACUUM FULL会根据参数vacuum_defer_cleanup_age延迟清理；VACUUM ANALYZE先执行VACUUM再对每个选定表执行ANALYZE（当column_name错误时会存在VACUUM执行成功但ANALYZE执行失败的情况；分区表会出现某分区VACUUM成功后ANALYZE失败）；执行DELETE后立即执行VACUUM FULL不会回收空间（DELETE后再执行VACUUM FULL空间才会回收）；如果没有打开xc_maintenance_mode参数，VACUUM FULL操作将跳过所有系统表。"
+  source_anchor: "2.4.2.19.1 注意事项/参数说明 页2307-2309"
+  source_refs: *refmvac
+  status: confirmed
+- id: m_vacuum_wave8_120_full_stats
+  type: constraint
+  statement: "M兼容VACUUM FULL参数细节：使用FULL参数会导致统计信息丢失（如需收集统计信息请在VACUUM FULL语句中指定ANALYZE）；VACUUM FULL需要额外申请表中有效数据相当的存储空间；VACUUM和VACUUM FULL期间会根据vacuum_defer_cleanup_age延迟清理。"
+  source_anchor: "2.4.2.19.1 参数说明 FULL 页2308"
+  source_refs: *refmvac
+  status: confirmed
+- id: m_vacuum_wave8_120_example
+  type: behavior_oracle
+  statement: "示例（m_db）：VACUUM (VERBOSE, ANALYZE) tpcds.reason;执行带VERBOSE和ANALYZE选项的清理并收集统计信息。"
+  source_anchor: "2.4.2.19.1 示例 页2310"
+  source_refs: *refmvac
+  status: confirmed
+- id: m_vacuum_wave8_120_update_interplay
+  type: constraint
+  statement: "M兼容VACUUM与UPDATE/DELETE关系：执行DELETE后立即执行VACUUM FULL命令不会回收空间（需先执行DELETE再执行普通VACUUM后执行VACUUM FULL空间才会回收）；这一行为与UPDATE跨分区标记删除的机制相关（参见UPDATE章节）。"
+  source_anchor: "2.4.2.19.1 注意事项 页2308"
+  source_refs: *refmvac
+  status: confirmed
+- id: m_vacuum_wave8_120_scope
+  type: constraint
+  statement: "M兼容VACUUM范围说明：VACUUM和VACUUM FULL时根据vacuum_defer_cleanup_age延迟清理；没有打开xc_maintenance_mode参数时VACUUM FULL操作跳过所有系统表；VACUUM ANALYZE的组合机制是依次执行VACUUM和ANALYZE（分区表按分区拆分执行）。"
+  source_anchor: "2.4.2.19.1 注意事项 页2307-2309"
+  source_refs: *refmvac
+  status: confirmed
+open_questions:
+- id: m_update_use_vacuum_wave8_120_oq_runtime
+  statement: "M兼容UPDATE IGNORE六场景降级的具体值映射、enable_update_tuple_count去重对统计口径的影响、VACUUM FULL与段页式表空间复用的实际回收率需授权环境实机验证。"
+  status: open
