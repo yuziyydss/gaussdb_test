@@ -1,0 +1,143 @@
+document: 集中式版参考 / 1.13.9.35-38 CREATE PACKAGE/PLUGGABLE DATABASE/RESOURCE LABEL（Wave 8-90）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.9.35 CREATE PACKAGE
+  - 1.13.9.36 CREATE PLUGGABLE DATABASE
+  - 1.13.9.38 CREATE RESOURCE LABEL
+  physical_page_start: 1489
+  physical_page_end: 1504
+  physical_page_count: 10
+  excludes: []
+facts:
+- id: create_package_wave8_90_spec_syntax
+  type: syntax
+  statement: "CREATE PACKAGE创建一个新的PACKAGE；包头（PACKAGE SPECIFICATION）语法为CREATE [ OR REPLACE ] PACKAGE [ schema ] package_name [ invoker_rights_clause ] { IS | AS } item_list_1 END [ package_name ]；PACKAGE SPECIFICATION声明包内公有变量、函数以及异常等，可被外部函数或存储过程调用，且只能声明存储过程以及函数，不能定义存储过程或者函数。"
+  source_anchor: "1.13.9.35 功能描述/语法格式/说明 页1489,1491"
+  source_refs: &refpkg
+  - w8_90_1_13_9_35
+  status: confirmed
+- id: create_package_wave8_90_body_syntax
+  type: syntax
+  statement: "包体（PACKAGE BODY）语法为CREATE [ OR REPLACE ] PACKAGE BODY [ schema ] package_name { IS | AS } declare_section [ initialize_section ] END [ package_name ]；PACKAGE BODY定义包的私有变量以及函数等，未在PACKAGE SPECIFICATION中声明过的变量或函数为私有；也可声明实例化部分用于初始化PACKAGE；END后的package_name可省略（gs_dump生成的SQL文件会自动补充），未指定时语法结尾必须添加结束符（/）。"
+  source_anchor: "1.13.9.35 语法格式/说明 页1491"
+  source_refs: *refpkg
+  status: confirmed
+- id: create_package_wave8_90_authid
+  type: constraint
+  statement: "invoker_rights_clause可用AUTHID DEFINER（创建者权限）或AUTHID CURRENT_USER（调用者权限）声明包头调用者权限；包头内的变量、函数或存储过程按声明时指定的权限执行，包头内的游标则以调用者权限（AUTHID CURRENT_USER）执行；PACKAGE默认为SECURITY INVOKER权限，改为SECURITY DEFINER需设置GUC参数behavior_compat_options='plsql_security_definer'。"
+  source_anchor: "1.13.9.35 语法格式/注意事项 页1490-1491"
+  source_refs: *refpkg
+  status: confirmed
+- id: create_package_wave8_90_spec_body_binding
+  type: constraint
+  statement: "包头中声明过的函数或者存储过程必须在包体明确定义；创建存储过程时仅对CREATE的存储过程或PACKAGE本身加写锁，执行过程中的编译以及执行会对函数和函数依赖的PACKAGE加读锁；实例化中无法调用含有COMMIT或ROLLBACK的存储过程。"
+  source_anchor: "1.13.9.35 注意事项 页1489"
+  source_refs: *refpkg
+  status: confirmed
+- id: create_package_wave8_90_usage_limits
+  type: constraint
+  statement: "PACKAGE使用限制：不能在触发器中调用PACKAGE函数；不能在外部SQL中直接使用PACKAGE中的变量；不允许在PACKAGE外部调用私有变量和存储过程；不支持Schema与PACKAGE同名；只支持兼容Oracle数据库的存储过程和函数定义；不支持PACKAGE内有同名变量（包括包内同名参数）；全局变量为session级，不同session之间不共享。"
+  source_anchor: "1.13.9.35 注意事项 页1489-1490"
+  source_refs: *refpkg
+  status: confirmed
+- id: create_package_wave8_90_cursor_limits
+  type: constraint
+  statement: "PACKAGE中不支持声明REF CURSOR变量；调用自治事务的函数不允许使用PACKAGE中的游标变量，也不允许递归使用PACKAGE中游标变量的函数；带参数游标可跨PACKAGE进行类型引用（%RowType）和打开使用，但暂不支持通过database.schema.package.cursor的方式调用；游标定义为函数参数时需设置behavior_compat_options='allow_procedure_compile_check'以支持解析游标具体类型，未设置时cursor%RowType处理成复合类型（record）。"
+  source_anchor: "1.13.9.35 注意事项 页1490"
+  source_refs: *refpkg
+  status: confirmed
+- id: create_package_wave8_90_names_deps
+  type: constraint
+  statement: "特殊字符PACKAGE名中不能含有空格，且需设置behavior_compat_options='skip_insert_gs_source'否则可能报错；依赖未定义对象时若enable_force_create_obj打开则创建可执行并通过WARNING提示，未打开则创建不可执行；被授予CREATE ANY PACKAGE权限的用户可在PUBLIC模式和用户模式下创建PACKAGE；仅初始用户可以对初始用户的PACKAGE进行REPLACE操作。"
+  source_anchor: "1.13.9.35 注意事项 页1490"
+  source_refs: *refpkg
+  status: confirmed
+- id: create_package_wave8_90_func_call_details
+  type: constraint
+  statement: "PACKAGE函数细节：函数参数默认值支持含有PACKAGE内变量，不支持跨PACKAGE变量；func(x).a函数调用返回复合类型支持跨Schema调用，不支持通过database.schema.package.func(x).b的方式调用；创建包内存储过程时名称为schema.func或package.func形式只会获取func名称（可用behavior_compat_options='forbid_package_function_with_prefix'禁止）；存储过程入参包含伪类型（如anyelement）时不支持调用时传入变长类型参数；声明PRAGMA AUTONOMOUS_TRANSACTION可成功创建PACKAGE但自治事务不生效。"
+  source_anchor: "1.13.9.35 注意事项 页1490"
+  source_refs: *refpkg
+  status: confirmed
+- id: create_package_wave8_90_init_behavior
+  type: constraint
+  statement: "创建PACKAGE时仅对包头、包体内变量默认值进行有效性检查（检查默认值依赖函数是否存在、有效），不执行相关语句；包头、包体变量初始化及包体实例化部分（PACKAGE BODY ANONYMOUS BLOCK）仅在第一次调用时执行一次；在PACKAGE创建、重编译及相关嵌套编译过程中，PACKAGE实例化均不会被执行。"
+  source_anchor: "1.13.9.35 注意事项 页1490-1491"
+  source_refs: *refpkg
+  status: confirmed
+- id: create_package_wave8_90_example
+  type: behavior_oracle
+  statement: "示例：创建tbl_test表后CREATE OR REPLACE PACKAGE pkg_test AS声明3个公有PROCEDURE并以END pkg_test; /结束；包体实现INSERT/DELETE/UPDATE并含实例化部分（BEGIN var4 := 10; dbe_output.print_line(var4); END pkg_test; /）；调用方式：CALL pkg_test.proc_ist_tbl_test('0A00B1','01001',24)插入1行、SELECT pkg_test.proc_upd_tbl_test(...)更新、匿名块BEGIN pkg_test.proc_del_tbl_test('0A00B1'); END; /删除后0行；清理DROP PACKAGE pkg_test。"
+  source_anchor: "1.13.9.35 示例 页1491-1492"
+  source_refs: *refpkg
+  status: confirmed
+- id: create_pdb_wave8_90_syntax
+  type: syntax
+  statement: "CREATE PLUGGABLE DATABASE创建一个新的Pluggable Database（PDB），即多租特性中租户的概念，表示一种特殊的数据库，也可作为数据库实例中被划分出来的逻辑实例；语法为CREATE PLUGGABLE DATABASE pdb_name [ [ WITH ] { [ ENCODING [=] 'encoding' ] | [ LC_COLLATE [=] 'lc_collate' ] | [ LC_CTYPE [=] 'lc_ctype' ] | [ DBCOMPATIBILITY [=] 'compatibility_type' ] | [ DBTIMEZONE [=] 'time_zone' ] }]。"
+  source_anchor: "1.13.9.36 功能描述/语法格式 页1493"
+  source_refs: &refpdb
+  - w8_90_1_13_9_36
+  status: confirmed
+- id: create_pdb_wave8_90_restrictions
+  type: constraint
+  statement: "PDB限制：不能在事务块中执行创建PDB的DDL语句（包括CREATE、ALTER、DROP）；只能在GUC参数enable_mtd为on状态下使用；只能在非PDB中进行该操作；不支持在M-Compatibility模式数据库中执行该命令；执行用户需为gs_role_create_pdb角色或拥有SYSADMIN权限；最多可创建128个用户PDB；未指定兼容性选项时默认创建A兼容模式PDB。"
+  source_anchor: "1.13.9.36 注意事项 页1493"
+  source_refs: *refpdb
+  status: confirmed
+- id: create_pdb_wave8_90_m_compat_prereq
+  type: environment
+  statement: "若安装数据库实例时未指定初始化账户密码，且初始化账户名区分大小写，且新创建的PDB为M-Compatibility模式数据库，需在开启并使用该PDB前先执行gs_guc set --pdbname my_pdb -Z datanode -N all -I all -c \"sql_mode = 'ansi_quotes'\"（my_pdb为新建PDB名），使数据库将双引号内容作为对象引用处理，语句执行后再开启并按提示重置账户密码。"
+  source_anchor: "1.13.9.36 注意事项 说明 页1493"
+  source_refs: *refpdb
+  status: confirmed
+- id: create_pdb_wave8_90_encoding_collate
+  type: constraint
+  statement: "pdb_name不能含有美元（$）符号；ENCODING可选，可为字符串（如'SQL_ASCII'）及整数编号，常用GBK、UTF8、Latin1、GB18030，M-Compatibility模式默认UTF8、其他默认模板数据库编码；template1不允许修改字符编码，变更编码时A兼容模式请使用templatea创建、非A兼容模式请使用template0或templatem；LC_COLLATE与LC_CTYPE默认使用模板数据库字符集/字符分类，且对M-Compatibility模式数据库不生效。"
+  source_anchor: "1.13.9.36 参数说明 页1493-1494"
+  source_refs: *refpdb
+  status: confirmed
+- id: create_pdb_wave8_90_compat_timezone
+  type: constraint
+  statement: "DBCOMPATIBILITY可选指定兼容数据库类型，默认兼容Oracle，取值A、C、PG、M（分别兼容Oracle、Teradata、PostgreSQL和M-Compatibility）；DBTIMEZONE指定新数据库时区，默认PRC时区，取值为操作系统支持的时区名称和缩写或-15:59 ~ +15:00时间戳范围，且仅在A兼容模式数据库下并设置a_format_version='10c'和a_format_dev_version='s2'时生效。"
+  source_anchor: "1.13.9.36 参数说明 页1494"
+  source_refs: *refpdb
+  status: confirmed
+- id: create_pdb_wave8_90_example
+  type: behavior_oracle
+  statement: "示例前置条件为完成多租数据库实例安装；创建流程：CALL resource_manager.create_pending_area()开启待决区、提交resource_manager.submit_pending_area()后执行CREATE PLUGGABLE DATABASE my_pdb；删除时若PDB状态为open则无法删除，需先ALTER PLUGGABLE DATABASE my_pdb CLOSE IMMEDIATE，再DROP PLUGGABLE DATABASE my_pdb INCLUDING DATAFILES；相关链接CREATE DATABASE。"
+  source_anchor: "1.13.9.36 示例 页1494-1495"
+  source_refs: *refpdb
+  status: confirmed
+- id: create_resource_label_wave8_90_syntax
+  type: syntax
+  statement: "CREATE RESOURCE LABEL创建资源标签；语法为CREATE RESOURCE LABEL [IF NOT EXISTS] label_name ADD label_item_list[, ...]，label_item_list为resource_type(resource_path[, ...])，resource_type为{ TABLE | COLUMN | SCHEMA | VIEW | FUNCTION }。"
+  source_anchor: "1.13.9.38 功能描述/语法格式 页1501-1502"
+  source_refs: &reflabel
+  - w8_90_1_13_9_38
+  status: confirmed
+- id: create_resource_label_wave8_90_permission
+  type: environment
+  statement: "仅POLADMIN、SYSADMIN或初始用户可以执行CREATE RESOURCE LABEL操作。"
+  source_anchor: "1.13.9.38 注意事项 页1501"
+  source_refs: *reflabel
+  status: confirmed
+- id: create_resource_label_wave8_90_name_rules
+  type: constraint
+  statement: "IF NOT EXISTS判断是否存在同名资源标签，已存在时不会产生错误而是产生一条提示告知已存在；label_name需满足唯一约束，符合标识符命名规范且最大长度不超过63字符：超过时截断保留前63字符，含大写自动转小写（需大写须双引号包裹），仅允许小写字母、大写字母、下划线、数字或美元符号且必须以字母或下划线开始；resource_path描述具体的数据库资源路径。"
+  source_anchor: "1.13.9.38 参数说明 页1502"
+  source_refs: *reflabel
+  status: confirmed
+- id: create_resource_label_wave8_90_example
+  type: behavior_oracle
+  statement: "示例基于表/列/模式/视图/函数创建资源标签（如CREATE RESOURCE LABEL IF NOT EXISTS table_label add TABLE(public.tb_for_label)、add COLUMN(public.tb_for_label.col1)、add SCHEMA(schema_for_label)等）；重复创建已存在标签时IF NOT EXISTS输出NOTICE: table_label label already defined, skipping并成功，不加则ERROR: table_label label already defined；删除使用DROP RESOURCE LABEL IF EXISTS；相关链接ALTER RESOURCE LABEL、DROP RESOURCE LABEL。"
+  source_anchor: "1.13.9.38 示例 页1502-1503"
+  source_refs: *reflabel
+  status: confirmed
+open_questions:
+- id: create_package_pdb_label_wave8_90_oq_runtime
+  statement: "PACKAGE实例化/游标跨包引用/AUTHID权限组合、PDB多租创建与删除在enable_mtd及资源计划下的完整行为、资源标签五类资源标记与脱敏策略联动的完整行为与错误矩阵需授权环境实机验证。"
+  status: open
