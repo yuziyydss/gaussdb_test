@@ -1,0 +1,143 @@
+document: 集中式版参考 / 1.13.9.4-6 CLOSE/CLUSTER/COMMENT（Wave 8-84）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-07'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.9.4 CLOSE
+  - 1.13.9.5 CLUSTER
+  - 1.13.9.6 COMMENT
+  physical_page_start: 1367
+  physical_page_end: 1374
+  physical_page_count: 8
+  excludes: []
+facts:
+- id: close_wave8_84_purpose
+  type: syntax
+  statement: "CLOSE释放与指定游标相关联的所有资源；语法为CLOSE {cursor_name | ALL}；cursor_name为待关闭的游标名称；ALL关闭所有已打开的游标。"
+  source_anchor: "1.13.9.4 功能描述/语法格式/参数说明 页1367-1368"
+  source_refs: &refclose
+  - w8_84_1_13_9_4
+  status: confirmed
+- id: close_wave8_84_early_close
+  type: constraint
+  statement: "当游标不再使用时，应该尽早关闭；不允许对一个已关闭的游标再做任何操作。"
+  source_anchor: "1.13.9.4 注意事项 页1367"
+  source_refs: *refclose
+  status: confirmed
+- id: close_wave8_84_tx_implicit
+  type: constraint
+  statement: "当创建游标的事务通过COMMIT提交或ROLLBACK退出之后，每个不可保持的已打开游标都将被隐含关闭；当创建游标的事务通过ROLLBACK退出之后，每个可以保持的游标都将被隐含关闭；当创建游标的事务成功COMMIT提交，可保持的游标将保持打开，直到执行一个明确的CLOSE或者断开客户端时该游标才被关闭。"
+  source_anchor: "1.13.9.4 注意事项 页1367"
+  source_refs: *refclose
+  status: confirmed
+- id: close_wave8_84_pg_cursors
+  type: constraint
+  statement: "GaussDB没有明确打开游标的OPEN语句（游标在使用CURSOR命令定义时即被打开），可以通过查询系统视图pg_cursors看到所有可用的游标；具体示例请参见FETCH章节的示例（相关链接FETCH、MOVE）。"
+  source_anchor: "1.13.9.4 注意事项/示例 页1368"
+  source_refs: *refclose
+  status: confirmed
+- id: cluster_wave8_84_purpose
+  type: syntax
+  statement: "CLUSTER根据一个索引对表进行聚簇排序：CLUSTER指定通过索引名指定的索引聚簇由表名指定的表，表名上必须已经定义该索引；聚簇后该表将基于索引信息进行物理存储；聚簇是一次性操作，表被更新后更改的内容不会被重新聚簇。"
+  source_anchor: "1.13.9.5 功能描述 页1368"
+  source_refs: &refcluster
+  - w8_84_1_13_9_5
+  status: confirmed
+- id: cluster_wave8_84_recluster
+  type: constraint
+  statement: "聚簇后GaussDB会记录该表在哪一个索引上建立了聚簇：CLUSTER table_name将在之前记录过的聚簇索引上重新聚簇；可用ALTER TABLE table_name CLUSTER on index_name设置用于后续聚簇的索引，或用ALTER TABLE table_name SET WITHOUT CLUSTER清除；不含参数的CLUSTER命令会将当前用户所拥有的数据库中先前做过聚簇的所有表重新处理，系统管理员调用则对所有进行过聚簇的表重新聚簇。"
+  source_anchor: "1.13.9.5 功能描述 页1368"
+  source_refs: *refcluster
+  status: confirmed
+- id: cluster_wave8_84_lock
+  type: constraint
+  statement: "在对一个表进行聚簇的时候，会在其上请求一个ACCESS EXCLUSIVE锁，避免了在CLUSTER操作完成之前对该表执行其他的操作（包括读写）。"
+  source_anchor: "1.13.9.5 功能描述 页1368"
+  source_refs: *refcluster
+  status: confirmed
+- id: cluster_wave8_84_btree_only
+  type: constraint
+  statement: "只有行存B-Tree索引支持CLUSTER操作。"
+  source_anchor: "1.13.9.5 注意事项 页1368"
+  source_refs: *refcluster
+  status: confirmed
+- id: cluster_wave8_84_perf
+  type: constraint
+  statement: "性能场景：如果用户随机访问表中数据，存储顺序无明确要求；对于频繁访问的特定数据且存在索引对特定数据进行分组时，使用CLUSTER可提升性能；如果请求从表中查找的索引是一个范围或一个索引值对应多行，CLUSTER也有助于应用（索引标识出第一匹配行所在的存储页，其他行可能已包含在同一存储页里，节省磁盘访问时间并加快查询）。"
+  source_anchor: "1.13.9.5 注意事项 页1369"
+  source_refs: *refcluster
+  status: confirmed
+- id: cluster_wave8_84_disk
+  type: constraint
+  statement: "聚簇过程中，系统会先创建一个按照索引顺序建立的表的临时备份，同时也建立表上每个索引的临时备份；因此聚簇过程中需要保证磁盘上有足够的剩余空间（至少为表大小与全部索引大小之和）。"
+  source_anchor: "1.13.9.5 注意事项 页1369"
+  source_refs: *refcluster
+  status: confirmed
+- id: cluster_wave8_84_maintenance
+  type: constraint
+  statement: "维护建议与限制：可第一次手动指定索引聚簇后设置周期化执行的维护脚本，只需执行不带参数的CLUSTER命令即可自动更新；聚簇后需运行ANALYZE操作确保优化器具备最新的排序信息，否则可能选择非最优查询规划；CLUSTER不允许在事务中执行；未将GUC参数xc_maintenance_mode设置为on时CLUSTER操作将忽略所有系统表；通过表达式索引进行聚簇排序时，需拥有此表达式索引的重建索引权限。"
+  source_anchor: "1.13.9.5 注意事项 页1369"
+  source_refs: *refcluster
+  status: confirmed
+- id: cluster_wave8_84_syntax
+  type: syntax
+  statement: "三种语法：对表聚簇CLUSTER [VERBOSE] table_name [USING index_name]；对分区聚簇CLUSTER [VERBOSE] table_name PARTITION (partition_name) [USING index_name]；重新聚簇CLUSTER [VERBOSE]；VERBOSE可选，控制是否输出操作详细进度信息；table_name取值已存在的表名称；第一次对表聚簇排序时必须指定index_name，后续再次聚簇不指定时按已有记录聚簇；partition_name取值已存在的分区名称。"
+  source_anchor: "1.13.9.5 语法格式/参数说明 页1369-1370"
+  source_refs: *refcluster
+  status: confirmed
+- id: cluster_wave8_84_example_table
+  type: behavior_oracle
+  statement: "示例中test_c1插入(3,'Joe'),(1,'Jack'),(2,'Scott')后CLUSTER test_c1 USING idx_test_c1_id聚簇排序，SELECT结果按id有序返回1/2/3。"
+  source_anchor: "1.13.9.5 示例 对表进行聚簇排序 页1370"
+  source_refs: *refcluster
+  status: confirmed
+- id: cluster_wave8_84_example_recluster_partition
+  type: behavior_oracle
+  statement: "示例：第一次聚簇不带USING报错ERROR: there is no previously clustered index for table \"test\"；CLUSTER test USING pk_test后插入数据再CLUSTER VERBOSE test输出INFO详细进度并完成重新聚簇；分区表CLUSTER test_c2 PARTITION (p2) USING idx_test_c2_id1仅对p2分区聚簇排序，p1分区数据顺序保持不变。"
+  source_anchor: "1.13.9.5 示例 重新聚簇/分区聚簇 页1370-1371"
+  source_refs: *refcluster
+  status: confirmed
+- id: comment_wave8_84_purpose
+  type: syntax
+  statement: "COMMENT定义或修改一个对象的注释；每个对象只存储一条注释，要修改注释对同一个对象发出一条新的COMMENT命令即可；要删除注释，在文本字符串的位置写上NULL即可；当删除对象时，注释自动被删除。"
+  source_anchor: "1.13.9.6 功能描述/注意事项 页1371"
+  source_refs: &refcomment
+  - w8_84_1_13_9_6
+  status: confirmed
+- id: comment_wave8_84_security
+  type: constraint
+  statement: "目前注释浏览没有安全保护机制，任何连接到数据库上的用户都可以看到所有该数据库对象的注释；共享对象（比如数据库、角色、表空间）的注释为全局存储，连接到任何数据库的任何用户都可以查询，因此请勿在注释里存放与安全有关的敏感信息。"
+  source_anchor: "1.13.9.6 注意事项 页1371"
+  source_refs: *refcomment
+  status: confirmed
+- id: comment_wave8_84_privileges
+  type: constraint
+  statement: "对于大多数对象，只有对象的所有者或者被授予了对象COMMENT权限的用户可以设置注释，系统管理员默认拥有该权限；角色没有所有者，COMMENT ON ROLE命令仅可以由系统管理员对系统管理员角色执行，拥有CREATE ROLE权限的角色也可以为非系统管理员角色设置注释；系统管理员可以对所有对象进行注释；不支持在PDB内执行COMMENT ON DATABASE语句。"
+  source_anchor: "1.13.9.6 注意事项 页1371-1372"
+  source_refs: *refcomment
+  status: confirmed
+- id: comment_wave8_84_syntax
+  type: syntax
+  statement: "语法为COMMENT ON {对象类型 对象} IS 'text'，支持对象类型包括AGGREGATE、CAST、COLLATION、COLUMN、CONSTRAINT、CONVERSION、DATABASE、DOMAIN、EXTENSION、FOREIGN DATA WRAPPER、FOREIGN TABLE、FUNCTION、INDEX、OPERATOR、OPERATOR CLASS、OPERATOR FAMILY、[PROCEDURAL] LANGUAGE、ROLE、RULE、SCHEMA、SERVER、TABLE、TABLESPACE、TEXT SEARCH CONFIGURATION/DICTIONARY/PARSER/TEMPLATE、TYPE、VIEW、TRIGGER。"
+  source_anchor: "1.13.9.6 语法格式 页1372"
+  source_refs: *refcomment
+  status: confirmed
+- id: comment_wave8_84_params
+  type: constraint
+  statement: "参数说明：agg_name/agg_type为聚集函数名称与参数类型；source_type/target_type为类型转换的源/目标数据类型；object_name为对象名；table_name.column_name或view_name.column_name为列名称（前缀可加表名称或视图名称）；constraint_name为表约束名称；function_name为函数名称；argname/argmode/argtype为函数参数的名称、模式及类型；operator_name为操作符名称；left_type/right_type为操作参数的数据类型（可模式修饰，前置或后置操作符不存在时可增加NONE选项）；trigger_name为触发器名称；text为注释。"
+  source_anchor: "1.13.9.6 参数说明 页1372-1373"
+  source_refs: *refcomment
+  status: confirmed
+- id: comment_wave8_84_example
+  type: behavior_oracle
+  statement: "示例中COMMENT ON TABLE emp IS '部门表'添加表注释，COMMENT ON COLUMN emp.empno IS '员工编号'等分别添加列注释；通过\\d+查看表的Description列显示部门表，\\d+ emp查看各字段的Description显示对应注释。"
+  source_anchor: "1.13.9.6 示例 页1373-1374"
+  source_refs: *refcomment
+  status: confirmed
+open_questions:
+- id: comment_wave8_84_oq_runtime
+  statement: "CLOSE隐含关闭边界、CLUSTER各场景（分区/表达式索引/磁盘约束）和COMMENT权限矩阵在真实并发与对象依赖组合下的完整行为与错误矩阵需授权环境实机验证。"
+  status: open
