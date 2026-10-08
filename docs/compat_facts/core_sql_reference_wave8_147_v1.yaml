@@ -1,0 +1,142 @@
+document: 集中式版参考 / 3.12.2.1 DBE_ALERT与3.12.2.2 DBE_APPLICATION_INFO（Wave 8-147）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 3.12.2.1 DBE_ALERT
+  - 3.12.2.2 DBE_APPLICATION_INFO
+  physical_page_start: 2715
+  physical_page_end: 2723
+  physical_page_count: 8
+  excludes:
+  - 3.12.2.3 DBE_COMPRESSION及后续小节（后续波次按切片覆盖）
+facts:
+- id: alert_wave8_147_overview
+  type: syntax
+  statement: "DBE_ALERT包的主要功能是在不同会话之间传递数据库的警报信息，包括注册、发送和接收告警；高级功能包DBE_ALERT支持的视图参见DBE_ALERT.DBE_ALERT_INFO；接口包括REGISTER（为当前会话注册感兴趣的警报）、REMOVE（从注册列表删除不感兴趣的警报）、REMOVEALL（删除所有警报）、SET_DEFAULTS（设置轮询间隔，无实际意义仅兼容）、SIGNAL（发送警报信号）、WAITANY（等待任一警报信号）、WAITONE（等待传入警报信号）。"
+  source_anchor: "3.12.2.1 DBE_ALERT 表3-138 页2715-2716"
+  source_refs: &refal
+  - w8_147_3_12
+  status: confirmed
+- id: alert_wave8_147_limits
+  type: constraint
+  statement: "DBE_ALERT使用限制：仅支持在主节点使用；仅支持在A、B、C、PG兼容性数据库下使用；退出当前会话时会删除该会话所注册的所有警报。"
+  source_anchor: "3.12.2.1 DBE_ALERT说明 页2715"
+  source_refs: *refal
+  status: confirmed
+- id: alert_wave8_147_register
+  type: constraint
+  statement: "REGISTER原型：DBE_ALERT.REGISTER(name IN VARCHAR2, cleanup IN BOOLEAN DEFAULT TRUE) RETURNS VOID为当前会话注册感兴趣的警报；name为警报名称（不区分大小写）最长30字节超出长度报错，禁止使用以ORA$和GS$作为警报名称的开头；cleanup无实际意义仅用于兼容；调用REGISTER时所有会话中注册的警报最多为32个，超出时报错。"
+  source_anchor: "3.12.2.1 REGISTER 页2716"
+  source_refs: *refal
+  status: confirmed
+- id: alert_wave8_147_remove_removeall
+  type: syntax
+  statement: "REMOVE与REMOVEALL：DBE_ALERT.REMOVE(name IN VARCHAR2) RETURNS VOID从当前会话的注册列表中删除不感兴趣的警报；DBE_ALERT.REMOVEALL() RETURNS VOID从当前会话的注册列表中删除所有警报。"
+  source_anchor: "3.12.2.1 REMOVE/REMOVEALL 页2716"
+  source_refs: *refal
+  status: confirmed
+- id: alert_wave8_147_set_defaults
+  type: syntax
+  statement: "SET_DEFAULTS原型：DBE_ALERT.SET_DEFAULTS(sensitivity IN NUMBER) RETURNS VOID；为查询警报设置轮询间隔，无实际意义仅用于兼容。"
+  source_anchor: "3.12.2.1 SET_DEFAULTS 页2716-2717"
+  source_refs: *refal
+  status: confirmed
+- id: alert_wave8_147_signal
+  type: constraint
+  statement: "SIGNAL语义：DBE_ALERT.SIGNAL(name IN VARCHAR2, message IN VARCHAR2) RETURNS VOID用于发送警报信号；仅当所在事务提交时才会发送信号，若事务回滚则不会产生任何影响；所有注册过此警报的会话均会被通知并唤醒处于等待状态中的会话，若注册过此警报的会话当前未处于等待状态将在下次等待信号时立即收到通知；同一个警报发送的信号可被多个会话同时接收；message最长为1800字节超出报错。"
+  source_anchor: "3.12.2.1 SIGNAL 页2717"
+  source_refs: *refal
+  status: confirmed
+- id: alert_wave8_147_waitany
+  type: syntax
+  statement: "WAITANY原型：DBE_ALERT.WAITANY(name OUT VARCHAR2, message OUT VARCHAR2, status OUT INTEGER, timeout IN NUMBER DEFAULT 86400000) RETURNS VOID；用于等待当前会话注册列表中的任一警报收到警报信号，该函数不受事务回滚影响；name返回发生警报的名称，message返回关联消息，status为0表示发生警报、1表示超时，timeout为等待警报的最长持续时间（秒）。"
+  source_anchor: "3.12.2.1 WAITANY 页2717-2718"
+  source_refs: *refal
+  status: confirmed
+- id: alert_wave8_147_waitone
+  type: syntax
+  statement: "WAITONE原型：DBE_ALERT.WAITONE(name IN VARCHAR2, message OUT VARCHAR2, status OUT INTEGER, timeout IN NUMBER DEFAULT 86400000) RETURNS VOID；用于等待传入警报收到警报信号，警报必须在当前会话注册列表中，该函数不受事务回滚影响。"
+  source_anchor: "3.12.2.1 WAITONE 页2718"
+  source_refs: *refal
+  status: confirmed
+- id: alert_wave8_147_wait_semantics
+  type: constraint
+  statement: "WAITANY/WAITONE共同语义：均不受事务回滚影响；timeout单位为秒、默认86400000，在指定超时时间内未检测到警报信号时status返回1；status为0表示发生警报、1表示超时；WAITONE要求警报必须在当前会话注册列表中。"
+  source_anchor: "3.12.2.1 WAITANY/WAITONE 页2717-2718"
+  source_refs: *refal
+  status: confirmed
+- id: alert_wave8_147_name_rules
+  type: constraint
+  statement: "警报名称与消息规则：警报名称不区分大小写（WAITANY示例回显为大写ALERT_NAME_TEST）；REGISTER名称最长30字节超出报错；禁止以ORA$和GS$作为警报名称开头（REGISTER/REMOVE/SIGNAL均适用）；SIGNAL的message最长1800字节超出报错。"
+  source_anchor: "3.12.2.1 REGISTER/REMOVE/SIGNAL参数说明 页2716-2717"
+  source_refs: *refal
+  status: confirmed
+- id: alert_wave8_147_example
+  type: behavior_oracle
+  statement: "告警示例基线：Session1执行dbe_alert.register('alert_name_test')；Session2执行dbe_alert.signal('alert_name_test','message_test')后commit；Session1以timeout=5执行waitone输出alert name:alert_name_test、message:message_test、status:0；waitany输出alert name:ALERT_NAME_TEST、message:message_test、status:0；remove+removeall后SELECT * FROM dbe_alert.dbe_alert_info返回0行。"
+  source_anchor: "3.12.2.1 示例 页2718-2719"
+  source_refs: *refal
+  status: confirmed
+- id: alert_wave8_147_view
+  type: syntax
+  statement: "DBE_ALERT.DBE_ALERT_INFO视图：以name、sid、changed、message列展示当前注册的警报信息；示例中remove与removeall后查询该视图返回0行。"
+  source_anchor: "3.12.2.1 视图查询示例 页2719"
+  source_refs: *refal
+  status: confirmed
+- id: alert_wave8_147_session_scope
+  type: constraint
+  statement: "会话作用域语义：REGISTER将警报注册到当前会话，退出会话时删除该会话注册的所有警报；SIGNAL跨会话向所有注册过该警报的会话传递通知并唤醒等待中的会话；WAITANY/WAITONE在当前会话内阻塞等待。"
+  source_anchor: "3.12.2.1 包说明/SIGNAL/WAITONE 页2715-2718"
+  source_refs: *refal
+  status: confirmed
+- id: appinfo_wave8_147_overview
+  type: syntax
+  statement: "DBE_APPLICATION_INFO作用范围是当前session；接口包括SET_CLIENT_INFO（写入客户端信息）、READ_CLIENT_INFO（读取客户端信息）、SET_MODULE（将当前正在运行的模块的名称设置为新模块，设置module和action）、READ_MODULE（读取当前会话的模块和操作字段的值）、SET_ACTION（设置当前模块中当前操作的名称）。"
+  source_anchor: "3.12.2.2 DBE_APPLICATION_INFO 表3-145 页2719-2720"
+  source_refs: &refai
+  - w8_147_3_12
+  status: confirmed
+- id: appinfo_wave8_147_client_info
+  type: syntax
+  statement: "client_info读写：DBE_APPLICATION_INFO.SET_CLIENT_INFO(str text) returns void写入客户端信息；READ_CLIENT_INFO(OUT client_info text)读取客户端信息。"
+  source_anchor: "3.12.2.2 SET_CLIENT_INFO/READ_CLIENT_INFO 页2720"
+  source_refs: *refai
+  status: confirmed
+- id: appinfo_wave8_147_set_module
+  type: syntax
+  statement: "SET_MODULE原型：DBE_APPLICATION_INFO.SET_MODULE(IN module_name text, IN action_name text)；将当前正在运行的模块的名称设置为新模块、设置module和action；示例CALL dbe_application_info.set_module('module_name','action_name')。"
+  source_anchor: "3.12.2.2 SET_MODULE 页2720-2721"
+  source_refs: *refai
+  status: confirmed
+- id: appinfo_wave8_147_read_module
+  type: syntax
+  statement: "READ_MODULE原型：DBE_APPLICATION_INFO.READ_MODULE(OUT module_name text, OUT action_name text)；读取当前会话的模块和操作字段的值；示例匿名块调用read_module(module,action)后dbe_output输出module_name与action_name。"
+  source_anchor: "3.12.2.2 READ_MODULE 页2721"
+  source_refs: *refai
+  status: confirmed
+- id: appinfo_wave8_147_set_action
+  type: syntax
+  statement: "SET_ACTION原型：DBE_APPLICATION_INFO.SET_ACTION(IN action_name text)；设置当前模块中当前操作的名称；示例CALL dbe_application_info.set_action('action_name')。"
+  source_anchor: "3.12.2.2 SET_ACTION 页2721-2722"
+  source_refs: *refai
+  status: confirmed
+- id: appinfo_wave8_147_length_truncation
+  type: constraint
+  statement: "DBE_APPLICATION_INFO长度截断规则：SET_CLIENT_INFO的str写入的客户端信息最长为64字节、超过64字节将被截断；SET_MODULE的module_name与action_name均最长64字节超过截断；SET_ACTION的action_name最长64字节超过截断。"
+  source_anchor: "3.12.2.2 参数说明 页2720-2722"
+  source_refs: *refai
+  status: confirmed
+- id: appinfo_wave8_147_scope_compare
+  type: constraint
+  statement: "两包作用域对比：DBE_ALERT跨会话传递警报信息且仅支持主节点与A/B/C/PG兼容数据库、会话退出清除注册；DBE_APPLICATION_INFO作用范围是当前session，读写client_info/module/action等会话级标注信息且长度超限截断不报错。"
+  source_anchor: "3.12.2.1/3.12.2.2 包说明 页2715与页2719"
+  source_refs: *refal
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_147_oq_runtime
+  content: "DBE_ALERT跨节点（非主节点会话）调用报错形态、SIGNAL事务提交后WAITONE唤醒的延迟上界、REGISTER 32个上限在多会话并发注册下的计数口径需授权环境实机验证。"
+  status: open
