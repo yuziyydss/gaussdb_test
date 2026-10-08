@@ -20595,6 +20595,280 @@
       "fact_count": 20
     },
     {
+      "path": "docs/compat_facts/core_sql_reference_wave8_148_v1.yaml",
+      "document": "集中式版参考 / 3.12.2.3 DBE_COMPRESSION与3.12.2.4 DBE_DESCRIBE（Wave 8-148）",
+      "version": "V2.0-10.0.0",
+      "parent_pdf_sha256": "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe",
+      "extraction_date": "2026-10-08",
+      "extraction_method": "pdftotext章节源文逐章精读 + 结构化manifest哈希对账",
+      "verification_status": "confirmed",
+      "sha256": "7badd08f57625354ee7d876b8c409772f9b417f792f4d3206dca9bade97a7d13",
+      "category": "compatibility",
+      "facts": [
+        {
+          "id": "dbecomp_wave8_148_overview",
+          "type": "syntax",
+          "statement": "DBE_COMPRESSION功能与接口：根据输入参数评估指定数据对象的采样压缩率或者获取指定行数据的压缩类型；接口包括GET_COMPRESSION_RATIO（评估采样压缩率）、GET_COMPRESSION_TYPE（获取指定行数据压缩类型）、GET_ACTUAL_COMPRESSION_RATIO（评估真实压缩率）、GET_HOLE_RATIO（评估跨页透明压缩采样空洞率）、TURBO_COMPRESS_BUFFER_STATS（输出turbo_compress_shared_buffers使用情况）、GET_INDEX_COMPRESSION_TYPE（获取指定索引页压缩类型）。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.3 DBE_COMPRESSION 表3-151 页2722",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        },
+        {
+          "id": "dbecomp_wave8_148_comptype_enum",
+          "type": "syntax",
+          "statement": "GET_COMPRESSION_RATIO关键参数：COMPTYPE压缩类型支持1未压缩、2高级压缩、3跨页透明压缩low、4跨页透明压缩medium、5跨页透明压缩high、6高级压缩high；SAMPLE_RATIO采样比例为0-100的整数或浮点数（对应百分之n采样）、默认20即对20%的行数采样；OBJTYPE对象类型支持1表对象。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.3 GET_COMPRESSION_RATIO 页2722-2724",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        },
+        {
+          "id": "dbecomp_wave8_148_get_compression_ratio",
+          "type": "syntax",
+          "statement": "GET_COMPRESSION_RATIO原型：DBE_COMPRESSION.GET_COMPRESSION_RATIO(SCRATCHTBSNAME IN VARCHAR2, OWNNAME IN VARCHAR2, OBJNAME IN VARCHAR2, SUBOBJNAME IN VARCHAR2, COMPTYPE IN NUMBER, BLKCNT_CMP OUT INTEGER, BLKCNT_UNCMP OUT INTEGER, ROW_CMP OUT INTEGER, ROW_UNCMP OUT INTEGER, CMP_RATIO OUT NUMBER, COMPTYPE_STR OUT VARCHAR2, SAMPLE_RATIO IN NUMBER DEFAULT 20, OBJTYPE IN INTEGER DEFAULT 1)；BLKCNT_CMP/BLKCNT_UNCMP为样本压缩/未压缩占用块数，ROW_CMP/ROW_UNCMP为压缩/未压缩单块可容纳行数（跨页透明压缩显示为0），CMP_RATIO为BLKCNT_UNCMP除以BLKCNT_CMP，COMPTYPE_STR为描述压缩类型的字符串。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.3 GET_COMPRESSION_RATIO 页2722-2724",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        },
+        {
+          "id": "dbecomp_wave8_148_ratio_partition_limits",
+          "type": "constraint",
+          "statement": "GET_COMPRESSION_RATIO分区与压缩类型限制：跨页透明压缩表一级分区表必须传入一级分区名称、二级分区表必须传入二级分区名称，否则报错no data found.；高级压缩表分区表必须传入分区名称（二级分区表也可传入一级分区名称），否则报错no data found.；不支持在高级压缩表上评估跨页透明压缩的压缩率，直接使用报错The ilm turbo policy is not supported here.。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.3 GET_COMPRESSION_RATIO说明 页2723",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        },
+        {
+          "id": "dbecomp_wave8_148_get_type",
+          "type": "constraint",
+          "statement": "GET_COMPRESSION_TYPE(OWNNAME IN VARCHAR2, TABNAME IN VARCHAR2, CTID IN TEXT, SUBOBJNAME IN VARCHAR2 DEFAULT NULL)：根据输入参数获取指定行数据的压缩状态（返回1表示未压缩、2表示压缩）；该接口属于运维类接口、不做可见性判断，传入的ctid为已删除的行时依然返回当前行在页面上最新的状态；跨页透明压缩不支持此高级包、默认返回1无实际意义。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.3 GET_COMPRESSION_TYPE 页2724",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        },
+        {
+          "id": "dbecomp_wave8_148_actual_ratio",
+          "type": "syntax",
+          "statement": "GET_ACTUAL_COMPRESSION_RATIO原型：DBE_COMPRESSION.GET_ACTUAL_COMPRESSION_RATIO(OWNER_NAME IN VARCHAR2, OBJNAME IN VARCHAR2, FILEPATH OUT VARCHAR2, IS_COMPRESS OUT BOOL, FILE_COUNT OUT INTEGER, LOGIC_SIZE OUT BIGINT, PHYSIC_SIZE OUT BIGINT, COMPRESS_RATIO OUT VARCHAR2)；根据输入参数评估指定数据对象的真实压缩率，仅支持跨页透明压缩表；FILE_COUNT包含数据文件和cmap文件；小表场景下压缩比可能出现小于1的现象属正常。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.3 GET_ACTUAL_COMPRESSION_RATIO 页2724-2725",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        },
+        {
+          "id": "dbecomp_wave8_148_hole_ratio",
+          "type": "syntax",
+          "statement": "GET_HOLE_RATIO原型：DBE_COMPRESSION.GET_HOLE_RATIO(OWNER_NAME IN VARCHAR2, OBJNAME IN VARCHAR2, FILE_COUNT OUT INTEGER, PHYSIC_SIZE OUT BIGINT, HOLE_SIZE OUT BIGINT, HOLE_RATIO OUT VARCHAR2, SAMPLE_RATIO IN NUMBER DEFAULT 20)；根据输入参数评估指定跨页透明压缩数据对象的采样空洞率，仅支持跨页透明压缩表；FILE_COUNT只包含数据文件。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.3 GET_HOLE_RATIO 页2725-2726",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        },
+        {
+          "id": "dbecomp_wave8_148_turbo_stats",
+          "type": "syntax",
+          "statement": "TURBO_COMPRESS_BUFFER_STATS原型：DBE_COMPRESSION.TURBO_COMPRESS_BUFFER_STATS(CAPACITY OUT BIGINT, MAIN_LEN OUT BIGINT, FREE_LEN OUT BIGINT, BUFFER_ACCESS OUT BIGINT, BUFFER_NOREADS OUT BIGINT, DISK_READS OUT BIGINT, RECYCLE_TIMES OUT BIGINT, RECYCLE_STEP OUT BIGINT, RECYCLE_WAITS OUT BIGINT, HIT_RATIO OUT VARCHAR2)；输出turbo_compress_shared_buffers的使用情况——容量、lrulist中main_list/free_list长度、逻辑读次数、新扩展block个数、物理读次数、回收次数、回收步长、alloc buf ctrl等待次数、内存命中率。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.3 TURBO_COMPRESS_BUFFER_STATS 页2726-2727",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        },
+        {
+          "id": "dbecomp_wave8_148_index_type",
+          "type": "constraint",
+          "statement": "GET_INDEX_COMPRESSION_TYPE(IDXOID IN OID, IDXTYPE IN TEXT, BUCKET_ID IN INT2 DEFAULT NULL, BLOCK_ID IN INT8)：查询索引页面是否已经被压缩；此高级包仅能查询到高级压缩的状态、查询不到跨页透明压缩的状态；IDXTYPE支持普通索引'i'、全局索引'I'、分区索引'x'；BLOCK_ID待查询的索引block id、如果输入是小数会四舍五入取整。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.3 GET_INDEX_COMPRESSION_TYPE 页2727",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        },
+        {
+          "id": "dbecomp_wave8_148_example",
+          "type": "behavior_oracle",
+          "statement": "DBE_COMPRESSION示例基线：ALTER DATABASE set ilm=on后以user1建高级压缩表TEST_DATA（ILM ADD POLICY ROW STORE COMPRESS ADVANCED ROW AFTER 1 DAYS OF NO MODIFICATION）并插入1行，GET_COMPRESSION_TYPE('user1','test_data','(0,1)',NULL)返回1；GET_COMPRESSION_RATIO（COMPTYPE=>2、SAMPLE_RATIO=>100）输出压缩/未压缩块数1/1、行数1/1、压缩比1.0、压缩类型Compress Advanced。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.3 示例 页2727-2728",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        },
+        {
+          "id": "dbecomp_wave8_148_ilm_prereq",
+          "type": "constraint",
+          "statement": "DBE_COMPRESSION使用前置：需先ALTER DATABASE set ilm = on开启ILM；压缩策略通过ILM ADD POLICY声明——高级压缩为ROW STORE COMPRESS ADVANCED ROW AFTER n DAYS OF NO MODIFICATION，跨页透明压缩为ROW STORE COMPRESS TURBO HIGH UNIT AFTER n DAYS OF NO MODIFICATION。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.3 示例 页2725与页2727",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        },
+        {
+          "id": "dbecomp_wave8_148_two_modes",
+          "type": "constraint",
+          "statement": "两类压缩口径：高级压缩（ADVANCED，行级）在GET_COMPRESSION_RATIO中ROW_CMP/ROW_UNCMP有值；跨页透明压缩（TURBO LOW/MEDIUM/HIGH，页级）ROW_CMP/ROW_UNCMP显示为0，且真实压缩率（GET_ACTUAL_COMPRESSION_RATIO）与空洞率（GET_HOLE_RATIO）接口仅支持跨页透明压缩表；GET_COMPRESSION_TYPE与GET_INDEX_COMPRESSION_TYPE不支持/查询不到跨页透明压缩状态。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.3 各接口说明 页2722-2727",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        },
+        {
+          "id": "dbedesc_wave8_148_types",
+          "type": "syntax",
+          "statement": "DBE_DESCRIBE内置两个数据类型（用于DESCRIBE_PROCEDURE接口的返回值）：DBE_DESCRIBE.NUMBER_TABLE为NUMBER的TABLE类型（CREATE TYPE DBE_DESCRIBE.NUMBER_TABLE AS TABLE OF NUMBER INDEX BY INTEGER）；DBE_DESCRIBE.VARCHAR2_TABLE为VARCHAR2的TABLE类型（CREATE TYPE DBE_DESCRIBE.VARCHAR2_TABLE AS TABLE OF VARCHAR2(30) INDEX BY INTEGER）。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.4 DBE_DESCRIBE数据类型 页2728",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        },
+        {
+          "id": "dbedesc_wave8_148_overview",
+          "type": "syntax",
+          "statement": "DESCRIBE_PROCEDURE用来显示存储过程或函数的参数信息（如参数名、参数模式、参数位置等），将函数或存储过程的参数信息以列表的方式返回；object_name语法格式为[[schema.]package.]function[@dblink]——schema可选模式名称、package可选包名称、function不能为空（函数或存储过程名称）、dblink可选远程连接名称。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.4 DESCRIBE_PROCEDURE 页2728-2729",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        },
+        {
+          "id": "dbedesc_wave8_148_params",
+          "type": "syntax",
+          "statement": "DESCRIBE_PROCEDURE输出参数语义：overload为重载编号（存在重载时以整个存储过程/函数为粒度从1开始递增，不存在重载置0）；dataposition为参数在参数列表中的位置；datalevel置0；argument_name为参数名称；datatype为参数数据类型OID；default_value有默认值为1否则0；in_out指定参数模式（0:IN、1:OUT、2:IN OUT）；datalength/dataprecision/scale暂不支持默认置0；radix数值类型返回进制（其他为10）；spare与include_string_constraints为预留参数不作处理。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.4 表3-159 页2729-2731",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        },
+        {
+          "id": "dbedesc_wave8_148_datatype_diff",
+          "type": "constraint",
+          "statement": "datatype参数与A模式数据库差异：GaussDB返回数据类型的OID、A模式数据库返回A模式数据库内部的数据类型编号；使用CREATE TYPE操作创建的数据类型由于OID不确定，请勿将这些OID用于固定判断等。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.4 说明 页2731",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        },
+        {
+          "id": "dbedesc_wave8_148_position_rules",
+          "type": "constraint",
+          "statement": "dataposition与argument_name规则：对于dataposition，指定存储过程时返回值从1开始、指定函数时返回值从0开始（0代表函数返回值的位置序号）；对于argument_name，指定函数时返回值的第一个位置为空（表示被描述函数的返回值的名称）。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.4 说明 页2731",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        },
+        {
+          "id": "dbedesc_wave8_148_limits",
+          "type": "constraint",
+          "statement": "DESCRIBE_PROCEDURE使用限制：不可直接指定包Package否则报错；对于没有执行权限的存储过程/函数/包会当作不存在的实体并报错处理；reserved1/reserved2不参与内部处理、输入任何字符串不影响返回结果；不可指定通过DBLINK获取的存储过程/函数；推荐在指定对象前增加Schema前缀（省略时该高级包使用当前会话Schema查找所属实体，需修改behavior_compat_options为bind_procedure_searchpath才生效）；使用%type从表字段取得数据类型不会保留类型约束（如NUMBER(3)、VARCHAR2(10)）。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.4 说明 页2731",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        },
+        {
+          "id": "dbedesc_wave8_148_example",
+          "type": "behavior_oracle",
+          "statement": "DESCRIBE示例基线：PRINT_DESCRIBE封装（逐行打印overload/dataposition/datalevel/argument_name/default_value/in_out/length/precision/scale）；三个TEST_FUNC_OVERLOAD重载（含OUT/INOUT参数形态各异）依次describe后按各自签名DROP FUNCTION清理。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.4 示例 页2731-2734",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        },
+        {
+          "id": "dbedesc_wave8_148_position_start",
+          "type": "constraint",
+          "statement": "include_string_constraints为预留参数：本身的值不会发生变化，也不会影响其它参数的返回值。",
+          "status": "confirmed",
+          "source_anchor": "3.12.2.4 说明 页2731",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_148_3_12"
+            ]
+          }
+        }
+      ],
+      "fact_count": 20
+    },
+    {
       "path": "docs/compat_facts/core_sql_reference_wave8_19_v1.yaml",
       "document": "集中式版参考 / 1.13.19.3 SELECT（Wave 8-19）",
       "version": "V2.0-10.0.0",
@@ -70544,22 +70818,22 @@
     }
   ],
   "summary": {
-    "source_file_count": 267,
-    "fact_count": 5435,
+    "source_file_count": 268,
+    "fact_count": 5455,
     "fact_status_counts": {
-      "confirmed": 5432,
+      "confirmed": 5452,
       "needs_verification": 3
     },
     "fact_type_counts": {
-      "behavior_oracle": 787,
-      "constraint": 1877,
+      "behavior_oracle": 789,
+      "constraint": 1886,
       "environment": 363,
       "lifecycle": 2,
       "metadata_oracle": 103,
-      "syntax": 2303
+      "syntax": 2312
     },
     "category_counts": {
-      "compatibility": 224,
+      "compatibility": 225,
       "log_reference": 2,
       "report": 1,
       "runtime_parameters": 12,
@@ -70569,7 +70843,7 @@
       "tool_reference": 3
     },
     "category_fact_counts": {
-      "compatibility": 4747,
+      "compatibility": 4767,
       "log_reference": 32,
       "report": 6,
       "runtime_parameters": 174,
