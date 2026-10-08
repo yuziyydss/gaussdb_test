@@ -1,0 +1,143 @@
+document: 集中式版参考 / 1.13.19.1 SAVEPOINT、1.13.19.2 SECURITY LABEL ON 与 1.13.19.4 SELECT INTO（Wave 8-67）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-07'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.19.1 SAVEPOINT
+  - 1.13.19.2 SECURITY LABEL ON
+  - 1.13.19.4 SELECT INTO
+  physical_page_start: 1803
+  physical_page_end: 1852
+  physical_page_count: 7
+  excludes: []
+facts:
+- id: savepoint_wave8_67_purpose
+  type: syntax
+  statement: "SAVEPOINT用于在当前事务里建立一个新的保存点；保存点是事务中的一个特殊记号，它允许将那些在它建立后执行的命令全部回滚，把事务的状态恢复到保存点所在的时刻。"
+  source_anchor: "1.13.19.1 功能描述 页1803"
+  source_refs: &refsp
+  - w8_67_1_13_19_1
+  status: confirmed
+- id: savepoint_wave8_67_rollback_release
+  type: constraint
+  statement: "使用ROLLBACK TO SAVEPOINT回滚到一个保存点；使用RELEASE SAVEPOINT删除一个保存点，但保留该保存点建立后执行的命令的效果。"
+  source_anchor: "1.13.19.1 注意事项 页1803"
+  source_refs: *refsp
+  status: confirmed
+- id: savepoint_wave8_67_txblock
+  type: constraint
+  statement: "保存点只能在一个事务块里面建立；在一个事务里面可以定义多个保存点。"
+  source_anchor: "1.13.19.1 注意事项 页1803"
+  source_refs: *refsp
+  status: confirmed
+- id: savepoint_wave8_67_unrecoverable_errors
+  type: constraint
+  statement: "由于节点故障或者通信故障引起的节点线程或进程退出导致的报错，以及由于COPY FROM操作中源数据与目标表的表结构不一致导致的报错，均不能正常回滚到保存点之前，而是整个事务回滚。"
+  source_anchor: "1.13.19.1 注意事项 页1803"
+  source_refs: *refsp
+  status: confirmed
+- id: savepoint_wave8_67_same_name
+  type: constraint
+  statement: "SQL标准要求使用SAVEPOINT建立同名保存点时自动删除前面同名保存点；GaussDB会保留旧的保存点，但回滚或释放时只使用最近的保存点；释放了新的保存点将导致旧的再次成为ROLLBACK TO SAVEPOINT和RELEASE SAVEPOINT可以访问的保存点；除此之外SAVEPOINT完全符合SQL标准。"
+  source_anchor: "1.13.19.1 注意事项 页1803"
+  source_refs: *refsp
+  status: confirmed
+- id: savepoint_wave8_67_nesting
+  type: constraint
+  statement: "使用SAVEPOINT时建议及时RELEASE SAVEPOINT，避免子事务的嵌套个数过大，建议嵌套个数不要超过10000；嵌套数过多时可能引发当前事务性能劣化。"
+  source_anchor: "1.13.19.1 须知 页1804"
+  source_refs: *refsp
+  status: confirmed
+- id: savepoint_wave8_67_example
+  type: behavior_oracle
+  statement: "示例中事务内INSERT 1后SAVEPOINT my_savepoint，INSERT 2后ROLLBACK TO SAVEPOINT my_savepoint，再INSERT 3并COMMIT，最终表内容为1和3，2被回滚不可见（相关链接RELEASE SAVEPOINT、ROLLBACK TO SAVEPOINT）。"
+  source_anchor: "1.13.19.1 示例 页1804"
+  source_refs: *refsp
+  status: confirmed
+- id: security_label_wave8_67_purpose
+  type: syntax
+  statement: "SECURITY LABEL ON用于应用更新或取消安全标签。"
+  source_anchor: "1.13.19.2 功能描述 页1804"
+  source_refs: &refseclabel
+  - w8_67_1_13_19_2
+  status: confirmed
+- id: security_label_wave8_67_privileges
+  type: constraint
+  statement: "初始用户、具有SYSADMIN权限的用户或者继承了内置角色gs_role_seclabel权限的用户有权限应用更新或取消安全标签。"
+  source_anchor: "1.13.19.2 注意事项 页1805"
+  source_refs: *refseclabel
+  status: confirmed
+- id: security_label_wave8_67_syntax
+  type: syntax
+  statement: "语法为SECURITY LABEL ON {ROLE | USER | TABLE | COLUMN} objname IS {'label_name' | NULL}；objname对于ROLE和USER表示角色/用户名，对于TABLE表示表名（名称前可加模式名），对于COLUMN表示表名.列名（名称前可加模式名）；label_name为安全标签名；NULL表示取消安全标签。"
+  source_anchor: "1.13.19.2 语法格式/参数说明 页1805"
+  source_refs: *refseclabel
+  status: confirmed
+- id: security_label_wave8_67_example
+  type: behavior_oracle
+  statement: "示例中CREATE SECURITY LABEL sec_label 'L1:G4'后，SECURITY LABEL ON ROLE bob / TABLE tbl / COLUMN tbl.c1 IS 'sec_label'分别应用安全标签，用IS NULL逐个取消，最后DROP SECURITY LABEL sec_label删除标签（相关链接CREATE SECURITY LABEL、DROP SECURITY LABEL）。"
+  source_anchor: "1.13.19.2 示例 页1805-1806"
+  source_refs: *refseclabel
+  status: confirmed
+- id: select_into_wave8_67_purpose
+  type: syntax
+  statement: "SELECT INTO根据查询结果创建一个新表并将查询到的数据插入到新表中；和普通SELECT不同，数据并不返回给客户端；新表的字段具有和SELECT输出字段相同的名称和数据类型。"
+  source_anchor: "1.13.19.4 功能描述 页1850"
+  source_refs: &refselinto
+  - w8_67_1_13_19_4
+  status: confirmed
+- id: select_into_wave8_67_ctas_preferred
+  type: constraint
+  statement: "CREATE TABLE AS的作用和SELECT INTO类似，且提供了SELECT INTO所提供功能的超集；建议使用CREATE TABLE AS语法替代SELECT INTO，因为SELECT INTO不能在存储过程中使用。"
+  source_anchor: "1.13.19.4 注意事项 页1850"
+  source_refs: *refselinto
+  status: confirmed
+- id: select_into_wave8_67_syntax
+  type: syntax
+  statement: "语法为[WITH [RECURSIVE] with_query[, ...]] SELECT [ALL | DISTINCT [ON (expression[, ...])]] {* | expression[[AS] output_name][, ...]} INTO [[GLOBAL | LOCAL] {TEMPORARY | TEMP} | UNLOGGED] [TABLE] new_table [FROM ...] [WHERE ...] [GROUP BY ...] [HAVING ...] [WINDOW ...] [{UNION | INTERSECT | EXCEPT | MINUS} [ALL | DISTINCT] select] [ORDER BY ...] [LIMIT ...] [OFFSET ...] [FETCH {FIRST | NEXT} [count] {ROW | ROWS} ONLY] [FOR {UPDATE | SHARE} [...] [NOWAIT | WAIT N]]；new_table指定新建表的名称，其余参数参见SELECT。"
+  source_anchor: "1.13.19.4 语法格式/参数说明 页1850-1851"
+  source_refs: *refselinto
+  status: confirmed
+- id: select_into_wave8_67_unlogged
+  type: constraint
+  statement: "UNLOGGED指定非日志表：写入的数据不会被写入预写日志，比普通表快很多；但在冲突、操作系统重启、数据库重启、主备切换、切断电源或异常关机后会被全部清空，存在数据丢失风险，内容不会被复制到备用服务器，其上的索引也不会被自动记录；使用场景为在确保数据已备份前提下使用（如系统升级时的数据备份）；故障处理：异常关机等导致索引数据丢失时应对错误索引进行重建。"
+  source_anchor: "1.13.19.4 参数说明 UNLOGGED 页1851"
+  source_refs: *refselinto
+  status: confirmed
+- id: select_into_wave8_67_temp_types
+  type: constraint
+  statement: "GLOBAL | LOCAL与TEMPORARY | TEMP：指定TEMP或TEMPORARY关键字则创建临时表；创建临时表时指定GLOBAL关键字为全局临时表，否则为本地临时表；TEMP和TEMPORARY等价。"
+  source_anchor: "1.13.19.4 参数说明 GLOBAL|LOCAL/TEMPORARY|TEMP 页1851"
+  source_refs: *refselinto
+  status: confirmed
+- id: select_into_wave8_67_global_temp
+  type: constraint
+  statement: "全局临时表的元数据对所有会话可见，会话结束后元数据继续存在；会话与会的用户数据、索引和统计信息相互隔离，每个会话只能看到和更改自己提交的数据；两种模式：会话级ON COMMIT PRESERVE ROWS（会话结束时自动清空用户数据）和事务级ON COMMIT DELETE ROWS（执行commit或rollback时自动清空）；建表时未指定ON COMMIT缺省为会话级别；与本地临时表不同，全局临时表建表时可以指定非pg_temp_开头的schema。"
+  source_anchor: "1.13.19.4 参数说明 TEMPORARY|TEMP 页1851"
+  source_refs: *refselinto
+  status: confirmed
+- id: select_into_wave8_67_local_temp
+  type: constraint
+  statement: "本地临时表只在当前会话可见，本会话结束后会自动删除；由于临时表只在当前会话创建，对临时表操作的DDL语句会产生DDL失败的报错，建议DDL语句中不要对临时表进行操作。"
+  source_anchor: "1.13.19.4 参数说明 TEMPORARY|TEMP 页1851"
+  source_refs: *refselinto
+  status: confirmed
+- id: select_into_wave8_67_temp_notes
+  type: constraint
+  statement: "临时表补充：本地临时表通过每个会话独立的以pg_temp_开头的Schema保证只对当前会话可见，不建议手动删除以pg_temp_、pg_toast_temp_开头的schema；建表不指定TEMPORARY|TEMP但指定表Schema为当前会话pg_temp_开头的Schema时该表会被创建为临时表；其它会话正在使用全局临时表或索引时无法对其执行ALTER/DROP操作；全局临时表的DDL只影响当前会话的用户数据和索引，truncate、reindex、analyze只对当前会话有效。"
+  source_anchor: "1.13.19.4 参数说明 须知 页1851"
+  source_refs: *refselinto
+  status: confirmed
+- id: select_into_wave8_67_example
+  type: behavior_oracle
+  statement: "示例中SELECT * INTO tbl_man FROM tbl_person WHERE gender = '男'根据查询结果创建新表tbl_man并插入3行男生数据（相关链接SELECT）。"
+  source_anchor: "1.13.19.4 示例 页1852"
+  source_refs: *refselinto
+  status: confirmed
+open_questions:
+- id: select_into_wave8_67_oq_runtime
+  statement: "SAVEPOINT异常回滚边界、SECURITY LABEL权限组合和SELECT INTO临时表/非日志表在真实并发、故障恢复路径下的完整行为与错误矩阵需授权环境实机验证。"
+  status: open
