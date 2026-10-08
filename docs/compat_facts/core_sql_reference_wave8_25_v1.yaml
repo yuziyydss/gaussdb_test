@@ -1,0 +1,139 @@
+document: 集中式版参考 / 1.13.7.37 ALTER TABLE PARTITION（Wave 8-25）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-07'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.7.37 ALTER TABLE PARTITION
+  physical_page_start: 1302
+  physical_page_end: 1318
+  physical_page_count: 17
+  excludes: []
+facts:
+- id: altp_wave8_25_purpose_actions
+  type: syntax
+  statement: "ALTER TABLE PARTITION修改表分区，支持增加、删除、切割、合并、清空、移动表空间、交换、重命名分区，设置行迁移、分区索引可用性、ILM策略、分区自动扩展和分区属性等维护子句。"
+  source_anchor: "1.13.7.37 页1302与1304"
+  source_refs: &refb1
+  - w8_25_1_13_7_37
+  status: confirmed
+- id: altp_wave8_25_permissions
+  type: constraint
+  statement: "只有分区表所有者或被授予分区表ALTER权限的用户可执行ALTER TABLE PARTITION；三权分立关闭时系统管理员默认拥有该权限。"
+  source_anchor: "1.13.7.37 注意事项 页1302"
+  source_refs: *refb1
+  status: confirmed
+- id: altp_wave8_25_add_rules
+  type: constraint
+  statement: "添加分区时表空间不能是PG_GLOBAL，分区名不能与已有分区重复，分区键值类型须一致；RANGE新分区上边界必须大于最后一个范围分区上边界，LIST键值不能重复；哈希分区不支持添加，达到最大分区数1048575后不能再添加。"
+  source_anchor: "1.13.7.37 注意事项 页1302"
+  source_refs: *refb1
+  status: confirmed
+- id: altp_wave8_25_delete_rules
+  type: constraint
+  statement: "当分区表只有一个分区时不能删除该分区；哈希分区表不支持删除分区。"
+  source_anchor: "1.13.7.37 注意事项 页1302"
+  source_refs: *refb1
+  status: confirmed
+- id: altp_wave8_25_partition_for_and_unsupported
+  type: constraint
+  statement: "PARTITION FOR()中值的个数必须与分区键列数一一对应；Value分区表不支持ALTER PARTITION；间隔分区表不支持添加分区；哈希分区表不支持切割、合并和添加/删除分区。"
+  source_anchor: "1.13.7.37 注意事项 页1302"
+  source_refs: *refb1
+  status: confirmed
+- id: altp_wave8_25_global_index
+  type: constraint
+  statement: "删除、切割、合并、清空、交换分区会使GLOBAL索引失效；可声明UPDATE GLOBAL INDEX同步更新。未声明时并发DML可能因索引不可用报错；enable_gpi_auto_update=on时即使不声明也会自动更新GLOBAL索引。"
+  source_anchor: "1.13.7.37 注意事项 页1302"
+  source_refs: *refb1
+  status: confirmed
+- id: altp_wave8_25_action_ordering
+  type: syntax
+  statement: "一条ALTER TABLE PARTITION可包含多个分区维护子句；为保证分区连续性，无论子句顺序如何，系统总是先执行DROP PARTITION再执行ADD PARTITION，最后顺序执行其它分区维护操作。"
+  source_anchor: "1.13.7.37 语法格式 页1304"
+  source_refs: *refb1
+  status: confirmed
+- id: altp_wave8_25_move_clause
+  type: syntax
+  statement: "MOVE PARTITION {partition_name | FOR (partition_value[, ...])} TABLESPACE tablespacename将指定分区移动到新表空间，分区可按名称或分区键值定位。"
+  source_anchor: "1.13.7.37 move_clause 页1304"
+  source_refs: *refb1
+  status: confirmed
+- id: altp_wave8_25_exchange_conditions
+  type: syntax
+  statement: "EXCHANGE PARTITION可将普通表数据迁移到指定分区，普通表和分区必须列数相同且列名、类型、约束、Collation、存储参数、压缩信息、索引和表约束严格一致；普通表不能是临时表，分区表只能是范围、列表、哈希或间隔分区表。"
+  source_anchor: "1.13.7.37 exchange_clause 页1304"
+  source_refs: *refb1
+  status: confirmed
+- id: altp_wave8_25_exchange_caveats
+  type: constraint
+  statement: "交换后普通表和分区的数据及表空间信息被置换，统计信息不可靠，需重新ANALYZE；普通表唯一索引可能导致无法交换；Ustore的RCR/PCR UB-Tree类型不一致会失败；B模式可用partition_name形式交换一级或二级分区，但不支持在二级分区表中交换一级分区和普通表。WITH VALIDATION检查普通表数据是否满足分区键范围且缺省为WITH，WITHOUT跳过检查；VERBOSE仅在WITH状态下使用，可将不满足范围的数据插入正确分区，无法路由时再报错。"
+  source_anchor: "1.13.7.37 exchange须知 页1305"
+  source_refs: *refb1
+  status: confirmed
+- id: altp_wave8_25_row_movement
+  type: constraint
+  statement: "{ENABLE|DISABLE} ROW MOVEMENT控制更新分区键导致分区变化时的行为，ENABLE进行分区间转移，DISABLE报错，缺省ENABLE。"
+  source_anchor: "1.13.7.37 row_clause 页1305与1310"
+  source_refs: *refb1
+  status: confirmed
+- id: altp_wave8_25_merge_clause
+  type: syntax
+  statement: "MERGE PARTITIONS将多个源分区合并成一个分区，单条命令源分区上限300；范围/间隔分区要求范围连续递增，列表分区无顺序要求。新分区可指定ILM策略和表空间；未开启enable_ilm时新分区不继承ILM策略。"
+  source_anchor: "1.13.7.37 merge_clause 页1305"
+  source_refs: *refb1
+  status: confirmed
+- id: altp_wave8_25_modify_clause
+  type: syntax
+  statement: "MODIFY PARTITION可设置分区内所有LOCAL索引不可用、重建不可用LOCAL索引，或通过COLVIEW/NOCOLVIEW设置IMCV分区属性。"
+  source_anchor: "1.13.7.37 modify_clause 页1305"
+  source_refs: *refb1
+  status: confirmed
+- id: altp_wave8_25_split_clause
+  type: syntax
+  statement: "SPLIT PARTITION把一个分区分割为多个分区，支持按分区名或PARTITION FOR定位源分区，可声明UPDATE GLOBAL INDEX；切割后的分区名可与源分区名相同但视为不同分区。"
+  source_anchor: "1.13.7.37 split_clause 页1305-1306"
+  source_refs: *refb1
+  status: confirmed
+- id: altp_wave8_25_split_range
+  type: syntax
+  statement: "范围/间隔分区可用AT(split_point) INTO两个新分区，切割点必须位于源分区分区键范围内；也可用INTO多个LESS THAN或START/END分区项。LESS THAN最多16键，START/END仅1键，同一语句不能混用两种分区项。"
+  source_anchor: "1.13.7.37 RANGE/INTERVAL split 页1306-1307"
+  source_refs: *refb1
+  status: confirmed
+- id: altp_wave8_25_split_list
+  type: syntax
+  statement: "列表分区可用VALUES(partition_value_list) INTO两个新分区，切割点必须是源分区的非空真子集；不指定切割点时，最后一个新分区不能写范围定义，其范围等于源分区扣除其他子分区后的剩余集合。"
+  source_anchor: "1.13.7.37 LIST split 页1307-1308"
+  source_refs: *refb1
+  status: confirmed
+- id: altp_wave8_25_add_clause
+  type: syntax
+  statement: "ADD子句支持partition_less_than_item、partition_start_end_item或partition_list_item添加一个或多个分区；PARTITION(...)多分区语法仅B模式支持，且不支持ADD PARTITION(definition1, definition2)形式。"
+  source_anchor: "1.13.7.37 add_clause 页1308"
+  source_refs: *refb1
+  status: confirmed
+- id: altp_wave8_25_truncate_rename_reset
+  type: syntax
+  statement: "TRUNCATE PARTITION清空指定分区；RENAME PARTITION重命名分区；RESET PARTITION重置分区ID。DROP/TRUNCATE PARTITION均可按分区名或PARTITION FOR分区键值定位，并可声明UPDATE GLOBAL INDEX。"
+  source_anchor: "1.13.7.37 drop/truncate/rename/reset 页1308-1309"
+  source_refs: *refb1
+  status: confirmed
+- id: altp_wave8_25_set_partitioning_interval
+  type: syntax
+  statement: "SET PARTITIONING AUTOMATIC/MANUAL开启或关闭列表分区自动扩展；SET INTERVAL无表达式时将间隔分区转为范围分区，有interval_expr时将范围分区转为间隔分区。interval_expr只支持数值和日期/时间类型。"
+  source_anchor: "1.13.7.37 SET PARTITIONING/SET INTERVAL 页1311"
+  source_refs: *refb1
+  status: confirmed
+- id: altp_wave8_25_online_ddl
+  type: constraint
+  statement: "ONLINE可支持在线切割/合并分区、交换分区和移动分区表空间；不能在事务或存储过程执行，M模式不支持，二级分区表、段页式、hash bucket、临时、UNLOGGED和HTAP等对象退化为离线；ONLINE WITH可设parallel_threads 1-32和max_catchup_times 1-50，失败或取消可能残留临时对象。"
+  source_anchor: "1.13.7.37 在线DDL注意事项与参数 页1302-1303、1309-1310"
+  source_refs: *refb1
+  status: confirmed
+open_questions:
+- id: altp_wave8_25_oq_runtime
+  statement: "ALTER TABLE PARTITION在真实分区规模、并发DML、GLOBAL索引、在线DDL、交换校验和自动扩展组合下的结果、锁等待、残留对象与性能矩阵需授权环境实机验证。"
+  status: open
