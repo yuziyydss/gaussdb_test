@@ -1,0 +1,145 @@
+document: 集中式版参考 / 1.13.7.21-24 ALTER OPERATOR/PACKAGE/PLUGGABLE DATABASE/PROCEDURE（Wave 8-97）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.7.21 ALTER OPERATOR
+  - 1.13.7.22 ALTER PACKAGE
+  - 1.13.7.23 ALTER PLUGGABLE DATABASE
+  - 1.13.7.24 ALTER PROCEDURE
+  physical_page_start: 1239
+  physical_page_end: 1249
+  physical_page_count: 10
+  excludes: []
+facts:
+- id: alter_operator_wave8_97_syntax
+  type: syntax
+  statement: "ALTER OPERATOR修改一个操作符的属性；两种形式：ALTER OPERATOR name ( { left_type | NONE } , { right_type | NONE } ) OWNER TO new_owner（更改所有者）、SET SCHEMA new_schema（更改模式）；left_type/right_type为操作符左右操作数数据类型，操作符不存在左/右操作数时此参数应设置为NONE。"
+  source_anchor: "1.13.7.21 语法格式/参数说明 页1239-1240"
+  source_refs: &refaop
+  - w8_97_1_13_7_21
+  status: confirmed
+- id: alter_operator_wave8_97_permission
+  type: constraint
+  statement: "执行ALTER OPERATOR的基本权限要求为执行者必须是目标操作符的当前所有者；修改所有者额外要求：执行者必须是新所有者角色的成员（直接或间接成员关系），且新所有者角色必须拥有目标操作符所在模式的CREATE权限；上述限制旨在确保所有权变更不会授予超出通过DROP OPERATOR和CREATE OPERATOR重建该操作符所需的权限，防止通过简单所有权变更绕过更严格的重建权限检查；但拥有SYSADMIN权限的用户可修改任何操作符的所有权，不受上述限制约束。"
+  source_anchor: "1.13.7.21 注意事项 页1239"
+  source_refs: *refaop
+  status: confirmed
+- id: alter_operator_wave8_97_params
+  type: constraint
+  statement: "name为需要修改的、已存在的操作符的名称；new_owner为操作符的新所有者；new_schema为操作符的新模式名。"
+  source_anchor: "1.13.7.21 参数说明 页1239-1240"
+  source_refs: *refaop
+  status: confirmed
+- id: alter_operator_wave8_97_example
+  type: behavior_oracle
+  statement: "示例：CREATE OPERATOR @@@ (PROCEDURE = func_add, LEFTARG = int, RIGHTARG = int)后ALTER OPERATOR @@@ (int,int) OWNER to user1；CREATE SCHEMA oper_sch后ALTER OPERATOR @@@ (int,int) SET SCHEMA oper_sch；清理DROP OPERATOR oper_sch.@@@(int,int)；兼容性：SQL标准里没有ALTER OPERATOR语句。"
+  source_anchor: "1.13.7.21 示例/兼容性 页1240"
+  source_refs: *refaop
+  status: confirmed
+- id: alter_package_wave8_97_syntax
+  type: syntax
+  statement: "ALTER PACKAGE修改包（PACKAGE）的属性或重编译包；两种形式：ALTER PACKAGE package_name OWNER TO new_owner（修改所有者）、ALTER PACKAGE package_name COMPILE [ PACKAGE | BODY | SPECIFICATION ]（重编译包）。"
+  source_anchor: "1.13.7.22 功能描述/语法格式 页1240-1241"
+  source_refs: &refapkg
+  - w8_97_1_13_7_22
+  status: confirmed
+- id: alter_package_wave8_97_permission
+  type: constraint
+  statement: "目前仅支持ALTER PACKAGE OWNER功能，系统管理员默认拥有该权限，权限约束：当前用户必须是该PACKAGE的所有者或者系统管理员，且该用户是新所有者角色的成员；当打开三权分立时即使系统管理员也必须拥有用户组权限才能修改PACKAGE的所有者，DEFINER类型PACKAGE不允许修改所有者；只有初始化用户才能修改PACKAGE的所有者为初始化用户；当关闭三权分立时仅系统管理员以上权限可以修改PACKAGE所有者；不允许系统管理员将DEFINER类型的PACKAGE的所有者改为初始用户或运维管理员。"
+  source_anchor: "1.13.7.22 注意事项 页1240-1241"
+  source_refs: *refapkg
+  status: confirmed
+- id: alter_package_wave8_97_params
+  type: constraint
+  statement: "package_name为要修改的PACKAGE名称，取值范围为已存在的PACKAGE名，仅支持修改单个PACKAGE名称；new_owner为PACKAGE的新所有者，要修改PACKAGE的所有者新所有者必须拥有该PACKAGE所属模式的CREATE权限，取值范围为已存在的用户角色。"
+  source_anchor: "1.13.7.22 参数说明 页1241"
+  source_refs: *refapkg
+  status: confirmed
+- id: alter_package_wave8_97_owner_example
+  type: behavior_oracle
+  statement: "示例：创建test_pkg包头（pkg_var int := 1与PROCEDURE test_pkg_proc）和包体后ALTER PACKAGE test_pkg OWNER TO test；SELECT t1.pkgname,t2.rolname FROM gs_package t1, gs_roles t2 WHERE t1.pkgname = 'test_pkg' AND t1.pkgowner = t2.oid显示test_pkg所有者为test。"
+  source_anchor: "1.13.7.22 示例 页1241-1242"
+  source_refs: *refapkg
+  status: confirmed
+- id: alter_package_wave8_97_compile_example
+  type: behavior_oracle
+  statement: "重编译基线：ALTER PACKAGE test_pkg COMPILE；清理DROP PACKAGE test_pkg与DROP ROLE test，并RESET behavior_compat_options关闭依赖功能；相关链接CREATE PACKAGE、DROP PACKAGE。"
+  source_anchor: "1.13.7.22 示例 页1242"
+  source_refs: *refapkg
+  status: confirmed
+- id: alter_pdb_wave8_97_syntax
+  type: syntax
+  statement: "ALTER PLUGGABLE DATABASE pdb_name { OPEN | CLOSE | CLOSE IMMEDIATE }修改Pluggable Database（PDB）的状态，对其进行打开、关闭、强制关闭的操作；pdb_name取值为符合标识符命名规范的字符串。"
+  source_anchor: "1.13.7.23 功能描述/语法格式 页1242-1243"
+  source_refs: &refapdb
+  - w8_97_1_13_7_23
+  status: confirmed
+- id: alter_pdb_wave8_97_permission
+  type: environment
+  statement: "只能在GUC参数enable_mtd为on的状态下使用；只能在非PDB中进行该操作，不可在M兼容模式数据库中执行该命令；操作用户需要为PDB属主（见系统表pg_database.datdba）或拥有sysadmin权限；仅数据库初始用户可以使用该语句变更模板PDB（template_pdb）。"
+  source_anchor: "1.13.7.23 注意事项 页1242"
+  source_refs: *refapdb
+  status: confirmed
+- id: alter_pdb_wave8_97_template_pdb
+  type: constraint
+  statement: "模板PDB只允许数据库初始用户连接，其他用户无法连接；禁止用户在模板PDB下执行任何数据操作，若执行相关操作可能产生预期外行为——例如若在模板PDB内创建表空间，后续基于该模板创建的PDB不会同步模板内的表空间软链接，表空间软链接会发生丢失。"
+  source_anchor: "1.13.7.23 注意事项 说明 页1242"
+  source_refs: *refapdb
+  status: confirmed
+- id: alter_pdb_wave8_97_open
+  type: constraint
+  statement: "OPEN打开指定的PDB：PDB的OPEN操作即其数据库实例的启动，仅当PDB开启时才提供服务，管理员可按需启用或停用一部分PDB，只有PDB处于开启状态时才允许被连接；只有在当前的资源计划中存在与PDB关联的资源计划指令时，才可以成功打开PDB。"
+  source_anchor: "1.13.7.23 参数说明 OPEN 页1243"
+  source_refs: *refapdb
+  status: confirmed
+- id: alter_pdb_wave8_97_close
+  type: constraint
+  statement: "CLOSE关闭指定的PDB：用户暂不需要使用PDB或需要将其删除时可通过CLOSE停止PDB服务，关闭后无法连接到该PDB，数据库会对关闭的PDB进行最基本的常规维护以保证系统整体一致性，停用的PDB对系统开销可以忽略；如果执行该语句时该PDB还存在业务连接，则将最多等待5秒，后续还存在则会导致关闭失败；CLOSE IMMEDIATE强制关闭指定的PDB：管理员无法主动断连PDB业务连接时，可使用该选项主动清退PDB现有的业务连接并关闭PDB。"
+  source_anchor: "1.13.7.23 参数说明 CLOSE/CLOSE IMMEDIATE 页1243"
+  source_refs: *refapdb
+  status: confirmed
+- id: alter_pdb_wave8_97_example
+  type: behavior_oracle
+  statement: "示例（系统管理员连接postgres）：ALTER PLUGGABLE DATABASE my_pdb OPEN返回ALTER PLUGGABLE DATABASE；CLOSE关闭已开启的PDB；再OPEN开启；CLOSE IMMEDIATE立即关闭；相关链接CREATE PLUGGABLE DATABASE、DROP PLUGGABLE DATABASE INCLUDING DATAFILES、GS_PDB。"
+  source_anchor: "1.13.7.23 示例 页1243"
+  source_refs: *refapdb
+  status: confirmed
+- id: alter_procedure_wave8_97_syntax
+  type: syntax
+  statement: "ALTER PROCEDURE修改自定义存储过程的属性或重编译存储过程；五种形式：ALTER PROCEDURE procedure_name ( [ { [ argname ] [ argmode ] argtype} [, ...] ] ) action [ ... ] [ RESTRICT ]（附加参数）、RENAME TO new_name、OWNER TO new_owner、SET SCHEMA new_schema、COMPILE（重编译，可选带参数签名）；action子句包括{CALLED ON NULL INPUT | RETURNS NULL ON NULL INPUT | STRICT}、{IMMUTABLE | STABLE | VOLATILE}、{SHIPPABLE | NOT SHIPPABLE}、{NOT FENCED | FENCED}、[ NOT ] LEAKPROOF、{ [ EXTERNAL ] SECURITY INVOKER | [ EXTERNAL ] SECURITY DEFINER }、AUTHID { DEFINER | CURRENT_USER }、COST execution_cost、ROWS result_rows、SET configuration_parameter { { TO | = } { value | DEFAULT }| FROM CURRENT}、RESET {configuration_parameter | ALL}。"
+  source_anchor: "1.13.7.24 语法格式 页1244-1245"
+  source_refs: &refaproc
+  - w8_97_1_13_7_24
+  status: confirmed
+- id: alter_procedure_wave8_97_permission
+  type: constraint
+  statement: "只有存储过程的所有者或者被授予了存储过程ALTER权限的用户才能执行ALTER PROCEDURE，系统管理员默认拥有该权限；存储过程中涉及对临时表相关的操作则无法使用ALTER PROCEDURE；修改所有者或模式时当前用户必须是该存储过程的所有者或系统管理员，且该用户是新所有者角色的成员；只有系统管理员和初始化用户可以将procedure的schema修改成public；仅有初始化用户或创建该存储过程的用户可以修改存储过程为定义者权限的存储过程；三权分立打开时定义者权限的存储过程不允许任何角色修改owner，关闭时仅初始用户和系统管理员可以修改；只有初始用户才能修改存储过程的owner为初始用户。"
+  source_anchor: "1.13.7.24 注意事项 页1243-1244"
+  source_refs: *refaproc
+  status: confirmed
+- id: alter_procedure_wave8_97_params
+  type: constraint
+  statement: "参数：argmode取值IN、OUT、INOUT或VARIADIC；RESTRICT仅用于语法兼容无实际作用；SHIPPABLE | NOT SHIPPABLE表示是否可以下推执行（预留接口不推荐使用）；FENCED | NOT FENCED声明保护模式或非保护模式执行（预留接口不推荐使用）；COST execution_cost以cpu_operator_cost为单位取正数；ROWS result_rows估计返回行数取正数默认1000；SET configuration_parameter中DEFAULT/OFF/RESET在新会话使用系统缺省设置、用户指定值需满足取值限制、FROM CURRENT取当前会话中的值；修改所属模式必须拥有新模式的CREATE权限，修改所有者时新所有者必须拥有该存储过程所属模式的CREATE权限。"
+  source_anchor: "1.13.7.24 参数说明 页1246-1248"
+  source_refs: *refaproc
+  status: confirmed
+- id: alter_procedure_wave8_97_action_semantics
+  type: constraint
+  statement: "action语义：CALLED ON NULL INPUT某些参数为NULL时可正常调用（缺省相同）；STRICT/RETURNS NULL ON NULL INPUT存在NULL参数时不执行存储过程直接自动返回NULL（两者功能相同）；IMMUTABLE同样参数值总返回同样结果；STABLE不能修改数据库、同一次表扫描内返回值不变但不同SQL语句间可能变化；VOLATILE一次表扫描内可变不做优化；LEAKPROOF无副作用且指出参数只包括返回值，只能由系统管理员设置；SECURITY INVOKER与AUTHID CURRENT_USER功能相同（调用者权限执行，缺省相同）；SECURITY DEFINER与AUTHID DEFINER功能相同（创建者权限执行）；EXTERNAL（可选）目的是和SQL兼容，适合于所有存储过程。"
+  source_anchor: "1.13.7.24 参数说明 页1246-1247"
+  source_refs: *refaproc
+  status: confirmed
+- id: alter_procedure_wave8_97_example
+  type: behavior_oracle
+  statement: "示例：CREATE OR REPLACE PROCEDURE test_proc(a int)后ALTER PROCEDURE test_proc COMPILE（存储过程名重编译）与ALTER PROCEDURE test_proc(int) COMPILE（带类型签名重编译）；ALTER PROCEDURE test_proc(a int) IMMUTABLE修改执行规则（参数不变时返回结果相同）；CREATE USER joe后OWNER TO joe；CREATE SCHEMA test后SET SCHEMA test；删除时需指定所属模式DROP PROCEDURE test.test_proc。"
+  source_anchor: "1.13.7.24 示例 页1248"
+  source_refs: *refaproc
+  status: confirmed
+open_questions:
+- id: alter_op_pkg_pdb_proc_wave8_97_oq_runtime
+  statement: "操作符所有权变更与重建权限等价性、DEFINER类型PACKAGE与三权分立组合的所有者修改限制、PDB在资源计划指令下的OPEN行为与CLOSE 5秒等待边界、存储过程重编译后依赖对象失效与恢复在授权环境下的完整行为与错误矩阵需实机验证。"
+  status: open
