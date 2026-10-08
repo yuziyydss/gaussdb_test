@@ -1,0 +1,143 @@
+document: 集中式版参考 / 1.13.20.1 TIMECAPSULE TABLE、1.13.20.2 TRUNCATE 与 1.13.20.3 TIMECAPSULE DATABASE（Wave 8-72）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-07'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.20.1 TIMECAPSULE TABLE
+  - 1.13.20.2 TRUNCATE
+  - 1.13.20.3 TIMECAPSULE DATABASE
+  physical_page_start: 1871
+  physical_page_end: 1880
+  physical_page_count: 10
+  excludes: []
+facts:
+- id: timecapsule_table_wave8_72_purpose
+  type: syntax
+  statement: "TIMECAPSULE TABLE在人为操作或应用程序错误时将表恢复到一个早期状态，依赖系统中保存的旧版本数据，不能恢复通过DDL操作改变了表结构的早期状态；用法分两大类：闪回旧版本数据（TO TIMESTAMP和TO CSN，当前仅支持Ustore存储引擎）和从回收站中闪回（TO BEFORE DROP和TO BEFORE TRUNCATE，回收站记录DROP和TRUNCATE的对象数据，当前支持Ustore及Astore）。"
+  source_anchor: "1.13.20.1 功能描述/注意事项 页1871"
+  source_refs: &reftct
+  - w8_72_1_13_20_1
+  status: confirmed
+- id: timecapsule_table_wave8_72_unsupported_objects
+  type: constraint
+  statement: "不支持闪回表的对象类型：系统表、DFS表、全局临时表、本地临时表、UNLOGGED表、序列表、密态表；不支持含有自定义类型表的闪回；开启闪回后回收站里的表可以进行表级备份，无法进行表级恢复。"
+  source_anchor: "1.13.20.1 注意事项 页1871"
+  source_refs: *reftct
+  status: confirmed
+- id: timecapsule_table_wave8_72_ddl_gap
+  type: constraint
+  statement: "闪回点和当前点之间，执行过修改表结构或影响物理存储的语句（DDL、DCL、VACUUM FULL），则闪回失败。"
+  source_anchor: "1.13.20.1 注意事项 页1871"
+  source_refs: *reftct
+  status: confirmed
+- id: timecapsule_table_wave8_72_privileges
+  type: constraint
+  statement: "执行闪回删除需要用户具有垃圾对象所在Schema的CREATE和USAGE权限，并且用户必须是Schema的所有者或者垃圾对象的所有者；执行闪回TRUNCATE还需额外具有垃圾对象的TRUNCATE权限。"
+  source_anchor: "1.13.20.1 注意事项 页1871"
+  source_refs: *reftct
+  status: confirmed
+- id: timecapsule_table_wave8_72_unsuitable_scenarios
+  type: constraint
+  statement: "不适用闪回DROP/TRUNCATE的场景或表：enable_recyclebin=off；系统处于维护态（xc_maintenance_mode=on）；从不支持的基线版本升级且处于升级观察期；DROP/TRUNCATE TABLE同时指定多个对象；系统表、DFS表、全局临时表、本地临时表、UNLOGGED表、序列表、hashbucket表、密态表；回收站对象被清理后（recyclebin_retention_time设置保留时间）无法闪回；回收站对象禁止DML、DCL、DDL等写操作，不支持DQL查询操作；truncate表和闪回truncate之间执行过DDL、DCL、VACUUM FULL、增加/删除/切割/合成等分区操作则闪回失败；整表删除或截断时分区随整表放入回收站，单个删除的分区不支持放入回收站；表依赖外部对象（如复合类型、自定义类型列）时采用物理删除不入回收站。"
+  source_anchor: "1.13.20.1 注意事项 页1871-1872"
+  source_refs: *reftct
+  status: confirmed
+- id: timecapsule_table_wave8_72_drop_truncate_constraints
+  type: constraint
+  statement: "DROP闪回约束：可指定原始表名或系统生成名称（系统生成名唯一，SELECT * FROM gs_recyclebin查看；指定用户名且存在多个同名对象时检索最近移动的对象，检索更早版本需指定系统生成名反复执行TO BEFORE DROP）；恢复DROP表只恢复基表名，其他子对象名保持回收站对象名；缺省值引用序列和自定义函数的表闪回DROP成功但不恢复缺省值；视图引用级联删除后闪回成功但不恢复视图。TRUNCATE闪回约束：闪回后统计信息无变化仍显示为0，可在业务低峰期手动ANALYZE修正；RENAME TO仅支持DROP闪回不支持TRUNCATE闪回；TRUNCATE闪回不能跨越影响表结构或物理存储的语句，报错ERROR: The table definition of %s has been modified.或ERROR: recycle object %s desired does not exist.。"
+  source_anchor: "1.13.20.1 注意事项 页1872"
+  source_refs: *reftct
+  status: confirmed
+- id: timecapsule_table_wave8_72_vacuum_upgrade
+  type: constraint
+  statement: "vacuum更新库级frozenXid时会参考回收站中rcyfrozenxid64的值，回收站中长时间未清理的表可能导致frozenXid无法推进、影响clog回收（clog文件占存储较小，实际影响较小），可清理不再需要闪回的表推进frozenXid；从503.0之前的版本升级时若升级前已开启回收站，需确保回收站中不存在分区表对象，否则升级失败；升级中（未提交或已提交状态）对分区表执行闪回表或闪回查询均报错提示表结构发生变更。"
+  source_anchor: "1.13.20.1 注意事项 页1872"
+  source_refs: *reftct
+  status: confirmed
+- id: timecapsule_table_wave8_72_syntax
+  type: syntax
+  statement: "语法为TIMECAPSULE TABLE [schema.]table_name TO {CSN expr | TIMESTAMP expr | BEFORE {DROP [RENAME TO table_name] | TRUNCATE}}；schema缺省为当前模式；TO CSN指定事务提交序列号（expr必须计算有效CSN数字）；TO TIMESTAMP指定过去有效时间戳（使用TO_TIMESTAMP函数转换），表将闪回到指定时间戳大约3秒内的时间点，闪回点过旧时因旧版本被回收报错Restore point too old；TO BEFORE DROP检索回收站中已删除的表及其子对象；RENAME TO为检索的表指定新名称；TO BEFORE TRUNCATE闪回到TRUNCATE之前。"
+  source_anchor: "1.13.20.1 语法格式/参数说明 页1872-1873"
+  source_refs: *reftct
+  status: confirmed
+- id: timecapsule_table_wave8_72_example
+  type: behavior_oracle
+  statement: "示例需设置undo_retention_time参数（旧版本undo保留时间）：建表插入3行并记录now()与next_csn（25391），UPDATE后通过TIMECAPSULE table tbl_test TO TIMESTAMP to_timestamp(...)或TIMECAPSULE table tbl_test TO CSN 25391闪回恢复3行原数据；回收站场景（需enable_recyclebin与recyclebin_retention_time）：DROP TABLE后TIMECAPSULE TABLE tbl_test1 TO BEFORE DROP恢复2行数据，DROP TABLE tbl_test1 PURGE级联删除回收站该表数据。"
+  source_anchor: "1.13.20.1 示例 页1873-1874"
+  source_refs: *reftct
+  status: confirmed
+- id: truncate_wave8_72_purpose
+  type: syntax
+  statement: "TRUNCATE清理表数据，快速地从表中删除所有行；和在目标表上进行无条件的DELETE有同样效果，但由于TRUNCATE不做表扫描，因而快得多，在大表上操作效果更明显。"
+  source_anchor: "1.13.20.2 功能描述 页1874"
+  source_refs: &reftrunc
+  - w8_72_1_13_20_2
+  status: confirmed
+- id: truncate_wave8_72_privileges
+  type: constraint
+  statement: "表的所有者、被授予了表的TRUNCATE权限的用户或被授予TRUNCATE ANY TABLE权限的用户，有权TRUNCATE指定表；三权分立关闭时的系统管理员默认拥有该权限。"
+  source_anchor: "1.13.20.2 注意事项 页1875"
+  source_refs: *reftrunc
+  status: confirmed
+- id: truncate_wave8_72_vs_delete
+  type: constraint
+  statement: "TRUNCATE TABLE在功能上与不带WHERE子句的DELETE语句相同（均删除表中全部行），但比DELETE速度快且使用系统和事务日志资源少：DELETE语句每次删除一行并在事务日志中为每行记录一项；TRUNCATE TABLE通过释放存储表数据所用数据页来删除数据，只在事务日志中记录页的释放。"
+  source_anchor: "1.13.20.2 注意事项 页1875"
+  source_refs: *reftrunc
+  status: confirmed
+- id: truncate_wave8_72_ddl_diff
+  type: constraint
+  statement: "TRUNCATE、DELETE和DROP三者差异：TRUNCATE TABLE删除内容、释放空间、但不删除定义；DELETE TABLE删除内容、不删除定义、不释放空间；DROP TABLE删除内容和定义、释放空间。"
+  source_anchor: "1.13.20.2 注意事项 页1875"
+  source_refs: *reftrunc
+  status: confirmed
+- id: truncate_wave8_72_syntax
+  type: syntax
+  statement: "清理表数据语法：TRUNCATE [TABLE] [ONLY] {table_name [*]}[, ...] [CONTINUE IDENTITY] [CASCADE | RESTRICT] [PURGE]；清理表分区数据语法：ALTER TABLE [IF EXISTS] {[ONLY] table_name | table_name * | ONLY (table_name)} TRUNCATE PARTITION {partition_name | FOR (partition_value[, ...])} [UPDATE GLOBAL INDEX]。ONLY只清空指定表否则含所有子表；CONTINUE IDENTITY不改变序列值（缺省）；CASCADE级联清空组中的表，RESTRICT（缺省）在其他表有外键引用时拒绝清空；PURGE默认将表数据放入回收站、指定PURGE直接清理；PARTITION FOR通过分区键值唯一确定分区且整个分区会被清空；UPDATE GLOBAL INDEX更新分区表所有全局索引，不使用则全局索引失效。"
+  source_anchor: "1.13.20.2 语法格式/参数说明 页1875-1876"
+  source_refs: *reftrunc
+  status: confirmed
+- id: truncate_wave8_72_example
+  type: behavior_oracle
+  statement: "示例中DELETE FROM reason后表大小仍为8192 bytes，TRUNCATE TABLE reason后表大小为0 bytes；分区表示例中ALTER TABLE reason_p TRUNCATE PARTITION p_05_before UPDATE GLOBAL INDEX清空单个分区并更新全局索引，TRUNCATE TABLE reason_p清空整表。"
+  source_anchor: "1.13.20.2 示例 页1876-1877"
+  source_refs: *reftrunc
+  status: confirmed
+- id: timecapsule_database_wave8_72_purpose
+  type: syntax
+  statement: "TIMECAPSULE DATABASE在人为操作或应用程序错误时，将库回收站中的数据库对象恢复；支持库级回收站对象从回收站中闪回，不支持M兼容库下创建的Schema库对象闪回。"
+  source_anchor: "1.13.20.3 功能描述/注意事项 页1877"
+  source_refs: &reftcd
+  - w8_72_1_13_20_3
+  status: confirmed
+- id: timecapsule_database_wave8_72_unsuitable
+  type: constraint
+  statement: "不适用闪回DROP功能的场景：回收站关闭场景（enable_db_recyclebin=off）；系统处于维护态（xc_maintenance_mode=on）或从不支持的基线版本升级到支持版本的升级场景；回收站对象被清理后无法闪回（dbrecyclebin_retention_time设置回收站对象保留时间）；回收站中的数据库不支持连接、DQL、DML、DDL、DCL操作。"
+  source_anchor: "1.13.20.3 注意事项 页1877-1878"
+  source_refs: *reftcd
+  status: confirmed
+- id: timecapsule_database_wave8_72_constraints
+  type: constraint
+  statement: "数据库DROP闪回约束：可指定原始数据库名称或系统分配的生成名称（系统生成名唯一，SELECT * FROM gs_db_recyclebin查看；指定用户名且存在多个同名对象时检索最近移动的对象，检索更早版本需指定系统生成名反复执行TO BEFORE DROP）；回收站中的数据库在恢复前需占用额外存储空间；支持包含Astore、Ustore数据表的数据库场景，不支持Dstore场景；对齐DROP DATABASE的报错场景；不支持PDB闪回；数据库所在表空间磁盘达到容量阈值被设为只读后无法闪回；若表空间DML操作导致容量不足，会自动清理库回收站中此表空间关联的数据库对象；用户需持有管理员权限或目标库的创建权限；TIMECAPSULE DATABASE支持在事务块内运行。"
+  source_anchor: "1.13.20.3 注意事项 页1878"
+  source_refs: *reftcd
+  status: confirmed
+- id: timecapsule_database_wave8_72_syntax
+  type: syntax
+  statement: "语法为TIMECAPSULE DATABASE database_name TO BEFORE DROP [RENAME TO new_name]；database_name指定需要闪回的库名；TO BEFORE DROP检索回收站中已删除的数据库；RENAME TO为从回收站中检索的库指定一个新名称。"
+  source_anchor: "1.13.20.3 语法格式/参数说明 页1878"
+  source_refs: *reftcd
+  status: confirmed
+- id: timecapsule_database_wave8_72_example
+  type: behavior_oracle
+  statement: "前提参数为enable_db_recyclebin、dbrecyclebin_retention_time、dbrecyclebin_maxsize：drop database后gs_db_recyclebin可见BIN$系统生成名记录，可通过系统生成名或原库名执行timecapsule database ... to before drop闪回（可RENAME TO重命名为flashback_test2），闪回后gs_db_recyclebin清空且可连接恢复的库。"
+  source_anchor: "1.13.20.3 示例 页1879-1880"
+  source_refs: *reftcd
+  status: confirmed
+open_questions:
+- id: timecapsule_wave8_72_oq_runtime
+  statement: "TIMECAPSULE TABLE/DATABASE闪回与TRUNCATE在真实回收站参数、存储引擎、升级观察期和并发路径下的完整行为与错误矩阵需授权环境实机验证。"
+  status: open
