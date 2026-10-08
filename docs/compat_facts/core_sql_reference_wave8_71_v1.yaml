@@ -1,0 +1,141 @@
+document: 集中式版参考 / 1.13.19.13 SNAPSHOT 与 1.13.19.14 START TRANSACTION（Wave 8-71）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-07'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.19.13 SNAPSHOT
+  - 1.13.19.14 START TRANSACTION
+  physical_page_start: 1866
+  physical_page_end: 1870
+  physical_page_count: 5
+  excludes: []
+facts:
+- id: snapshot_wave8_71_purpose
+  type: syntax
+  statement: "SNAPSHOT针对多用户情况下对数据进行统一的版本控制。"
+  source_anchor: "1.13.19.13 功能描述 页1866"
+  source_refs: &refsnap
+  - w8_71_1_13_19_13
+  status: confirmed
+- id: snapshot_wave8_71_guc_models
+  type: constraint
+  statement: "SNAPSHOT本特性GUC参数为db4ai_snapshot_mode，快照存储模型分为MSS和CSS。"
+  source_anchor: "1.13.19.13 注意事项 页1866"
+  source_refs: *refsnap
+  status: confirmed
+- id: snapshot_wave8_71_incremental_deps
+  type: constraint
+  statement: "当快照选用增量存储方式时，各个快照中具有依赖关系；删除快照需要按照依赖顺序进行删除。"
+  source_anchor: "1.13.19.13 注意事项 页1866"
+  source_refs: *refsnap
+  status: confirmed
+- id: snapshot_wave8_71_separation_duty
+  type: constraint
+  statement: "snapshot特性用于团队不同成员间维护数据，涉及管理员和普通用户之间的数据转写；在三权分立（enableSeparationOfDuty=ON）等状态下，数据库不支持snapshot功能特性。"
+  source_anchor: "1.13.19.13 注意事项 页1866"
+  source_refs: *refsnap
+  status: confirmed
+- id: snapshot_wave8_71_publish_need
+  type: constraint
+  statement: "当需要稳定可用的快照用于AI训练等任务时，用户需要将快照发布。"
+  source_anchor: "1.13.19.13 注意事项 页1866"
+  source_refs: *refsnap
+  status: confirmed
+- id: snapshot_wave8_71_create_as
+  type: syntax
+  statement: "CREATE SNAPSHOT AS语法：CREATE SNAPSHOT <qualified_name> [@ <version | ident | sconst>] [COMMENT IS <sconst>] AS query，通过查询语句创建数据表快照。"
+  source_anchor: "1.13.19.13 语法格式 页1866"
+  source_refs: *refsnap
+  status: confirmed
+- id: snapshot_wave8_71_create_from
+  type: syntax
+  statement: "CREATE SNAPSHOT FROM语法：CREATE SNAPSHOT <qualified_name> [@ <version | ident | sconst>] FROM @ <version | ident | sconst> [COMMENT IS <sconst>] USING ({INSERT [INTO SNAPSHOT]… | UPDATE [SNAPSHOT] [AS <alias>] SET…[FROM…][WHERE…] | DELETE [FROM SNAPSHOT] [AS <alias>] [USING…][WHERE…] | ALTER [SNAPSHOT] {ADD…|DROP…}[,…]} [; …])，基于已有快照迭代创建。"
+  source_anchor: "1.13.19.13 语法格式 页1866-1867"
+  source_refs: *refsnap
+  status: confirmed
+- id: snapshot_wave8_71_purge_sample
+  type: syntax
+  statement: "删除快照：PURGE SNAPSHOT <qualified_name> @ <version | ident | sconst>；快照采样：SAMPLE SNAPSHOT <qualified_name> @ <version | ident | sconst> [STRATIFY BY <attr_list>] {AS <label> AT RATIO <num> [COMMENT IS <comment>]}[, …]。"
+  source_anchor: "1.13.19.13 语法格式 页1867"
+  source_refs: *refsnap
+  status: confirmed
+- id: snapshot_wave8_71_publish_archive_query
+  type: syntax
+  statement: "快照发布：PUBLISH SNAPSHOT <qualified_name> @ <version | ident | sconst>；快照存档：ARCHIVE SNAPSHOT <qualified_name> @ <version | ident | sconst>；查询快照：SELECT * FROM DB4AISHOT(<qualified_name> @ <version | ident | sconst>)。"
+  source_anchor: "1.13.19.13 语法格式 页1867"
+  source_refs: *refsnap
+  status: confirmed
+- id: snapshot_wave8_71_params_name_version
+  type: constraint
+  statement: "qualified_name为创建snapshot的名称（字符串，符合标识符命名规范）；version为可省略的快照版本号，省略时系统自动顺延编号，取值为数字编号配合分隔符的字符串；ident用于标定快照后缀编号（或大版本），取值为整数；sconst为字符串常量，用于描述名称后缀或快照评论。"
+  source_anchor: "1.13.19.13 参数说明 页1867"
+  source_refs: *refsnap
+  status: confirmed
+- id: snapshot_wave8_71_params_rest
+  type: constraint
+  statement: "comment为指定添加的评论内容（字符串，符合标识符命名规范）；alias为当前对象取的别名；attr_list为目标对象的list集合；label为采样数据列别名；num为指定的比例值，取值为数字；以上取值均为字符串并需符合标识符命名规范（num为数字）。"
+  source_anchor: "1.13.19.13 参数说明 页1867-1868"
+  source_refs: *refsnap
+  status: confirmed
+- id: snapshot_wave8_71_example_create
+  type: behavior_oracle
+  statement: "示例中CREATE SNAPSHOT s1@1.0 comment is 'first version' AS SELECT * FROM t1创建含5行数据的快照；迭代CREATE SNAPSHOT s1@2.0 FROM @1.0 comment is 'inherits from @1.0' USING (INSERT VALUES(6,'john'),(7,'tim'); DELETE WHERE id = 1)后，SELECT * FROM DB4AISHOT(s1@2.0)返回6行（id为2-7），DB4AISHOT(s1@1.0)返回原始5行。"
+  source_anchor: "1.13.19.13 示例 页1868"
+  source_refs: *refsnap
+  status: confirmed
+- id: snapshot_wave8_71_example_sample_purge
+  type: behavior_oracle
+  statement: "示例中SAMPLE SNAPSHOT s1@2.0 stratify by name as nick at ratio .5按name列分层采样生成s1nick快照；删除按依赖顺序依次PURGE SNAPSHOT s1@2.0、PURGE SNAPSHOT s1nick@2.0、PURGE SNAPSHOT s1@1.0。"
+  source_anchor: "1.13.19.13 示例 页1868"
+  source_refs: *refsnap
+  status: confirmed
+- id: start_transaction_wave8_71_purpose
+  type: syntax
+  statement: "START TRANSACTION通过START TRANSACTION启动事务；如果声明了隔离级别、读写模式，那么新事务就使用这些特性，类似执行了SET TRANSACTION。"
+  source_anchor: "1.13.19.14 功能描述 页1868"
+  source_refs: &refstarttx
+  - w8_71_1_13_19_14
+  status: confirmed
+- id: start_transaction_wave8_71_autocommit
+  type: constraint
+  statement: "使用START TRANSACTION时，自动提交保持禁用状态，直到COMMIT或结束事务ROLLBACK，自动提交模式才恢复为初始状态。"
+  source_anchor: "1.13.19.14 注意事项 页1869"
+  source_refs: *refstarttx
+  status: confirmed
+- id: start_transaction_wave8_71_syntax_start
+  type: syntax
+  statement: "格式一：START TRANSACTION [{ISOLATION LEVEL {READ COMMITTED | READ UNCOMMITTED | SERIALIZABLE | REPEATABLE READ} | {READ WRITE | READ ONLY}}[, ...]]。"
+  source_anchor: "1.13.19.14 语法格式 页1869"
+  source_refs: *refstarttx
+  status: confirmed
+- id: start_transaction_wave8_71_syntax_begin
+  type: syntax
+  statement: "格式二：BEGIN [WORK | TRANSACTION] [{ISOLATION LEVEL {READ COMMITTED | SERIALIZABLE | REPEATABLE READ | READ UNCOMMITTED} | {READ WRITE | READ ONLY}}[, ...]]；WORK | TRANSACTION为BEGIN格式中的可选关键字，没有实际作用。"
+  source_anchor: "1.13.19.14 语法格式/参数说明 页1869"
+  source_refs: *refstarttx
+  status: confirmed
+- id: start_transaction_wave8_71_isolation_timing
+  type: constraint
+  statement: "ISOLATION LEVEL指定事务隔离级别，决定当一个事务中存在其他并发运行事务时它能够看到什么数据；在事务中第一个数据修改语句（SELECT、INSERT、DELETE、UPDATE、FETCH、COPY）执行之后，事务隔离级别就不能再次设置。"
+  source_anchor: "1.13.19.14 参数说明 ISOLATION LEVEL 页1869-1870"
+  source_refs: *refstarttx
+  status: confirmed
+- id: start_transaction_wave8_71_levels
+  type: constraint
+  statement: "隔离级别取值：READ COMMITTED读已提交，只能读到已提交数据（缺省值）；READ UNCOMMITTED指定后的行为和READ COMMITTED一致；REPEATABLE READ仅仅看到事务开始之前提交的数据，不能看到未提交数据及事务执行期间其它并发事务提交的修改；SERIALIZABLE目前功能上不支持，设置该隔离级别时等价于REPEATABLE READ；READ WRITE | READ ONLY指定事务访问模式（读/写或只读）。"
+  source_anchor: "1.13.19.14 参数说明 取值范围 页1870"
+  source_refs: *refstarttx
+  status: confirmed
+- id: start_transaction_wave8_71_example
+  type: behavior_oracle
+  statement: "示例覆盖START TRANSACTION与BEGIN以默认方式启动事务后END结束；START TRANSACTION ISOLATION LEVEL READ COMMITTED READ WRITE启动事务后COMMIT提交（相关链接COMMIT | END、ROLLBACK、SET TRANSACTION）。"
+  source_anchor: "1.13.19.14 示例 页1870"
+  source_refs: *refstarttx
+  status: confirmed
+open_questions:
+- id: snapshot_wave8_71_oq_runtime
+  statement: "SNAPSHOT创建/迭代/采样/发布/存档全生命周期与START TRANSACTION事务特性在真实MSS/CSS模式、三权分立和并发路径下的完整行为与错误矩阵需授权环境实机验证。"
+  status: open
