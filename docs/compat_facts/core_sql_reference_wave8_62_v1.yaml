@@ -1,0 +1,143 @@
+document: 集中式版参考 / 1.13.15.1 LOAD DATA、1.13.15.2 LOCK 与 1.13.15.3 LOCK BUCKETS（Wave 8-62）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-07'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.15.1 LOAD DATA
+  - 1.13.15.2 LOCK
+  - 1.13.15.3 LOCK BUCKETS
+  physical_page_start: 1760
+  physical_page_end: 1769
+  physical_page_count: 10
+  excludes: []
+facts:
+- id: load_data_wave8_62_purpose
+  type: syntax
+  statement: "LOAD DATA用于将文件中的数据导入到数据库指定表中。"
+  source_anchor: "1.13.15.1 功能描述 页1760"
+  source_refs: &refload
+  - w8_62_1_13_15_1
+  status: confirmed
+- id: load_data_wave8_62_compat_modes
+  type: constraint
+  statement: "LOAD DATA语法仅在B兼容模式（sql_compatibility = 'B'）以及M-Compatibility模式数据库（sql_compatibility = 'M'）下支持；在B模式下需开启b_format_version='5.7'和b_format_dev_version='s2'参数后才与B数据库功能一致。"
+  source_anchor: "1.13.15.1 注意事项 页1760"
+  source_refs: *refload
+  status: confirmed
+- id: load_data_wave8_62_privileges
+  type: constraint
+  statement: "LOAD DATA语法权限相关GUC参数与COPY FROM语法注意事项一致；执行LOAD DATA需要表的INSERT和DELETE权限。"
+  source_anchor: "1.13.15.1 注意事项 页1760"
+  source_refs: *refload
+  status: confirmed
+- id: load_data_wave8_62_table_only_typefail
+  type: constraint
+  statement: "LOAD DATA只能用于表，不能用于视图；写入表中的数据若无法转换为表中数据类型格式时将导致导入失败。"
+  source_anchor: "1.13.15.1 注意事项 页1760"
+  source_refs: *refload
+  status: confirmed
+- id: load_data_wave8_62_outfile_combo
+  type: constraint
+  statement: "LOAD DATA可与SELECT … INTO OUTFILE配合实现导出与导入：两者中的FIELDS子句、LINES子句及CHARACTER SET子句必须保持一致，否则文件内容可能无法被正确加载；不建议将转义符、列分隔符、行分隔符设为空字符串；转义符、列分隔符、引号字符和行分隔符不宜设置为相同字符，否则可能造成部分功能失效。"
+  source_anchor: "1.13.15.1 注意事项 页1760-1761"
+  source_refs: *refload
+  status: confirmed
+- id: load_data_wave8_62_local_path
+  type: constraint
+  statement: "LOCAL指定导入文件的位置：不指定LOCAL时file_name为相对路径默认导入路径为数据目录；指定LOCAL时file_name需为绝对路径，若指定为相对路径则默认导入路径为数据库二进制所在路径$GAUSSHOME/bin/。"
+  source_anchor: "1.13.15.1 参数说明 LOCAL 页1761"
+  source_refs: *refload
+  status: confirmed
+- id: load_data_wave8_62_replace_ignore
+  type: constraint
+  statement: "REPLACE选项在导入数据与表中原有数据冲突时替换冲突行，文件字段数小于表字段数时宽松模式告警、严格模式报错；IGNORE选项冲突时跳过冲突行，字段数不足按默认值填充未指定字段并告警；不指定两者时，非LOCAL冲突报错（字段不足宽松告警严格报错），指定LOCAL时行为与IGNORE一致。"
+  source_anchor: "1.13.15.1 参数说明 REPLACE|IGNORE 页1761-1762"
+  source_refs: *refload
+  status: confirmed
+- id: load_data_wave8_62_partition_charset
+  type: constraint
+  statement: "PARTITION用于在导入表为分区表时指定分区，若数据与指定分区范围不一致则报错；CHARACTER SET指定数据文件编码格式名称，缺省为当前客户端编码格式。"
+  source_anchor: "1.13.15.1 参数说明 PARTITION/CHARACTER SET 页1762"
+  source_refs: *refload
+  status: confirmed
+- id: load_data_wave8_62_field_line_options
+  type: constraint
+  statement: "FIELDS/COLUMNS的TERMINATED BY指定列分隔符缺省'\\t'且换行符不能与分隔符相同；[OPTIONALLY] ENCLOSED BY指定引号字符缺省''，OPTIONALLY无实际作用，引号符仅支持单字符不支持字符串；ESCAPED BY指定转义符缺省'\\'，仅支持单字符，非空时转义符及其后字符满足指定转义序列则转义、否则忽略并继续导入，支持的转义序列受GUC参数load_data_behavior_compat_options是否配置new_escape_string控制；LINES的STARTING BY指定起始字段样式、TERMINATED BY指定换行符样式，new_escape_string同时控制是否对行终结符做转义处理。"
+  source_anchor: "1.13.15.1 参数说明 FIELDS|COLUMNS/LINES 页1762"
+  source_refs: *refload
+  status: confirmed
+- id: load_data_wave8_62_ignore_rows_cols_set
+  type: constraint
+  statement: "IGNORE number {LINES | ROWS}指定导入时跳过数据文件前number行；col_name_or_user_var为可选待复制字段列表，未声明字段列表时使用所有字段，不支持重复指定列，可指定为表中存在列或用户变量（用户变量需设置b_format_behavior_compat_options包含enable_set_variables）；SET子句指定列值为表达式或DEFAULT，表达式中不支持列名，表达式结果类型与被赋值列类型之间不存在隐式转换函数则报错。"
+  source_anchor: "1.13.15.1 参数说明 IGNORE/col_name_or_user_var/SET 页1762-1763"
+  source_refs: *refload
+  status: confirmed
+- id: load_data_wave8_62_example
+  type: behavior_oracle
+  statement: "示例（B模式5.7 s2）覆盖：指定列名并用SET load_col3 = 'load'统一填充列值；IGNORE选项使唯一键冲突行跳过、表数据不变；分区表LOAD DATA指定PARTITION (load_p2)将数据导入指定分区；FIELDS ENCLOSED BY '\"'使双引号被去掉而单引号保留。"
+  source_anchor: "1.13.15.1 示例 页1763-1764"
+  source_refs: *refload
+  status: confirmed
+- id: lock_wave8_62_purpose
+  type: syntax
+  statement: "LOCK TABLE命令用于获取表级锁；GaussDB为引用表的命令自动请求锁时尽可能选择最小限制的锁模式，需要更严格锁模式时可使用LOCK，例如Read Committed隔离级别事务可在查询前用SHARE锁模式锁表，防止数据被并发修改（SHARE与写操作需要的ROW EXCLUSIVE冲突，LOCK TABLE name IN SHARE MODE会等待所有持有ROW EXCLUSIVE锁的事务提交或回滚后才能执行）。"
+  source_anchor: "1.13.15.2 功能描述 页1764"
+  source_refs: &reflock
+  - w8_62_1_13_15_2
+  status: confirmed
+- id: lock_wave8_62_transaction_boundary
+  type: constraint
+  statement: "LOCK TABLE只能在事务块内部有用，因为锁在事务结束时就会被释放，出现在任意事务块外面的LOCK TABLE都会报错；没有UNLOCK TABLE命令，锁总是在事务结束时释放。"
+  source_anchor: "1.13.15.2 注意事项 页1765"
+  source_refs: *reflock
+  status: confirmed
+- id: lock_wave8_62_default_privileges_maintenance
+  type: constraint
+  statement: "没有声明锁模式时缺省为最严格的ACCESS EXCLUSIVE模式；LOCK TABLE ... IN ACCESS SHARE MODE需要在目标表上有SELECT权限，所有其他形式的LOCK需要UPDATE或DELETE权限；如果没有打开xc_maintenance_mode参数，对系统表申请ACCESS EXCLUSIVE级别锁将报错。"
+  source_anchor: "1.13.15.2 注意事项 页1765"
+  source_refs: *reflock
+  status: confirmed
+- id: lock_wave8_62_syntax_name_only
+  type: syntax
+  statement: "语法为LOCK [TABLE] {[ONLY] name[, ...] | {name [*]}[, ...]} [IN {ACCESS SHARE | ROW SHARE | ROW EXCLUSIVE | SHARE UPDATE EXCLUSIVE | SHARE | SHARE ROW EXCLUSIVE | EXCLUSIVE | ACCESS EXCLUSIVE} MODE] [NOWAIT]；name为要锁定的表名可有模式修饰，取值为已存在的表名，声明表的顺序就是上锁顺序，支持DATABASE LINK方式操作远程表；指定ONLY时只有该表被锁定，未声明时该表及其所有子表都被锁定；带ROW字样的锁模式名称有歧义，实为表级锁，LOCK TABLE下所有锁模式语意相同，区别仅在冲突规则（表1-384）。"
+  source_anchor: "1.13.15.2 语法格式/参数说明 name/ONLY 页1765-1767"
+  source_refs: *reflock
+  status: confirmed
+- id: lock_wave8_62_modes
+  type: constraint
+  statement: "锁模式冲突与自动请求：ACCESS SHARE只与ACCESS EXCLUSIVE冲突，SELECT等只读命令自动请求；ROW SHARE与EXCLUSIVE和ACCESS EXCLUSIVE冲突，SELECT FOR UPDATE/FOR SHARE自动请求；ROW EXCLUSIVE允许并发读但禁止修改，UPDATE、DELETE、INSERT自动请求；SHARE UPDATE EXCLUSIVE保护表模式不被并发修改并禁止VACUUM，VACUUM（不带FULL）、ANALYZE、CREATE INDEX CONCURRENTLY自动请求；SHARE允许并发查询禁止修改，CREATE INDEX（不带CONCURRENTLY）自动请求；SHARE ROW EXCLUSIVE禁止任何并发修改且一个会话只能获取一次，任何SQL语句都不会自动请求；EXCLUSIVE只允许并发ACCESS SHARE读，任何SQL语句不会在用户表自动请求（某些操作会在系统表上请求）；ACCESS EXCLUSIVE保证独占访问，ALTER TABLE、DROP TABLE、TRUNCATE、REINDEX自动请求，且是LOCK未声明模式时的缺省。"
+  source_anchor: "1.13.15.2 参数说明 锁模式 页1767"
+  source_refs: *reflock
+  status: confirmed
+- id: lock_wave8_62_nowait
+  type: constraint
+  statement: "NOWAIT声明LOCK TABLE不等待任何冲突锁释放，无法立即获取该锁时命令退出并发出错误信息；不指定NOWAIT时获取表级锁若存在其他互斥锁则等待其他锁释放。"
+  source_anchor: "1.13.15.2 参数说明 NOWAIT 页1767"
+  source_refs: *reflock
+  status: confirmed
+- id: lock_wave8_62_example
+  type: behavior_oracle
+  statement: "示例覆盖三种模式阻塞行为：事务内LOCK TABLE tpcds.reason_t1 IN SHARE ROW EXCLUSIVE MODE后另一终端DELETE阻塞、COMMIT释放锁；UPDATE语句自动请求ROW EXCLUSIVE锁后另一终端ALTER TABLE阻塞；TRUNCATE后（ACCESS EXCLUSIVE）另一终端SELECT阻塞。"
+  source_anchor: "1.13.15.2 示例 页1768"
+  source_refs: *reflock
+  status: confirmed
+- id: lock_buckets_wave8_62_purpose
+  type: syntax
+  statement: "LOCK BUCKETS是bucket粒度的锁。"
+  source_anchor: "1.13.15.3 功能描述 页1769"
+  source_refs: &refbuckets
+  - w8_62_1_13_15_3
+  status: confirmed
+- id: lock_buckets_wave8_62_not_supported
+  type: constraint
+  statement: "LOCK BUCKETS当前形态暂不支持使用该语法。"
+  source_anchor: "1.13.15.3 注意事项 页1769"
+  source_refs: *refbuckets
+  status: confirmed
+open_questions:
+- id: load_data_wave8_62_oq_runtime
+  statement: "LOAD DATA与LOCK在真实B/M兼容模式、GUC参数组合、权限、并发冲突和错误路径下的完整行为与错误矩阵需授权环境实机验证。"
+  status: open
