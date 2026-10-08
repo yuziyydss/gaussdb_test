@@ -9335,6 +9335,280 @@
       "fact_count": 20
     },
     {
+      "path": "docs/compat_facts/core_sql_reference_wave8_107_v1.yaml",
+      "document": "集中式版参考 / 2.4.2.7-8 M兼容BEGIN/CLEAN CONNECTION/CHECKPOINT/COMMENT/COMMIT/CREATE AUDIT POLICY/CREATE DATABASE（Wave 8-107）",
+      "version": "V2.0-10.0.0",
+      "parent_pdf_sha256": "716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe",
+      "extraction_date": "2026-10-08",
+      "extraction_method": "pdftotext章节源文逐章精读 + 结构化manifest哈希对账",
+      "verification_status": "confirmed",
+      "sha256": "215b7d1d739267ed614a44e6c58d74ec11b6a446564df5e8f327e7bcd323f362",
+      "category": "compatibility",
+      "facts": [
+        {
+          "id": "m_begin_wave8_107_syntax",
+          "type": "syntax",
+          "statement": "M兼容BEGIN通过启动事务，如果声明了隔离级别、读写模式，新事务就使用这些特性（类似执行了SET TRANSACTION）；语法为BEGIN [ WORK | TRANSACTION ] [ { ISOLATION LEVEL { READ COMMITTED | READ UNCOMMITTED | SERIALIZABLE | REPEATABLE READ } | { READ WRITE | READ ONLY } } [, ...] ]；WORK/TRANSACTION为BEGIN格式中的可选关键字没有实际作用。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.7.1 功能描述/语法格式/参数说明 页2072-2073",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_7_1"
+            ]
+          }
+        },
+        {
+          "id": "m_begin_wave8_107_isolation",
+          "type": "constraint",
+          "statement": "M兼容BEGIN隔离级别：在事务中第一个数据修改语句（SELECT、INSERT、DELETE、UPDATE、COPY）执行之后事务隔离级别就不能再次设置；READ COMMITTED为缺省值（只读已提交数据）；READ UNCOMMITTED指定后行为和READ COMMITTED一致；REPEATABLE READ仅看到事务开始之前提交的数据（看不到未提交数据及事务执行期间其它并发事务提交的修改）；SERIALIZABLE为M-Compatibility目前功能上不支持，设置该隔离级别时等价于REPEATABLE READ。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.7.1 参数说明 页2073",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_7_1"
+            ]
+          }
+        },
+        {
+          "id": "m_begin_wave8_107_example",
+          "type": "behavior_oracle",
+          "statement": "示例（m_db）：START TRANSACTION与BEGIN均可以默认方式启动事务；BEGIN ISOLATION LEVEL READ COMMITTED READ WRITE以指定隔离级别和读/写方式启动事务；相关链接SET TRANSACTION。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.7.1 示例 页2073-2074",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_7_1"
+            ]
+          }
+        },
+        {
+          "id": "m_clean_connection_wave8_107_syntax",
+          "type": "syntax",
+          "statement": "M兼容CLEAN CONNECTION用来清理数据库连接（允许在节点上清理指定数据库的指定用户的相关连接）；M-Compatibility下不支持指定节点仅支持TO ALL；语法为CLEAN CONNECTION TO { COORDINATOR ( nodename [, ...] ) | NODE ( nodename [, ...] ) | ALL [ CHECK ] [ FORCE ] } [ FOR DATABASE dbname ] [ TO USER username ]；FORCE使所有和指定dbname和username相关的线程收到SIGTERM信号后被强制关闭；CHECK主要用于DROP DATABASE之前的连接访问检查（发现其他会话连接则报错并停止删除数据库）；该功能仅在force模式下可以清理正在使用的正常连接。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.8.1 功能描述/注意事项/语法格式/参数说明 页2074",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_8_1"
+            ]
+          }
+        },
+        {
+          "id": "m_clean_connection_wave8_107_params",
+          "type": "constraint",
+          "statement": "参数：CHECK仅在节点列表为TO ALL时可指定，用于DROP DATABASE之前的连接访问检查（发现其他会话连接则报错并停止删除数据库）；FORCE仅在节点列表为TO ALL时可指定，所有和指定dbname和username相关的线程都会收到SIGTERM信号然后被强制关闭；dbname不指定则删除所有数据库的连接，username不指定则删除所有用户的连接。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.8.1 参数说明 页2074",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_8_1"
+            ]
+          }
+        },
+        {
+          "id": "m_clean_connection_wave8_107_example",
+          "type": "behavior_oracle",
+          "statement": "示例：jack用户连接test_clean_connection后直接DROP DATABASE报ERROR: Database \"test_clean_connection\" is being accessed by other users...；执行CLEAN CONNECTION TO ALL FORCE FOR DATABASE test_clean_connection后pg_stat_activity查询为0行，DROP DATABASE成功。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.8.1 示例 页2074-2075",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_8_1"
+            ]
+          }
+        },
+        {
+          "id": "m_checkpoint_wave8_107_syntax",
+          "type": "syntax",
+          "statement": "CHECKPOINT是事务日志中的一个点，所有数据文件都在该点被更新以反映日志中的信息并被刷新到磁盘；预写式日志（WAL）缺省时每隔一段时间放置一个检查点，可使用gs_guc命令设置checkpoint_segments、checkpoint_timeout和incremental_checkpoint_timeout调整间隔；CHECKPOINT强制立即进行检查而不是等到下一次调度时的检查点；语法为CHECKPOINT;（参数说明无）。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.8.2 功能描述/语法格式/参数说明 页2075-2076",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_8_2"
+            ]
+          }
+        },
+        {
+          "id": "m_checkpoint_wave8_107_permission",
+          "type": "environment",
+          "statement": "只有系统管理员和运维管理员可以调用CHECKPOINT。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.8.2 注意事项 页2075",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_8_2"
+            ]
+          }
+        },
+        {
+          "id": "m_comment_wave8_107_syntax",
+          "type": "syntax",
+          "statement": "M兼容COMMENT定义或修改一个对象的注释；语法为COMMENT ON { COLLATION object_name | COLUMN { table_name.column_name | view_name.column_name } | CONSTRAINT constraint_name ON table_name | DATABASE object_name | INDEX object_name | SEQUENCE seq_name | USER user_name | ROLE object_name | SCHEMA object_name | TABLE object_name | TABLESPACE object_name | VIEW object_name } IS 'text'；每个对象只存储一条注释，修改时对同一对象发出新的COMMENT命令即可，删除注释在文本字符串位置写NULL，删除对象时注释自动被删除。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.8.3 功能描述/注意事项/语法格式 页2076",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_8_3"
+            ]
+          }
+        },
+        {
+          "id": "m_comment_wave8_107_security",
+          "type": "constraint",
+          "statement": "M兼容注释浏览没有安全机制：任何连接到某数据库上的用户都可以看到所有该数据库对象的注释；共享对象（比如数据库、角色、表空间）的注释是全局存储的，连接到任何数据库的任何用户都可以看到；因此不要在注释里存放与安全有关的敏感信息。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.8.3 注意事项 页2076",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_8_3"
+            ]
+          }
+        },
+        {
+          "id": "m_comment_wave8_107_permission",
+          "type": "constraint",
+          "statement": "对大多数对象，只有对象的所有者或被授予了对象COMMENT权限的用户可以设置注释（系统管理员默认拥有该权限）；角色没有所有者，COMMENT ON ROLE命令仅可以由系统管理员对系统管理员角色执行，有CREATE ROLE权限的角色也可以为非系统管理员角色设置注释；系统管理员可以对所有对象进行注释。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.8.3 注意事项 页2076",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_8_3"
+            ]
+          }
+        },
+        {
+          "id": "m_comment_wave8_107_example",
+          "type": "behavior_oracle",
+          "statement": "示例（m_db）：COMMENT ON TABLE emp IS '部门表'与COMMENT ON COLUMN emp.empno IS '员工编号'等字段注释；\\d+显示表Description为部门表，\\d+ emp显示各字段Description。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.8.3 示例 页2077",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_8_3"
+            ]
+          }
+        },
+        {
+          "id": "m_commit_wave8_107_syntax",
+          "type": "syntax",
+          "statement": "M兼容COMMIT完成提交事务的功能（提交事务的所有操作，让所有当前事务的更改为其他事务可见）；语法为COMMIT [ WORK | TRANSACTION ]，WORK/TRANSACTION为可选关键字除增加可读性没有其他作用；执行COMMIT时命令执行者必须是该事务的创建者或系统管理员，且创建和提交操作可以不在同一个会话中。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.8.4 功能描述/注意事项/语法格式 页2077-2078",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_8_4"
+            ]
+          }
+        },
+        {
+          "id": "m_commit_wave8_107_example",
+          "type": "behavior_oracle",
+          "statement": "示例（m_db）：START TRANSACTION后INSERT两条记录到tpcds.customer_demographics_t2，COMMIT提交事务让所有更改永久化，SELECT可查询到数据；相关链接ROLLBACK。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.8.4 示例 页2078",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_8_4"
+            ]
+          }
+        },
+        {
+          "id": "m_create_audit_policy_wave8_107_syntax",
+          "type": "syntax",
+          "statement": "M兼容CREATE AUDIT POLICY创建统一审计策略；语法为CREATE AUDIT POLICY [ IF NOT EXISTS ] policy_name { { privilege_audit_clause | access_audit_clause } [, ... ] [ filter_group_clause ] [ ENABLE | DISABLE ] }；privilege_audit_clause为PRIVILEGES { PRIVILEGES | ALL } [ ON LABEL ( resource_label_name [, ... ] ) ]（DDL操作：ALTER/ANALYZE/COMMENT/CREATE/DROP/GRANT/REVOKE/SET/SHOW）；access_audit_clause为ACCESS { ACCESS | ALL } [ ON LABEL (...) ]（DML操作：COPY/DEALLOCATE/DELETE/EXECUTE/REINDEX/INSERT/PREPARE/SELECT/TRUNCATE/UPDATE）；filter_group_clause为FILTER ON { FILTER_TYPE ( filter_value [, ... ] ) } [, ... ]（FILTER_TYPE为APP/ROLES/IP）。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.8.6 语法格式 页2088-2089",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_8_6"
+            ]
+          }
+        },
+        {
+          "id": "m_create_audit_policy_wave8_107_details",
+          "type": "constraint",
+          "statement": "M兼容CREATE AUDIT POLICY细节：IF NOT EXISTS存在同名策略时产生NOTICE不抛出错误；policy_name唯一、符合标识符说明、最大长度63字符（超过截断）、大写自动转小写（需大写用反引号括起来）；取值为ANALYZE时ANALYZE和VACUUM操作都会被审计；ALL分别指所有PRIVILEGES或ACCESS操作；ENABLE|DISABLE不指定默认为ENABLE。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.8.6 参数说明 页2090",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_8_6"
+            ]
+          }
+        },
+        {
+          "id": "m_create_audit_policy_wave8_107_permission_example",
+          "type": "behavior_oracle",
+          "statement": "权限：仅POLADMIN、SYSADMIN或初始用户可执行；创建前须打开enable_security_policy开关；系统管理员或安全策略管理员可访问gs_auditing_policy、gs_auditing_policy_access、gs_auditing_policy_privileges和gs_auditing_policy_filters系统表查询已创建策略。示例（m_db）：CREATE AUDIT POLICY adt1 PRIVILEGES CREATE后gs_auditing_policy显示polenabled=t；CREATE RESOURCE LABEL adt_lb0后CREATE AUDIT POLICY adt2 PRIVILEGES CREATE ON LABEL(adt_lb0) FILTER ON ROLES(dev_audit)。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.8.6 注意事项/示例 页2088-2091",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_8_6"
+            ]
+          }
+        },
+        {
+          "id": "m_create_database_wave8_107_syntax",
+          "type": "syntax",
+          "statement": "M-Compatibility中DATABASE与SCHEMA是同义词，CREATE DATABASE该语法表示创建模式；访问命名对象可用模式名作前缀，无前缀则访问当前模式下的命名对象；语法为CREATE {DATABASE | SCHEMA} [IF NOT EXISTS] database_name [[create_option] [,...]]，create_option为[DEFAULT] { CHARACTER SET [=] default_charset | CHAR SET [=] default_charset | CHARSET [=] default_charset | COLLATE [=] default_collation }。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.8.7 功能描述/语法格式 页2091-2092",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_8_7"
+            ]
+          }
+        },
+        {
+          "id": "m_create_database_wave8_107_naming",
+          "type": "constraint",
+          "statement": "M兼容CREATE DATABASE命名限制：当用户对当前数据库拥有CREATE权限时即具备创建新模式的权限；模式名不能和当前数据库里其他的模式重名；不能和当前数据库的初始用户重名；不可以\"pg_\"开头；不可以\"gs_role_\"开头；搜索路径上的模式存在同名对象时需明确指定引用对象所在模式（SHOW SEARCH_PATH可查看）；系统管理员在普通用户同名Schema下创建的对象，所有者为Schema的同名用户（非系统管理员）。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.8.7 注意事项/参数说明 页2092",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_8_7"
+            ]
+          }
+        },
+        {
+          "id": "m_create_database_wave8_107_example",
+          "type": "behavior_oracle",
+          "statement": "示例（m_db）：CREATE DATABASE test1后USE test1、CREATE TABLE a(id int)、DROP TABLE a、USE public、DROP DATABASE test1；CHARSET/COLLATE可选指定字符集字符序（默认使用模板数据库），取值范围参见库级字符集和字符序；相关链接ALTER DATABASE、DROP DATABASE。",
+          "status": "confirmed",
+          "source_anchor": "2.4.2.8.7 参数说明/示例 页2092-2093",
+          "verification_method": null,
+          "properties": {
+            "source_refs": [
+              "w8_107_2_4_2_8_7"
+            ]
+          }
+        }
+      ],
+      "fact_count": 20
+    },
+    {
       "path": "docs/compat_facts/core_sql_reference_wave8_19_v1.yaml",
       "document": "集中式版参考 / 1.13.19.3 SELECT（Wave 8-19）",
       "version": "V2.0-10.0.0",
@@ -59284,22 +59558,22 @@
     }
   ],
   "summary": {
-    "source_file_count": 226,
-    "fact_count": 4613,
+    "source_file_count": 227,
+    "fact_count": 4633,
     "fact_status_counts": {
-      "confirmed": 4610,
+      "confirmed": 4630,
       "needs_verification": 3
     },
     "fact_type_counts": {
-      "behavior_oracle": 679,
-      "constraint": 1504,
-      "environment": 361,
+      "behavior_oracle": 685,
+      "constraint": 1510,
+      "environment": 362,
       "lifecycle": 2,
       "metadata_oracle": 103,
-      "syntax": 1964
+      "syntax": 1971
     },
     "category_counts": {
-      "compatibility": 184,
+      "compatibility": 185,
       "log_reference": 2,
       "report": 1,
       "runtime_parameters": 12,
@@ -59309,7 +59583,7 @@
       "tool_reference": 3
     },
     "category_fact_counts": {
-      "compatibility": 3945,
+      "compatibility": 3965,
       "log_reference": 32,
       "report": 6,
       "runtime_parameters": 174,
