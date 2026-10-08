@@ -15,21 +15,21 @@ class CoreFunctionExtractionMasterSummaryTests(unittest.TestCase):
         self.assertEqual(s['kind'], 'core_function_extraction_master_summary')
         self.assertEqual(s['id'], 'core_function_extraction_master_summary_v1')
         self.assertRegex(s['catalog']['sha256'], r'[0-9a-f]{64}')
-        self.assertEqual(s['summary']['artifact_count'], 210)
-        self.assertEqual(s['summary']['source_count'], 550)
-        self.assertEqual(s['summary']['source_page_slice_count'], 3826)
-        self.assertEqual(s['summary']['unique_page_count'], 3281)
+        self.assertEqual(s['summary']['artifact_count'], 211)
+        self.assertEqual(s['summary']['source_count'], 551)
+        self.assertEqual(s['summary']['source_page_slice_count'], 3839)
+        self.assertEqual(s['summary']['unique_page_count'], 3294)
         self.assertEqual(s['summary']['section_count'], 487)
         self.assertEqual(s['summary']['full_section_count'], 435)
-        self.assertEqual(s['summary']['fact_count'], 4618)
-        self.assertEqual(s['summary']['open_question_count'], 267)
-        self.assertEqual(s['summary']['confirmed_fact_count'], 4618)
+        self.assertEqual(s['summary']['fact_count'], 4638)
+        self.assertEqual(s['summary']['open_question_count'], 268)
+        self.assertEqual(s['summary']['confirmed_fact_count'], 4638)
         self.assertEqual(s['summary']['fact_type_counts'], {
-            'behavior_oracle': 535, 'constraint': 1830,
-            'environment': 160, 'syntax': 2093,
+            'behavior_oracle': 539, 'constraint': 1834,
+            'environment': 160, 'syntax': 2105,
         })
-        self.assertEqual(s['summary']['confirmed_fact_count'], 4618)
-        self.assertEqual(s['summary']['open_question_count_by_status'], {'open': 267})
+        self.assertEqual(s['summary']['confirmed_fact_count'], 4638)
+        self.assertEqual(s['summary']['open_question_count_by_status'], {'open': 268})
         self.assertTrue(s['summary']['all_fact_ids_unique'])
         self.assertTrue(s['summary']['all_open_question_ids_unique'])
         self.assertFalse(s['summary']['database_executed'])
@@ -38,20 +38,20 @@ class CoreFunctionExtractionMasterSummaryTests(unittest.TestCase):
     def test_coverage_mode_and_partial_sections(self):
         c = self.summary['coverage']
         self.assertEqual(c['mode'], 'included_extraction_artifacts')
-        self.assertEqual((c['covered_page_count'], c['required_page_count']), (3281, 3539))
-        self.assertEqual(len(c['missing_pages']), 258)
+        self.assertEqual((c['covered_page_count'], c['required_page_count']), (3294, 3539))
+        self.assertEqual(len(c['missing_pages']), 245)
         self.assertEqual(c['extra_pages'], [])
         self.assertFalse(c['complete'])
         self.assertEqual(len(c['sections']), 487)
         self.assertEqual(sum(x['coverage_complete'] for x in c['sections']), 435)
-        self.assertEqual(sum(len(x['missing_pages']) for x in c['sections']), 309)
+        self.assertEqual(sum(len(x['missing_pages']) for x in c['sections']), 296)
 
     def test_artifact_rows_and_facts_align(self):
         arts = self.summary['artifacts']
-        self.assertEqual(len(arts), 210)
-        self.assertEqual(sum(x['fact_count'] for x in arts), 4618)
-        self.assertEqual(sum(x['open_question_count'] for x in arts), 267)
-        self.assertEqual(sum(x['source_count'] for x in arts), 550)
+        self.assertEqual(len(arts), 211)
+        self.assertEqual(sum(x['fact_count'] for x in arts), 4638)
+        self.assertEqual(sum(x['open_question_count'] for x in arts), 268)
+        self.assertEqual(sum(x['source_count'] for x in arts), 551)
 
     def test_written_summary_is_current(self):
         result = subprocess.run(
