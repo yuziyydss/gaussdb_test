@@ -1,0 +1,147 @@
+document: 集中式版参考 / 1.13.7.15-20 ALTER GLOBAL CONFIGURATION/GROUP/LANGUAGE/MASKING POLICY/MATERIALIZED VIEW（Wave 8-96）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.7.15 ALTER GLOBAL CONFIGURATION
+  - 1.13.7.16 ALTER GROUP
+  - 1.13.7.18 ALTER LANGUAGE
+  - 1.13.7.19 ALTER MASKING POLICY
+  - 1.13.7.20 ALTER MATERIALIZED VIEW
+  physical_page_start: 1224
+  physical_page_end: 1240
+  physical_page_count: 11
+  excludes: []
+facts:
+- id: alter_global_configuration_wave8_96_syntax
+  type: syntax
+  statement: "ALTER GLOBAL CONFIGURATION新增、修改系统表gs_global_config的key-value值，如果修改的参数已存在则修改、不存在则新增；语法为ALTER GLOBAL CONFIGURATION with ( name = value [, ...] )；name与value均为text类型；仅支持数据库初始用户运行此命令；参数名称不能为weak_password、undostoragetype，除此之外没有限制。"
+  source_anchor: "1.13.7.15 功能描述/注意事项/语法格式/参数说明 页1224-1225"
+  source_refs: &refagc
+  - w8_96_1_13_7_15
+  status: confirmed
+- id: alter_global_configuration_wave8_96_example
+  type: behavior_oracle
+  statement: "示例：ALTER GLOBAL CONFIGURATION with(redis_is_ok = true)插入后SELECT * FROM gs_global_config显示redis_is_ok=true；再with(redis_is_ok = false)修改为false；DROP GLOBAL CONFIGURATION redis_is_ok删除后查询只剩buckets_len与undostoragetype两行；相关链接DROP GLOBAL CONFIGURATION。"
+  source_anchor: "1.13.7.15 示例 页1225"
+  source_refs: *refagc
+  status: confirmed
+- id: alter_group_wave8_96_syntax
+  type: syntax
+  statement: "ALTER GROUP修改一个用户组的属性，为非SQL标准语法，不推荐用户使用；三种形式：ALTER GROUP group_name ADD USER user_name [, ... ]（向用户组添加用户）、DROP USER user_name [, ... ]（从用户组删除用户）、RENAME TO new_name（修改用户组名称）。"
+  source_anchor: "1.13.7.16 功能描述/注意事项/语法格式 页1226"
+  source_refs: &refgrp
+  - w8_96_1_13_7_16
+  status: confirmed
+- id: alter_group_wave8_96_equivalence
+  type: constraint
+  statement: "ADD USER与DROP USER子句向用户组增加或删除用户（任何用户都可以是\"用户\"或者\"用户组\"），这两个子句实际等效于将用户或者角色的权限授权或者回收给其他用户或角色，因此建议用GRANT或者REVOKE替代；RENAME TO子句修改用户组的名称，等效于ALTER ROLE重命名角色。"
+  source_anchor: "1.13.7.16 注意事项 页1226"
+  source_refs: *refgrp
+  status: confirmed
+- id: alter_group_wave8_96_params
+  type: constraint
+  statement: "user_name为现有角色名称、group_name为现有用户组名称，名称中包含大写字母时需使用双引号包裹；new_name为字符串，要符合标识符命名规范且最多为63字符，超过63字符时数据库截断并保留前63字符，角色名包含大写字母时自动转换为小写字母，需要大写须用双引号包裹。"
+  source_anchor: "1.13.7.16 参数说明 页1226"
+  source_refs: *refgrp
+  status: confirmed
+- id: alter_group_wave8_96_example
+  type: behavior_oracle
+  statement: "示例：CREATE ROLE test后ALTER GROUP test RENAME TO tu_a1（等效ALTER ROLE RENAME）；ALTER GROUP tu_a1 ADD USER tu_a2等效GRANT语句（GRANT tu_a1 TO tu_a3）；SELECT groname, grolist FROM pg_group WHERE groname = 'tu_a1'显示{25590,25593}，gs_roles按oid查询显示tu_a2、tu_a3；清理DROP ROLE tu_a1,tu_a2,tu_a3。"
+  source_anchor: "1.13.7.16 示例 页1227"
+  source_refs: *refgrp
+  status: confirmed
+- id: alter_language_wave8_96_unsupported
+  type: constraint
+  statement: "ALTER LANGUAGE用于修改一个过程语言的属性，当前形态暂不支持使用该语法。"
+  source_anchor: "1.13.7.18 功能描述/注意事项 页1233"
+  source_refs: &reflang
+  - w8_96_1_13_7_18
+  status: confirmed
+- id: alter_masking_policy_wave8_96_syntax
+  type: syntax
+  statement: "ALTER MASKING POLICY修改脱敏策略内容，五种形式：policy_name COMMENTS policy_comments（修改描述）；policy_name { ADD | REMOVE | MODIFY } masking_actions[, ...]（修改脱敏方式，masking_actions为masking_function ON LABEL(label_name[, ...])）；policy_name MODIFY (filter_group_clause)（修改生效场景，filter_group_clause为FILTER ON { ( FILTER_TYPE ( filter_value [, ... ] ) ) [, ... ] }）；policy_name DROP FILTER（移除生效场景并使策略对所有场景生效）；policy_name { ENABLE | DISABLE }（开启/关闭策略）。"
+  source_anchor: "1.13.7.19 语法格式 页1233-1234"
+  source_refs: &refamp
+  - w8_96_1_13_7_19
+  status: confirmed
+- id: alter_masking_policy_wave8_96_permission
+  type: environment
+  statement: "只有poladmin、sysadmin或初始用户可以执行ALTER MASKING POLICY命令；需要开启安全策略开关（GUC参数enable_security_policy=on）脱敏策略才可以生效。"
+  source_anchor: "1.13.7.19 注意事项 页1233"
+  source_refs: *refamp
+  status: confirmed
+- id: alter_masking_policy_wave8_96_functions
+  type: constraint
+  statement: "masking_function为预置的脱敏方式或者用户自定义的函数（支持模式）：{ maskall | randommasking | creditcardmasking | basicemailmasking | fullemailmasking | shufflemasking | alldigitsmasking | regexpmasking }；maskall不是预置函数，直接写入在代码中，不支持\\df展示；FILTER_TYPE指定脱敏策略的过滤信息，过滤类型包括IP、ROLES、APP；policy_name需满足唯一约束不可重复。"
+  source_anchor: "1.13.7.19 参数说明 页1234-1235"
+  source_refs: *refamp
+  status: confirmed
+- id: alter_masking_policy_wave8_96_comments_example
+  type: behavior_oracle
+  statement: "示例：CREATE MASKING POLICY maskpol1 maskall ON LABEL(mask_lb1)后ALTER MASKING POLICY maskpol1 COMMENTS 'masking policy for tb_for_masking.col1'添加描述；SELECT * FROM GS_MASKING_POLICY显示polcomments为该描述且polenabled=t。"
+  source_anchor: "1.13.7.19 示例 页1235"
+  source_refs: *refamp
+  status: confirmed
+- id: alter_masking_policy_wave8_96_actions_example
+  type: behavior_oracle
+  statement: "脱敏方式修改基线：ALTER MASKING POLICY maskpol1 ADD randommasking ON LABEL(mask_lb2)后col2触发脱敏；REMOVE randommasking ON LABEL(mask_lb2)后col2数据未脱敏（randommasking失效）；MODIFY randommasking ON LABEL(mask_lb1)后col1触发脱敏。"
+  source_anchor: "1.13.7.19 示例 页1236"
+  source_refs: *refamp
+  status: confirmed
+- id: alter_masking_policy_wave8_96_filter_example
+  type: behavior_oracle
+  statement: "生效场景修改基线：maskpol8以FILTER ON ROLES(dev_mask, bob_mask), APP(gsql), IP('172.31.17.160', '127.0.0.0/24')创建；ALTER MASKING POLICY maskpol1 MODIFY (FILTER ON ROLES(dev_mask))修改过滤信息后dev_mask用户访问col8触发脱敏；ALTER MASKING POLICY maskpol1 DROP FILTER移除生效场景并使策略对所有场景生效。"
+  source_anchor: "1.13.7.19 示例 页1236"
+  source_refs: *refamp
+  status: confirmed
+- id: alter_masking_policy_wave8_96_disable_example
+  type: behavior_oracle
+  statement: "禁用基线：ALTER MASKING POLICY maskpol1 DISABLE后SELECT * FROM GS_MASKING_POLICY显示polenabled=f说明禁用成功；清理使用DROP MASKING POLICY maskpol1, maskpol8与DROP RESOURCE LABEL。"
+  source_anchor: "1.13.7.19 示例 页1236-1237"
+  source_refs: *refamp
+  status: confirmed
+- id: alter_mv_wave8_96_purpose
+  type: constraint
+  statement: "ALTER MATERIALIZED VIEW修改一个现有物化视图的多个辅助属性，不支持更改物化视图结构；只有物化视图的所有者有权执行该命令，系统管理员默认拥有此权限。"
+  source_anchor: "1.13.7.20 功能描述/注意事项 页1237"
+  source_refs: &refamv
+  - w8_96_1_13_7_20
+  status: confirmed
+- id: alter_mv_wave8_96_syntax
+  type: syntax
+  statement: "三种形式（均带[ IF EXISTS ]）：ALTER MATERIALIZED VIEW [ IF EXISTS ] mv_name OWNER TO new_owner（修改所有者）；RENAME [ COLUMN ] column_name TO new_column_name（重命名列）；RENAME TO new_name（重命名物化视图）。"
+  source_anchor: "1.13.7.20 语法格式 页1237"
+  source_refs: *refamv
+  status: confirmed
+- id: alter_mv_wave8_96_params
+  type: constraint
+  statement: "mv_name为现有物化视图名称，可使用模式进行具体指定；column_name为新的或者现有列的名称；new_column_name为现有列的新名称；new_owner为物化视图新拥有者的用户名；new_name为物化视图的新名称；取值范围均为符合标识符命名规范的字符串。"
+  source_anchor: "1.13.7.20 参数说明 页1237-1238"
+  source_refs: *refamv
+  status: confirmed
+- id: alter_mv_wave8_96_owner_example
+  type: behavior_oracle
+  statement: "示例：CREATE MATERIALIZED VIEW foo AS SELECT * FROM my_table后ALTER MATERIALIZED VIEW foo OWNER TO test；\\dm foo显示Owner为test、Type为materialized view、Storage为{orientation=row,compression=no}。"
+  source_anchor: "1.13.7.20 示例 页1238"
+  source_refs: *refamv
+  status: confirmed
+- id: alter_mv_wave8_96_rename_column_example
+  type: behavior_oracle
+  statement: "重命名列基线：\\d foo显示Rules: \"_RETURN\" AS ON SELECT TO foo DO INSTEAD SELECT my_table.c1, my_table.c2 FROM my_table；ALTER MATERIALIZED VIEW foo RENAME c1 to col1与RENAME c2 to col2后SELECT * FROM foo WHERE 1=2输出列为col1、col2。"
+  source_anchor: "1.13.7.20 示例 页1238-1239"
+  source_refs: *refamv
+  status: confirmed
+- id: alter_mv_wave8_96_rename_example
+  type: behavior_oracle
+  statement: "重命名物化视图基线：ALTER MATERIALIZED VIEW foo RENAME TO my_mview后\\dm my_mview可查询到新名称；相关链接见CREATE MATERIALIZED VIEW、DROP MATERIALIZED VIEW等。"
+  source_anchor: "1.13.7.20 示例 页1239"
+  source_refs: *refamv
+  status: confirmed
+open_questions:
+- id: alter_agc_grp_amp_amv_wave8_96_oq_runtime
+  statement: "gs_global_config自定义key-value在集群内的同步行为、用户组权限等价的GRANT/REVOKE映射、脱敏策略ADD/REMOVE/MODIFY与过滤条件组合的真实脱敏输出、物化视图重命名后依赖对象引用在授权环境下的完整行为与错误矩阵需实机验证。"
+  status: open
