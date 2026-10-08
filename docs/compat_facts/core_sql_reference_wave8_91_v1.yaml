@@ -1,0 +1,143 @@
+document: 集中式版参考 / 1.13.9.41-44 CREATE ROW LEVEL SECURITY POLICY/RULE/SECURITY LABEL（Wave 8-91）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.9.41 CREATE ROW LEVEL SECURITY POLICY
+  - 1.13.9.42 CREATE RULE
+  - 1.13.9.44 CREATE SECURITY LABEL
+  physical_page_start: 1514
+  physical_page_end: 1525
+  physical_page_count: 9
+  excludes: []
+facts:
+- id: create_rls_policy_wave8_91_syntax
+  type: syntax
+  statement: "CREATE ROW LEVEL SECURITY POLICY对表创建行访问控制策略；语法为CREATE [ ROW LEVEL SECURITY ] POLICY policy_name ON table_name [ AS { PERMISSIVE | RESTRICTIVE } ] [ FOR { ALL | SELECT | UPDATE | DELETE } ] [ TO { role_name | PUBLIC | CURRENT_USER | SESSION_USER } [, ...] ] USING ( using_expression )。"
+  source_anchor: "1.13.9.41 功能描述/语法格式 页1514"
+  source_refs: &refrls
+  - w8_91_1_13_9_41
+  status: confirmed
+- id: create_rls_policy_wave8_91_table_support
+  type: constraint
+  statement: "行访问控制策略表支持范围：支持对行存表、行存分区表、unlogged表以及hash表创建；不支持外表或本地临时表；不支持对视图创建；同一张表上可创建多个策略，一张表最多创建100个行访问控制策略。"
+  source_anchor: "1.13.9.41 注意事项 页1514"
+  source_refs: *refrls
+  status: confirmed
+- id: create_rls_policy_wave8_91_scope_effects
+  type: constraint
+  statement: "行访问控制影响范围：系统管理员不受影响可查看表全量数据；通过SQL语句、视图、函数以及存储过程查询包含策略的表都会受影响；不支持对添加了策略的表字段进行修改数据类型操作；只有打开表的行访问控制开关（ALTER TABLE ... ENABLE ROW LEVEL SECURITY）策略才生效；当前影响读取操作（SELECT、UPDATE或DELETE），暂不影响写入操作（INSERT以及MERGE INTO）。"
+  source_anchor: "1.13.9.41 注意事项 页1514"
+  source_refs: *refrls
+  status: confirmed
+- id: create_rls_policy_wave8_91_using_semantics
+  type: constraint
+  statement: "表所有者或系统管理员可在USING子句创建表达式，客户端执行读取操作时数据库后台在查询重写阶段将满足条件的表达式拼接并应用到执行计划；每条元组USING表达式返回true时对当前用户可见，返回false或null时不可见；策略名称是针对表的，同一数据表上不能有同名策略，不同数据表可以同名。"
+  source_anchor: "1.13.9.41 注意事项 页1514"
+  source_refs: *refrls
+  status: confirmed
+- id: create_rls_policy_wave8_91_permissive_restrictive
+  type: constraint
+  statement: "PERMISSIVE为宽容性策略（条件用OR表达式拼接），RESTRICTIVE为限制性策略（条件用AND表达式拼接），拼接方式为(using_expression_permissive_1 OR using_expression_permissive_2 ...) AND (using_expression_restrictive_1 AND using_expression_restrictive_2 ...)，未指定默认PERMISSIVE；FOR未指定默认ALL，ALL影响SELECT、UPDATE及DELETE类所有操作；SELECT策略影响SELECT、SELECT FOR UPDATE/SHARE、UPDATE ... RETURNING及DELETE ... RETURNING；UPDATE策略影响UPDATE、UPDATE ... RETURNING及SELECT ... FOR UPDATE/SHARE；DELETE策略影响DELETE及DELETE ... RETURNING（表1-378）。"
+  source_anchor: "1.13.9.41 参数说明 表1-378 页1515"
+  source_refs: *refrls
+  status: confirmed
+- id: create_rls_policy_wave8_91_to_clause
+  type: constraint
+  statement: "TO指定受策略影响的用户，若未指定默认为PUBLIC；role_name为指定数据库用户，CURRENT_USER为当前执行环境的用户名，SESSION_USER为会话用户名，PUBLIC影响所有数据库用户且可指定多个受影响用户；系统管理员不受行访问控制特性影响。"
+  source_anchor: "1.13.9.41 参数说明 页1516"
+  source_refs: *refrls
+  status: confirmed
+- id: create_rls_policy_wave8_91_using_expr_limits
+  type: constraint
+  statement: "using_expression为行访问控制表达式（返回boolean值）；条件表达式中不能包含agg函数和窗口函数；查询重写阶段若表行访问控制开关打开，满足条件的表达式会添加到计划树中；表达式返回false时该元组对当前用户不可见，无法通过SELECT查看、无法通过UPDATE更新、无法通过DELETE删除。"
+  source_anchor: "1.13.9.41 参数说明 using_expression 说明 页1516"
+  source_refs: *refrls
+  status: confirmed
+- id: create_rls_policy_wave8_91_example
+  type: behavior_oracle
+  statement: "示例：创建alice/bob用户与all_data表并GRANT SELECT，ALTER TABLE all_data ENABLE ROW LEVEL SECURITY后CREATE ROW LEVEL SECURITY POLICY all_data_rls ON all_data USING(role = CURRENT_USER)；管理员SELECT可见3行，SET ROLE alice后仅见role='alice'的1行，EXPLAIN显示Filter: ((role)::name = \"current_user\"())并提示Notice: This query is influenced by row level security feature；alice未授权INSERT时报ERROR: The operation permission on relation all_data is denied.，GRANT INSERT后INSERT 0 1成功；清理DROP ROW LEVEL SECURITY POLICY all_data_rls ON all_data。"
+  source_anchor: "1.13.9.41 示例 页1516-1518"
+  source_refs: *refrls
+  status: confirmed
+- id: create_rule_wave8_91_syntax
+  type: syntax
+  statement: "CREATE RULE定义一个重写规则；语法为CREATE [ OR REPLACE ] RULE name AS ON event TO table_name [ WHERE condition ] DO [ ALSO | INSTEAD ] { NOTHING | command | ( command ; command ... ) }，event为SELECT、INSERT、DELETE、UPDATE之一。"
+  source_anchor: "1.13.9.42 功能描述/语法格式 页1518"
+  source_refs: &refrule
+  - w8_91_1_13_9_42
+  status: confirmed
+- id: create_rule_wave8_91_ownership_order
+  type: constraint
+  statement: "仅表的拥有者可以在表上创建及修改规则；如果在同一个表创建了多个相同类型的规则，则按规则的名称字母顺序排序进行规则触发。"
+  source_anchor: "1.13.9.42 注意事项 页1518"
+  source_refs: *refrule
+  status: confirmed
+- id: create_rule_wave8_91_returning
+  type: constraint
+  statement: "视图上用于INSERT、UPDATE、DELETE的规则中可添加RETURNING子句基于视图字段返回：规则被INSERT/UPDATE/DELETE RETURNING命令触发时用来计算输出结果，被不带RETURNING的命令触发时被忽略；目前仅允许无条件的INSTEAD规则包含RETURNING子句，且同一事件内所有规则中最多只能有一个RETURNING子句；如果任何有效规则中都不存在RETURNING子句，该视图上的RETURNING查询将被拒绝。"
+  source_anchor: "1.13.9.42 注意事项 页1518"
+  source_refs: *refrule
+  status: confirmed
+- id: create_rule_wave8_91_on_select
+  type: constraint
+  statement: "ON SELECT规则必须是无条件的INSTEAD规则且必须有一个由单独一条SELECT查询组成的动作，实际上把表变成视图（可见内容由规则SELECT命令返回）；ON SELECT后指定的规则名必须为\"_RETURN\"；必须是INSTEAD SELECT且TO所指定的表会被转为视图，前提是该表为空且不带有触发器、索引、子表等限制（必须为一张初始的空表）；一般不建议采用这种写法，而是直接创建视图。"
+  source_anchor: "1.13.9.42 注意事项 页1518-1519"
+  source_refs: *refrule
+  status: confirmed
+- id: create_rule_wave8_91_params
+  type: constraint
+  statement: "参数：name在同表所有规则中唯一，符合标识符命名规范且不超过63字符；condition为返回布尔值的SQL条件表达式，决定是否实际执行规则，除引用NEW和OLD之外不能引用任何表且不能含聚集函数，不建议使用INT等数值类型（非0隐式转true、0转false可能导致非预期结果）；INSTEAD使用该命令替换初始事件；ALSO该命令在初始事件执行之后执行，既未声明ALSO也未声明INSTEAD时默认ALSO；command有效命令为SELECT、INSERT、UPDATE及DELETE语句。"
+  source_anchor: "1.13.9.42 参数说明 页1519"
+  source_refs: *refrule
+  status: confirmed
+- id: create_rule_wave8_91_example
+  type: behavior_oracle
+  statement: "示例：CREATE RULE rule_test AS ON INSERT TO tbl_rule1 DO ALSO INSERT INTO tbl_rule2 VALUES (new.c1, new.c2)；向tbl_rule1插入(1,11,111,1111)和(2,22,222,2222)后tbl_rule1有2行且tbl_rule2同步2行；删除规则使用DROP RULE rule_test ON tbl_rule1。"
+  source_anchor: "1.13.9.42 示例 页1519-1520"
+  source_refs: *refrule
+  status: confirmed
+- id: create_security_label_wave8_91_syntax
+  type: syntax
+  statement: "CREATE SECURITY LABEL在当前数据库中为指定的安全策略创建新的安全标签；语法为CREATE SECURITY LABEL label_name 'label_content'。"
+  source_anchor: "1.13.9.44 功能描述/语法格式 页1523"
+  source_refs: &refsecl
+  - w8_91_1_13_9_44
+  status: confirmed
+- id: create_security_label_wave8_91_permission
+  type: environment
+  statement: "初始用户、具有SYSADMIN权限的用户或者继承了内置角色gs_role_seclabel权限的用户可以进行创建安全标签操作。"
+  source_anchor: "1.13.9.44 注意事项 页1523"
+  source_refs: *refsecl
+  status: confirmed
+- id: create_security_label_wave8_91_name_rules
+  type: constraint
+  statement: "label_name需在数据库内符合唯一约束，符合标识符命名规范且最大长度不超过63字符：超过时数据库截断并保留前63字符；包含大写字母时自动转换为小写，需要大写须用双引号包裹；名称仅允许小写字母、大写字母、下划线、数字或美元符号，且必须以字母或下划线开头。"
+  source_anchor: "1.13.9.44 参数说明 label_name 页1523"
+  source_refs: *refsecl
+  status: confirmed
+- id: create_security_label_wave8_91_content_structure
+  type: constraint
+  statement: "label_content安全标签由等级和范围两部分组成，中间用冒号分隔，形如\"等级类别:范围类别\"；等级类别有且仅由一个等级组成，范围类别可由多个范围组成但至少需要有一个范围（如'L1:G2,G41,G6-G27'）；等级分类有1024个等级（L1~L1024，满足偏序关系，若i≤j则Li≤Lj）；范围分类有1024个范围（G1~G1024），范围之间无法比较大小但可进行集合运算，多个范围用逗号分隔，连字符表示区间（{G2-G5}表示{G2,G3,G4,G5}，集合{G1}是{G1,G6}的子集）。"
+  source_anchor: "1.13.9.44 参数说明 label_content 页1523"
+  source_refs: *refsecl
+  status: confirmed
+- id: create_security_label_wave8_91_content_format
+  type: constraint
+  statement: "等级和范围的首字母L和G均为大写；L和G之后至少要有一个数字字符且第一位非零，不允许出现其他非数字字符；{Gxxx-Gyyy}形式中数字yyy必须大于等于xxx；不符合要求的等级和范围均为非法输入系统报错，例如CREATE SECURITY LABEL sec_label3 'L3:'报ERROR: in label text \"L3:\", there at least have one level and one group。"
+  source_anchor: "1.13.9.44 参数说明 label_content 页1523"
+  source_refs: *refsecl
+  status: confirmed
+- id: create_security_label_wave8_91_example
+  type: behavior_oracle
+  statement: "示例：CREATE SECURITY LABEL sec_label 'L1:G4'创建成功；同名重复创建'L1:G2,G4'报ERROR: security label \"sec_label\" already exists；sec_label1 'L1:G2,G4'与sec_label2 'L3:G1-G5'创建成功；SELECT * FROM gs_security_label查看已创建安全标签（3行）；DROP SECURITY LABEL逐个删除后再查为0行；相关链接DROP SECURITY LABEL、SECURITY LABEL ON。"
+  source_anchor: "1.13.9.44 示例 页1524"
+  source_refs: *refsecl
+  status: confirmed
+open_questions:
+- id: create_rls_rule_seclabel_wave8_91_oq_runtime
+  statement: "行访问控制PERMISSIVE/RESTRICTIVE组合拼接的执行计划行为、多类型规则字母序触发、RETURNING子句在视图上的实际输出、安全标签等级偏序与范围集合运算在授权环境下的完整行为与错误矩阵需实机验证。"
+  status: open
