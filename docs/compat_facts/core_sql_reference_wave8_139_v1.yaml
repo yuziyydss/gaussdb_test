@@ -1,0 +1,143 @@
+document: 集中式版参考 / 3.4 数组、集合和record（Wave 8-139）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 3.4.1.1 数组类型的使用
+  - 3.4.1.2 数组支持的函数
+  - 3.4.2.1 集合类型的使用
+  - 3.4.2.2 集合支持的函数
+  - 3.4.3 record
+  physical_page_start: 2544
+  physical_page_end: 2580
+  physical_page_count: 36
+  excludes: []
+facts:
+- id: sp_wave8_139_array_type_syntax
+  type: syntax
+  statement: "数组类型定义语法：TYPE array_type IS VARRAY(size) OF data_type;在存储过程中紧跟AS关键字后面定义；array_type为要定义的数组类型名，size取值为正整数表示可容纳成员的最大数量，data_type为数组成员类型；在存储过程中定义的数组类型其作用域仅在该存储过程中。"
+  source_anchor: "3.4.1.1 数组类型的使用 语法 页2544-2545"
+  source_refs: &refa
+  - w8_139_3_4
+  status: confirmed
+- id: sp_wave8_139_array_usage_limits
+  type: constraint
+  statement: "数组使用行为与限制：GaussDB支持通过索引语法（圆括号）访问数组元素，还提供EXTEND、COUNT、FIRST、LAST、PRIOR、EXISTS、TRIM、NEXT和DELETE专用函数；数组会自动增长，访问越界返回NULL不报错，打开varray_compat参数后增加下标检查、访问越界报错；size信息记录到pg_type系统表，开varray_compat后对数组的操作都进行长度及下标检查，未开参数则不使用size信息；data_type可以为存储过程中定义的record类型（匿名块不支持）、集合类型，但不可以为存储过程中定义的数组类型、游标类型；data_type为集合类型时不支持多维数组；array类型构造器仅支持A兼容模式下使用，且不支持作为函数或存储过程参数的默认值。"
+  source_anchor: "3.4.1.1 注意事项 页2545"
+  source_refs: *refa
+  status: confirmed
+- id: sp_wave8_139_array_guc_constraints
+  type: constraint
+  statement: "数组元素约束与GUC：数组元素是集合类型且data_type为varchar、numeric等可定义长度精度类型时，校验元素长度或转换精度需设置behavior_compat_options启用tableof_elem_constraints选项；启用varray_compat后在匿名块中定义的数组类型，匿名块执行ROLLBACK或发生EXCEPTION后数组类型无法继续使用；enable_recordtype_check_strict=on后成员是record类型且record有列具有NOT NULL或DEFAULT属性时，存储过程或PACKAGE编译报错；存储过程中DML语句（SELECT/UPDATE/INSERT/DELETE）推荐使用中括号访问数组元素（小括号默认识别为数组访问，数组不存在则识别为函数表达式）；CLOB类型大于1GB时TABLE OF类型、RECORD类型、CLOB出入参、游标和RAISE INFO等功能不支持；不支持NOT NULL语法。"
+  source_anchor: "3.4.1.1 注意事项 页2545"
+  source_refs: *refa
+  status: confirmed
+- id: sp_wave8_139_array_example_baseline
+  type: behavior_oracle
+  statement: "数组示例基线：array_proc定义VARRAY(1024) OF INTEGER并构造后extend(10)赋值1..10，COUNT=10，ARRINT(1)=1、ARRINT(10)=10、FIRST=1、LAST=10、NEXT(FIRST)=2、PRIOR(LAST)=9；TRIM()后COUNT=9、EXISTS(10)为false输出Not exist 10th element、FIRST=1、LAST=9；DELETE()清空后结束。"
+  source_anchor: "3.4.1.1 示例 页2545-2546"
+  source_refs: *refa
+  status: confirmed
+- id: sp_wave8_139_array_func_guc_diff
+  type: constraint
+  statement: "数组函数varray_compat差异总则：count/extend/trim/delete/first/last/next/prior应用于未初始化数组（NULL）时开参数报An uninitialized collection is referenced、未开启不报错；extend(count)与extend(count,idx)的count加现有元素个数超定义大小时开参数报Subscript outside of limit；extend(count,idx)下标idx不合法时报Subscript outside of limit或Subscript beyond count；trim(n)的n大于元素个数时开参数报Subscript beyond count；delete(idx)下标不合法时开参数报Subscript outside of limit或Subscript beyond count、未开参数返回原数组；内层表达式中不支持嵌套方式调用数组类型函数；extend(count)、delete(idx)、trim(n)参数只支持单个常量或变量（不支持函数调用、表达式等形式）；类型嵌套且数组为内部类型时无参extend/delete/trim只支持不带括号形式调用。"
+  source_anchor: "3.4.1.2 数组支持的函数说明 页2546-2547"
+  source_refs: *refa
+  status: confirmed
+- id: sp_wave8_139_array_extend_funcs
+  type: syntax
+  statement: "extend函数族：extend[([count])]在varray变量末尾拓展1个或count个元素、默认扩展为NULL；extend(count,idx)在末尾拓展count个元素且扩展元素的值等于给定idx下标元素的值（示例需SET a_format_version='10c'与a_format_dev_version='s1'）；示例基线：EXTEND后COUNT从0到1、EXTEND(3)后COUNT=3；开varray_compat时EXTEND(8)超过定义大小报Subscript outside of limit、数组未初始化EXTEND报An uninitialized collection is referenced；空数组EXTEND(10,1)报Subscript beyond count。"
+  source_anchor: "3.4.1.2 extend/extend(count,idx) 页2547-2548"
+  source_refs: *refa
+  status: confirmed
+- id: sp_wave8_139_array_count_trim_delete
+  type: syntax
+  statement: "count/trim/delete函数：count[()]返回数组中元素个数（int4）；trim[(n)]无参删除数组末尾一个元素、给定n删除末尾指定数量元素（n大于元素个数未开varray_compat时清空数组元素、开参数报Subscript beyond count；未初始化开参数报An uninitialized collection is referenced）；delete[()]清空数组中所有元素（未初始化未开参数可执行、开varray_compat报错）；delete(idx)删除给定下标idx的元素（idx在范围外未开参数返回原数组、开参数报Subscript beyond count或Subscript outside of limit；未初始化开参数报错）。"
+  source_anchor: "3.4.1.2 count/trim/delete 页2548-2553"
+  source_refs: *refa
+  status: confirmed
+- id: sp_wave8_139_array_first_last_nav
+  type: syntax
+  statement: "数组下标导航函数：first[()]/last[()]返回数组第一个/最后一个元素的下标（int4），没有元素返回NULL（未初始化未开varray_compat返回NULL、开参数报An uninitialized collection is referenced）；prior(idx)/next(idx)返回指定下标前一个/后一个元素的下标，找不到返回NULL（prior(10)在3元素数组返回3、next(10)返回NULL；未初始化开参数报错）；exists(idx)返回boolean查找指定位置是否存在有效元素（存在t、不存在f、未初始化返回false）。"
+  source_anchor: "3.4.1.2 first/last/prior/next/exists 页2553-2556"
+  source_refs: *refa
+  status: confirmed
+- id: sp_wave8_139_collection_type_syntax
+  type: syntax
+  statement: "集合类型定义语法：TYPE table_type IS TABLE OF data_type [ [NOT_NULL] [INDEX BY indexby_type]];在存储过程中紧跟AS关键字后面定义；无索引集合类型将下标和对应成员值以变长数组方式存储，通过extend扩展存储空间、trim释放空间，无效成员存储空间保留可继续赋值；变量声明后可通过下标访问成员赋值取值，下标范围[1,upper]（upper为当前空间大小），访问被删除的成员返回no data found错误信息。"
+  source_anchor: "3.4.2.1 集合类型的使用 语法 页2556-2558"
+  source_refs: *refa
+  status: confirmed
+- id: sp_wave8_139_collection_noidx_limits
+  type: constraint
+  statement: "无索引集合约束：支持圆括号访问元素及extend/count/first/last/prior/next/delete函数，集合函数支持multiset union、intersect、except all和distinct；仅A兼容模式（sql_compatibility=A）可创建集合类型；无索引集合不会自动增长、下标越界报错；schema/匿名块/存储过程/自定义函数/package中定义作用域各不相同；NOT NULL只支持语法不支持功能；元素长度精度校验需开启tableof_elem_constraints；data_type可为基础数据类型、存储过程内record、集合、数组，不支持ref cursor；不同名称集合类型变量不能相互赋值（成员类型相同也如此）；只支持等值（=）与非等值（<>或!=）比较；与NULL比较用IS [NOT] NULL（=比较结果不准确）；可作为函数参数和返回值（类型须在schema或package中定义）；入参可传子元素类型相同的数组（陈旧设计，disable_rewrite_nesttable禁用）；不支持XML操作；集合类型及嵌套集合不支持作为表列；构造器不支持浮点数及表达式下标；匿名块ROLLBACK或EXCEPTION后集合类型无法继续使用。"
+  source_anchor: "3.4.2.1 无索引集合使用约束 页2557-2559"
+  source_refs: *refa
+  status: confirmed
+- id: sp_wave8_139_collection_indexed
+  type: constraint
+  statement: "带索引集合类型：以下标和成员值键值对存HASH表，无需自行扩展释放空间，赋值或delete存储删除成员；indexby_type仅支持INTEGER和VARCHAR；初始化3种场景（未初始化/初始化为空/指定下标成员值，前两者变量非NULL）；赋值分成员赋值（不存在等价插入、存在刷新）与整体赋值（清空后重存、不能赋NULL否则报错）；下标取值找不到成员返回no data found；仅A兼容创建、不支持schema中定义；VARCHAR下标开tableof_elem_constraints后校验index长度（超长报错，不受char_coerce_compat影响）；未初始化变量非NULL、不能赋NULL、作为入参不能赋NULL或''；不同带索引集合类型变量不能互赋；不支持关系运算和算数运算；select...bulk collect into只支持INTEGER下标集合；作为函数参数和返回值要求类型在package中定义；构造器索引值仅支持常量。"
+  source_anchor: "3.4.2.1 带索引的集合类型 页2558-2561"
+  source_refs: *refa
+  status: confirmed
+- id: sp_wave8_139_collection_examples
+  type: behavior_oracle
+  statement: "集合示例基线：table_proc定义TABLE OF INTEGER构造后extend(10)赋值1..10，COUNT=10、TABLEINT(1)=1、TABLEINT(10)=10；nest_table_proc定义嵌套集合TABLE OF TABLE_INTEGER，外层extend(10)后每个成员TABLE_INTEGER()再extend(10)赋值NEST_TABLE_VAR(I)(I)=I，COUNT=10、NEST_TABLE_VAR(1)(1)=1、NEST_TABLE_VAR(10)(10)=10。"
+  source_anchor: "3.4.2.1 示例 页2560-2561"
+  source_refs: *refa
+  status: confirmed
+- id: sp_wave8_139_collection_operators
+  type: syntax
+  statement: "集合操作符：=判断两个nesttable集合相等（返回BOOLEAN）；<>与^=判断不相等；IS [NOT] NULL判断集合为NULL/非NULL（集合与NULL比较须用IS [NOT] NULL）；[NOT] IN判断一个集合是否在集合列表中；MULTISET UNION [ALL|DISTINCT]并集（ALL不去重、DISTINCT去重）；MULTISET EXCEPT [ALL|DISTINCT]差集；MULTISET INTERSECT [ALL|DISTINCT]交集。"
+  source_anchor: "3.4.2.2 集合操作符 页2562-2564"
+  source_refs: *refa
+  status: confirmed
+- id: sp_wave8_139_collection_funcs
+  type: syntax
+  statement: "集合相关函数：exists(idx)查找指定位置是否存在有效元素；extend[(count[,idx])]仅支持nesttable在末尾拓展；delete[(idx1[,idx2])]无参删除所有元素、给定idx删除指定或区间元素；trim[(n)]仅nesttable删除末尾元素；count[()]返回有效元素个数；first[()]/last[()]返回第一个/最后一个有效元素下标；prior(idx)/next(idx)返回给定下标前一个/后一个有效元素下标；limit仅用于nesttable类型变量且返回null值；内层表达式中不支持嵌套调用集合类型函数；类型嵌套且集合为内部类型时无参extend/delete/trim只支持不带括号形式。"
+  source_anchor: "3.4.2.2 集合相关函数 页2566-2572"
+  source_refs: *refa
+  status: confirmed
+- id: sp_wave8_139_collection_unnest
+  type: syntax
+  statement: "unnest系列：unnest_table(anynesttable)或unnest(anynesttable)返回给定无索引集合中所有有效元素的结果集（返回类型setof anyelement，多行）；unnest_table(anyindexbytable)或unnest(anyindexbytable)支持带索引集合；当集合元素类型为record且有元素为NULL时该元素不返回，而是返回一个所有列为NULL的非NULL record值。"
+  source_anchor: "3.4.2.2 unnest_table/unnest 页2572-2574"
+  source_refs: *refa
+  status: confirmed
+- id: sp_wave8_139_record_syntax
+  type: syntax
+  statement: "record类型语法：TYPE type_name IS_RECORD (field_declaration [,...] );其中field_declaration为field_name datatype [ [NOT_NULL] { := | DEFAULT } expression]；record变量赋值支持：在函数或存储过程声明阶段声明record类型并定义成员变量、一个record变量赋值到另一个record变量、SELECT INTO和FETCH向record变量赋值、将NULL值赋给record变量。"
+  source_anchor: "3.4.3 record 语法/使用约束 页2574-2575"
+  source_refs: *refa
+  status: confirmed
+- id: sp_wave8_139_record_constructor_named
+  type: constraint
+  statement: "record类型构造器=>赋值约束：仅在兼容A模式数据库（sql_compatibility='A'）支持；支持在package内部定义record类型；仅入参赋值连续使用=>到结尾时支持，如record_name(elename1 => val1, elename2 => val2, elename3 => val3)或record_name(val1, elename2 => val2, elename3 => val3)；不支持非连续使用=>赋值或=>后还有位置入参，如record_name(elename1 => val1, elename2 => val2, val3)（示例报错Positional parameters cannot follow named parameters.）。"
+  source_anchor: "3.4.3 record使用约束/示例 页2575-2576与页2578-2579"
+  source_refs: *refa
+  status: confirmed
+- id: sp_wave8_139_record_limits
+  type: constraint
+  statement: "record类型限制：不支持INSERT和UPDATE语句使用record变量插入和更新数据；record类型构造器不支持作为函数或存储过程参数的默认值；成员有复合类型时声明阶段不支持指定默认值；成员有record类型时内层record默认值不支持传递至外层record；enable_recordtype_check_strict=on后成员是record类型且有列具有NOT NULL或DEFAULT属性时存储过程或PACKAGE编译报错（PACKAGE中record类型同样在创建或编译时报错），该参数on后存储过程里record类型NOT NULL功能生效；datatype可以为存储过程中定义的record、数组、集合类型（匿名块不支持）；INSERT INTO table_name VALUES record_var中record_var仅支持record变量和单层数组嵌套record变量（不支持多层数组嵌套）；PL/SQL静态DDL语句不支持使用record类型变量和成员。"
+  source_anchor: "3.4.3 record使用约束 页2576"
+  source_refs: *refa
+  status: confirmed
+- id: sp_wave8_139_record_proc_outparam
+  type: constraint
+  statement: "proc_outparam_override与record：设置behavior_compat_options启用proc_outparam_override后，带有out出参且返回record的函数支持在外部SQL使用SELECT、CALL调用，存储过程内支持PERFORM、表达式调用；函数直接返回未定义record类型时至少需要带一个out参数，返回已定义record类型可不带out参数；带out出参返回复合类型或record的函数需保持预期返回类型与实际返回类型一致。"
+  source_anchor: "3.4.3 record使用约束/示例 页2576-2578"
+  source_refs: *refa
+  status: confirmed
+- id: sp_wave8_139_record_examples
+  type: behavior_oracle
+  statement: "record示例基线：regress_record函数演示record声明赋值、record间赋值、赋NULL后成员输出<NULL>、for循环/select into/cursor FETCH中使用record；proc_outparam_override下返回已定义rec_type(c1,c2)的函数不需out参数（CALL func(0)输出c1=1,c2=1）、直接返回RECORD需out参数（CALL func(1)输出(1,1)与999）；A兼容库中package内定义record构造器全=>赋值调用成功，非连续=>赋值报Positional parameters cannot follow named parameters.。"
+  source_anchor: "3.4.3 示例 页2577-2579"
+  source_refs: *refa
+  status: confirmed
+open_questions:
+- id: sp_coll_wave8_139_oq_runtime
+  content: "数组varray_compat与tableof_elem_constraints组合开启时越界与元素约束校验的叠加边界、带索引集合VARCHAR下标长度校验与bulk collect into的INTEGER下标限制交互、record构造器=>连续赋值在多层嵌套复合类型场景需授权环境实机验证。"
+  status: open
