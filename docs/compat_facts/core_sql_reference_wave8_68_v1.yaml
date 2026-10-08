@@ -1,0 +1,141 @@
+document: 集中式版参考 / 1.13.19.5 SET 与 1.13.19.6 SET CONSTRAINTS（Wave 8-68）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-07'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.19.5 SET
+  - 1.13.19.6 SET CONSTRAINTS
+  physical_page_start: 1852
+  physical_page_end: 1857
+  physical_page_count: 6
+  excludes: []
+facts:
+- id: set_wave8_68_purpose
+  type: syntax
+  statement: "SET用于修改运行时配置参数；大多数运行时参数都可以用SET在运行时设置，但有些则在服务运行过程中或会话开始之后不能修改。"
+  source_anchor: "1.13.19.5 功能描述/注意事项 页1852"
+  source_refs: &refset
+  - w8_68_1_13_19_5
+  status: confirmed
+- id: set_wave8_68_session_scope
+  type: constraint
+  statement: "SET的SESSION声明参数只对当前会话起作用，SESSION和LOCAL都没出现时SESSION为缺省值；在事务中执行此命令，事务回滚后影响消失，事务提交后影响持续到会话结束，除非被另一个SET命令重置。"
+  source_anchor: "1.13.19.5 参数说明 SESSION 页1853"
+  source_refs: *refset
+  status: confirmed
+- id: set_wave8_68_local_scope
+  type: constraint
+  statement: "LOCAL声明的参数只在当前事务中有效，COMMIT或ROLLBACK后会话级别的设置再次生效；不论事务是否提交，影响只持续到当前事务结束；特例：同一事务中既有SET又有SET LOCAL且SET LOCAL在后，事务结束前SET LOCAL起作用，事务提交之后SET命令生效。"
+  source_anchor: "1.13.19.5 参数说明 LOCAL 页1853"
+  source_refs: *refset
+  status: confirmed
+- id: set_wave8_68_timezone
+  type: constraint
+  statement: "SET [SESSION|LOCAL] TIME ZONE {timezone | LOCAL | DEFAULT}用于指定当前会话的本地时区，对应运行时参数TimeZone，DEFAULT缺省值为PRC；兼容B模式下不支持类似-12:30的时分时区写法，可使用英文时区、小数写法如EST、America/New_York、-12.5。"
+  source_anchor: "1.13.19.5 参数说明 TIME ZONE 页1853"
+  source_refs: *refset
+  status: confirmed
+- id: set_wave8_68_current_schema
+  type: constraint
+  statement: "CURRENT_SCHEMA用于指定当前模式，取值为已存在模式名称，模式名不存在会导致CURRENT_SCHEMA值为空；SCHEMA 'schema'同CURRENT_SCHEMA，此处的schema是字符串，例如set schema 'public'。"
+  source_anchor: "1.13.19.5 参数说明 CURRENT_SCHEMA/SCHEMA 页1853"
+  source_refs: *refset
+  status: confirmed
+- id: set_wave8_68_names
+  type: constraint
+  statement: "NAMES {'charset_name' [COLLATE 'collation_name'] | DEFAULT}用于设置客户端字符编码、常量字符串的字符集字符序及返回结果的字符集：B兼容模式且b_format_version='5.7'、b_format_dev_version='s2'时支持指定collate子句，等价于设置client_encoding、character_set_connection、collation_connection、character_set_results四个参数，暂不支持charset_name与数据库字符集不同；其他场景不支持collate子句，仅等价于set client_encoding to charset_name，默认编码UTF8（运行时参数client_encoding）。"
+  source_anchor: "1.13.19.5 参数说明 NAMES 页1853-1854"
+  source_refs: *refset
+  status: confirmed
+- id: set_wave8_68_config_param
+  type: constraint
+  statement: "config_parameter为可设置的运行时参数名称，可用SHOW ALL查看可用参数，但部分参数不能通过SET设置（如max_datanodes）；value可声明为字符串常量、标识符、数字或逗号分隔的列表，DEFAULT用于将参数设置为默认值，另支持FROM CURRENT形式。"
+  source_anchor: "1.13.19.5 参数说明 config_parameter/value 页1854"
+  source_refs: *refset
+  status: confirmed
+- id: set_wave8_68_b_session
+  type: constraint
+  statement: "B模式下SET [SESSION | @@SESSION. | @@] {config_parameter = {expr | DEFAULT}}：声明参数生效方式为superuser、user，可通过pg_settings系统视图的context字段确定，未指定GLOBAL或SESSION则SESSION为缺省值；支持config_parameter赋值为表达式；SET SESSION只在B模式且GUC参数b_format_behavior_compat_options包含enable_set_variables场景下支持；使用@@config_parameter做操作符运算时尽量用空格隔开，否则=@@会被当做操作符。"
+  source_anchor: "1.13.19.5 参数说明 SESSION|@@SESSION.|@@ 页1854"
+  source_refs: *refset
+  status: confirmed
+- id: set_wave8_68_user_vars_basics
+  type: constraint
+  statement: "SET @var_name := expr（或=）设置自定义用户变量，仅在B模式且b_format_behavior_compat_options包含enable_set_variables时支持；变量名只能由数字、字母、下划线、点、$组成，使用单引号、双引号等引用时可用其他字符；未初始化的变量值为NULL；连续赋值只支持@var_name1 := @var_name2 := … := expr和@var_name1 = @var_name2 := … := expr，等号只有放在首位才表示赋值，其他位置表示比较操作符；使用@var_name做操作符运算时建议空格隔开，当sql_compatibility='B'且enable_set_variables时数据库原始的@ expr需要与expr有空格，否则解析成用户变量。"
+  source_anchor: "1.13.19.5 参数说明 var_name/说明 页1854-1855"
+  source_refs: *refset
+  status: confirmed
+- id: set_wave8_68_user_vars_storage
+  type: constraint
+  statement: "自定义变量只会存储整型、浮点型、字符串、位串和NULL：BOOLEAN、INT1、INT2、INT4、INT8类型转为INT8存储；FLOAT4、FLOAT8、NUMERIC转为FLOAT8存储（浮点型可能精度丢失）；BIT类型以BIT存储、VARBIT以VARBIT存储；NULL值以NULL存储；其他类型若可转化为字符串则转为TEXT存储；prepare语句中用户自定义变量存储的字符串只支持select/insert/update/delete/merge语法。"
+  source_anchor: "1.13.19.5 参数说明 说明 页1855"
+  source_refs: *refset
+  status: confirmed
+- id: set_wave8_68_expr
+  type: constraint
+  statement: "expr表达式支持可直接或间接转为整型、浮点型、字符串、位串和NULL的表达式；字符串表达式中应避免包含密码等敏感信息的函数（如加解密类函数gs_encrypt、gs_decrypt等），防止敏感信息泄露。"
+  source_anchor: "1.13.19.5 参数说明 expr 页1855"
+  source_refs: *refset
+  status: confirmed
+- id: set_wave8_68_xml_option
+  type: constraint
+  statement: "SET [SESSION | LOCAL] XML OPTION {DOCUMENT | CONTENT}设置XML的解析方式：DOCUMENT为单根模式，是XML数据的整体表示（包含结构和所有信息）；CONTENT为多根模式，是特定元素内的实际信息。"
+  source_anchor: "1.13.19.5 语法格式/参数说明 XML 页1853/1855"
+  source_refs: *refset
+  status: confirmed
+- id: set_wave8_68_syntax_forms
+  type: syntax
+  statement: "SET共七种语法形式：SET [SESSION|LOCAL] TIME ZONE {timezone|LOCAL|DEFAULT}；SET [SESSION|LOCAL] {CURRENT_SCHEMA {TO|=}{schema|DEFAULT} | SCHEMA 'schema'}；SET [SESSION|LOCAL] NAMES {'charset_name' [COLLATE 'collation_name'] | DEFAULT}；SET [SESSION|LOCAL] {config_parameter {{TO|=}{value|DEFAULT} | FROM CURRENT}}；B模式SET [SESSION|@@SESSION.|@@] {config_parameter={expr|DEFAULT}}；SET @var_name := expr[, @var_name := expr]...或SET @var_name = expr...；SET [SESSION|LOCAL] XML OPTION {DOCUMENT | CONTENT}。"
+  source_anchor: "1.13.19.5 语法格式 页1852-1853"
+  source_refs: *refset
+  status: confirmed
+- id: set_wave8_68_example_vars
+  type: behavior_oracle
+  statement: "B库示例：SET b_format_behavior_compat_options = enable_set_variables后SET @v1 := 1, @v2 := 1.1, @v3 := true, @v4 := 'dasda', @v5 := x'41'，SELECT查询结果为1、1.1、1、dasda、01000001，未初始化的@v6、@v7为NULL；SET @sql = 'select 1'后可PREPARE stmt as @sql并EXECUTE。"
+  source_anchor: "1.13.19.5 示例 页1855-1856"
+  source_refs: *refset
+  status: confirmed
+- id: set_wave8_68_example_general
+  type: behavior_oracle
+  statement: "示例覆盖SET TIME ZONE 'PST8PDT'、SET search_path TO tpcds, public、SET client_encoding TO utf8、SET XML OPTION DOCUMENT、SET datestyle TO postgres,dmy；B库session变量SET @@codegen_cost_threshold = 10000与SET @@session.codegen_cost_threshold = @@codegen_cost_threshold * 2（相关链接RESET、SHOW）。"
+  source_anchor: "1.13.19.5 示例 页1855-1856"
+  source_refs: *refset
+  status: confirmed
+- id: set_constraints_wave8_68_purpose
+  type: syntax
+  statement: "SET CONSTRAINTS设置当前事务检查行为的约束条件：IMMEDIATE约束在每条语句后面进行检查，DEFERRED约束一直到事务提交时才检查；每个约束都有自己的模式。"
+  source_anchor: "1.13.19.6 功能描述 页1856"
+  source_refs: &refsetc
+  - w8_68_1_13_19_6
+  status: confirmed
+- id: set_constraints_wave8_68_modes
+  type: constraint
+  statement: "从创建约束条件开始，一个约束总是设定为DEFERRABLE INITIALLY DEFERRED、DEFERRABLE INITIALLY IMMEDIATE和NOT DEFERRABLE三个特性之一；NOT DEFERRABLE总是IMMEDIATE且不受SET CONSTRAINTS影响；前两种以指定的方式启动每个事务，但其行为可以在事务里用SET CONSTRAINTS改变。"
+  source_anchor: "1.13.19.6 功能描述 页1856"
+  source_refs: *refsetc
+  status: confirmed
+- id: set_constraints_wave8_68_name_all
+  type: constraint
+  statement: "带约束名列表的SET CONSTRAINTS改变这些约束的模式（都必须是可推迟的），多个约束匹配某个名称时所有都会被影响；SET CONSTRAINTS ALL改变所有可推迟约束的模式；把约束从DEFERRED改成IMMEDIATE时，任何将在事务结束准备进行的数据修改都将在SET CONSTRAINTS时执行检查，违反任一约束则SET CONSTRAINTS失败且不修改约束模式；因此SET CONSTRAINTS可用于强制在事务中某一点进行约束检查。"
+  source_anchor: "1.13.19.6 功能描述 页1856"
+  source_refs: *refsetc
+  status: confirmed
+- id: set_constraints_wave8_68_txblock
+  type: constraint
+  statement: "SET CONSTRAINTS只在当前事务里设置约束的行为；如果在事务块之外（START TRANSACTION/COMMIT对之外）执行这个命令，它将没有任何作用。"
+  source_anchor: "1.13.19.6 注意事项 页1856"
+  source_refs: *refsetc
+  status: confirmed
+- id: set_constraints_wave8_68_syntax_params
+  type: syntax
+  statement: "语法为SET CONSTRAINTS {ALL | {name}[, ...]} {DEFERRED | IMMEDIATE}；name为约束名，取值为已存在的约束名（可在系统表pg_constraint中查到）；ALL表示所有约束；DEFERRED约束到事务提交时才检查；IMMEDIATE约束在每条语句后检查；示例：SET CONSTRAINTS ALL DEFERRED设置所有约束在事务提交时检查，SET CONSTRAINTS ALL IMMEDIATE设置所有约束在每条语句后检查。"
+  source_anchor: "1.13.19.6 语法格式/参数说明/示例 页1857"
+  source_refs: *refsetc
+  status: confirmed
+open_questions:
+- id: set_wave8_68_oq_runtime
+  statement: "SET各作用域（SESSION/LOCAL/@变量）与SET CONSTRAINTS推迟检查在真实事务、兼容模式和GUC参数组合下的完整行为与错误矩阵需授权环境实机验证。"
+  status: open
