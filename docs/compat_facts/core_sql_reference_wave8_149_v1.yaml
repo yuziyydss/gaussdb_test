@@ -1,0 +1,140 @@
+document: 集中式版参考 / 3.12.2.5 DBE_FILE第一切片（文本模式族，Wave 8-149）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 3.12.2.5 DBE_FILE（接口总账与文本/二进制模式族切片，3.12高级包第八批切片）
+  physical_page_start: 2734
+  physical_page_end: 2749
+  physical_page_count: 15
+  excludes:
+  - DBE_FILE NCHAR族与3.12其余小节（后续波次按切片覆盖）
+facts:
+- id: dbefile_wave8_149_overview_notes
+  type: constraint
+  statement: "DBE_FILE功能与编码注意事项：DBE_FILE包为存储过程提供了读取和写入操作系统文本文件的功能；通过DBE_FILE.FOPEN打开的文件必须使用数据库字符集编码，否则READ_LINE读取时会发生编码校验错误；通过DBE_FILE.FOPEN_NCHAR打开的文件必须使用UTF8字符集编码，否则READ_LINE_NCHAR读取时报错；使用DBE_OUTPUT.PUT_LINE打印READ_LINE_NCHAR结果需确保UTF8能转换为当前数据库字符集（DBE_OUTPUT.PRINT_LINE不支持）；客户端字符集编码必须与数据库字符集编码保持一致；数据库字符集为ASCII、客户端为支持中文编码时WRITE_NCHAR/WRITE_LINE_NCHAR写中文可能无法保证按UTF8编码，导致后续READ_LINE_NCHAR报错。"
+  source_anchor: "3.12.2.5 DBE_FILE注意事项 页2734"
+  source_refs: &reff
+  - w8_149_3_12
+  status: confirmed
+- id: dbefile_wave8_149_file_type
+  type: syntax
+  statement: "DBE_FILE.FILE_TYPE类型：CREATE TYPE DBE_FILE.FILE_TYPE AS(id INTEGER, datatype INTEGER, byte_mode BOOLEAN)；id为文件句柄；datatype表明文件是CHAR文件、NCHAR文件或二进制文件（目前支持CHAR和NCHAR，CHAR返回1、NCHAR返回2）；byte_mode表明文件以二进制模式（TRUE）或文本模式（FALSE）打开；该类型包含DBE_FILE包私有字段，禁止直接修改字段值。"
+  source_anchor: "3.12.2.5 FILE_TYPE 页2734-2735"
+  source_refs: *reff
+  status: confirmed
+- id: dbefile_wave8_149_interface_catalog
+  type: syntax
+  statement: "DBE_FILE接口总账：OPEN/FOPEN（打开文件返回句柄或FILE_TYPE）、IS_CLOSE、IS_OPEN、READ_LINE、WRITE、NEW_LINE、WRITE_LINE、FORMAT_WRITE、GET_RAW、PUT_RAW、FLUSH、CLOSE、CLOSE_ALL、REMOVE、RENAME、COPY、GET_ATTR、SEEK、GET_POS、FOPEN_NCHAR、WRITE_NCHAR、WRITE_LINE_NCHAR、FORMAT_WRITE_NCHAR、READ_LINE_NCHAR。"
+  source_anchor: "3.12.2.5 DBE_FILE 表3-161 页2735-2736"
+  source_refs: *reff
+  status: confirmed
+- id: dbefile_wave8_149_open_fopen
+  type: syntax
+  statement: "OPEN/FOPEN原型：DBE_FILE.OPEN(dir IN TEXT, file_name IN TEXT, open_mode IN TEXT, max_line_size IN INTEGER DEFAULT 1024) RETURN INTEGER与DBE_FILE.FOPEN(...) RETURN DBE_FILE.FILE_TYPE；用于打开一个文件，可指定每行最大字节数，同一个会话内最多同时打开50个文件；dir为目录对象名（需在PG_DIRECTORY注册，safe_data_path开启时仅能操作白名单路径）；file_name包含扩展不含路径名（含路径被忽略，Unix系统文件名不能以/.结尾）；open_mode包含r: read text、w: write text、a: append text、rb: read byte、wb: write byte、ab: append byte（写操作检测文件类型，elf文件报错退出）；max_line_size每行最大字节数含换行符、最小1最大32767，未指定或为空使用默认1024。"
+  source_anchor: "3.12.2.5 OPEN/FOPEN 页2736-2737"
+  source_refs: *reff
+  status: confirmed
+- id: dbefile_wave8_149_is_close_is_open
+  type: syntax
+  statement: "IS_CLOSE与IS_OPEN：DBE_FILE.IS_CLOSE(file IN INTEGER 或 DBE_FILE.FILE_TYPE) RETURN BOOLEAN检测指定文件句柄是否已经关闭（异常情况INVALID_FILEHANDLE；入参为空时返回空）；IS_OPEN(file) RETURN BOOLEAN检测文件句柄是否已经打开（入参为空时返回false）。"
+  source_anchor: "3.12.2.5 IS_CLOSE/IS_OPEN 页2737-2738"
+  source_refs: *reff
+  status: confirmed
+- id: dbefile_wave8_149_read_line
+  type: syntax
+  statement: "READ_LINE原型：DBE_FILE.READ_LINE(file IN INTEGER 或 FILE_TYPE, buffer OUT TEXT, len IN INTEGER DEFAULT NULL) RETURN TEXT；从打开的文件读取数据存放到buffer，读取到行尾（不包含行终结符）或文件末尾或len指定大小；读取长度不能超过OPEN时指定的max_line_size；文件必须以读模式打开否则抛出INVALID_OPERATION异常；len默认NULL时使用max_line_size指定大小。"
+  source_anchor: "3.12.2.5 READ_LINE 页2738-2739"
+  source_refs: *reff
+  status: confirmed
+- id: dbefile_wave8_149_write
+  type: constraint
+  statement: "WRITE限制：DBE_FILE.WRITE(file, buffer IN TEXT) RETURN BOOLEAN/VOID向文件对应缓冲区写入数据、文件必须以写模式打开、该操作不会写入行终结符；每行累计写入长度不能大于或等于OPEN/FOPEN时指定或默认的max_line_size，否则在刷新到文件时报错；buffer为空时接口直接返回；写操作检测写入文件类型、elf类型文件报错退出。"
+  source_anchor: "3.12.2.5 WRITE 页2739-2740"
+  source_refs: *reff
+  status: confirmed
+- id: dbefile_wave8_149_new_line
+  type: syntax
+  statement: "NEW_LINE原型：DBE_FILE.NEW_LINE(file, line_nums IN INTEGER DEFAULT 1) RETURN BOOLEAN/VOID；向文件对应缓冲区写入一个或多个行终结符（行终结符和平台相关）；line_nums指定为空时不写入行终结符。"
+  source_anchor: "3.12.2.5 NEW_LINE 页2740"
+  source_refs: *reff
+  status: confirmed
+- id: dbefile_wave8_149_write_line
+  type: syntax
+  statement: "WRITE_LINE原型：DBE_FILE.WRITE_LINE(file, buffer IN TEXT, flush IN BOOLEAN) RETURN BOOLEAN/VOID；将数据写入打开文件的缓冲区中并自动追加一个行结束符；每行长度（包含换行符）不能大于max_line_size否则刷新到文件时报错；flush默认或为空为false，为true时将缓冲区数据刷到磁盘。"
+  source_anchor: "3.12.2.5 WRITE_LINE 页2740-2741"
+  source_refs: *reff
+  status: confirmed
+- id: dbefile_wave8_149_format_write
+  type: syntax
+  statement: "FORMAT_WRITE原型：DBE_FILE.FORMAT_WRITE(file, format IN TEXT, arg1..arg6 IN TEXT DEFAULT NULL) RETURN BOOLEAN/VOID；将格式化数据写入打开文件对应缓冲区（允许格式化的WRITE接口）；format包含文本和格式符\\n和%s、指定为空时不写入任何数据；arg1到arg6与格式化字符位置一一对应，存在格式化字符而未提供参数或参数为空时使用空串替代%s。"
+  source_anchor: "3.12.2.5 FORMAT_WRITE 页2741-2742"
+  source_refs: *reff
+  status: confirmed
+- id: dbefile_wave8_149_get_raw_put_raw
+  type: syntax
+  statement: "RAW读写：DBE_FILE.GET_RAW(file, r OUT RAW, length IN INTEGER DEFAULT NULL) RETURN RAW/BOOLEAN从打开文件读取RAW数据存放到buffer；length默认NULL时使用RAW类型最大长度指定大小；DBE_FILE.PUT_RAW(file, r IN RAW, flush IN BOOLEAN DEFAULT FALSE) RETURN BOOLEAN/VOID向缓冲区写入RAW类型数据（写操作检测文件类型，elf报错退出）。"
+  source_anchor: "3.12.2.5 GET_RAW/PUT_RAW 页2742-2743"
+  source_refs: *reff
+  status: confirmed
+- id: dbefile_wave8_149_flush_close
+  type: syntax
+  statement: "FLUSH与CLOSE：DBE_FILE.FLUSH(file)将缓存区中的数据写入到物理文件中；DBE_FILE.CLOSE(file)关闭一个打开的文件句柄。"
+  source_anchor: "3.12.2.5 FLUSH/CLOSE 页2743-2744"
+  source_refs: *reff
+  status: confirmed
+- id: dbefile_wave8_149_close_all
+  type: syntax
+  statement: "CLOSE_ALL：DBE_FILE.CLOSE_ALL关闭一个会话中所有已打开的文件句柄。"
+  source_anchor: "3.12.2.5 CLOSE_ALL 页2744"
+  source_refs: *reff
+  status: confirmed
+- id: dbefile_wave8_149_remove
+  type: constraint
+  statement: "REMOVE：DBE_FILE.REMOVE(dir IN TEXT, file_name IN TEXT)根据指定目录和文件名删除一个磁盘文件，操作需具备充分权限；目录需在PG_DIRECTORY注册、safe_data_path开启时仅能操作白名单路径。"
+  source_anchor: "3.12.2.5 REMOVE 页2744-2745"
+  source_refs: *reff
+  status: confirmed
+- id: dbefile_wave8_149_rename
+  type: syntax
+  statement: "RENAME原型：DBE_FILE.RENAME(src_dir IN TEXT, src_file_name IN TEXT, dest_dir IN TEXT, dest_file_name IN TEXT, overwrite IN BOOLEAN)重命名一个磁盘文件（类似UNIX的mv命令）；目录位置大小写敏感且需在PG_DIRECTORY注册；overwrite为空或不指定时表示不重写，不重写情况下目的目录已存在同名文件会报错。"
+  source_anchor: "3.12.2.5 RENAME 页2745-2746"
+  source_refs: *reff
+  status: confirmed
+- id: dbefile_wave8_149_copy
+  type: syntax
+  statement: "COPY原型：DBE_FILE.COPY(src_dir IN TEXT, src_file_name IN TEXT, dest_dir IN TEXT, dest_file_name IN TEXT, start_line IN INTEGER DEFAULT 1, end_line IN INTEGER DEFAULT NULL) RETURN VOID；复制一个连续区域的内容到一个新创建的文件中，如果忽略了start_line和end_line会复制整个文件；end_line为NULL时指定到文件尾。"
+  source_anchor: "3.12.2.5 COPY 页2746-2747"
+  source_refs: *reff
+  status: confirmed
+- id: dbefile_wave8_149_get_attr
+  type: syntax
+  statement: "GET_ATTR原型：DBE_FILE.GET_ATTR(location IN TEXT, filename IN TEXT, fexists OUT BOOLEAN, file_length OUT BIGINT, block_size OUT INTEGER) RETURN RECORD；读取并返回一个磁盘文件的属性；文件不存在时file_length（字节长度）与block_size（文件系统块大小，单位字节）返回NULL。"
+  source_anchor: "3.12.2.5 GET_ATTR 页2748"
+  source_refs: *reff
+  status: confirmed
+- id: dbefile_wave8_149_seek
+  type: syntax
+  statement: "SEEK原型：DBE_FILE.SEEK(file IN INTEGER 或 FILE_TYPE, absolute_start IN BIGINT DEFAULT NULL, relative_start IN BIGINT DEFAULT NULL) RETURN VOID；根据用户指定的字节数向前或者向后调整文件指针的位置；relative_start为正数向前偏移、负数向后偏移；与absolute_start同时指定时以absolute_start参数为准。"
+  source_anchor: "3.12.2.5 SEEK 页2748-2749"
+  source_refs: *reff
+  status: confirmed
+- id: dbefile_wave8_149_dir_safe_constraint
+  type: constraint
+  statement: "目录与安全约束（全接口适用）：所有涉及目录的接口（OPEN/FOPEN、REMOVE、RENAME、COPY、GET_ATTR等）的文件目录位置需要添加到系统表PG_DIRECTORY中，传入路径与PG_DIRECTORY中的路径不匹配会报路径不存在的错误；在打开GUC参数safe_data_path时用户只能通过高级包操作safe_data_path指定文件路径下的文件。"
+  source_anchor: "3.12.2.5 各接口dir参数说明 页2736-2748"
+  source_refs: *reff
+  status: confirmed
+- id: dbefile_wave8_149_dual_handle
+  type: syntax
+  statement: "双句柄设计：DBE_FILE大部分接口同时提供两个原型——INTEGER文件句柄（DBE_FILE.OPEN返回）与DBE_FILE.FILE_TYPE对象（DBE_FILE.FOPEN返回）；两种句柄在IS_CLOSE/IS_OPEN/READ_LINE/WRITE/NEW_LINE/WRITE_LINE/FORMAT_WRITE/GET_RAW/PUT_RAW/SEEK等接口中均可传入；OPEN/FOPEN功能的区别仅为返回类型不同。"
+  source_anchor: "3.12.2.5 各接口原型 页2736-2749"
+  source_refs: *reff
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_149_oq_runtime
+  content: "同会话50个文件上限的计数与回收时机、max_line_size边界（32767）下WRITE刷新报错的具体错误码、safe_data_path白名单对COPY跨目录的判定需授权环境实机验证。"
+  status: open
