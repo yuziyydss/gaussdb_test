@@ -1,0 +1,149 @@
+document: 集中式版参考 / 1.13.7.1-7.7 ABORT/ALTER AGGREGATE/ASYNC ENCRYPTION KEY ROTATION/AUDIT POLICY/COLUMN ENCRYPTION KEY/DATABASE LINK（Wave 8-94）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.7.1 ABORT
+  - 1.13.7.2 ALTER AGGREGATE
+  - 1.13.7.3 ALTER ASYNC ENCRYPTION KEY ROTATION
+  - 1.13.7.4 ALTER AUDIT POLICY
+  - 1.13.7.5 ALTER COLUMN ENCRYPTION KEY
+  - 1.13.7.7 ALTER DATABASE LINK
+  physical_page_start: 1193
+  physical_page_end: 1208
+  physical_page_count: 11
+  excludes: []
+facts:
+- id: abort_wave8_94_syntax
+  type: syntax
+  statement: "ABORT回滚当前事务并取消当前事务中的所有更新，作用与ROLLBACK相同（早期SQL使用的为ABORT语句，现在推荐使用ROLLBACK语句）；语法为ABORT [ WORK | TRANSACTION ]，WORK/TRANSACTION为可选关键字仅用于增加可读性，无其他任何作用。"
+  source_anchor: "1.13.7.1 功能描述/语法格式/参数说明 页1193"
+  source_refs: &refabort
+  - w8_94_1_13_7_1
+  status: confirmed
+- id: abort_wave8_94_example
+  type: behavior_oracle
+  statement: "事务外部执行ABORT语句不会影响事务的执行，但会返回一个NOTICE信息；示例START TRANSACTION后UPDATE把cd_education_status更新为Unknown，ABORT后SELECT发现该字段值未被修改（更新被撤销）；相关链接SET TRANSACTION、COMMIT | END、ROLLBACK。"
+  source_anchor: "1.13.7.1 注意事项/示例 页1193-1194"
+  source_refs: *refabort
+  status: confirmed
+- id: alter_aggregate_wave8_94_syntax
+  type: syntax
+  statement: "ALTER AGGREGATE修改一个聚合函数的属性（包括聚合函数名称、所有者和模式）；三种语法：ALTER AGGREGATE name ( argtype [ , ... ] ) RENAME TO new_name、OWNER TO new_owner、SET SCHEMA new_schema。"
+  source_anchor: "1.13.7.2 功能描述/语法格式 页1194"
+  source_refs: &refagg
+  - w8_94_1_13_7_2
+  status: confirmed
+- id: alter_aggregate_wave8_94_permission
+  type: constraint
+  statement: "使用ALTER AGGREGATE的用户必须是该聚合函数的所有者；改变聚合函数模式必须在新模式上有CREATE权限；改变所有者必须是新所有角色的一个直接或间接成员，且该角色必须在聚合函数所属模式上有CREATE权限（以上约束限制所有者通过删除和重建聚合函数执行非法操作，但具有SYSADMIN权限的用户仍可用任何方法任意更改聚合函数的所属关系）。"
+  source_anchor: "1.13.7.2 注意事项 页1194"
+  source_refs: *refagg
+  status: confirmed
+- id: alter_aggregate_wave8_94_params
+  type: constraint
+  statement: "name为现有聚合函数名称，可使用模式具体指定；argtype为聚合函数操作的输入数据类型，引用零参数聚合函数时可写入*代替输入数据类型列表；new_name/new_owner/new_schema分别为聚合函数的新名称、新所有者、新模式。"
+  source_anchor: "1.13.7.2 参数说明 页1194-1195"
+  source_refs: *refagg
+  status: confirmed
+- id: alter_aggregate_wave8_94_example
+  type: behavior_oracle
+  statement: "示例：CREATE AGGREGATE myavg (int) (sfunc = int_add, stype = int, initcond = '0')后ALTER AGGREGATE myavg(int) RENAME TO my_average；CREATE USER joe后ALTER AGGREGATE my_average(integer) OWNER TO joe；CREATE SCHEMA myschema后ALTER AGGREGATE my_average(int) SET SCHEMA myschema；兼容性：SQL标准里没有ALTER AGGREGATE语句。"
+  source_anchor: "1.13.7.2 示例/兼容性 页1195"
+  source_refs: *refagg
+  status: confirmed
+- id: alter_aekr_wave8_94_syntax
+  type: syntax
+  statement: "ALTER ASYNC ENCRYPTION KEY ROTATION用于透明数据异步加密密钥轮转；语法固定为ALTER ASYNC ENCRYPTION KEY ROTATION，无参数。"
+  source_anchor: "1.13.7.3 功能描述/语法格式 页1195-1196"
+  source_refs: &refaekr
+  - w8_94_1_13_7_3
+  status: confirmed
+- id: alter_aekr_wave8_94_prereq
+  type: environment
+  statement: "ALTER ASYNC ENCRYPTION KEY ROTATION前置条件：仅在enable_tde与enable_tde_async_encryption参数开启时该语句可被执行；只有具备SYSADMIN权限的用户有权限执行；M-Compatibility数据库不支持该语句；不支持记录统一审计日志。"
+  source_anchor: "1.13.7.3 注意事项 页1196"
+  source_refs: *refaekr
+  status: confirmed
+- id: alter_aekr_wave8_94_example
+  type: behavior_oracle
+  statement: "示例：SHOW enable_tde_async_encryption确认on；创建t1、t2两张透明加密表（WITH (enable_tde = on)），\\d可观察两表使用同一个数据密钥（异步加密密钥）；执行ALTER ASYNC ENCRYPTION KEY ROTATION返回ALTER TDE ROTATE ENCRYPTION KEY；新建t3后\\d可观察t3数据密钥与t1、t2不同，即异步加密密钥发生实际轮转。"
+  source_anchor: "1.13.7.3 示例 页1196"
+  source_refs: *refaekr
+  status: confirmed
+- id: alter_audit_policy_wave8_94_syntax
+  type: syntax
+  statement: "ALTER AUDIT POLICY修改统一审计策略，五种形式：ALTER AUDIT POLICY [ IF EXISTS ] policy_name { ADD | REMOVE } { [ privilege_audit_clause ] [ access_audit_clause ] }（添加/删除操作类型）；MODIFY ( filter_group_clause )（修改过滤条件）；DROP FILTER（删除过滤条件）；COMMENTS policy_comments（修改描述）；{ ENABLE | DISABLE }（打开或关闭策略）。"
+  source_anchor: "1.13.7.4 语法格式 页1196-1197"
+  source_refs: &refaap
+  - w8_94_1_13_7_4
+  status: confirmed
+- id: alter_audit_policy_wave8_94_permission
+  type: environment
+  statement: "审计策略的维护存在权限限制，只有POLADMIN、SYSADMIN或初始用户有权进行此操作；需要打开enable_security_policy开关统一审计策略才可以生效。"
+  source_anchor: "1.13.7.4 注意事项 页1196"
+  source_refs: *refaap
+  status: confirmed
+- id: alter_audit_policy_wave8_94_clauses
+  type: constraint
+  statement: "privilege_audit_clause为PRIVILEGES ({ PRIVILEGES | ALL } [ ON LABEL ( resource_label_name [, ... ] ) ])，审计操作包括ALTER、ANALYZE、COMMENT、CREATE、DROP、GRANT、REVOKE、SET、SHOW；access_audit_clause为ACCESS ({ ACCESS | ALL } [ ON LABEL ( resource_label_name [, ... ] ) ])，审计操作包括COPY、DEALLOCATE、DELETE、EXECUTE、REINDEX、INSERT、PREPARE、SELECT、TRUNCATE、UPDATE；ALL在{ PRIVILEGES | ALL }下表示所有PRIVILEGES操作、在{ ACCESS | ALL }下表示所有ACCESS操作；policy_name需满足唯一约束不可重复。"
+  source_anchor: "1.13.7.4 语法格式/参数说明 页1197-1199"
+  source_refs: *refaap
+  status: confirmed
+- id: alter_audit_policy_wave8_94_filter
+  type: constraint
+  statement: "filter_group_clause为FILTER ON { filter_type ( filter_value [, ... ] ) } [, ... ]；filter_type支持的过滤类型包括IP、ROLES、APP；filter_value为具体过滤信息内容；policy_comments用于记录策略相关的描述信息。"
+  source_anchor: "1.13.7.4 语法格式/参数说明 页1197-1199"
+  source_refs: *refaap
+  status: confirmed
+- id: alter_audit_policy_wave8_94_example
+  type: behavior_oracle
+  statement: "示例（基于CREATE AUDIT POLICY adt1 PRIVILEGES CREATE）：ALTER AUDIT POLICY adt1 ADD PRIVILEGES (DROP)添加DROP、REMOVE PRIVILEGES (DROP)删除；COMMENTS 'adt1_comments'修改注释信息；CREATE USER bob_audit后MODIFY (FILTER ON (ROLES(bob_audit)))修改过滤用户；DROP FILTER删除过滤条件；DISABLE关闭策略。"
+  source_anchor: "1.13.7.4 示例 页1199"
+  source_refs: *refaap
+  status: confirmed
+- id: alter_cek_wave8_94_syntax
+  type: syntax
+  statement: "ALTER COLUMN ENCRYPTION KEY进行CMK密钥轮转，轮换加密COLUMN ENCRYPTION KEY的CLIENT MASTER KEY并对COLUMN ENCRYPTION KEY明文进行重加密；语法为ALTER COLUMN ENCRYPTION KEY column_encryption_key_name WITH VALUES ( CLIENT_MASTER_KEY = client_master_key_name )。"
+  source_anchor: "1.13.7.5 功能描述/语法格式 页1200"
+  source_refs: &refcek
+  - w8_94_1_13_7_5
+  status: confirmed
+- id: alter_cek_wave8_94_constraints
+  type: constraint
+  statement: "本语法属于全密态数据库特有语法，连接数据库服务器时需打开全密态数据库的开关才能使用；只能进行CMK轮转对列加密密钥明文重加密，实际上列加密密钥明文不变，不能修改加密列数据的密文；column_encryption_key_name在同一命名空间下需满足唯一约束；client_master_key_name须为已存在的CMK对象（由CREATE CLIENT MASTER KEY创建），且与密钥轮转前指定的客户端主密钥不为同一密钥。"
+  source_anchor: "1.13.7.5 注意事项/参数说明 页1200"
+  source_refs: *refcek
+  status: confirmed
+- id: alter_cek_wave8_94_gm_constraint
+  type: constraint
+  statement: "国密算法约束：SM2、SM3、SM4等算法属于中国国家密码标准算法，为规避法律风险需配套使用；如果轮转CEK前使用的CMK是国密算法，则轮转CEK指定的CMK仍必须使用国密算法。"
+  source_anchor: "1.13.7.5 参数说明 须知 页1200"
+  source_refs: *refcek
+  status: confirmed
+- id: alter_dblink_wave8_94_syntax
+  type: syntax
+  statement: "ALTER DATABASE LINK修改DATABASE LINK对象；语法为ALTER [PUBLIC] DATABASE LINK dblink_name [ CONNECT TO 'user_name' IDENTIFIED BY 'password' ] [ USING ( { option 'value' } [, ...]) ]；当连接的数据库为GaussDB数据库时目前仅支持修改DATABASE LINK对象的用户名称和密码；PUBLIC为连接类型，未指定时默认为PRIVATE。"
+  source_anchor: "1.13.7.7 功能描述/注意事项/语法格式/参数说明 页1205-1206"
+  source_refs: &refdbl
+  - w8_94_1_13_7_7
+  status: confirmed
+- id: alter_dblink_wave8_94_using_options
+  type: constraint
+  statement: "当DATABASE LINK连接的数据库为Oracle数据库时，USING子句可修改option：isolation_level指定DBLink开启Oracle事务隔离级别（默认serializable，可选serializable、read_committed、read_only）；max_long指定long/long raw列最大长度[1, 1073741823]（预置参数暂不生效）；strip_zeros对ASCII编码字符串0字符的处理（yes/on/true时删除）；prefetch每次fetch数据行数[1, 1000]默认50；lob_prefetch lob每次fetch字节大小[0, 536870912]默认1048576（预置参数暂不生效）；time_out连接执行超时[0, 2147483647]默认0表示不超时。"
+  source_anchor: "1.13.7.7 参数说明 USING 页1206"
+  source_refs: *refdbl
+  status: confirmed
+- id: alter_dblink_wave8_94_example
+  type: behavior_oracle
+  statement: "示例：SET ROLE local_user后CREATE PUBLIC DATABASE LINK public_dblink CONNECT TO 'local_user' IDENTIFIED BY '...' USING (host/port/dbname)；ALTER PUBLIC DATABASE LINK public_dblink CONNECT TO 'remote_user' IDENTIFIED BY '...'修改DBLink用户；OCI方式创建连接Oracle的dblink后ALTER PUBLIC DATABASE LINK dblink CONNECT TO ... USING (time_out '0')修改参数选项；清理DROP PUBLIC DATABASE LINK与RESET ROLE。"
+  source_anchor: "1.13.7.7 示例 页1206-1207"
+  source_refs: *refdbl
+  status: confirmed
+open_questions:
+- id: abort_alter_wave8_94_oq_runtime
+  statement: "透明数据异步加密密钥轮转在真实TDE环境下的密钥轮转行为、CMK轮转与国密算法配套约束、DBLink连接Oracle的isolation_level/prefetch等参数实际生效行为在授权环境下的完整行为与错误矩阵需实机验证。"
+  status: open
