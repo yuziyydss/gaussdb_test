@@ -1,0 +1,140 @@
+document: 集中式版参考 / 3.12.2.17 DBE_SCHEDULER第一切片（任务创建/删除/运行，Wave 8-158）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 3.12.2.17 DBE_SCHEDULER（接口总账与任务创建/删除/运行切片，3.12高级包第十四批切片）
+  physical_page_start: 2828
+  physical_page_end: 2841
+  physical_page_count: 13
+  excludes:
+  - DBE_SCHEDULER其余接口与3.12其余小节（后续波次按切片覆盖）
+facts:
+- id: dbejob_wave8_158_overview
+  type: syntax
+  statement: "DBE_SCHEDULER支持通过调度（schedule）和程序（program）更加灵活地创建定时任务；接口总账：CREATE_JOB/DROP_JOB/DROP_SINGLE_JOB/SET_ATTRIBUTE/RUN_JOB/RUN_BACKEND_JOB/RUN_FOREGROUND_JOB/STOP_JOB/STOP_SINGLE_JOB/GENERATE_JOB_NAME/CREATE_PROGRAM/DEFINE_PROGRAM_ARGUMENT/DROP_PROGRAM/DROP_SINGLE_PROGRAM/SET_JOB_ARGUMENT_VALUE/CREATE_SCHEDULE/DROP_SCHEDULE/DROP_SINGLE_SCHEDULE/CREATE_JOB_CLASS/DROP_JOB_CLASS/DROP_SINGLE_JOB_CLASS/GRANT_USER_AUTHORIZATION/REVOKE_USER_AUTHORIZATION/CREATE_CREDENTIAL/DROP_CREDENTIAL/ENABLE/ENABLE_SINGLE/DISABLE/DISABLE_SINGLE/EVAL_CALENDAR_STRING/EVALUATE_CALENDAR_STRING。"
+  source_anchor: "3.12.2.17 DBE_SCHEDULER 表3-296 页2828-2829"
+  source_refs: &refsj
+  - w8_158_3_12
+  status: confirmed
+- id: dbejob_wave8_158_create_job_protos
+  type: syntax
+  statement: "CREATE_JOB创建一个定时任务，原型可以分为4种：内联调度和程序的定时任务、引用创建好的调度和程序的定时任务、引用创建好的程序内联调度的定时任务、引用创建好的调度内联程序的定时任务。"
+  source_anchor: "3.12.2.17 CREATE_JOB 页2829-2830"
+  source_refs: *refsj
+  status: confirmed
+- id: dbejob_wave8_158_create_job_params1
+  type: syntax
+  statement: "CREATE_JOB程序相关参数：job_name为定时任务名称（非ilm特性调度场景下无法创建前缀为ilmadowind$_和ilmjob$_的job）；job_type为内联程序类型（'PLSQL_BLOCK'匿名存储过程块、'STORED_PROCEDURE'保存的存储过程、'EXTERNAL_SCRIPT'外部脚本）；job_action为内联程序执行内容；number_of_arguments为内联程序参数个数；program_name为引用程序名称。"
+  source_anchor: "3.12.2.17 表3-297 页2831-2832"
+  source_refs: *refsj
+  status: confirmed
+- id: dbejob_wave8_158_create_job_params2
+  type: syntax
+  statement: "CREATE_JOB调度相关参数：start_date为内联调度起始时间；repeat_interval为内联调度任务周期（支持'interval N second/minute/hour/day/week/month/year'、'FREQ=secondly/minutely/hourly/daily/weekly/monthly/yearly;INTERVAL=N'、trunc(sysdate+N) + M/24表示N天后的M小时拉起调度）；end_date为内联调度失效时间；schedule_name为引用调度名称；job_class为定时任务类名。"
+  source_anchor: "3.12.2.17 表3-297 页2832"
+  source_refs: *refsj
+  status: confirmed
+- id: dbejob_wave8_158_create_job_params3
+  type: constraint
+  statement: "CREATE_JOB其他参数与限制：enabled启用状态、auto_drop自动删除、comments备注、job_style定时任务行为模式仅支持'REGULAR'、credential_name证书名、destination_name目标名；创建'EXTERNAL_SCRIPT'类型的定时任务需要管理员赋予相关的权限和证书，且需要数据库启动用户对该外部脚本有读取权限才可以正常生效。"
+  source_anchor: "3.12.2.17 表3-297/说明 页2832-2833"
+  source_refs: *refsj
+  status: confirmed
+- id: dbejob_wave8_158_create_job_example
+  type: behavior_oracle
+  statement: "program/schedule/job三步示例基线：CALL create_program('program1', 'STORED_PROCEDURE', 'select pg_sleep(1);', 3, false, 'test')、create_schedule('schedule1', NULL, 'sysdate', NULL, 'test')、create_job(job_name=>'job1', program_name=>'program1', schedule_name=>'schedule1')，随后drop_job('job1', true, false, 'STOP_ON_FIRST_ERROR')、drop_schedule、drop_program清理。"
+  source_anchor: "3.12.2.17 CREATE_JOB示例 页2832-2833"
+  source_refs: *refsj
+  status: confirmed
+- id: dbejob_wave8_158_drop_job
+  type: syntax
+  statement: "DROP_JOB原型：DBE_SCHEDULER.drop_job(job_name text, force boolean DEFAULT false, defer boolean DEFAULT false, commit_semantics text DEFAULT 'STOP_ON_FIRST_ERROR')；可以指定一个或多个任务（逗号隔开）也可以指定任务类删除；force为true尝试先停止当前任务再删除、false时任务正在运行会删除失败；defer为true允许任务完成后再删除；commit_semantics支持'STOP_ON_FIRST_ERROR'（第一个报错前删除操作提交）、'TRANSACTIONAL'（事务级提交、报错前操作回滚）、'ABSORB_ERRORS'（尝试越过报错提交成功操作）；TRANSACTIONAL选项必须在force为false时才生效。"
+  source_anchor: "3.12.2.17 DROP_JOB 页2833-2834"
+  source_refs: *refsj
+  status: confirmed
+- id: dbejob_wave8_158_drop_single_job
+  type: syntax
+  statement: "DROP_SINGLE_JOB原型：DBE_SCHEDULER.drop_single_job(job_name text, force boolean DEFAULT false, defer boolean DEFAULT false)删除一个定时任务；force/defer语义与DROP_JOB一致（true尝试先停止再删除、false运行中删除失败；defer true允许完成后再删除）。"
+  source_anchor: "3.12.2.17 DROP_SINGLE_JOB 页2834-2835"
+  source_refs: *refsj
+  status: confirmed
+- id: dbejob_wave8_158_set_attribute_protos
+  type: syntax
+  statement: "SET_ATTRIBUTE修改定时任务属性，5种原型按value类型区分——boolean、text、datea、timestamp、timestamp with time zone；另有value2 text default NULL的扩展原型（额外属性值、保留参数位目前尚不支持拥有额外属性值的目标属性）；name可以指定任何DBE_SCHEDULER内部的对象；必须将mapping_date_to_datea设置为on才能正常使用datea作为入参的set_attribute函数。"
+  source_anchor: "3.12.2.17 SET_ATTRIBUTE 页2835-2836"
+  source_refs: *refsj
+  status: confirmed
+- id: dbejob_wave8_158_set_attribute_attrs
+  type: syntax
+  statement: "SET_ATTRIBUTE可选属性：定时任务相关——job_type、job_action、number_of_arguments、start_date、repeat_interval、end_date、ob_class、enabled、auto_drop、comments、credential_name、destination_name、program_name、schedule_name和job_style；程序相关——program_action、program_type、number_of_arguments和comments；调度相关——start_date、repeat_interval、end_date和comments。"
+  source_anchor: "3.12.2.17 表3-300 页2837"
+  source_refs: *refsj
+  status: confirmed
+- id: dbejob_wave8_158_set_attribute_limits
+  type: constraint
+  statement: "SET_ATTRIBUTE限制：不建议使用DBE_SCHEDULER.SET_ATTRIBUTE来将参数置空；对象名不能通过DBE_SCHEDULER.SET_ATTRIBUTE来更改。"
+  source_anchor: "3.12.2.17 SET_ATTRIBUTE说明 页2838"
+  source_refs: *refsj
+  status: confirmed
+- id: dbejob_wave8_158_run_job
+  type: syntax
+  statement: "RUN_JOB原型：DBE_SCHEDULER.run_job(job_name text, use_current_session boolean DEFAULT true)；主要用于立即运行定时作业（独立于定时任务本身的调度甚至可以同时运行）；job_name可以指定一个或多个（逗号隔开）；use_current_session为true使用当前会话运行（主要用于查看任务是否可以正常运行）、false后台拉起任务（运行结果打印到日志中）；use_current_session不能用于打印执行结果。"
+  source_anchor: "3.12.2.17 RUN_JOB 页2838-2839"
+  source_refs: *refsj
+  status: confirmed
+- id: dbejob_wave8_158_run_backend_job
+  type: syntax
+  statement: "RUN_BACKEND_JOB原型：DBE_SCHEDULER.run_backend_job(job_name text)；后台运行定时任务。"
+  source_anchor: "3.12.2.17 RUN_BACKEND_JOB 页2839"
+  source_refs: *refsj
+  status: confirmed
+- id: dbejob_wave8_158_run_foreground_job
+  type: syntax
+  statement: "RUN_FOREGROUND_JOB原型：DBE_SCHEDULER.run_foreground_job(job_name text) return text；当前会话运行定时任务，仅支持运行external类型任务。"
+  source_anchor: "3.12.2.17 RUN_FOREGROUND_JOB 页2839"
+  source_refs: *refsj
+  status: confirmed
+- id: dbejob_wave8_158_stop_job
+  type: syntax
+  statement: "STOP_JOB原型：DBE_SCHEDULER.stop_job(job_name text, force boolean DEFAULT false, commit_semantics text DEFAULT 'STOP_ON_FIRST_ERROR')；终止定时任务（参数语义与DROP_JOB一致，支持多任务逗号隔开）。"
+  source_anchor: "3.12.2.17 STOP_JOB 页2840"
+  source_refs: *refsj
+  status: confirmed
+- id: dbejob_wave8_158_job_name_prefix
+  type: constraint
+  statement: "JOB名称前缀限制：非ilm特性调度场景下，无法创建前缀为ilmadowind$_和ilmjob$_的job。"
+  source_anchor: "3.12.2.17 表3-297 job_name说明 页2831"
+  source_refs: *refsj
+  status: confirmed
+- id: dbejob_wave8_158_create_job_inline_example
+  type: behavior_oracle
+  statement: "内联创建示例基线：create_program('program1', 'STORED_PROCEDURE', 'SELECT pg_sleep(1);', 0, false, 'test')后，create_job('job1','program1','2021-07-20','interval ''3 minute''','2121-07-20','DEFAULT_JOB_CLASS',false,false,'test','style',NULL,NULL)以内联调度创建任务，drop_single_job('job1', false, false)删除。"
+  source_anchor: "3.12.2.17 DROP_SINGLE_JOB示例 页2835"
+  source_refs: *refsj
+  status: confirmed
+- id: dbejob_wave8_158_run_job_example
+  type: behavior_oracle
+  statement: "RUN_JOB示例基线：create_job('job1','PLSQL_BLOCK','BEGIN INSERT INTO test1 VALUES(12); end;',0,null,null,null,'DEFAULT_JOB_CLASS',false,false,null,null,null)后CALL run_job('job1', false)再drop_job('job1', true, false, 'STOP_ON_FIRST_ERROR')。"
+  source_anchor: "3.12.2.17 RUN_JOB示例 页2838-2839"
+  source_refs: *refsj
+  status: confirmed
+- id: dbejob_wave8_158_run_foreground_example
+  type: behavior_oracle
+  statement: "外部脚本示例基线：CREATE USER test1后SELECT create_credential('cre_1','test1',密码)，create_job(job_name=>'job1', job_type=>'EXTERNAL_SCRIPT', job_action=>'/usr/bin/pwd', enabled=>true, auto_drop=>false, credential_name=>'cre_1')，CALL run_foreground_job('job1')输出Host key verification failed.，随后drop_job/drop_credential/DROP USER清理。"
+  source_anchor: "3.12.2.17 RUN_FOREGROUND_JOB示例 页2839-2840"
+  source_refs: *refsj
+  status: confirmed
+- id: dbejob_wave8_158_schedule_program_combo
+  type: constraint
+  statement: "schedule与program引用关系：create_job可通过命名参数引用已创建的program_name与schedule_name组合（先create_program再create_schedule再create_job），实现任务内容与调度周期解耦；引用型任务删除时需分别清理job、schedule、program。"
+  source_anchor: "3.12.2.17 CREATE_JOB/DROP_JOB示例 页2832-2834"
+  source_refs: *refsj
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_158_oq_runtime
+  content: "EXTERNAL_SCRIPT任务在Windows节点的路径与权限差异、repeat_interval三种写法混用时的优先级、TRANSACTIONAL与ABSORB_ERRORS在多任务批量删除下的实际回滚/提交粒度需授权环境实机验证。"
+  status: open
