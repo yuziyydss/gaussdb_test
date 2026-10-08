@@ -1,0 +1,142 @@
+document: 集中式版参考 / 3.12.2.13 DBE_OUTPUT与3.12.2.14 DBE_PROFILER（Wave 8-156）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 3.12.2.13 DBE_OUTPUT
+  - 3.12.2.14 DBE_PROFILER
+  physical_page_start: 2801
+  physical_page_end: 2813
+  physical_page_count: 12
+  excludes:
+  - 3.12.2.15 DBE_RANDOM及后续小节（后续波次按切片覆盖）
+facts:
+- id: dbeout_wave8_156_overview
+  type: syntax
+  statement: "DBE_OUTPUT接口总账：PRINT_LINE（输出文本并添加换行符）、PRINT（输出文本不添加换行符）、SET_BUFFER_SIZE（设置输出缓冲区大小）、DISABLE（禁用PUT/PUT_LINE/NEW_LINE/GET_LINE/GET_LINES调用并清空输出缓冲区）、ENABLE（开启缓冲区）、GET_LINE、GET_LINES、NEW_LINE、PUT、PUT_LINE；使用PUT_LINE打印DBE_FILE.READ_LINE_NCHAR结果时需确保UTF8字符集编码能转换为当前数据库字符集编码（PRINT_LINE不支持该功能）。"
+  source_anchor: "3.12.2.13 DBE_OUTPUT 表3-249 页2801-2802"
+  source_refs: &refo
+  - w8_156_3_12
+  status: confirmed
+- id: dbeout_wave8_156_print_line_print
+  type: syntax
+  statement: "PRINT_LINE与PRINT：DBE_OUTPUT.PRINT_LINE(format IN VARCHAR2)输出指定的文本并添加换行符；DBE_OUTPUT.PRINT(format IN VARCHAR2)输出指定的文本不添加换行符。"
+  source_anchor: "3.12.2.13 PRINT_LINE/PRINT 页2802-2803"
+  source_refs: *refo
+  status: confirmed
+- id: dbeout_wave8_156_set_buffer_size
+  type: syntax
+  statement: "SET_BUFFER_SIZE原型：DBE_OUTPUT.SET_BUFFER_SIZE(size IN INTEGER default 20000)；设置输出缓冲区的大小，如果不指定则缓冲区最大能容纳20000字节，如果指定小于等于2000字节则缓冲区允许容纳2000字节。"
+  source_anchor: "3.12.2.13 SET_BUFFER_SIZE 页2803"
+  source_refs: *refo
+  status: confirmed
+- id: dbeout_wave8_156_disable_enable
+  type: constraint
+  statement: "DISABLE与ENABLE：DBE_OUTPUT.DISABLE禁用PUT、PUT_LINE、NEW_LINE、GET_LINE和GET_LINES调用并清空输出缓冲区；DBE_OUTPUT.ENABLE(buffer_size IN INTEGER DEFAULT 20000)开启缓冲区允许上述调用并设置缓冲区大小（未指定默认容纳20000字节，buffer_size设置为NULL表示使用默认值20000字节）。"
+  source_anchor: "3.12.2.13 DISABLE/ENABLE 页2803"
+  source_refs: *refo
+  status: confirmed
+- id: dbeout_wave8_156_get_line
+  type: syntax
+  statement: "GET_LINE原型：DBE_OUTPUT.GET_LINE(line OUT VARCHAR2, status OUT INTEGER)；从缓冲区中以换行符作为分界获取一行数据，获取的数据不会输出到客户端；status表示调用状态是否正常（获取到字符串为0，否则为1）。"
+  source_anchor: "3.12.2.13 GET_LINE 页2803-2804"
+  source_refs: *refo
+  status: confirmed
+- id: dbeout_wave8_156_get_lines
+  type: syntax
+  statement: "GET_LINES原型：DBE_OUTPUT.GET_LINES(lines OUT VARCHAR[], numlines IN OUT INTEGER)；以VARCHAR数组的形式获取缓冲区的指定行数的字符串，被取出的内容将会在缓冲区中清除、不会输出到客户端；numlines输入值为需要检索的行数、输出值为实际检索到的行数（输出值小于输入值表明缓冲区中存在的行数小于输入的行数）。"
+  source_anchor: "3.12.2.13 GET_LINES 页2804-2805"
+  source_refs: *refo
+  status: confirmed
+- id: dbeout_wave8_156_new_line_put
+  type: syntax
+  statement: "NEW_LINE/PUT/PUT_LINE：DBE_OUTPUT.NEW_LINE放置一行在缓冲区末尾、放置行尾标记空出新的一行；DBE_OUTPUT.PUT(item IN VARCHAR2)将输入字符串放入缓冲区末尾不加换行符（匿名块执行结束时会将以换行符结尾的行输出显示）；DBE_OUTPUT.PUT_LINE(item IN VARCHAR2)放入缓冲区并末尾添加换行符。"
+  source_anchor: "3.12.2.13 NEW_LINE/PUT/PUT_LINE 页2805"
+  source_refs: *refo
+  status: confirmed
+- id: dbeout_wave8_156_example
+  type: behavior_oracle
+  statement: "DBE_OUTPUT示例基线：SET_BUFFER_SIZE(50)后PRINT('hello, ')+PRINT_LINE('database!')输出hello, database!；disable()后put_line('1')不输出、enable()后输出1；put('a')不输出、new_line后输出a；get_line输出-----------/hello/0；get_lines(linenum=100)输出num: 3与line 1/line 2/line 3。"
+  source_anchor: "3.12.2.13 示例 页2805-2806"
+  source_refs: *refo
+  status: confirmed
+- id: dbeout_wave8_156_encoding
+  type: constraint
+  statement: "DBE_OUTPUT编码说明：当服务端字符编码类型server_encoding不为UTF-8时，数据中存在合法UTF8编码的字符会按UTF8编码逻辑处理并先转换成server_encoding再后续操作，可能导致函数返回值不符合预期或发生报错；开启GUC参数enable_convert_illegal_char（on）后PUT_LINE/PUT处理此类编码的表现与参数关闭时一致、特殊字符不会以占位符形式输出；因此不建议对含有特殊字符的数据使用PUT_LINE和PUT。"
+  source_anchor: "3.12.2.13 说明 页2806"
+  source_refs: *refo
+  status: confirmed
+- id: dbeprf_wave8_156_overview
+  type: syntax
+  statement: "DBE_PROFILER概述：plprofiler提供一个接口用于分析存储过程的应用程序（收集、存储、删除执行存储过程所涉及的相关数据）；原理为执行DBE_PROFILER.PL_START_PLPROFILING后系统初始化内存准备记录数据，对后续执行的存储过程进行打桩、在关键点记录详细信息存入内存，事务提交后将内存数据写入相关系统表；可用于快速识别最耗时的存储过程及单个语句耗时。"
+  source_anchor: "3.12.2.14 DBE_PROFILER概述 页2806-2807"
+  source_refs: &refpf
+  - w8_156_3_12
+  status: confirmed
+- id: dbeprf_wave8_156_transaction
+  type: constraint
+  statement: "DBE_PROFILER事务注意：在事务执行阶段由于事务未提交，内存中的数据不会写入系统表，只有执行commit后才会写入系统表；同理执行rollback后会将所有数据进行清理。"
+  source_anchor: "3.12.2.14 DBE_PROFILER概述 页2807"
+  source_refs: *refpf
+  status: confirmed
+- id: dbeprf_wave8_156_permission
+  type: constraint
+  statement: "DBE_PROFILER权限：普通用户访问DBE_PROFILER.PL_PROFILING_FUNCTIONS、PL_PROFILING_DETAILS、PL_PROFILING_CALLGRAPH、PL_PROFILING_TRACKINFO系统表时仅具有查询记录权限。"
+  source_anchor: "3.12.2.14 权限介绍 页2807"
+  source_refs: *refpf
+  status: confirmed
+- id: dbeprf_wave8_156_interface
+  type: syntax
+  statement: "DBE_PROFILER接口：PL_START_PROFILING(run_id varchar2(64)) return void允许用户对目标存储过程进行profiling（系统将session_id和执行编号拼接为形如sessionid_runid的字符串写入表中作为本次profiling唯一标识）；PL_CLEAR_PROFILING(run_id varchar2) return void删除某次或所有profiling后储存在系统表里的数据（run_id非空删除某次、为空删除所有）。"
+  source_anchor: "3.12.2.14 接口介绍 页2807-2808"
+  source_refs: *refpf
+  status: confirmed
+- id: dbeprf_wave8_156_sys_tables
+  type: syntax
+  statement: "DBE_PROFILER相关系统表：PL_PROFILING_FUNCTIONS（此次profiling涉及的存储过程）、PL_PROFILING_DETAILS（存储过程内每条语句的执行时间细节）、PL_PROFILING_CALLGRAPH（调用栈信息和对应每个存储过程执行的整体时间）、PL_PROFILING_TRACKINFO（存储过程每个阶段的执行时间）。"
+  source_anchor: "3.12.2.14 表3-261 页2808"
+  source_refs: *refpf
+  status: confirmed
+- id: dbeprf_wave8_156_functions_table
+  type: syntax
+  statement: "PL_PROFILING_FUNCTIONS列：run_id VARCHAR2(80) NOT NULL（session_id与执行编号拼接的唯一标识）、funcoid BIGINT NOT NULL（存储过程id）、schema TEXT NOT NULL、funcname TEXT NOT NULL、total_occur BIGINT（执行总次数）、init_time BIGINT（执行开始前变量赋值阶段时间）、end_time BIGINT（执行结束后处理返回值阶段时间）、total_time BIGINT（执行总时间，不包含init_time和end_time）。"
+  source_anchor: "3.12.2.14 表3-262 页2808"
+  source_refs: *refpf
+  status: confirmed
+- id: dbeprf_wave8_156_details_table
+  type: syntax
+  statement: "PL_PROFILING_DETAILS列：run_id/funcoid/line#（行号）/source（执行语句）/cmd_type（语句类型，EXECSQL和PERFORM语句根据是否函数调用在类型后添加_FUNCCALL后缀）/total_occur（语句执行次数）/total_time（总执行时间，BODY类语句显示本身执行时间不含里层语句——BODY类包括BLOCK/IF/FORI/WHILE/LOOP/FORS/FORC/FOREACH_A/DYNFORS/CASE）/min_time/max_time。"
+  source_anchor: "3.12.2.14 表3-263 页2809"
+  source_refs: *refpf
+  status: confirmed
+- id: dbeprf_wave8_156_callgraph_trackinfo
+  type: syntax
+  statement: "PL_PROFILING_CALLGRAPH列：run_id、stack TEXT[] NOT NULL（调用栈）、self_time BIGINT（存储过程执行时间）。PL_PROFILING_TRACKINFO列：run_id、funcoid、step_name（执行阶段名称）、loops_count（阶段总次数）、max_time/min_time/avg_time/total_time（阶段最长/最短/平均/总执行时间）。"
+  source_anchor: "3.12.2.14 表3-264/3-265 页2809-2810"
+  source_refs: *refpf
+  status: confirmed
+- id: dbeprf_wave8_156_constraints
+  type: constraint
+  statement: "DBE_PROFILER约束：PL_START_PROFILING不支持在存储过程内使用（调用不生效）；不支持事务失败记录统计信息到系统表；入参runid长度限制64字节超长报错；入参与profiler系统表内runid重复将报错；不支持记录匿名块语句、PACKAGE初始化语句和嵌套子程序内的语句；不支持记录自治事务中语句；最多可记录嵌套层数不超过500层的存储过程（受CALLGRAPH stack列索引长度最大值及max_stack_depth影响，实际最多可记录层数会小于500层）。"
+  source_anchor: "3.12.2.14 约束 页2810-2811"
+  source_refs: *refpf
+  status: confirmed
+- id: dbeprf_wave8_156_example
+  type: behavior_oracle
+  statement: "DBE_PROFILER示例基线：建表t1与存储过程p1（循环insert 1000次后EXECUTE IMMEDIATE select count(*)）、p2调用p1、p3调用p2；SELECT dbe_profiler.pl_start_profiling('123')后CALL p3()；随后查询PL_PROFILING_FUNCTIONS等系统表查看此次profiling数据。"
+  source_anchor: "3.12.2.14 示例 页2811-2812"
+  source_refs: *refpf
+  status: confirmed
+- id: dbeprf_wave8_156_usage_flow
+  type: constraint
+  statement: "DBE_PROFILER使用流程：在会话中先创建存储过程及相关表信息，然后调用plprofiler接口对存储过程进行profiling，再执行存储过程，此时分析数据已生成、可通过查询系统表获取；可通过PL_CLEAR_PROFILING删除某次或所有profiling后储存在系统表里的数据。"
+  source_anchor: "3.12.2.14 概述/接口介绍 页2807-2808"
+  source_refs: *refpf
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_156_oq_runtime
+  content: "ENABLE/DISABLE切换对已缓冲未输出内容的保留策略、GET_LINES取出后的缓冲区指针复位行为、profiling数据在500层嵌套与max_stack_depth组合下的实际截断点需授权环境实机验证。"
+  status: open
