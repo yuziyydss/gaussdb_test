@@ -1,0 +1,145 @@
+document: 集中式版参考 / 2.4.2.8.20-9.2 M兼容CREATE USER/VIEW/DEALLOCATE/DELETE（Wave 8-114）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 2.4.2.8.20 CREATE USER
+  - 2.4.2.8.21 CREATE VIEW
+  - 2.4.2.9.1 DEALLOCATE
+  - 2.4.2.9.2 DELETE
+  physical_page_start: 2173
+  physical_page_end: 2188
+  physical_page_count: 15
+  excludes: []
+facts:
+- id: m_create_user_wave8_114_syntax
+  type: syntax
+  statement: "M兼容CREATE USER创建一个用户（通过CREATE USER创建的用户默认具有LOGIN权限）；创建用户同时系统会在执行该命令的数据库中为该用户创建一个同名的SCHEMA；系统管理员在普通用户同名schema下创建的对象所有者为schema的同名用户（非系统管理员）；语法为CREATE USER user_name [ [ WITH ] option [ ... ] ] { PASSWORD | IDENTIFIED BY } { 'password' [EXPIRED] | DISABLE }，option子句与CREATE ROLE一致（SYSADMIN/MONADMIN/OPRADMIN/POLADMIN/AUDITADMIN/CREATEDB/USEFT/CREATEROLE/INHERIT/LOGIN/REPLICATION/PERSISTENCE/CONNECTION LIMIT/VALID BEGIN/UNTIL/USER GROUP/NODE GROUP/IN ROLE/IN GROUP/ROLE/ADMIN/USER/DEFAULT TABLESPACE/PROFILE/PGUSER）。"
+  source_anchor: "2.4.2.8.20 功能描述/注意事项/语法格式 页2173-2174"
+  source_refs: &refmuser
+  - w8_114_2_4_2_8_20
+  status: confirmed
+- id: m_create_user_wave8_114_naming
+  type: constraint
+  statement: "M兼容用户命名：user_name最多63个字符（超过截断保留前63）；需为字母、下划线、数字（0~9）或美元符号（$）且必须以字母（a~z）或下划线（_）开头；通过CREATE USER创建用户时自动创建同名SCHEMA，GUC参数lower_case_table_names为1大小写不敏感时Schema名自动转为小写（不建议创建含大写字母的用户名）；用户名支持反引号括起来（sql_mode为ANSI_QUOTES时也可双引号），不用引号括起来的用户名转换为小写。"
+  source_anchor: "2.4.2.8.20 参数说明 user_name 页2174"
+  source_refs: *refmuser
+  status: confirmed
+- id: m_create_user_wave8_114_password
+  type: constraint
+  statement: "M兼容密码规则：密码默认不少于8个字符；不能与用户名及用户名倒序相同；至少包含大写字母（A-Z）、小写字母（a-z）、数字（0-9）、非字母数字字符（限定为~!@#$%^&*()-_=+\\|[{}];:,<.>/?）四类字符中的三类字符；密码也可以是符合格式要求的密文字符串（主要用于用户数据导入场景不推荐直接使用，数据库不会校验密文密码复杂度，安全性由用户保证）；创建用户时应使用单引号或双引号包裹。"
+  source_anchor: "2.4.2.8.20 参数说明 password 页2174-2175"
+  source_refs: *refmuser
+  status: confirmed
+- id: m_create_user_wave8_114_example
+  type: behavior_oracle
+  statement: "示例（m_db）：CREATE USER jim PASSWORD与CREATE USER kim IDENTIFIED BY等价；CREATE USER dim CREATEDB PASSWORD创建有创建数据库权限的用户；ALTER USER jim IDENTIFIED BY '...' REPLACE '...'改密码、ALTER USER jim CREATEROLE追加权限、ALTER USER jim SET enable_seqscan TO on（下一会话生效）与SET ... TO DEFAULT重置、ALTER USER jim ACCOUNT LOCK锁定；DROP USER kim/jim/dim CASCADE删除。"
+  source_anchor: "2.4.2.8.20 示例 页2175"
+  source_refs: *refmuser
+  status: confirmed
+- id: m_create_view_wave8_114_overview
+  type: syntax
+  statement: "M兼容CREATE VIEW创建一个视图（视图与基本表不同是虚拟的表，数据库中仅存放视图定义不存放数据，基表数据变化视图查询随之改变，视图像窗口）；三大作用：将经常使用的数据定义为视图封装复杂SQL简化操作、安全性（用户只能查询视图定义的数据，隐藏基表字段保护数据结构）、简化用户权限管理（只授予视图权限）；被授予CREATE ANY TABLE权限的用户可在public模式和用户模式下创建视图；语法为CREATE [ OR REPLACE ] [ TEMPORARY ] [ FORCE ] VIEW view_name [ ( column_name [, ...] ) ] [ WITH ( {view_option_name [= view_option_value]} [, ... ] ) ] AS query [ WITH [ CASCADED | LOCAL ] CHECK OPTION ]。"
+  source_anchor: "2.4.2.8.21 功能描述/注意事项/语法格式 页2175-2176"
+  source_refs: &refmview
+  - w8_114_2_4_2_8_21
+  status: confirmed
+- id: m_create_view_wave8_114_precision
+  type: constraint
+  statement: "M兼容视图精度传递开关：未开启m_format_behavior_compat_options的enable_precision_decimal选项时，含有以下数据类型的字段在query中不允许进行计算操作（如函数调用、操作符计算），仅允许直接字段调用（如SELECT col1 FROM table1）：BINARY[(n)]、VARBINARY(n)、CHAR[(n)]、VARCHAR(n)、TIME[(p)]、DATETIME[(p)]、TIMESTAMP[(p)]、BIT[(n)]、NUMERIC[(p[,s])]、DECIMAL[(p[,s])]、DEC[(p[,s])]、FIXED[(p[,s])]、FLOAT4[(p,s)]、FLOAT8[(p,s)]、FLOAT[(p)]、REAL[(p,s)]、FLOAT[(p,s)]、DOUBLE[(p,s)]、DOUBLE PRECISION[(p,s)]、TEXT、TINYTEXT、MEDIUMTEXT、LONGTEXT、BLOB、TINYBLOB、MEDIUMBLOB、LONGBLOB；精度传递开关打开时可以使用。"
+  source_anchor: "2.4.2.8.21 说明 页2176-2177"
+  source_refs: *refmview
+  status: confirmed
+- id: m_create_view_wave8_114_updatability
+  type: constraint
+  statement: "M兼容视图更新概念：连接视图（多张表JOIN创建的视图）；保留键表（多表连接视图做插入、更新、删除受键保留表限制——源表每一行与视图中每一行一一对应、不存在JOIN后一对多情况的源表为保留键表）；顶层与底层关系（当前DML直接操作的视图为顶层，构成视图的表、视图及WITH子句中的表、视图为对应底层关系）；可更新列（不是系统列或whole-row reference，直接引用基表中用户列的列可更新）；可更新视图不包含DISTINCT、GROUP BY、HAVING、LIMIT、OFFSET子句，不包含集合运算（UNION、EXCEPT），不包含聚集函数、窗口函数、返回集合函数（array_agg、json_agg、generate_series等）。"
+  source_anchor: "2.4.2.8.21 说明 页2177-2178"
+  source_refs: *refmview
+  status: confirmed
+- id: m_create_view_wave8_114_invalidation
+  type: constraint
+  statement: "M兼容视图失效与精度：对嵌套视图中被依赖视图做修改列名、列类型以及删除列操作，不论是否开启失效参数enable_view_invalidation均会导致依赖视图失效；不开启精度传递开关时创建的视图与开启精度传递开关的视图在小数位数、计算结果小数值、浮点数的比较结果等方面可能出现不一致（精度开关未开启时创建的视图建议在开启后打开精度开关重建视图）。"
+  source_anchor: "2.4.2.8.21 说明 页2178"
+  source_refs: *refmview
+  status: confirmed
+- id: m_create_view_wave8_114_params
+  type: syntax
+  statement: "M兼容视图参数：OR REPLACE视图已存在时重新定义；TEMPORARY创建临时视图（当前会话结束自动删除；视图引用的任何表是临时表时视图将被创建为临时视图；临时视图不支持自动重编译）；FORCE指定后创建视图时依赖对象不存在或缺少查询权限该视图仍能创建成功；view_option_name目前支持的参数仅有security_barrier（Boolean类型true/false，当VIEW试图提供行级安全时应使用该参数——避免攻击者利用低成本函数的RAISE语句打印隐藏的基表数据）；query为视图提供行和列的SELECT或VALUES语句。"
+  source_anchor: "2.4.2.8.21 参数说明 页2178"
+  source_refs: *refmview
+  status: confirmed
+- id: m_create_view_wave8_114_partition_oid
+  type: constraint
+  statement: "M兼容视图与分区OID：若query包含指定分区表分区的子句，创建视图会将所指定分区的OID固化到系统表中；如果使用导致指定分区的OID发生变更的分区DDL语法（如DROP/SPLIT/MERGE该分区），则会导致视图失效。"
+  source_anchor: "2.4.2.8.21 参数说明 须知 页2178"
+  source_refs: *refmview
+  status: confirmed
+- id: m_create_view_wave8_114_check_option
+  type: constraint
+  statement: "WITH [ CASCADED | LOCAL ] CHECK OPTION控制更新视图行为：对视图的INSERT和UPDATE要检查确保新行满足视图定义的条件（新行可通过视图查询显示），否则拒绝修改；未添加该选项则允许通过视图INSERT/UPDATE创建该视图不可见的行；CASCADED检查该视图和所有底层视图定义的条件（仅声明CHECK OPTION未声明LOCAL和CASCADED时默认CASCADED）；LOCAL只检查视图本身直接定义的条件；指定CHECK OPTION后无法对多表连接视图或多表连接子查询中的连接列进行插入、更新操作；多表连接视图或连接子查询出现重复基表且不都是保留键表时无法进行删除操作。"
+  source_anchor: "2.4.2.8.21 参数说明 WITH CHECK OPTION 页2179-2180"
+  source_refs: *refmview
+  status: confirmed
+- id: m_create_view_wave8_114_example
+  type: behavior_oracle
+  statement: "普通视图示例（m_db）：CREATE TABLE test_tb1插入100行后CREATE VIEW test_v1 AS SELECT * FROM test_tb1 WHERE col1 < 3，SELECT * FROM test_v1返回2行（1|1、2|2）。"
+  source_anchor: "2.4.2.8.21 示例 页2180"
+  source_refs: *refmview
+  status: confirmed
+- id: m_create_view_wave8_114_replace_example
+  type: behavior_oracle
+  statement: "OR REPLACE应用示例：创建a、b、c表并插入数据后CREATE VIEW a_view AS SELECT a.c1, a.c2 FROM a, b WHERE a.c1=b.c1（视图不存在相当于新建），再次CREATE OR REPLACE VIEW a_view AS SELECT ...时视图已存在则重新定义视图。"
+  source_anchor: "2.4.2.8.21 示例 REPLACE的应用 页2180-2181"
+  source_refs: *refmview
+  status: confirmed
+- id: m_deallocate_wave8_114_syntax
+  type: syntax
+  statement: "M兼容DEALLOCATE用于删除前面编写的预备语句；如果用户没有明确删除预备语句则它将在会话结束时被删除；语法为{ DEALLOCATE | DROP } PREPARE name，name为将要删除的预备语句（与A模式DEALLOCATE [ PREPARE ] { name | ALL }不同，M兼容无ALL用法）。"
+  source_anchor: "2.4.2.9.1 功能描述/注意事项/语法格式 页2181-2182"
+  source_refs: &refmdealc
+  - w8_114_2_4_2_9_1
+  status: confirmed
+- id: m_deallocate_wave8_114_example
+  type: behavior_oracle
+  statement: "示例（m_db）：PREPARE q1 from 'SELECT 1 AS a'等创建三个预备语句（pg_prepared_statements显示3行），DEALLOCATE PREPARE q1删除q1后剩余2行。"
+  source_anchor: "2.4.2.9.1 示例 页2182"
+  source_refs: *refmdealc
+  status: confirmed
+- id: m_delete_wave8_114_syntax
+  type: syntax
+  statement: "M兼容DELETE从指定表里删除满足WHERE子句的行（WHERE不存在时删除表中所有行，结果只保留表结构）；单表语法：[ WITH [ RECURSIVE ] with_query [, ...] ] DELETE [/*+ plan_hint */] [IGNORE] FROM {table_name [partition_clause] | view_name} [ WHERE condition ] [ ORDER BY { expression [ ASC | DESC ] } [ NULLS { FIRST | LAST } ] ] [ LIMIT { count } ]；多表语法两种：DELETE [IGNORE] FROM table_name1[.*][,table_name2[.*]] ... USING using_list [ WHERE condition ]或DELETE [IGNORE] table_name1[.*][,...] FROM using_list [ WHERE condition ]。"
+  source_anchor: "2.4.2.9.2 功能描述/语法格式 页2182-2183"
+  source_refs: &refmdelete
+  - w8_114_2_4_2_9_2
+  status: confirmed
+- id: m_delete_wave8_114_permission
+  type: constraint
+  statement: "M兼容DELETE权限：表的所有者、被授予表DELETE权限的用户或被授予DELETE ANY TABLE权限的用户有权删除表中数据（三权分立开关关闭时系统管理员默认拥有此权限），同时也必须有USING子句引用的表以及condition上读取表的SELECT权限；对于多表删除语法暂时不支持对视图进行多表删除；对于子查询是STREAM计划的DELETE语句不支持删除的行数据同时进行UPDATE更新操作。"
+  source_anchor: "2.4.2.9.2 注意事项 页2182"
+  source_refs: *refmdelete
+  status: confirmed
+- id: m_delete_wave8_114_cte_ignore
+  type: constraint
+  statement: "M兼容DELETE的CTE与IGNORE：WITH [RECURSIVE] with_query声明CTE结构（执行计划中将存在CTE SCAN；RECURSIVE只能出现在WITH后面，多个CTE结构只需在第一个CTE结构处声明RECURSIVE；使用RECURSIVE时UNION/EXCEPT两侧子查询结果数据类型必须用cast转换成相同类型且精度和字符序一致）；plan_hint以/*+ */形式对语句块生成的计划进行hint调优（每条语句只有第一个注释块生效）；IGNORE关键字将部分ERROR级别错误降级为WARNING级别并根据错误场景将无效值调整为最接近的值（sql_mode为宽松模式的场景；升级观察期不支持IGNORE）。"
+  source_anchor: "2.4.2.9.2 参数说明 页2183-2184"
+  source_refs: *refmdelete
+  status: confirmed
+- id: m_delete_wave8_114_view_partition
+  type: constraint
+  statement: "M兼容DELETE视图约束与分区删除：只有直接引用基表用户列的列可进行DELETE操作；视图必须至少包含一个可更新列；不支持顶层含DISTINCT/GROUP BY/HAVING/LIMIT/OFFSET、集合运算（UNION/EXCEPT）、聚集函数/窗口函数/返回集合函数的视图；支持的表类型包括普通表、临时表、全局临时表、分区表、二级分区表、ustore表、astore表；连接视图只能对保留键表做删除（多张保留键表仅删除FROM后第一张的数据）；不支持对系统视图DELETE；不支持多表删除；partition_clause为PARTITION { ( partition_name | subpartition_name [ , ...] ) }指定分区删除操作；NULLS FIRST在DESC排序时为默认，NULLS LAST在未指定DESC时为默认；condition不建议使用int等数值类型（隐式转换bool可能非预期）。"
+  source_anchor: "2.4.2.9.2 参数说明 页2184-2185"
+  source_refs: *refmdelete
+  status: confirmed
+- id: m_delete_wave8_114_using_hints
+  type: constraint
+  statement: "M兼容DELETE多表using_list与索引提示：using_list形式为table_name [ partition_clause ] | subquery | view_name [*] [ [ AS ] alias ] [index_hint_list]；index_hint为USE {INDEX | KEY} (index_list)或{IGNORE | FORCE} {INDEX | KEY}(index_list)（索引提示信息与plan_hint作用相同，可单独或同时使用，生效优先级按SQL中出现顺序排列，不支持在PARTITION后使用）；删除多张目标表时using_list可同时出现目标表并可定义别名在目标表中使用（其他情况目标表不可重复出现在using_list中）；m_format_dev_version为's2'后所有目标表需出现在using_list中且表名、别名、所属库名均相等才满足匹配：库名.表名形式只能是真实表名且只能与未指定别名的对象匹配、未指定库名默认当前库、using_list对象指定别名按别名匹配（不存在唯一匹配则执行失败）。"
+  source_anchor: "2.4.2.9.2 参数说明 页2184-2185"
+  source_refs: *refmdelete
+  status: confirmed
+open_questions:
+- id: m_cv_del_wave8_114_oq_runtime
+  statement: "M兼容IGNORE错误降级覆盖的具体错误场景清单、CHECK OPTION在多表连接视图的行为矩阵、DELETE多表匹配规则在s2开关下的边界用例需授权环境实机验证。"
+  status: open
