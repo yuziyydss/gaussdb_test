@@ -1,0 +1,139 @@
+document: 集中式版参考 / 1.13.10.3 DELETE（Wave 8-28）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-07'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.10.3 DELETE
+  physical_page_start: 1650
+  physical_page_end: 1657
+  physical_page_count: 8
+  excludes: []
+facts:
+- id: del_wave8_28_purpose_syntax
+  type: syntax
+  statement: "DELETE从指定表中删除满足WHERE子句的行；无WHERE时删除表中所有行但保留表结构。语法支持单表/多表删除、WITH/RECURSIVE、plan_hint、ONLY、分区子句、别名、USING/FROM关联表、WHERE CURRENT OF、ORDER BY、LIMIT和RETURNING。"
+  source_anchor: "1.13.10.3 页1650-1651"
+  source_refs: &refb1
+  - w8_28_1_13_10_3
+  status: confirmed
+- id: del_wave8_28_permissions
+  type: constraint
+  statement: "表所有者、拥有表DELETE权限或DELETE ANY TABLE权限的用户可删除表数据；三权分立关闭时系统管理员默认拥有权限。使用USING子句引用的表以及condition上读取的表还需要SELECT权限。"
+  source_anchor: "1.13.10.3 注意事项 页1650"
+  source_refs: *refb1
+  status: confirmed
+- id: del_wave8_28_multi_table_boundaries
+  type: constraint
+  statement: "多表删除语法暂不支持对视图和含有RULE的表进行多表删除。"
+  source_anchor: "1.13.10.3 注意事项 页1650"
+  source_refs: *refb1
+  status: confirmed
+- id: del_wave8_28_stream_plan_concurrency
+  type: constraint
+  statement: "对于子查询是Stream计划的DELETE语句，不支持删除的行数据同时进行UPDATE操作。"
+  source_anchor: "1.13.10.3 注意事项 页1650"
+  source_refs: *refb1
+  status: confirmed
+- id: del_wave8_28_cte
+  type: syntax
+  statement: "WITH可声明一个或多个CTE，子查询可为SELECT、VALUES、INSERT、UPDATE或DELETE；RECURSIVE允许引用自身，MATERIALIZED/NOT MATERIALIZED控制物化，未显式声明时仅引用一次且可内联的CTE会内联，否则CTE Scan物化。"
+  source_anchor: "1.13.10.3 WITH子句 页1651-1652"
+  source_refs: *refb1
+  status: confirmed
+- id: del_wave8_28_plan_hint
+  type: syntax
+  statement: "plan_hint以/*+ */形式写在DELETE关键字后；每条语句只有第一个hint注释块生效，其中可写多条hint。"
+  source_anchor: "1.13.10.3 plan_hint 页1652"
+  source_refs: *refb1
+  status: confirmed
+- id: del_wave8_28_only_behavior
+  type: syntax
+  statement: "指定ONLY时只对声明表执行删除；未指定ONLY时，该表及其所有对应子表中满足条件的行都会被删除。"
+  source_anchor: "1.13.10.3 ONLY 页1652"
+  source_refs: *refb1
+  status: confirmed
+- id: del_wave8_28_table_target
+  type: syntax
+  statement: "DELETE目标表可为已存在表名并使用模式限定，支持通过DATABASE LINK操作远端表。"
+  source_anchor: "1.13.10.3 table_name 页1652"
+  source_refs: *refb1
+  status: confirmed
+- id: del_wave8_28_subquery_target
+  type: syntax
+  statement: "DELETE目标可以是子查询，子查询会当作临时视图并支持CHECK OPTION；子查询只有一张表时对该表删除，多表或嵌套关系时根据保留键表判断是否可删除。"
+  source_anchor: "1.13.10.3 subquery 页1652"
+  source_refs: *refb1
+  status: confirmed
+- id: del_wave8_28_view_subquery_constraints
+  type: constraint
+  statement: "视图/子查询删除只有直接引用基表用户列的列可执行，且至少一个可更新列；不支持顶层DISTINCT、GROUP BY、HAVING、LIMIT、OFFSET、集合运算、聚集/窗口/返回集合函数；不支持仅BEFORE/AFTER触发器而无INSTEAD能力的视图；不支持系统视图和多表删除功能。"
+  source_anchor: "1.13.10.3 view_name 页1652-1653"
+  source_refs: *refb1
+  status: confirmed
+- id: del_wave8_28_view_key_preserved
+  type: constraint
+  statement: "连接视图或子查询只能对保留键表执行删除；只有一张保留键表时删除该表，多张保留键表时仅删除FROM后第一张保留键表的数据。若指定CHECK OPTION且基表重复、保留键表属性不一致，则无法删除行。"
+  source_anchor: "1.13.10.3 view_name 页1652-1653"
+  source_refs: *refb1
+  status: confirmed
+- id: del_wave8_28_partition_clause
+  type: syntax
+  statement: "PARTITION/SUBPARTITION可按分区名、二级分区名或FOR分区键值指定分区删除；partitions_clause可指定多个分区，但该多分区语法仅在sql_compatibility='B'下生效。"
+  source_anchor: "1.13.10.3 partition_clause/partitions_clause 页1653"
+  source_refs: *refb1
+  status: confirmed
+- id: del_wave8_28_alias_using
+  type: constraint
+  statement: "DELETE目标表可使用别名；sql_compatibility='B'或删除多张目标表时，using_list可同时出现目标表并定义别名，其他情况下目标表不可重复出现在using_list中。"
+  source_anchor: "1.13.10.3 alias/using_list 页1653-1654"
+  source_refs: *refb1
+  status: confirmed
+- id: del_wave8_28_condition
+  type: constraint
+  statement: "WHERE condition是用于判断删除行的布尔表达式；不建议使用INT等数值类型作为condition，因其可隐式转换为Boolean值，可能产生非预期结果。"
+  source_anchor: "1.13.10.3 condition 页1654"
+  source_refs: *refb1
+  status: confirmed
+- id: del_wave8_28_where_current_of
+  type: syntax
+  statement: "WHERE CURRENT OF cursor_name可删除游标当前指向的行；使用限制和约束参见UPDATE章节。"
+  source_anchor: "1.13.10.3 WHERE CURRENT OF 页1654"
+  source_refs: *refb1
+  status: confirmed
+- id: del_wave8_28_order_limit_returning
+  type: syntax
+  statement: "DELETE支持ORDER BY和LIMIT；RETURNING/output_expr在删除行之后计算输出结果，可使用表任意字段，*返回被删除行所有字段，并可用output_name命名输出列。"
+  source_anchor: "1.13.10.3 ORDER BY/LIMIT/output_expr 页1651与1654"
+  source_refs: *refb1
+  status: confirmed
+- id: del_wave8_28_delete_all_behavior
+  type: behavior_oracle
+  statement: "DELETE不带WHERE子句时删除表中所有行；示例中删除后查询返回0行，但表结构保留。"
+  source_anchor: "1.13.10.3 示例 页1654"
+  source_refs: *refb1
+  status: confirmed
+- id: del_wave8_28_cte_delete_returning
+  type: behavior_oracle
+  statement: "可在WITH中执行DELETE ... RETURNING获取被删除记录标识，再由外层DELETE删除关联表数据；示例中student中id=2记录删除后，grade中同一学号的成绩记录也通过CTE结果删除。"
+  source_anchor: "1.13.10.3 示例 页1654-1655"
+  source_refs: *refb1
+  status: confirmed
+- id: del_wave8_28_view_readonly_check
+  type: behavior_oracle
+  statement: "READ ONLY视图/子查询不允许DELETE，返回“DML operation cannot be performed on a read-only view.”；带CHECK OPTION且基表重复、保留键属性不一致时返回“Failed to delete from view with no key-preserved table.”，不带CHECK OPTION的相同结构子查询/视图可删除。"
+  source_anchor: "1.13.10.3 示例 页1655-1657"
+  source_refs: *refb1
+  status: confirmed
+- id: del_wave8_28_truncate_recommendation
+  type: constraint
+  statement: "文档优化建议：如果要删除表中的所有记录，建议使用TRUNCATE而不是DELETE。"
+  source_anchor: "1.13.10.3 优化建议 页1657"
+  source_refs: *refb1
+  status: confirmed
+open_questions:
+- id: del_wave8_28_oq_runtime
+  statement: "DELETE在真实并发、分区路由、视图/子查询、多表删除、游标定位和RETURNING组合下的结果、锁等待与性能矩阵需授权环境实机验证。"
+  status: open
