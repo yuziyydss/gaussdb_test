@@ -1,0 +1,142 @@
+document: 集中式版参考 / 3.12.2.8 DBE_ILM_ADMIN与3.12.2.9 DBE_LICENSE（Wave 8-152）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 3.12.2.8 DBE_ILM_ADMIN
+  - 3.12.2.9 DBE_LICENSE
+  physical_page_start: 2760
+  physical_page_end: 2769
+  physical_page_count: 9
+  excludes:
+  - 3.12.2.10 DBE_LOB及后续小节（后续波次按切片覆盖）
+facts:
+- id: ilmadmin_wave8_152_overview
+  type: syntax
+  statement: "DBE_ILM_ADMIN功能：服务于ILM策略实施，实现ADO的后台调度以及各个限流参数的控制；接口包括CUSTOMIZE_ILM（根据输入参数定制ILM策略属性）、DISABLE_ILM（关闭后台调度）、ENABLE_ILM（开启后台调度）、CREATE_ILM_DB_POLICY（创建库级压缩策略）、DELETE_ILM_DB_POLICY（删除库级压缩策略）。"
+  source_anchor: "3.12.2.8 DBE_ILM_ADMIN 表3-191 页2760-2761"
+  source_refs: &refia
+  - w8_152_3_12
+  status: confirmed
+- id: ilmadmin_wave8_152_busy_retry
+  type: constraint
+  statement: "并发限制：当并发量较大时，执行DBE_ILM_ADMIN.DISABLE_ILM或DBE_ILM_ADMIN.ENABLE_ILM可能会提示资源繁忙（Resources are busy, please try again later.），稍后重试即可。"
+  source_anchor: "3.12.2.8 说明 页2761"
+  source_refs: *refia
+  status: confirmed
+- id: ilmadmin_wave8_152_customize_proto
+  type: syntax
+  statement: "CUSTOMIZE_ILM原型：DBE_ILM_ADMIN.CUSTOMIZE_ILM(PARAM IN NUMBER, VAL IN NUMBER)；PARAM为参数序号、VAL为参数取值。"
+  source_anchor: "3.12.2.8 CUSTOMIZE_ILM 页2761"
+  source_refs: *refia
+  status: confirmed
+- id: ilmadmin_wave8_152_bmc_mode_val
+  type: constraint
+  statement: "兼容模式行为：由于兼容性影响，在B或M-Compatibility兼容模式下，若调用DBE_ILM_ADMIN.CUSTOMIZE_ILM()时传入的VAL值为非数字的字符（例如DBE_ILM_ADMIN.CUSTOMIZE_ILM(13, '*')），会默认将传入的VAL值赋值为0。"
+  source_anchor: "3.12.2.8 CUSTOMIZE_ILM说明 页2761"
+  source_refs: *refia
+  status: confirmed
+- id: ilmadmin_wave8_152_param_1_2
+  type: syntax
+  statement: "CUSTOMIZE_ILM参数1/2：参数1 EXECUTION_INTERVAL为ADO Task的执行频率（单位分钟，默认15，取值大于等于1小于等于2147483647的整数或浮点数、作用时向下取整）；参数2 RETENTION_TIME为ADO相关历史的保留时长（单位天，默认30，同范围取值）。"
+  source_anchor: "3.12.2.8 表3-193 页2761"
+  source_refs: *refia
+  status: confirmed
+- id: ilmadmin_wave8_152_param_7_11
+  type: constraint
+  statement: "CUSTOMIZE_ILM参数7/11：参数7 ENABLE为后台调度的状态，不支持使用CUSTOMIZE_ILM修改，应使用DISABLE_ILM和ENABLE_ILM修改；参数11 POLICY_TIME控制ADO的条件单位是天或者秒（秒仅用来做测试）：0为ILM_POLICY_IN_DAYS（默认值）、1为ILM_POLICY_IN_SECONDS。"
+  source_anchor: "3.12.2.8 表3-193 页2761-2762"
+  source_refs: *refia
+  status: confirmed
+- id: ilmadmin_wave8_152_param_12_14
+  type: syntax
+  statement: "CUSTOMIZE_ILM参数12/13/14：参数12 ABS_JOBLIMIT控制一次ADO Task最多生成ADO Job的数量（0~2147483647，向下取整）；参数13 JOB_SIZELIMIT控制单个ADO Job可处理的最大字节数（单位兆，为0时手动执行压缩任务报warning且不做压缩处理、自动调度后台任务也不做压缩）；参数14 WIND_DURATION维护窗口持续时长（单位分钟，默认240即4小时，取值大于等于0小于1440）。"
+  source_anchor: "3.12.2.8 表3-193 页2762"
+  source_refs: *refia
+  status: confirmed
+- id: ilmadmin_wave8_152_param_15_17
+  type: syntax
+  statement: "CUSTOMIZE_ILM参数15/16/17：参数15 BLOCK_LIMITS控制实例级行存压缩速率上限（默认40，单位block/ms，取值0~10000，0表示不限制，跨页透明压缩不支持）；参数16 ENABLE_META_COMPRESSION是否开启header压缩（默认0，0关闭1开启，跨页透明压缩不支持；单行数据较短的表压缩率有一定提升但访问压缩行性能较大幅度下降，单行较长的表不建议开启）；参数17 SAMPLE_MIN常量编码和等值编码采样步长最小值（默认10，[1,100]，小数向下取整，跨页透明压缩不支持）。"
+  source_anchor: "3.12.2.8 表3-193 页2762"
+  source_refs: *refia
+  status: confirmed
+- id: ilmadmin_wave8_152_param_18_22
+  type: syntax
+  statement: "CUSTOMIZE_ILM参数18~22：参数18 SAMPLE_MAX采样步长最大值（默认10，[1,100]）；参数19 CONST_PRIO常量编码优先级（默认40，[0,100]，100表示关闭常量编码）；参数20 CONST_THRESHOLD常量编码阈值（默认90，[1,100]，一列常量值占比超过该阈值时进行常量编码）；参数21 EQVALUE_PRIO等值编码优先级（默认60，100关闭等值编码）；参数22 EQVALUE_THRESHOLD等值编码阈值（默认80，两列数据等值比例超过阈值时进行等值编码）；小数输入自动向下取整，跨页透明压缩不支持。"
+  source_anchor: "3.12.2.8 表3-193 页2762-2763"
+  source_refs: *refia
+  status: confirmed
+- id: ilmadmin_wave8_152_param_23_27
+  type: syntax
+  statement: "CUSTOMIZE_ILM参数23~27：参数23 ENABLE_DELTA_ENCODE_SWITCH差值编码开关（默认1，[0,1]）；参数24 LZ4_COMPRESSION_LEVEL lz4压缩等级（默认0，[0,16]）；参数25 ENABLE_LZ4_PARTIAL_DECOMPRESSION部分解压开关（默认1）；参数26 INDEXJOB_SIZELIMIT索引压缩时单个ADO Job最大处理字节数（单位兆，默认1024，为0时warning不压缩）；参数27 ENABLE_INDEX_COMPRESS索引压缩使能开关（0关闭1打开，默认0）。"
+  source_anchor: "3.12.2.8 表3-193 页2763"
+  source_refs: *refia
+  status: confirmed
+- id: ilmadmin_wave8_152_example
+  type: behavior_oracle
+  statement: "CUSTOMIZE_ILM示例基线：CALL DBE_ILM_ADMIN.CUSTOMIZE_ILM(1, 15)后SELECT * FROM gs_adm_ilmparameters输出20行参数——EXECUTION_INTERVAL 15、RETENTION_TIME 30、ENABLED 1、POLICY_TIME 0、ABS_JOBLIMIT 10、JOB_SIZELIMIT 1024、WIND_DURATION 240、BLOCK_LIMITS 40、ENABLE_META_COMPRESSION 0、SAMPLE_MIN/MAX 10、CONST_PRIO 40、CONST_THRESHOLD 90、EQVALUE_PRIO 60、EQVALUE_THRESHOLD 80、ENABLE_DELTA_ENCODE_SWITCH 1、LZ4_COMPRESSION_LEVEL 0、ENABLE_LZ4_PARTIAL_DECOMPRESSION 1、INDEXJOB_SIZELIMIT 1024、ENABLE_INDEX_COMPRESS 0。"
+  source_anchor: "3.12.2.8 示例 页2763-2764"
+  source_refs: *refia
+  status: confirmed
+- id: ilmadmin_wave8_152_disable_enable
+  type: syntax
+  statement: "DISABLE_ILM与ENABLE_ILM：CALL DBE_ILM_ADMIN.DISABLE_ILM()关闭后台调度；CALL DBE_ILM_ADMIN.ENABLE_ILM()开启后台调度；后台调度生效需要先在数据库运维平台将GUC参数enable_ilm设置为on。"
+  source_anchor: "3.12.2.8 DISABLE_ILM/ENABLE_ILM 页2764"
+  source_refs: *refia
+  status: confirmed
+- id: ilmadmin_wave8_152_db_policy
+  type: constraint
+  statement: "库级压缩策略：CREATE_ILM_DB_POLICY(DAYS IN INT, COMPRESSION_LEVEL IN TEXT DEFAULT 'MEDIUM')创建库级压缩策略——自动覆盖存量表（为当前数据库所有未绑定压缩策略的用户表附加此策略）、新表默认继承（未显式声明压缩策略时自动继承）；COMPRESSION_LEVEL仅支持'HIGH'和'MEDIUM'；DELETE_ILM_DB_POLICY()删除库级压缩策略及所有表上继承的策略；库级策略仅支持高级压缩、不支持表达式功能；gs_dump导出库级策略需全库导出且系统管理员权限，否则以表/分区/子分区级独立策略形式导出；多事务并发调用CREATE/DELETE_ILM_DB_POLICY与EXECUTE_ILM等接口存在锁超时风险；示例CREATE_ILM_DB_POLICY(10)、CREATE_ILM_DB_POLICY(10, 'high')、DELETE_ILM_DB_POLICY()。"
+  source_anchor: "3.12.2.8 CREATE/DELETE_ILM_DB_POLICY 页2764-2765"
+  source_refs: *refia
+  status: confirmed
+- id: license_wave8_152_overview
+  type: constraint
+  statement: "DBE_LICENSE权限与功能：只有具有系统管理员或运维管理员权限的用户可以调用该高级包下的接口；主要用于激活、查看、注销License；接口包括ACTIVATE（激活License）、DEACTIVATE（注销当前License）、GET_ESN（查询节点ESN信息）、GET_LICENSE_INFO（查询当前节点License状态信息）。"
+  source_anchor: "3.12.2.9 DBE_LICENSE 表3-195 页2765"
+  source_refs: &refli
+  - w8_152_3_12
+  status: confirmed
+- id: license_wave8_152_activate
+  type: syntax
+  statement: "ACTIVATE原型（双原型）：DBE_LICENSE.ACTIVATE(license_type IN VARCHAR2, token_file IN VARCHAR2) RETURN BOOLEAN与DBE_LICENSE.ACTIVATE(license_type IN VARCHAR2, license_file IN VARCHAR2, key_file IN VARCHAR2) RETURN BOOLEAN；当前支持令牌文件或ESDP License文件两种License进行激活；license_type可选OnCloud（使用令牌文件激活）或OffCloud（使用ESDP License文件激活）；token_file名称不能为license.json、license.xml，名称中不能包含'/'或'\\'字符。"
+  source_anchor: "3.12.2.9 ACTIVATE 页2765-2766"
+  source_refs: *refli
+  status: confirmed
+- id: license_wave8_152_deactivate
+  type: constraint
+  statement: "DEACTIVATE(idempotent IN BOOLEAN DEFAULT FALSE) RETURN BOOLEAN注销当前节点的License：传入false时License处于已注销状态会抛出错误、传入true时该状态下返回true（未传入默认false）；执行注销后原License失效、系统重新为当前节点生成新ESN信息且License处于未激活状态（须谨慎考虑）；使用ESDP License激活时注销会在数据目录gs_esn文件夹生成撤销码文件RevoTicket.txt，可用该文件去ESDP平台刷新License的ESN值用于再次激活。"
+  source_anchor: "3.12.2.9 DEACTIVATE 页2766"
+  source_refs: *refli
+  status: confirmed
+- id: license_wave8_152_get_esn
+  type: syntax
+  statement: "GET_ESN原型：DBE_LICENSE.GET_ESN() RETURN VARCHAR2；查询当前数据库节点的ESN信息，ESN是数据库节点的唯一标识符，数据库内部会尽可能保证每个节点ESN的唯一性。"
+  source_anchor: "3.12.2.9 GET_ESN 页2766"
+  source_refs: *refli
+  status: confirmed
+- id: license_wave8_152_get_license_info
+  type: syntax
+  statement: "GET_LICENSE_INFO原型：DBE_LICENSE.GET_LICENSE_INFO()，返回值类型setof record，用于查询节点license信息。"
+  source_anchor: "3.12.2.9 GET_LICENSE_INFO 页2766-2767"
+  source_refs: *refli
+  status: confirmed
+- id: license_wave8_152_info_fields
+  type: syntax
+  statement: "GET_LICENSE_INFO返回字段：create_time（License创建时间）；activate_time（已激活正式License为调用接口激活时间、试用License为进入试用模式时间）；expire_time（已激活License为令牌文件或ESDP License文件到期时间、试用License为进入试用模式时的第90天）；type（OnCloud带管控部署/OffCloud无管控部署/其他Illegal deploy mode）；license_version（带数据库运维管理平台部署时区分签名算法及License结构，无平台部署为0）；customer（购买方）；state（Activated已激活/Deactivated已注销/Expired已过期/Trial试用/Error异常）；lsn（识别编号）；feature_list（高阶特性列表，逗号分割的特性GUC参数名称如enable_tde,enable_ledger）；dn_capacity/cn_capacity（预留字段无实际含义）。"
+  source_anchor: "3.12.2.9 表3-197 页2767-2768"
+  source_refs: *refli
+  status: confirmed
+- id: license_wave8_152_example
+  type: behavior_oracle
+  statement: "GET_LICENSE_INFO示例基线：SELECT * FROM dbe_license.get_license_info()输出一行——create_time 2024-10-20 14:30:45+08、activate_time/expire_time 2026-01-22、type OnCloud、license_version 1、customer Test、state Activated、lsn lsntesttesttest、feature_list含enable_mtd,enable_ilm,enable_tde,enable_ledger,enable_security_policy,alt_grace_period、dn_capacity/cn_capacity为1。"
+  source_anchor: "3.12.2.9 示例 页2767"
+  source_refs: *refli
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_152_oq_runtime
+  content: "CUSTOMIZE_ILM运行中修改参数对已排队ADO Job的生效时机、CREATE_ILM_DB_POLICY覆盖存量表的事务边界、License试用模式到期（第90天）后的行为转换需授权环境实机验证。"
+  status: open
