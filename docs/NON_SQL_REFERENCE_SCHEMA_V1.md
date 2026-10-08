@@ -8,9 +8,9 @@
 
 | 指标 | 当前值 |
 |---|---:|
-| YAML 文件 | 214 |
-| facts | 4373 |
-| confirmed | 4370 |
+| YAML 文件 | 215 |
+| facts | 4393 |
+| confirmed | 4390 |
 | needs_verification | 3 |
 | 裸 ID 重名 | 8 |
 | 全局身份格式 | `file::fact_id` |
@@ -41,7 +41,7 @@
 
 | 分类 | 文件数 | facts 数 |
 |---|---:|---:|
-| compatibility | 172 | 3705 |
+| compatibility | 173 | 3725 |
 | stored_procedure | 16 | 352 |
 | runtime_parameters | 12 | 174 |
 | system_catalog | 6 | 53 |
@@ -54,11 +54,11 @@
 
 | 类型 | 数量 |
 |---|---:|
-| behavior_oracle | 634 |
-| environment | 356 |
-| syntax | 1902 |
+| behavior_oracle | 638 |
+| environment | 358 |
+| syntax | 1907 |
 | metadata_oracle | 103 |
-| constraint | 1376 |
+| constraint | 1385 |
 | lifecycle | 2 |
 
 ## 未决事实
