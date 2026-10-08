@@ -1,0 +1,139 @@
+document: 集中式版参考 / 2.4.2.16.2 M兼容SELECT（Wave 8-137）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 2.4.2.16.2 SELECT
+  physical_page_start: 2249
+  physical_page_end: 2271
+  physical_page_count: 22
+  excludes: []
+facts:
+- id: m_select_wave8_137_overview
+  type: syntax
+  statement: "M兼容SELECT用于从表或视图中取出数据（SELECT语句就像叠加在数据库表上的过滤器，利用SQL关键字从数据表中过滤出用户需要的数据）；权限：表的所有者、拥有表SELECT权限的用户或拥有SELECT ANY TABLE权限的用户有权读取表或视图中数据（三权分立开关关闭时系统管理员默认拥有此权限）；必须对每个在SELECT命令中使用的字段有SELECT权限；使用FOR UPDATE、FOR SHARE还要求UPDATE权限。"
+  source_anchor: "2.4.2.16.2 功能描述/注意事项 页2249"
+  source_refs: &refmsel
+  - w8_137_2_4_2_16_2
+  status: confirmed
+- id: m_select_wave8_137_syntax
+  type: syntax
+  statement: "M兼容SELECT语法：[ WITH [ RECURSIVE ] with_query [, ...] ] SELECT [/*+ plan_hint */] [ALL | DISTINCT | DISTINCTROW] [STRAIGHT_JOIN] [SQL_CACHE] [SQL_NO_CACHE] [SQL_CALC_FOUND_ROWS] select_expr [, select_expr] ... [into_option] [FROM from_item [,...]] [WHERE where_condition] [GROUP BY {col_name | expr | position} [WITH ROLLUP]] [HAVING condition] [WINDOW {window_name AS (window_definition)} [, ...]] [ORDER BY {col_name | expression | position}[ASC | DESC][ NULLS { FIRST | LAST } ], ...] [[LIMIT {[offset,] row_count | row_count OFFSET offset}] | FETCH {FIRST | NEXT} [(expr)] {ROW| ROWS} ONLY] [into_option] [ FOR READ ONLY | [ {FOR { UPDATE | SHARE } [ OF table_name [, ...] ] [ NOWAIT | WAIT N | SKIP LOCKED ]} [...] ] | LOCK IN SHARE MODE]；另支持SELECT..UNION/EXCEPT语法（UNION [ALL | DISTINCT]、EXCEPT [ALL | DISTINCT]）。"
+  source_anchor: "2.4.2.16.2 语法格式 页2249-2250"
+  source_refs: *refmsel
+  status: confirmed
+- id: m_select_wave8_137_modifiers
+  type: constraint
+  statement: "M兼容SELECT修饰符：ALL声明返回所有符合条件的行（默认行为可省略）；DISTINCT | DISTINCTROW从SELECT结果集中删除所有重复的行使结果集每行唯一（DISTINCT|DISTINCTROW表达式使用与ORDER BY相同的规则解释，未用ORDER BY保证需要的行首先出现时\"第一行\"不可预测）；STRAIGHT_JOIN对于内联接可改变优化器联表查询的执行顺序（左边的表始终在右边的表之前读取）；SQL_CALC_FOUND_ROWS使用found_rows函数计算结果集中有多少行时忽略任何LIMIT子句；SQL_CACHE | SQL_NO_CACHE控制缓存。"
+  source_anchor: "2.4.2.16.2 参数说明 页2252-2253"
+  source_refs: *refmsel
+  status: confirmed
+- id: m_select_wave8_137_plan_hint
+  type: constraint
+  statement: "M兼容plan_hint以/*+ */的形式在SELECT关键字后用于对SELECT对应语句块生成的计划进行hint调优（每条语句中只有第一个/*+ plan_hint */注释块会作为hint生效，里面可以写多条hint）。"
+  source_anchor: "2.4.2.16.2 参数说明 plan_hint 页2252"
+  source_refs: *refmsel
+  status: confirmed
+- id: m_select_wave8_137_cte
+  type: syntax
+  statement: "M兼容WITH [ RECURSIVE ] with_query声明一个或多个可在主查询中通过名称引用的子查询（相当于临时表，即CTE Common Table Expression结构，应用时执行计划中将存在CTE SCAN的内容）；声明RECURSIVE后允许SELECT子查询通过名称引用它自己；with_query详细格式为with_query_name [ ( column_name [, ...] ) ] AS ( {select} )（with_query_name指定子查询生成的结果集名称，column_name指定子查询结果集中显示的列名，每个子查询支持SELECT语句）；RECURSIVE只能出现在WITH后面（多个CTE的情况下只需在第一个CTE结构处声明）；使用RECURSIVE时CTE子查询中UNION ALL/EXCEPT ALL或UNION/EXCEPT [DISTINCT]两侧的子查询结果数据类型必须使用cast函数转换成相同的数据类型（如WITH RECURSIVE cte (n) AS ( SELECT cast(id as signed int) from table_1 UNION ALL SELECT cast((n + 1) as signed int) FROM cte WHERE n < 5 ) SELECT * FROM cte）。"
+  source_anchor: "2.4.2.16.2 参数说明 WITH 页2252"
+  source_refs: *refmsel
+  status: confirmed
+- id: m_select_wave8_137_dual
+  type: constraint
+  statement: "M兼容table_name包含dual虚拟表：M-Compatibility允许在没有引用表的情况下将dual指定为虚拟表名。"
+  source_anchor: "2.4.2.16.2 from_item 说明 页2251"
+  source_refs: *refmsel
+  status: confirmed
+- id: m_select_wave8_137_timecapsule
+  type: syntax
+  statement: "M兼容from_item支持TIMECAPSULE { TIMESTAMP | CSN } expression闪回查询指定时间点或CSN点上的表内容（不支持闪回查询的表：系统表、DFS表、全局临时表、本地临时表、UNLOGGED表、视图、序列表、hashbucket表、共享表以及继承表；TIMECAPSULE TIMESTAMP根据date日期闪回查找指定时间点上的结果集；TIMECAPSULE CSN根据CSN闪回查询，CSN可通过查询gs_txn_snapshot记录的snpcsn号获取）；闪回查询操作不能跨越影响表结构或物理存储的语句（TRUNCATE、DDL、DCL或VACUUM FULL，否则报ERROR: The table definition of %s has been changed；涉及namespace、表名改变等操作报ERROR: recycle object %s desired does not exist）；闪回查询支持PCR类型的UBTree索引进行索引扫描（无PCR UBTree索引则只能seqScan全表扫描）；闪回点过旧报Restore point too old；通过时间方式指定闪回点闪回数据和实际时间点数据可能存在偏差最多3秒；对表执行TRUNCATE后进行闪回查询：时间点方式报Snapshot too old、CSN方式找不到数据或报Snapshot too old。"
+  source_anchor: "2.4.2.16.2 参数说明 TIMECAPSULE 页2253-2254"
+  source_refs: *refmsel
+  status: confirmed
+- id: m_select_wave8_137_join
+  type: syntax
+  statement: "M兼容joined_table：table_reference [INNER | CROSS] JOIN table_factor [join_specification]、table_reference STRAIGHT_JOIN table_factor [join_specification]（与INNER JOIN功能相似，左边的表始终在右边的表之前读取可改变优化器执行顺序）、table_reference {LEFT|RIGHT} [OUTER] JOIN table_reference join_specification、table_reference NATURAL [{LEFT|RIGHT} [OUTER]] JOIN table_factor；join_specification为ON join_condition或USING (join_column_list)；必须为INNER和OUTER连接类型声明一个连接条件（NATURAL ON、join_condition、USING之一）；CROSS JOIN和INNER JOIN生成简单的笛卡尔积（与FROM顶层列出两个项结果相同）；允许连续使用多次JOIN；ON join_condition不建议使用int等数值类型（非0隐式转true、0转false可能非预期）；USING是ON等值条件的简写且要求对应列同名；NATURAL是具有相同名称的两个表的所有列的USING列表的简写。"
+  source_anchor: "2.4.2.16.2 joined_table 页2251-2253"
+  source_refs: *refmsel
+  status: confirmed
+- id: m_select_wave8_137_partition_clause
+  type: syntax
+  statement: "M兼容from_item中指定分区partition_clause：PARTITION { ( { partition_name | subpartition_name } [, ...] ) | FOR ( partition_value [, ...] ) } | SUBPARTITION { ( subpartition_name ) | FOR ( subpartition_value [, ...] ) }；指定分区只适合分区表；PARTITION指定多个分区名时一级分区名和二级分区名可同时存在且可以存在相同的分区名（最终分区范围取其并集）。"
+  source_anchor: "2.4.2.16.2 from_item分区 页2252"
+  source_refs: *refmsel
+  status: confirmed
+- id: m_select_wave8_137_where
+  type: constraint
+  statement: "M兼容WHERE子句构成行选择表达式用来缩小SELECT查询的范围（condition是返回值为布尔型的任意表达式，不满足条件的行不会被检索）；不建议使用int等数值类型作为condition（非0隐式转true、0转false可能导致非预期的结果）；须知：对于WHERE子句的LIKE操作符，当LIKE中要查询特殊字符%、_、\\的时候需要使用反斜杠\\来进行转义。"
+  source_anchor: "2.4.2.16.2 WHERE子句 页2256"
+  source_refs: *refmsel
+  status: confirmed
+- id: m_select_wave8_137_group_by
+  type: constraint
+  statement: "M兼容GROUP BY子句将查询结果按某一列或多列的值分组（值相等的为一组），WITH ROLLUP对分组查询结果进行统计（也可对多列分组查询结果统计）；sql_mode包含ONLY_FULL_GROUP_BY时：SELECT列表中非聚合函数列与GROUP BY字段一致不报错；不一致时分两种情况——GROUP BY列表包含主键或唯一非空键时不报错（示例SELECT s1, MAX(LENGTH(s3)) FROM test GROUP BY id）、非聚合列都出现在GROUP BY列表或WHERE列表中且WHERE子句列等于某一常量不报错（示例SELECT s1, SUM(s2) FROM test WHERE s1 = 'b' GROUP BY s1）；同时含有join子句和GROUP BY子句时LEFT JOIN的GROUP BY可无右连接表列、RIGHT JOIN可无左连接表列（不报错）。"
+  source_anchor: "2.4.2.16.2 GROUP BY 页2256-2258"
+  source_refs: *refmsel
+  status: confirmed
+- id: m_select_wave8_137_having_window
+  type: syntax
+  statement: "M兼容HAVING子句与GROUP BY子句配合用来选择特殊的组（HAVING将组的一些属性与常数值比较，只有满足HAVING子句中逻辑表达式的组才会被提取出来；HAVING必须且只能引用GROUP BY子句中的列或聚合函数中使用的列）；WINDOW子句为[WINDOW {window_name AS (window_definition)} [, ...]]。"
+  source_anchor: "2.4.2.16.2 HAVING/WINDOW 页2254"
+  source_refs: *refmsel
+  status: confirmed
+- id: m_select_wave8_137_union
+  type: constraint
+  statement: "M兼容UNION计算多个SELECT语句返回行集合的并集：除非声明ALL子句否则缺省的UNION结果不包含重复的行；同一SELECT语句中的多个UNION操作符从左向右计算（除非用圆括弧标识）；FOR UPDATE、FOR SHARE不能在UNION的结果或输入中声明；通过GUC参数enable_union_all_order控制UNION ALL子查询是否保序（开启且UNION声明ALL且主查询未排序时支持子查询保序，其他情况不支持）；select_statement可以是任何没有ORDER BY、LIMIT、FOR UPDATE、FOR SHARE子句的SELECT语句（用圆括弧包围时ORDER BY和LIMIT可附着在子表达式里）。"
+  source_anchor: "2.4.2.16.2 UNION子句 页2258"
+  source_refs: *refmsel
+  status: confirmed
+- id: m_select_wave8_137_except
+  type: constraint
+  statement: "M兼容EXCEPT从第一个查询结果中去除两个查询结果的交集：仅在声明ALL子句情况下查询结果不进行去重操作（缺省的EXCEPT会对查询结果去重）；同一SELECT语句包含多个EXCEPT操作符时运算逻辑从左向右计算（使用圆括号标识后根据优先级查询）；EXCEPT的查询结果或输入中不能指定FOR UPDATE或FOR SHARE操作；select_statement包含ORDER BY或LIMIT子句时需在前后添加圆括号。"
+  source_anchor: "2.4.2.16.2 EXCEPT子句 页2258-2259"
+  source_refs: *refmsel
+  status: confirmed
+- id: m_select_wave8_137_order_by
+  type: constraint
+  statement: "M兼容ORDER BY对检索数据进行升序或降序排序（多列时先按最左列排序值相同再按下一表达式，所有表达式相同则按随机顺序返回）；与DISTINCT一起使用时ORDER BY排序列必须包括在SELECT结果集列中；与GROUP BY一起使用时排序列必须包括在GROUP BY分组列中；不与GROUP BY使用且SELECT结果集包含聚合函数时ORDER BY只对返回集合的函数所在的列生效（sum(c1) ORDER BY c,c2忽略orderby，带generate_series列时对s列排序生效）；NULLS FIRST指定空值排在非空值之前（DESC排序时默认）、NULLS LAST指定空值排在非空值之后（未指定DESC时默认）；中文拼音排序需初始化M-Compatibility数据库时指定gb18030/gbk/gb18030_2022字符集并在比较时指定gb18030_chinese_ci等字符序（SELECT '中国' > '西安' collate gb18030_chinese_ci）。"
+  source_anchor: "2.4.2.16.2 ORDER BY 页2259-2260"
+  source_refs: *refmsel
+  status: confirmed
+- id: m_select_wave8_137_limit_fetch
+  type: syntax
+  statement: "M兼容LIMIT子句由两个独立子句组成：LIMIT { count | ALL }限制返回行数（count为指定行数，LIMIT ALL效果和省略LIMIT子句一样）；LIMIT start, count声明返回的最大行数（start声明开始返回行之前忽略的行数）；LIMIT子句不支持ROWNUM作为count或offset；FETCH {FIRST | NEXT} [(expr)] {ROW| ROWS} ONLY不指定count时默认值为1；OFFSET start { ROW | ROWS }。"
+  source_anchor: "2.4.2.16.2 LIMIT/FETCH/OFFSET 页2260"
+  source_refs: *refmsel
+  status: confirmed
+- id: m_select_wave8_137_lock_clause
+  type: syntax
+  statement: "M兼容锁定子句：FOR READ ONLY；FOR { UPDATE | SHARE } [ OF table_name [, ...] ] [ NOWAIT | WAIT N | SKIP LOCKED ]；LOCK IN SHARE MODE；FOR UPDATE对SELECT检索出来的行加锁（避免当前事务结束前被其他事务修改或删除；其他事务企图UPDATE、DELETE、SELECT FOR UPDATE、SELECT FOR SHARE这些行将被阻塞直到当前事务结束；行上的DELETE命令也获得FOR UPDATE锁模式，主键列修改值的UPDATE也获得）；FOR SHARE要求共享锁（阻塞其他事务UPDATE/DELETE/SELECT FOR UPDATE，不阻塞SELECT FOR SHARE）；NOWAIT不能立即锁住则立即报错；WAIT n等待n秒（n为int取值0 <= n <= 2147483，n秒内获取锁正常执行否则报错）；SKIP LOCKED跳过已加锁的行（只能跳过行锁）；明确指定表名称则只锁指定表否则锁所有使用的表；应用于视图或子查询时同样锁定其中所有表；多个锁定子句可为不同表指定不同锁定模式（同表出现在多个子句按最强锁处理，NOWAIT同理）。"
+  source_anchor: "2.4.2.16.2 锁定子句 页2260"
+  source_refs: *refmsel
+  status: confirmed
+- id: m_select_wave8_137_lock_ustore
+  type: constraint
+  statement: "M兼容对ustore表的查询只支持FOR SHARE/FOR UPDATE/FOR READ ONLY/LOCK IN SHARE MODE。"
+  source_anchor: "2.4.2.16.2 锁定子句 须知 页2260"
+  source_refs: *refmsel
+  status: confirmed
+- id: m_select_wave8_137_examples_basic
+  type: behavior_oracle
+  statement: "示例基线（m_db）：CREATE TABLE student(sid INT PRIMARY KEY, class INT, name VARCHAR(50), gender INT CHECK(...))插入3行后SELECT sid,name FROM student部分列查询、SELECT * FROM student全列查询、SELECT sid student_id, name FROM student给列取别名。"
+  source_anchor: "2.4.2.16.2 示例 页2261"
+  source_refs: *refmsel
+  status: confirmed
+- id: m_select_wave8_137_examples_advanced
+  type: behavior_oracle
+  statement: "子查询与集合示例：查询出Sally和Luke的学生（IN）、查询出2年级比3年级任意一个人都高的学生（ANY）、查询出1年级比2年级所有人都高的学生（ALL）、查询身高大于本班级平均身高的学生（聚合子查询）；UNION示例与EXCEPT示例（a/b/c三表EXCEPT与EXCEPT ALL对照）。"
+  source_anchor: "2.4.2.16.2 示例 页2261-2270"
+  source_refs: *refmsel
+  status: confirmed
+open_questions:
+- id: m_select_wave8_137_oq_runtime
+  statement: "M兼容TIMECAPSULE闪回查询在TRUNCATE后时间点与CSN方式的差异行为、别名七条限制在复杂查询中的完整判定、SKIP LOCKED跳行锁的并发场景需授权环境实机验证。"
+  status: open
