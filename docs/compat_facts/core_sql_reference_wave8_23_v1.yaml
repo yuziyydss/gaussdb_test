@@ -1,0 +1,139 @@
+document: 集中式版参考 / 1.13.7.36 ALTER TABLE（Wave 8-23）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-07'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.7.36 ALTER TABLE
+  physical_page_start: 1272
+  physical_page_end: 1301
+  physical_page_count: 30
+  excludes: []
+facts:
+- id: alt_wave8_23_purpose_actions
+  type: syntax
+  statement: "ALTER TABLE修改表属性，支持修改表定义、重命名表/列/约束、设置所属模式、添加/更新列、约束管理、CLUSTER标记、存储参数、属主/表空间、触发器、行访问控制、加密密钥轮转、REPLICA IDENTITY、AUTO_INCREMENT、字符集、ILM策略等action。"
+  source_anchor: "1.13.7.36 页1272与1275-1278"
+  source_refs: &refb1
+  - w8_23_1_13_7_36
+  status: confirmed
+- id: alt_wave8_23_permissions
+  type: constraint
+  statement: "表所有者、拥有表ALTER权限或ALTER ANY TABLE权限的用户可执行ALTER TABLE，系统管理员默认拥有该权限；修改表所有者或模式时，当前用户必须是表所有者或系统管理员，三权分立打开时修改所有者还须是新所有者角色成员。"
+  source_anchor: "1.13.7.36 注意事项 页1272"
+  source_refs: *refb1
+  status: confirmed
+- id: alt_wave8_23_object_boundaries
+  type: constraint
+  statement: "不能修改分区表的TABLESPACE但可修改分区的TABLESPACE；不支持修改ORIENTATION；SET SCHEMA不能改为系统内部模式，且相关索引/约束随表移动但序列不移动；不支持改变分区表分区键字段的字符集；不支持外表/临时表开启行访问控制，不支持系统列添加约束；rowid/rowno不能重命名、删除、设默认值或修改列定义。"
+  source_anchor: "1.13.7.36 注意事项 页1272"
+  source_refs: *refb1
+  status: confirmed
+- id: alt_wave8_23_add_column_defaults
+  type: constraint
+  statement: "ADD COLUMN会将现有行初始化为新列缺省值，未声明DEFAULT时为NULL；新增列默认值为NULL不触发全表更新。快速路径要求DEFAULT长度不超过128字节且不含volatile函数；PG兼容模式下SERIAL/BIGSERIAL/SMALLSERIAL仅支持普通表，不支持分区表、临时表、UNLOGGED表。"
+  source_anchor: "1.13.7.36 注意事项 页1273"
+  source_refs: *refb1
+  status: confirmed
+- id: alt_wave8_23_add_column_position
+  type: constraint
+  statement: "FIRST和AFTER column_name仅B模式支持；新增/修改列到指定位置或修改字段字符集会带来全表更新开销。加密列、外表和SET类型字段不支持位置调整，有规则依赖的表不支持改变列位置。"
+  source_anchor: "1.13.7.36 注意事项与FIRST/AFTER 页1273、1294"
+  source_refs: *refb1
+  status: confirmed
+- id: alt_wave8_23_table_constraint_limits
+  type: constraint
+  statement: "表约束个数不能超过32767；执行在线DDL需预留足够磁盘空间，剩余空间应不少于所操作表及其索引等附属对象的总和。"
+  source_anchor: "1.13.7.36 注意事项 页1273"
+  source_refs: *refb1
+  status: confirmed
+- id: alt_wave8_23_online_ddl_restrictions
+  type: constraint
+  statement: "在线DDL不能在事务或存储过程中执行，M-Compatibility模式不支持；在线DDL与业务存在资源争抢，不建议大业务背景使用；长事务可能阻塞在线DDL，执行后期会阻塞DQL/DML，执行期间应避免其他DDL并发。"
+  source_anchor: "1.13.7.36 注意事项 页1273-1274"
+  source_refs: *refb1
+  status: confirmed
+- id: alt_wave8_23_online_ddl_fallback
+  type: constraint
+  statement: "ONLINE在不支持场景下自动退化为离线并提示忽略ONLINE；数据库级、索引级、二级分区表、段页式表、hash bucket表、临时表、UNLOGGED表和HTAP表不支持在线DDL；包含表达式的在线加主键/唯一约束也退化为离线。"
+  source_anchor: "1.13.7.36 注意事项 页1273-1274"
+  source_refs: *refb1
+  status: confirmed
+- id: alt_wave8_23_online_ddl_parameters
+  type: syntax
+  statement: "ONLINE WITH可设置parallel_threads和max_catchup_times；parallel_threads取1-32，缺省1，大于1开启多线程；max_catchup_times取1-50，缺省50，用于限制在线DDL重建增量数据的最大追增轮次。"
+  source_anchor: "1.13.7.36 ONLINE/online_parameter 页1283-1284"
+  source_refs: *refb1
+  status: confirmed
+- id: alt_wave8_23_online_ddl_failure
+  type: constraint
+  statement: "在线DDL使用临时模式并将表置为append_mode，正常完成后自动清理；等锁超时可能清理失败，FATAL/PANIC/数据库故障/节点断连后可能残留，需要online_ddl_cleanup()手动清理。用户取消时先进入残留清理，再次取消会结束清理并导致残留。"
+  source_anchor: "1.13.7.36 ONLINE错误处理 页1283"
+  source_refs: *refb1
+  status: confirmed
+- id: alt_wave8_23_table_actions
+  type: syntax
+  statement: "表action支持ADD table_constraint [NOT VALID]、根据已有唯一索引ADD主键/唯一约束、VALIDATE CONSTRAINT、DROP CONSTRAINT、DROP PRIMARY KEY和DROP FOREIGN KEY；DROP PRIMARY KEY仅A/B模式支持，DROP FOREIGN KEY仅sql_compatibility='B'有效。"
+  source_anchor: "1.13.7.36 action说明 页1275-1276"
+  source_refs: *refb1
+  status: confirmed
+- id: alt_wave8_23_cluster_rowid_storage
+  type: syntax
+  statement: "CLUSTER ON为将来CLUSTER选择默认索引但不立即重盘簇，SET WITHOUT CLUSTER移除默认索引；SET WITH ROWID添加rowid/rowno系统列并设置hasrowid=on，但不支持系统表、本地/全局临时表、UNLOGGED表和外表；SET/RESET可修改存储参数，OWNER TO和SET TABLESPACE修改属主与表空间。"
+  source_anchor: "1.13.7.36 action说明 页1276与1286-1288"
+  source_refs: *refb1
+  status: confirmed
+- id: alt_wave8_23_trigger_rls_encryption
+  type: syntax
+  statement: "ALTER TABLE可禁用/启用单个、ALL或USER触发器，配置REPLICA/ALWAYS触发器；可开启/关闭行访问控制，FORCE控制表所有者是否受行级策略影响；ENCRYPTION KEY ROTATION仅在开启TDE且表enable_tde=on时可轮转数据加密密钥。"
+  source_anchor: "1.13.7.36 action说明 页1277"
+  source_refs: *refb1
+  status: confirmed
+- id: alt_wave8_23_replica_identity
+  type: syntax
+  statement: "REPLICA IDENTITY指定逻辑复制中UPDATE/DELETE旧元组记录级别，支持DEFAULT、USING INDEX、FULL、NOTHING和UNIQUE；有主键表可用DEFAULT/FULL，无主键表需FULL，不建议NOTHING。Ustore表NOTHING无效且等同FULL。"
+  source_anchor: "1.13.7.36 REPLICA IDENTITY 页1277-1278"
+  source_refs: *refb1
+  status: confirmed
+- id: alt_wave8_23_auto_increment_charset
+  type: constraint
+  statement: "AUTO_INCREMENT=value设置下一次自增值，仅B模式生效，值必须非负且不超过2^127-1，只有大于当前计数器才生效；设置表默认字符集/字符序不影响已有列，CONVERT TO字符集会转换所有字符字段及其数据。"
+  source_anchor: "1.13.7.36 AUTO_INCREMENT/字符集 页1278"
+  source_refs: *refb1
+  status: confirmed
+- id: alt_wave8_23_ilm_policies
+  type: syntax
+  statement: "ALTER TABLE可追加ILM高级压缩策略，可按分区/子分区ENABLE/DISABLE/DELETE单个策略，或ENABLE_ALL/DISABLE_ALL/DELETE_ALL；ILM行级EXPR只支持表字段和白名单函数，不影响闪回功能。"
+  source_anchor: "1.13.7.36 ILM 页1278"
+  source_refs: *refb1
+  status: confirmed
+- id: alt_wave8_23_column_clause
+  type: syntax
+  statement: "column_clause支持ADD COLUMN、ADD多列、MODIFY列、CHANGE列、DROP COLUMN、ALTER COLUMN TYPE/DEFAULT/NOT NULL/STATISTICS/STORAGE、增删启停多列统计、MODIFY IDENTITY和ADD GENERATED AS IDENTITY。"
+  source_anchor: "1.13.7.36 column_clause 页1278-1279"
+  source_refs: *refb1
+  status: confirmed
+- id: alt_wave8_23_modify_change_bmode
+  type: constraint
+  statement: "MODIFY [COLUMN]替换列定义，CHANGE [COLUMN]同时替换列名和定义；两者仅在sql_compatibility='B'时使用，不支持外表，修改分区键数据类型/排序规则受限，被索引、约束、视图、触发器或行级策略依赖时可能重建对象或失败。"
+  source_anchor: "1.13.7.36 MODIFY/CHANGE 页1279-1280"
+  source_refs: *refb1
+  status: confirmed
+- id: alt_wave8_23_type_using_stats
+  type: constraint
+  statement: "ALTER COLUMN TYPE可用USING表达式从旧值计算新值；若无隐含或赋值转换则必须提供USING。修改列数据类型会清空该列统计信息，建议重新收集；用非空缺省值增加列或改变现有类型会重写整个表，大表耗时长且可能临时需要两倍磁盘空间。"
+  source_anchor: "1.13.7.36 MODIFY/USING/SET SCHEMA 页1279、1282-1283、1288"
+  source_refs: *refb1
+  status: confirmed
+- id: alt_wave8_23_constraints_identity
+  type: constraint
+  statement: "CHECK表达式不能包含子查询或当前行字段以外变量；DEFAULT类型必须匹配列。IDENTITY支持ALWAYS、BY DEFAULT和BY DEFAULT ON NULL；仅支持指定数字类型，默认NOT NULL，一表只能一个，隐式序列为LARGE SEQUENCE且不能用DROP/ALTER LARGE SEQUENCE修改。"
+  source_anchor: "1.13.7.36 CHECK/DEFAULT/IDENTITY 页1289-1292"
+  source_refs: *refb1
+  status: confirmed
+open_questions:
+- id: alt_wave8_23_oq_runtime
+  statement: "ALTER TABLE在真实表规模、在线/离线DDL、分区、约束、字符集转换、ILM和逻辑复制组合下的结果、锁等待、残留对象与性能矩阵需授权环境实机验证。"
+  status: open
