@@ -1,0 +1,139 @@
+document: 集中式版参考 / 1.13.9.27 CREATE INDEX（Wave 8-22）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-07'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.9.27 CREATE INDEX
+  physical_page_start: 1453
+  physical_page_end: 1472
+  physical_page_count: 20
+  excludes: []
+facts:
+- id: idx_wave8_22_purpose_usage
+  type: syntax
+  statement: "CREATE INDEX在指定表上创建索引；建议用于频繁查询字段、连接条件字段、WHERE过滤字段以及经常出现在ORDER BY/GROUP BY/DISTINCT后的字段。分区表索引根据GLOBAL/LOCAL关键字、分区名和UNIQUE是否包含全部分区键决定类型，缺省创建GLOBAL索引。"
+  source_anchor: "1.13.9.27 页1453"
+  source_refs: &refb1
+  - w8_22_1_13_9_27
+  status: confirmed
+- id: idx_wave8_22_permissions
+  type: constraint
+  statement: "CREATE ANY INDEX权限用户可在PUBLIC模式和用户模式创建索引；表达式索引调用用户自定义函数时按表Owner权限执行。非初始用户不能在初始用户表上创建表达式索引，三权分立开关还会进一步约束系统管理员可操作的用户范围。"
+  source_anchor: "1.13.9.27 注意事项 页1454"
+  source_refs: *refb1
+  status: confirmed
+- id: idx_wave8_22_immutable
+  type: constraint
+  statement: "索引定义中的所有函数和操作符必须是IMMUTABLE；用户定义函数要用于索引或索引WHERE中时必须标记为immutable。"
+  source_anchor: "1.13.9.27 注意事项 页1454"
+  source_refs: *refb1
+  status: confirmed
+- id: idx_wave8_22_cost_and_plan
+  type: constraint
+  statement: "索引占用存储和计算资源，创建过多索引会降低数据库性能，尤其影响数据导入，建议先导入数据再建索引；CREATE INDEX可能改变表访问方式并导致查询执行计划变化。"
+  source_anchor: "1.13.9.27 注意事项 页1454"
+  source_refs: *refb1
+  status: confirmed
+- id: idx_wave8_22_partition_local_global
+  type: syntax
+  statement: "分区表索引分为LOCAL和GLOBAL；LOCAL索引与具体分区绑定，GLOBAL索引对应整个分区表。未指定LOCAL/GLOBAL时默认创建GLOBAL索引。"
+  source_anchor: "1.13.9.27 注意事项与GLOBAL参数 页1454、1463"
+  source_refs: *refb1
+  status: confirmed
+- id: idx_wave8_22_concurrently
+  type: constraint
+  statement: "CONCURRENTLY以ShareUpdateExclusiveLock方式创建索引，不阻塞DML；该选项一次只能指定一个索引名，不能在事务或存储过程中执行；临时表虽然支持该关键字，但实际采用阻塞式创建。"
+  source_anchor: "1.13.9.27 CONCURRENTLY 页1455-1456"
+  source_refs: *refb1
+  status: confirmed
+- id: idx_wave8_22_concurrently_build
+  type: syntax
+  statement: "在线创建索引时Astore执行两次全表扫描并合并变更；Ustore执行一次全表扫描，并发DML数据先写入“index_oid_cctmp”临时表，扫描结束后合并到主索引并删除临时表。delete_cctmp_table默认on，设置为off时保留临时表。"
+  source_anchor: "1.13.9.27 CONCURRENTLY说明 页1457"
+  source_refs: *refb1
+  status: confirmed
+- id: idx_wave8_22_concurrently_failure
+  type: constraint
+  statement: "在线创建索引可能因取消、唯一键重复、资源不足、线程启动失败或锁超时等失败，并可能留下not valid索引；系统会自动清理，但清理也可能失败或残留。FATAL/PANIC/数据库故障等严重场景需手动清理索引和临时表。"
+  source_anchor: "1.13.9.27 CONCURRENTLY失败清理 页1457"
+  source_refs: *refb1
+  status: confirmed
+- id: idx_wave8_22_online_performance
+  type: constraint
+  statement: "在线创建索引消耗更多I/O、CPU和网络带宽，资源不受限时通常为离线创建的2~6倍；并发事务量大或资源争抢时可能更长。Astore/Ustore并行创建一般可提升约30%性能，建议在业务低谷期执行并避免长事务。"
+  source_anchor: "1.13.9.27 CONCURRENTLY性能 页1457"
+  source_refs: *refb1
+  status: confirmed
+- id: idx_wave8_22_unique
+  type: constraint
+  statement: "UNIQUE索引在插入或更新引发重复记录时报错；当前只有B-Tree和UB-Tree索引支持唯一索引。"
+  source_anchor: "1.13.9.27 UNIQUE 页1455"
+  source_refs: *refb1
+  status: confirmed
+- id: idx_wave8_22_type_and_length_limits
+  type: constraint
+  statement: "XML类型不能作为普通索引、UNIQUE索引、GLOBAL索引、LOCAL索引和部分索引；不支持包含rowid/rowno系统列的索引。B-Tree/UB-Tree单个索引元组最长2696字节，Ustore UB-Tree因事务信息实际最长2688字节。创建索引SQL长度达到5250字符会报WARNING。"
+  source_anchor: "1.13.9.27 注意事项 页1454"
+  source_refs: *refb1
+  status: confirmed
+- id: idx_wave8_22_composite_leftmost
+  type: constraint
+  statement: "创建组合索引需遵循最左匹配原则：查询条件从组合索引最左侧开始的连续列匹配时效果最佳；仅匹配右侧列时可能扫描全部索引页，性能不理想。"
+  source_anchor: "1.13.9.27 组合索引 页1454-1455"
+  source_refs: *refb1
+  status: confirmed
+- id: idx_wave8_22_methods
+  type: syntax
+  statement: "USING支持btree、ubtree、ugin、gin和gist；Astore表支持btree、gin、gist，缺省btree；Ustore表支持ubtree和ugin。指定索引类型与表存储类型不对应时会自动转换。"
+  source_anchor: "1.13.9.27 USING method 页1458-1461"
+  source_refs: *refb1
+  status: confirmed
+- id: idx_wave8_22_ugin
+  type: constraint
+  statement: "UGIN仅支持Ustore和单列索引；不支持NULLS FIRST/LAST、INCLUDE、主键、唯一键、虚拟索引、加密、在线创建/重建/删除、并行、分区GLOBAL索引以及M模式；只能通过Bitmap Index Scan扫描，且gin_fuzzy_search_limit非0时报错。"
+  source_anchor: "1.13.9.27 ugin说明 页1458-1459"
+  source_refs: *refb1
+  status: confirmed
+- id: idx_wave8_22_gin_gist
+  type: syntax
+  statement: "GIN和GiST仅支持Astore；GIN可用于数组、tsvector和jsonb等组合值，只支持Bitmap Index Scan；GiST适用于box、point、polygon、range、tsquery、tsvector等类型，支持Bitmap Index Scan和Index Scan。两者均不支持ASC/DESC、NULLS FIRST/LAST、INCLUDE、主键、唯一键和虚拟索引。"
+  source_anchor: "1.13.9.27 gin/gist 页1459-1461"
+  source_refs: *refb1
+  status: confirmed
+- id: idx_wave8_22_keys_expressions
+  type: syntax
+  statement: "多字段索引中全局索引最多31列，其他索引最多32列；前缀键column_name(length)仅支持B-Tree/UB-Tree，length为不超过2676的正整数；表达式索引可用于表达式变形查询，但包含IS NULL的表达式索引无效。"
+  source_anchor: "1.13.9.27 column_name/前缀键/表达式 页1461-1462"
+  source_refs: *refb1
+  status: confirmed
+- id: idx_wave8_22_include
+  type: constraint
+  statement: "INCLUDE将非键列加入索引叶子元组；非键列不能用于加速搜索条件，唯一性检查也会忽略非键列。仅UB-Tree支持INCLUDE；宽非键列可能超过索引大小限制，且始终增加空间并可能减慢搜索。"
+  source_anchor: "1.13.9.27 INCLUDE 页1463"
+  source_refs: *refb1
+  status: confirmed
+- id: idx_wave8_22_partition_clause
+  type: syntax
+  statement: "分区索引PARTITION/SUBPARTITION子句可指定索引分区名、FOR分区名/分区键值和表空间；带FOR时创建分类索引，不带FOR时分区子句数量必须与目标表分区一一对应。分类索引仅支持B-Tree/UB-Tree且不支持UNIQUE。"
+  source_anchor: "1.13.9.27 PARTITION子句 页1463-1464"
+  source_refs: *refb1
+  status: confirmed
+- id: idx_wave8_22_storage_ilm
+  type: syntax
+  statement: "WITH可为索引指定STORAGE_TYPE、FILLFACTOR、GIN/UGIN增量缓存、UB-Tree分裂和事务类型、TDE等参数；ILM ADD POLICY ROW STORE COMPRESS支持TURBO跨页透明压缩或NONE，未指定压缩级别时默认MEDIUM，未显式指定策略时与表保持一致。"
+  source_anchor: "1.13.9.27 WITH/ILM 页1464-1468"
+  source_refs: *refb1
+  status: confirmed
+- id: idx_wave8_22_partial_options
+  type: constraint
+  statement: "WHERE predicate创建部分索引，predicate只能引用表字段，不能包含子查询和聚集表达式；GLOBAL分区索引不支持WHERE。COMMENT仅B模式有效且最大1024字符；VISIBLE/INVISIBLE仅A模式支持，VISIBLE为缺省。"
+  source_anchor: "1.13.9.27 WHERE/COMMENT/VISIBLE/INVISIBLE 页1468-1469"
+  source_refs: *refb1
+  status: confirmed
+open_questions:
+- id: idx_wave8_22_oq_runtime
+  statement: "CREATE INDEX在真实存储引擎、分区、并发DML、TDE、ILM压缩和执行计划组合下的创建结果、残留索引与性能矩阵需授权环境实机验证。"
+  status: open
