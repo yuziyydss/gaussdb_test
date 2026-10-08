@@ -1,0 +1,143 @@
+document: 集中式版参考 / 1.13.18.5 REINDEX、1.13.18.6 RELEASE SAVEPOINT 与 1.13.18.7 RENAME TABLE（Wave 8-65）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-07'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.18.5 REINDEX
+  - 1.13.18.6 RELEASE SAVEPOINT
+  - 1.13.18.7 RENAME TABLE
+  physical_page_start: 1784
+  physical_page_end: 1789
+  physical_page_count: 6
+  excludes: []
+facts:
+- id: reindex_wave8_65_purpose
+  type: syntax
+  statement: "REINDEX为表中的数据重建索引，适用于：索引崩溃且不再包含有效数据；索引变得臃肿（包含大量空页或接近空页）；为索引更改了存储参数（例如填充因子）且希望更改完全生效；使用CONCURRENTLY选项创建索引失败留下非法索引。"
+  source_anchor: "1.13.18.5 功能描述 页1784"
+  source_refs: &refreindex
+  - w8_65_1_13_18_5
+  status: confirmed
+- id: reindex_wave8_65_txblock_matview
+  type: constraint
+  statement: "REINDEX DATABASE和SYSTEM这种形式的重建索引不能在事务块中执行；目前不支持对物化视图进行REINDEX操作。"
+  source_anchor: "1.13.18.5 注意事项 页1784"
+  source_refs: *refreindex
+  status: confirmed
+- id: reindex_wave8_65_lpi_parallel
+  type: constraint
+  statement: "若索引带有lpi_parallel_method选项，取值为PARTITION且表的parallel_workers选项大于0时，不支持对该索引并行重建；无该选项或选项取值为AUTO时，并行重建时会默认走页面级并行重建索引。"
+  source_anchor: "1.13.18.5 注意事项 页1784"
+  source_refs: *refreindex
+  status: confirmed
+- id: reindex_wave8_65_concurrently_type_limits
+  type: constraint
+  statement: "REINDEX CONCURRENTLY在线重建索引导致表上索引顺序改变时，可能导致查询计划改变；REINDEX [CONCURRENTLY]当前不支持修改ubtree索引的RCR和PCR类型，REINDEX后的索引类型与创建索引时的类型保持一致；REINDEX CONCURRENTLY不支持对基于rowid系统列的索引进行重建。"
+  source_anchor: "1.13.18.5 注意事项 页1784"
+  source_refs: *refreindex
+  status: confirmed
+- id: reindex_wave8_65_syntax
+  type: syntax
+  statement: "三种语法形式：重建普通索引REINDEX {INDEX | [INTERNAL] TABLE | DATABASE | SYSTEM} [CONCURRENTLY] name [FORCE]；重建索引并进行类型转换REINDEX [(option[, ...])] {INDEX} [CONCURRENTLY] name [FORCE]；重建索引分区REINDEX {INDEX | [INTERNAL] TABLE} name PARTITION partition_name [FORCE]。"
+  source_anchor: "1.13.18.5 语法格式 页1784-1785"
+  source_refs: *refreindex
+  status: confirmed
+- id: reindex_wave8_65_object_scope
+  type: constraint
+  statement: "INDEX重建指定索引；TABLE重建指定表的所有索引（有从属TOAST表时一并重建），已被alter unusable失效的索引无法被重新创建，指定CONCURRENTLY时暂不支持重建从属TOAST表上的索引；DATABASE重建当前数据库里的所有索引（CONCURRENTLY时暂不支持重建表中从属TOAST表上的索引）；SYSTEM在当前数据库上重建所有系统表上的索引、不处理用户表上的索引；INTERNAL TABLE大多用于故障恢复，不建议进行并发操作。"
+  source_anchor: "1.13.18.5 参数说明 INDEX/TABLE/DATABASE/SYSTEM 页1785"
+  source_refs: *refreindex
+  status: confirmed
+- id: reindex_wave8_65_crossbucket_option
+  type: constraint
+  statement: "option当前仅支持CROSSBUCKET一种，值只能为ON或OFF，用来控制hashbucket表的索引是否在REINDEX过程中转换为跨bucket索引（CBI）或local-bucket-index（LBI）索引；此项转换不支持集中式hashbucket表的索引，不支持GSI索引。"
+  source_anchor: "1.13.18.5 参数说明 option 页1785"
+  source_refs: *refreindex
+  status: confirmed
+- id: reindex_wave8_65_concurrently_limits
+  type: constraint
+  statement: "CONCURRENTLY以不阻塞DML方式重建索引（加ShareUpdateExclusiveLock锁）：不支持在线重建系统表上的索引，不支持REINDEX INTERNAL TABLE CONCURRENTLY、REINDEX SYSTEM CONCURRENTLY和REINDEX INVALID INDEX CONCURRENTLY；REINDEX DATABASE CONCURRENTLY在线重建当前数据库中用户表上的所有索引（不处理系统表）；REINDEX CONCURRENTLY不可以在事务内执行；在线重建只支持B-tree和UB-tree索引、只支持普通/GLOBAL/LOCAL索引，不支持PCR ubtree索引、二级分区与GSI；在线并行重建只支持Astore及Ustore的普通/GLOBAL/LOCAL索引；重建失败时对用户取消、唯一键重复、资源不足、启动线程失败、锁超时等场景系统自动清理新索引（进入DROP INDEX CONCURRENTLY流程，可能清理失败）；无法自动清理时（宕机、FATAL、PANIC）需尽快手动DROP INDEX非法新索引（后缀名一般为_ccnew）和DROP TABLE临时表；REINDEX INDEX CONCURRENTLY对表加4级会话锁，前几个阶段与CREATE INDEX CONCURRENTLY相似，可能产生卡住或死锁（如两个会话同时对同一索引或表进行REINDEX CONCURRENTLY）。"
+  source_anchor: "1.13.18.5 参数说明 CONCURRENTLY 页1785-1786"
+  source_refs: *refreindex
+  status: confirmed
+- id: reindex_wave8_65_build_detail
+  type: constraint
+  statement: "CONCURRENTLY重建过程：Astore需先后两次全表扫描完成build，第一次创建新索引不阻塞读写，第二次合并更新第一次扫描后发生的变更；Ustore需一次全表扫描，扫描中并发DML产生的数据插入以index_oid_cctmp命名的临时表，扫描结束后合并临时表到以_ccnew{n}为后缀的新索引并删除临时表，交换新旧索引，旧索引标记为死亡、启用新索引。"
+  source_anchor: "1.13.18.5 参数说明 CONCURRENTLY 说明 页1786"
+  source_refs: *refreindex
+  status: confirmed
+- id: reindex_wave8_65_name_force_partition
+  type: constraint
+  statement: "name为需要重建索引的索引、表、数据库的名称，表和索引可以有模式修饰；REINDEX DATABASE和SYSTEM只能重建当前数据库的索引，name必须和当前数据库名称相同；FORCE仅为语法兼容并无实际含义；partition_name取值：前面是REINDEX INDEX时指定索引名称，前面是REINDEX TABLE时指定表名称。"
+  source_anchor: "1.13.18.5 参数说明 name/FORCE/partition_name 页1786"
+  source_refs: *refreindex
+  status: confirmed
+- id: reindex_wave8_65_example
+  type: behavior_oracle
+  statement: "示例中ustore表建索引后初始大小64 kB，插入一万行再删除后索引涨到376 kB，REINDEX INDEX idx_test_c1后索引大小回到64 kB；随后REINDEX INDEX CONCURRENTLY在线重建单独索引、REINDEX TABLE和REINDEX TABLE CONCURRENTLY重建表上所有索引。"
+  source_anchor: "1.13.18.5 示例 页1786-1787"
+  source_refs: *refreindex
+  status: confirmed
+- id: release_savepoint_wave8_65_purpose
+  type: syntax
+  statement: "RELEASE SAVEPOINT用于删除当前事务先前定义的保存点：删除后该保存点无法作为回滚点使用，此外没有其它用户可见的行为；它不撤销保存点建立之后执行的命令的影响（撤销需使用ROLLBACK TO SAVEPOINT）；不再需要时删除保存点可令系统在事务结束前提前回收资源；RELEASE SAVEPOINT也删除在指定保存点建立之后建立的所有保存点。"
+  source_anchor: "1.13.18.6 功能描述 页1787"
+  source_refs: &refrelease
+  - w8_65_1_13_18_6
+  status: confirmed
+- id: release_savepoint_wave8_65_constraints
+  type: constraint
+  statement: "不能RELEASE一个没有定义的保存点，语法上会报错；如果事务在回滚状态，则不能释放保存点；如果多个保存点拥有同样的名称，只有最近定义的才被释放。"
+  source_anchor: "1.13.18.6 注意事项 页1787"
+  source_refs: *refrelease
+  status: confirmed
+- id: release_savepoint_wave8_65_syntax
+  type: syntax
+  statement: "语法为RELEASE [SAVEPOINT] savepoint_name；savepoint_name为要删除的保存点的名称。"
+  source_anchor: "1.13.18.6 语法格式/参数说明 页1788"
+  source_refs: *refrelease
+  status: confirmed
+- id: release_savepoint_wave8_65_example
+  type: behavior_oracle
+  statement: "示例中事务内SAVEPOINT my_savepoint后插入4，RELEASE SAVEPOINT my_savepoint删除保存点，SELECT同时看到3和4，COMMIT后数据仍然都在（相关链接SAVEPOINT、ROLLBACK TO SAVEPOINT）。"
+  source_anchor: "1.13.18.6 示例 页1788"
+  source_refs: *refrelease
+  status: confirmed
+- id: rename_table_wave8_65_purpose
+  type: syntax
+  statement: "RENAME TABLE可在同一条语句中修改单个表或多个表的名称，对名称的修改不会影响所存储的数据。"
+  source_anchor: "1.13.18.7 功能描述 页1788"
+  source_refs: &refrename
+  - w8_65_1_13_18_7
+  status: confirmed
+- id: rename_table_wave8_65_alter_equivalence
+  type: constraint
+  statement: "修改单个表名称时与ALTER TABLE中RENAME语法等价；修改多个表名称时与同时执行多次ALTER TABLE中RENAME语法等价，但不支持多组表中同时存在本地临时表和非本地临时表修改表名称的场景。"
+  source_anchor: "1.13.18.7 注意事项 页1789"
+  source_refs: *refrename
+  status: confirmed
+- id: rename_table_wave8_65_syntax
+  type: syntax
+  statement: "语法为RENAME {TABLE | TABLES} table_name TO new_table_name[, table_name2 TO new_table_name2, ...]；TABLE和TABLES可以互相替换使用，与语句中操作表的个数无关；table_name等为需要修改的表名，new_table_name等为修改后的新表名，TO为中间连接词。"
+  source_anchor: "1.13.18.7 语法格式/参数说明 页1789"
+  source_refs: *refrename
+  status: confirmed
+- id: rename_table_wave8_65_b_mode_special
+  type: constraint
+  statement: "在B模式库5.7版本（sql_compatibility='B'、b_format_version='5.7'、b_format_dev_version='s2'）下执行：新表名字符串以#MySQL50#开始且其后还有其他字符时，#MySQL50#将被忽略；如果新旧表名一致，不会报错。"
+  source_anchor: "1.13.18.7 语法格式说明 页1789"
+  source_refs: *refrename
+  status: confirmed
+- id: rename_table_wave8_65_example
+  type: behavior_oracle
+  statement: "示例覆盖单表改名RENAME TABLE aa TO test_alt1和多表改名RENAME TABLE aa TO test_alt1, bb TO test_alt2，改名后以新表名DROP清理（相关链接ALTER TABLE）。"
+  source_anchor: "1.13.18.7 修改表示例 页1789"
+  source_refs: *refrename
+  status: confirmed
+open_questions:
+- id: reindex_wave8_65_oq_runtime
+  statement: "REINDEX（含CONCURRENTLY与失败清理路径）、RELEASE SAVEPOINT异常路径和RENAME TABLE多表/临时表组合下的完整行为与错误矩阵需授权环境实机验证。"
+  status: open
