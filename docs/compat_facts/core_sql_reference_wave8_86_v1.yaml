@@ -1,0 +1,145 @@
+document: 集中式版参考 / 1.13.9.12-15 CREATE CAST/CLIENT MASTER KEY/COLUMN ENCRYPTION KEY/CONVERSION（Wave 8-86）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-07'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.9.12 CREATE CAST
+  - 1.13.9.13 CREATE CLIENT MASTER KEY
+  - 1.13.9.14 CREATE COLUMN ENCRYPTION KEY
+  - 1.13.9.15 CREATE CONVERSION
+  physical_page_start: 1405
+  physical_page_end: 1412
+  physical_page_count: 8
+  excludes: []
+facts:
+- id: create_cast_wave8_86_purpose
+  type: syntax
+  statement: "CREATE CAST创建一个用户自定义的类型转换；三种语法：CREATE CAST (source_type AS target_type) WITH FUNCTION function_name (argument_type[, ...]) [AS ASSIGNMENT | AS IMPLICIT]、CREATE CAST (source_type AS target_type) WITHOUT FUNCTION [AS ASSIGNMENT | AS IMPLICIT]、CREATE CAST (source_type AS target_type) WITH INOUT [AS ASSIGNMENT | AS IMPLICIT]。"
+  source_anchor: "1.13.9.12 功能描述/语法格式 页1405-1406"
+  source_refs: &refcast
+  - w8_86_1_13_9_12
+  status: confirmed
+- id: create_cast_wave8_86_params
+  type: constraint
+  statement: "参数：source_type为转换的源数据类型；target_type为目标数据类型；function_name为用于实现转换的函数（可模式指定，未指定从搜索路径查找），转换函数结果类型必须与目标类型相同/匹配或可二进制强制转换；转换实现函数可有1~3个参数：第一个参数类型必须与源类型相同或可从源类型二进制强制转换；第二个参数（如存在）必须为INTEGER接收与目标类型关联的类型修饰符（无修饰符收到-1）；第三个参数（如存在）必须为Boolean（显式转换为true否则false）。"
+  source_anchor: "1.13.9.12 参数说明 页1406-1407"
+  source_refs: *refcast
+  status: confirmed
+- id: create_cast_wave8_86_without_inout
+  type: constraint
+  statement: "WITHOUT FUNCTION表示源类型到目标类型通过二进制强制转换，不通过转换函数进行转换；WITH INOUT表示I/O转换，通过调用源数据类型的输出函数实现并将结果传递给目标数据类型的输入函数。"
+  source_anchor: "1.13.9.12 参数说明 页1407"
+  source_refs: *refcast
+  status: confirmed
+- id: create_cast_wave8_86_assignment_implicit
+  type: constraint
+  statement: "AS ASSIGNMENT表示转换可以在赋值情况下隐式调用；AS IMPLICIT表示可以在任何上下文中隐式调用；通常转换必须有不同的源/目标数据类型，但转换实现函数含多个参数时允许声明相同源目标类型的转换（主要用于系统目录中特定类型的长度转换函数）；源目标不同且实现函数多参数时支持单步骤转换并同时应用长度转换；对域类型的转换目前没有作用（转换一般针对域相关的所属数据类型）。"
+  source_anchor: "1.13.9.12 参数说明 AS ASSIGNMENT/AS IMPLICIT 页1407"
+  source_refs: *refcast
+  status: confirmed
+- id: create_cast_wave8_86_privileges
+  type: constraint
+  statement: "CAST转换以调用转换操作的用户的权限进行执行；高权限用户在调用其他用户创建的转换时，需要检查转换函数的执行内容，以免转换的创建者借用执行者的权限执行越权操作。"
+  source_anchor: "1.13.9.12 注意事项 页1405"
+  source_refs: *refcast
+  status: confirmed
+- id: create_cast_wave8_86_example
+  type: behavior_oracle
+  statement: "示例中CREATE OR REPLACE FUNCTION double_to_timestamp(double precision) RETURNS TIMESTAMP WITH TIME ZONE（SQL STRICT）后CREATE CAST(double precision AS timestamp with time zone) WITH FUNCTION double_to_timestamp(double precision) AS IMPLICIT创建指派映射，DROP CAST (double precision AS timestamp with time zone)删除（相关链接DROP CAST）。"
+  source_anchor: "1.13.9.12 示例 页1407"
+  source_refs: *refcast
+  status: confirmed
+- id: create_client_master_key_wave8_86_purpose
+  type: syntax
+  statement: "CREATE CLIENT MASTER KEY创建主密钥对象；密态等值查询特性使用多级加密模型，主密钥加密列密钥，列密钥加密数据；语法为CREATE CLIENT MASTER KEY client_master_key_name WITH (KEY_STORE = key_store_name, KEY_PATH = key_path_value, ALGORITHM = algorithm_type)。"
+  source_anchor: "1.13.9.13 功能描述/语法格式 页1407-1408"
+  source_refs: &refcmk
+  - w8_86_1_13_9_13
+  status: confirmed
+- id: create_client_master_key_wave8_86_prerequisites
+  type: constraint
+  statement: "CREATE CLIENT MASTER KEY属于全密态数据库特有语法；连接数据库时需在数据库驱动侧开启密态等值查询特性连接参数才可执行；主密钥由外部密钥管理者提供，本语法仅处理密钥来源、密钥ID等信息；已支持的外部密钥管理者包括华为云密钥管理服务hcs_kms、用户密码派生密钥或直接提供密钥user_token、基于鲲鹏TEE的内生密钥管理和三未信安SJJ1994加密机sdf_kms；使用前需在数据库驱动侧为外部密钥管理者设置环境变量。"
+  source_anchor: "1.13.9.13 注意事项 页1408"
+  source_refs: *refcmk
+  status: confirmed
+- id: create_client_master_key_wave8_86_params
+  type: constraint
+  statement: "参数：client_master_key_name为密钥对象名（同一命名空间下需满足命名唯一性约束，字符串符合标识符命名规范）；KEY_STORE为外部密钥管理者，为user_token时无需提供KEY_PATH，为sdf_kms时无需提供ALGORITHM（默认SGD_SM4_ECB）；KEY_PATH由外部密钥管理者管理的密钥，不同密钥管理者格式不同，字符串由单引号或双引号包裹（长度超过64则只能使用单引号）；ALGORITHM为密钥采用的加密算法。"
+  source_anchor: "1.13.9.13 参数说明 页1408-1409"
+  source_refs: *refcmk
+  status: confirmed
+- id: create_client_master_key_wave8_86_keystore_table
+  type: constraint
+  statement: "表1-374：hcs_kms的KEY_PATH格式为'{KmsApiUrl}/{密钥ID}'（需自行查询密钥服务器地址），ALGORITHM支持AES_256、SM4；user_token不需提供KEY_PATH，ALGORITHM支持AES_256_CBC、AES_256_GCM、SM4、SM4_HMAC_SM3、SM4_CTR_HMAC_SM3；sdf_kms的KEY_PATH格式为'{密钥加密密钥（KEK）的ID}'（可调用iTrustee提供的密钥管理工具生成或由三未信安SJJ1994加密机中密钥管理工具生成），不需用户提供ALGORITHM。"
+  source_anchor: "1.13.9.13 表1-374 页1409"
+  source_refs: *refcmk
+  status: confirmed
+- id: create_client_master_key_wave8_86_example
+  type: behavior_oracle
+  statement: "user_token场景示例：source gsql_env.sh自动配置环境变量；创建用户alice后使用gsql -C参数连接；\\key_info keyType=user_token,password=...（密码长度不小于8且包含大小写字母、数字、符号其中3种）或key_token=...（16进制密钥）；CREATE CLIENT MASTER KEY alice_cmk WITH (KEY_STORE = user_token, ALGORITHM = AES_256_GCM)；DROP CLIENT MASTER KEY alice_cmk删除（相关链接DROP CLIENT MASTER KEY）。"
+  source_anchor: "1.13.9.13 示例 页1409-1410"
+  source_refs: *refcmk
+  status: confirmed
+- id: create_column_encryption_key_wave8_86_purpose
+  type: syntax
+  statement: "CREATE COLUMN ENCRYPTION KEY创建一个列加密密钥，该密钥可用于加密表中的指定列；属于全密态数据库特有语法，gsql连接需使用-C参数打开全密态数据库开关；创建的列密钥对象（CEK）可用于列级加密，定义表中列字段时可指定一个CEK对象加密该列；语法为CREATE COLUMN ENCRYPTION KEY column_encryption_key_name WITH VALUES(CLIENT_MASTER_KEY = client_master_key_name, ALGORITHM = algorithm_type [, ENCRYPTED_VALUE = encrypted_value])。"
+  source_anchor: "1.13.9.14 功能描述/注意事项/语法格式 页1410"
+  source_refs: &refcek
+  - w8_86_1_13_9_14
+  status: confirmed
+- id: create_column_encryption_key_wave8_86_params
+  type: constraint
+  statement: "参数：column_encryption_key_name为密钥对象名（同一命名空间下需满足命名唯一性约束，字符串符合标识符命名规范）；CLIENT_MASTER_KEY为客户端主密钥（由CREATE CLIENT MASTER KEY语法创建），用于加密指定的CEK；ALGORITHM指定该CEK将用于何种加密算法。"
+  source_anchor: "1.13.9.14 参数说明 页1410"
+  source_refs: *refcek
+  status: confirmed
+- id: create_column_encryption_key_wave8_86_algorithm
+  type: constraint
+  statement: "ALGORITHM取值：AEAD_AES_256_CBC_HMAC_SHA256、AEAD_AES_128_CBC_HMAC_SHA256、AEAD_AES_256_CTR_HMAC_SHA256、AES_256_GCM、SM4_HMAC_SM3、SM4_CTR_HMAC_SM3、SM4_SM3；数据膨胀率AEAD_AES_256_CTR_HMAC_SHA256 = SM4_CTR_HMAC_SM3 < AES_256_GCM < AEAD_AES_256_CBC_HMAC_SHA256 = AEAD_AES_128_CBC_HMAC_SHA256 = SM4_SM3 = SM4_HMAC_SM3，推荐使用AEAD_AES_256_CTR_HMAC_SHA256、SM4_CTR_HMAC_SM3或AES_256_GCM；当主密钥KEY_STORE为third_kms时，无需用户提供ALGORITHM参数。"
+  source_anchor: "1.13.9.14 参数说明 ALGORITHM 页1410"
+  source_refs: *refcek
+  status: confirmed
+- id: create_column_encryption_key_wave8_86_encrypted_value
+  type: constraint
+  statement: "ENCRYPTED_VALUE可选，为用户指定的密钥，密钥长度范围为28~256个字符：28个字符派生出的密钥安全强度满足AES128；若需使用AES256，密钥长度需要39个字符；如果不指定，则会自动生成256个字符的密钥。"
+  source_anchor: "1.13.9.14 参数说明 ENCRYPTED_VALUE 页1410"
+  source_refs: *refcek
+  status: confirmed
+- id: create_column_encryption_key_wave8_86_constraints
+  type: constraint
+  statement: "国密算法约束：SM2、SM3、SM4等属于中国国家密码标准算法需配套使用，创建CMK时指定SM4、SM4_HMAC_SM3、SM4_CTR_HMAC_SM3算法加密CEK，则创建CEK时必须指定SM4_SM3、SM4_HMAC_SM3、SM4_CTR_HMAC_SM3算法加密数据（使用sdf_kms密钥管理时不受该约束限制）；ENCRYPTED_VALUE字段约束：使用Huawei KMS生成的CMK加密CEK时，传入密钥长度应为16字节的整数倍（相关链接ALTER COLUMN ENCRYPTION KEY、DROP COLUMN ENCRYPTION KEY）。"
+  source_anchor: "1.13.9.14 须知 页1411"
+  source_refs: *refcek
+  status: confirmed
+- id: create_conversion_wave8_86_purpose
+  type: syntax
+  statement: "CREATE CONVERSION创建一种新的编码转换规则，用于将数据从一种字符编码（源编码）转换为另一种字符编码（目标编码）；语法为CREATE [DEFAULT] CONVERSION name FOR 'source_encoding' TO 'dest_encoding' FROM function_name。"
+  source_anchor: "1.13.9.15 功能描述/语法格式 页1411"
+  source_refs: &refconv
+  - w8_86_1_13_9_15
+  status: confirmed
+- id: create_conversion_wave8_86_internal
+  type: constraint
+  statement: "该功能为内部使用功能，用户无法直接使用，仅支持系统内部创建；参数DEFAULT将在客户端和服务器之间默认执行源编码到目标编码之间的转换，要支持这个用法需要定义双向转换（从A到B和从B到A）；创建转换需拥有函数的EXECUTE权限及目标模式的CREATE权限；源编码和目标编码都不可以使用SQL_ASCII（涉及SQL_ASCII编码时服务器行为是硬连接的）；使用DROP CONVERSION可以移除用户自定义的转换规则。"
+  source_anchor: "1.13.9.15 注意事项 页1411"
+  source_refs: *refconv
+  status: confirmed
+- id: create_conversion_wave8_86_params
+  type: constraint
+  statement: "参数：DEFAULT表示该转换是从源编码到目标编码的默认转换，在一个模式中对于每一个编码对仅有一个默认转换；name为转换规则的名称（可模式指定，未指定则定义在当前模式，同一模式中转换名称必须唯一）；source_encoding/dest_encoding为源/目标编码名称。"
+  source_anchor: "1.13.9.15 参数说明 页1411-1412"
+  source_refs: *refconv
+  status: confirmed
+- id: create_conversion_wave8_86_function
+  type: constraint
+  statement: "function_name为被用来执行转换的函数（函数名可模式指定，未指定将在路径中查找）；该函数必须具有以下格式：conv_proc(integer原编码ID, integer目标编码ID, cstring源字符串（空值终止的C字符串）, internal目标（用一个空值终止的C字符串填充）, integer源字符串长度) RETURNS void。"
+  source_anchor: "1.13.9.15 参数说明 function_name 页1412"
+  source_refs: *refconv
+  status: confirmed
+open_questions:
+- id: create_cast_wave8_86_oq_runtime
+  statement: "CREATE CAST三种转换形式、全密态CMK/CEK多级加密（各KEY_STORE与算法组合约束）和CREATE CONVERSION编码转换在真实驱动配置、权限和密钥服务场景下的完整行为与错误矩阵需授权环境实机验证。"
+  status: open
