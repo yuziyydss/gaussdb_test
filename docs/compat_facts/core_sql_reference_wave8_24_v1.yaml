@@ -1,0 +1,139 @@
+document: 集中式版参考 / 1.13.9.50 CREATE TABLE PARTITION（Wave 8-24）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-07'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.9.50 CREATE TABLE PARTITION
+  physical_page_start: 1564
+  physical_page_end: 1582
+  physical_page_count: 19
+  excludes: []
+facts:
+- id: partition_wave8_24_purpose_schemes
+  type: syntax
+  statement: "CREATE TABLE PARTITION创建分区表；分区表是逻辑表，不存储数据，数据保存在物理分区上。当前行存表支持范围分区、间隔分区、哈希分区和列表分区。"
+  source_anchor: "1.13.9.50 页1564"
+  source_refs: &refb1
+  - w8_24_1_13_9_50
+  status: confirmed
+- id: partition_wave8_24_range_strategy
+  type: syntax
+  statement: "范围分区按一列或多列把记录划入互不重叠的范围分区；范围分区策略将分区键值映射到已有分区，可映射时插入对应分区，否则报错并提示。"
+  source_anchor: "1.13.9.50 页1564-1565"
+  source_refs: *refb1
+  status: confirmed
+- id: partition_wave8_24_interval_strategy
+  type: behavior_oracle
+  statement: "间隔分区是特殊范围分区：插入记录未匹配已有分区时，按间隔值自动创建一个新分区，新分区数据范围等于间隔值；间隔分区只支持单列分区键，且只支持TIMESTAMP[(p)] WITHOUT/WITH TIME ZONE、DATE和A模式DATEA类型。"
+  source_anchor: "1.13.9.50 页1564"
+  source_refs: *refb1
+  status: confirmed
+- id: partition_wave8_24_hash_strategy
+  type: syntax
+  statement: "哈希分区按单列和每个分区的模数、余数划分记录，行须满足分区键值除以模数等于指定余数；分区键值可映射时插入对应分区，否则报错并提示。"
+  source_anchor: "1.13.9.50 页1564"
+  source_refs: *refb1
+  status: confirmed
+- id: partition_wave8_24_list_strategy
+  type: syntax
+  statement: "列表分区按单列的键值集合划分记录，各分区键值不重叠；分区键值可映射到已有分区时插入对应分区，否则报错并提示。"
+  source_anchor: "1.13.9.50 页1565"
+  source_refs: *refb1
+  status: confirmed
+- id: partition_wave8_24_benefits
+  type: syntax
+  statement: "分区可提升高访问行集中在少数分区的查询性能，支持只扫描或更新单个分区的大部分记录；大量加载或删除的数据位于单独分区时可直接读删分区，避免大量DELETE导致VACUUM超载，但哈希分区不支持删除分区。"
+  source_anchor: "1.13.9.50 页1565"
+  source_refs: *refb1
+  status: confirmed
+- id: partition_wave8_24_unique_pk_index
+  type: constraint
+  statement: "唯一约束和主键约束的约束键包含所有分区键时创建LOCAL索引，否则创建GLOBAL索引。"
+  source_anchor: "1.13.9.50 注意事项 页1565"
+  source_refs: *refb1
+  status: confirmed
+- id: partition_wave8_24_hash_single_column
+  type: constraint
+  statement: "当前哈希分区仅支持单列构建分区键，暂不支持多列分区键。"
+  source_anchor: "1.13.9.50 注意事项 页1565"
+  source_refs: *refb1
+  status: confirmed
+- id: partition_wave8_24_interval_insert_permission
+  type: constraint
+  statement: "用户只需拥有间隔分区表的INSERT权限，即可在向该表INSERT数据时自动创建分区。"
+  source_anchor: "1.13.9.50 注意事项 页1565"
+  source_refs: *refb1
+  status: confirmed
+- id: partition_wave8_24_partition_for_values
+  type: constraint
+  statement: "分区表PARTITION FOR (values)语法中的values只能是常量；需要数据类型转换时建议使用强制类型转换，避免隐式转换结果与预期不符。"
+  source_anchor: "1.13.9.50 注意事项 页1565"
+  source_refs: *refb1
+  status: confirmed
+- id: partition_wave8_24_partition_limits
+  type: constraint
+  statement: "单个表最大分区数为1048575，包括一级和二级分区；默认配置下建议单个表分区数不超过400。分区数过多导致内存不足时，会间接造成性能急剧下降。"
+  source_anchor: "1.13.9.50 注意事项 页1565"
+  source_refs: *refb1
+  status: confirmed
+- id: partition_wave8_24_key_type_limits
+  type: constraint
+  statement: "XML类型不能作为分区键或二级分区键；不支持在rowid/rowno系统列上创建外键约束。"
+  source_anchor: "1.13.9.50 注意事项 页1565"
+  source_refs: *refb1
+  status: confirmed
+- id: partition_wave8_24_main_syntax
+  type: syntax
+  statement: "CREATE TABLE PARTITION支持IF NOT EXISTS、列/表约束、LIKE、table_option、htap_option、WITH存储参数、ILM压缩策略、TABLESPACE，并可按RANGE/RANGE COLUMNS、LIST/LIST COLUMNS、HASH/KEY定义一级分区，最后可指定ENABLE/DISABLE ROW MOVEMENT。"
+  source_anchor: "1.13.9.50 语法格式 页1565-1567"
+  source_refs: *refb1
+  status: confirmed
+- id: partition_wave8_24_like
+  type: syntax
+  statement: "LIKE创建的新分区表继承源表字段名、数据类型和非空约束，建表后与源表相互独立；默认表达式、ON UPDATE、生成表达式、CHECK、索引、STORAGE、注释、存储参数、IDENTITY和ILM只有指定对应INCLUDING选项时才继承。"
+  source_anchor: "1.13.9.50 LIKE页1568-1569"
+  source_refs: *refb1
+  status: confirmed
+- id: partition_wave8_24_table_options_constraints
+  type: syntax
+  statement: "table_option支持COMMENT、AUTO_INCREMENT、默认字符集/字符序和ENGINE；列约束支持NOT NULL、CHECK、DEFAULT、ON UPDATE、生成列、IDENTITY、AUTO_INCREMENT、COMMENT、UNIQUE、PRIMARY KEY和外键，表约束支持CHECK、UNIQUE、PRIMARY KEY和FOREIGN KEY。"
+  source_anchor: "1.13.9.50 table_option/约束 页1566、1568-1580"
+  source_refs: *refb1
+  status: confirmed
+- id: partition_wave8_24_storage_params
+  type: constraint
+  statement: "WITH支持FILLFACTOR、ORIENTATION、STORAGE_TYPE、segment、统计粒度、autovacuum/vacuum_truncate、TDE和hasrowid等参数；ORIENTATION缺省ROW且不支持修改，STORAGE_TYPE设置成功后不支持修改。"
+  source_anchor: "1.13.9.50 WITH存储参数 页1570-1573"
+  source_refs: *refb1
+  status: confirmed
+- id: partition_wave8_24_ilm
+  type: syntax
+  statement: "ILM ADD POLICY ROW STORE COMPRESS支持ADVANCED行存高级压缩、TURBO跨页透明压缩或NONE；压缩级别缺省MEDIUM。分区可单独指定ADVANCED策略，未指定时继承表策略；行级EXPR只支持白名单函数。"
+  source_anchor: "1.13.9.50 ILM 页1572-1573"
+  source_refs: *refb1
+  status: confirmed
+- id: partition_wave8_24_range_syntax
+  type: syntax
+  statement: "RANGE分区支持VALUES LESS THAN或START/END/EVERY定义；VALUES LESS THAN最多16列，START END和INTERVAL均只支持1列。VALUES LESS THAN每个分区必须有上边界，分区列表按上边界升序；START END与LESS THAN不能混用。"
+  source_anchor: "1.13.9.50 RANGE分区 页1573-1575"
+  source_refs: *refb1
+  status: confirmed
+- id: partition_wave8_24_list_hash_automatic
+  type: syntax
+  statement: "LIST分区最多16列且每个分区键值数量不超过64个，AUTOMATIC仅列表分区可开启自动扩展；HASH/KEY分区键仅1列，PARTITIONS integer须大于0且不超过1048575。HASH/KEY未列分区定义时可自动生成分区，RANGE/LIST的PARTITIONS只能在B模式使用且分区定义数须等于integer。"
+  source_anchor: "1.13.9.50 LIST/HASH/PARTITIONS 页1575-1577"
+  source_refs: *refb1
+  status: confirmed
+- id: partition_wave8_24_row_movement
+  type: constraint
+  statement: "ENABLE/DISABLE ROW MOVEMENT控制UPDATE分区键导致跨分区时的行迁移，ENABLE为缺省。开启行迁移时，UPDATE/UPDATE、UPDATE/DELETE和DELETE/DELETE并发同一行的跨分区操作可能报错；非跨分区场景行为不同。"
+  source_anchor: "1.13.9.50 ROW MOVEMENT 页1576-1577"
+  source_refs: *refb1
+  status: confirmed
+open_questions:
+- id: partition_wave8_24_oq_runtime
+  statement: "分区表在真实数据规模、分区数量、自动扩展、行迁移、ILM压缩和约束索引组合下的路由、错误与性能矩阵需授权环境实机验证。"
+  status: open
