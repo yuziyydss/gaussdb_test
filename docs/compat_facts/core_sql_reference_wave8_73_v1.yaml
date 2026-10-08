@@ -1,0 +1,141 @@
+document: 集中式版参考 / 1.13.22.1 VACUUM 与 1.13.22.2 VALUES（Wave 8-73）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-07'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.22.1 VACUUM
+  - 1.13.22.2 VALUES
+  physical_page_start: 1887
+  physical_page_end: 1894
+  physical_page_count: 8
+  excludes: []
+facts:
+- id: vacuum_wave8_73_purpose
+  type: syntax
+  statement: "VACUUM回收表或B-Tree索引中已经删除的行所占据的存储空间；已DELETE的行在完成VACUUM之前仍存在，因此有必要周期地运行VACUUM，特别是在经常更新的表上。"
+  source_anchor: "1.13.22.1 功能描述 页1887"
+  source_refs: &refvac
+  - w8_73_1_13_22_1
+  status: confirmed
+- id: vacuum_wave8_73_scope
+  type: constraint
+  statement: "如果没有参数，VACUUM处理当前数据库里用户拥有相应权限的每个表；如果参数指定了一个表，VACUUM只处理指定的表。"
+  source_anchor: "1.13.22.1 注意事项 页1887"
+  source_refs: *refvac
+  status: confirmed
+- id: vacuum_wave8_73_privileges
+  type: constraint
+  statement: "对一个表进行VACUUM操作通常用户必须是表的所有者或被授予指定表VACUUM权限的用户（三权分立开关关闭时默认系统管理员有该权限）；数据库所有者允许对数据库中除共享目录以外的所有表进行VACUUM（该限制意味着只有系统管理员才能真正对一个数据库进行VACUUM操作）；VACUUM命令会跳过用户没有权限的表。"
+  source_anchor: "1.13.22.1 注意事项 页1887-1888"
+  source_refs: *refvac
+  status: confirmed
+- id: vacuum_wave8_73_txblock_schedule
+  type: constraint
+  statement: "VACUUM不能在事务块内执行；建议生产数据库经常清理（至少每晚一次）以保证不断删除失效的行，尤其是在增删了大量记录之后，对受影响的表执行VACUUM ANALYZE命令是很好的习惯（更新系统目录并帮助查询优化器更好规划）。"
+  source_anchor: "1.13.22.1 注意事项 页1888"
+  source_refs: *refvac
+  status: confirmed
+- id: vacuum_wave8_73_full_basics
+  type: constraint
+  statement: "不建议日常使用FULL选项，可在特殊情况下使用（如删除表大部分行后物理缩小表减少磁盘占用）；VACUUM FULL通常收缩更多表尺寸，执行后物理空间无变化需确认是否有其他活跃事务（删除数据事务开始之前开始且VACUUM FULL执行前未结束）存在并重试；VACUUM FULL通过重建表归还空闲空间，需额外申请表中有效数据相当的存储空间；非段页式表执行后原表物理文件被删除、空间归还操作系统，段页式表空间归还给段页式数据文件不归还操作系统；使用FULL会导致统计信息丢失，需要收集统计信息时加analyze关键字。"
+  source_anchor: "1.13.22.1 注意事项/参数说明 页1888/1890"
+  source_refs: *refvac
+  status: confirmed
+- id: vacuum_wave8_73_full_limits
+  type: constraint
+  statement: "VACUUM FULL对表施加排他锁，不建议业务高峰期运行（可能等待过长或业务中断）；同时执行多个VACUUM FULL可能出现死锁；未打开xc_maintenance_mode时VACUUM FULL跳过所有系统表；执行DELETE后立即执行VACUUM FULL不会回收空间（需再执行1000个非SELECT事务或等待1s后执行1个事务后才回收）；简单VACUUM（不带FULL）可与普通读写并发（无排他锁），VACUUM FULL跨块移动行压缩表但慢许多；Ustore手动VACUUM与Astore手动VACUUM行为一致（对堆表、索引加锁清理），Ustore的AUTOVACUUM仅做分区表GPI清理、堆表FSM更新及索引页面回收。"
+  source_anchor: "1.13.22.1 注意事项 页1888"
+  source_refs: *refvac
+  status: confirmed
+- id: vacuum_wave8_73_options_misc
+  type: constraint
+  statement: "选项规则：如果指定VERBOSE选项，VACUUM将打印处理过程中的信息及当前表的各种统计信息；当含有带括号的选项列表时，选项可以以任何顺序写入，没有括号则必须按语法显示的顺序给出；VACUUM和VACUUM FULL时会根据参数vacuum_defer_cleanup_age延迟清理行存表记录（不会立即清理刚刚删除的元组）；VACUUM会导致I/O流量大幅增加，可能影响其他活动会话性能，有时建议使用基于开销的VACUUM延迟特性。"
+  source_anchor: "1.13.22.1 注意事项 页1888"
+  source_refs: *refvac
+  status: confirmed
+- id: vacuum_wave8_73_analyze_freeze
+  type: constraint
+  statement: "VACUUM ANALYZE先执行一个VACUUM操作，然后给每个选定的表执行一个ANALYZE，对日常维护脚本是很方便的组合；FREEZE指定相当于执行VACUUM时将vacuum_freeze_min_age参数设为0；ANALYZE | ANALYSE更新用于优化器的统计信息以决定执行查询的最有效方法（ustore分区表在autovacuum=analyze时也会触发vacuum）。"
+  source_anchor: "1.13.22.1 注意事项/参数说明 页1888/1890"
+  source_refs: *refvac
+  status: confirmed
+- id: vacuum_wave8_73_online_basic
+  type: constraint
+  statement: "在线VACUUM FULL（ONLINE关键字）：使VACUUM FULL期间不会长时间阻塞读写业务，缺省OFFLINE；对象涉及不支持场景（FREEZE关键字、数据库级、索引级、二级分区表、段页式表、hash bucket表、临时表、unlogged表、HTAP表）时ONLINE不生效，默认离线执行并提示；M-Compatibility模式下不支持在线VACUUM FULL；不支持在事务内执行（JDBC多条SQL隐式启动事务）和存储过程中执行；需预留足够磁盘空间（剩余空间为表及索引等总和）；操作失败可能明显空间膨胀（与执行时长和并发写操作量成正比），长事务可能阻塞；执行后期将阻塞DQL、DML；应避免与其他DDL并发（可能死锁报错，可重连重试）；过程生成online$$ddl$$[hash值]模式（属主为初始用户，不建议操作或查询，gs_dump默认不导出；用户不可创建online$$前缀模式，同名冲突时在线不生效默认离线执行）；失败残留对象自动清理，严重故障（FATAL、PANIC）可能残留临时模式对象需online_ddl_cleanup()手动清理（无故障残留不建议使用）。"
+  source_anchor: "1.13.22.1 注意事项/参数说明 页1889-1891"
+  source_refs: *refvac
+  status: confirmed
+- id: vacuum_wave8_73_online_partition_cancel
+  type: constraint
+  statement: "VACUUM FULL分区表时遍历分区清理并在分区清理后重建GPI，分区较多时建议先删除GPI、完成后重建以降低执行时间；在线VACUUM FULL对象为分区表时在分区清理同时重建GPI（仅单分区对象在清理后再重建），故在线无需先删除GPI；用户取消在线VACUUM FULL先进入残留清理流程，再次取消则结束清理导致残留；在线VACUUM FULL与业务存在资源争抢，不适合大业务背景，资源有限场景建议细粒度资源管控且不建议并行加速。"
+  source_anchor: "1.13.22.1 注意事项 页1888-1889"
+  source_refs: *refvac
+  status: confirmed
+- id: vacuum_wave8_73_syntax
+  type: syntax
+  statement: "四种语法：VACUUM [({FULL | FREEZE | VERBOSE | {ANALYZE | ANALYSE}}[, ...])] [table_name [(column_name[, ...])] [PARTITION (partition_name) | SUBPARTITION (subpartition_name)]] [OFFLINE | [ONLINE [WITH ({online_parameter = value}[, ...])]]]（关键字顺序无要求）；仅回收空间VACUUM [FULL] [FREEZE] [VERBOSE] [table_name [...]] [...；回收空间并更新统计信息且关键字顺序有要求VACUUM [FULL] [FREEZE] [VERBOSE] {ANALYZE | ANALYSE} [VERBOSE] [table_name [(column_name[, ...])]] [PARTITION (...)] [...]；仅回收指定bucket空间VACUUM FREEZE BUCKETS (bucketid[, ...])（当前版本暂不支持）。"
+  source_anchor: "1.13.22.1 语法格式 页1889-1890"
+  source_refs: *refvac
+  status: confirmed
+- id: vacuum_wave8_73_params
+  type: constraint
+  statement: "参数说明：table_name缺省为当前数据库中所有表；column_name要分析的具体字段，需配合analyze使用，由于VACUUM ANALYZE依次执行VACUUM和ANALYZE，column_name错误时可能VACUUM成功但ANALYZE失败（分区表可能出现对某分区VACUUM成功后ANALYZE失败）；partition_name为一级分区名（缺省所有一级分区）；subpartition_name为二级分区名（缺省所有二级分区）。"
+  source_anchor: "1.13.22.1 参数说明 页1890"
+  source_refs: *refvac
+  status: confirmed
+- id: vacuum_wave8_73_online_params
+  type: constraint
+  statement: "online_parameter（指定ONLINE时生效）：parallel_threads控制多线程并行，1-32整数缺省1（开启IO资源管控io_limits>0或io_priority=high/medium/low时忽略用户/会话资源管控并提示无效且开启多线程加速，实际遵循初始用户的资源管控；可与索引并行参数parallel_workers共同生效，分别控制VACUUM FULL期间索引构建并行度和追增并行度）；max_catchup_times控制最大追增轮次，1-50整数缺省50（在线VACUUM FULL记录重建过程IUD增量数据到临时表并多轮次循环追增，防止并发数据量过大无法完成追增）。"
+  source_anchor: "1.13.22.1 参数说明 online_parameter 页1891"
+  source_refs: *refvac
+  status: confirmed
+- id: vacuum_wave8_73_example
+  type: behavior_oracle
+  statement: "示例：DELETE后重新INSERT使用新ctid(0,2)；VACUUM ANALYZE tbl_test后再INSERT复用旧空间（新行ctid为(0,1)）；VACUUM FULL示例：10万行表3048 kB，DELETE后仍3048 kB，SELECT TXID_CURRENT()后VACUUM FULL ANALYZE tbl_test2回收至0 bytes，并可VACUUM FULL ANALYZE tbl_test2 ONLINE在线回收。"
+  source_anchor: "1.13.22.1 示例 页1891-1892"
+  source_refs: *refvac
+  status: confirmed
+- id: vacuum_wave8_73_optimization
+  type: constraint
+  statement: "优化建议：VACUUM不能在事务块内执行；建议生产数据库经常清理（至少每晚一次），尤其在增删大量记录后对相关表执行VACUUM ANALYZE；不建议日常使用FULL选项，但可在特殊情况下使用（如删除表大部分行后希望物理缩小表以减少磁盘空间占用）。"
+  source_anchor: "1.13.22.1 优化建议 页1892"
+  source_refs: *refvac
+  status: confirmed
+- id: values_wave8_73_purpose
+  type: syntax
+  statement: "VALUES根据给定的值表达式计算一个或一组行的值，通常用于在一个较大的命令内生成一个常数表。"
+  source_anchor: "1.13.22.2 功能描述 页1893"
+  source_refs: &refvalues
+  - w8_73_1_13_22_2
+  status: confirmed
+- id: values_wave8_73_limits
+  type: constraint
+  statement: "应当避免使用VALUES返回数量非常大的结果行，否则可能出现内存耗尽或性能低下；出现在INSERT中的VALUES是特殊情况，目标字段类型可以从INSERT的目标表获知、不需扫描VALUES列表推测，因此可处理非常大的结果行；如果指定了多行，每一行都必须拥有相同的元素个数。"
+  source_anchor: "1.13.22.2 注意事项 页1893"
+  source_refs: *refvalues
+  status: confirmed
+- id: values_wave8_73_in_list
+  type: constraint
+  statement: "使用IN表达式多列条件查询时，IN LIST与IN VALUES LIST功能相似但内部处理机制本质差异：逻辑结构上IN LIST将多列条件解析为多条OR条件组合（如(a, b) IN ((1, 2), (2, 3))转化为(a = 1 AND b = 2) OR (a = 2 AND b = 3)），列表极长时OR链冗长导致查询性能显著下降；IN VALUES LIST将VALUES子句视为派生表，IN表达式解析为ANY类型子查询并通过查询改写转换为JOIN操作，避免长OR链开销；类型处理上IN LIST对每组数据单独类型检查和隐式转换，IN VALUES LIST先为VALUES各列统一推导公共数据类型再检查转换（更严格，要求VALUES子句中同一列数据类型一致）。"
+  source_anchor: "1.13.22.2 注意事项 页1893"
+  source_refs: *refvalues
+  status: confirmed
+- id: values_wave8_73_syntax
+  type: syntax
+  statement: "语法为VALUES {(expression[, ...])}[, ...] [ORDER BY {sort_expression [ASC | DESC | USING operator]}[, ...]] [LIMIT {count | ALL}] [OFFSET start [ROW | ROWS]] [FETCH {FIRST | NEXT} [count] {ROW | ROWS} ONLY]；expression为常量或表达式，在INSERT顶层的VALUES列表中可被DEFAULT替换表示插入目的字段缺省值，VALUES出现在其他场合不能使用DEFAULT；sort_expression为排序表达式或整数常量；ASC升序、DESC降序、operator为排序操作符；count为返回的最大行数；OFFSET start声明开始返回行之前忽略的行数；FETCH子句限定从第一行开始的总行数，count缺省为1。"
+  source_anchor: "1.13.22.2 语法格式/参数说明 页1893-1894"
+  source_refs: *refvalues
+  status: confirmed
+- id: values_wave8_73_example
+  type: behavior_oracle
+  statement: "示例中INSERT INTO test_t2 (col1, col2) VALUES (10,'AA'),(20,'BB'),(30,'CC')一次插入多行；分页查询SELECT * FROM test_t2 ORDER BY col1 ASC LIMIT 1 OFFSET 0返回10/AA；结合FETCH的SELECT * FROM test_t3 ORDER BY col1 ASC OFFSET 0 FETCH FIRST 1 ROWS ONLY同样返回第一行。"
+  source_anchor: "1.13.22.2 示例 页1894"
+  source_refs: *refvalues
+  status: confirmed
+open_questions:
+- id: vacuum_wave8_73_oq_runtime
+  statement: "VACUUM（含FULL/ONLINE失败清理路径）与VALUES派生表在真实存储引擎、并发DML和资源管控组合下的完整行为与错误矩阵需授权环境实机验证。"
+  status: open
