@@ -8,38 +8,38 @@
 
 | 指标 | 当前值 |
 |---|---:|
-| Manifest artifacts | 190 |
-| Sources | 526 |
-| Source page slices | 3536 |
-| Unique pages | 3021 |
-| Sections | 479 |
-| Full coverage sections | 428 |
+| Manifest artifacts | 191 |
+| Sources | 530 |
+| Source page slices | 3551 |
+| Unique pages | 3028 |
+| Sections | 482 |
+| Full coverage sections | 431 |
 | Partial coverage sections | 50 |
-| 结构化 facts | 4218 |
-| Open questions | 247 |
+| 结构化 facts | 4238 |
+| Open questions | 248 |
 
 ## Fact分布
 
 | 类型 | 数量 |
 |---|---:|
-| syntax | 1852 |
-| constraint | 1592 |
-| behavior_oracle | 495 |
+| syntax | 1859 |
+| constraint | 1723 |
+| behavior_oracle | 496 |
 | environment | 160 |
-| 总计 | 4218 |
+| 总计 | 4238 |
 
 所有facts全局ID唯一，状态均为`confirmed`；所有open questions全局ID唯一，状态均为`open`。
 
 ## 覆盖口径
 
-覆盖模式为`included_extraction_artifacts`，表示只统计已纳入190个manifest的source切片；当前纳入小节的页级覆盖已闭环。
+覆盖模式为`included_extraction_artifacts`，表示只统计已纳入191个manifest的source切片；当前纳入小节的页级覆盖已闭环。
 
 当前：
 
-- 已覆盖unique页：3021
-- 已纳入artifact所在章节 required 页：3021
+- 已覆盖unique页：3028
+- 已纳入artifact所在章节 required 页：3028
 - 缺失页：无
-- 完整覆盖小节：428
+- 完整覆盖小节：431
 - 部分覆盖小节：50
 
 部分覆盖小节表示对应大章节的manifest只按目标事实或目标函数族选择页面，不代表整章所有页都纳入。
@@ -61,6 +61,6 @@ python -m pytest -q tests/test_core_function_extraction_master_summary.py
 ## 边界
 
 - 本总账只聚合静态抽取facts，不判定每个函数都有可执行SQL。
-- 247个open questions仍需授权环境和实机验证。
+- 248个open questions仍需授权环境和实机验证。
 - `confirmed`表示原文事实确认，不表示runtime verified。
 - 不连接数据库、不执行系统函数。
