@@ -1,0 +1,139 @@
+document: 集中式版参考 / 1.13.14.7 INSERT（Wave 8-26）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-07'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 1.13.14.7 INSERT
+  physical_page_start: 1737
+  physical_page_end: 1752
+  physical_page_count: 16
+  excludes: []
+facts:
+- id: ins_wave8_26_purpose_syntax
+  type: syntax
+  statement: "INSERT向表中插入一行或多行数据；主语法支持WITH/RECURSIVE、plan_hint、IGNORE、表别名或分区子句、DEFAULT VALUES、VALUES/VALUE多行、query插入、ON DUPLICATE KEY UPDATE、ON CONFLICT和RETURNING。"
+  source_anchor: "1.13.14.7 页1737-1738"
+  source_refs: &refb1
+  - w8_26_1_13_14_7
+  status: confirmed
+- id: ins_wave8_26_permissions
+  type: constraint
+  statement: "目标表需要INSERT权限，INSERT ANY TABLE等价于对非系统模式有USAGE并拥有其中表INSERT权限；RETURNING需要SELECT权限；ON DUPLICATE KEY UPDATE需要INSERT、UPDATE权限和UPDATE列SELECT权限；query插入还需要query中表的SELECT权限。"
+  source_anchor: "1.13.14.7 注意事项 页1737"
+  source_refs: *refb1
+  status: confirmed
+- id: ins_wave8_26_generated_columns
+  type: constraint
+  statement: "生成列不能被直接写入；INSERT中不能为生成列指定值，但可以指定关键字DEFAULT。"
+  source_anchor: "1.13.14.7 注意事项 页1737"
+  source_refs: *refb1
+  status: confirmed
+- id: ins_wave8_26_string_truncation
+  type: environment
+  statement: "C兼容库中td_compatible_truncation=on时，非外表INSERT会按CHAR/VARCHAR列定义最大长度自动截断超长字符串；字节编码库插入跨越截断点的多字节字符可能产生非预期尾部结果，建议使用UTF8等按字符截断的编码。"
+  source_anchor: "1.13.14.7 注意事项 页1737"
+  source_refs: *refb1
+  status: confirmed
+- id: ins_wave8_26_cte
+  type: syntax
+  statement: "WITH可声明一个或多个CTE，子查询可为SELECT、VALUES、INSERT、UPDATE或DELETE，并可用MATERIALIZED/NOT MATERIALIZED修饰；CTE只引用一次且语义支持内联时会内联，否则CTE Scan物化。INSERT ON DUPLICATE KEY UPDATE不支持WITH/WITH RECURSIVE。"
+  source_anchor: "1.13.14.7 WITH子句 页1738-1739"
+  source_refs: *refb1
+  status: confirmed
+- id: ins_wave8_26_cte_returning_echo
+  type: behavior_oracle
+  statement: "当CTE子查询是附带RETURNING的DML时，外层INSERT的回显记录数由子查询RETURNING决定，而不是由外层实际插入行数决定；例如子查询RETURNING返回1行时整条语句回显“INSERT 0 1”。"
+  source_anchor: "1.13.14.7 WITH须知 页1739"
+  source_refs: *refb1
+  status: confirmed
+- id: ins_wave8_26_plan_hint
+  type: syntax
+  statement: "plan_hint以/*+ */形式写在INSERT关键字后，用于对INSERT对应语句块生成的计划进行hint调优。"
+  source_anchor: "1.13.14.7 plan_hint 页1739"
+  source_refs: *refb1
+  status: confirmed
+- id: ins_wave8_26_ignore_capability
+  type: syntax
+  statement: "INSERT IGNORE可将部分ERROR降级为WARNING，并按错误场景把无效值调整为最接近值插入；支持NOT NULL约束破坏、唯一键冲突、分区缺失或分区不匹配、子查询多行、数据过长、时间函数溢出、被0除和值不正确等错误降级。"
+  source_anchor: "1.13.14.7 IGNORE 页1739-1740"
+  source_refs: *refb1
+  status: confirmed
+- id: ins_wave8_26_ignore_boundaries
+  type: constraint
+  statement: "INSERT IGNORE仅支持B模式b_format_version='5.7'且b_format_dev_version='s1'；不支持密态表、外表、MOT表和延迟生效主键/唯一键约束。破坏NOT NULL时按数据类型使用默认零值，需谨慎用于参与计算的NULL场景。"
+  source_anchor: "1.13.14.7 IGNORE说明 页1740-1741"
+  source_refs: *refb1
+  status: confirmed
+- id: ins_wave8_26_target_table
+  type: syntax
+  statement: "INSERT目标表必须是已存在表名，支持使用DATABASE LINK方式对远端表操作。"
+  source_anchor: "1.13.14.7 table_name 页1741"
+  source_refs: *refb1
+  status: confirmed
+- id: ins_wave8_26_subquery_target
+  type: syntax
+  statement: "INSERT目标可以是子查询，子查询会当作临时视图并支持CHECK OPTION；子查询只有一张表时对该表插入，含多表或嵌套关系时根据保留键表判断是否可插入。"
+  source_anchor: "1.13.14.7 subquery/view_name 页1741-1742"
+  source_refs: *refb1
+  status: confirmed
+- id: ins_wave8_26_view_constraints
+  type: constraint
+  statement: "向视图/子查询插入时，只有直接引用基表用户列的列可插入；不支持顶层DISTINCT/GROUP BY/HAVING/LIMIT/OFFSET、集合运算、聚集/窗口/返回集合函数；不支持仅BEFORE/AFTER触发器而无INSTEAD能力，不支持ON DUPLICATE KEY UPDATE和系统视图；多表连接一次只能插一张基表。"
+  source_anchor: "1.13.14.7 视图/子查询约束 页1742"
+  source_refs: *refb1
+  status: confirmed
+- id: ins_wave8_26_alias_partition
+  type: constraint
+  statement: "INSERT表别名不能是关键字或表达式；不含AS alias的分区表别名不支持指定分区插入。PARTITION/SUBPARTITION可指定分区插入，VALUE值与指定分区不一致时提示异常。"
+  source_anchor: "1.13.14.7 alias_name/partition_clause 页1742"
+  source_refs: *refb1
+  status: confirmed
+- id: ins_wave8_26_column_binding
+  type: syntax
+  statement: "目标字段列表可带子字段名或数组下标；未列出字段用声明默认值或系统默认值填充，都没有则NULL。未列字段时默认全部列并按表声明顺序；VALUES/query提供N个字段时关联目标前N个字段，值从左到右关联，支持表别名.列名。"
+  source_anchor: "1.13.14.7 column_name 页1742-1743"
+  source_refs: *refb1
+  status: confirmed
+- id: ins_wave8_26_expression_default
+  type: syntax
+  statement: "expression可插入有效表达式或值，类型不正确时系统尝试转换，转换失败则报错；DEFAULT使用字段缺省值，无缺省值则为NULL。插入单引号需用单引号自身转义。"
+  source_anchor: "1.13.14.7 expression/DEFAULT 页1743"
+  source_refs: *refb1
+  status: confirmed
+- id: ins_wave8_26_on_duplicate
+  type: syntax
+  statement: "ON DUPLICATE KEY UPDATE在唯一约束冲突时执行UPDATE，无唯一约束表仅执行插入；UPDATE NOTHING忽略该次插入。冲突行源数据可通过EXCLUDED.或VALUES()引用，VALUES(column_name)可嵌套在复合表达式中。"
+  source_anchor: "1.13.14.7 ON DUPLICATE KEY UPDATE 页1743"
+  source_refs: *refb1
+  status: confirmed
+- id: ins_wave8_26_on_duplicate_boundaries
+  type: constraint
+  statement: "ON DUPLICATE KEY UPDATE支持行/语句触发器，但不支持DEFERRABLE唯一约束或主键；多个唯一约束冲突时只更新检测到的第一冲突行，主键和唯一索引列不允许UPDATE，不支持外表，UPDATE expression中不支持子链接。"
+  source_anchor: "1.13.14.7 ON DUPLICATE KEY UPDATE 页1743-1744"
+  source_refs: *refb1
+  status: confirmed
+- id: ins_wave8_26_on_conflict
+  type: syntax
+  statement: "ON CONFLICT在唯一或排他性约束冲突时执行DO NOTHING或DO UPDATE SET，无冲突则普通INSERT；conflict_target可用索引列、表达式索引和index_predicate描述部分唯一索引。"
+  source_anchor: "1.13.14.7 ON CONFLICT 页1744"
+  source_refs: *refb1
+  status: confirmed
+- id: ins_wave8_26_on_conflict_boundaries
+  type: constraint
+  statement: "ON CONFLICT仅支持PG兼容模式；不支持COLLATE/opclass、ON CONSTRAINT constraint_name、DBLINK和插入子查询；DO UPDATE SET需要UPDATE权限；conflict_target和UPDATE SET不能嵌套子链接，UPDATE SET不能嵌套子查询，也不支持列格式表、外表、STREAM和CONTVIEW对象，不支持同一语句插入多条唯一键相同数据。"
+  source_anchor: "1.13.14.7 ON CONFLICT约束 页1744"
+  source_refs: *refb1
+  status: confirmed
+- id: ins_wave8_26_returning_batch
+  type: syntax
+  statement: "RETURNING返回实际插入的行，语法与SELECT输出列表一致，可用任意表字段、表达式和*；批量插入时建议将多行VALUES合并到一条INSERT以提高数据加载性能，特定RCR UBTree索引批量插入场景可结合batch_insert_index_types优化索引性能。"
+  source_anchor: "1.13.14.7 RETURNING与优化建议 页1743、1752"
+  source_refs: *refb1
+  status: confirmed
+open_questions:
+- id: ins_wave8_26_oq_runtime
+  statement: "INSERT在真实数据规模、分区路由、冲突更新、IGNORE降级、视图/子查询和批量索引优化组合下的结果、错误与性能矩阵需授权环境实机验证。"
+  status: open
