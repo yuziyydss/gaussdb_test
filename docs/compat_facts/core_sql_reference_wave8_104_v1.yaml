@@ -1,0 +1,149 @@
+document: 集中式版参考 / 2.4.2.6.6-11 M兼容ALTER INDEX/RESOURCE LABEL/ROLE/SCHEMA/SEQUENCE/SESSION（Wave 8-104）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-08'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 2.4.2.6.6 ALTER INDEX
+  - 2.4.2.6.7 ALTER RESOURCE LABEL
+  - 2.4.2.6.8 ALTER ROLE
+  - 2.4.2.6.9 ALTER SCHEMA
+  - 2.4.2.6.10 ALTER SEQUENCE
+  - 2.4.2.6.11 ALTER SESSION
+  physical_page_start: 2021
+  physical_page_end: 2033
+  physical_page_count: 12
+  excludes: []
+facts:
+- id: m_alter_index_wave8_104_syntax
+  type: syntax
+  statement: "M兼容ALTER INDEX用于修改已有索引的定义；五种形式（均带[ IF EXISTS ]）：RENAME TO new_name（重命名索引，只改变索引名称对存储的数据没有影响）、UNUSABLE（设置表索引不可用）、RENAME PARTITION index_partition_name TO new_index_partition_name（重命名索引分区）、SET ( {storage_parameter = value} [, ... ] )（修改索引存储参数）、RESET ( storage_parameter [, ...] )（重置索引存储参数为默认值）。"
+  source_anchor: "2.4.2.6.6 语法格式/参数说明 页2021-2022"
+  source_refs: &refmai
+  - w8_104_2_4_2_6_6
+  status: confirmed
+- id: m_alter_index_wave8_104_permission
+  type: constraint
+  statement: "索引的所有者、拥有索引所在表的INDEX权限的用户或者被授予了ALTER ANY INDEX权限的用户可以执行此命令（三权分立开关关闭时系统管理员默认拥有此权限）；请勿在同一基表上保持大量的不可见索引，否则可能会对INSERT、UPDATE、DELETE等DML操作的性能产生影响。"
+  source_anchor: "2.4.2.6.6 注意事项 页2021"
+  source_refs: *refmai
+  status: confirmed
+- id: m_alter_index_wave8_104_fillfactor
+  type: constraint
+  statement: "SET当前支持修改的参数为FILLFACTOR（定义索引页面的填充率，高并发插入且键值分布密集时建议设置较低的填充因子以减少索引页竞争，取值范围10~100百分比）；使用该命令修改或重置索引存储参数时不会对索引的内容进行立即更新，根据参数类型可能需要通过REINDEX命令重建索引以实现预期效果。"
+  source_anchor: "2.4.2.6.6 参数说明/说明 页2022-2023"
+  source_refs: *refmai
+  status: confirmed
+- id: m_alter_index_wave8_104_example
+  type: behavior_oracle
+  statement: "示例：CREATE INDEX aa ON test1(col1)后ALTER INDEX aa RENAME TO idx_test1_col1，SELECT FROM pg_indexes WHERE tablename='test1'验证；分区表test2的LOCAL索引idx_test2_col1通过RENAME PARTITION p1 TO p1_test2_idx重命名索引分区；SELECT relname FROM pg_partition WHERE parentid = 'idx_test2_col1'::regclass查询索引分区名。"
+  source_anchor: "2.4.2.6.6 示例 页2023"
+  source_refs: *refmai
+  status: confirmed
+- id: m_alter_resource_label_wave8_104_syntax
+  type: syntax
+  statement: "M兼容ALTER RESOURCE LABEL用于修改资源标签；语法为ALTER RESOURCE LABEL label_name {ADD | REMOVE} label_item_list [, ...]，label_item_list为resource_type (resource_path [, ...])，resource_type为TABLE | COLUMN | SCHEMA | VIEW | FUNCTION；仅POLADMIN、SYSADMIN或初始用户可以执行该命令。"
+  source_anchor: "2.4.2.6.7 功能描述/注意事项/语法格式 页2023-2024"
+  source_refs: &refmarl
+  - w8_104_2_4_2_6_7
+  status: confirmed
+- id: m_alter_resource_label_wave8_104_example
+  type: behavior_oracle
+  statement: "示例（m_db）：CREATE RESOURCE LABEL table_label ADD COLUMN(table_for_label.col1)后ALTER RESOURCE LABEL table_label ADD COLUMN(table_for_label.col2)将col2添加至标签；ALTER RESOURCE LABEL table_label REMOVE COLUMN(table_for_label.col1)移除col1项。"
+  source_anchor: "2.4.2.6.7 示例 页2024"
+  source_refs: *refmarl
+  status: confirmed
+- id: m_alter_role_wave8_104_syntax
+  type: syntax
+  statement: "M兼容ALTER ROLE修改角色属性（不支持在PDB内修改初始用户密码）；五种形式：ALTER ROLE role_name [ [ WITH ] option [ ... ] ]（修改权限）、RENAME TO new_name、ACCOUNT { LOCK | UNLOCK }（锁定或解锁）、[ IN DATABASE database_name ] SET configuration_parameter {{ TO | = } { value | DEFAULT } | FROM CURRENT}（设置配置参数）、[ IN DATABASE database_name ] RESET ALL（重置所有配置参数）。"
+  source_anchor: "2.4.2.6.8 功能描述/注意事项/语法格式 页2025-2026"
+  source_refs: &refmarole
+  - w8_104_2_4_2_6_8
+  status: confirmed
+- id: m_alter_role_wave8_104_options
+  type: constraint
+  statement: "M兼容option权限子句：{CREATEDB | NOCREATEDB}、{CREATEROLE | NOCREATEROLE}、{AUDITADMIN | NOAUDITADMIN}、{SYSADMIN | NOSYSADMIN}、{MONADMIN | NOMONADMIN}、{OPRADMIN | NOOPRADMIN}、{POLADMIN | NOPOLADMIN}、{USEFT | NOUSEFT}、{INHERIT | NOINHERIT}、{LOGIN | NOLOGIN}、{PERSISTENCE | NOPERSISTENCE}、CONNECTION LIMIT connlimit、PASSWORD { 'password' [EXPIRED] | DISABLE }、IDENTIFIED BY { 'password' [ REPLACE 'old_password' | EXPIRED ] | DISABLE }、VALID BEGIN/UNTIL 'timestamp'、USER GROUP 'groupuser'、NODE GROUP logic_cluster_name、ACCOUNT { LOCK | UNLOCK }（与A模式相比无REPLICATION、RESOURCE POOL、PERM/TEMP/SPILL SPACE、PASSWORD EXPIRE INTERVAL）。"
+  source_anchor: "2.4.2.6.8 语法格式 option子句 页2025"
+  source_refs: *refmarole
+  status: confirmed
+- id: m_alter_role_wave8_104_params
+  type: constraint
+  statement: "IN DATABASE database_name表示修改角色在指定数据库上的参数；SET修改的会话参数只针对指定的角色且在下一次该角色启动的会话中有效；DEFAULT表示清除参数值（继承本角色新产生SESSION的默认值）；FROM CURRENT取当前会话中的值设置为参数值；RESET ALL把所有configuration_parameter参数恢复到默认。"
+  source_anchor: "2.4.2.6.8 参数说明 页2026"
+  source_refs: *refmarole
+  status: confirmed
+- id: m_alter_role_wave8_104_password
+  type: constraint
+  statement: "ACCOUNT LOCK锁定账户禁止登录数据库，ACCOUNT UNLOCK解锁允许登录；当前版本不允许修改角色的PGUSER属性；密码规则：除初始用户外其他管理员或普通用户修改自己的密码需输入正确的旧密码，只有初始用户、三权分立关闭时的系统管理员或拥有CREATEROLE权限的用户才可以重置普通用户密码（无需旧密码），初始用户可以重置系统管理员的密码但系统管理员不允许重置其他系统管理员的密码，应使用单引号或双引号包裹；EXPIRED设置密码失效：密码失效用户可登录数据库但不能执行查询操作，不允许设置初始用户密码失效。"
+  source_anchor: "2.4.2.6.8 参数说明 页2026-2027"
+  source_refs: *refmarole
+  status: confirmed
+- id: m_alter_schema_wave8_104_syntax
+  type: syntax
+  statement: "M-Compatibility中DATABASE和SCHEMA是同义词，ALTER SCHEMA允许修改数据库或模式的字符集、字符序、所有者；形式：ALTER SCHEMA schema_name OWNER TO new_owner（修改所有者）、ALTER {DATABASE | SCHEMA} schema_name [create_option] ...（修改字符集字符序）；权限：只有模式的所有者和被授予了模式ALTER权限的用户在拥有当前数据库CREATE权限的情况下才可执行（三权分立关闭时系统管理员默认拥有）；修改所有者须为所有者或系统管理员且是新所有者角色成员；除public外的系统模式仅初始用户可改所有者，系统模式改名默认禁止（仅启动/升级过程或allow_system_table_mods=on时允许）；除初始用户外无法将所有者改为运维管理员。"
+  source_anchor: "2.4.2.6.9 功能描述/注意事项/语法格式 页2027-2028"
+  source_refs: &refmaschema
+  - w8_104_2_4_2_6_9
+  status: confirmed
+- id: m_alter_schema_wave8_104_example
+  type: behavior_oracle
+  statement: "示例（m_db）：CREATE SCHEMA test_db1后ALTER SCHEMA test_db1 CHARSET utf8（改字符集）、ALTER SCHEMA test_db1 COLLATE utf8mb4_bin（改字符序）；CREATE USER scott后ALTER SCHEMA test_db1 OWNER TO scott（改所有者）。"
+  source_anchor: "2.4.2.6.9 示例 页2028"
+  source_refs: *refmaschema
+  status: confirmed
+- id: m_alter_sequence_wave8_104_syntax
+  type: syntax
+  statement: "M兼容ALTER SEQUENCE修改一个现有序列的参数；两种形式（均带[ IF EXISTS ]）：name [MAXVALUE maxvalue | NO MAXVALUE | NOMAXVALUE | CACHE cache] [ OWNED BY { table_name.column_name | NONE } ]（修改序列最大值、归属列和缓存值）、name OWNER TO new_owner（修改序列的拥有者）。"
+  source_anchor: "2.4.2.6.10 功能描述/语法格式 页2028-2029"
+  source_refs: &refmaseq
+  - w8_104_2_4_2_6_10
+  status: confirmed
+- id: m_alter_sequence_wave8_104_limits
+  type: constraint
+  statement: "M兼容ALTER SEQUENCE限制：序列的所有者、被授予序列ALTER权限或ALTER ANY SEQUENCE权限的用户才能执行（三权分立关闭时系统管理员默认拥有），修改所有者须为所有者或系统管理员且是新所有者角色成员、该角色必须有序列所在模式上的CREATE权限；当前版本仅支持修改拥有者、归属列、最大值和cache缓存值（修改其他参数可删除重建并用Setval函数恢复当前值）；ALTER SEQUENCE MAXVALUE不支持在事务、函数和存储过程中使用；修改序列最大值后会清空该序列在所有会话的cache；ALTER SEQUENCE会阻塞nextval、setval、currval和lastval的调用。"
+  source_anchor: "2.4.2.6.10 注意事项 页2028-2029"
+  source_refs: *refmaseq
+  status: confirmed
+- id: m_alter_sequence_wave8_104_params
+  type: constraint
+  statement: "参数：MAXVALUE新修改的最大值必须大于当前的last_value（取值范围(last_value, 2^63-1]，使用LARGE标识时为(last_value, 2^127-1]，未指定保持旧最大值）；CACHE为快速访问在内存中预先存储序列号的个数（取值[1, 2^63-1]，LARGE时[1, 2^127-1]，未指定保持旧缓冲值）；OWNED BY将序列和表的指定字段关联（删除字段或其所在表时会自动删除已关联序列，新关联覆盖旧关联，关联的表和序列所有者必须同一用户且在同一模式中），OWNED BY NONE删除任何已存在的关联。"
+  source_anchor: "2.4.2.6.10 参数说明 页2029"
+  source_refs: *refmaseq
+  status: confirmed
+- id: m_alter_sequence_wave8_104_example
+  type: behavior_oracle
+  statement: "示例（m_db）：CREATE SEQUENCE serial START 101后SELECT pg_catalog.nextval('serial')返回101；ALTER SEQUENCE serial MAXVALUE 101后再查询nextval报ERROR: nextval: reached maximum value of sequence \"serial\" (101)；DROP SEQUENCE serial CASCADE清理。"
+  source_anchor: "2.4.2.6.10 示例 页2030"
+  source_refs: *refmaseq
+  status: confirmed
+- id: m_alter_session_wave8_104_syntax
+  type: syntax
+  statement: "M兼容ALTER SESSION定义或修改对当前会话有影响的条件或参数（修改后的会话参数保持直到断开当前会话）；事务参数形式为ALTER SESSION SET TRANSACTION { ISOLATION LEVEL { READ COMMITTED | READ UNCOMMITTED | REPEATABLE READ | SERIALIZABLE} } | { READ ONLY | READ WRITE }（支持四种隔离级别）；运行时参数形式含config_parameter、TIME ZONE time_zone、CURRENT_SCHEMA schema、SCHEMA 'schema'、NAMES encoding_name、NAMES encoding_name COLLATE collate_name（可同时指定字符序，M兼容特有）、ROLE role_name PASSWORD 'password'、SESSION AUTHORIZATION { role_name PASSWORD 'password' | DEFAULT }。"
+  source_anchor: "2.4.2.6.11 功能描述/注意事项/语法格式 页2030-2031"
+  source_refs: &refmasess
+  - w8_104_2_4_2_6_11
+  status: confirmed
+- id: m_alter_session_wave8_104_notes
+  type: constraint
+  statement: "如果执行SET TRANSACTION之前没有执行START TRANSACTION则事务立即结束命令无法显示效果；可以用START TRANSACTION里面声明所需要的transaction_mode(s)的方法避免使用SET TRANSACTION；ISOLATION LEVEL中READ COMMITTED为缺省值（只读已提交数据），READ UNCOMMITTED指定后的行为和READ COMMITTED行为一致。"
+  source_anchor: "2.4.2.6.11 注意事项/参数说明 页2030-2031"
+  source_refs: *refmasess
+  status: confirmed
+- id: m_alter_session_wave8_104_params
+  type: constraint
+  statement: "参数：config_parameter可用SHOW ALL查看（DEFAULT/OFF/RESET为缺省值语义，用户指定值需满足取值限制，FROM CURRENT取当前会话值）；TIME ZONE对应运行时参数TimeZone（DEFAULT缺省PRC）；CURRENT_SCHEMA指定当前模式（模式名不存在会导致CURRENT_SCHEMA值为空）；SCHEMA同CURRENT_SCHEMA（字符串形式）；NAMES设置客户端字符编码（等价set client_encoding，默认UTF8）。"
+  source_anchor: "2.4.2.6.11 参数说明 页2031"
+  source_refs: *refmasess
+  status: confirmed
+- id: m_alter_session_wave8_104_example
+  type: behavior_oracle
+  statement: "示例（m_db）：SET SEARCH_PATH TO ds, public、SET DATESTYLE TO postgres, dmy、ALTER SESSION SET NAMES 'UTF8'、SET TIME ZONE 'PST8PDT'与'Europe/Rome'、ALTER SESSION SET CURRENT_SCHEMA TO ds；START TRANSACTION后ALTER SESSION SET TRANSACTION READ ONLY再ROLLBACK；相关链接SET。"
+  source_anchor: "2.4.2.6.11 示例 页2032"
+  source_refs: *refmasess
+  status: confirmed
+open_questions:
+- id: m_alter2_wave8_104_oq_runtime
+  statement: "UNUSABLE索引对M兼容查询计划的实际影响、序列cache清空在多会话下的可见性时序、REPEATABLE READ与SERIALIZABLE在M兼容下的隔离行为差异需授权环境实机验证。"
+  status: open
