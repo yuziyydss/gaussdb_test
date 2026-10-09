@@ -1,0 +1,164 @@
+document: 集中式版参考 / 4.4.2.7.4 MySQL兼容M模式DDL（Wave 8-193）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-09'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 4.4.2.7.4 DDL（表4-163 DDL语法兼容介绍）
+  physical_page_start: 3410
+  physical_page_end: 3434
+  physical_page_count: 24
+  excludes:
+  - 4.4.2.7.5 DML及后续小节（后续波次按切片覆盖）
+facts:
+- id: mcompat_wave8_193_ddl_primary_key_index
+  type: constraint
+  statement: "主键/索引差异：GaussDB约束关联表为ustore且using btree时底层建ubtree；索引名/约束名/key名在同一SCHEMA下不可重复而MySQL在同一表下不可重复；列级UNIQUE自动索引命名GaussDB\"表名_列名_key\"而MySQL用列名；主键列个数上限不同；GaussDB主键指定索引名后索引名为用户指定而MySQL为PRIMARY；MySQL 5.7索引ASC/DESC解析但忽略默认ASC，MySQL 8.0及GaussDB解析且生效；前缀长度GaussDB不超2676；主键索引不支持前缀键；CREATE/DROP INDEX的algorithm_option和lock_option仅语法支持不实际生效。"
+  source_anchor: "4.4.2.7.4 表4-163 主键索引 页3410-3411"
+  source_refs: &refw8193
+  - w8_193_4_4_2
+  status: confirmed
+- id: mcompat_wave8_193_ddl_auto_increment
+  type: constraint
+  statement: "自增列差异：GaussDB建议自增列为索引第一字段否则警告而MySQL必须否则报错；AUTO_INCREMENT=value必须小于2^127正数（MySQL可为0）；达到最大值时GaussDB报错而MySQL场景不同；不支持innodb_autoinc_lock_mode（auto_increment_cache=0时行为相似）；批量插入混合0/NULL/确定值出错后自增值不一定与MySQL一致；并行导入自增值可能不连续；本地临时表不预留自增值；GaussDB SERIAL类型与MySQL SERIAL不同；auto_increment_offset不可大于increment（MySQL允许并忽略offset）；ALTER TABLE重写数据顺序不同导致自增值顺序不同；首次预留自增值为统计信息行数；触发器/自定义函数中自增刷新last_insert_id（MySQL不刷新）；auto_increment_offset/increment超范围GaussDB报错MySQL改为边界值；no_auto_value_on_zero+非NOT NULL时GaussDB插NULL不触发自增而MySQL触发；check+auto_increment同字段GaussDB报错。"
+  source_anchor: "4.4.2.7.4 表4-163 自增列 页3411-3414"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_charset_collation
+  type: constraint
+  statement: "指定字符集与排序规则差异：库级除binary外不支持创建新库/模式字符集与server_encoding不同；表级/列级字符集字符序仅支持binary或与库级相同；重复指定仅最后一个生效。"
+  source_anchor: "4.4.2.7.4 表4-163 字符集排序 页3413"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_create_table_options
+  type: constraint
+  statement: "基础表定义差异：GaussDB不支持AVG_ROW_LENGTH/CHECKSUM/COMPRESSION/CONNECTION/DATA DIRECTORY/INDEX DIRECTORY/DELAY_KEY_WRITE/ENCRYPTION/INSERT_METHOD/KEY_BLOCK_SIZE/MAX_ROWS/MIN_ROWS/PACK_KEYS/PASSWORD/STATS_AUTO_RECALC/STATS_PERSISTENT/STATS_SAMPLE_PAGES选项；ENGINE/ROW_FORMAT不报错但不生效；ALTER TABLE不支持DROP INDEX|DROP KEY|ORDER BY；新增列NOT NULL时MySQL转默认值GaussDB检查NULL；宽松模式NULL转换GaussDB不支持；CHECK约束GaussDB同步MySQL 8.0且可引用其他列；最多32767个CHECK约束。"
+  source_anchor: "4.4.2.7.4 表4-163 基础表定义 页3414-3415"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_partition_syntax
+  type: constraint
+  statement: "分区表差异：MySQL LIST/RANGE不指定COLUMNS或HASH支持表达式不支持多分区键，LIST/RANGE指定COLUMNS或KEY不支持表达式支持多分区键；GaussDB仅LIST/RANGE不指定二级分区支持多分区键；不支持虚拟生成列分区键；表达式分区键不支持包含生成列；key的column_list不支持空；不支持LINEAR/KEY hash；hash函数与MySQL不一致导致存储差异；不支持修改分区键信息；KEY分区不支持指定algorithm；不支持表达式入参PARTITION BY HASH()/KEY()/VALUES LESS THAN()。"
+  source_anchor: "4.4.2.7.4 表4-163 分区表 页3415-3416"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_exchange_partition
+  type: constraint
+  statement: "ALTER TABLE EXCHANGE PARTITION差异：自增列MySQL重置而GaussDB不重置；tablespace MySQL使用时无法交换而GaussDB不同tablespace可交换；默认值MySQL不校验而GaussDB校验；DROP列后MySQL只需表结构一致而GaussDB需被删除列严格对齐；hash算法不同导致数据不一致；MySQL分区表不支持外键而GaussDB支持（需外键约束一致）。"
+  source_anchor: "4.4.2.7.4 表4-163 交换分区 页3416-3417"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_create_table_like
+  type: constraint
+  statement: "CREATE TABLE ... LIKE差异：MySQL 8.0.16之前不复制CHECK约束而GaussDB支持复制；主键约束名MySQL固定PRIMARY KEY而GaussDB不支持复制；唯一键/CHECK约束名/索引名MySQL支持复制而GaussDB不支持；跨sql_mode建表GaussDB可能严格模式失效（如no_zero_date下'0000-00-00'默认值仍成功）。"
+  source_anchor: "4.4.2.7.4 表4-163 CREATE TABLE LIKE 页3417"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_truncate_partition
+  type: constraint
+  statement: "TRUNCATE子分区语法差异：GaussDB支持TRUNCATE PARTITION {ALL|partition_name[,...]}|FOR(partition_value[,...]) [UPDATE GLOBAL INDEX]；MySQL支持TRUNCATE PARTITION {partition_names|ALL}。"
+  source_anchor: "4.4.2.7.4 表4-163 TRUNCATE 页3417"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_drop_cascade
+  type: constraint
+  statement: "删除有依赖对象：GaussDB需加CASCADE，MySQL不需要。"
+  source_anchor: "4.4.2.7.4 表4-163 DROP 页3417"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_partition_index
+  type: constraint
+  statement: "分区表索引差异：GaussDB分LOCAL和GLOBAL两种（非分区键唯一索引默认GLOBAL）；MySQL无GLOBAL索引概念；GLOBAL索引分区DROP/SPLIT/MERGE/EXCHANGE后需UPDATE GLOBAL INDEX或enable_gpi_auto_update=true或m_format_dev_version=s4自动更新；MySQL含全部分区键相同列支持同时创建唯一/普通索引，GaussDB仅顺序不同列支持同时创建。"
+  source_anchor: "4.4.2.7.4 表4-163 分区索引 页3418"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_foreign_key
+  type: constraint
+  statement: "外键差异：GaussDB外键类型不敏感（隐式转换可建）而MySQL类型敏感；GaussDB支持MODIFY/CHANGE COLUMN修改外键列类型/列名而MySQL不支持；GaussDB允许外键作分区键；GaussDB支持MATCH FULL/SIMPLE而MATCH PARTIAL报错（MySQL支持但不生效均MATCH SIMPLE行为）；GaussDB支持ON UPDATE|DELETE SET DEFAULT而MySQL报错；GaussDB需被参考列唯一索引而MySQL需索引可不唯一；GaussDB参考列不需索引而MySQL自动添加索引；GaussDB临时表可互为参考表而MySQL临时表不可；GaussDB可不指定被参考字段（默认主键）而MySQL必须指定；foreign_key_checks关闭时GaussDB均可修改而MySQL仅off时可；GaussDB删除参考字段级联删除外键而MySQL失败；GaussDB删除含被参考表模式时级联删除外键而MySQL失败。"
+  source_anchor: "4.4.2.7.4 表4-163 外键 页3419-3421"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_rename_table
+  type: constraint
+  statement: "RENAME差异：GaussDB ALTER RENAME仅修改表名不能耦合其他功能；仅旧表名支持schema.table_name且新旧表同Schema；不支持跨Schema重命名（有权限可在当前Schema修改其他Schema表名）；RENAME多组表支持全为本地临时表不支持混合。"
+  source_anchor: "4.4.2.7.4 表4-163 RENAME 页3421"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_expr_flatten
+  type: constraint
+  statement: "SET expr_engine = EXPR_FLATTEN/EXPR_BYTECODE：M-Compatibility模式暂不支持表达式展平、字节码。"
+  source_anchor: "4.4.2.7.4 表4-163 表达式展平 页3421"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_create_view_precision
+  type: constraint
+  statement: "CREATE VIEW AS SELECT精度差异：不开启enable_precision_decimal时BINARY/VARBINARY/CHAR/VARCHAR/TIME/DATETIME/TIMESTAMP/BIT/NUMERIC/DECIMAL/DEC/FIXED/FLOAT4/FLOAT8/FLOAT/REAL/DOUBLE/TEXT/TINYTEXT/MEDIUMTEXT/LONGTEXT/BLOB/TINYBLOB/MEDIUMBLOB/LONGBLOB类型不支持query含计算操作（函数调用/操作符计算）仅允许直接字段调用，开启精度传递后可用；系统函数作列未指定别名时GaussDB用函数名作列名（多个同函数报列名重复）而MySQL连带参数；UNION嵌套子查询文本类型GaussDB按实际字节长度MySQL按所属类型最大字节长度。"
+  source_anchor: "4.4.2.7.4 表4-163 CREATE VIEW 页3422-3425"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_view_bitstring
+  type: constraint
+  statement: "bitstring常量创建视图差异：MySQL转hexstring创建，GaussDB直接使用bitstring创建且属性为unsigned。"
+  source_anchor: "4.4.2.7.4 表4-163 CREATE VIEW 页3425-3426"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_view_dependency
+  type: constraint
+  statement: "视图依赖差异：MySQL只记录目标表名/列名/数据库名，GaussDB存储目标表唯一标识；修改视图依赖列数据类型MySQL可成功而GaussDB禁止；重命名视图依赖列MySQL可成功而GaussDB禁止；DROP依赖列MySQL不报错但视图不可用而GaussDB报错。"
+  source_anchor: "4.4.2.7.4 表4-163 视图依赖 页3426"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_view_modification
+  type: constraint
+  statement: "视图定义修改差异：MySQL可修改视图任何属性而GaussDB禁止修改不可更新视图列名/列类型/删除列（可更新视图允许）；嵌套视图底层修改列后MySQL只要列名存在上层可用而GaussDB上层不可用。"
+  source_anchor: "4.4.2.7.4 表4-163 视图定义修改 页3426"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_analyze_partition
+  type: constraint
+  statement: "ANALYZE PARTITION差异：GaussDB仅支持分区统计信息收集；分区名MySQL不区分大小写，GaussDB不带反引号不区分带反引号区分；GaussDB回显ALTER TABLE而MySQL表格回显。"
+  source_anchor: "4.4.2.7.4 表4-163 ANALYZE 页3427"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_generated_column
+  type: constraint
+  statement: "虚拟生成列差异：MySQL支持创建索引/分区键/IGNORE特性而GaussDB不支持；生成列CHECK约束GaussDB兼容MySQL 8.0生效；存储生成列ALTER TABLE修改MySQL支持GaussDB不支持；可更新视图更新生成列指定DEFAULT MySQL支持GaussDB不支持；GaussDB查询虚拟生成列等价于查询表达式（隐式转换），CREATE TABLE AS源表虚拟生成列FLOAT目标可能DOUBLE；GaussDB generated always as不能引用generated always as列而MySQL可以。"
+  source_anchor: "4.4.2.7.4 表4-163 虚拟生成列 页3428-3429"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_ctas
+  type: constraint
+  statement: "CREATE TABLE AS SELECT差异：不支持创建分区表；不支持replace/ignore；SELECT列非直接表列默认允许NULL且无默认值；需开启enable_precision_decimal否则涉及数据类型精度相关类型报错（非直接表列/union场景）；列名最大长度63超长截断而MySQL超64报错；系统函数列名重复与CREATE VIEW相同。"
+  source_anchor: "4.4.2.7.4 表4-163 CTAS 页3429"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_alter_table_any
+  type: constraint
+  statement: "ALTER TABLE table_name差异：GaussDB支持表名/视图名/索引名/序列名，MySQL仅支持表名。"
+  source_anchor: "4.4.2.7.4 表4-163 ALTER TABLE 页3429"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_utf8_length
+  type: constraint
+  statement: "UTF8编码最大长度差异：MySQL utf8最大3字节，GaussDB utf8(utf8mb4)最大4字节；enable_precision_decimal开启时CTAS/CVAS创建文本类型字符长度差异（如1024字节MySQL=341字符而GaussDB=256字符）。"
+  source_anchor: "4.4.2.7.4 表4-163 UTF8长度 页3430"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_default_value
+  type: constraint
+  statement: "指定字段默认值差异：MySQL 5.7仅支持不带括号形式默认值，MySQL 8.0与GaussDB支持带括号；BLOB/TEXT/JSON默认值MySQL必须加括号而GaussDB可不加；GaussDB指定默认值不校验溢出而MySQL不带括号时校验；GaussDB支持DATE/TIME/TIMESTAMP开头时间常量默认值而MySQL必须加括号。"
+  source_anchor: "4.4.2.7.4 表4-163 默认值 页3431-3433"
+  source_refs: *refw8193
+  status: confirmed
+- id: mcompat_wave8_193_ddl_binary_public_schema
+  type: constraint
+  statement: "binary编码库public Schema字符类型建表差异：库级字符集binary时public下表默认字符序不继承binary字符序，字符类型不转换为二进制类型；需显式指定字符序或切换Schema后使用。"
+  source_anchor: "4.4.2.7.4 表4-163 binary public schema 页3433-3434"
+  source_refs: *refw8193
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_193_oq_runtime
+  content: "自增列并行导入/EXCHANGE PARTITION/GLOBAL索引自动更新/虚拟生成列隐式转换等差异的完整影响范围需授权环境实机验证。"
+  status: open
