@@ -1,0 +1,122 @@
+document: 集中式版参考 / 7.3.7 GUC双机复制（Wave 8-208）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-09'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 7.3.7 双机复制（发送端服务器/主服务器/备服务器/逻辑复制）
+  physical_page_start: 4272
+  physical_page_end: 4323
+  physical_page_count: 51
+  excludes:
+  - 7.3.8 查询规划及后续小节（后续波次按切片覆盖）
+facts:
+- id: guc_wave8_208_sender_basic
+  type: syntax
+  statement: "发送端服务器参数：max_wal_senders POSTMASTER整型0~1024默认20 Xlog日志发送线程并发最大数量必须小于max_connections（wal_level须为archive/hot_standby/logical才允许备机连接/双机复制+备份+逻辑解码时设为备机个数+备份连接数+逻辑复制连接数/单DN无主备场景才可设0）；wal_keep_segments SIGHUP整型2~2147483647默认128 pg_xlog目录保留日志文件最小数量（COPY导入4G以上需增大/50G导入建议1000/synchronous_commit<LOCAL_FLUSH重建备机建议1000）；wal_sender_timeout SIGHUP整型0~2147483647ms默认6000等待接收端最大时间（500GB重建备机参考600s/不能大于wal_receiver_timeout）。"
+  source_anchor: "7.3.7.1 发送端服务器 页4272-4274"
+  source_refs: &refw8208
+  - w8_208_7_3
+  status: confirmed
+- id: guc_wave8_208_slots_compression_auth
+  type: constraint
+  statement: "复制槽/压缩/认证参数：max_replication_slots POSTMASTER整型0~1024默认20日志复制slot最大数量（物理流复制槽数=备节点数/备份槽2个/逻辑复制槽一个槽一个数据库同一实例最多20个）；enable_slot_log USERSET布尔型默认on复制槽主备同步（主机创建建议开启备机建议关闭）；enable_wal_shipping_compression SIGHUP布尔型默认off流式容灾跨数据库实例日志压缩（hadr_replconninfo_config_mode=cluster_manager时无效）；repl_auth_mode SIGHUP枚举off/default/uuid默认default主备复制验证模式（UUID验证防止误连/支持Quorum DCF备机重建/Quorum主备复制/不支持DCF主备复制/不支持跨数据库实例认证/主备间不自动同步）；repl_uuid SIGHUP字符串0~63字符默认空UUID验证码。"
+  source_anchor: "7.3.7.1 发送端服务器 页4274-4278"
+  source_refs: *refw8208
+  status: confirmed
+- id: guc_wave8_208_replconninfo
+  type: syntax
+  statement: "replconninfo1~18 SIGHUP字符串默认空设置本端侦听和鉴权的第1~18个节点信息（安装成功自动配置无需手动修改/错误连接信息导致实例状态异常）；cross_cluster_replconninfo1~8 SIGHUP字符串默认空跨数据库实例复制连接信息；available_zone SIGHUP字符串默认空本节点所在AZ；enable_availablezone SIGHUP布尔型默认off跨AZ功能开关；enable_time_report SIGHUP整型默认0时间上报频率；thread_top_level SIGHUP布尔型默认on线程顶层标识；page_work_queue_size POSTMASTER整型默认4096页面工作队列大小；parallel_build_thread_num SIGHUP整型默认4并行build线程数；enable_parallel_build_compression SIGHUP布尔型默认off并行build压缩；replay_delay SIGHUP整型默认0备机回放延迟；replay_mode SIGHUP枚举默认async回放模式；hadr_replconninfo_config_mode SIGHUP枚举默认manual容灾链路配置方式；hadr_source_info SIGHUP字符串默认空容灾源信息。"
+  source_anchor: "7.3.7.1 发送端服务器 页4277-4290"
+  source_refs: *refw8208
+  status: confirmed
+- id: guc_wave8_208_primary_sync
+  type: constraint
+  statement: "主服务器参数：synchronous_standby_names SIGHUP字符串默认*潜在同步复制备机名称列表——ANY N(names)任选N个/FIRST N(names)按优先级选N个/standby_name逗号分隔（当前同步备失去连接立即更换下一个优先级更高的/由CM维护手动修改存在丢失数据风险）；most_available_sync SIGHUP布尔型默认off所有同步备机故障时不阻塞主机事务提交（单主时也会提交成功非多数派写入/需谨慎开启）；keep_sync_window SIGHUP整型0~2147483647秒默认0延迟进入最大可用模式的时间窗口（most_available_sync=on且同步备故障时保持最大保护模式/推荐最小5s避免网络不稳误报/可能影响RPO）。"
+  source_anchor: "7.3.7.2 主服务器 页4291-4293"
+  source_refs: *refw8208
+  status: confirmed
+- id: guc_wave8_208_primary_replication_mode
+  type: syntax
+  statement: "主服务器复制模式参数：enable_stream_replication SIGHUP布尔型默认on控制主备数据和日志同步（性能测试参数/关闭后不能进行切换故障等异常场景测试/关闭失去多副本能力不建议关闭）；enable_mix_replication POSTMASTER布尔型默认off（不允许外部修改）WAL日志数据页混合复制；enable_wal_replication_compression POSTMASTER布尔型默认off主DN和备DN间Xlog压缩（不支持DCF/容灾/升级中不允许修改算法/小规格4U8U不建议）；wal_replication_compression_thread_settings POSTMASTER字符串默认'1,6'并行压缩线程数和单线程队列深度（各[1,16]/与walsender_max_send_size配合决定内存占用）；wal_replication_compression_settings SIGHUP字符串默认'lz4,3'——lz4加速因子[1,300]/zstd压缩等级[1,15]/zstd压缩率高性能差lz4性能好压缩率低。"
+  source_anchor: "7.3.7.2 主服务器 页4293-4297"
+  source_refs: *refw8208
+  status: confirmed
+- id: guc_wave8_208_primary_buffers_misc
+  type: syntax
+  statement: "主服务器缓冲/杂项参数：data_replicate_buffer_size POSTMASTER整型4096~1072693248kB默认128MB发送端与接收端传递数据页队列内存大小（需满足内存约束公式）；walsender_max_send_size POSTMASTER整型8~2147483647kB默认8192（8MB）主机端日志或数据发送缓冲区大小；wal_buffer_reserve_percent SIGHUP浮点型0.0~0.5默认0.25主机端wal日志缓存保留窗口比例（非0时需wal_buffers>=1GB才生效）；ha_module_debug USERSET布尔型默认off数据复制数据块状态日志（不建议开启占用磁盘/CPU/I/O带宽）；catchup2normal_wait_time SIGHUP整型-1~10000ms默认-1最大可用模式备机数据追赶阻塞主机最长时间（-1阻塞至完成/0不阻塞/正整数超过即不再阻塞）；check_sync_standby USERSET布尔型默认off备机检查控制开关（同步备故障时主机写业务直接报错/job work和自治事务中不同步/不支持vacuum analyze等非写操作触发场景）。"
+  source_anchor: "7.3.7.2 主服务器 页4297-4300"
+  source_refs: *refw8208
+  status: confirmed
+- id: guc_wave8_208_sync_config_hadr
+  type: syntax
+  statement: "sync_config_strategy SIGHUP枚举all_node/only_sync_node默认all_node主机备机级联备配置文件同步策略（all_node向所有备机主动同步/only_sync_node仅向同步备同步）；hadr_sync_mode SIGHUP枚举默认remote_write流式容灾日志同步方式（hadr_user_mode需remote_write or remote_receive/远端同步复制模式仅支持remote_write或remote_receive）。"
+  source_anchor: "7.3.7.2 主服务器 页4300-4303"
+  source_refs: *refw8208
+  status: confirmed
+- id: guc_wave8_208_standby_hot_standby
+  type: constraint
+  statement: "备服务器参数：hot_standby POSTMASTER布尔型默认on允许备机恢复到minrecovery点后接受连接和查询——wal_level必须>=hot_standby否则无法启动/曾关闭需先调wal_level再checkpoint再开启/备机读因回放与查询冲突可能取消查询/临时表等不产生Xlog不支持备机读/极致RTO备机读不支持IndexOnlyScan/仅支持REPEATABLE READ隔离级别/exrto_standby_read_opt可降低内存I/O开销。"
+  source_anchor: "7.3.7.3 备服务器 页4303-4305"
+  source_refs: *refw8208
+  status: confirmed
+- id: guc_wave8_208_standby_delay_receiver
+  type: syntax
+  statement: "备机延迟/接收参数：max_standby_archive_delay SIGHUP整型-1~2147483647ms默认3000备机取消查询等待时间（当前版本暂不生效统一由streaming_delay控制）；max_standby_streaming_delay SIGHUP整型-1~2147483647ms默认3000流复制查询冲突等待（-1一直等待但检测死锁时取消查询/0立即取消/值大查询优先级高但影响回放/值小回放优先级高但长查询易取消）；wal_receiver_status_interval SIGHUP整型0~2147483秒默认5接收线程状态通知间隔（0=关闭反馈可能导致主机事务阻塞/切换失败）；hot_standby_feedback SIGHUP布尔型默认off备机查询最小事务号反馈主机避免冲突（影响主机旧版本清理性能）；wal_receiver_timeout SIGHUP整型0~2147483647ms默认6000接收数据最大等待时间；wal_receiver_connect_timeout SIGHUP整型0~2147483秒默认2连接主机最大等待；wal_receiver_connect_retries SIGHUP整型1~2147483647默认1连接最大尝试次数。"
+  source_anchor: "7.3.7.3 备服务器 页4305-4308"
+  source_refs: *refw8208
+  status: confirmed
+- id: guc_wave8_208_standby_buffer_rto_files
+  type: syntax
+  statement: "备机缓冲/RTO文件参数：wal_receiver_buffer_size POSTMASTER整型4096~1047552kB默认64MB备机接收Xlog内存缓冲区；primary_slotname SIGHUP字符串默认空备机对应主机slot name主备校验；max_standby_base_page_size SIGHUP整型默认256GB极致RTO备机base page类型文件最大存储空间；max_standby_lsn_info_size SIGHUP整型默认256GB lsn info类型文件最大存储空间（按需回放时设置过小频繁强制回收影响RTO）；max_keep_csn_info_size SIGHUP整型16384~131072kB默认16MB每个DN的csn info链表最大存储空间；base_page_saved_interval POSTMASTER整型5~2000默认400生成base page间隔次数（按需回放SkipLsnInfoNode间隔N=(base/13)*13+8）；standby_force_recycle_ratio SIGHUP浮点型0.0~1.0默认0.8强制回收比例（0不启动强制回收）。"
+  source_anchor: "7.3.7.3 备服务器 页4308-4311"
+  source_refs: *refw8208
+  status: confirmed
+- id: guc_wave8_208_standby_recycle_read_opt
+  type: syntax
+  statement: "备机回收/优化参数：standby_recycle_interval SIGHUP整型0~86400秒默认10备机读相关文件回收间隔（0不回收历史版本页面影响Xlog回收）；standby_max_query_time SIGHUP整型0~86400秒默认600极致RTO备机查询最大时间（实际执行时间大于该参数受回收间隔和快照时间影响）；exrto_standby_read_opt POSTMASTER布尔型默认on极致RTO备机读优化（主机和备机间不同步该参数）；walrcv_writer_crc_check_level SIGHUP整型0~3默认1流式容灾备机侧Xlog校验级别（0关闭/1灾备库内/2主库内备机侧/3全部）；enable_standby_bufferpool POSTMASTER布尔型默认on极致RTO备机读独立缓冲区（需enable_incremental_checkpoint打开且standby_shared_buffers_fraction-standby_bufferpool_scale>=0.1）；standby_bufferpool_scale POSTMASTER浮点型0.1~0.9默认0.5独立缓冲区占shared_buffers比例（不合理会导致刷页速度加快）。"
+  source_anchor: "7.3.7.3 备服务器 页4311-4312"
+  source_refs: *refw8208
+  status: confirmed
+- id: guc_wave8_208_ssl_walsync_opt
+  type: syntax
+  statement: "主备SSL/优化参数：wal_replication_ssl POSTMASTER布尔型默认on与ssl同时使用控制主备之间是否开启SSL通信（两个参数均为on时主备走SSL加密传输/关闭可提高通信性能）；enable_standby_walsync_optimization POSTMASTER布尔型默认off启用主备WAL日志同步性能优化——主机等待备机WAL落盘从双链表改为轮询检查减少唤醒等待/备机WAL日志落盘从fsync改为ADIO方式不经过OS cache直接从内存到磁盘且异步/备机回放也用DIO读取（仅quorum模式/鲲鹏4路服务器打开2路关闭/不支持quorum切换到DCF）。"
+  source_anchor: "7.3.7.3 备服务器 页4312-4313"
+  source_refs: *refw8208
+  status: confirmed
+- id: guc_wave8_208_logical_replication_basic
+  type: constraint
+  statement: "逻辑复制基本参数：max_changes_in_memory SIGHUP整型1~2147483647默认4096逻辑解码单事务DML内存缓存上限（过大解码大事务占用内存/过小效率降低）；max_cached_tuplebufs SIGHUP整型1~2147483647默认8192总元组信息内存缓存上限（建议max_changes_in_memory两倍以上）；logical_decode_options_default SIGHUP字符串默认空逻辑解码任务启动全局默认参数（key=value逗号分隔/支持parallel-decode-num/parallel-queue-size/max-txn-in-memory等选项/exclude-users仅一个/decode-sequence仅false）；logical_sender_timeout USERSET整型0~2147483647ms默认30000（30s）等待逻辑日志接收端最大时间。"
+  source_anchor: "7.3.7.4 逻辑复制 页4313-4316"
+  source_refs: *refw8208
+  status: confirmed
+- id: guc_wave8_208_logical_slot_ddl_dict
+  type: constraint
+  statement: "逻辑复制槽/DDL/字典参数：enable_logicalrepl_xlog_prune SIGHUP布尔型默认off逻辑复制槽强制失效（max_size_for_xlog_retention>0且保留段数超值或<0且磁盘使用率超阈值时restart_lsn置7FFFFFFF/FFFFFFFF不阻塞Xlog回收）；enable_logical_replication_ddl SIGHUP布尔型默认on逻辑解码支持DDL/反解析/生成WAL日志；enable_logical_replication_dictionary USERSET布尔型默认on（新装）创建多版本字典表类型逻辑复制槽（505.2.0之前升级后默认off/需字典类型系统表基线化完成后才能创建）；disable_logical_repl_dict_cache SIGHUP布尔型默认off是否缓存解码元信息（on每次解码构建元信息影响性能）；max_keep_log_seg SIGHUP整型默认2048逻辑复制槽导致Xlog保留的最大段数；logical_replication_dictionary_retention_time SIGHUP整型默认24字典类型逻辑复制槽保留时间小时。"
+  source_anchor: "7.3.7.4 逻辑复制 页4316-4318"
+  source_refs: *refw8208
+  status: confirmed
+- id: guc_wave8_208_sqlapply
+  type: constraint
+  statement: "逻辑备机回放参数：sqlapply_apply_writeset_maxsize SIGHUP整型默认1024逻辑回放writeset最大大小MB；sqlapply_preserve_commit_order SIGHUP布尔型默认off控制逻辑备机是否按远端主机事务提交顺序回放提交（设置后需重启逻辑回放业务生效）；sqlapply_apply_worker_count SIGHUP整型1~1024默认4逻辑回放线程数量（内存不超16GB时不可超8）；sqlapply_cache_memory_maxsize SIGHUP整型默认1024逻辑回放缓存内存最大MB。"
+  source_anchor: "7.3.7.4 逻辑复制 页4318-4321"
+  source_refs: *refw8208
+  status: confirmed
+- id: guc_wave8_208_sqlapply_misc
+  type: syntax
+  statement: "逻辑备机其他参数：logical_replica_identity_force SIGHUP布尔型默认off强制修改逻辑复制表的replica identity；sqlapply_logical_decode_options SIGHUP字符串默认空逻辑备机逻辑回放解码配置项；sql_apply_autorun SIGHUP布尔型默认off逻辑备自启动逻辑回放（滚动升级期间备库需设为on否则逻辑回放停止升级异常）；sqlapply_guard_mode SIGHUP枚举guard_none/guard_standby/guard_all默认guard_all逻辑备机数据保护模式——guard_none不进行额外保护/guard_standby不允许修改主备同步数据对象/guard_all只允许逻辑回放修改数据；logical_switch_time SIGHUP整型0~60分钟默认10物理容灾转逻辑复制转换超时时间（RTO/RPO超10分钟需修改为当前值加10分钟/建议业务低谷期执行）。"
+  source_anchor: "7.3.7.4 逻辑复制 页4321-4323"
+  source_refs: *refw8208
+  status: confirmed
+- id: guc_wave8_208_sqlapply_dump_delay
+  type: syntax
+  statement: "sqlapply_dumptxn_when SIGHUP枚举any/error/none默认error逻辑回放转储事务时机（any总是转储/error执行出错时转储/none不转储）；sqlapply_sharestorage_delaytime SIGHUP整型默认60逻辑回放延迟共享盘日志覆盖时间分钟。"
+  source_anchor: "7.3.7.4 逻辑复制 页4322-4323"
+  source_refs: *refw8208
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_208_oq_runtime
+  content: "双机复制/逻辑复制/极致RTO备机读等参数的具体运行时行为需授权环境实机验证。"
+  status: open
