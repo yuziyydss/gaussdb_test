@@ -17,9 +17,9 @@ class CoreSQLReferenceWave8200Tests(unittest.TestCase):
     def test_scope_covers_bmode_sql_driver(self):
         self.assertEqual(self.manifest['kind'], 'core_sql_reference_wave8_200_extraction_manifest')
         self.assertEqual(self.manifest['scope']['chapter_count'], 1)
-        self.assertEqual(self.manifest['scope']['physical_page_count'], 24)
+        self.assertEqual(self.manifest['scope']['physical_page_count'], 25)
         self.assertEqual(self.manifest['scope']['physical_page_start'], 3549)
-        self.assertEqual(self.manifest['scope']['physical_page_end_exclusive'], 3573)
+        self.assertEqual(self.manifest['scope']['physical_page_end_exclusive'], 3574)
         self.assertEqual(self.manifest['scope']['sections'], ['4.4.3'])
         self.assertEqual(self.manifest['summary']['fact_count'], len(self.facts))
         self.assertEqual(self.manifest['summary']['fact_count'], 15)
