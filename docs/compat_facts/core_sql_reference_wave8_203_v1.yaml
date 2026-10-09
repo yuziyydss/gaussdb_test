@@ -1,0 +1,92 @@
+document: 集中式版参考 / 7.3.2-7.3.3.1 GUC文件位置/连接设置（Wave 8-203）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-09'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 7.3.2 文件位置 + 7.3.3.1 连接设置
+  physical_page_start: 4170
+  physical_page_end: 4181
+  physical_page_count: 11
+  excludes:
+  - 7.3.3.2 安全和认证及后续小节（后续波次按切片覆盖）
+facts:
+- id: guc_wave8_203_file_locations
+  type: syntax
+  statement: "文件位置参数：data_directory设置数据目录仅sysadmin可访问POSTMASTER类型；config_file设置主配置文件名gaussdb.conf POSTMASTER类型；hba_file设置基于主机认证配置文件gs_hba.conf仅sysadmin POSTMASTER不建议修改（影响升级备份）；ident_file设置客户端认证配置文件gs_ident.conf仅sysadmin POSTMASTER不建议修改；external_pid_file声明额外PID文件仅sysadmin POSTMASTER需重启生效。"
+  source_anchor: "7.3.2 文件位置 页4170-4171"
+  source_refs: &refw8203
+  - w8_203_7_3
+  status: confirmed
+- id: guc_wave8_203_light_comm
+  type: syntax
+  statement: "light_comm参数：布尔型POSTMASTER；on使用基于轻量锁和非阻塞socket的轻量通信方式/off不使用；默认off推荐使用默认值。"
+  source_anchor: "7.3.3.1 连接设置 页4172"
+  source_refs: *refw8203
+  status: confirmed
+- id: guc_wave8_203_listen_addresses
+  type: constraint
+  statement: "listen_addresses参数：SIGHUP类型声明服务器侦听TCP/IP地址；*或0.0.0.0或::表示侦听所有IP有安全风险不推荐；主备环境*或0.0.0.0时localport不能为dataPortBase+1否则无法启动；gs_guc reload动态侦听（非法IP失败/全非法取消旧IP/空参数拦截保持旧IP）；进程启动参数中配置则强制不被reload修改；前后参数值相同时不侦听；禁止gs_guc -N all方式reload所有DN仅单DN；动态修改属高危操作需谨慎。"
+  source_anchor: "7.3.3.1 连接设置 页4172-4174"
+  source_refs: *refw8203
+  status: confirmed
+- id: guc_wave8_203_port
+  type: syntax
+  statement: "port参数：SIGHUP类型声明服务器侦听TCP端口。"
+  source_anchor: "7.3.3.1 连接设置 页4174"
+  source_refs: *refw8203
+  status: confirmed
+- id: guc_wave8_203_max_connections
+  type: constraint
+  statement: "max_connections参数：POSTMASTER类型整型最大并发连接数；默认值按CPU/内存配置110000~2048；配置过大超计算公式最大动态值DN拉起失败或内存不足；仅调大未同比例调内存参数业务压力大内存不足；thread_pool_attr>=max_connections时proc资源不足；管理员最大连接数=max_connections+sysadmin_reserved_connections+sysadmin_reserved_connections（主端口+1端口预留）。"
+  source_anchor: "7.3.3.1 连接设置 页4174-4175"
+  source_refs: *refw8203
+  status: confirmed
+- id: guc_wave8_203_max_inner_tool_connections
+  type: syntax
+  statement: "max_inner_tool_connections参数：POSTMASTER类型整型工具最大并发连接数；默认值50；最大值计算公式262143-job_queue_processes-autovacuum_max_workers-max_connections-max_concurrent_autonomous_transactions-AUXILIARY_BACKENDS(20)-AV_LAUNCHER_PROCS(2)-min(max(max_connections/4,64),1024)。"
+  source_anchor: "7.3.3.1 连接设置 页4176"
+  source_refs: *refw8203
+  status: confirmed
+- id: guc_wave8_203_reserved_connections
+  type: syntax
+  statement: "sysadmin_reserved_connections参数：POSTMASTER类型整型管理员预留最少连接数（也是主端口+1端口预留）；取值0~MIN(262143,max_connections)；默认3；线程池占满时可用gsql通过主端口+1端口逃生清理；预留全部被使用只能重启恢复。service_reserved_connections：POSTMASTER整型后台运维用户（persistence属性）预留最少连接数0~262143默认10。"
+  source_anchor: "7.3.3.1 连接设置 页4176-4177"
+  source_refs: *refw8203
+  status: confirmed
+- id: guc_wave8_203_unix_socket
+  type: syntax
+  statement: "Unix套接字参数：unix_socket_directory设置Unix域套接字目录POSTMASTER字符串默认安装时配置文件指定（超长导致socket path too long）；unix_socket_group设置所属组POSTMASTER字符串默认空当前用户缺省组；unix_socket_permissions设置访问权限POSTMASTER整型0000~0777（8进制）。"
+  source_anchor: "7.3.3.1 连接设置 页4177-4178"
+  source_refs: *refw8203
+  status: confirmed
+- id: guc_wave8_203_application_name
+  type: syntax
+  statement: "application_name参数：USERSET类型字符串连接应用名默认空；客户端连接后设为客户端名称级别仅会话级设置生效；设置与内部进程同名可能产生非预期行为。"
+  source_anchor: "7.3.3.1 连接设置 页4178-4179"
+  source_refs: *refw8203
+  status: confirmed
+- id: guc_wave8_203_connection_info
+  type: syntax
+  statement: "connection_info参数：USERSET类型字符串记录连接驱动类型/版本号/部署路径/进程属主用户；驱动自行拼接JSON格式；默认显示driver_name和driver_version由连接参数connectionExtraInfo控制；运维类参数不建议用户设置。"
+  source_anchor: "7.3.3.1 连接设置 页4179"
+  source_refs: *refw8203
+  status: confirmed
+- id: guc_wave8_203_check_disconnect_query
+  type: syntax
+  statement: "check_disconnect_query参数：POSTMASTER类型布尔型；on客户端异常断连后GaussDB服务端终止运行对应语句/off不终止；默认on。"
+  source_anchor: "7.3.3.1 连接设置 页4180"
+  source_refs: *refw8203
+  status: confirmed
+- id: guc_wave8_203_plat_compat
+  type: syntax
+  statement: "plat_compat_server_port参数：POSTMASTER整型M-Compatibility模式协议侦听TCP端口1024~65536默认65536不启动；仅用于MySQL协议连接；设置已使用端口启动失败。plat_compat_default_database：M-Compatibility模式协议兼容场景默认连接数据库。"
+  source_anchor: "7.3.3.1 连接设置 页4180-4181"
+  source_refs: *refw8203
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_203_oq_runtime
+  content: "listen_addresses动态侦听/max_connections资源限制等参数的具体运行时行为需授权环境实机验证。"
+  status: open
