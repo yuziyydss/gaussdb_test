@@ -17,9 +17,9 @@ class CoreSQLReferenceWave8224Tests(unittest.TestCase):
     def test_scope_covers_schema_views(self):
         self.assertEqual(self.manifest['kind'], 'core_sql_reference_wave8_224_extraction_manifest')
         self.assertEqual(self.manifest['scope']['chapter_count'], 1)
-        self.assertEqual(self.manifest['scope']['physical_page_count'], 186)
+        self.assertEqual(self.manifest['scope']['physical_page_count'], 187)
         self.assertEqual(self.manifest['scope']['physical_page_start'], 5431)
-        self.assertEqual(self.manifest['scope']['physical_page_end_exclusive'], 5617)
+        self.assertEqual(self.manifest['scope']['physical_page_end_exclusive'], 5618)
         self.assertEqual(self.manifest['scope']['sections'], ['10'])
         self.assertEqual(self.manifest['summary']['fact_count'], len(self.facts))
         self.assertEqual(self.manifest['summary']['fact_count'], 8)
