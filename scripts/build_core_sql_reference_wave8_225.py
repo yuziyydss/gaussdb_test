@@ -10,7 +10,7 @@ if str(ROOT) not in sys.path: sys.path.insert(0, str(ROOT))
 CATALOG_PATH = ROOT / 'generated/full_document_catalog/catalog.json'
 FACTS_PATH = ROOT / 'docs/compat_facts/core_sql_reference_wave8_225_v1.yaml'
 OUTPUT_PATH = ROOT / 'generated/core_sql_reference_wave8_225_v1/manifest.json'
-SOURCE_ROOTS = (ROOT/'work/pdf_tiered_2026_09_07', ROOT/'work/pdf_foundations_2026_09_07', ROOT/'work/doc2spec/full_general_corpus', ROOT/'work/m_compat_batch_05', ROOT/'work/m_compat_batch_04', ROOT/'work/m_compat_batch_03', ROOT/'work/m_compat_batch_02', ROOT/'work/m_compat_batch_01', ROOT/'work/m_compat_batch_06', ROOT/'work/m_compat_batch_04_dependencies', ROOT/'work/m_compat_batch_04_charset')
+SOURCE_ROOTS = (ROOT/'work/pdf_tiered_2026_09_07', ROOT/'work/pdf_foundations_2026_09_07', ROOT/'work/doc2spec/batches/batch_05', ROOT/'work/doc2spec/batches/batch_09', ROOT/'work/doc2spec/full_general_corpus', ROOT/'work/m_compat_batch_05', ROOT/'work/m_compat_batch_04', ROOT/'work/m_compat_batch_03', ROOT/'work/m_compat_batch_02', ROOT/'work/m_compat_batch_01', ROOT/'work/m_compat_batch_06', ROOT/'work/m_compat_batch_04_dependencies', ROOT/'work/m_compat_batch_04_charset')
 SECTIONS = (
     ('1.4.1', 180, 181),
     ('1.4.2', 180, 181),
@@ -19,6 +19,8 @@ SECTIONS = (
     ('1.4.5', 183, 184),
     ('1.4.6', 184, 185),
     ('1.4.7', 185, 186),
+    ('8.2.19.63', 5005, 5006),
+    ('8.3.16.205', 5405, 5407),
 )
 
 def sha256(p): return hashlib.sha256(p.read_bytes()).hexdigest()
@@ -46,7 +48,7 @@ def build_manifest():
     catalog, selected=selected_chapters(); payload=yaml.safe_load(FACTS_PATH.read_text(encoding='utf-8'))
     facts=payload.get('facts',[]); ids=[x['id'] for x in facts]
     if len(ids)!=len(set(ids)): raise ValueError('duplicate fact ids')
-    allowed={'w8_225_1_4'}
+    allowed={f'w8_225_{section.replace(".","_")}' for section,_,_ in SECTIONS} | {'w8_225_1_4'}
     for fact in facts:
         refs=set(fact.get('source_refs',[]))
         if not refs or not refs.issubset(allowed): raise ValueError(f"bad refs {fact.get('id')}")
@@ -54,7 +56,7 @@ def build_manifest():
     for section,chapter,start,end in selected:
         path=resolved_source(chapter); lines=list(page_lines(path,start,end))
         sources.append({
-            'source_ref':'w8_225_1_4',
+            'source_ref':f'w8_225_{section.replace(".","_")}',
             'section_number':section,
             'title':' > '.join(chapter['outline_path']),
             'physical_page_start':start,

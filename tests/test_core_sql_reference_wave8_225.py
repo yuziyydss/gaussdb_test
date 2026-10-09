@@ -16,11 +16,11 @@ class CoreSQLReferenceWave8225Tests(unittest.TestCase):
 
     def test_scope_covers_charset_merge_rules_resource_pool_plan_table(self):
         self.assertEqual(self.manifest['kind'], 'core_sql_reference_wave8_225_extraction_manifest')
-        self.assertEqual(self.manifest['scope']['chapter_count'], 7)
-        self.assertEqual(self.manifest['scope']['physical_page_count'], 6)
+        self.assertEqual(self.manifest['scope']['chapter_count'], 9)
+        self.assertEqual(self.manifest['scope']['physical_page_count'], 9)
         self.assertEqual(self.manifest['scope']['physical_page_start'], 180)
-        self.assertEqual(self.manifest['scope']['physical_page_end_exclusive'], 186)
-        self.assertEqual(self.manifest['scope']['sections'], ['1.4.1', '1.4.2', '1.4.3', '1.4.4', '1.4.5', '1.4.6', '1.4.7'])
+        self.assertEqual(self.manifest['scope']['physical_page_end_exclusive'], 5407)
+        self.assertEqual(self.manifest['scope']['sections'], ['1.4.1', '1.4.2', '1.4.3', '1.4.4', '1.4.5', '1.4.6', '1.4.7', '8.2.19.63', '8.3.16.205'])
         self.assertEqual(self.manifest['summary']['fact_count'], len(self.facts))
         self.assertEqual(self.manifest['summary']['fact_count'], 7)
         self.assertEqual(self.manifest['summary']['open_question_count'], 1)
@@ -52,7 +52,7 @@ class CoreSQLReferenceWave8225Tests(unittest.TestCase):
         self.assertEqual(expected, ids)
 
     def test_manifest_resolves_sources_and_page_slices(self):
-        self.assertEqual(len(self.manifest['sources']), 7)
+        self.assertEqual(len(self.manifest['sources']), 9)
         for source in self.manifest['sources']:
             with self.subTest(source=source['section_number']):
                 self.assertRegex(source['chapter_sha256'], r'[0-9a-f]{64}')
