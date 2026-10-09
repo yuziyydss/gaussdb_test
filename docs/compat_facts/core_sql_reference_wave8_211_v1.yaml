@@ -1,0 +1,92 @@
+document: 集中式版参考 / 7.3.11-7.3.14 GUC告警上报/运行时统计/负载管理/自动清理（Wave 8-211）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-09'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 7.3.11 告警上报 + 7.3.12 运行时统计 + 7.3.13 负载管理 + 7.3.14 自动清理
+  physical_page_start: 4422
+  physical_page_end: 4466
+  physical_page_count: 44
+  excludes:
+  - 7.3.15 客户端连接缺省设置及后续小节（后续波次按切片覆盖）
+facts:
+- id: guc_wave8_211_csvlog_alarm
+  type: syntax
+  statement: "CSV日志/告警参数：CSV格式写日志字段表7-18——log_time/node_name/user_name/database_name/process_id/connection_from/session_id/session_line_num/command_tag/session_start_time/virtual_transaction_id/transaction_id/query_id/module/error_severity/sql_state_code/message/detail/hint/internal_query/internal_query_pos/context/query/query_pos/location/application_name（COPY FROM导入gaussdb_log表）。enable_unshipping_log USERSET布尔型默认off算子不下推日志。"
+  source_anchor: "7.3.10.4 CSV格式写日志/7.3.11 告警上报 页4422-4426"
+  source_refs: &refw8211
+  - w8_211_7_3
+  status: confirmed
+- id: guc_wave8_211_alarm_report
+  type: syntax
+  statement: "告警上报参数：enable_alarm POSTMASTER布尔型默认on告警上报线程（仅DN节点/关闭导致用户无法感知故障）；connection_alarm_rate SIGHUP浮点型0~1默认0.9并发连接数比率限制（超max_connections*rate打印connection_log）；alarm_report_interval SIGHUP整型0~2147483647秒默认10告警上报间隔（过大丢失关键告警/过小频繁上报）；alarm_component POSTMASTER字符串默认/opt/huawei/snas/bin/snas_cm_cmd告警组件路径（--alarm-type=5写入system_alarm/1对接第三方）；table_skewness_warning_threshold USERSET浮点型0~1默认1表倾斜告警阈值；table_skewness_warning_rows USERSET整型默认100000表倾斜告警行数。"
+  source_anchor: "7.3.11 告警上报 页4426-4429"
+  source_refs: *refw8211
+  status: confirmed
+- id: guc_wave8_211_track_stats
+  type: constraint
+  statement: "运行时统计参数：track_activities SUSET布尔型默认on收集每个会话正在执行命令统计数据（存储过程内perform/OPEN CURSOR可见/off影响存储引擎空间回收导致膨胀）；track_counts SUSET布尔型默认on收集数据库活动统计（AutoVacuum选择清理数据库需要/off影响空间回收）；track_procedure_sql USERSET布尔型默认on pg_stat_activity中query列同时打印存储过程内SQL；track_io_timing SUSET布尔型默认off收集I/O时序统计（可能引起重大开销）；track_functions SUSET枚举pl/all/none默认none函数调用次数耗时统计（内联函数无法追踪）；track_activity_query_size POSTMASTER整型100~102400默认1024活动会话命令字节数（过高共享内存增大）；update_process_title INTERNAL布尔型默认off（固定参数不可修改）。"
+  source_anchor: "7.3.12.1 查询和索引统计收集器 页4429-4433"
+  source_refs: *refw8211
+  status: confirmed
+- id: guc_wave8_211_stats_misc
+  type: syntax
+  statement: "统计杂项参数：stats_temp_directory SIGHUP字符串默认pg_stat_tmp临时统计目录（基于RAM的文件系统目录减少I/O开销）；track_thread_wait_status_interval SUSET整型0~1440分钟默认30定期收集thread状态间隔；enable_save_datachanged_timestamp USERSET布尔型默认on收集insert/update/delete/exchange/truncate/drop partition对表数据改动时间；enable_plan_trace USERSET布尔型默认off plan trace（不能gs_guc全局设置仅session set）；plan_collect_thresh整型默认100000 plan trace收集阈值；track_sql_count整型默认5000 SQL计数。"
+  source_anchor: "7.3.12.1 查询和索引统计收集器 页4433-4434"
+  source_refs: *refw8211
+  status: confirmed
+- id: guc_wave8_211_workload_manager
+  type: constraint
+  statement: "负载管理参数：use_workload_manager SUSET布尔型默认on资源管理总开关（多租enable_mtd需开启/方式二修改后仅对更改后启动线程生效/后台线程需kill session或重启节点识别/off变on不统计off时存储资源需gs_wlm_readjust_user_space(0)）；enable_control_group SUSET布尔型默认on Cgroups功能（多租需开启/需重启节点生效/同时开启资源管控降低作业性能）；enable_cgroup_switch USERSET布尔型默认off执行语句自动切换TopWD组（仅enable_control_group=on时有效）。"
+  source_anchor: "7.3.13 负载管理 页4434-4436"
+  source_refs: *refw8211
+  status: confirmed
+- id: guc_wave8_211_cgroup_control
+  type: syntax
+  statement: "Cgroups控制参数：cgroup_name USERSET字符串默认InvalidGroup当前Cgroups名称及排队优先级（先cgroup_name再session_respool则session_respool关联控制组起作用/级别1-10不验证/尽量不混合使用）；enable_backend_control POSTMASTER布尔型默认off常驻线程绑定DefaultBackend/HaBackend控制组（多租需开启/后台线程CPU管控/仅enable_control_group=on时有效/HaBackend不支持多租）；enable_vacuum_control布尔型默认off vacuum线程CPU管控；cpu_collect_timer整型默认10 CPU收集时间；memory_tracking_mode枚举默认peak内存跟踪模式（none/peak/exceed）；memory_detail_tracking字符串默认空内存详细跟踪。"
+  source_anchor: "7.3.13 负载管理 页4436-4437"
+  source_refs: *refw8211
+  status: confirmed
+- id: guc_wave8_211_resource_track
+  type: syntax
+  statement: "资源监控参数：enable_resource_track SIGHUP布尔型默认on资源监控功能；enable_resource_record SIGHUP布尔型默认off资源监控记录归档；enable_logical_io_statistics SIGHUP布尔型默认on逻辑I/O统计（PG_TOTAL_USER_RESOURCE_INFO视图中read/write_kbytes等）；enable_user_metric_persistent SIGHUP布尔型默认on用户历史资源监控转存GS_WLM_USER_RESOURCE_HISTORY；user_metric_retention_time SIGHUP整型0~3650天默认7用户数据保存天数（0永久）；enable_instance_metric_persistent SIGHUP布尔型默认on实例资源监控转存GS_WLM_INSTANCE_HISTORY；instance_metric_retention_time SIGHUP整型0~3650天默认7实例数据保存天数；resource_track_level USERSET枚举none/query/operator默认query资源监控等级（PDB级别）；resource_track_cost USERSET整型-1~2147483647默认100000资源监控最小执行代价（-1不监控/0-9监控代价>=10/>=10监控代价超值）；resource_track_duration USERSET整型0~2147483647秒默认60实时视图转存历史视图最小执行时间。"
+  source_anchor: "7.3.13 负载管理 页4438-4443"
+  source_refs: *refw8211
+  status: confirmed
+- id: guc_wave8_211_memory_protect_bbox
+  type: syntax
+  statement: "内存保护/黑匣子参数：disable_memory_protect USERSET布尔型默认off仅当前会话有效禁止内存保护（内存不足时诊断调试用正常运行保持off）；query_band USERSET字符串默认空当前会话作业类型标识；memory_fault_percent SIGHUP整型0~2147483647默认0内存故障测试比例（仅DEBUG版本）；enable_bbox_dump SIGHUP布尔型默认on黑匣子core文件功能（依赖ptrace接口）；bbox_dump_count USERSET整型1~20默认8允许存储core文件最大数（并发时可能大于）；bbox_dump_path SIGHUP字符串默认空core文件路径（默认读/proc/sys/kernel/core_pattern）；bbox_blanklist_items POSTMASTER字符串默认空core文件脱敏选项（SHARED_BUFFER/XLOG_BUFFER/DW_BUFFER/XLOG_MESSAGE_SEND/WALRECEIVER_CTL_BLOCK/DATA_MESSAGE_SEND/DATA_WRITER_QUEUE/BUCKET_XLOG_MESSAGE_SEND）。"
+  source_anchor: "7.3.13 负载管理 页4443-4445"
+  source_refs: *refw8211
+  status: confirmed
+- id: guc_wave8_211_ffic_io_session
+  type: syntax
+  statement: "FFIC/I/O/会话参数：enable_ffic_log POSTMASTER布尔型默认on FFIC（First Failure Info Capture）功能；io_limits USERSET整型0~1073741823默认0每秒触发I/O上限；io_priority USERSET枚举None/Low/Medium/High默认None I/O优先级（None不受控/Low限制10%/Medium 20%/High 50%）；io_control_unit SIGHUP整型1000~1000000默认6000 I/O计数单位；session_respool USERSET字符串默认invalid_pool当前session关联resource pool；session_statistics_memory SIGHUP整型5120~2147483647kB默认5MB实时查询视图内存（建议不大于max_process_memory 50%）；session_history_memory SIGHUP整型10240~2147483647kB默认10MB历史查询视图内存；topsql_retention_time SIGHUP整型0~3650天默认0历史TopSQL保存时间（0永久）；transaction_pending_time USERSET整型-1~1073741823秒默认0事务块语句和存储过程排队最大时间（-1/0无超时/正数超时无视资源强制执行）。"
+  source_anchor: "7.3.13 负载管理 页4445-4449"
+  source_refs: *refw8211
+  status: confirmed
+- id: guc_wave8_211_autovacuum_basic
+  type: constraint
+  statement: "自动清理基础参数：autovacuum SIGHUP布尔型默认on自动清理线程（前提track_counts=on/max_workers=0时仅故障恢复后清理两阶段事务/>0时可自动进行autovacuum/ASTORE表关闭导致不活跃行影响查询性能）；autovacuum_mode SIGHUP枚举analyze/vacuum/mix/none默认mix autoanalyze和autovacuum打开情况；autoanalyze_timeout SIGHUP整型0~2147483秒默认300 autoanalyze超时时间（超时自动取消）；autovacuum_io_limits SIGHUP整型默认200 autovacuum每秒触发I/O上限；log_autovacuum_min_duration SIGHUP整型-1~2147483647ms默认-1记录自动清理操作日志（0全记录/-1不记录/正数记录超时）；autovacuum_max_workers SIGHUP整型0~1024默认3同时运行自动清理线程最大数（实际取值上限与max_connections和job_queue_processes相关/设置过大占用CPU内存导致启动报错或业务影响/设置过低导致空间膨胀/对新线程生效当前线程无效）。"
+  source_anchor: "7.3.14 自动清理 页4456-4459"
+  source_refs: *refw8211
+  status: confirmed
+- id: guc_wave8_211_autovacuum_thresholds
+  type: syntax
+  statement: "自动清理阈值参数：autovacuum_naptime SIGHUP整型1~2147483秒默认600（10min）两次自动清理间隔（Ustore推荐默认/Astore大量更新删除建议较短/更新删除较少建议较长）；autovacuum_vacuum_threshold整型默认50触发vacuum最小变更行数；autovacuum_analyze_threshold整型默认50触发analyze最小变更行数；autovacuum_vacuum_scale_factor浮点默认0.2触发vacuum比例；autovacuum_analyze_scale_factor浮点默认0.1触发analyze比例；autovacuum_freeze_max_age整型默认2000000000 autovacuum强制清理最大事务ID年龄；autovacuum_multixact_freeze_max_age整型默认4000000000 multixact最大年龄；autovacuum_vacuum_cost_delay整型默认2 vacuum清理延迟；autovacuum_vacuum_cost_limit整型默认-1 vacuum开销限制（-1使用vacuum_cost_limit）。"
+  source_anchor: "7.3.14 自动清理 页4460-4462"
+  source_refs: *refw8211
+  status: confirmed
+- id: guc_wave8_211_autovacuum_keep_recycle
+  type: syntax
+  statement: "自动清理回收参数：defer_csn_cleanup_time SIGHUP整型0~2147483647ms默认5000（5s）本地回收时间间隔CSN信息保留时长（过短频繁清理性能下降/过长占用内存）；clog_keep_xids SIGHUP整型0~576460752303423487默认0 clog事务文件保留事务数（0原有回收逻辑/非0新回收逻辑/clog保留空间=keep_xids/4字节）；csnlog_keep_xids SIGHUP整型0~576460752303423487默认0 csnlog保留事务数（csnlog空间=keep_xids*8字节）；multixact_keep_mxids SIGHUP整型0~576460752303423487默认0 multixact保留事务数（multixact空间=keep_mxids*8字节）。"
+  source_anchor: "7.3.14 自动清理 页4464-4466"
+  source_refs: *refw8211
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_211_oq_runtime
+  content: "告警上报/运行时统计/负载管理/自动清理等参数的具体运行时行为需授权环境实机验证。"
+  status: open
