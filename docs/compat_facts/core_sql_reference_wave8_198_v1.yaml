@@ -1,0 +1,146 @@
+document: 集中式版参考 / 4.4.3.2 MySQL兼容B模式系统函数（Wave 8-198）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-09'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 4.4.3.2 系统函数（流量控制/日期时间/字符串/强制转换/加密/信息/JSON/聚合/数字操作，表4-179~4-187）
+  physical_page_start: 3525
+  physical_page_end: 3546
+  physical_page_count: 21
+  excludes:
+  - 4.4.3.3 操作符及后续小节（后续波次按切片覆盖）
+facts:
+- id: bmode_wave8_198_func_overview
+  type: constraint
+  statement: "B模式系统函数概述：GaussDB兼容绝大多数MySQL系统函数但存在部分差异；除特别说明外默认为GaussDB原生行为；绝大部分系统函数存在返回值与MySQL精度不一致（结果后面0位数）问题由数据类型精度丢失导致。"
+  source_anchor: "4.4.3.2.1 概述 页3525"
+  source_refs: &refw8198
+  - w8_198_4_4_3
+  status: confirmed
+- id: bmode_wave8_198_if_func
+  type: constraint
+  statement: "IF()差异：expr1仅支持bool类型非bool不能转换报错；expr2/expr3类型不同且无隐式转换报错；类型相同返回该类型；NUMERIC/STRING/TIME范畴时GaussDB输出TEXT而MySQL输出VARCHAR。"
+  source_anchor: "4.4.3.2.2 表4-179 页3525"
+  source_refs: *refw8198
+  status: confirmed
+- id: bmode_wave8_198_ifnull_func
+  type: constraint
+  statement: "IFNULL()差异：expr1/expr2类型不同且无隐式转换报错；类型相同返回该类型；NUMERIC/STRING/TIME范畴GaussDB输出TEXT而MySQL输出VARCHAR；float4+bigint/unsigned bigint返回double而MySQL返回float。"
+  source_anchor: "4.4.3.2.2 表4-179 页3525"
+  source_refs: *refw8198
+  status: confirmed
+- id: bmode_wave8_198_nullif_func
+  type: constraint
+  statement: "NULLIF()类型推导差异：GaussDB两参数类型存在等值操作符返回左值类型否则强制兼容后找等值操作符（找到返回左值类型/找不到报错）；MySQL输出类型仅与第一个入参类型有关（tinyint/smallint/int/bool→int，bigint→bigint，unsigned→unsigned int，浮点→double，decimal→decimal，时间/字符串→varchar，text→longtext，tinyblob→varbinary，mediumblob/longblob→longblob，blob→blob）。"
+  source_anchor: "4.4.3.2.2 表4-179 页3526-3527"
+  source_refs: *refw8198
+  status: confirmed
+- id: bmode_wave8_198_isnull_func
+  type: constraint
+  statement: "ISNULL()差异：GaussDB返回BOOLEAN类型t/f而MySQL返回INT类型1/0。"
+  source_anchor: "4.4.3.2.2 表4-179 页3527"
+  source_refs: *refw8198
+  status: confirmed
+- id: bmode_wave8_198_datetime_common
+  type: constraint
+  statement: "日期时间函数公共差异：NULL入参返回NULL无告警（from_days/date_format/str_to_date/datediff/timestampdiff/date_add等40+函数）；纯数字入参转text处理；运算范围[0000-01-01,9999-12-31]严格报错宽松warning而MySQL 0000-00-00；0月0日宽松字符串/数字warning/date类型视为上一年12月上一月最后日而MySQL原样输出；cast宽松不warning；numeric非法当0值；最多6位小数不保留尾部0；字符串参数仅保证-和:分隔；varchar返回GaussDB为text。"
+  source_anchor: "4.4.3.2.3 公共说明 页3527-3530"
+  source_refs: *refw8198
+  status: confirmed
+- id: bmode_wave8_198_addtime_subtime
+  type: constraint
+  statement: "ADDTIME/SUBTIME差异：MySQL第二入参DATETIME样式字符串返回NULL而GaussDB可计算；GaussDB返回值规则date+date→time/date+text→text/date+datetime→time/date+time→time/text→text/datetime+date→datetime/datetime+time→datetime/time→time等；MySQL动态参数返回TIME。"
+  source_anchor: "4.4.3.2.3 表4-180 页3531/3535-3536"
+  source_refs: *refw8198
+  status: confirmed
+- id: bmode_wave8_198_datetime_precision_funcs
+  type: constraint
+  statement: "CURRENT_TIME/CURRENT_TIMESTAMP/CURTIME/LOCALTIME/LOCALTIMESTAMP/NOW差异：GaussDB精度四舍五入而MySQL截断；末尾0不显示而MySQL显示；GaussDB [0,6]整型超范围报错或告警精度6而MySQL对256求余；CURTIME入参字符串/非整型隐式转整型后校验精度而MySQL直接报错。"
+  source_anchor: "4.4.3.2.3 表4-180 页3532-3534"
+  source_refs: *refw8198
+  status: confirmed
+- id: bmode_wave8_198_period_funcs
+  type: constraint
+  statement: "PERIOD_ADD/PERIOD_DIFF差异：入参period或结果小于0时GaussDB参考MySQL 8.0报错而MySQL 5.7整数回绕结果异常。"
+  source_anchor: "4.4.3.2.3 表4-180 页3534"
+  source_refs: *refw8198
+  status: confirmed
+- id: bmode_wave8_198_str_to_date_unix_timestamp
+  type: constraint
+  statement: "STR_TO_DATE返回值差异：GaussDB返回text而MySQL返回datetime/date；UNIX_TIMESTAMP返回值差异：GaussDB返回numeric而MySQL返回int。"
+  source_anchor: "4.4.3.2.3 表4-180 页3534/3536"
+  source_refs: *refw8198
+  status: confirmed
+- id: bmode_wave8_198_maketime_utc_date
+  type: constraint
+  statement: "MAKETIME差异：NULL入参时GaussDB不支持自嵌套而MySQL支持；UTC_DATE差异：MySQL支持无括号调用而GaussDB不支持；UTC_TIME/UTC_TIMESTAMP差异：MySQL入参仅0-6整数而GaussDB支持隐式转0-6输入。"
+  source_anchor: "4.4.3.2.3 表4-180 页3534/3536"
+  source_refs: *refw8198
+  status: confirmed
+- id: bmode_wave8_198_bin_concat
+  type: constraint
+  statement: "BIN()入参支持类型差异：GaussDB支持整数/无符号/字符文本（纯数字）/浮点/定点/bool；CONCAT()/CONCAT_WS()返回值始终text而MySQL含二进制类型参数时返回二进制类型。"
+  source_anchor: "4.4.3.2.4 表4-181 页3537-3538"
+  source_refs: *refw8198
+  status: confirmed
+- id: bmode_wave8_198_elt_field
+  type: constraint
+  statement: "ELT()入参1/2支持类型差异（整数/无符号/字符文本/浮点/定点/bool/大对象/日期）；FIELD()差异：bigint最大~unsigned最大数字不兼容；浮点float(m,d)/double(m,d)/real(m,d)精度更高不兼容。"
+  source_anchor: "4.4.3.2.4 表4-181 页3538"
+  source_refs: *refw8198
+  status: confirmed
+- id: bmode_wave8_198_find_in_set_insert
+  type: constraint
+  statement: "FIND_IN_SET差异：SQL_ASCII encoding下不支持默认大小写判断（不指定字符集规则时大小写区分）；INSERT()差异：Int64传参超范围GaussDB报错而MySQL告警按上下限；text最大2^30-5字节bytea最大2^30-512字节；bit/bool不支持；纯整型bigint范围；超81个9返回差异；科学计数法末尾0显示差异。"
+  source_anchor: "4.4.3.2.4 表4-181 页3539"
+  source_refs: *refw8198
+  status: confirmed
+- id: bmode_wave8_198_quote_space
+  type: constraint
+  statement: "QUOTE()差异：\\Z/\\r/\\%/\\_/\\563未转义与MySQL差异；\\b输出差异；\\0 UTF-8不识别输入不成功；bit/bool不支持；str最大536870908字节返回1GB；超81个9差异；科学计数法末尾0差异；SPACE()差异：GaussDB最大1073741818字节超出返回空而MySQL 4194304告警。"
+  source_anchor: "4.4.3.2.4 表4-181 页3539-3540"
+  source_refs: *refw8198
+  status: confirmed
+- id: bmode_wave8_198_strcmp
+  type: constraint
+  statement: "STRCMP()差异：GaussDB入参支持字符（char/varchar/nvarchar2/text）/二进制（bytea）/数值（浮点精度可能与M有差异不建议或用NUMERIC代替）/日期时间类型。"
+  source_anchor: "4.4.3.2.4 表4-181 页3541"
+  source_refs: *refw8198
+  status: confirmed
+- id: bmode_wave8_198_cast_convert
+  type: constraint
+  statement: "CAST()/CONVERT()差异：数据类型转换规则和支持的转换类型均以GaussDB支持的转换范围和规则为准。"
+  source_anchor: "4.4.3.2.5 表4-182 页3541"
+  source_refs: *refw8198
+  status: confirmed
+- id: bmode_wave8_198_json_escape_precision
+  type: constraint
+  statement: "JSON函数转义/精度差异：standard_conforming_strings=off时转义与MySQL兼容但产生非标准字符warning（\\t/\\u/转义数字差异）；JSON_UNQUOTE已兼容处理无需GUC；超长数字（超64字符）解析为double科学计数法而MySQL完整显示（超82给出错误结果）建议字符串储存。"
+  source_anchor: "4.4.3.2.8 JSON函数差异说明 页3542"
+  source_refs: *refw8198
+  status: confirmed
+- id: bmode_wave8_198_json_search
+  type: constraint
+  statement: "JSON_SEARCH()返回值差异：GaussDB返回text而MySQL返回JSON。"
+  source_anchor: "4.4.3.2.8 表4-185 页3543-3544"
+  source_refs: *refw8198
+  status: confirmed
+- id: bmode_wave8_198_group_concat_default
+  type: constraint
+  statement: "GROUP_CONCAT差异：DISTINCT+ORDER BY时ORDER BY表达式须在DISTINCT中；order by数字不代表第几个参数排序；返回值始终text而MySQL含二进制返回二进制超512为大对象；group_concat_max_len有效范围0-1073741823比MySQL小；DEFAULT()差异：数组默认值GaussDB返回数组MySQL不支持/隐藏列返回空/支持分区表临时表多表连接/支持字符串值节点和A_Star节点/不校验字段类型范围/默认值为函数表达式时返回计算值而MySQL返回NULL。"
+  source_anchor: "4.4.3.2.9 表4-186 页3544-3545"
+  source_refs: *refw8198
+  status: confirmed
+- id: bmode_wave8_198_log_rand
+  type: constraint
+  statement: "log2/log10差异：小数位显示差异受浮点数据类型限制可通过extra_float_digits控制；输入精度内部处理差异导致结果计算差异；RAND([seed])差异：随机数生成算法影响返回与MySQL存在差异。"
+  source_anchor: "4.4.3.2.10 表4-187 页3545-3546"
+  source_refs: *refw8198
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_198_oq_runtime
+  content: "NULLIF类型推导/ADDTIME返回类型矩阵/精度四舍五入截断/JSON超长数字等差异的完整影响范围需授权环境实机验证。"
+  status: open
