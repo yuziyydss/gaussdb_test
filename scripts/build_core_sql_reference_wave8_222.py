@@ -12,7 +12,7 @@ FACTS_PATH = ROOT / 'docs/compat_facts/core_sql_reference_wave8_222_v1.yaml'
 OUTPUT_PATH = ROOT / 'generated/core_sql_reference_wave8_222_v1/manifest.json'
 SOURCE_ROOTS = (ROOT/'work/pdf_tiered_2026_09_07', ROOT/'work/pdf_foundations_2026_09_07', ROOT/'work/doc2spec/full_general_corpus', ROOT/'work/m_compat_batch_05', ROOT/'work/m_compat_batch_04', ROOT/'work/m_compat_batch_03', ROOT/'work/m_compat_batch_02', ROOT/'work/m_compat_batch_01', ROOT/'work/m_compat_batch_06', ROOT/'work/m_compat_batch_04_dependencies', ROOT/'work/m_compat_batch_04_charset')
 SECTIONS = (
-    ('8', 5034, 5422),
+    ('8', 5034, 5423),
 )
 
 def sha256(p): return hashlib.sha256(p.read_bytes()).hexdigest()
