@@ -1,0 +1,134 @@
+document: 集中式版参考 / 7.3.3.3-7.3.4.1 GUC通信库参数/内存（Wave 8-205）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-09'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 7.3.3.3 通信库参数 + 7.3.4.1 内存
+  physical_page_start: 4197
+  physical_page_end: 4224
+  physical_page_count: 27
+  excludes:
+  - 7.3.4.2 磁盘空间及后续小节（后续波次按切片覆盖）
+facts:
+- id: guc_wave8_205_plat_compat_ldap
+  type: syntax
+  statement: "plat_compat_allow_public_key_retrieval：POSTMASTER布尔型默认off——M-Compatibility模式控制内核是否允许客户端请求RSA Public key支持口令RSA加密传输；选择RSA连接时设为on且ssl=off。ldap_ca_file：SIGHUP字符串默认/etc/openldap/certs/cacert.pem LDAP客户端证书路径。"
+  source_anchor: "7.3.3.2末尾/7.3.3.3 页4197"
+  source_refs: &refw8205
+  - w8_205_7_3
+  status: confirmed
+- id: guc_wave8_205_tcp_keepalive
+  type: syntax
+  statement: "TCP保活参数（均为USERSET/SIGHUP，不同会话不共享，Unix域套接字忽略，设0使用系统值）：tcp_keepalives_idle发送保持活跃信号间隔0~3600秒默认60；tcp_keepalives_interval重传之间等待响应0~180秒默认30；tcp_keepalives_count断开前等待保持活跃信号个数0~100默认20（0=立即断开）。tcp_user_timeout：SIGHUP整型0~3600000毫秒默认0数据未确认状态最大时长；x86 Euler2.5实际重传耗时取区间上限而非设置值。"
+  source_anchor: "7.3.3.3 通信库参数 页4198-4200"
+  source_refs: *refw8205
+  status: confirmed
+- id: guc_wave8_205_comm_proxy_umdk
+  type: syntax
+  statement: "comm_proxy_attr：POSTMASTER字符串默认none通信代理库参数（仅欧拉2.9集中式ARM单机/线程池on生效/需配置local_bind_address为libos_kni网卡IP）——enable_libnet用户态协议/enable_dfx通信代理视图/numa_num数量4或8/numa_bind绑核参数。umdk_enabled：POSTMASTER布尔型默认off控制主备DN是否开启UMDK通信协议（依赖硬件网卡1823V200和OS HCE2.0）；umdk_port：POSTMASTER整型1~65535默认dataPortBase+15主备UMDK通信监听端口。"
+  source_anchor: "7.3.3.3 通信库参数 页4200-4202"
+  source_refs: *refw8205
+  status: confirmed
+- id: guc_wave8_205_memory_pool
+  type: syntax
+  statement: "内存池参数：memorypool_enable POSTMASTER布尔型默认off允许使用内存池；memorypool_size POSTMASTER整型131072~1073741823kB默认524288（512MB）内存池大小。"
+  source_anchor: "7.3.4.1 内存 页4202-4203"
+  source_refs: *refw8205
+  status: confirmed
+- id: guc_wave8_205_enable_memory_limit
+  type: constraint
+  statement: "enable_memory_limit：POSTMASTER布尔型默认on启用逻辑内存管理模块（多租enable_mtd需开启）；max_process_memory减固定开销（shared_buffers+元数据约200MB）小于2GB时强制off；off时不对内存做限制大并发或复杂查询可能导致操作系统OOM。enable_threads_memory_reserve：SIGHUP布尔型默认on后台线程内存隔离模块——不同优先级预留内存情况（<10G高/中/低=1/10/20最大可用动态内存）和使用上限（中=30%/低=预留内存）；off时后台线程内存不做隔离。"
+  source_anchor: "7.3.4.1 内存 页4203-4204"
+  source_refs: *refw8205
+  status: confirmed
+- id: guc_wave8_205_max_process_memory
+  type: syntax
+  statement: "max_process_memory：SIGHUP整型2097152~2147483647kB默认按集中式场景设置（256C/2048G=1800GB~8C/64G=40GB）；数据库节点可用最大物理内存建议计算公式=(物理内存-vm.min_free_kbytes)*0.7/节点数≈物理内存*0.665/节点数；大于物理内存可能导致OOM。"
+  source_anchor: "7.3.4.1 内存 页4204-4205"
+  source_refs: *refw8205
+  status: confirmed
+- id: guc_wave8_205_local_syscache_threshold
+  type: syntax
+  statement: "local_syscache_threshold：SIGHUP整型1024~524288kB默认32MB/16MB（PDB场景默认16MB）单个session系统缓存内存最大值超阈值触发淘汰（enable_global_syscache+enable_thread_pool时为当前线程及绑定session缓存总大小）；建议1024整数倍底噪2MB每表/索引增加11kB；过小频繁淘汰影响性能。"
+  source_anchor: "7.3.4.1 内存 页4205-4206"
+  source_refs: *refw8205
+  status: confirmed
+- id: guc_wave8_205_memory_context_control
+  type: syntax
+  statement: "enable_memory_context_control：SIGHUP布尔型默认off启用内存上下文超限检查（仅DEBUG版本）；uncontrolled_memory_context：USERSET字符串默认空设置不受约束的内存上下文（仅DEBUG版本）。"
+  source_anchor: "7.3.4.1 内存 页4206"
+  source_refs: *refw8205
+  status: confirmed
+- id: guc_wave8_205_huge_pages_shared_buffers
+  type: constraint
+  statement: "huge_pages：POSTMASTER字符串on/try/off默认try静态内存大页（on申请失败启动失败/off普通共享内存/try失败则普通内存）；shared_buffers：POSTMASTER/SIGHUP（enable_serverless=on时SIGHUP）整型16~1073741823页（8kB）默认按集中式设置（256C/2048G=720GB~8C/64G=16GB）共享内存大小建议max_process_memory的40%以内；条件data_replicate_buffer_size+segment_buffers+shared_buffers+wal_buffers+temp_buffers+maintenance_work_mem+work_mem+query_mem+备机wal_receiver_buffer_size<max_process_memory。"
+  source_anchor: "7.3.4.1 内存 页4206-4208"
+  source_refs: *refw8205
+  status: confirmed
+- id: guc_wave8_205_scale_cache
+  type: syntax
+  statement: "enable_scale_cache：POSTMASTER布尔型默认off ScaleCache缓冲区管理优化（pin/unpin本地性+SIMD加速哈希+copy on write无锁索引扫描）仅ARM 8+平台；pin_buffer_group_cores：POSTMASTER整型1~1073741823默认4每组CPU核数建议2的幂次方否则设为1。"
+  source_anchor: "7.3.4.1 内存 页4208-4209"
+  source_refs: *refw8205
+  status: confirmed
+- id: guc_wave8_205_page_version
+  type: syntax
+  statement: "页面版本校验参数（均为POSTMASTER）：page_version_check默认persistence（大规格）/off（小规格）——off关闭/memory内存态（重启丢失）/persistence持久态（重启不丢失）；page_version_full_validation默认on AntiCache全校验模式；page_missing_dirty_check默认off漏置脏校验（受控于page_version_check）；page_version_max_num默认0（=shared_buffers*2）每版本36字节；page_version_partitions默认0（=max_num/512最小4）哈希分区数量比值[256,1024]；page_version_recycler_thread_num默认0回收校验线程0~16。"
+  source_anchor: "7.3.4.1 内存 页4209-4212"
+  source_refs: *refw8205
+  status: confirmed
+- id: guc_wave8_205_cached_context_verify_log
+  type: syntax
+  statement: "enable_cached_context：USERSET整型0~1024默认128缓存内存上下文个数（0不生效）PDB级别；verify_log_buffers：POSTMASTER整型4~262144页（8kB）默认1GB/512MB/256MB/128MB/16MB按规格verifyLog buffer大小（仅page_version_check=persistence时生效）。"
+  source_anchor: "7.3.4.1 内存 页4212-4213"
+  source_refs: *refw8205
+  status: confirmed
+- id: guc_wave8_205_segment_buffers_bulk_ring
+  type: syntax
+  statement: "segment_buffers：POSTMASTER整型默认16MB~1GB按规格段页式段头缓存（建议表数*分区数*3+128）；bulk_read_ring_size：USERSET整型256~2147483647kB默认16384（16MB）大批量查询环形缓冲区；bulk_write_ring_size：USERSET整型16384~2147483647kB默认2097152（2GB）大批量写入环形缓冲区；standby_shared_buffers_fraction：SIGHUP浮点型0.1~1.0默认1备实例shared_buffers比例；temp_buffers：USERSET整型100~1073741823页默认128（1MB）会话LOCAL临时缓冲区（首次使用临时表前可改）。"
+  source_anchor: "7.3.4.1 内存 页4213-4215"
+  source_refs: *refw8205
+  status: confirmed
+- id: guc_wave8_205_work_mem_prepared
+  type: syntax
+  statement: "max_prepared_transactions：POSTMASTER整型0~262143默认200预备状态事务最大数（备机须>=主机否则无法查询）；work_mem：USERSET整型64~2147483647kB默认64MB~280MB按规格排序/Hash表写入临时文件前内存大小——复杂查询可能同时并发多个排序每个可用此参数内存总内存可能是好几倍；写入临时表空间带来5-10倍性能下降；串行无并发复杂查询建议50%内存/10简单查询50%/5并发=串行/并发数。"
+  source_anchor: "7.3.4.1 内存 页4215-4218"
+  source_refs: *refw8205
+  status: confirmed
+- id: guc_wave8_205_maintenance_work_mem
+  type: syntax
+  statement: "maintenance_work_mem：USERSET整型默认1GB（1TB内存）/512MB（512G内存）/256MB（256G内存）/128MB（128G及以下）维护性操作（VACUUM/CREATE INDEX/ALTER TABLE ADD FOREIGN KEY等）使用的最大内存；建议大于work_mem；autovacuum_max_workers倍数内存被分配；向量索引GsIVFFlat采样内存Max(ivf_nlist,ivf_nlist2)*dim*0.2kB/GsDiskanANN开启PQ时dim*80kB过小索引无法创建。"
+  source_anchor: "7.3.4.1 内存 页4218"
+  source_refs: *refw8205
+  status: confirmed
+- id: guc_wave8_205_max_stack_depth_early_free
+  type: syntax
+  statement: "max_stack_depth：SUSET整型100~2147483647kB默认2MB或系统线程栈大小-640kB（取较小）执行堆栈最大安全深度不支持设置大于系统线程栈大小-640kB（gs_guc设置失败）；enable_early_free：USERSET布尔型默认on支持算子内存提前释放。"
+  source_anchor: "7.3.4.1 内存 页4218-4219"
+  source_refs: *refw8205
+  status: confirmed
+- id: guc_wave8_205_memory_trace
+  type: syntax
+  statement: "memory_trace_level：SIGHUP枚举none/level1/level2默认level1动态内存超阈值记录内存申请信息（level1全局概况+top20上下文/level2增加file/line/size详情对性能影响较大）仅在use_workload_manager和enable_memory_limit打开时生效；memory_log_config：SIGHUP字符串默认'90,0,0,20,10'分5部分——memory_log_threshold百分比/memory_rush_percent波动百分比/memory_log_period统计周期分钟/topn_memory_contexts/topn_queries。"
+  source_anchor: "7.3.4.1 内存 页4220-4221"
+  source_refs: *refw8205
+  status: confirmed
+- id: guc_wave8_205_resilience_memory
+  type: constraint
+  statement: "resilience_memory_reject_percent：SIGHUP整型0~100默认0动态内存达到max_process_memory百分比时触发退出session（0关闭/1-99设置sysadmin和monitor_admin为可用内存小于该值时触发）；resilience_escape_user_permissions：SIGHUP字符串默认空设置sysadmin/monadmin用户逃生能力——sysadmin控制sysadmin用户cancel/monadmin控制monadmin用户cancel/空关闭两者逃生能力。"
+  source_anchor: "7.3.4.1 内存 页4222-4223"
+  source_refs: *refw8205
+  status: confirmed
+- id: guc_wave8_205_plsqlcache_startwith
+  type: syntax
+  statement: "local_plsqlcache_threshold：USERSET整型0~9223372036854775807字节默认0单个session存储过程及plancache内存最大值超阈值触发释放（仅enable_global_plsqlcache开启时生效）；start_with_max_mem：USERSET整型-1~2147483647kB默认-1 start with算子最大内存（-1无限制）PDB级别。"
+  source_anchor: "7.3.4.1 内存 页4223-4224"
+  source_refs: *refw8205
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_205_oq_runtime
+  content: "内存参数的具体运行时行为/页面版本校验/内存逃逸等需授权环境实机验证。"
+  status: open
