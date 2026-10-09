@@ -1,0 +1,134 @@
+document: 集中式版参考 / 7.3.4.6-7.3.6.4 GUC异步I/O续/数据导入导出/预写式日志（Wave 8-207）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-09'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 7.3.4.6 异步I/O（续） + 7.3.5 数据导入导出 + 7.3.6 预写式日志（设置/检查点/日志回放/归档）
+  physical_page_start: 4237
+  physical_page_end: 4272
+  physical_page_count: 35
+  excludes:
+  - 7.3.7 双机复制及后续小节（后续波次按切片覆盖）
+facts:
+- id: guc_wave8_207_adio_prefetch
+  type: syntax
+  statement: "ADIO预读取/回写参数：prefetch_quantity USERSET整型128~131072页默认32MB（4096页）行存储ADIO一次预读取页面数量（I/O充足建议调大加速顺序扫描）；backwrite_quantity USERSET整型128~131072页默认8MB（1024页）ADIO vacuum一次批量回写页面数量；effective_io_concurrency USERSET整型0~1000默认1磁盘子系统同时有效处理请求数（建议和磁盘数量相同）。"
+  source_anchor: "7.3.4.6 异步I/O 页4237"
+  source_refs: &refw8207
+  - w8_207_7_3
+  status: confirmed
+- id: guc_wave8_207_copy_import
+  type: constraint
+  statement: "数据导入导出参数：raise_errors_if_no_files SUSET布尔型默认off区分导入文件记录数为空和不存在（仅GDS场景）；safe_data_path SIGHUP字符串默认copydir_default,copydir_logical_decode白名单路径管理（<4096字符/软链接报错/硬链接可用/设空关闭校验/copydir_default=$GAUSSLOG/gs_copy_data/copydir_logical_decode禁止删除/追加写不删除默认值）；enable_copy_server_files SIGHUP布尔型默认off——on允许SYSADMIN或gs_role_copy_files权限用户COPY FROM/TO FILENAME多租不支持非初始用户PDB内执行。"
+  source_anchor: "7.3.5 数据导入导出 页4238-4239"
+  source_refs: *refw8207
+  status: confirmed
+- id: guc_wave8_207_copy_filler_constraints
+  type: syntax
+  statement: "gs_loader/COPY导入参数：enable_copy_when_filler USERSET布尔型默认on支持gs_loader控制文件WHEN条件中使用FILLER字段过滤（常量字符串不支持\\0\\r）；a_format_load_with_constraints_violation USERSET字符串默认空——空不支持跳过约束冲突/s1仅gs_loader/s2 copy\\copy和gs_loader均支持跳过（非空/条件/主键/唯一/唯一索引约束）错误信息bad文件或gs_copy_error_log查看。"
+  source_anchor: "7.3.5 数据导入导出 页4239-4240"
+  source_refs: *refw8207
+  status: confirmed
+- id: guc_wave8_207_copy_encoding
+  type: constraint
+  statement: "COPY编码参数：support_binary_copy_version USERSET字符串默认header_encoding——header_encoding二进制文件头包含服务端编码信息/空前向兼容；copy_special_character_version USERSET字符串默认空——no_error导入容错不报错（仅TEXT/CHAR/VARCHAR/NVARCHAR2/CLOB生效/需UTF-8 GB18030 GB18030_2022 ZHS16GBK LATIN1字符集/优先级高于COMPATIBLE_ILLEGAL_CHARS）/per_byte GBK导出一次一字节/空默认非法编码报错；enable_log_copy_illegal_chars USERSET布尔型默认on非法编码写入运行日志。"
+  source_anchor: "7.3.5 数据导入导出 页4241-4242"
+  source_refs: *refw8207
+  status: confirmed
+- id: guc_wave8_207_copy_batch_index_lobs
+  type: syntax
+  statement: "COPY性能/LOB参数：batch_insert_index_types USERSET字符串默认空——rcr_ubtree开启批量插入索引（场景JDBC executeBatch/insert into select/copy from+约束ubtree RCR索引/数据不递增/非SMP）；a_format_enable_copy_empty_lobs USERSET布尔型默认on——Oracle兼容模式允许空串插入BLOB/CLOB（1,'',3空串）off时空串转NULL（新装默认on升级默认off）；enable_copy_case_sensitive USERSET布尔型默认off——gs_loader/COPY TRANSFORM大写/特殊字符列名大小写保留（on双引号转义/off统一转小写）。"
+  source_anchor: "7.3.5 数据导入导出 页4242-4245"
+  source_refs: *refw8207
+  status: confirmed
+- id: guc_wave8_207_wal_level_fsync
+  type: constraint
+  statement: "WAL设置参数：wal_level POSTMASTER枚举minimal/archive/hot_standby/logical默认hot_standby——minimal不支持归档且hot_standby必须off且max_wal_senders=0且单机否则无法启动/archive时hot_standby必须off；fsync SIGHUP布尔型默认on使用fsync()系统函数确保数据写入磁盘；wal_sync_method SIGHUP枚举open_datasync/fdatasync/fsync_writethrough/fsync/open_sync默认fdatasync（enable_standby_walsync_optimization配置时备机ADIO写盘不受影响）。"
+  source_anchor: "7.3.6.1 设置 页4245-4248"
+  source_refs: *refw8207
+  status: confirmed
+- id: guc_wave8_207_sync_commit_full_page
+  type: constraint
+  statement: "synchronous_commit：USERSET枚举on/off/local/remote_write/remote_receive/remote_apply默认on——on等备机刷新到磁盘/off异步提交/local等主机刷盘/remote_write等备机写文件系统/remote_receive等备机接收/remote_apply等备机回放；CM接管enable_az_auto_switchover=on时修改不生效仅多AZ；降副本至1主0备时CM设为local；手动修改非默认值存在丢失数据风险。full_page_writes：SIGHUP布尔型默认on检查点后第一次修改将全部页面内容写WAL（enable_incremental_checkpoint+enable_double_write同时打开时不开启）。"
+  source_anchor: "7.3.6.1 设置 页4248-4250"
+  source_refs: *refw8207
+  status: confirmed
+- id: guc_wave8_207_wal_buffers_writer
+  type: syntax
+  statement: "wal_log_hints POSTMASTER布尔型默认on检查点后hint bits修改写整个页面；wal_buffers POSTMASTER整型-1~262144页默认1GB/512MB/256MB按规格（-1自动调整shared_buffers的1/32最小8最大2048/小于4强制4）；wal_writer_delay SIGHUP整型1~10000ms默认200 WalWriter线程写间隔；commit_delay USERSET整型0~100000微秒默认0已提交数据WAL缓冲区存放时间（非0时commit不立即写入等待WalWriter周期写）；commit_siblings USERSET整型0~1000默认5正在执行事务数量大于此值时等待commit_delay。"
+  source_anchor: "7.3.6.1 设置 页4249-4251"
+  source_refs: *refw8207
+  status: confirmed
+- id: guc_wave8_207_wal_internal_bind
+  type: syntax
+  statement: "WAL内部/绑核参数：wal_block_size INTERNAL固定8192；wal_segment_size INTERNAL固定2048页（16MB）；walwriter_cpu_bind POSTMASTER整型-1~核数-1默认-1；wal_sender_bind_cpu_attr POSTMASTER字符串默认nobind（cpuorderbind:8-12区间绑定）；walwriteraux_bind_cpu POSTMASTER整型-1默认-1（超核数-1启动失败）；walwriter_sleep_threshold SIGHUP整型1~50000默认500或50按规格xlogflusher休眠前空闲刷新次数；wal_receiver_bind_cpu/wal_rec_writer_bind_cpu POSTMASTER整型默认-1。"
+  source_anchor: "7.3.6.1 设置 页4251-4253"
+  source_refs: *refw8207
+  status: confirmed
+- id: guc_wave8_207_wal_file_init_shared_storage
+  type: syntax
+  statement: "WAL文件/共享存储参数：wal_file_init_num POSTMASTER整型1~1000000默认10或0按规格辅助线程启动一次创建Xlog段文件数量（过大占用wal_file_init_num*wal_segment_size磁盘）；wal_file_preinit_bounds SIGHUP整型0~1024默认0每秒可预扩WAL段文件数（max_io_capacity 500MB→25/1GB→50）；xlog_file_path/xlog_file_size/xlog_lock_file_path POSTMASTER共享存储Xlog日志盘路径/大小/锁文件（OM配置不建议修改）；max_size_for_shared_storage_xlog_write SIGHUP整型8~131072kB默认1024共享盘单次写入最大数据量；shared_storage_write_mode SIGHUP枚举none/standby/disaster_standby/disaster_standby_strict/standby_and_disaster_standby默认disaster_standby共享存储最大Xlog写入位置（修改可能导致备集群触发build）；enable_shared_storage_optimization SIGHUP布尔型默认on（升级默认off）共享存储性能优化；force_promote POSTMASTER整型0/1默认0备机强切开关（DN和cmserver都需设置重启生效/丢失部分数据）。"
+  source_anchor: "7.3.6.1 设置 页4254-4257"
+  source_refs: *refw8207
+  status: confirmed
+- id: guc_wave8_207_wal_flush_checkpoint
+  type: syntax
+  statement: "WAL刷盘/检查点参数：wal_flush_timeout SIGHUP整型0~90000000微秒默认2遍历walInsertStatusTable超时时间；checkpoint_segments SIGHUP整型1~2147483646默认1024检查点周期保留WAL日志文件最大数量（提升加快导入需结合checkpoint_timeout）；checkpoint_timeout SIGHUP整型30~3600秒默认900自动检查点间隔；checkpoint_completion_target SIGHUP浮点型0.0~1.0默认0.5预计检查点完成时间与timeout比值；checkpoint_warning SIGHUP整型0~2147483647秒默认300检查点间隔小于此值写警告；checkpoint_wait_timeout SIGHUP整型2~3600秒默认60请求检查点等待checkpointer最长。"
+  source_anchor: "7.3.6.2 检查点 页4258-4260"
+  source_refs: *refw8207
+  status: confirmed
+- id: guc_wave8_207_incremental_checkpoint
+  type: syntax
+  statement: "增量检查点参数：enable_incremental_checkpoint POSTMASTER布尔型默认on增量检查点开关（多租enable_mtd需开启/小内存或磁盘性能差建议关闭）；enable_double_write POSTMASTER布尔型默认on双写开关（增量检查点模式下设为on保护半页写代替full_page_writes/关闭可能导致数据半页写持久化不可用）；incremental_checkpoint_timeout SIGHUP整型1~3600秒默认60自动检查点最长间隔。"
+  source_anchor: "7.3.6.2 检查点 页4260-4261"
+  source_refs: *refw8207
+  status: confirmed
+- id: guc_wave8_207_xlog_prune
+  type: constraint
+  statement: "Xlog回收参数：enable_xlog_prune SIGHUP布尔型默认on备机断连时主机是否根据max_size_for_xlog_prune回收日志；max_size_for_xlog_prune SIGHUP整型0~2199023255551kB默认256GB强制回收量——所有备机连接时不生效/存在断连时Xlog量超值强制回收（同步提交模式考虑多数派最小日志接受位置可能多于参数值）/存在build中备机不生效全量保留；PITR归档时也控制归档Xlog保留量；过小备机重新连接触发build/过大磁盘膨胀。max_redo_log_size SIGHUP整型163840~2147483647kB默认1GB回放点到检查点日志量期望值参与控制检查点刷页速度（关注RTO不宜过大）。checkpoint_lag_alarm_threshold SIGHUP整型-1~2000GB默认-1检查点滞后告警阈值（-1按CPU核数自动配置16U以下80GB/16U-128U 100GB/128U以上128GB）。"
+  source_anchor: "7.3.6.2 检查点 页4261-4263"
+  source_refs: *refw8207
+  status: confirmed
+- id: guc_wave8_207_recovery_flow_control
+  type: constraint
+  statement: "日志回放/流控参数：recovery_time_target SIGHUP整型0~3600秒默认60备机完成日志写入回放流控阈值（0不开启/超时限制主机向备机发送日志速率/设置过小影响主机性能/过大气失去流控RTO RPO升高）；recovery_max_workers POSTMASTER整型0~20默认4并行回放线程最大数量（recovery_parse_workers和recovery_redo_workers同时为1时才生效）；recovery_parallelism POSTMASTER整型只读并行回放线程实际数量由其他参数重新计算。"
+  source_anchor: "7.3.6.3 日志回放 页4263-4264"
+  source_refs: *refw8207
+  status: confirmed
+- id: guc_wave8_207_recovery_extreme_rto
+  type: constraint
+  statement: "极致RTO/按需回放参数：queue_item_size POSTMASTER整型1~65535默认560每个redo replay线程任务队列最大长度；recovery_parse_workers POSTMASTER整型1~16默认2或1按规格极致RTO ParseRedoRecord线程数（>1开启极致RTO需replication_type=1/极致RTO和并行回放同时开启时极致RTO生效并行失效）；recovery_redo_workers POSTMASTER整型1~8默认8或3按规格每个ParseRedoRecord对应PageRedoWorker数量；备机额外回放线程总数=parse_workers*(redo_workers+2)+5；升级到极致RTO时备机读事务隔离级别从RC变更为RR。"
+  source_anchor: "7.3.6.3 日志回放 页4264-4267"
+  source_refs: *refw8207
+  status: confirmed
+- id: guc_wave8_207_ondemand_rto
+  type: constraint
+  statement: "按需回放（ODR）参数：enable_ondemand_rto POSTMASTER布尔型默认off按需回放开关（集中式/需极致RTO开启/hot_standby需on/wal_level>=hot_standby/40T大容量96C/768G以上建议打开/小规格机器开启反而降低速度）；ondemand_waiting_queue_mem_size POSTMASTER整型12288~536870912kB默认3145728（3GB）等待回放lsn队列内存容量（40T场景建议16GB或32GB/一般场景建议shared_buffers十分之一）；ondemand_always_redo SIGHUP布尔型默认off回放线程非必要不运行出让资源给日志链构建线程。"
+  source_anchor: "7.3.6.3 日志回放 页4267-4269"
+  source_refs: *refw8207
+  status: confirmed
+- id: guc_wave8_207_recovery_check_delay
+  type: constraint
+  statement: "回放校验/延迟参数：enable_page_lsn_check POSTMASTER布尔型默认on数据页lsn检查（关闭后可能无法快速发现数据页错误）；promote_lsn_check SIGHUP布尔型默认on升主时校验本地日志回放完整性（关闭可能无法拦截提前升主造成数据丢失）；recovery_min_apply_delay SIGHUP整型0~2147483647ms默认0备节点回放延迟时间（主节点设置无效推荐设置在异步备节点/需主备系统时钟一致/过长可能导致Xlog磁盘满/hot_standby_feedback被延迟可能导致主服务器膨胀）。"
+  source_anchor: "7.3.6.3 日志回放 页4269-4270"
+  source_refs: *refw8207
+  status: confirmed
+- id: guc_wave8_207_dcf_redo_bind_crc
+  type: syntax
+  statement: "dcf_truncate_dump_info_level SIGHUP整型0~2默认1控制dcf日志截断时打印lsn信息；redo_bind_cpu_attr POSTMASTER字符串默认autobind回放线程绑核（autobind/nobind/nodebind:1,2/cpubind:0-30/cpuorderbind:16-32仅ARM生效推荐绑定到一个NUMA组/需与thread_pool_attr和wal绑核参数错开）；enable_wal_page_header_crc SIGHUP布尔型默认on WAL日志页面头crc计算赋值和校验（关闭可能导致备机接收到有误日志回放失败）。"
+  source_anchor: "7.3.6.3 日志回放 页4270-4272"
+  source_refs: *refw8207
+  status: confirmed
+- id: guc_wave8_207_archive_interval
+  type: syntax
+  statement: "archive_interval：归档间隔时间参数，超过该参数设定的时间则强制归档日志文件。"
+  source_anchor: "7.3.6.4 归档 页4272"
+  source_refs: *refw8207
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_207_oq_runtime
+  content: "WAL级别/检查点/极致RTO/按需回放等参数的具体运行时行为需授权环境实机验证。"
+  status: open
