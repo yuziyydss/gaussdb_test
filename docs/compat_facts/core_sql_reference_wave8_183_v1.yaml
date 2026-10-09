@@ -1,0 +1,140 @@
+document: 集中式版参考 / 4.3.11 Oracle兼容单行函数（Wave 8-183）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-09'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 4.3.11 Oracle兼容单行函数（4.3.11.1切片）
+  physical_page_start: 3206
+  physical_page_end: 3226
+  physical_page_count: 20
+  excludes:
+  - 4.3.11.2 其它函数及后续小节（后续波次按切片覆盖）
+facts:
+- id: orafunc_wave8_183_overview
+  type: syntax
+  statement: "Oracle兼容函数分为单行函数/用户自定义函数/AGG函数/分析函数/对象引用函数/模型函数/OLAP函数；单行函数兼容情况——表4-91（数值函数）支持有差异、表4-92（返回字符值的字符函数）支持有差异、表4-93（返回数字值的字符函数）支持有差异、字符集函数/Collation函数/集合函数/数据挖掘功能函数不支持、表4-94~4-103支持或支持有差异。"
+  source_anchor: "4.3.11.1 单行函数 页3206-3207"
+  source_refs: &reffn
+  - w8_183_4_3
+  status: confirmed
+- id: orafunc_wave8_183_numeric_functions
+  type: syntax
+  statement: "数值函数支持：ABS/ACOS/ASIN/ATAN/ATAN2/BITAND/CEIL/COS/COSH/EXP/FLOOR/LN/LOG/MOD/NANVL/POWER/REMAINDER/ROUND/SIGN/SIN/SINH/SQRT/TAN/TANH/TRUNC/WIDTH_BUCKET——大部分支持无差异，MOD/REMAINDER/ROUND/TANH/NANVL有差异。"
+  source_anchor: "4.3.11.1 表4-91数值函数 页3207-3209"
+  source_refs: *reffn
+  status: confirmed
+- id: orafunc_wave8_183_mod_diff
+  type: constraint
+  statement: "MOD差异：返回类型不一致（Oracle返回BINARY_DOUBLE/BINARY_FLOAT/NUMBER，GaussDB返回int2/int4/int8/numeric）；第一个入参为数值类型时第二个参数必须为int/numeric或可转换为numeric的类型；a_format_version=10c且a_format_dev_version=s6时第一个参数为可转numeric的text类型时第二个参数必须为不超过int4的数值类型。"
+  source_anchor: "4.3.11.1 MOD 页3208"
+  source_refs: *reffn
+  status: confirmed
+- id: orafunc_wave8_183_remainder_diff
+  type: constraint
+  statement: "REMAINDER差异：返回值数据类型不同——GaussDB当一个输入是float4另一个是numeric时返回float4、两个都是float4返回float4、两个都是float8返回float8、其他数据类型返回numeric；Oracle返回值类型是number。"
+  source_anchor: "4.3.11.1 REMAINDER 页3208"
+  source_refs: *reffn
+  status: confirmed
+- id: orafunc_wave8_183_round_diff
+  type: constraint
+  statement: "ROUND差异：第一个参数n的float类型GaussDB存在精度损失（比Oracle精度低）；返回类型不一致——round(n,integer)形式Oracle返回NUMBER而GaussDB返回numeric、round(n)形式Oracle返回n的数据类型而GaussDB只能返回float8和numeric（缺少float4）；null处理逻辑不一致——SELECT round(NULL,'q') Oracle返回null而GaussDB报错invalid input syntax for integer: \"q\"。"
+  source_anchor: "4.3.11.1 ROUND 页3208-3209"
+  source_refs: *reffn
+  status: confirmed
+- id: orafunc_wave8_183_tanh_diff
+  type: constraint
+  statement: "TANH差异：返回数据类型不同——GaussDB当输入是float8返回float8、当输入是numeric返回numeric；Oracle返回值类型是number。"
+  source_anchor: "4.3.11.1 TANH 页3209"
+  source_refs: *reffn
+  status: confirmed
+- id: orafunc_wave8_183_char_functions
+  type: syntax
+  statement: "字符函数支持：CHR/CONCAT/INITCAP/LOWER/LPAD/LTRIM/NCHR/NLS_LOWER/NLS_UPPER/NLSSORT/REGEXP_REPLACE等支持或支持有差异。"
+  source_anchor: "4.3.11.1 表4-92字符函数 页3209-3212"
+  source_refs: *reffn
+  status: confirmed
+- id: orafunc_wave8_183_chr_lower_diff
+  type: constraint
+  statement: "CHR/LOWER差异：CHR输入数字不符合现有字符集时JDBC下GaussDB报错而Oracle返回乱码，输入0/256等Oracle返回Ascii码0字符而GaussDB在'\\0'处截断；LOWER返回值类型不一致（Oracle与输入类型一致）、时间类型隐式转换差异（LOWER(TO_DATE(...)) Oracle返回10-DEC-12而GaussDB返回2012-12-10 00:00:00）、返回值受限于数据库字符集。"
+  source_anchor: "4.3.11.1 CHR/LOWER 页3209-3210"
+  source_refs: *reffn
+  status: confirmed
+- id: orafunc_wave8_183_ltrim_nls_diff
+  type: constraint
+  statement: "LTRIM/NLS_LOWER/NLS_UPPER/NCHR差异：返回值类型不一致（Oracle返回VARCHAR2/NVARCHAR2/LOB而GaussDB返回TEXT）；NCHR返回值字节长度与Oracle不一致、[0x80-0xFF]范围字节返回?而Oracle可能返回?或不输出或报错；NLS_LOWER/NLS_UPPER nlsparam参数GaussDB只支持nls_sort；返回值受限于数据库字符集。"
+  source_anchor: "4.3.11.1 LTRIM/NCHR/NLS_LOWER/NLS_UPPER 页3210-3211"
+  source_refs: *reffn
+  status: confirmed
+- id: orafunc_wave8_183_regexp_replace_diff
+  type: constraint
+  statement: "REGEXP_REPLACE差异：GaussDB入参source_char不支持NCLOB类型；match_param选项'n'含义有差异——GaussDB中'n'与'm'含义相同表示多行模式匹配而Oracle表示(.)能匹配'\\n'字符（未指定时默认不能匹配），GaussDB中(.)默认匹配'\\n'。"
+  source_anchor: "4.3.11.1 REGEXP_REPLACE 页3211"
+  source_refs: *reffn
+  status: confirmed
+- id: orafunc_wave8_183_datetime_functions
+  type: syntax
+  statement: "日期时间函数：ADD_MONTHS/CURRENT_DATE/CURRENT_TIMESTAMP/DBTIMEZONE/EXTRACT/FROM_TZ/LOCALTIMESTAMP/MONTHS_BETWEEN/ROUND/SESSIONTIMEZONE/SYS_EXTRACT_UTC/SYSDATE/SYSTIMESTAMP/TO_CHAR(datetime)/TO_TIMESTAMP/TZ_OFFSET等支持或支持有差异。"
+  source_anchor: "4.3.11.1 表4-94日期时间函数 页3213-3215"
+  source_refs: *reffn
+  status: confirmed
+- id: orafunc_wave8_183_add_months_sysdate
+  type: constraint
+  statement: "ADD_MONTHS/SYSDATE差异：ADD_MONTHS返回值类型不一致（GaussDB当第一个参数是text时返回text否则返回timestamp；Oracle返回date）；SYSDATE返回值类型不一致（Oracle返回DATE包含时分秒而GaussDB返回timestamp without time zone）。"
+  source_anchor: "4.3.11.1 ADD_MONTHS/SYSDATE 页3213-3214"
+  source_refs: *reffn
+  status: confirmed
+- id: orafunc_wave8_183_extract_round
+  type: constraint
+  statement: "EXTRACT/ROUND差异：EXTRACT返回值类型不一致（GaussDB当入参为text时返回text，Oracle返回date类型；支持的format也有区别）；ROUND返回值类型不一致（关闭mapping_date_to_datea时返回timestamp without time zone，开启时返回datea，Oracle返回date）；GaussDB入参可为字符类型而Oracle不支持；第二个入参ISO 8601标准年份（iyyy/iy）时Oracle和GaussDB部分年份返回结果存在差异。"
+  source_anchor: "4.3.11.1 EXTRACT/ROUND 页3214-3215"
+  source_refs: *reffn
+  status: confirmed
+- id: orafunc_wave8_183_comparison_functions
+  type: constraint
+  statement: "通用比较函数差异：GREATEST/LEAST支持有差异——GaussDB不支持NLS_SORT参数指定的比较方式（只支持二进制比较）、不支持多语种的表达式。"
+  source_anchor: "4.3.11.1 表4-95通用比较函数 页3215"
+  source_refs: *reffn
+  status: confirmed
+- id: orafunc_wave8_183_conversion_functions
+  type: syntax
+  statement: "转换函数：ASCIISTR/HEXTORAW/RAWTOHEX/TO_CLOB/TO_MULTI_BYTE支持；CAST/TO_BINARY_DOUBLE/TO_BINARY_FLOAT/TO_BLOB/TO_DATE/TO_NCHAR/TO_NUMBER/TO_TIMESTAMP等支持有差异（多数不支持nlsparam参数或有多语种限制）。"
+  source_anchor: "4.3.11.1 表4-96转换函数 页3215-3218"
+  source_refs: *reffn
+  status: confirmed
+- id: orafunc_wave8_183_to_date_diff
+  type: constraint
+  statement: "TO_DATE差异：不支持多语种参数；返回类型不一致（开启mapping_date_to_datea返回datea、关闭返回timestamp）；开启时受nls_date_format影响、关闭时不受影响；部分format格式不支持；fmt='j'时1582年10月15日之前输出不一致；无分割符时不保证与Oracle完全一致（to_date('220725','yymmdd')解析为2207年25月报错）。"
+  source_anchor: "4.3.11.1 TO_DATE 页3216"
+  source_refs: *reffn
+  status: confirmed
+- id: orafunc_wave8_183_to_number_diff
+  type: constraint
+  statement: "TO_NUMBER差异：GaussDB不支持NLS_PARAM参数；format选项差异——$不支持；逗号位置规则差异（GaussDB逗号可出现在format任意位置而Oracle逗号只能出现在整数部分且不能在数字开头）；原数据无逗号时format逗号个数与位置需一致。"
+  source_anchor: "4.3.11.1 TO_NUMBER 页3217-3218"
+  source_refs: *reffn
+  status: confirmed
+- id: orafunc_wave8_183_conversion_detailed
+  type: syntax
+  statement: "转换函数其他差异：TO_NCHAR将入参类型转换为text而Oracle转换为国家字符集；TO_BINARY_DOUBLE/TO_BINARY_FLOAT不支持nlsparam参数；TO_BLOB不支持long raw/bfile/mime_type类型。"
+  source_anchor: "4.3.11.1 转换函数 页3216-3218"
+  source_refs: *reffn
+  status: confirmed
+- id: orafunc_wave8_183_encoding_functions
+  type: syntax
+  statement: "编码函数差异：UNISTR支持有差异（GaussDB返回text而Oracle返回NVARCHAR2类型）；ASCISTR支持；编码/解码相关函数兼容行为与字符集设置关联。"
+  source_anchor: "4.3.11.1 编码函数 页3218-3219"
+  source_refs: *reffn
+  status: confirmed
+- id: orafunc_wave8_183_env_functions
+  type: syntax
+  statement: "环境函数差异：SYS_CONTEXT支持有差异（GaussDB不支持部分Oracle namespace参数）；SYS_GUID支持有差异（返回值类型不同——Oracle返回RAW(32)而GaussDB返回text类型且格式不同）；UID/USER支持；USERENV支持有差异（部分参数返回值不同）。"
+  source_anchor: "4.3.11.1 环境函数 页3219-3220"
+  source_refs: *reffn
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_183_oq_runtime
+  content: "MOD/REMAINDER/ROUND返回类型差异在复杂表达式中的级联影响、LOWER隐式时间转换在mapping_date_to_datea开启后的行为、TO_DATE无分隔符解析与NLS参数交互、REGEXP_REPLACE 'n'选项多行匹配差异需授权环境实机验证。"
+  status: open
