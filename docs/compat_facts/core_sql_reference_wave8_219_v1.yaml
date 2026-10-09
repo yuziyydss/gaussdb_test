@@ -1,0 +1,85 @@
+document: 集中式版参考 / 7.3.40-7.3.59 GUC闪回/回滚/AI特性/GlobalSysCache/备机修复/分隔符/GlobalPLsqlCache/账本/在线DDL/ILM压缩/向量数据库/EnhancedToast/HTAP/多租/NVMe/GaussStor等（Wave 8-219）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-09'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 7.3.40 闪回相关参数 + 7.3.41 回滚相关参数 + 7.3.42 AI特性 + 7.3.43 Global SysCache + 7.3.44 备机数据修复 + 7.3.45 分隔符 + 7.3.46 Global PLsql Cache + 7.3.47 账本数据库 + 7.3.48 在线创建索引 + 7.3.49 在线DDL + 7.3.50 ILM压缩 + 7.3.51 向量数据库 + 7.3.52-7.3.59
+  physical_page_start: 4778
+  physical_page_end: 4838
+  physical_page_count: 60
+  excludes: []
+facts:
+- id: guc_wave8_219_recyclebin
+  type: constraint
+  statement: "闪回相关参数：enable_recyclebin SIGHUP布尔型默认off表级回收站实时开关（on时表或索引删除生成BIN开头隐藏对象创建于原业务表SCHEMA/需要闪回表时设on/关闭无法使用闪回功能）；enable_db_recyclebin SIGHUP布尔型默认off库级回收站实时开关（闪回库功能需on）；recyclebin_retention_time SIGHUP整型1~2147483647秒默认900（15min）表级回收站对象保留时间；dbrecyclebin_retention_time SIGHUP整型1~2147483647秒默认900（15min）库级回收站对象保留时间；dbrecyclebin_maxsize SIGHUP整型0~576460752303423487kB默认最大值库级回收站最大存储容量（删除数据库时大于回收站剩余容量则不能删除）；undo_retention_time SIGHUP整型0~259200秒默认0 undo旧版本保留时间（0不保留闪回点快照信息/Ustore闪回查询中途设0清理快照报cannot find the restore point/设置undo_retention_time>time1+time2+3s建议= time1+1.5*time2）。"
+  source_anchor: "7.3.40 闪回相关参数 页4778-4781"
+  source_refs: &refw8219
+  - w8_219_7_3
+  status: confirmed
+- id: guc_wave8_219_undo_workers_ai_stats
+  type: syntax
+  statement: "回滚/AI统计参数：max_undo_workers POSTMASTER整型1~100默认5异步回滚undoworker线程数量（重启生效/设置过小异步回滚速度慢/过大占用系统资源）；enable_hypo_index USERSET布尔型默认off EXPLAIN时创建虚拟索引；enable_ai_stats USERSET布尔型默认on智能统计信息创建使用（运行中修改可能造成计划劣化/PDB级别）；multi_stats_type USERSET枚举BAYESNET/MCV/ALL默认BAYESNET统计信息类别（enable_ai_stats=on时）；ai_stats_cache_limit USERSET整型30~1000默认100智能统计模型最大缓存数。"
+  source_anchor: "7.3.41-7.3.42 页4781-4783"
+  source_refs: *refw8219
+  status: confirmed
+- id: guc_wave8_219_adaptive_plan_cost
+  type: constraint
+  statement: "自适应计划/基数代价反馈参数：enable_operator_prefer USERSET布尔型默认off算子倾向性规则参数化路径优先（前置条件参数化路径生成+代价类似/推荐session或hint指定/有严重计划劣化风险）；enable_cachedplan_mgr USERSET布尔型默认on自适应计划选择功能（维护多个缓存计划适应不同查询参数）；max_stmt_aplan_num USERSET整型0~20默认5每个查询候选计划个数上限；recommend_session_aplan_memory USERSET整型1024~102400kB默认5120每个session候选计划内存上限；repick_plan_min_duration USERSET整型0~2147483647默认0探测计划可用下限（0关闭报错机制）；enable_adaptive_cost USERSET布尔型默认off基于反馈的优化器基数和代价矫正功能（复杂语句自动调优/不需要场景打开占用资源）；enable_feedback_cardest USERSET布尔型默认on（新装）反馈基数估计功能（enable_adaptive_cost=off时仍收集算子信息但不启用自动模型维护线程/gs_acm_analyze_workload_manual()手动训练诊断）；adaptive_cardest_strategy USERSET枚举auto/use_statistics/use_feedback默认auto基数估计模型偏好（auto根据历史准确性自动判断）；maximal_feedback_model_num SIGHUP整型-1~1000000默认10000基数反馈模型数量上限（-1无上限）；feedback_model_cache_limit SIGHUP整型10~100000默认500全局内存最大缓存个数；feedback_model_expired_time SIGHUP整型500~2147483647ms默认1d模型超时清理；feedback_collection_expired_time SIGHUP整型50~2147483647ms默认1h未训练算子反馈信息超时；adaptive_cost_min_time USERSET整型0~2147483647ms默认1000基数反馈收集SQL时间阈值（建议为需要调优慢查询执行时长的20%/过短造成1-2%系统性能下降）；cost_update_window_size USERSET整型1~20默认5回归数据滑动窗口大小（小于3可能过拟合产生误差）；adaptive_costest_strategy USERSET枚举l0/l1默认l0新旧代价策略（l0基数估计正确时触发新代价/l1优先新代价模型有严重劣化风险）；adaptive_costmodel_calibration_interval SIGHUP整型0~2147483647ms默认1h代价模型矫正间隔（0关闭）；adaptcost_extended_feature USERSET布尔型默认off扩展特性；enable_collect_abo_history USERSET布尔型默认off收集ABO历史；feedback_record_expired_time SIGHUP整型500~2147483647ms默认1d反馈记录超时清理；autohint_model_cache_limit SIGHUP整型0~1048576kB默认30MB AutoHint探索结果缓存内存上限；autohint_max_task_num SIGHUP整型1~100默认20 AutoHint Hint探索任务最大并发数。"
+  source_anchor: "7.3.42 AI特性 页4783-4792"
+  source_refs: *refw8219
+  status: confirmed
+- id: guc_wave8_219_ai_watchdog
+  type: syntax
+  statement: "AI Watchdog参数：enable_ai_watchdog SIGHUP布尔型默认on AI Watchdog功能开关（on占用系统资源）；enable_ai_watchdog_forcible_oom_detection SIGHUP布尔型默认off强制OOM探测（off时自动判断max_process_memory>=64GB才启动/依赖内存管理模块）；enable_ai_watchdog_healing SIGHUP布尔型默认on自愈功能；ai_watchdog_max_cpu_usage SIGHUP浮点型0~1默认0.8 CPU使用率上限（0不判断）；ai_watchdog_oom_dynamic_used_threshold SIGHUP浮点型0~1默认0.95动态内存使用率上限；ai_watchdog_oom_growth_confidence SIGHUP浮点型0.1~1默认0.95 OOM检测算法置信度；ai_watchdog_oom_malloc_failures SIGHUP整型1~32000默认50最大连续内存分配失败数；ai_watchdog_oom_other_used_memory_threshold SIGHUP整型默认-1（OM安装）或20480其他内存使用上限（-1时max_process_memory<300GB→20GB/300-600GB→40GB/>=600GB→60GB）；ai_watchdog_oom_process_threshold SIGHUP浮点型0~10默认1（OM）或1.1（非OM）进程使用占max_process_memory比例触发泄漏判断；ai_watchdog_oom_shared_threshold SIGHUP浮点型0~1默认0.4共享内存使用比例上限；ai_watchdog_rto_restriction_time SIGHUP整型0~36000秒默认600自愈RTO限制（超过则不进行自愈）；ai_watchdog_tolerance_times SIGHUP整型0~100默认4启动自愈前最大容忍连续异常事件次数；ai_watchdog_tps_threshold SIGHUP浮点型0~100000默认0 TPS使用下限（0不判断TPS）；ai_watchdog_wait_time整型默认60自愈等待时间；ai_watchdog_warning_retention整型默认30告警保留时间。"
+  source_anchor: "7.3.42 AI Watchdog 页4792-4798"
+  source_refs: *refw8219
+  status: confirmed
+- id: guc_wave8_219_global_syscache_repair_delimiter
+  type: syntax
+  statement: "Global SysCache/备机修复/分隔符参数：enable_global_syscache POSTMASTER布尔型默认on全局系统缓存（多租enable_mtd需开启/降低系统缓存内存占用提高并发扩展/需结合global_syscache_threshold/推荐线程池模式/备机需wal_level>=hot_standby）；global_syscache_threshold SIGHUP整型16384~1073741824kB默认160MB或64MB（PDB）全局系统缓存内存最大值（计算=min(count(hot dbs),count(threads))*memofdb/底噪2M每表+11k/过小频繁淘汰内存碎片导致失效/PDB不宜过大影响其他租户）；standby_page_repair POSTMASTER布尔型默认on备机回放页面自动修复（支持CRC校验失败/页面未初始化/LSN校验错误三种/不支持VM/Xlog/clog/MOT/UNDO元信息/临时表/大量坏块影响回放性能Xlog堆积/未修复坏块阻止检查点推进）；delimiter_name USERSET字符串默认;分隔符（gsql客户端DELIMITER命令配置/语句中存在分号时指定特殊结束符）。"
+  source_anchor: "7.3.43-7.3.45 页4798-4800"
+  source_refs: *refw8219
+  status: confirmed
+- id: guc_wave8_219_global_plsqlcache_ledger
+  type: syntax
+  statement: "Global PLsql Cache/账本参数：enable_global_plsqlcache POSTMASTER布尔型默认on package/存储过程/函数编译产物全局缓存（多租enable_mtd需关闭/存储过程及包对象多且并发高时建议打开）；max_execute_functions POSTMASTER整型1~2147483647默认1000 session内执行产物最大个数（仅enable_global_plsqlcache=on时有效/超出清理保留最近调用/内存越大可设越大）；max_compile_packages POSTMASTER整型0~2147483647默认10000 PACKAGE编译结果最大数量（0不控制/推荐值=(max_process_memory*2%)/4.4MB向下取整）；max_compile_functions整型默认5000函数编译结果最大数量；enable_ledger SIGHUP布尔型默认off账本数据库功能（on允许创建防篡改模式/修改普通模式为防篡改）；ledger_hist_level SIGHUP整型0/1默认1全局区块表记录SQL语句。"
+  source_anchor: "7.3.46-7.3.47 页4800-4802"
+  source_refs: *refw8219
+  status: confirmed
+- id: guc_wave8_219_online_ddl_ilm
+  type: syntax
+  statement: "在线DDL/ILM压缩参数：delete_cctmp_table USERSET布尔型默认on删除Ustore在线创建/重建索引临时表（PDB级别）；enable_seqscan_fusion_seqbypass布尔型默认on自增列SQLBYPASS优化（需enable_opfusion=on/自增列类型smallint/int/bigint/仅INSERT场景）；enable_online_ddl_waitlock USERSET布尔型默认off在线DDL（当前版本不生效/使用在线DDL新增特性需语法加ONLINE关键字）；enable_ilm SIGHUP布尔型默认off数据生命周期管理OLTP表压缩（需联系华为工程师购买license）；ilm_instance_compress SIGHUP枚举off/turbo默认off实例级压缩策略（turbo=跨页透明压缩）；ilm_instance_compress_configuration POSTMASTER字符串默认low,1,day实例级压缩默认配置（压缩级别low/medium/high+冷热管理时间不超过3年）；turbo_compress_shared_buffers POSTMASTER整型0~1073741823默认0跨页透明压缩元信息缓冲区（建议shared_buffers 1/128）；turbo_compress_default_configuration POSTMASTER字符串默认tiling,zstd,4;tiling,zstd,16;pattern,zstd,16（编码器tiling/smartdiff/pattern+压缩器zstd/lz4+压缩单元1-64）；turbo_compress_pattern_encoder SIGHUP字符串默认transpose模式编码器（none/transpose/transpose|column_encode/transpose|dedup|column_encode竖线连接）。"
+  source_anchor: "7.3.48-7.3.50 页4802-4806"
+  source_refs: *refw8219
+  status: confirmed
+- id: guc_wave8_219_vector_db_diskann
+  type: constraint
+  statement: "向量数据库DiskANN参数：diskann_hybrid_search_type USERSET枚举AUTO/PRE_FILTER_FLAT/PRE_FILTER_ANN/POST_FILTER_ANN默认AUTO向标混合搜索策略（AUTO根据selectivity和flat_upper_bound选取）；diskann_hybrid_pre_filter_selectivity USERSET浮点型0~1默认0.15前过滤选择率阈值（小于阈值执行前过滤大于等于执行后过滤）；diskann_hybrid_pullup_selectivity USERSET浮点型0~1默认1前过滤上提后过滤选择率阈值（越小越容易上提/AND连接子条件视为整体/优先级低于search_type和pre_filter_selectivity/不会将所有前过滤上提）；diskann_hybrid_flat_upper_bound USERSET整型0~1000000默认0暴搜策略最大数据量阈值（0时arm64=8000其他=11000）；diskann_hybrid_neighbor_search_prune_factor USERSET浮点型0~1默认0.4前过滤后ANN邻居裁剪比例（0不裁剪1全裁剪）。"
+  source_anchor: "7.3.51 向量数据库 页4807-4814"
+  source_refs: *refw8219
+  status: confirmed
+- id: guc_wave8_219_htap_mtd_nvme
+  type: syntax
+  statement: "HTAP/多租/NVMe参数：enable_htap POSTMASTER布尔型默认off HTAP特性（COLVIEW列式内存引擎IMCV/多租需关闭/大量AP查询时开启优化效率/纯TP不建议）；htap_max_mem_size SIGHUP整型102400~1073741824kB默认1GB HTAP内存上限（不超max_process_memory+最大共享内存/增大不重启可改/改小仅重启后生效）；htap_memctl_policy等内存策略参数；enable_mtd POSTMASTER布尔型默认off多租数据库功能开关（启用后所有相关参数如enable_memory_limit/use_workload_manager/enable_thread_pool/enable_control_group/enable_ilm/enable_htap等需关闭或开启特定状态）；backend_resource_attr POSTMASTER字符串默认空PDB资源规格属性；pdb_transaction_read_only POSTMASTER布尔型默认off PDB事务只读；pdb_logical_decoder_max_memory POSTMASTER整型默认1024MB PDB逻辑解码最大内存；max_logical_decoder_tasks POSTMASTER整型默认1024最大逻辑解码任务数；nvme_cache_seg_num POSTMASTER整型默认512 NVMe缓存段数；local_storage_directory字符串默认空本地存储目录；nvme_cache_sub_heat_range整型默认2000 NVMe缓存热度范围；enable_nvme_cache_immediately_after_read POSTMASTER布尔型默认off读取后立即缓存；nvme_io_capacity SIGHUP整型默认200MB/s NVMe I/O能力；nvme_victim_strategy枚举默认rotation NVMe缓存淘汰策略；nvme_cache_thread_num POSTMASTER整型默认2 NVMe缓存线程数；enable_vldb_flow_control SIGHUP布尔型默认off超大规模集群流控；adapt_period SIGHUP整型默认180自适应周期；max_iops_speed SIGHUP整型默认0最大IOPS速度；nvme_cache_pagetype枚举默认all NVMe缓存页面类型；enable_spdk_function SIGHUP布尔型默认off SPDK功能；spdk_poller_thread_num POSTMASTER整型默认2 SPDK轮询线程数；spdk_nvme_pcie_addr POSTMASTER字符串默认空SPDK NVMe PCIe地址。"
+  source_anchor: "7.3.52-7.3.56 页4814-4825"
+  source_refs: *refw8219
+  status: confirmed
+- id: guc_wave8_219_gaussstor_dr
+  type: syntax
+  statement: "GaussStor/DR参数：enable_dr_gaussstor_mode SIGHUP布尔型默认off GaussStor容灾模式；dr_gaussstor_cms_url_list SIGHUP字符串默认空GaussStor CMS URL列表；dr_gaussstor_config SIGHUP字符串默认空GaussStor配置；enable_dr_gaussstor_parallel_write SIGHUP布尔型默认off GaussStor并行写；gaussstor_auth_type SIGHUP枚举none/password/psk默认none认证类型（不使用连接认证可能被仿冒）；gaussstor_psk_path SIGHUP字符串默认share/gaussstor预共享密钥路径（≤1024字节/仅sysadmin）；gaussstor_hash_check SIGHUP布尔型默认off链式哈希防篡改检测（需auth_type不为none/影响性能）；gaussstor_recycle_ttl SIGHUP整型1~36792000分钟默认5 Xlog IO-WORM保护时间（过大磁盘满/过小降低保护能力）；enable_ima SIGHUP枚举on_warning/on_exit/off默认off完整性度量和远程证明校验（on_warning告警/on_exit退出连接/需本地证明代理）；dr_gaussstor_client_info SIGHUP字符串默认空实例绑定客户端IP列表（格式实例名:IP列表+实例名:IP列表/IPv6需方括号/修改后重启可能导致对接失败）。"
+  source_anchor: "7.3.57 GaussStor相关参数 页4830-4836"
+  source_refs: *refw8219
+  status: confirmed
+- id: guc_wave8_219_sql_anomaly_misc
+  type: syntax
+  statement: "SQL异常行为/预留参数：autonomy_risky_operation SIGHUP字符串默认空自治风险操作；autonomy_affected_threshold SIGHUP整型默认1000自治影响阈值；autonomy_return_threshold SIGHUP整型默认1000自治返回阈值；wait_dummy_time SIGHUP整型默认60等待虚时间；enable_incremental_catchup POSTMASTER布尔型默认off增量追增；enable_expr_fusion USERSET布尔型默认off表达式融合；enable_roach_standby_cluster SIGHUP布尔型默认off Roach备集群；max_logical_replication_workers POSTMASTER整型默认4最大逻辑复制worker数。"
+  source_anchor: "7.3.58-7.3.59 页4836-4838"
+  source_refs: *refw8219
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_219_oq_runtime
+  content: "闪回收站/AI特性/HTAP/向量数据库/GaussStor等参数的具体运行时行为需授权环境实机验证。"
+  status: open
