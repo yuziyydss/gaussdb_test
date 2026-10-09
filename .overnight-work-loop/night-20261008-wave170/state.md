@@ -1,7 +1,7 @@
 # 夜间执行记录
 
 - 运行标识：night-20261008-wave170
-- 状态：执行中（heartbeat 创建失败待重试）
+- 状态：到点未完成（2026-10-09 08:58 收尾；heartbeat 未启用导致夜间仅完成1波）
 - 运行平台与适配：Codex 桌面端（automation heartbeat，适配文件 /Users/wangyangbo/.codex/skills/overnight-work-loop/references/codex.md）
 - 调度所属会话：当前任务（本记录所在 Codex 任务）
 - 目标任务：当前任务
@@ -39,8 +39,16 @@
 
 ## 结果记录
 
-- 启动：创建本记录。
+- 21:51 启动：创建本记录；heartbeat automation_update 连续6次报 invalid arguments（调度未启用）。
+- 22:00 wave 8-170（DBE_XMLDOM第一切片，页2995-3010，16页20facts）完成：manifest --check、5个单测、summary/inventory刷新、两commit（1ee6b5a7/84eab9d7）推送成功。
+- 下一步：wave 8-171（DBE_XMLDOM第二切片，GETLENGTH起，页3011-3026）。
 
-## 晨报
+## 晨报（2026-10-09 08:58）
 
-（结束时填写）
+- 完成项：wave 8-170（DBE_XMLDOM第一切片，页2995-3010，16页/20facts/1OQ），全链路校验通过，commit 1ee6b5a7+84eab9d7 已推送。
+- 验证结果：wave build --check、5个单测、master summary/inventory --check、17个相关单测全部通过。
+- 未完成项：wave 8-171起（DBE_XMLDOM GETLENGTH~GETELEMENTSBYTAGNAME，约15页）、DBE_XMLGEN、DBE_XMLPARSER、PRVT_ILM、RESOURCE_MANAGER、3.12.3 内部接口（合计约75页缺口）。
+- 原因：heartbeat automation_update 连续6次报 invalid arguments，定时续工未启用；上一轮对话在 wave 8-170 推送后中断，无调度唤醒恢复。
+- 仍运行作业：无（git 与 origin 同步，工作区仅本记录未提交，按约定不纳入产品提交）。
+- 需用户处理：如需继续，直接发"继续"即可从 wave 8-171 无缝续接。
+- 调度状态：未启用（创建失败），无需要暂停的调度。
