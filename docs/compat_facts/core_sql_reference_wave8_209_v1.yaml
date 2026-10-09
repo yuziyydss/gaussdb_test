@@ -1,0 +1,104 @@
+document: 集中式版参考 / 7.3.8 GUC查询规划（Wave 8-209）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-09'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 7.3.8 查询规划（优化器方法配置/优化器开销常量/基因查询优化器/DSL规则引擎/其他优化器选项）
+  physical_page_start: 4323
+  physical_page_end: 4398
+  physical_page_count: 75
+  excludes:
+  - 7.3.9 SPM计划管理及后续小节（后续波次按切片覆盖）
+facts:
+- id: guc_wave8_209_overview
+  type: syntax
+  statement: "查询规划概述：GUC参数影响查询优化器选择查询规划的原始方法；更好的方法包括调节优化器开销常量/手动运行ANALYZE/增加default_statistics_target/使用ALTER TABLE SET STATISTICS；全局设置查询规划相关参数除客户业务外也会对数据库自身运维监控造成影响（WDR报告/扩容/重分布/数据导入导出）。"
+  source_anchor: "7.3.8 查询规划概述 页4323"
+  source_refs: &refw8209
+  - w8_209_7_3
+  status: confirmed
+- id: guc_wave8_209_optimizer_methods
+  type: syntax
+  statement: "优化器方法配置参数（均为USERSET布尔型/整型）：enable_bitmapscan默认on/force_bitmapand默认off/enable_hashagg默认on/enable_hashjoin默认on/enable_indexscan默认on/enable_indexonlyscan默认on/enable_material默认on/enable_mergejoin默认on/enable_nestloop默认on/enable_index_nestloop默认on/enable_seqscan默认on/enable_sort默认on/enable_tidscan默认on/enable_kill_query默认off/max_recursive_times整型默认200/enforce_a_behavior默认on/enable_vector_engine默认on/enable_broadcast默认on/enable_change_hjcost默认off/enable_absolute_tablespace默认off/enable_valuepartition_pruning默认on/enable_default_index_deduplication默认on/expr_engine默认default/skew_option默认normal/default_limit_rows整型默认-1/cost_weight_index浮点默认0.0/try_vector_engine_strategy默认invalid/enable_opfusion_reuse默认on/enable_iud_fusion默认off/enable_cached_operator默认off/enable_smp_partitionwise默认off/force_smp_partitionwise_scan默认off/enable_nestagg默认on/enable_index_skip_scan默认off/enable_indexonlyscan_or默认off/enable_partition_statistic默认on/enable_constraint_optimization默认on。"
+  source_anchor: "7.3.8.1 优化器方法配置 页4323-4337"
+  source_refs: *refw8209
+  status: confirmed
+- id: guc_wave8_209_cost_constants
+  type: syntax
+  statement: "优化器开销常量参数（均为USERSET浮点/整型）：seq_page_cost浮点0~DBL_MAX默认1顺序页面抓取开销；random_page_cost浮点0.1~10默认1.1非顺序页面抓取开销；cpu_tuple_cost默认0.01处理每行CPU开销；cpu_index_tuple_cost默认0.005索引每行CPU开销；cpu_operator_cost默认0.0025每个操作符CPU开销；effective_cache_size默认4GB优化器假设缓存大小；allocate_mem_cost默认0分配内存开销；smp_thread_startup_cost默认1000 SMP线程启动开销。"
+  source_anchor: "7.3.8.2 优化器开销常量 页4339-4341"
+  source_refs: *refw8209
+  status: confirmed
+- id: guc_wave8_209_geqo
+  type: syntax
+  statement: "基因查询优化器参数：geqo布尔型默认on GEQO开关（表数量大时关闭会导致动态规划枚举所有组合开销极大）；geqo_threshold整型默认12表数超过此值时使用GEQO；geqo_effort整型默认5调节时间和计划质量；geqo_pool_size整型默认0全局池大小（0按关系数计算）；geqo_generations整型默认0迭代次数；geqo_selection_bias浮点默认2.0选择偏好；geqo_seed整型默认0随机种子。"
+  source_anchor: "7.3.8.3 基因查询优化器 页4342-4345"
+  source_refs: *refw8209
+  status: confirmed
+- id: guc_wave8_209_dsl_ruleengine
+  type: syntax
+  statement: "DSL规则引擎参数：enable_dsl_ruleengine布尔型默认off开启DSL规则引擎；dsl_engine_max_iteration整型默认200最大迭代次数；dsl_rulelist字符串默认空指定规则列表。"
+  source_anchor: "7.3.8.4 基于DSL的规则引擎 页4345-4347"
+  source_refs: *refw8209
+  status: confirmed
+- id: guc_wave8_209_opfusion
+  type: constraint
+  statement: "enable_opfusion：USERSET布尔型默认on控制是否对简单增删改查进行优化——简单查询限制：仅支持indexscan和indexonlyscan且全部WHERE条件在索引上/仅支持单表增删改查不支持join using/仅支持行存表不支持有触发器/不支持active sql QPS统计/不支持扩容缩容的表/不支持查询修改系统列/仅支持简单SELECT INSERT UPDATE DELETE语句。"
+  source_anchor: "7.3.8.5 其他优化器选项 页4357-4358"
+  source_refs: *refw8209
+  status: confirmed
+- id: guc_wave8_209_query_dop
+  type: constraint
+  statement: "query_dop：USERSET整型-128~128默认1用户自定义查询并行度——1关闭并行/0在[1,128]自适应/正数为指定并行度/负数在[1,|query_dop|]自适应（SMP功能）；CPU/内存/I/O网络资源充足时并行度越高性能提升越好；无法确定合适并行度或短查询复杂查询混合时可设为负数或0开启自适应并行度。"
+  source_anchor: "7.3.8.5 其他优化器选项 页4353"
+  source_refs: *refw8209
+  status: confirmed
+- id: guc_wave8_209_global_plancache
+  type: syntax
+  statement: "全局计划缓存参数：enable_global_plancache POSTMASTER布尔型默认off PBE查询和存储过程语句执行计划缓存共享（多租enable_mtd需关闭/节省高并发下数据库节点内存使用）；enable_plancache_mprotect POSTMASTER布尔型默认off mprotect保护GPC内存；disable_gpc_store POSTMASTER布尔型默认off禁用GPC存储；gpc_clean_timeout POSTMASTER整型默认1800GPC清理超时。"
+  source_anchor: "7.3.8.5 其他优化器选项 页4360-4361"
+  source_refs: *refw8209
+  status: confirmed
+- id: guc_wave8_209_plan_cache_mode
+  type: constraint
+  statement: "plan_cache_mode：USERSET枚举auto/force_generic_plan/force_custom_plan默认auto prepare语句生成执行计划策略——auto由优化器自动选择custom或generic/force_generic_plan强制软解析（省重复优化器开销/但bind参数倾斜时可能非最优）/force_custom_plan强制每次重新优化（bind参数倾斜时选择）。"
+  source_anchor: "7.3.8.5 其他优化器选项 页4375"
+  source_refs: *refw8209
+  status: confirmed
+- id: guc_wave8_209_statistics
+  type: constraint
+  statement: "统计信息参数：default_statistics_target USERSET整型-100~10000默认100缺省统计目标——正数为直方图桶数采样行数=default_statistics_target*300/负数为百分比-5代表5%采样行数=总行数*5%（仅影响目标采样行数还受maintenance_work_mem限制/增大正数增加ANALYZE时间但改善估计质量）；cursor_sharing USERSET枚举force/exact/off默认off自动参数化和相同语句计划复用——force自动参数化+计划复用（语句常量替换为参数）/exact仅计划复用/off全关闭。"
+  source_anchor: "7.3.8.5 其他优化器选项 页4366-4367/4379"
+  source_refs: *refw8209
+  status: confirmed
+- id: guc_wave8_209_rewrite_rule
+  type: syntax
+  statement: "查询重写参数：rewrite_rule USERSET枚举默认空可选查询重写规则（lazyagg消除子查询聚集/disable_pullup_expr_subquery禁用表达式子查询上拉/disable_pullup_expr_sublink等）；costbased_rewrite_rule USERSET布尔型默认off基于代价查询重写；costbased_rewrite_rule_max_iterations整型默认10最大迭代次数；costbased_rewrite_rule_timeout整型默认10000超时时间；optrbo_max_or_expr_numbers整型默认30 OR表达式最大数量。"
+  source_anchor: "7.3.8.5 其他优化器选项 页4370-4371"
+  source_refs: *refw8209
+  status: confirmed
+- id: guc_wave8_209_codegen_bloom
+  type: syntax
+  statement: "代码生成/布隆过滤器参数：enable_codegen USERSET布尔型默认off LLVM代码生成优化（表达式查询场景资源上涨）；codegen_compile_thread_num整型1~8默认1编译线程数；llvm_max_memory整型默认1024 LLVM最大内存MB；codegen_cost_threshold整型默认30000代码生成代价阈值；enable_bloom_filter USERSET布尔型默认off布隆过滤器（join场景哈希表超过阈值时使用减少探测开销）；bloom_filter_build_max_rows整型默认131072布隆过滤器构建最大行数；bloom_filter_apply_threshold整型默认4194304布隆过滤器应用阈值行数。"
+  source_anchor: "7.3.8.5 其他优化器选项 页4371-4373"
+  source_refs: *refw8209
+  status: confirmed
+- id: guc_wave8_209_beta_features
+  type: syntax
+  statement: "sql_beta_feature：USERSET字符串默认none可选SQL引擎Beta特性组合——none不使用/sel_semi_poisson泊松分布等值半连接反连接选择率校准/sel_expr_instr字符串匹配行数估算instr/expr_partial_match列级局部匹配/sel_function_func函数行数估算/sel_oper_func函数操作符选择率等；特定场景优化但可能部分未覆盖场景性能劣化。"
+  source_anchor: "7.3.8.5 其他优化器选项 页4369-4370"
+  source_refs: *refw8209
+  status: confirmed
+- id: guc_wave8_209_misc_optimizer
+  type: syntax
+  statement: "其他优化器参数：enable_hypo_index USERSET布尔型默认off EXPLAIN时创建虚拟索引；enable_auto_explain USERSET布尔型默认off自动执行EXPLAIN；auto_explain_log_min_duration整型默认0记录耗时阈值；enable_force_vector_engine USERSET布尔型默认off强制使用向量引擎；enable_smp_dml USERSET布尔型默认off SMP并行DML；enable_invisible_indexes USERSET布尔型默认off支持不可见索引；enable_dynamic_samplesize USERSET布尔型默认off动态采样行数；stats_history_record_limit整型默认0统计信息历史记录限制；cursor_sharing默认off；enable_adaptive_join USERSET布尔型默认off自适应join；opt_use_static_stats USERSET布尔型默认on使用静态统计信息。"
+  source_anchor: "7.3.8.5 其他优化器选项 页4381-4398"
+  source_refs: *refw8209
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_209_oq_runtime
+  content: "优化器方法配置/开销常量/GEQO/SMP/GPC等参数的具体运行时行为需授权环境实机验证。"
+  status: open
