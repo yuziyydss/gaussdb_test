@@ -1,0 +1,188 @@
+document: 集中式版参考 / 4.4.2.3 MySQL兼容M模式操作符（Wave 8-190）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-09'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 4.4.2.3 操作符（操作符差异/操作符表/操作符组合差异/索引差异）
+  physical_page_start: 3379
+  physical_page_end: 3397
+  physical_page_count: 19
+  excludes:
+  - 4.4.2.4 字符集及后续小节（后续波次按切片覆盖）
+facts:
+- id: mcompat_wave8_190_operator_overview
+  type: syntax
+  statement: "GaussDB兼容绝大多数MySQL操作符但存在部分差异；未列出的操作符行为默认为GaussDB原生行为；MySQL不支持但GaussDB支持的语句通常为系统内部使用，不建议使用。"
+  source_anchor: "4.4.2.3 操作符 页3379"
+  source_refs: &refw8190
+  - w8_190_4_4_2
+  status: confirmed
+- id: mcompat_wave8_190_orderby_null
+  type: constraint
+  statement: "ORDER BY排序NULL值差异：MySQL将NULL排前面，GaussDB默认排最后面（可通过NULLS FIRST/LAST控制）；有ORDER BY时输出顺序一致（特殊场景除外），无ORDER BY时GaussDB不保证结果顺序与MySQL一致。"
+  source_anchor: "4.4.2.3 操作符差异 页3379"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_operator_assoc
+  type: constraint
+  statement: "MySQL操作符需要括号严格确保表达式结合性否则报错（如SELECT 1 regexp ('12345' regexp '123')）；GaussDB不用括号也能执行。"
+  source_anchor: "4.4.2.3 操作符差异 页3379"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_null_display
+  type: constraint
+  statement: "NULL显示和列名差异：MySQL显示\"NULL\"，GaussDB显示空值；操作符执行后列名显示也不一致。"
+  source_anchor: "4.4.2.3 操作符差异 页3379"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_str_to_double
+  type: constraint
+  statement: "字符串转double非法字符串差异：MySQL常量非法字符串报错、字段非法字符串不报错；GaussDB两者都报错。"
+  source_anchor: "4.4.2.3 操作符差异 页3379"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_comparison_return
+  type: constraint
+  statement: "比较操作符返回差异：MySQL返回1/0，GaussDB返回t/f；含NULL整型列/时间日期列与不可转换类型常量比较（如date vs '1970'），MySQL返回NULL，GaussDB返回f。"
+  source_anchor: "4.4.2.3 操作符差异 页3379-3380"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_neq_index
+  type: constraint
+  statement: "<>操作符：MySQL支持索引，GaussDB不支持索引。<=>操作符：MySQL支持索引，GaussDB不支持索引、hash连接和合并连接。"
+  source_anchor: "4.4.2.3 表4-155 页3380"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_row_expr
+  type: constraint
+  statement: "行表达式差异：MySQL支持<=>行比较但GaussDB不支持；MySQL不支持行表达式与NULL比较但GaussDB支持<,<=,=,>=,>,<>；MySQL不支持IS NULL对行表达式但GaussDB支持（ISNULL不支持）；MySQL不支持ROW(values)单列数据但GaussDB支持。"
+  source_anchor: "4.4.2.3 表4-155 页3380-3382"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_double_minus
+  type: constraint
+  statement: "--操作符差异：m_format_behavior_compat_options不含forbid_none_space_comment时GaussDB视为注释（MySQL表示两次取反）；包含该选项时GaussDB与MySQL一致表示两次取反。"
+  source_anchor: "4.4.2.3 表4-155 页3382"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_double_not_factorial
+  type: constraint
+  statement: "!!操作符差异：MySQL中!!含义同!表示取非；GaussDB中!与!中间无空格时表示阶乘，有空格时表示连续两次取非。同时使用阶乘和取非时中间需加空格否则报错。"
+  source_anchor: "4.4.2.3 表4-155 页3382"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_regexp
+  type: constraint
+  statement: "[NOT] REGEXP差异：GaussDB支持\\d/\\w/\\s元字符而MySQL不支持；\\b匹配差异；转义字符\\vs\\\\；模式字符串仅右单括号时GaussDB/MySQL5.7报错MySQL8.0不报错；|左右空值GaussDB不报错MySQL5.7报错MySQL8.0不报错；[:blank:]制表符MySQL5.7不匹配MySQL8.0匹配；非贪婪模式??/*?/+?等GaussDB支持MySQL5.7报错MySQL8.0支持；BINARY字符集下TEXT/BLOB转BYTEA后REGEXP无法匹配。"
+  source_anchor: "4.4.2.3 表4-155 页3382"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_like
+  type: constraint
+  statement: "LIKE差异：MySQL左操作数仅限位运算/算术运算/括号表达式，右操作数仅限单目运算符（不含NOT）或括号表达式；GaussDB左右操作数可以是任意表达式。LIKE右操作数JDBC setFloat绑参PBE执行时GaussDB结果与MySQL存在差异（MySQL自身在等价场景也不一致）。"
+  source_anchor: "4.4.2.3 表4-155 页3383"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_between_and
+  type: constraint
+  statement: "[NOT] BETWEEN AND差异：MySQL嵌套从右到左结合，GaussDB从左到右；MySQL第1/第2操作数仅限位运算/算术运算/括号表达式，GaussDB可以是任意表达式；m_format_behavior_compat_options含between_and_independent_compare时独立比较；特殊场景（如repeat()）MySQL的BETWEEN AND与(>= AND <=)不等价而GaussDB优先保证与等价操作一致。"
+  source_anchor: "4.4.2.3 表4-155 页3384-3385"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_in
+  type: constraint
+  statement: "IN差异：MySQL左操作数仅限位运算/算术运算/括号表达式，GaussDB可以是任意表达式；ROW IN (ROW,ROW...)未兼容MySQL不建议使用；开启精度传递时FLOAT/DOUBLE含精度标度的表数据IN比较GaussDB按精度标度而MySQL读内存失真值；IN多列场景MySQL结果不自洽以单列为准。"
+  source_anchor: "4.4.2.3 表4-155 页3385-3387"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_unary_not
+  type: constraint
+  statement: "!操作符差异：MySQL操作数仅限单目运算符（不含NOT）或括号表达式；GaussDB操作数可以是任意表达式。"
+  source_anchor: "4.4.2.3 表4-155 页3386"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_hash_comment
+  type: constraint
+  statement: "#注释：MySQL支持#注释，GaussDB不支持#注释。"
+  source_anchor: "4.4.2.3 表4-155 页3386"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_binary_keyword
+  type: constraint
+  statement: "BINARY关键字优先级差异：GaussDB独有表达式~、IS DISTINCT FROM等因BINARY优先级更高，BINARY expr会优先与左参数合并导致报错。"
+  source_anchor: "4.4.2.3 表4-155 页3386"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_unary_minus
+  type: constraint
+  statement: "取负（-）差异：CREATE TABLE AS SELECT - -1时MySQL字段类型decimal(2,0)、GaussDB integer(1)；开启精度传递enable_precision_decimal时负号加常量精度MySQL 5.7中max_length随取反操作符数量增加而GaussDB不会。"
+  source_anchor: "4.4.2.3 表4-155 页3387-3388"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_block_comment
+  type: constraint
+  statement: "/**/注释：GaussDB语句中不支持/**/注释。"
+  source_anchor: "4.4.2.3 表4-155 页3388"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_xor
+  type: constraint
+  statement: "xor操作符差异：GaussDB优化器有常数优化，先计算表示结果是常数的情况；如1 xor null xor pow(200,2000000)在GaussDB报溢出错误，MySQL返回NULL。"
+  source_anchor: "4.4.2.3 表4-155 页3389"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_is_null_priority
+  type: constraint
+  statement: "IS NULL/IS NOT NULL优先级差异：MySQL优先级小于逻辑运算符，GaussDB优先级大于逻辑运算符。"
+  source_anchor: "4.4.2.3 表4-155 页3389"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_short_circuit
+  type: constraint
+  statement: "AND(&&)/OR(||)/XOR/|/&/</>/<=/>=/=/!=执行机制差异：MySQL执行左操作数后判断是否为空再决定是否执行右操作数（短路）；GaussDB先执行左右操作数再判断；左操作数为空右操作数报错时MySQL不报错直接返回而GaussDB执行报错。"
+  source_anchor: "4.4.2.3 表4-155 页3390"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_arith_bconst
+  type: constraint
+  statement: "+,-,*,/,%,mod,div内嵌b''常量CREATE VIEW差异：MySQL 5.7返回类型可能带unsigned标识（如decimal(5,4) unsigned），GaussDB不带unsigned。"
+  source_anchor: "4.4.2.3 表4-155 页3391"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_operator_combo
+  type: syntax
+  statement: "操作符组合差异（表4-156）：SELECT 1 LIKE 3&1、1 LIKE 1+1、1 LIKE NOT 0、BETWEEN组合嵌套、2 BETWEEN 1=1 AND 3、0 LIKE 0 BETWEEN 1 AND 2、1 IN (1) BETWEEN 0 AND 3、1 IN (1) IN (1)、! NOT 1等组合MySQL不支持而GaussDB支持；BETWEEN组合嵌套MySQL从右到左GaussDB从左到右。"
+  source_anchor: "4.4.2.3 表4-156 页3391-3392"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_index_overview
+  type: constraint
+  statement: "索引差异概述：GaussDB仅支持UBTree和B-tree索引；B-tree/UBTree同一操作符族内类型比较支持索引扫描；GaussDB JDBC YEAR类型PBE场景无法利用索引；WHERE子句索引字段与常量比较可使用cast函数显式转换为字段类型实现索引。"
+  source_anchor: "4.4.2.3 索引差异 页3392"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_like_prefix_index
+  type: constraint
+  statement: "LIKE前缀索引最大长度差异：单字节字符集场景GaussDB最长2676字节，MySQL最长3072字节；超过最大长度时建议创建非前缀索引。"
+  source_anchor: "4.4.2.3 索引差异 页3392"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_index_support_matrix
+  type: constraint
+  statement: "索引支持差异矩阵（表4-157）：BIT类型索引字段各常量类型GaussDB均不支持走索引（MySQL支持）；SET/ENUM类型GaussDB和MySQL均不支持；TIME/YEAR/带日期的时间类型索引字段在不同常量类型下支持情况各异（部分GaussDB支持MySQL不支持，部分反之）；整型索引字段与浮点型常量GaussDB不支持MySQL支持；二进制类型索引字段部分常量类型GaussDB支持MySQL不支持。"
+  source_anchor: "4.4.2.3 表4-157 页3392-3397"
+  source_refs: *refw8190
+  status: confirmed
+- id: mcompat_wave8_190_index_int_fixed_note
+  type: constraint
+  statement: "整型索引字段与定点型常量比较索引支持条件：仅m_format_behavior_compat_options未开启disable_int_cmp_num_index时支持；且定点型常量不能为用户自定义变量、CASE WHEN表达式或子查询返回值。"
+  source_anchor: "4.4.2.3 表4-157说明 页3397"
+  source_refs: *refw8190
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_190_oq_runtime
+  content: "操作符短路求值/索引支持矩阵/yera类型PBE索引等差异的完整影响范围需在授权GaussDB+MySQL环境实机验证。"
+  status: open
