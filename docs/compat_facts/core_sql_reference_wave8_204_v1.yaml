@@ -1,0 +1,98 @@
+document: 集中式版参考 / 7.3.3.2 GUC安全和认证（Wave 8-204）
+version: V2.0-10.0.0
+parent_pdf_sha256: 716ab36bb4410cb823c76cd331d06f06a43ae81ce6b3a267ffe17085b3d3acbe
+extraction_date: '2026-10-09'
+extraction_method: pdftotext章节源文逐章精读 + 结构化manifest哈希对账
+verification_status: confirmed
+scope:
+  chapters:
+  - 7.3.3.2 安全和认证
+  physical_page_start: 4181
+  physical_page_end: 4197
+  physical_page_count: 16
+  excludes:
+  - 7.3.3.3 通信库参数及后续小节（后续波次按切片覆盖）
+facts:
+- id: guc_wave8_204_server_listener_thread
+  type: syntax
+  statement: "enable_server_listener_thread：POSTMASTER布尔型默认on；on时GaussDB Kernel服务侦听TCP端口port由独立线程监听（需enable_thread_pool和enable_connect_thread_pool为on）/off由Postmaster线程监听；不开启时Postmaster线程竞争可能降低监听效率影响连接建立耗时。"
+  source_anchor: "7.3.3.2 安全和认证 页4181"
+  source_refs: &refw8204
+  - w8_204_7_3
+  status: confirmed
+- id: guc_wave8_204_authentication_timeout
+  type: syntax
+  statement: "authentication_timeout：SIGHUP整型1~600秒默认60；完成客户端认证的最长时间超时自动断开；设置过小频繁连接失败/过大安全风险和资源浪费。auth_iteration_count：SIGHUP整型2048~134217728默认10000认证加密迭代次数；过小降低口令存储安全性/过大认证和用户创建性能劣化。"
+  source_anchor: "7.3.3.2 安全和认证 页4181-4182"
+  source_refs: *refw8204
+  status: confirmed
+- id: guc_wave8_204_session_authorization_timeout
+  type: syntax
+  statement: "session_authorization：USERSET字符串当前会话用户标识仅SHOW查询/直接设置仅支持DEFAULT；session_timeout：USERSET整型0~86400秒默认1800与服务器连接后不操作的最长时间0关闭超时；idle_in_transaction_timeout：USERSET整型0~86400秒默认300事务空闲不操作的最长时间；两者同时开启时事务空闲以较小的超时时间为准；新下发实例idle_in_transaction_timeout=300升级默认0；gsql客户端有自动重连机制。"
+  source_anchor: "7.3.3.2 安全和认证 页4182-4183"
+  source_refs: *refw8204
+  status: confirmed
+- id: guc_wave8_204_ssl_basic
+  type: syntax
+  statement: "ssl参数：POSTMASTER布尔型默认on开启SSL连接（实际通信是否加密由客户端配置决定）/off关闭；开启需同时配置ssl_cert_file/ssl_key_file/ssl_ca_file等；主备间SSL通信受wal_replication_ssl影响。require_ssl：SIGHUP布尔型默认off强制要求SSL仅ssl=on时有效。ssl_ciphers：POSTMASTER字符串默认ALL不含ADH/LOW/EXP/MD5仅sysadmin可访问。ssl_renegotiation_limit：USERSET整型0~2147483647默认0已禁用SSL重协商机制修改不起作用。"
+  source_anchor: "7.3.3.2 安全和认证 页4184-4185"
+  source_refs: *refw8204
+  status: confirmed
+- id: guc_wave8_204_ssl_files
+  type: syntax
+  statement: "SSL文件参数（均为POSTMASTER字符串相对数据目录）：ssl_cert_file默认server.crt/ssl_key_file默认server.key/ssl_enc_cert_file国密加密证书默认空/ssl_enc_key_file国密私钥默认空/ssl_ca_file默认空/ssl_crl_file证书吊销列表默认空；文件路径错误导致无法建立SSL连接数据泄漏风险。"
+  source_anchor: "7.3.3.2 安全和认证 页4185-4188"
+  source_refs: *refw8204
+  status: confirmed
+- id: guc_wave8_204_ssl_shared_ctx_notify
+  type: syntax
+  statement: "enable_shared_sslctx：POSTMASTER布尔型默认off（glibc<2.28时on）SSL证书全局加载仅启动时一次SSL上下文初始化/替换证书需重启；SSL上下文初始化失败自动降级为off。ssl_cert_notify_time：SIGHUP整型7~180天默认90证书到期前提醒天数。"
+  source_anchor: "7.3.3.2 安全和认证 页4188"
+  source_refs: *refw8204
+  status: confirmed
+- id: guc_wave8_204_kerberos
+  type: syntax
+  statement: "Kerberos参数：krb_server_keyfile指定服务主配置文件位置SIGHUP字符串默认空仅sysadmin；krb_srvname设置Kerberos服务名SIGHUP字符串默认postgres；krb_caseins_users设置用户名是否大小写敏感SIGHUP布尔型默认off。"
+  source_anchor: "7.3.3.2 安全和认证 页4188-4189"
+  source_refs: *refw8204
+  status: confirmed
+- id: guc_wave8_204_password_policy
+  type: syntax
+  statement: "password_policy：SIGHUP整型0/1默认1；0不采用密码复杂度校验/1采用默认密码复杂度校验策略；从安全性考虑请勿关闭。modify_initial_password：SIGHUP布尔型默认off初始用户首次登录修改密码（功能不再生效保留兼容升级）。"
+  source_anchor: "7.3.3.2 安全和认证 页4189-4190"
+  source_refs: *refw8204
+  status: confirmed
+- id: guc_wave8_204_password_reuse
+  type: syntax
+  statement: "password_reuse_time：SIGHUP浮点型0~3650天默认0密码可重用天数检查；password_reuse_max：SIGHUP整型0~1000默认0密码可重用次数检查仅sysadmin；两者都为正数满足任一即可重用/time为0仅限次数/max为0仅限天数/都为0不限制。"
+  source_anchor: "7.3.3.2 安全和认证 页4190-4191"
+  source_refs: *refw8204
+  status: confirmed
+- id: guc_wave8_204_password_lock
+  type: constraint
+  statement: "password_lock_time：SIGHUP浮点型0~365天默认1账户锁定自动解锁时间（1.5=1天零12小时）；failed_login_attempts：SIGHUP整型0~1000默认10密码错误次数锁定（登录/ALTER USER密码失败均计入）建议5~10；两者都为正数时账户锁定解锁功能生效。enable_lock_account：SIGHUP布尔型默认on——on时达failed_login_attempts自动锁定/off时不自动锁定仅告警管理员手动锁定不受参数控制；设为off降低安全性。"
+  source_anchor: "7.3.3.2 安全和认证 页4191-4193"
+  source_refs: *refw8204
+  status: confirmed
+- id: guc_wave8_204_password_encryption
+  type: constraint
+  statement: "password_encryption_type：SIGHUP整型0/1/2/3默认2——0=md5/1=sha256+md5/2=sha256/3=sm3；修改不自动改变已有用户密码仅对新创建/修改的密码生效；MD5安全性低不建议0/1；FIPS模式不支持md5和sm3设为0/1/3时失效强制sha256。"
+  source_anchor: "7.3.3.2 安全和认证 页4193"
+  source_refs: *refw8204
+  status: confirmed
+- id: guc_wave8_204_password_complexity
+  type: syntax
+  statement: "密码复杂度参数（均为SIGHUP仅sysadmin）：password_min_length整型6~999默认8最小长度；password_min_uppercase/lowercase/digital/special整型0~999默认0至少需包含的大写/小写/数字/特殊字符个数；设置超password_max_length导致无法创建账户。"
+  source_anchor: "7.3.3.2 安全和认证 页4193-4195"
+  source_refs: *refw8204
+  status: confirmed
+- id: guc_wave8_204_password_effect_notify
+  type: syntax
+  statement: "password_effect_time：SIGHUP浮点型0~999天默认0账户密码有效时间0=不开启（长期不修改有安全风险）；password_notify_time：SIGHUP整型0~999默认7密码到期前提醒天数0=不开启。enable_innertool_cert：SIGHUP布尔型默认off内部工具证书认证——需与ssl同时打开/证书Common Name须与初始用户相同/初始用户证书认证其他用户密码认证/允许初始用户远程证书认证。"
+  source_anchor: "7.3.3.2 安全和认证 页4195-4197"
+  source_refs: *refw8204
+  status: confirmed
+open_questions:
+- id: pkg2_wave8_204_oq_runtime
+  content: "SSL证书加载/Kerberos认证/密码策略等参数的具体运行时行为需授权环境实机验证。"
+  status: open
