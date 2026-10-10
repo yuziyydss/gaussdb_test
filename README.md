@@ -20,40 +20,46 @@
 - 高级包静态链：已扩展到22个支持包、251个接口合同和27个runtime candidate，配套Candidate Matrix、Policy Audit、Preflight Plan、Evidence Bundle、`--check`哈希校验、Execution Gate和`/advanced-package`页面/API；未连接数据库，不宣称行为验证。
 ---
 
-## 项目当前记录（2026-09-14，更新于09-22；非全库验收结论）
+## 项目当前记录（2026-10-10；文档事实提取阶段已全部完成，运行时验证待连接数据库）
 
 ### 规模
 
 | 指标 | 数值 |
 |---|---|
-| PDF覆盖 | 5,686页 全部大部 |
-| 参考事实记录 | 885条（67个YAML文件；8组裸ID重名，使用文件名::ID区分；不等于生成器已接入） |
-| 因子包 | 317个（224 general + 93 M兼容） |
-| manifest | 797份 |
-| 候选SQL | 5,250条（静态生成，不代表实机通过） |
-| M包source extraction | 93/93 完成 |
-| Value gaps | 0条（生成模型闭合；8包保留no-manifest disposition） |
+| PDF页面覆盖 | 5,637/5,637页 **100%** |
+| 目录章节覆盖 | 515/515 **100%** |
+| SQL Reference artifacts | 278个（208个wave + 70个早期wave） |
+| SQL Reference facts | 5,758条（syntax 2,676 / constraint 2,330 / behavior_oracle 592 / environment 160） |
+| Non-SQL Inventory facts | 6,775条（全部 confirmed） |
+| **总 facts** | **12,533条** |
+| Open questions | 335条（全部待连库运行时验证） |
+| Wave 文档 | 208份（wave 8-1 至 8-225） |
+| Build 脚本 | 208个 |
+| 测试文件 | 208个（4,031个测试用例） |
+| Manifest 文件 | 208份 |
+| needs_verification | 0 |
+| unresolved | 0 |
 
-### 结构化知识库
+### 结构化知识库（SQL Reference 5,758 facts 按功能域）
 
-| 类别 | Facts数 | 深度 |
-|---|---|---|
-| Oracle高级包（22个） | 170 | 接口签名+参数+行为示例 |
-| Oracle PL/SQL语法 | 19 | 操作符/类型/控制/SQL/触发器 |
-| Oracle系统函数 | 22 | 逐函数差异+SQL示例 |
-| Oracle系统视图 | 17 | ALL→DB/DBA→ADM映射 |
-| Oracle查询/JDBC/DDL | 22 | 含PRIOR/条件/驱动差异 |
-| M模式数据类型 | 21 | 数值/日期/字符串/二进制 |
-| M模式操作符 | 25 | 比较/逻辑/正则/索引走行 |
-| M模式系统函数 | 35 | 逐函数差异+SQL示例 |
-| M模式JSON/加密/转换 | 14 | CAST/COALESCE/JSON |
-| M模式SQL DDL/DML | 14 | 逐语句差异 |
-| M模式DCL/权限 | 11 | SET/GRANT/权限类型 |
-| behavior_compat SQL | 26 | 设置前后完整对比 |
-| MySQL B模式 | 18 | 完整兼容性 |
-| 运行参数 | 116 | 6大类全覆盖 |
-| 系统表/视图 | 78 | 核心目录+DBE_PERF |
-| 存储过程 | 54 | 游标/基本/控制/动态/高级包 |
+| 功能域 | Facts数 | 占比 | 覆盖内容 |
+|---|---:|---:|---|
+| DML | 740 | 18% | INSERT/DELETE/UPDATE/SELECT/MERGE/COPY/LOAD DATA/子查询/WITH AS |
+| Compatibility | 603 | 15% | MySQL M/B模式/Oracle兼容性差异/字符集字符序 |
+| DDL | 527 | 13% | CREATE/ALTER/DROP TABLE/INDEX/SCHEMA/分区/约束 |
+| GUC/Config | 443 | 11% | ~600个GUC参数全覆盖（7.3.1-7.3.59）/内存/线程池/资源 |
+| Other | 444 | 11% | 未明确分类杂项 |
+| Functions | 246 | 6% | 系统函数/内置函数/聚合/字符串/日期/JSON |
+| Transaction | 186 | 4% | 事务控制/隔离级别/SAVEPOINT/autocommit |
+| DataTypes | 172 | 4% | 数据类型规格/类型转换/精度标度 |
+| Index | 159 | 4% | 索引创建/管理/GPI/前缀索引/分区索引 |
+| Security | 145 | 3% | 安全认证/SSL/密码策略/审计/TDE/FIPS |
+| SystemCatalog | 68 | 1% | 160个系统表 + 217个系统视图 |
+| View | 52 | 1% | 视图创建/修改/依赖关系 |
+| BackupRecovery | 51 | 1% | 备份恢复/checkpoint/WAL/DCF |
+| PLSQL | 44 | 1% | 存储过程/触发器/匿名块/自治事务 |
+| Identifier | 36 | 0% | 标识符/关键字/注释 |
+| Operators | 21 | 0% | 操作符差异（REGEXP/LIKE/BETWEEN等） |
 
 ### 可执行验证脚本
 
@@ -66,6 +72,23 @@
 gsql -d <dbname> -p <port> -f docs/minimal_validation_script.sql
 gsql -d <dbname> -p <port> -f docs/extended_validation_script.sql
 ```
+
+### 文档事实提取状态（2026-10-10）
+
+全部 5,637 页已完成事实提取，515 个目录章节全部有对应 manifest。
+
+| 完成项 | 详情 |
+|---|---|
+| 页面覆盖 | 5,637/5,637 **100%** |
+| 目录章节 | 515/515 **100%** |
+| Wave 波次 | 208 个（wave 8-1 至 8-225） |
+| Build/测试/Manifest | 各 208 个 |
+| 交叉引用一致性审计 | 0 个矛盾（[报告](docs/CROSS_REFERENCE_CONSISTENCY_AUDIT.md)） |
+| 功能域分析报告 | 16 个功能域分类（[报告](docs/FACTS_ANALYSIS_REPORT.md)） |
+| needs_verification | 0（3 个已通过源文确认解决） |
+
+**下一步：连库运行时验证。** 335 个 open questions 全部需要连接 GaussDB 实例执行 SQL 验证。
+项目已内置 psycopg2 驱动和 `scripts/auto_validate.py` 验证框架，提供数据库连接串即可开始批量验证。
 
 ### 关键文档
 
