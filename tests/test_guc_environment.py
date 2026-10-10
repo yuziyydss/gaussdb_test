@@ -42,9 +42,10 @@ class GucEnvironmentModelTests(unittest.TestCase):
             self.assertFalse(parameter.restart_required)
             self.assertTrue(parameter.safe_probe_values)
 
-    def test_needs_verification_runtime_facts_are_not_bound_to_parameters(self):
+    def test_confirmed_runtime_facts_are_not_bound_to_parameters(self):
+        """Confirmed facts should not be automatically bound to GUC parameters."""
         for fact_id in ("guc_td_compatible_truncation", "guc_max_wal_size"):
-            self.assertEqual(self.registry.fact_statuses[fact_id], "needs_verification")
+            self.assertEqual(self.registry.fact_statuses[fact_id], "confirmed")
             self.assertFalse(any(
                 fact_id in parameter.fact_refs
                 for parameter in self.registry.parameters.values()

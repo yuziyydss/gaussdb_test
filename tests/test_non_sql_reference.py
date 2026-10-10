@@ -12,12 +12,12 @@ class NonSqlReferenceTests(unittest.TestCase):
 
     def test_counts(self):
         s = self.summary
-        self.assertEqual(s.source_file_count, 308)
-        self.assertEqual(s.fact_count, 6255)
-        self.assertEqual(s.fact_status_counts, {'confirmed': 6252, 'needs_verification': 3})
-        self.assertEqual(s.fact_type_counts, {'behavior_oracle': 868, 'constraint': 2131, 'environment': 363, 'lifecycle': 2, 'metadata_oracle': 103, 'syntax': 2788})
-        self.assertEqual(s.category_counts, {'compatibility': 265, 'log_reference': 2, 'report': 1, 'runtime_parameters': 12, 'schema': 2, 'stored_procedure': 17, 'system_catalog': 6, 'tool_reference': 3})
-        self.assertEqual(s.category_fact_counts, {'compatibility': 5567, 'log_reference': 32, 'report': 6, 'runtime_parameters': 174, 'schema': 30, 'stored_procedure': 372, 'system_catalog': 53, 'tool_reference': 21})
+        self.assertEqual(s.source_file_count, 345)
+        self.assertEqual(s.fact_count, 6775)
+        self.assertEqual(s.fact_status_counts, {'confirmed': 6775})
+        self.assertEqual(s.fact_type_counts, {'behavior_oracle': 869, 'constraint': 2441, 'environment': 363, 'lifecycle': 2, 'metadata_oracle': 103, 'syntax': 2997})
+        self.assertEqual(s.category_counts, {'compatibility': 301, 'log_reference': 2, 'report': 1, 'runtime_parameters': 12, 'schema': 3, 'stored_procedure': 17, 'system_catalog': 6, 'tool_reference': 3})
+        self.assertEqual(s.category_fact_counts, {'compatibility': 6079, 'log_reference': 32, 'report': 6, 'runtime_parameters': 174, 'schema': 38, 'stored_procedure': 372, 'system_catalog': 53, 'tool_reference': 21})
 
 if __name__ == '__main__':
     unittest.main()
