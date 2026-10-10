@@ -8,10 +8,10 @@
 
 | 指标 | 当前值 |
 |---|---:|
-| YAML 文件 | 308 |
-| facts | 6255 |
-| confirmed | 6252 |
-| needs_verification | 3 |
+| YAML 文件 | 345 |
+| facts | 6775 |
+| confirmed | 6775 |
+| needs_verification | 0 |
 | 裸 ID 重名 | 8 |
 | 全局身份格式 | `file::fact_id` |
 
@@ -41,12 +41,12 @@
 
 | 分类 | 文件数 | facts 数 |
 |---|---:|---:|
-| compatibility | 198 | 4225 |
-| stored_procedure | 16 | 352 |
+| compatibility | 224 | 6079 |
+| stored_procedure | 16 | 372 |
 | runtime_parameters | 12 | 174 |
 | system_catalog | 6 | 53 |
 | tool_reference | 3 | 21 |
-| schema | 2 | 30 |
+| schema | 3 | 38 |
 | log_reference | 2 | 32 |
 | report | 1 | 6 |
 
@@ -54,18 +54,16 @@
 
 | 类型 | 数量 |
 |---|---:|
-| behavior_oracle | 731 |
+| behavior_oracle | 869 |
 | environment | 363 |
-| syntax | 2037 |
+| syntax | 2997 |
 | metadata_oracle | 103 |
-| constraint | 1657 |
+| constraint | 2441 |
 | lifecycle | 2 |
 
 ## 未决事实
 
-1. `runtime_params_connection_resource.yaml::guc_max_wal_size`
-2. `runtime_params_lock_transaction.yaml::guc_td_compatible_truncation`
-3. `tool_reference_monitoring.yaml::tool_gs_cgroup`
+无（3个needs_verification事实已全部通过源文确认解决为confirmed）。
 
 ## 输出
 

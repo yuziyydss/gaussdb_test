@@ -16,9 +16,11 @@ Legacy V0兼容
       ▼
 已完成：224 个 general SQL 章节包绑定与原文账本审计
       ▼
-当前：有限生成域、运行时契约与 Oracle 缺口处置
+已完成：全部 5,637 页文档事实提取（278 个 artifacts、5,758 个 SQL Reference facts、6,775 个 Non-SQL facts）
       ▼
-后续：V1真实执行与非SQL参考Schema
+当前：连库运行时验证（335 个 open questions 待实机确认）
+      ▼
+后续：验证结果回写与生成器消费
 ```
 
 当前质量状态见 [夜间演进](NIGHT_EVOLUTION_20260910.md)；前一完整全量回归见 [历史静态验收节点](MILESTONE_STATIC_ACCEPTANCE_20260909.md)，不得沿用旧测试数认证新版本。此前来源与修复过程见 [9月9日演进记录](PROJECT_EVOLUTION_20260909.md)；较早历史记录保留在 [第三轮质量复核](QUALITY_ROUND_03.md)和[第二轮质量复核](QUALITY_ROUND_02.md)。有限写入形状检查不等于
