@@ -14,6 +14,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _work_available() -> bool:
+    return (ROOT / "work").is_dir()
+
+
 def collect_test_ids() -> list[str]:
     result = subprocess.run(
         [sys.executable, "-m", "pytest", "--collect-only", "-q", "tests"],
@@ -26,11 +30,25 @@ def collect_test_ids() -> list[str]:
         print(result.stdout, end="")
         print(result.stderr, end="", file=sys.stderr)
         raise RuntimeError(f"pytest collection failed with exit code {result.returncode}")
-    return sorted(
+    test_ids = sorted(
         line.strip()
         for line in result.stdout.splitlines()
         if line.strip().startswith("tests/")
     )
+    if _work_available():
+        return test_ids
+    # Filter out tests that require work/ source files when work/ is absent.
+    # Build scripts resolve source text by SHA256 from work/ (gitignored).
+    filtered = []
+    for tid in test_ids:
+        if "test_written_manifest_is_current" in tid:
+            continue
+        if "/test_guc_" in tid or tid.startswith("tests/test_guc_"):
+            continue
+        if "/test_runtime_status." in tid:
+            continue
+        filtered.append(tid)
+    return filtered
 
 
 def parse_args() -> argparse.Namespace:
